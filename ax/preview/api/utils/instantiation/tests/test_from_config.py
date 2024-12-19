@@ -14,7 +14,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.preview.api.configs import (
     ChoiceParameterConfig,
@@ -242,6 +242,66 @@ class TestFromConfig(TestCase):
                             values=["a", "b", "c"],
                             is_ordered=False,
                             sort_values=False,
+                        ),
+                    ],
+                    parameter_constraints=[
+                        ParameterConstraint(
+                            constraint_dict={"int_param": 1, "float_param": -1}, bound=0
+                        )
+                    ],
+                ),
+                name="test_experiment",
+                description="test description",
+                properties={"owners": ["miles"]},
+                default_data_type=DataType.MAP_DATA,
+            ),
+        )
+
+        root_parameter = ChoiceParameterConfig(
+            name="root_param",
+            parameter_type=ParameterType.STRING,
+            values=["left", "right"],
+            dependent_parameters={
+                "left": ["float_param"],
+                "right": ["int_param"],
+            },
+        )
+
+        hss_config = ExperimentConfig(
+            name="test_experiment",
+            parameters=[float_parameter, int_parameter, root_parameter],
+            parameter_constraints=["int_param <= float_param"],
+            description="test description",
+            owner="miles",
+        )
+
+        self.assertEqual(
+            experiment_from_config(config=hss_config),
+            Experiment(
+                search_space=HierarchicalSearchSpace(
+                    parameters=[
+                        RangeParameter(
+                            name="float_param",
+                            parameter_type=CoreParameterType.FLOAT,
+                            lower=0,
+                            upper=1,
+                        ),
+                        RangeParameter(
+                            name="int_param",
+                            parameter_type=CoreParameterType.INT,
+                            lower=0,
+                            upper=1,
+                        ),
+                        ChoiceParameter(
+                            name="root_param",
+                            parameter_type=CoreParameterType.STRING,
+                            values=["left", "right"],
+                            is_ordered=False,
+                            sort_values=False,
+                            dependents={
+                                "left": ["float_param"],
+                                "right": ["int_param"],
+                            },
                         ),
                     ],
                     parameter_constraints=[
