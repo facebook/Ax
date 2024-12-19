@@ -8,7 +8,8 @@
 import re
 from typing import Sequence
 
-from ax.core.metric import Metric
+from ax.core.map_metric import MapMetric
+
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -184,7 +185,7 @@ def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
         term, coefficient = next(iter(constraint_dict.items()))
 
         return OutcomeConstraint(
-            metric=Metric(name=_unsanitize_dot(term)),
+            metric=MapMetric(name=_unsanitize_dot(term)),
             op=ComparisonOp.LEQ if coefficient > 0 else ComparisonOp.GEQ,
             bound=bound / coefficient,
             relative=is_relative,
@@ -192,7 +193,7 @@ def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
 
     names, coefficients = zip(*constraint_dict.items())
     return ScalarizedOutcomeConstraint(
-        metrics=[Metric(name=_unsanitize_dot(name)) for name in names],
+        metrics=[MapMetric(name=_unsanitize_dot(name)) for name in names],
         op=ComparisonOp.LEQ,
         weights=[*coefficients],
         bound=bound,
@@ -210,7 +211,7 @@ def _create_single_objective(expression: Expr) -> Objective:
     # If the expression is a just a Symbol it represents a single metric objective
     if isinstance(expression, Symbol):
         return Objective(
-            metric=Metric(name=_unsanitize_dot(str(expression.name))), minimize=False
+            metric=MapMetric(name=_unsanitize_dot(str(expression.name))), minimize=False
         )
 
     # If the expression is a Mul it likely represents a single metric objective but
@@ -227,14 +228,14 @@ def _create_single_objective(expression: Expr) -> Objective:
         minimize = bool(expression.as_coefficient(symbol) < 0)
 
         return Objective(
-            metric=Metric(name=_unsanitize_dot(str(symbol))), minimize=minimize
+            metric=MapMetric(name=_unsanitize_dot(str(symbol))), minimize=minimize
         )
 
     # If the expression is an Add it represents a scalarized objective
     elif isinstance(expression, Add):
         names, coefficients = zip(*expression.as_coefficients_dict().items())
         return ScalarizedObjective(
-            metrics=[Metric(name=_unsanitize_dot(str(name))) for name in names],
+            metrics=[MapMetric(name=_unsanitize_dot(str(name))) for name in names],
             weights=[float(coefficient) for coefficient in coefficients],
             minimize=False,
         )
