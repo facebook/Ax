@@ -12,7 +12,12 @@ from typing import Any
 
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
+from ax.benchmark.benchmark_metric import (
+    BenchmarkMapMetric,
+    BenchmarkMapUnavailableWhileRunningMetric,
+    BenchmarkMetric,
+    BenchmarkTimeVaryingMetric,
+)
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
@@ -192,6 +197,8 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     BatchTrial: batch_to_dict,
     BenchmarkMetric: metric_to_dict,
     BenchmarkMapMetric: metric_to_dict,
+    BenchmarkTimeVaryingMetric: metric_to_dict,
+    BenchmarkMapUnavailableWhileRunningMetric: metric_to_dict,
     BoTorchModel: botorch_model_to_dict,
     BraninMetric: metric_to_dict,
     BraninTimestampMapMetric: metric_to_dict,
@@ -299,6 +306,10 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "BenchmarkMethod": BenchmarkMethod,
     "BenchmarkMetric": BenchmarkMetric,
     "BenchmarkMapMetric": BenchmarkMapMetric,
+    "BenchmarkTimeVaryingMetric": BenchmarkTimeVaryingMetric,
+    "BenchmarkMapUnavailableWhileRunningMetric": (
+        BenchmarkMapUnavailableWhileRunningMetric
+    ),
     "BenchmarkResult": BenchmarkResult,
     "BenchmarkTrialMetadata": BenchmarkTrialMetadata,
     "BoTorchModel": BoTorchModel,

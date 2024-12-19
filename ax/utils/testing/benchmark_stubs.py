@@ -12,7 +12,12 @@ from typing import Any, Iterator
 import numpy as np
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
+from ax.benchmark.benchmark_metric import (
+    BenchmarkMapMetric,
+    BenchmarkMapUnavailableWhileRunningMetric,
+    BenchmarkMetric,
+    BenchmarkTimeVaryingMetric,
+)
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_problem_from_botorch,
@@ -373,3 +378,13 @@ def get_benchmark_metric() -> BenchmarkMetric:
 
 def get_benchmark_map_metric() -> BenchmarkMapMetric:
     return BenchmarkMapMetric(name="test", lower_is_better=True)
+
+
+def get_benchmark_time_varying_metric() -> BenchmarkTimeVaryingMetric:
+    return BenchmarkTimeVaryingMetric(name="test", lower_is_better=True)
+
+
+def get_benchmark_map_unavailable_while_running_metric() -> (
+    BenchmarkMapUnavailableWhileRunningMetric
+):
+    return BenchmarkMapUnavailableWhileRunningMetric(name="test", lower_is_better=True)
