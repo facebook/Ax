@@ -78,6 +78,7 @@ class ExperimentConfig:
     parameter_constraints: list[str] = field(default_factory=list)
 
     description: str | None = None
+    experiment_type: str | None = None
     owner: str | None = None
 
 

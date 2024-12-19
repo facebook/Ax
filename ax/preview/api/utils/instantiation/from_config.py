@@ -134,6 +134,7 @@ def experiment_from_config(config: ExperimentConfig) -> Experiment:
         search_space=search_space,
         name=config.name,
         description=config.description,
+        experiment_type=config.experiment_type,
         properties={"owners": [config.owner]},
         default_data_type=DataType.MAP_DATA,
     )

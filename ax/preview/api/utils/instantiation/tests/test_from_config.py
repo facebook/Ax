@@ -216,6 +216,7 @@ class TestFromConfig(TestCase):
             parameters=[float_parameter, int_parameter, choice_parameter],
             parameter_constraints=["int_param <= float_param"],
             description="test description",
+            experiment_type="TEST",
             owner="miles",
         )
 
@@ -252,6 +253,7 @@ class TestFromConfig(TestCase):
                 ),
                 name="test_experiment",
                 description="test description",
+                experiment_type="TEST",
                 properties={"owners": ["miles"]},
                 default_data_type=DataType.MAP_DATA,
             ),
