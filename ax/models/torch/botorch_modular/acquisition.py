@@ -309,11 +309,11 @@ class Acquisition(Base):
                     optimizer = "optimize_acqf_discrete_local_search"
                 else:
                     optimizer = "optimize_acqf_discrete"
-                    # `raw_samples` is not supported by `optimize_acqf_discrete`.
-                    # TODO[santorella]: Rather than manually removing it, we should
-                    # ensure that it is never passed.
+                    # `raw_samples` and `num_restarts` are not supported by
+                    # `optimize_acqf_discrete`.
                     if optimizer_options is not None:
                         optimizer_options.pop("raw_samples", None)
+                        optimizer_options.pop("num_restarts", None)
             else:
                 n_combos = math.prod([len(v) for v in discrete_choices.values()])
                 # If there are
