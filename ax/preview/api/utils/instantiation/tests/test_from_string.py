@@ -20,6 +20,7 @@ from ax.core.outcome_constraint import (
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.exceptions.core import UserInputError
 from ax.preview.api.utils.instantiation.from_string import (
+    _sanitize_dot,
     optimization_config_from_string,
     parse_objective,
     parse_outcome_constraint,
@@ -211,3 +212,14 @@ class TestFromString(TestCase):
 
         with self.assertRaisesRegex(UserInputError, "Only linear"):
             parse_outcome_constraint(constraint_str="flops * flops <= 1000000")
+
+    def test_sanitize_dot(self) -> None:
+        self.assertEqual(_sanitize_dot("foo.bar.baz"), "foo__dot__bar__dot__baz")
+
+        constraint = parse_parameter_constraint(constraint_str="foo.bar + foo.baz <= 1")
+        self.assertEqual(
+            constraint,
+            ParameterConstraint(
+                constraint_dict={"foo.bar": 1, "foo.baz": 1}, bound=1.0
+            ),
+        )
