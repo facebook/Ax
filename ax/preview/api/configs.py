@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Any, Callable, List, Mapping, Sequence
 
 from ax.preview.api.types import TParameterValue
-from ax.storage.registry_bundle import RegistryBundle
+from ax.storage.registry_bundle import RegistryBundleBase
 
 
 class ParameterType(Enum):
@@ -163,4 +163,4 @@ class OrchestrationConfig:
 class StorageConfig:
     creator: Callable[..., Any] | None = None  # pyre-fixme[4]
     url: str | None = None
-    registry_bundle: RegistryBundle | None = None
+    registry_bundle: RegistryBundleBase | None = None
