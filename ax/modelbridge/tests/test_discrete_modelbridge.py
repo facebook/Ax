@@ -38,8 +38,6 @@ class DiscreteModelBridgeTest(TestCase):
         ]
         parameter_constraints = []
 
-        # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-        #  `List[Union[ChoiceParameter, FixedParameter]]`.
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
 
         self.observation_features = [
@@ -149,7 +147,12 @@ class DiscreteModelBridgeTest(TestCase):
         ma._validate_gen_inputs(n=-1)
         # Test rest of gen.
         model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
-        model.gen.return_value = ([[0.0, 2.0, 3.0], [1.0, 1.0, 3.0]], [1.0, 2.0], {})
+        best_x = [0.0, 2.0, 1.0]
+        model.gen.return_value = (
+            [[0.0, 2.0, 3.0], [1.0, 1.0, 3.0]],
+            [1.0, 2.0],
+            {"best_x": best_x},
+        )
         ma.model = model
         ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
@@ -190,10 +193,12 @@ class DiscreteModelBridgeTest(TestCase):
             {"x": 1.0, "y": 1.0, "z": 3.0},
         )
         self.assertEqual(gen_results.weights, [1.0, 2.0])
+        self.assertEqual(
+            gen_results.best_observation_features,
+            ObservationFeatures(parameters=dict(zip(ma.parameters, best_x))),
+        )
 
         # Test with no constraints, no fixed feature, no pending observations
-        # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-        #  `List[Union[ChoiceParameter, FixedParameter]]`.
         search_space = SearchSpace(self.parameters[:2])
         optimization_config.outcome_constraints = []
         ma.parameters = ["x", "y"]

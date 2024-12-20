@@ -59,6 +59,7 @@ class ThompsonSamplerTest(TestCase):
         ):
             self.assertAlmostEqual(weight, expected_weight, 1)
         self.assertEqual(len(gen_metadata["arms_to_weights"]), 4)
+        self.assertEqual(gen_metadata["best_x"], arms[0])
 
     def test_ThompsonSamplerValidation(self) -> None:
         generator = ThompsonSampler(min_weight=0.01)

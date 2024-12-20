@@ -17,6 +17,7 @@ from ax.exceptions.model import ModelError
 from ax.models.discrete_base import DiscreteModel
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
+from pyre_extensions import none_throws
 
 
 class ThompsonSampler(DiscreteModel):
@@ -46,8 +47,7 @@ class ThompsonSampler(DiscreteModel):
         self.min_weight = min_weight
         self.uniform_weights = uniform_weights
 
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.X = None
+        self.X: list[TParamValueList] | None = None
         # pyre-fixme[4]: Attribute must be annotated.
         self.Ys = None
         # pyre-fixme[4]: Attribute must be annotated.
@@ -69,7 +69,7 @@ class ThompsonSampler(DiscreteModel):
             Ys=Ys, Yvars=Yvars, outcome_names=outcome_names
         )
         self.X_to_Ys_and_Yvars = self._fit_X_to_Ys_and_Yvars(
-            X=self.X, Ys=self.Ys, Yvars=self.Yvars
+            X=none_throws(self.X), Ys=self.Ys, Yvars=self.Yvars
         )
 
     @copy_doc(DiscreteModel.gen)
@@ -86,7 +86,7 @@ class ThompsonSampler(DiscreteModel):
         if objective_weights is None:
             raise ValueError("ThompsonSampler requires objective weights.")
 
-        arms = self.X
+        arms = none_throws(self.X)
         k = len(arms)
 
         weights = self._generate_weights(
@@ -120,7 +120,14 @@ class ThompsonSampler(DiscreteModel):
             top_weights = [
                 (x * len(top_weights)) / sum(top_weights) for x in top_weights
             ]
-        return top_arms, top_weights, {"arms_to_weights": list(zip(arms, weights))}
+        return (
+            top_arms,
+            top_weights,
+            {
+                "arms_to_weights": list(zip(arms, weights)),
+                "best_x": weighted_arms[0][2],
+            },
+        )
 
     @copy_doc(DiscreteModel.predict)
     def predict(self, X: list[TParamValueList]) -> tuple[npt.NDArray, npt.NDArray]:
@@ -168,14 +175,14 @@ class ThompsonSampler(DiscreteModel):
             num_valid_samples = samples.shape[1]
 
         winner_indices = np.argmax(samples, axis=0)  # (num_samples,)
-        winner_counts = np.zeros(len(self.X))  # (k,)
+        winner_counts = np.zeros(len(none_throws(self.X)))  # (k,)
         for index in winner_indices:
             winner_counts[index] += 1
         weights = winner_counts / winner_counts.sum()
         return weights.tolist()
 
     def _generate_samples_per_metric(self, num_samples: int) -> npt.NDArray:
-        k = len(self.X)
+        k = len(none_throws(self.X))
         samples_per_metric = np.zeros(
             (k, num_samples, len(self.Ys))
         )  # k x num_samples x m
@@ -194,7 +201,7 @@ class ThompsonSampler(DiscreteModel):
         objective_weights: npt.NDArray,
         outcome_constraints: tuple[npt.NDArray, npt.NDArray] | None,
     ) -> tuple[npt.NDArray, float]:
-        k = len(self.X)
+        k = len(none_throws(self.X))
         samples_per_metric = self._generate_samples_per_metric(num_samples=num_samples)
 
         any_violation = np.zeros((k, num_samples), dtype=bool)  # (k x num_samples)
