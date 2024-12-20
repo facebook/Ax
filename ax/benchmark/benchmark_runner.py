@@ -110,7 +110,7 @@ def _add_noise(
         else:
             df["sem"] = noise_std_ser
 
-        df["mean"] = df["Y_true"] + np.random.normal(len(df)) * df["sem"]
+        df["mean"] = df["Y_true"] + np.random.normal(loc=0, scale=df["sem"])
 
     else:
         df["sem"] = 0.0

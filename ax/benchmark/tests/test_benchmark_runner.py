@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 
 import torch
-from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_runner import _add_noise, BenchmarkRunner
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.benchmark.problems.synthetic.hss.jenatton import (
@@ -39,6 +39,7 @@ from ax.utils.testing.benchmark_stubs import (
 )
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
+from pandas import DataFrame
 from pyre_extensions import none_throws
 
 
@@ -267,6 +268,38 @@ class TestBenchmarkRunner(TestCase):
                     UnsupportedError, "deserialize_init_args is not a supported method"
                 ):
                     BenchmarkRunner.deserialize_init_args({})
+
+    def test__add_noise(self) -> None:
+        np.random.seed(0)
+        y_true = np.arange(6)
+        arm_name = ["0_0", "0_1", "0_0", "0_1", "0_0", "0_1"]
+        metric_name = ["foo", "foo", "bar", "bar", "baz", "baz"]
+
+        df = DataFrame(
+            {"Y_true": y_true, "metric_name": metric_name, "arm_name": arm_name}
+        )
+
+        noise_stds = {"foo": 1, "bar": 2, "baz": 3}
+        arm_weights = {"0_0": 1, "0_1": 2}
+        result = _add_noise(df=df, noise_stds=noise_stds, arm_weights=arm_weights)
+        self.assertEqual(set(result.columns), set(df.columns) | {"mean", "sem"})
+        expected_sem = df["metric_name"].map(noise_stds) / np.sqrt(
+            df["arm_name"].map(arm_weights) / 3
+        )
+        self.assertEqual(result["sem"].tolist(), expected_sem.tolist())
+        noise = df["mean"] - df["Y_true"]
+        self.assertNotEqual(noise.std(), 0)
+
+        z_scores = noise / expected_sem
+        self.assertNotEqual(z_scores.std(), 0)
+
+        chi_squared_stat = (z_scores**2).sum()
+        # None of these assertions would have failed in 10M simulations.
+        # Each has some tolerance from the most extreme value seen in 10M sims.
+        self.assertGreater(chi_squared_stat, 0.005)
+        self.assertLess(chi_squared_stat, 45)
+        self.assertLess(np.abs(z_scores).min(), 2)
+        self.assertGreater(z_scores.max(), 0.05)
 
     def test_heterogeneous_noise(self) -> None:
         outcome_names = ["objective_0", "constraint"]
