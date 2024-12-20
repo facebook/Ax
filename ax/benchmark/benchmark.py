@@ -259,6 +259,7 @@ def benchmark_replication(
         optimization_config=problem.optimization_config,
         runner=runner,
         status_quo=sq_arm,
+        auxiliary_experiments_by_purpose=problem.auxiliary_experiments_by_purpose,
     )
 
     scheduler = Scheduler(
