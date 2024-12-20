@@ -46,10 +46,10 @@ class InputTransformArgparseTest(TestCase):
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0.0, 1.0), (0, 2), (0, 4)],
-            ordinal_features=[1],
-            categorical_features=[2],
-            discrete_choices={1: [0, 1, 2], 2: [0, 0.25, 4.0]},
-            task_features=[3],
+            ordinal_features=[0],
+            categorical_features=[1],
+            discrete_choices={0: [0, 1, 2], 1: [0, 0.25, 4.0]},
+            task_features=[2],
             fidelity_features=[0],
             target_values={0: 1.0},
             robust_digest=None,
@@ -110,7 +110,8 @@ class InputTransformArgparseTest(TestCase):
                 )
             )
         )
-        self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertEqual(input_transform_kwargs["d"], 3)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1])
 
         input_transform_kwargs = input_transform_argparse(
             Normalize,
@@ -125,6 +126,7 @@ class InputTransformArgparseTest(TestCase):
         )
 
         self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 3])
 
         self.assertTrue(
             torch.all(
@@ -157,8 +159,21 @@ class InputTransformArgparseTest(TestCase):
             dataset=mtds,
             search_space_digest=self.search_space_digest,
         )
-        self.assertEqual(input_transform_kwargs["d"], 4)
-        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 2])
+        self.assertEqual(input_transform_kwargs["d"], 3)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1])
+
+        input_transform_kwargs = input_transform_argparse(
+            Normalize,
+            dataset=self.dataset,
+            search_space_digest=self.search_space_digest,
+            input_transform_options={
+                "bounds": None,
+            },
+        )
+
+        self.assertEqual(input_transform_kwargs["d"], 3)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1])
+        self.assertTrue(input_transform_kwargs["bounds"] is None)
 
     def test_argparse_warp(self) -> None:
         self.search_space_digest.task_features = [0, 3]
