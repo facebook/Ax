@@ -14,6 +14,7 @@ from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
@@ -97,6 +98,8 @@ class BenchmarkProblem(Base):
             returns the runtime of an step. If ``step_runtime_function`` is
             left as ``None``, each step will take one simulated second.  (When
             data is not time-series, the whole trial consists of one step.)
+        auxiliary_experiments_by_purpose: A mapping from experiment purpose to
+            a list of auxiliary experiments.
     """
 
     name: str
@@ -112,6 +115,9 @@ class BenchmarkProblem(Base):
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
     target_fidelity_and_task: Mapping[str, TParamValue] = field(default_factory=dict)
     status_quo_params: TParameterization | None = None
+    auxiliary_experiments_by_purpose: (
+        dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None
+    ) = None
 
     def __post_init__(self) -> None:
         # Validate inputs
@@ -387,6 +393,9 @@ def create_problem_from_botorch(
     report_inference_value_as_trace: bool = False,
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None,
     status_quo_params: TParameterization | None = None,
+    auxiliary_experiments_by_purpose: (
+        dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None
+    ) = None,
 ) -> BenchmarkProblem:
     """
     Create a ``BenchmarkProblem`` from a BoTorch ``BaseTestProblem``.
@@ -430,6 +439,8 @@ def create_problem_from_botorch(
             returns the runtime of an step. If ``step_runtime_function`` is
             left as ``None``, each step will take one simulated second.  (When
             data is not time-series, the whole trial consists of one step.)
+        auxiliary_experiments_by_purpose: A mapping from experiment purpose to
+            a list of auxiliary experiments.
 
     Example:
         >>> from ax.benchmark.benchmark_problem import create_problem_from_botorch
@@ -522,4 +533,5 @@ def create_problem_from_botorch(
         report_inference_value_as_trace=report_inference_value_as_trace,
         step_runtime_function=step_runtime_function,
         status_quo_params=status_quo_params,
+        auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
     )
