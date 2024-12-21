@@ -1,0 +1,377 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/latest/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/latest/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/latest/img/ax.svg"/><link rel="shortcut icon" href="/versions/latest/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/latest/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/latest/js/mathjax.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/latest/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/latest/css/main.css"/><script src="/versions/latest/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/latest/"><img class="logo" src="/versions/latest/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/latest/versions.html"><h3>latest</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/latest/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/latest/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/latest/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.preview.api.utils.instantiation.from_string</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="c1"># pyre-strict</span>
+
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Sequence</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.map_metric</span> <span class="kn">import</span> <span class="n">MapMetric</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">MultiObjective</span><span class="p">,</span> <span class="n">Objective</span><span class="p">,</span> <span class="n">ScalarizedObjective</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">,</span>
+    <span class="n">OptimizationConfig</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ComparisonOp</span><span class="p">,</span>
+    <span class="n">ObjectiveThreshold</span><span class="p">,</span>
+    <span class="n">OutcomeConstraint</span><span class="p">,</span>
+    <span class="n">ScalarizedOutcomeConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter_constraint</span> <span class="kn">import</span> <span class="n">ParameterConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UserInputError</span>
+<span class="kn">from</span> <span class="nn">sympy.core.add</span> <span class="kn">import</span> <span class="n">Add</span>
+<span class="kn">from</span> <span class="nn">sympy.core.expr</span> <span class="kn">import</span> <span class="n">Expr</span>
+<span class="kn">from</span> <span class="nn">sympy.core.mul</span> <span class="kn">import</span> <span class="n">Mul</span>
+<span class="kn">from</span> <span class="nn">sympy.core.relational</span> <span class="kn">import</span> <span class="n">GreaterThan</span><span class="p">,</span> <span class="n">LessThan</span>
+<span class="kn">from</span> <span class="nn">sympy.core.symbol</span> <span class="kn">import</span> <span class="n">Symbol</span>
+<span class="kn">from</span> <span class="nn">sympy.core.sympify</span> <span class="kn">import</span> <span class="n">sympify</span>
+
+<span class="n">DOT_PLACEHOLDER</span> <span class="o">=</span> <span class="s2">"__dot__"</span>
+
+
+<div class="viewcode-block" id="optimization_config_from_string">
+<a class="viewcode-back" href="../../../../../../preview.html#ax.preview.api.utils.instantiation.from_string.optimization_config_from_string">[docs]</a>
+<span class="k">def</span> <span class="nf">optimization_config_from_string</span><span class="p">(</span>
+    <span class="n">objective_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">outcome_constraint_strs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Create an OptimizationConfig from objective and outcome constraint strings.</span>
+
+<span class="sd">    Note that outcome constraints may not be placed on the objective metric except in</span>
+<span class="sd">    the multi-objective case where they will be converted to objective thresholds.</span>
+<span class="sd">    """</span>
+
+    <span class="n">objective</span> <span class="o">=</span> <span class="n">parse_objective</span><span class="p">(</span><span class="n">objective_str</span><span class="o">=</span><span class="n">objective_str</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">outcome_constraint_strs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">parse_outcome_constraint</span><span class="p">(</span><span class="n">constraint_str</span><span class="o">=</span><span class="n">constraint_str</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">constraint_str</span> <span class="ow">in</span> <span class="n">outcome_constraint_strs</span>
+        <span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">MultiObjective</span><span class="p">):</span>
+        <span class="c1"># Convert OutcomeConstraints to ObjectiveThresholds if relevant</span>
+        <span class="n">objective_metric_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">objective</span><span class="o">.</span><span class="n">metrics</span><span class="p">}</span>
+        <span class="n">true_outcome_constraints</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">objective_thresholds</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ObjectiveThreshold</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">outcome_constraint</span> <span class="ow">in</span> <span class="n">outcome_constraints</span> <span class="ow">or</span> <span class="p">[]:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">outcome_constraint</span><span class="p">,</span> <span class="n">ScalarizedOutcomeConstraint</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">outcome_constraint</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">objective_metric_names</span>
+            <span class="p">):</span>
+                <span class="n">objective_thresholds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ObjectiveThreshold</span><span class="p">(</span>
+                        <span class="n">metric</span><span class="o">=</span><span class="n">outcome_constraint</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+                        <span class="n">bound</span><span class="o">=</span><span class="n">outcome_constraint</span><span class="o">.</span><span class="n">bound</span><span class="p">,</span>
+                        <span class="n">relative</span><span class="o">=</span><span class="n">outcome_constraint</span><span class="o">.</span><span class="n">relative</span><span class="p">,</span>
+                        <span class="n">op</span><span class="o">=</span><span class="n">outcome_constraint</span><span class="o">.</span><span class="n">op</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">true_outcome_constraints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">outcome_constraint</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">(</span>
+            <span class="n">objective</span><span class="o">=</span><span class="n">objective</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">true_outcome_constraints</span><span class="p">,</span>
+            <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Ensure that outcome constraints are not placed on the objective metric</span>
+    <span class="n">objective_metric_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">objective</span><span class="o">.</span><span class="n">metrics</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">outcome_constraint</span> <span class="ow">in</span> <span class="n">outcome_constraints</span> <span class="ow">or</span> <span class="p">[]:</span>
+        <span class="k">if</span> <span class="n">outcome_constraint</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">objective_metric_names</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"Outcome constraints may not be placed on the objective metric "</span>
+                <span class="sa">f</span><span class="s2">"except in the multi-objective case, found </span><span class="si">{</span><span class="n">objective_str</span><span class="si">}</span><span class="s2"> and "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">outcome_constraint_strs</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">objective</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="parse_parameter_constraint">
+<a class="viewcode-back" href="../../../../../../preview.html#ax.preview.api.utils.instantiation.from_string.parse_parameter_constraint">[docs]</a>
+<span class="k">def</span> <span class="nf">parse_parameter_constraint</span><span class="p">(</span><span class="n">constraint_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterConstraint</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Parse a parameter constraint string into a ParameterConstraint object using SymPy.</span>
+<span class="sd">    Currently only supports linear constraints of the form "a * x + b * y &gt;= k" or</span>
+<span class="sd">    "a * x + b * y &lt;= k".</span>
+<span class="sd">    """</span>
+    <span class="n">coefficient_dict</span> <span class="o">=</span> <span class="n">_extract_coefficient_dict_from_inequality</span><span class="p">(</span>
+        <span class="n">inequality_str</span><span class="o">=</span><span class="n">constraint_str</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Iterate through the coefficients to extract the parameter names and weights and</span>
+    <span class="c1"># the bound</span>
+    <span class="n">constraint_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">bound</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">term</span><span class="p">,</span> <span class="n">coefficient</span> <span class="ow">in</span> <span class="n">coefficient_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">term</span><span class="o">.</span><span class="n">is_symbol</span><span class="p">:</span>
+            <span class="n">constraint_dict</span><span class="p">[</span><span class="n">_unsanitize_dot</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">coefficient</span>
+        <span class="k">elif</span> <span class="n">term</span><span class="o">.</span><span class="n">is_number</span><span class="p">:</span>
+            <span class="c1"># Invert because we are "moving" the bound to the right hand side</span>
+            <span class="n">bound</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">coefficient</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"Only linear inequality parameter constraints are supported, found "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">constraint_str</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">ParameterConstraint</span><span class="p">(</span><span class="n">constraint_dict</span><span class="o">=</span><span class="n">constraint_dict</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">bound</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="parse_objective">
+<a class="viewcode-back" href="../../../../../../preview.html#ax.preview.api.utils.instantiation.from_string.parse_objective">[docs]</a>
+<span class="k">def</span> <span class="nf">parse_objective</span><span class="p">(</span><span class="n">objective_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Objective</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Parse an objective string into an Objective object using SymPy.</span>
+
+<span class="sd">    Currently only supports linear objectives of the form "a * x + b * y" and tuples of</span>
+<span class="sd">    linear objectives.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Parse the objective string into a SymPy expression</span>
+    <span class="n">expression</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">_sanitize_dot</span><span class="p">(</span><span class="n">objective_str</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>  <span class="c1"># Multi-objective</span>
+        <span class="k">return</span> <span class="n">MultiObjective</span><span class="p">(</span>
+            <span class="n">objectives</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">_create_single_objective</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="n">term</span><span class="p">)</span> <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">expression</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_create_single_objective</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="n">expression</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="parse_outcome_constraint">
+<a class="viewcode-back" href="../../../../../../preview.html#ax.preview.api.utils.instantiation.from_string.parse_outcome_constraint">[docs]</a>
+<span class="k">def</span> <span class="nf">parse_outcome_constraint</span><span class="p">(</span><span class="n">constraint_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OutcomeConstraint</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Parse an outcome constraint string into an OutcomeConstraint object using SymPy.</span>
+<span class="sd">    Currently only supports linear constraints of the form "a * x + b * y &gt;= k" or</span>
+<span class="sd">    "a * x + b * y &lt;= k".</span>
+
+<span class="sd">    To indicate a relative constraint (i.e. performance relative to some baseline)</span>
+<span class="sd">    multiply your bound by "baseline". For example "qps &gt;= 0.95 * baseline" will</span>
+<span class="sd">    constrain such that the QPS is at least 95% of the baseline arm's QPS.</span>
+<span class="sd">    """</span>
+    <span class="n">coefficient_dict</span> <span class="o">=</span> <span class="n">_extract_coefficient_dict_from_inequality</span><span class="p">(</span>
+        <span class="n">inequality_str</span><span class="o">=</span><span class="n">constraint_str</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Iterate through the coefficients to extract the parameter names and weights and</span>
+    <span class="c1"># the bound</span>
+    <span class="n">constraint_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">bound</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">is_relative</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">for</span> <span class="n">term</span><span class="p">,</span> <span class="n">coefficient</span> <span class="ow">in</span> <span class="n">coefficient_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">term</span><span class="o">.</span><span class="n">is_symbol</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">term</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"baseline"</span><span class="p">:</span>
+                <span class="c1"># Invert because we are "moving" the bound to the right hand side</span>
+                <span class="n">bound</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">coefficient</span>
+                <span class="n">is_relative</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">constraint_dict</span><span class="p">[</span><span class="n">term</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">coefficient</span>
+        <span class="k">elif</span> <span class="n">term</span><span class="o">.</span><span class="n">is_number</span><span class="p">:</span>
+            <span class="c1"># Invert because we are "moving" the bound to the right hand side</span>
+            <span class="n">bound</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">coefficient</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"Only linear outcome constraints are supported, found "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">constraint_str</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">constraint_dict</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">term</span><span class="p">,</span> <span class="n">coefficient</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">constraint_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+
+        <span class="k">return</span> <span class="n">OutcomeConstraint</span><span class="p">(</span>
+            <span class="n">metric</span><span class="o">=</span><span class="n">MapMetric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">_unsanitize_dot</span><span class="p">(</span><span class="n">term</span><span class="p">)),</span>
+            <span class="n">op</span><span class="o">=</span><span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span> <span class="k">if</span> <span class="n">coefficient</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">GEQ</span><span class="p">,</span>
+            <span class="n">bound</span><span class="o">=</span><span class="n">bound</span> <span class="o">/</span> <span class="n">coefficient</span><span class="p">,</span>
+            <span class="n">relative</span><span class="o">=</span><span class="n">is_relative</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">names</span><span class="p">,</span> <span class="n">coefficients</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">constraint_dict</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">ScalarizedOutcomeConstraint</span><span class="p">(</span>
+        <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">MapMetric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">_unsanitize_dot</span><span class="p">(</span><span class="n">name</span><span class="p">))</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">],</span>
+        <span class="n">op</span><span class="o">=</span><span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span><span class="p">,</span>
+        <span class="n">weights</span><span class="o">=</span><span class="p">[</span><span class="o">*</span><span class="n">coefficients</span><span class="p">],</span>
+        <span class="n">bound</span><span class="o">=</span><span class="n">bound</span><span class="p">,</span>
+        <span class="n">relative</span><span class="o">=</span><span class="n">is_relative</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="k">def</span> <span class="nf">_create_single_objective</span><span class="p">(</span><span class="n">expression</span><span class="p">:</span> <span class="n">Expr</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Objective</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Create an Objective or ScalarizedObjective from a linear SymPy expression.</span>
+
+<span class="sd">    All expressions are assumed to represent maximization objectives.</span>
+<span class="sd">    """</span>
+
+    <span class="c1"># If the expression is a just a Symbol it represents a single metric objective</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">Symbol</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Objective</span><span class="p">(</span>
+            <span class="n">metric</span><span class="o">=</span><span class="n">MapMetric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">_unsanitize_dot</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">expression</span><span class="o">.</span><span class="n">name</span><span class="p">))),</span> <span class="n">minimize</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+
+    <span class="c1"># If the expression is a Mul it likely represents a single metric objective but</span>
+    <span class="c1"># some additional validation is required</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">Mul</span><span class="p">):</span>
+        <span class="n">symbol</span><span class="p">,</span> <span class="o">*</span><span class="n">other_symbols</span> <span class="o">=</span> <span class="n">expression</span><span class="o">.</span><span class="n">free_symbols</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">other_symbols</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Only linear objectives are supported, found </span><span class="si">{</span><span class="n">expression</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Since the objectives 1 * loss and 2 * loss are equivalent, we can just use</span>
+        <span class="c1"># the sign from the coefficient rather than its value</span>
+        <span class="n">minimize</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">expression</span><span class="o">.</span><span class="n">as_coefficient</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Objective</span><span class="p">(</span>
+            <span class="n">metric</span><span class="o">=</span><span class="n">MapMetric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">_unsanitize_dot</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">symbol</span><span class="p">))),</span> <span class="n">minimize</span><span class="o">=</span><span class="n">minimize</span>
+        <span class="p">)</span>
+
+    <span class="c1"># If the expression is an Add it represents a scalarized objective</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">Add</span><span class="p">):</span>
+        <span class="n">names</span><span class="p">,</span> <span class="n">coefficients</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">expression</span><span class="o">.</span><span class="n">as_coefficients_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">ScalarizedObjective</span><span class="p">(</span>
+            <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">MapMetric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">_unsanitize_dot</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">name</span><span class="p">)))</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">],</span>
+            <span class="n">weights</span><span class="o">=</span><span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">coefficient</span><span class="p">)</span> <span class="k">for</span> <span class="n">coefficient</span> <span class="ow">in</span> <span class="n">coefficients</span><span class="p">],</span>
+            <span class="n">minimize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Only linear objectives are supported, found </span><span class="si">{</span><span class="n">expression</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_extract_coefficient_dict_from_inequality</span><span class="p">(</span>
+    <span class="n">inequality_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Use SymPy to parse a string into an inequality, invert if necessary to enforce a</span>
+<span class="sd">    less-than relationship, move all terms to the left side, and return the</span>
+<span class="sd">    coefficients as a dictionary. This is useful for parsing parameter and outcome</span>
+<span class="sd">    constraints.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Parse the constraint string into a SymPy inequality</span>
+    <span class="n">inequality</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">_sanitize_dot</span><span class="p">(</span><span class="n">inequality_str</span><span class="p">))</span>
+
+    <span class="c1"># Check the SymPy object is a valid inequality</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inequality</span><span class="p">,</span> <span class="n">GreaterThan</span> <span class="o">|</span> <span class="n">LessThan</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Expected an inequality, found </span><span class="si">{</span><span class="n">inequality_str</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># Move all terms to the left side of the inequality and invert if necessary to</span>
+    <span class="c1"># enforce a less-than relationship</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inequality</span><span class="p">,</span> <span class="n">LessThan</span><span class="p">):</span>
+        <span class="n">expression</span> <span class="o">=</span> <span class="n">inequality</span><span class="o">.</span><span class="n">lhs</span> <span class="o">-</span> <span class="n">inequality</span><span class="o">.</span><span class="n">rhs</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">expression</span> <span class="o">=</span> <span class="n">inequality</span><span class="o">.</span><span class="n">rhs</span> <span class="o">-</span> <span class="n">inequality</span><span class="o">.</span><span class="n">lhs</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="n">key</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">expression</span><span class="o">.</span><span class="n">as_coefficients_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">_sanitize_dot</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Converts a string with normal dots to a string with sanitized dots. This is</span>
+<span class="sd">    temporarily necessary because SymPy symbol names must be valid Python identifiers,</span>
+<span class="sd">    but some legacy Ax users may include dots in their parameter names.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">"([a-zA-Z])\.([a-zA-Z])"</span><span class="p">,</span> <span class="sa">r</span><span class="s2">"\1__dot__\2"</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_unsanitize_dot</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Converts a string with sanitized dots back to a string with normal dots. This is</span>
+<span class="sd">    temporarily necessary because SymPy symbol names must be valid Python identifiers,</span>
+<span class="sd">    but some legacy Ax users may include dots in their parameter names.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">"__dot__"</span><span class="p">,</span> <span class="s2">"."</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="Main" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../../../index.html">Ax</a></h1>
+<search id="searchbox" role="search" style="display: none">
+<div class="searchformwrapper">
+<form action="../../../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" placeholder="Search" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../analysis.html">ax.analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../early_stopping.html">ax.early_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../global_stopping.html">ax.global_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../health_check.html">ax.health_check</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../preview.html">ax.preview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/latest/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2024 Meta Platforms, Inc.</section></footer></div></body></html>

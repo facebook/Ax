@@ -1,0 +1,616 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/latest/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/latest/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/latest/img/ax.svg"/><link rel="shortcut icon" href="/versions/latest/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/latest/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/latest/js/mathjax.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/latest/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/latest/css/main.css"/><script src="/versions/latest/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/latest/"><img class="logo" src="/versions/latest/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/latest/versions.html"><h3>latest</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/latest/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/latest/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/latest/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.benchmark.benchmark_problem</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="c1"># pyre-strict</span>
+
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_metric</span> <span class="kn">import</span> <span class="n">BenchmarkMapMetric</span><span class="p">,</span> <span class="n">BenchmarkMetric</span>
+
+<span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_step_runtime_function</span> <span class="kn">import</span> <span class="n">TBenchmarkStepRuntimeFunction</span>
+<span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_test_function</span> <span class="kn">import</span> <span class="n">BenchmarkTestFunction</span>
+<span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_test_functions.botorch_test</span> <span class="kn">import</span> <span class="n">BoTorchTestFunction</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">MultiObjective</span><span class="p">,</span> <span class="n">Objective</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">,</span>
+    <span class="n">ObjectiveThreshold</span><span class="p">,</span>
+    <span class="n">OptimizationConfig</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="kn">import</span> <span class="n">OutcomeConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">ChoiceParameter</span><span class="p">,</span> <span class="n">ParameterType</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">ComparisonOp</span><span class="p">,</span> <span class="n">TParameterization</span><span class="p">,</span> <span class="n">TParamValue</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UserInputError</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">botorch.test_functions.base</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BaseTestProblem</span><span class="p">,</span>
+    <span class="n">ConstrainedBaseTestProblem</span><span class="p">,</span>
+    <span class="n">MultiObjectiveTestProblem</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_name</span><span class="p">(</span>
+    <span class="n">test_problem</span><span class="p">:</span> <span class="n">BaseTestProblem</span><span class="p">,</span>
+    <span class="n">observe_noise_sd</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Get a string name describing the problem, in a format such as</span>
+<span class="sd">    "hartmann_fixed_noise_6d" or "jenatton" (where the latter would</span>
+<span class="sd">    not have fixed noise and have the default dimensionality).</span>
+<span class="sd">    """</span>
+    <span class="n">base_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">test_problem</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span>
+    <span class="n">observed_noise</span> <span class="o">=</span> <span class="s2">"_observed_noise"</span> <span class="k">if</span> <span class="n">observe_noise_sd</span> <span class="k">else</span> <span class="s2">""</span>
+    <span class="n">dim_str</span> <span class="o">=</span> <span class="s2">""</span> <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"_</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">d"</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">base_name</span><span class="si">}{</span><span class="n">observed_noise</span><span class="si">}{</span><span class="n">dim_str</span><span class="si">}</span><span class="s2">"</span>
+
+
+<div class="viewcode-block" id="BenchmarkProblem">
+<a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_problem.BenchmarkProblem">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="nb">repr</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">BenchmarkProblem</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Problem against which different methods can be benchmarked.</span>
+
+<span class="sd">    Defines how data is generated, the objective (via the OptimizationConfig),</span>
+<span class="sd">    and the SearchSpace.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name: Can be generated programmatically with `_get_name`.</span>
+<span class="sd">        optimization_config: Defines the objective of optimization. Metrics must</span>
+<span class="sd">            be `BenchmarkMetric`s.</span>
+<span class="sd">        num_trials: Number of optimization iterations to run. BatchTrials count</span>
+<span class="sd">            as one trial.</span>
+<span class="sd">        optimal_value: The best ground-truth objective value, used for scoring</span>
+<span class="sd">            optimization results on a scale from 0 to 100, where achieving the</span>
+<span class="sd">            `optimal_value` receives a score of 100. The `optimal_value` should</span>
+<span class="sd">            be a hypervolume for multi-objective problems. If the best value is</span>
+<span class="sd">            not known, it is conventional to set it to a value that is almost</span>
+<span class="sd">            certainly better than the best value, so that a benchmark's score</span>
+<span class="sd">            will not exceed 100%.</span>
+<span class="sd">        baseline_value: Similar to `optimal_value`, but a not-so-good value</span>
+<span class="sd">            which benchmarks are expected to do better than. A baseline value</span>
+<span class="sd">            can be derived using the function</span>
+<span class="sd">            `compute_baseline_value_from_sobol`, which takes the best of five</span>
+<span class="sd">            quasi-random Sobol trials.</span>
+<span class="sd">        search_space: The search space.</span>
+<span class="sd">        test_function: A `BenchmarkTestFunction`, which will generate noiseless</span>
+<span class="sd">            data. This will be used by a `BenchmarkRunner`.</span>
+<span class="sd">        noise_std: Describes how noise is added to the output of the</span>
+<span class="sd">            `test_function`. If a float, IID random normal noise with that</span>
+<span class="sd">            standard deviation is added. A list of floats, or a dict whose keys</span>
+<span class="sd">            match `test_functions.outcome_names`, sets different noise</span>
+<span class="sd">            standard deviations for the different outcomes produced by the</span>
+<span class="sd">            `test_function`. This will be used by a `BenchmarkRunner`.</span>
+<span class="sd">        report_inference_value_as_trace: Whether the ``optimization_trace`` on a</span>
+<span class="sd">            ``BenchmarkResult`` should use the ``oracle_trace`` (if False,</span>
+<span class="sd">            default) or the ``inference_trace``. See ``BenchmarkResult`` for</span>
+<span class="sd">            more information. Currently, this is only supported for</span>
+<span class="sd">            single-objective problems.</span>
+<span class="sd">        n_best_points: Number of points for a best-point selector to recommend.</span>
+<span class="sd">            Currently, only ``n_best_points=1`` is supported.</span>
+<span class="sd">        step_runtime_function: Optionally, a function that takes in ``params``</span>
+<span class="sd">            (typically dictionaries mapping strings to ``TParamValue``s) and</span>
+<span class="sd">            returns the runtime of an step. If ``step_runtime_function`` is</span>
+<span class="sd">            left as ``None``, each step will take one simulated second.  (When</span>
+<span class="sd">            data is not time-series, the whole trial consists of one step.)</span>
+<span class="sd">    """</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">test_function</span><span class="p">:</span> <span class="n">BenchmarkTestFunction</span>
+    <span class="n">noise_std</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">optimal_value</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">baseline_value</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">report_inference_value_as_trace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">n_best_points</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">step_runtime_function</span><span class="p">:</span> <span class="n">TBenchmarkStepRuntimeFunction</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">target_fidelity_and_task</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TParamValue</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">status_quo_params</span><span class="p">:</span> <span class="n">TParameterization</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Validate inputs</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_best_points</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Only `n_best_points=1` is currently supported."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">report_inference_value_as_trace</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_moo</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"Inference trace is not supported for MOO. Please set "</span>
+                <span class="s2">"`report_inference_value_as_trace` to False."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Validate that the optimal value is actually better than the baseline</span>
+        <span class="c1"># value</span>
+        <span class="c1"># If MOO, values represent hypervolumes</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">,</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">baseline_value</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimal_value</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"The baseline value must be strictly less than the optimal "</span>
+                    <span class="s2">"value for MOO problems. (These represent hypervolumes.)"</span>
+                <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">minimize</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">baseline_value</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimal_value</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"The baseline value must be strictly greater than the optimal "</span>
+                    <span class="s2">"value for minimization problems."</span>
+                <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">baseline_value</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimal_value</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The baseline value must be strictly less than the optimal "</span>
+                <span class="s2">"value for maximization problems."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Validate that names on optimization config are contained in names on</span>
+        <span class="c1"># test function</span>
+        <span class="n">objective</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">MultiObjective</span><span class="p">):</span>
+            <span class="n">objective_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">obj</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">objective</span><span class="o">.</span><span class="n">objectives</span><span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">objective_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">}</span>
+
+        <span class="n">test_function_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">test_function</span><span class="o">.</span><span class="n">outcome_names</span><span class="p">)</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="n">objective_names</span> <span class="o">-</span> <span class="n">test_function_names</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The following objectives are defined on "</span>
+                <span class="s2">"`optimization_config` but not included in "</span>
+                <span class="sa">f</span><span class="s2">"`runner.test_function.outcome_names`: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+        <span class="n">constraints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span>
+        <span class="n">constraint_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">constraints</span><span class="p">}</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="n">constraint_names</span> <span class="o">-</span> <span class="n">test_function_names</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The following constraints are defined on "</span>
+                <span class="s2">"`optimization_config` but not included in "</span>
+                <span class="sa">f</span><span class="s2">"`runner.test_function.outcome_names`: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">relative</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">constraints</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_quo_params</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Relative constraints require specifying status_quo_params."</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_fidelity_and_task</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">target_value</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">ChoiceParameter</span><span class="p">)</span> <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">is_task</span><span class="p">)</span> <span class="ow">or</span> <span class="n">p</span><span class="o">.</span><span class="n">is_fidelity</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">status_quo_params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">check_membership</span><span class="p">(</span>
+                <span class="n">parameterization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">status_quo_params</span>
+            <span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span><span class="s2">"Status quo parameters are not in the search space."</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_moo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Whether the problem is multi-objective."""</span>
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">,</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span> <span class="nf">_get_constraints</span><span class="p">(</span>
+    <span class="n">constraint_names</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">observe_noise_sd</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">use_map_metric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Create a list of ``OutcomeConstraint``s.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        constraint_names: Names of the constraints. One constraint will be</span>
+<span class="sd">            created for each.</span>
+<span class="sd">        observe_noise_sd: Whether the standard deviation of the observation</span>
+<span class="sd">            noise is observed, for each constraint. This doesn't handle the case</span>
+<span class="sd">            where only some of the outcomes have noise levels observed.</span>
+<span class="sd">        use_map_metric: Whether to use a ``BenchmarkMapMetric``.</span>
+
+
+<span class="sd">    """</span>
+    <span class="n">metric_cls</span> <span class="o">=</span> <span class="n">BenchmarkMapMetric</span> <span class="k">if</span> <span class="n">use_map_metric</span> <span class="k">else</span> <span class="n">BenchmarkMetric</span>
+    <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">OutcomeConstraint</span><span class="p">(</span>
+            <span class="n">metric</span><span class="o">=</span><span class="n">metric_cls</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">lower_is_better</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># positive slack = feasible</span>
+                <span class="n">observe_noise_sd</span><span class="o">=</span><span class="n">observe_noise_sd</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">op</span><span class="o">=</span><span class="n">ComparisonOp</span><span class="o">.</span><span class="n">GEQ</span><span class="p">,</span>
+            <span class="n">bound</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">relative</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">constraint_names</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="n">outcome_constraints</span>
+
+
+<div class="viewcode-block" id="get_soo_opt_config">
+<a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_problem.get_soo_opt_config">[docs]</a>
+<span class="k">def</span> <span class="nf">get_soo_opt_config</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">outcome_names</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">lower_is_better</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">observe_noise_sd</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">use_map_metric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Create a single-objective ``OptimizationConfig``, potentially with</span>
+<span class="sd">    constraints.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        outcome_names: Names of the outcomes. If ``outcome_names`` has more than</span>
+<span class="sd">            one element, constraints will be created. The first element of</span>
+<span class="sd">            ``outcome_names`` will be the name of the ``BenchmarkMetric`` on</span>
+<span class="sd">            the objective, and others (if pressent) will be for constraints.</span>
+<span class="sd">        lower_is_better: Whether the objective is a minimization problem. This</span>
+<span class="sd">            only affects objectives, not constraints; for constraints, higher is</span>
+<span class="sd">            better (feasible).</span>
+<span class="sd">        observe_noise_sd: Whether the standard deviation of the observation</span>
+<span class="sd">            noise is observed. Applies to all objective and constraints.</span>
+<span class="sd">        use_map_metric: Whether to use a ``BenchmarkMapMetric``.</span>
+<span class="sd">    """</span>
+    <span class="n">metric_cls</span> <span class="o">=</span> <span class="n">BenchmarkMapMetric</span> <span class="k">if</span> <span class="n">use_map_metric</span> <span class="k">else</span> <span class="n">BenchmarkMetric</span>
+    <span class="n">objective</span> <span class="o">=</span> <span class="n">Objective</span><span class="p">(</span>
+        <span class="n">metric</span><span class="o">=</span><span class="n">metric_cls</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">outcome_names</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">lower_is_better</span><span class="o">=</span><span class="n">lower_is_better</span><span class="p">,</span>
+            <span class="n">observe_noise_sd</span><span class="o">=</span><span class="n">observe_noise_sd</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">minimize</span><span class="o">=</span><span class="n">lower_is_better</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="n">_get_constraints</span><span class="p">(</span>
+        <span class="n">constraint_names</span><span class="o">=</span><span class="n">outcome_names</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span>
+        <span class="n">observe_noise_sd</span><span class="o">=</span><span class="n">observe_noise_sd</span><span class="p">,</span>
+        <span class="n">use_map_metric</span><span class="o">=</span><span class="n">use_map_metric</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">objective</span><span class="p">,</span> <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_moo_opt_config">
+<a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_problem.get_moo_opt_config">[docs]</a>
+<span class="k">def</span> <span class="nf">get_moo_opt_config</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">outcome_names</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">ref_point</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">num_constraints</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">lower_is_better</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">observe_noise_sd</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">use_map_metric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Create a ``MultiObjectiveOptimizationConfig``, potentially with constraints.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        outcome_names: Names of the outcomes. If ``num_constraints`` is greater</span>
+<span class="sd">            than zero, the last ``num_constraints`` elements of</span>
+<span class="sd">            ``outcome_names`` will become the names of ``BenchmarkMetric``s on</span>
+<span class="sd">            constraints, and the others will correspond to the objectives.</span>
+<span class="sd">        ref_point: Objective thresholds for the objective metrics. Note:</span>
+<span class="sd">            Although this method requires providing a threshold for each</span>
+<span class="sd">            objective, this is not required in general and could be enabled for</span>
+<span class="sd">            this method.</span>
+<span class="sd">        num_constraints: Number of constraints.</span>
+<span class="sd">        lower_is_better: Whether the objectives are lower-is-better. Applies to</span>
+<span class="sd">            all objectives and not to constraints. For constraints, higher is</span>
+<span class="sd">            better (feasible). Note: Ax allows different metrics to have</span>
+<span class="sd">            different values of ``lower_is_better``; that isn't enabled for this</span>
+<span class="sd">            method, but could be.</span>
+<span class="sd">        observe_noise_sd: Whether the standard deviation of the observation</span>
+<span class="sd">        noise is observed. Applies to all objective and constraints.</span>
+<span class="sd">    """</span>
+    <span class="n">n_objectives</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">outcome_names</span><span class="p">)</span> <span class="o">-</span> <span class="n">num_constraints</span>
+    <span class="n">metric_cls</span> <span class="o">=</span> <span class="n">BenchmarkMapMetric</span> <span class="k">if</span> <span class="n">use_map_metric</span> <span class="k">else</span> <span class="n">BenchmarkMetric</span>
+    <span class="n">objective_metrics</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">metric_cls</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">outcome_names</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="n">lower_is_better</span><span class="o">=</span><span class="n">lower_is_better</span><span class="p">,</span>
+            <span class="n">observe_noise_sd</span><span class="o">=</span><span class="n">observe_noise_sd</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_objectives</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">constraints</span> <span class="o">=</span> <span class="n">_get_constraints</span><span class="p">(</span>
+        <span class="n">constraint_names</span><span class="o">=</span><span class="n">outcome_names</span><span class="p">[</span><span class="n">n_objectives</span><span class="p">:],</span>
+        <span class="n">observe_noise_sd</span><span class="o">=</span><span class="n">observe_noise_sd</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">(</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">MultiObjective</span><span class="p">(</span>
+            <span class="n">objectives</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">Objective</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">minimize</span><span class="o">=</span><span class="n">lower_is_better</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">objective_metrics</span>
+            <span class="p">]</span>
+        <span class="p">),</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">ObjectiveThreshold</span><span class="p">(</span>
+                <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span>
+                <span class="n">bound</span><span class="o">=</span><span class="n">ref_p</span><span class="p">,</span>
+                <span class="n">relative</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">op</span><span class="o">=</span><span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span> <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">lower_is_better</span> <span class="k">else</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">GEQ</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">ref_p</span><span class="p">,</span> <span class="n">metric</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ref_point</span><span class="p">,</span> <span class="n">objective_metrics</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">],</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">constraints</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">optimization_config</span></div>
+
+
+
+<div class="viewcode-block" id="get_continuous_search_space">
+<a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_problem.get_continuous_search_space">[docs]</a>
+<span class="k">def</span> <span class="nf">get_continuous_search_space</span><span class="p">(</span><span class="n">bounds</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">SearchSpace</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">SearchSpace</span><span class="p">(</span>
+        <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">RangeParameter</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"x</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+                <span class="n">lower</span><span class="o">=</span><span class="n">lower</span><span class="p">,</span>
+                <span class="n">upper</span><span class="o">=</span><span class="n">upper</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span>
+        <span class="p">]</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="c1"># A mapping from (BoTorch problem class name, dim | None) to baseline value</span>
+<span class="c1"># Obtained using `get_baseline_value_from_sobol`</span>
+<span class="n">BOTORCH_BASELINE_VALUES</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="p">(</span><span class="s2">"Ackley"</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span> <span class="mf">19.837273921447853</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"Branin"</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span> <span class="mf">10.930455126654936</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"BraninCurrin"</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span> <span class="mf">0.9820209831769217</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"BraninCurrin"</span><span class="p">,</span> <span class="mi">30</span><span class="p">):</span> <span class="mf">3.0187520516793587</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"ConstrainedGramacy"</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span> <span class="mf">1.0643958597443999</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"ConstrainedBraninCurrin"</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span> <span class="mf">0.9820209831769217</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"Griewank"</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span> <span class="mf">60.037068040081095</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"Hartmann"</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="o">-</span><span class="mf">2.3423173903286716</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"Hartmann"</span><span class="p">,</span> <span class="mi">6</span><span class="p">):</span> <span class="o">-</span><span class="mf">0.796988050854654</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"Hartmann"</span><span class="p">,</span> <span class="mi">30</span><span class="p">):</span> <span class="o">-</span><span class="mf">0.8359462084890045</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"Levy"</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span> <span class="mf">14.198811442165178</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"Powell"</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span> <span class="mf">932.3102865964689</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"Rosenbrock"</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span> <span class="mf">30143.767857949348</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"SixHumpCamel"</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span> <span class="mf">0.45755007063109004</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">"ThreeHumpCamel"</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span> <span class="mf">3.7321680621434155</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="create_problem_from_botorch">
+<a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_problem.create_problem_from_botorch">[docs]</a>
+<span class="k">def</span> <span class="nf">create_problem_from_botorch</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">test_problem_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BaseTestProblem</span><span class="p">],</span>
+    <span class="n">test_problem_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">noise_std</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">baseline_value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">lower_is_better</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">observe_noise_sd</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">report_inference_value_as_trace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">step_runtime_function</span><span class="p">:</span> <span class="n">TBenchmarkStepRuntimeFunction</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">status_quo_params</span><span class="p">:</span> <span class="n">TParameterization</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BenchmarkProblem</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Create a ``BenchmarkProblem`` from a BoTorch ``BaseTestProblem``.</span>
+
+<span class="sd">    The resulting ``BenchmarkProblem``'s ``test_function`` is constructed from</span>
+<span class="sd">    the ``BaseTestProblem`` class (``test_problem_class``) and its arguments</span>
+<span class="sd">    (``test_problem_kwargs``). All other fields are passed to</span>
+<span class="sd">    ``BenchmarkProblem`` if they are specified and populated with reasonable</span>
+<span class="sd">    defaults otherwise. ``num_trials``, however, must be specified.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        test_problem_class: The BoTorch test problem class which will be used</span>
+<span class="sd">            to define the `search_space`, `optimization_config`, and `runner`.</span>
+<span class="sd">        test_problem_kwargs: Keyword arguments used to instantiate the</span>
+<span class="sd">            `test_problem_class`. This should *not* include `noise_std` or</span>
+<span class="sd">            `negate`, since these are handled through Ax benchmarking (as the</span>
+<span class="sd">            `noise_std` and `lower_is_better` arguments to `BenchmarkProblem`).</span>
+<span class="sd">        noise_std: Standard deviation of synthetic noise added to outcomes. If a</span>
+<span class="sd">            float, the same noise level is used for all objectives.</span>
+<span class="sd">        lower_is_better: Whether this is a minimization problem. For MOO, this</span>
+<span class="sd">            applies to all objectives.</span>
+<span class="sd">        num_trials: Simply the `num_trials` of the `BenchmarkProblem` created.</span>
+<span class="sd">        baseline_value: If not provided, will be looked up from</span>
+<span class="sd">            `BOTORCH_BASELINE_VALUES`.</span>
+<span class="sd">        name: Will be passed to ``BenchmarkProblem`` if specified and populated</span>
+<span class="sd">            with reasonable defaults otherwise.</span>
+<span class="sd">        observe_noise_sd: Whether the standard deviation of the observation noise is</span>
+<span class="sd">            observed or not (in which case it must be inferred by the model).</span>
+<span class="sd">            This is separate from whether synthetic noise is added to the</span>
+<span class="sd">            problem, which is controlled by the `noise_std` of the test problem.</span>
+<span class="sd">        search_space: If provided, the `search_space` of the `BenchmarkProblem`.</span>
+<span class="sd">            Otherwise, a `SearchSpace` with all `RangeParameter`s is created</span>
+<span class="sd">            from the bounds of the test problem.</span>
+<span class="sd">        report_inference_value_as_trace: If True, indicates that the</span>
+<span class="sd">            ``optimization_trace`` on a ``BenchmarkResult`` ought to be the</span>
+<span class="sd">            ``inference_trace``; otherwise, it will be the ``oracle_trace``.</span>
+<span class="sd">            See ``BenchmarkResult`` for more information.</span>
+<span class="sd">        status_quo_params: The status quo parameters for the problem.</span>
+<span class="sd">        step_runtime_function: Optionally, a function that takes in ``params``</span>
+<span class="sd">            (typically dictionaries mapping strings to ``TParamValue``s) and</span>
+<span class="sd">            returns the runtime of an step. If ``step_runtime_function`` is</span>
+<span class="sd">            left as ``None``, each step will take one simulated second.  (When</span>
+<span class="sd">            data is not time-series, the whole trial consists of one step.)</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; from ax.benchmark.benchmark_problem import create_problem_from_botorch</span>
+<span class="sd">        &gt;&gt;&gt; from botorch.test_functions.synthetic import Branin</span>
+<span class="sd">        &gt;&gt;&gt; problem = create_problem_from_botorch(</span>
+<span class="sd">        ...    test_problem_class=Branin,</span>
+<span class="sd">        ...    test_problem_kwargs={},</span>
+<span class="sd">        ...    noise_std=0.1,</span>
+<span class="sd">        ...    num_trials=10,</span>
+<span class="sd">        ...    observe_noise_sd=True,</span>
+<span class="sd">        ...    step_runtime_function=lambda params: 1 / params["fidelity"],</span>
+<span class="sd">        ... )</span>
+<span class="sd">    """</span>
+    <span class="c1"># pyre-fixme [45]: Invalid class instantiation</span>
+    <span class="n">test_problem</span> <span class="o">=</span> <span class="n">test_problem_class</span><span class="p">(</span><span class="o">**</span><span class="n">test_problem_kwargs</span><span class="p">)</span>
+    <span class="n">is_constrained</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">test_problem</span><span class="p">,</span> <span class="n">ConstrainedBaseTestProblem</span><span class="p">)</span>
+
+    <span class="n">search_space</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">get_continuous_search_space</span><span class="p">(</span><span class="n">test_problem</span><span class="o">.</span><span class="n">_bounds</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">search_space</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">search_space</span>
+    <span class="p">)</span>
+
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">test_problem_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"dim"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">n_obj</span> <span class="o">=</span> <span class="n">test_problem</span><span class="o">.</span><span class="n">num_objectives</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">_get_name</span><span class="p">(</span>
+            <span class="n">test_problem</span><span class="o">=</span><span class="n">test_problem</span><span class="p">,</span>
+            <span class="n">observe_noise_sd</span><span class="o">=</span><span class="n">observe_noise_sd</span><span class="p">,</span>
+            <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">num_constraints</span> <span class="o">=</span> <span class="n">test_problem</span><span class="o">.</span><span class="n">num_constraints</span> <span class="k">if</span> <span class="n">is_constrained</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">test_problem</span><span class="p">,</span> <span class="n">MultiObjectiveTestProblem</span><span class="p">):</span>
+        <span class="c1"># pyre-fixme[6]: For 1st argument expected `SupportsIndex` but got</span>
+        <span class="c1">#  `Union[Tensor, Module]`.</span>
+        <span class="n">objective_names</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_obj</span><span class="p">)]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">objective_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span><span class="p">]</span>
+
+    <span class="c1"># pyre-fixme[6]: For 1st argument expected `SupportsIndex` but got `Union[int,</span>
+    <span class="c1">#  Tensor, Module]`.</span>
+    <span class="n">constraint_names</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"constraint_slack_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_constraints</span><span class="p">)]</span>
+    <span class="n">outcome_names</span> <span class="o">=</span> <span class="n">objective_names</span> <span class="o">+</span> <span class="n">constraint_names</span>
+
+    <span class="n">test_function</span> <span class="o">=</span> <span class="n">BoTorchTestFunction</span><span class="p">(</span>
+        <span class="n">botorch_problem</span><span class="o">=</span><span class="n">test_problem</span><span class="p">,</span> <span class="n">outcome_names</span><span class="o">=</span><span class="n">outcome_names</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">test_problem</span><span class="p">,</span> <span class="n">MultiObjectiveTestProblem</span><span class="p">):</span>
+        <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">get_moo_opt_config</span><span class="p">(</span>
+            <span class="c1"># pyre-fixme[6]: For 1st argument expected `int` but got `Union[int,</span>
+            <span class="c1">#  Tensor, Module]`.</span>
+            <span class="n">num_constraints</span><span class="o">=</span><span class="n">num_constraints</span><span class="p">,</span>
+            <span class="n">lower_is_better</span><span class="o">=</span><span class="n">lower_is_better</span><span class="p">,</span>
+            <span class="n">observe_noise_sd</span><span class="o">=</span><span class="n">observe_noise_sd</span><span class="p">,</span>
+            <span class="n">outcome_names</span><span class="o">=</span><span class="n">test_function</span><span class="o">.</span><span class="n">outcome_names</span><span class="p">,</span>
+            <span class="n">ref_point</span><span class="o">=</span><span class="n">test_problem</span><span class="o">.</span><span class="n">_ref_point</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">get_soo_opt_config</span><span class="p">(</span>
+            <span class="n">outcome_names</span><span class="o">=</span><span class="n">test_function</span><span class="o">.</span><span class="n">outcome_names</span><span class="p">,</span>
+            <span class="n">lower_is_better</span><span class="o">=</span><span class="n">lower_is_better</span><span class="p">,</span>
+            <span class="n">observe_noise_sd</span><span class="o">=</span><span class="n">observe_noise_sd</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">optimal_value</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">test_problem</span><span class="o">.</span><span class="n">max_hv</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">test_problem</span><span class="p">,</span> <span class="n">MultiObjectiveTestProblem</span><span class="p">)</span>
+        <span class="k">else</span> <span class="n">test_problem</span><span class="o">.</span><span class="n">optimal_value</span>
+    <span class="p">)</span>
+    <span class="n">baseline_value</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">BOTORCH_BASELINE_VALUES</span><span class="p">[(</span><span class="n">test_problem_class</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">dim</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">baseline_value</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">baseline_value</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">BenchmarkProblem</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">test_function</span><span class="o">=</span><span class="n">test_function</span><span class="p">,</span>
+        <span class="n">noise_std</span><span class="o">=</span><span class="n">noise_std</span><span class="p">,</span>
+        <span class="n">num_trials</span><span class="o">=</span><span class="n">num_trials</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[6]: For 7th argument expected `float` but got `Union[float,</span>
+        <span class="c1">#  Tensor, Module]`.</span>
+        <span class="n">optimal_value</span><span class="o">=</span><span class="n">optimal_value</span><span class="p">,</span>
+        <span class="n">baseline_value</span><span class="o">=</span><span class="n">baseline_value</span><span class="p">,</span>
+        <span class="n">report_inference_value_as_trace</span><span class="o">=</span><span class="n">report_inference_value_as_trace</span><span class="p">,</span>
+        <span class="n">step_runtime_function</span><span class="o">=</span><span class="n">step_runtime_function</span><span class="p">,</span>
+        <span class="n">status_quo_params</span><span class="o">=</span><span class="n">status_quo_params</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="Main" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<search id="searchbox" role="search" style="display: none">
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" placeholder="Search" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../analysis.html">ax.analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../early_stopping.html">ax.early_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../global_stopping.html">ax.global_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../health_check.html">ax.health_check</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../preview.html">ax.preview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/latest/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2024 Meta Platforms, Inc.</section></footer></div></body></html>

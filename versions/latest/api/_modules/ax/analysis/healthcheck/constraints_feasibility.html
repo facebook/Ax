@@ -1,0 +1,293 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/latest/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/latest/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/latest/img/ax.svg"/><link rel="shortcut icon" href="/versions/latest/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/latest/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/latest/js/mathjax.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/latest/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/latest/css/main.css"/><script src="/versions/latest/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/latest/"><img class="logo" src="/versions/latest/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/latest/versions.html"><h3>latest</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/latest/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/latest/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/latest/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.analysis.healthcheck.constraints_feasibility</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="c1"># pyre-strict</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">ax.analysis.analysis</span> <span class="kn">import</span> <span class="n">AnalysisCardLevel</span>
+
+<span class="kn">from</span> <span class="nn">ax.analysis.healthcheck.healthcheck_analysis</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">HealthcheckAnalysis</span><span class="p">,</span>
+    <span class="n">HealthcheckAnalysisCard</span><span class="p">,</span>
+    <span class="n">HealthcheckStatus</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.analysis.plotly.arm_effects.utils</span> <span class="kn">import</span> <span class="n">get_predictions_by_arm</span>
+<span class="kn">from</span> <span class="nn">ax.analysis.plotly.utils</span> <span class="kn">import</span> <span class="n">is_predictive</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generation_strategy_interface</span> <span class="kn">import</span> <span class="n">GenerationStrategyInterface</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UserInputError</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.base</span> <span class="kn">import</span> <span class="n">ModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.derelativize</span> <span class="kn">import</span> <span class="n">Derelativize</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">checked_cast</span>
+<span class="kn">from</span> <span class="nn">pyre_extensions</span> <span class="kn">import</span> <span class="n">none_throws</span>
+
+
+<div class="viewcode-block" id="ConstraintsFeasibilityAnalysis">
+<a class="viewcode-back" href="../../../../analysis.html#ax.analysis.healthcheck.constraints_feasibility.ConstraintsFeasibilityAnalysis">[docs]</a>
+<span class="k">class</span> <span class="nc">ConstraintsFeasibilityAnalysis</span><span class="p">(</span><span class="n">HealthcheckAnalysis</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Analysis for checking the feasibility of the constraints for the experiment.</span>
+<span class="sd">    A constraint is considered feasible if the probability of constraints violation</span>
+<span class="sd">    is below the threshold for at least one arm.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prob_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">        Args:</span>
+<span class="sd">            prob_theshold: The threshold for the probability of constraint violation.</span>
+
+<span class="sd">        Returns None</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prob_threshold</span> <span class="o">=</span> <span class="n">prob_threshold</span>
+
+<div class="viewcode-block" id="ConstraintsFeasibilityAnalysis.compute">
+<a class="viewcode-back" href="../../../../analysis.html#ax.analysis.healthcheck.constraints_feasibility.ConstraintsFeasibilityAnalysis.compute">[docs]</a>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategyInterface</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HealthcheckAnalysisCard</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">        Compute the feasibility of the constraints for the experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            experiment: Ax experiment.</span>
+<span class="sd">            generation_strategy: Ax generation strategy.</span>
+<span class="sd">            prob_threhshold: Threshold for the probability of constraint violation.</span>
+<span class="sd">                Constraints are considered feasible if the probability of constraint</span>
+<span class="sd">                violation is below the threshold for at least one arm.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A HealthcheckAnalysisCard object with the information on infeasible metrics,</span>
+<span class="sd">            i.e., metrics for which the constraints are infeasible for all test groups</span>
+<span class="sd">            (arms).</span>
+<span class="sd">        """</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">HealthcheckStatus</span><span class="o">.</span><span class="n">PASS</span>
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="s2">"All constraints are feasible."</span>
+        <span class="n">title_status</span> <span class="o">=</span> <span class="s2">"Success"</span>
+        <span class="n">level</span> <span class="o">=</span> <span class="n">AnalysisCardLevel</span><span class="o">.</span><span class="n">LOW</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"status"</span><span class="p">:</span> <span class="p">[</span><span class="n">status</span><span class="p">]})</span>
+
+        <span class="k">if</span> <span class="n">experiment</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"ConstraintsFeasibilityAnalysis requires an Experiment."</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"ConstraintsFeasibilityAnalysis requires an Experiment with an "</span>
+                <span class="s2">"optimization config."</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="p">):</span>
+            <span class="n">subtitle</span> <span class="o">=</span> <span class="s2">"No constraints are specified."</span>
+            <span class="k">return</span> <span class="n">HealthcheckAnalysisCard</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"ConstraintsFeasibility"</span><span class="p">,</span>
+                <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Ax Constraints Feasibility </span><span class="si">{</span><span class="n">title_status</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">blob</span><span class="o">=</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s2">"status"</span><span class="p">:</span> <span class="n">status</span><span class="p">}),</span>
+                <span class="n">subtitle</span><span class="o">=</span><span class="n">subtitle</span><span class="p">,</span>
+                <span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span>
+                <span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">generation_strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"ConstraintsFeasibilityAnalysis requires a GenerationStrategy."</span>
+            <span class="p">)</span>
+        <span class="n">generation_strategy</span> <span class="o">=</span> <span class="n">checked_cast</span><span class="p">(</span>
+            <span class="n">GenerationStrategy</span><span class="p">,</span>
+            <span class="n">generation_strategy</span><span class="p">,</span>
+            <span class="n">exception</span><span class="o">=</span><span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"ConstraintsFeasibilityAnalysis requires a GenerationStrategy."</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">generation_strategy</span><span class="o">.</span><span class="n">_fit_current_model</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">experiment</span><span class="o">.</span><span class="n">lookup_data</span><span class="p">())</span>
+
+        <span class="n">model</span> <span class="o">=</span> <span class="n">none_throws</span><span class="p">(</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_predictive</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"ConstraintsFeasibility requires a GenerationStrategy which is "</span>
+                <span class="s2">"in a state where the current model supports prediction. "</span>
+                <span class="s2">"The current model is </span><span class="si">{model._model_key}</span><span class="s2"> and does not support "</span>
+                <span class="s2">"prediction."</span>
+            <span class="p">)</span>
+        <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">checked_cast</span><span class="p">(</span>
+            <span class="n">OptimizationConfig</span><span class="p">,</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span>
+        <span class="p">)</span>
+        <span class="n">constraints_feasible</span><span class="p">,</span> <span class="n">df</span> <span class="o">=</span> <span class="n">constraints_feasibility</span><span class="p">(</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">prob_threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">prob_threshold</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">"status"</span><span class="p">]</span> <span class="o">=</span> <span class="n">status</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">constraints_feasible</span><span class="p">:</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="n">HealthcheckStatus</span><span class="o">.</span><span class="n">WARNING</span>
+            <span class="n">subtitle</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">"Constraints are infeasible for all test groups (arms) with respect "</span>
+                <span class="sa">f</span><span class="s2">"to the probability threshold </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">prob_threshold</span><span class="si">}</span><span class="s2">. "</span>
+                <span class="s2">"We suggest relaxing the constraint bounds for the constraints."</span>
+            <span class="p">)</span>
+            <span class="n">title_status</span> <span class="o">=</span> <span class="s2">"Warning"</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                <span class="n">df</span><span class="p">[</span><span class="s2">"overall_probability_constraints_violated"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">prob_threshold</span><span class="p">,</span>
+                <span class="s2">"status"</span><span class="p">,</span>
+            <span class="p">]</span> <span class="o">=</span> <span class="n">status</span>
+
+        <span class="k">return</span> <span class="n">HealthcheckAnalysisCard</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"ConstraintsFeasibility"</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Ax Constraints Feasibility </span><span class="si">{</span><span class="n">title_status</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">blob</span><span class="o">=</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s2">"status"</span><span class="p">:</span> <span class="n">status</span><span class="p">}),</span>
+            <span class="n">subtitle</span><span class="o">=</span><span class="n">subtitle</span><span class="p">,</span>
+            <span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span>
+            <span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="constraints_feasibility">
+<a class="viewcode-back" href="../../../../analysis.html#ax.analysis.healthcheck.constraints_feasibility.constraints_feasibility">[docs]</a>
+<span class="k">def</span> <span class="nf">constraints_feasibility</span><span class="p">(</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span>
+    <span class="n">prob_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">    Check the feasibility of the constraints for the experiment.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        optimization_config: Ax optimization config.</span>
+<span class="sd">        model: Ax model to use for predictions.</span>
+<span class="sd">        prob_threshold: Threshold for the probability of constraint violation.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple of a boolean indicating whether the constraints are feasible and a</span>
+<span class="sd">        dataframe with information on the probabilities of constraints violation for</span>
+<span class="sd">        each arm.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span><span class="s2">"No constraints are specified."</span><span class="p">)</span>
+
+    <span class="n">derel_optimization_config</span> <span class="o">=</span> <span class="n">optimization_config</span>
+    <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span>
+
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">constraint</span><span class="o">.</span><span class="n">relative</span> <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">outcome_constraints</span><span class="p">):</span>
+        <span class="n">derel_optimization_config</span> <span class="o">=</span> <span class="n">Derelativize</span><span class="p">()</span><span class="o">.</span><span class="n">transform_optimization_config</span><span class="p">(</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+            <span class="n">modelbridge</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">constraint_metric_name</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">constraint</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">derel_optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span>
+    <span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">arm_dict</span> <span class="o">=</span> <span class="n">get_predictions_by_arm</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">metric_name</span><span class="o">=</span><span class="n">constraint_metric_name</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">derel_optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">arm_dict</span><span class="p">)</span>
+    <span class="n">constraints_feasible</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span>
+        <span class="n">arm_info</span><span class="p">[</span><span class="s2">"overall_probability_constraints_violated"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">prob_threshold</span>
+        <span class="k">for</span> <span class="n">arm_info</span> <span class="ow">in</span> <span class="n">arm_dict</span>
+        <span class="k">if</span> <span class="n">arm_info</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]</span> <span class="o">!=</span> <span class="n">model</span><span class="o">.</span><span class="n">status_quo_name</span>
+    <span class="p">):</span>
+        <span class="n">constraints_feasible</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">return</span> <span class="n">constraints_feasible</span><span class="p">,</span> <span class="n">df</span></div>
+
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="Main" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<search id="searchbox" role="search" style="display: none">
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" placeholder="Search" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../analysis.html">ax.analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../early_stopping.html">ax.early_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../global_stopping.html">ax.global_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../health_check.html">ax.health_check</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../preview.html">ax.preview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/latest/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2024 Meta Platforms, Inc.</section></footer></div></body></html>

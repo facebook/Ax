@@ -1,0 +1,312 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/latest/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/latest/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/latest/img/ax.svg"/><link rel="shortcut icon" href="/versions/latest/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/latest/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/latest/js/mathjax.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/latest/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/latest/css/main.css"/><script src="/versions/latest/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/latest/"><img class="logo" src="/versions/latest/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/latest/versions.html"><h3>latest</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/latest/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/latest/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/latest/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.analysis.plotly.cross_validation</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="c1"># pyre-strict</span>
+
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.analysis.analysis</span> <span class="kn">import</span> <span class="n">AnalysisCardLevel</span>
+
+<span class="kn">from</span> <span class="nn">ax.analysis.plotly.plotly_analysis</span> <span class="kn">import</span> <span class="n">PlotlyAnalysis</span><span class="p">,</span> <span class="n">PlotlyAnalysisCard</span>
+<span class="kn">from</span> <span class="nn">ax.analysis.plotly.utils</span> <span class="kn">import</span> <span class="n">select_metric</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generation_strategy_interface</span> <span class="kn">import</span> <span class="n">GenerationStrategyInterface</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UserInputError</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.cross_validation</span> <span class="kn">import</span> <span class="n">cross_validate</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">plotly</span> <span class="kn">import</span> <span class="n">express</span> <span class="k">as</span> <span class="n">px</span><span class="p">,</span> <span class="n">graph_objects</span> <span class="k">as</span> <span class="n">go</span>
+<span class="kn">from</span> <span class="nn">pyre_extensions</span> <span class="kn">import</span> <span class="n">assert_is_instance</span><span class="p">,</span> <span class="n">none_throws</span>
+
+
+<div class="viewcode-block" id="CrossValidationPlot">
+<a class="viewcode-back" href="../../../../analysis.html#ax.analysis.plotly.cross_validation.CrossValidationPlot">[docs]</a>
+<span class="k">class</span> <span class="nc">CrossValidationPlot</span><span class="p">(</span><span class="n">PlotlyAnalysis</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Plotly Scatter plot for cross validation for model predictions using the current</span>
+<span class="sd">    model on the GenerationStrategy. This plot is useful for understanding how well</span>
+<span class="sd">    the model is able to predict out-of-sample which in turn is indicative of its</span>
+<span class="sd">    ability to suggest valuable candidates.</span>
+
+<span class="sd">    Splits the model's training data into train/test folds and makes</span>
+<span class="sd">    out-of-sample predictions on the test folds.</span>
+
+<span class="sd">    A well fit model will have points clustered around the y=x line, and a model with</span>
+<span class="sd">    poor fit may have points in a horizontal band in the center of the plot</span>
+<span class="sd">    indicating a tendency to predict the observed mean of the specificed metric for</span>
+<span class="sd">    all arms.</span>
+
+<span class="sd">    The DataFrame computed will contain one row per arm and the following columns:</span>
+<span class="sd">        - arm_name: The name of the arm</span>
+<span class="sd">        - observed: The observed mean of the metric specified</span>
+<span class="sd">        - observed_sem: The SEM of the observed mean of the metric specified</span>
+<span class="sd">        - predicted: The predicted mean of the metric specified</span>
+<span class="sd">        - predicted_sem: The SEM of the predicted mean of the metric specified</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">metric_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">folds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">untransform</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Args:</span>
+<span class="sd">            metric_name: The name of the metric to plot. If not specified the objective</span>
+<span class="sd">                will be used. Note that the metric cannot be inferred for</span>
+<span class="sd">                multi-objective or scalarized-objective experiments.</span>
+<span class="sd">            folds: Number of subsamples to partition observations into. Use -1 for</span>
+<span class="sd">                leave-one-out cross validation.</span>
+<span class="sd">            untransform: Whether to untransform the model predictions before cross</span>
+<span class="sd">                validating. Models are trained on transformed data, and candidate</span>
+<span class="sd">                generation is performed in the transformed space. Computing the model</span>
+<span class="sd">                quality metric based on the cross-validation results in the</span>
+<span class="sd">                untransformed space may not be representative of the model that</span>
+<span class="sd">                is actually used for candidate generation in case of non-invertible</span>
+<span class="sd">                transforms, e.g., Winsorize or LogY. While the model in the</span>
+<span class="sd">                transformed space may not be representative of the original data in</span>
+<span class="sd">                regions where outliers have been removed, we have found it to better</span>
+<span class="sd">                reflect the how good the model used for candidate generation actually</span>
+<span class="sd">                is.</span>
+<span class="sd">            trial_index: Optional trial index that the model from generation_strategy</span>
+<span class="sd">                was used to generate.  We should therefore only have observations from</span>
+<span class="sd">                trials prior to this trial index in our plot.  If this is not True, we</span>
+<span class="sd">                should error out.</span>
+<span class="sd">        """</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span> <span class="o">=</span> <span class="n">metric_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">folds</span> <span class="o">=</span> <span class="n">folds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">untransform</span> <span class="o">=</span> <span class="n">untransform</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trial_index</span> <span class="o">=</span> <span class="n">trial_index</span>
+
+<div class="viewcode-block" id="CrossValidationPlot.compute">
+<a class="viewcode-back" href="../../../../analysis.html#ax.analysis.plotly.cross_validation.CrossValidationPlot.compute">[docs]</a>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategyInterface</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PlotlyAnalysisCard</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">generation_strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span><span class="s2">"CrossValidation requires a GenerationStrategy"</span><span class="p">)</span>
+
+        <span class="n">metric_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span> <span class="ow">or</span> <span class="n">select_metric</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">experiment</span>
+        <span class="p">)</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">_prepare_data</span><span class="p">(</span>
+            <span class="c1"># CrossValidationPlot requires a native Ax GenerationStrategy and cannot be</span>
+            <span class="c1"># used with a GenerationStrategyInterface.</span>
+            <span class="n">generation_strategy</span><span class="o">=</span><span class="n">assert_is_instance</span><span class="p">(</span>
+                <span class="n">generation_strategy</span><span class="p">,</span> <span class="n">GenerationStrategy</span>
+            <span class="p">),</span>
+            <span class="n">metric_name</span><span class="o">=</span><span class="n">metric_name</span><span class="p">,</span>
+            <span class="n">folds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">folds</span><span class="p">,</span>
+            <span class="n">untransform</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">untransform</span><span class="p">,</span>
+            <span class="n">trial_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">trial_index</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">_prepare_plot</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">)</span>
+
+        <span class="n">k_folds_substring</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folds</span><span class="si">}</span><span class="s2">-fold"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">folds</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">"leave-one-out"</span>
+
+        <span class="c1"># Nudge the priority if the metric is important to the experiment</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">experiment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="n">optimization_config</span> <span class="o">:=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="n">objective</span> <span class="o">:=</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">objective</span><span class="o">.</span><span class="n">metric_names</span>
+        <span class="p">):</span>
+            <span class="n">nudge</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="k">elif</span> <span class="p">(</span>
+            <span class="n">experiment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="n">optimization_config</span> <span class="o">:=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span>
+        <span class="p">):</span>
+            <span class="n">nudge</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">nudge</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_plotly_analysis_card</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Cross Validation for </span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">subtitle</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Out-of-sample predictions using </span><span class="si">{</span><span class="n">k_folds_substring</span><span class="si">}</span><span class="s2"> CV"</span><span class="p">,</span>
+            <span class="n">level</span><span class="o">=</span><span class="n">AnalysisCardLevel</span><span class="o">.</span><span class="n">LOW</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="n">nudge</span><span class="p">,</span>
+            <span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span>
+            <span class="n">fig</span><span class="o">=</span><span class="n">fig</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<span class="k">def</span> <span class="nf">_prepare_data</span><span class="p">(</span>
+    <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategy</span><span class="p">,</span>
+    <span class="n">metric_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">folds</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">untransform</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="c1"># If model is not fit already, fit it</span>
+    <span class="k">if</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">generation_strategy</span><span class="o">.</span><span class="n">_fit_current_model</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">cv_results</span> <span class="o">=</span> <span class="n">cross_validate</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">none_throws</span><span class="p">(</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span><span class="p">),</span>
+        <span class="n">folds</span><span class="o">=</span><span class="n">folds</span><span class="p">,</span>
+        <span class="n">untransform</span><span class="o">=</span><span class="n">untransform</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">records</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">observed</span><span class="p">,</span> <span class="n">predicted</span> <span class="ow">in</span> <span class="n">cv_results</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">trial_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">observed</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="ow">and</span> <span class="n">observed</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span> <span class="o">&gt;=</span> <span class="n">trial_index</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                    <span class="s2">"CrossValidationPlot was specified to be for the generation of "</span>
+                    <span class="sa">f</span><span class="s2">"trial </span><span class="si">{</span><span class="n">trial_index</span><span class="si">}</span><span class="s2">, but has observations from trial "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">observed</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">observed</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">metric_names</span><span class="p">)):</span>
+            <span class="c1"># Find the index of the metric we want to plot</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+                <span class="n">observed</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">metric_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">metric_name</span>
+                <span class="ow">and</span> <span class="n">predicted</span><span class="o">.</span><span class="n">metric_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">metric_name</span>
+            <span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="n">record</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"arm_name"</span><span class="p">:</span> <span class="n">observed</span><span class="o">.</span><span class="n">arm_name</span><span class="p">,</span>
+                <span class="s2">"observed"</span><span class="p">:</span> <span class="n">observed</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="s2">"predicted"</span><span class="p">:</span> <span class="n">predicted</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="c1"># Take the square root of the the SEM to get the standard deviation</span>
+                <span class="s2">"observed_sem"</span><span class="p">:</span> <span class="n">observed</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">,</span>
+                <span class="s2">"predicted_sem"</span><span class="p">:</span> <span class="n">predicted</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="k">break</span>
+
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_records</span><span class="p">(</span><span class="n">records</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_prepare_plot</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">:</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+        <span class="n">df</span><span class="p">,</span>
+        <span class="n">x</span><span class="o">=</span><span class="s2">"observed"</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="s2">"predicted"</span><span class="p">,</span>
+        <span class="n">error_x</span><span class="o">=</span><span class="s2">"observed_sem"</span><span class="p">,</span>
+        <span class="n">error_y</span><span class="o">=</span><span class="s2">"predicted_sem"</span><span class="p">,</span>
+        <span class="n">hover_data</span><span class="o">=</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">,</span> <span class="s2">"observed"</span><span class="p">,</span> <span class="s2">"predicted"</span><span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Add a gray dashed line at y=x starting and ending just outside of the region of</span>
+    <span class="c1"># interest for reference. A well fit model should have points clustered around this</span>
+    <span class="c1"># line.</span>
+    <span class="n">lower_bound</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="nb">min</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"observed"</span><span class="p">]</span> <span class="o">-</span> <span class="n">df</span><span class="p">[</span><span class="s2">"observed_sem"</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+            <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"predicted"</span><span class="p">]</span> <span class="o">-</span> <span class="n">df</span><span class="p">[</span><span class="s2">"predicted_sem"</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="o">*</span> <span class="mf">0.99</span>
+    <span class="p">)</span>
+    <span class="n">upper_bound</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="nb">max</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"observed"</span><span class="p">]</span> <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">"observed_sem"</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+            <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"predicted"</span><span class="p">]</span> <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">"predicted_sem"</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="o">*</span> <span class="mf">1.01</span>
+    <span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">add_shape</span><span class="p">(</span>
+        <span class="nb">type</span><span class="o">=</span><span class="s2">"line"</span><span class="p">,</span>
+        <span class="n">x0</span><span class="o">=</span><span class="n">lower_bound</span><span class="p">,</span>
+        <span class="n">y0</span><span class="o">=</span><span class="n">lower_bound</span><span class="p">,</span>
+        <span class="n">x1</span><span class="o">=</span><span class="n">upper_bound</span><span class="p">,</span>
+        <span class="n">y1</span><span class="o">=</span><span class="n">upper_bound</span><span class="p">,</span>
+        <span class="n">line</span><span class="o">=</span><span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"gray"</span><span class="p">,</span> <span class="s2">"dash"</span><span class="p">:</span> <span class="s2">"dot"</span><span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Force plot to display as a square</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">update_xaxes</span><span class="p">(</span><span class="nb">range</span><span class="o">=</span><span class="p">[</span><span class="n">lower_bound</span><span class="p">,</span> <span class="n">upper_bound</span><span class="p">],</span> <span class="n">constrain</span><span class="o">=</span><span class="s2">"domain"</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">update_yaxes</span><span class="p">(</span>
+        <span class="n">scaleanchor</span><span class="o">=</span><span class="s2">"x"</span><span class="p">,</span>
+        <span class="n">scaleratio</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">fig</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="Main" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<search id="searchbox" role="search" style="display: none">
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" placeholder="Search" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../analysis.html">ax.analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../early_stopping.html">ax.early_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../global_stopping.html">ax.global_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../health_check.html">ax.health_check</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../preview.html">ax.preview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/latest/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2024 Meta Platforms, Inc.</section></footer></div></body></html>
