@@ -7,6 +7,8 @@
 
 from typing import Any
 
+import numpy as np
+
 import pandas as pd
 from ax.analysis.plotly.utils import (
     format_constraint_violated_probabilities,
@@ -86,6 +88,7 @@ def prepare_arm_effects_plot(
             # visible when there is a lower chance of constraint violation
             f"rgba(255, 0, 0, {(alpha) ** .75})"
             for alpha in df.loc[indices, "overall_probability_constraints_violated"]
+            if not np.isnan(alpha)
         ]
         # Create a separate trace for the legend, otherwise the legend
         # will have the constraint violation indicator of the first arm
@@ -106,20 +109,21 @@ def prepare_arm_effects_plot(
         trace.showlegend = False
 
     # Add an item to the legend for the constraint violation indicator
-    legend_trace = go.Scatter(
-        # (None, None) is a hack to get a legend item without
-        # appearing on the plot
-        x=[None],
-        y=[None],
-        mode="markers",
-        marker={
-            "size": dot_size,
-            "color": "white",
-            "line": {"width": 2, "color": "red"},
-        },
-        name="Constraint Violation",
-    )
-    fig.add_trace(legend_trace)
+    if df["overall_probability_constraints_violated"].notna().any():
+        legend_trace = go.Scatter(
+            # (None, None) is a hack to get a legend item without
+            # appearing on the plot
+            x=[None],
+            y=[None],
+            mode="markers",
+            marker={
+                "size": dot_size,
+                "color": "white",
+                "line": {"width": 2, "color": "red"},
+            },
+            name="Constraint Violation",
+        )
+        fig.add_trace(legend_trace)
 
     _add_style_to_effects_by_arm_plot(
         fig=fig, df=df, metric_name=metric_name, outcome_constraints=outcome_constraints
