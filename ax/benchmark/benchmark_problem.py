@@ -114,7 +114,7 @@ class BenchmarkProblem(Base):
     n_best_points: int = 1
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
     target_fidelity_and_task: Mapping[str, TParamValue] = field(default_factory=dict)
-    status_quo_params: TParameterization | None = None
+    status_quo_params: Mapping[str, TParamValue] | None = None
     auxiliary_experiments_by_purpose: (
         dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None
     ) = None

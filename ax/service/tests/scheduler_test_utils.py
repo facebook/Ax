@@ -823,8 +823,6 @@ class AxSchedulerTestCase(TestCase):
         )
         trial = scheduler.experiment.new_trial()
         parameter_dict = {"x1": 5, "x2": 5}
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, int]`.
         trial.add_arm(Arm(parameters=parameter_dict))
 
         # check no new trials are run, when max_trials = 0

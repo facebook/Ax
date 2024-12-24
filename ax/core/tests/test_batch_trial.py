@@ -539,8 +539,6 @@ class BatchTrialTest(TestCase):
             {"w": 0.75, "x": 1, "y": "foo", "z": True},
             {"w": 0.77, "x": 2, "y": "foo", "z": True},
         ]
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         arms = [Arm(parameters=p) for i, p in enumerate(parameterizations)]
         new_batch_trial.add_arms_and_weights(arms=arms, weights=[2, 1])
 
@@ -592,8 +590,6 @@ class BatchTrialTest(TestCase):
             {"w": 0.75, "x": 1, "y": "foo", "z": True},
             {"w": 0.77, "x": 2, "y": "foo", "z": True},
         ]
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         arms = [Arm(parameters=p) for i, p in enumerate(parameterizations)]
         batch_trial.add_arms_and_weights(arms=arms)
         batch_trial.set_status_quo_and_optimize_power(status_quo)
@@ -619,8 +615,6 @@ class BatchTrialTest(TestCase):
             {"w": 0.77, "x": 2, "y": "foo", "z": True},
             {"w": 0.0, "x": 1, "y": "foo", "z": True},
         ]
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         arms = [Arm(parameters=p) for i, p in enumerate(parameterizations)]
         batch_trial.add_arms_and_weights(arms=arms)
         batch_trial.set_status_quo_and_optimize_power(status_quo)

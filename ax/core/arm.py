@@ -23,7 +23,9 @@ class Arm(SortableBase):
     encapsulates the parametrization needed by the unit.
     """
 
-    def __init__(self, parameters: TParameterization, name: str | None = None) -> None:
+    def __init__(
+        self, parameters: Mapping[str, TParamValue], name: str | None = None
+    ) -> None:
         """Inits Arm.
 
         Args:
@@ -132,7 +134,7 @@ class Arm(SortableBase):
 
 
 def _numpy_types_to_python_types(
-    parameterization: TParameterization,
+    parameterization: Mapping[str, TParamValue],
 ) -> TParameterization:
     """If applicable, coerce values of the parameterization from Numpy int/float to
     Python int/float.

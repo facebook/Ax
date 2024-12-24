@@ -73,9 +73,7 @@ class TestTestUtils(TestCase):
         # Use this as a context manager to get the position of an error
         with self.assertRaisesOn(RuntimeError) as cm:
             _f()
-        # pyre-fixme[16]: `None` has no attribute `filename`.
         self.assertEqual(cm.filename, __file__)
-        # pyre-fixme[16]: `None` has no attribute `lineno`.
         self.assertEqual(cm.lineno, F_FAILURE_LINENO)
 
     def test_silence_warning_normal(self) -> None:

@@ -331,8 +331,6 @@ class TestAxClient(TestCase):
         ax_client.set_status_quo(status_quo_params)
         self.assertEqual(
             ax_client.experiment.status_quo,
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, float]`.
             Arm(parameters=status_quo_params, name="status_quo"),
         )
 

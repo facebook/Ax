@@ -901,7 +901,6 @@ def get_high_dimensional_branin_experiment(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
-        # pyre-fixme[6]: expects a union type for val instead of defined {str: float}
         status_quo=Arm(sq_parameters) if with_status_quo else None,
     )
     if with_batch:

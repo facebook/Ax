@@ -620,7 +620,7 @@ def botorch_input_transform_to_init_args(
     else:
         try:
             # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
-            return input_transform.get_init_args()  # pyre-fixme [16]
+            return input_transform.get_init_args()
         except AttributeError:
             raise JSONEncodeError(
                 f"{input_transform.__class__.__name__} does not define `get_init_args` "

@@ -254,48 +254,30 @@ class SearchSpaceTest(TestCase):
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
         # Valid
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         self.assertTrue(self.ss2.check_membership(p_dict))
 
         # Value out of range
         p_dict["a"] = 20.0
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         self.assertFalse(self.ss2.check_membership(p_dict))
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_membership(p_dict, raise_error=True)
 
         # Violate constraints
         p_dict["a"] = 5.3
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         self.assertFalse(self.ss2.check_membership(p_dict))
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_membership(p_dict, raise_error=True)
 
         # Incomplete param dict
         p_dict.pop("a")
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         self.assertFalse(self.ss2.check_membership(p_dict))
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_membership(p_dict, raise_error=True)
 
         # Unknown parameter
         p_dict["q"] = 40
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         self.assertFalse(self.ss2.check_membership(p_dict))
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_membership(p_dict, raise_error=True)
 
     def test_CheckTypes(self) -> None:
@@ -335,15 +317,11 @@ class SearchSpaceTest(TestCase):
 
         # Check "b" parameter goes from float to int
         self.assertTrue(isinstance(p_dict["b"], float))
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         new_arm = self.ss2.cast_arm(Arm(p_dict))
         self.assertTrue(isinstance(new_arm.parameters["b"], int))
 
         # Unknown parameter should be unchanged
         p_dict["q"] = 40
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         new_arm = self.ss2.cast_arm(Arm(p_dict))
         self.assertTrue(isinstance(new_arm.parameters["q"], int))
 

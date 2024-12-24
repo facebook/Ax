@@ -261,7 +261,6 @@ def setup_import_mocks(
             set on all modules being mocked.
     """
 
-    # pyre-fixme[3]
     def custom_import(name: str, *args: Any, **kwargs: Any) -> ModuleType:
         for import_path in mocked_import_paths:
             if name == import_path or name.startswith(f"{import_path}."):

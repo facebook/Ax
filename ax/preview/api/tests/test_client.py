@@ -915,7 +915,7 @@ class TestClient(TestCase):
         )
         self.assertTrue(
             client._experiment.search_space.check_membership(
-                parameterization=parameters  # pyre-ignore[6]
+                parameterization=parameters
             )
         )
         self.assertEqual({*prediction.keys()}, {"foo"})
@@ -938,7 +938,7 @@ class TestClient(TestCase):
         )
         self.assertTrue(
             client._experiment.search_space.check_membership(
-                parameterization=parameters  # pyre-fixme[6]
+                parameterization=parameters
             )
         )
         self.assertEqual({*prediction.keys()}, {"foo"})
@@ -994,7 +994,7 @@ class TestClient(TestCase):
             )
             self.assertTrue(
                 client._experiment.search_space.check_membership(
-                    parameterization=parameters  # pyre-ignore[6]
+                    parameterization=parameters
                 )
             )
             self.assertEqual({*prediction.keys()}, {"foo", "bar"})
@@ -1025,7 +1025,7 @@ class TestClient(TestCase):
             )
             self.assertTrue(
                 client._experiment.search_space.check_membership(
-                    parameterization=parameters  # pyre-fixme[6]
+                    parameterization=parameters
                 )
             )
             self.assertEqual({*prediction.keys()}, {"foo", "bar"})
