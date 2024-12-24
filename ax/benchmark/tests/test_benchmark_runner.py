@@ -18,6 +18,8 @@ import torch
 from ax.benchmark.benchmark_runner import _add_noise, BenchmarkRunner
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
+
+from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
 from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
     Jenatton,
@@ -35,8 +37,8 @@ from ax.utils.testing.benchmark_stubs import (
     DummyTestFunction,
     get_jenatton_trials,
     get_soo_surrogate_test_function,
-    IdentityTestFunction,
 )
+
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
 from pandas import DataFrame

@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Iterator
 
@@ -28,6 +27,7 @@ from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkRe
 from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
+from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_search_space
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
@@ -299,23 +299,6 @@ class DeterministicGenerationNode(ExternalGenerationNode):
         self, pending_parameters: list[TParameterization]
     ) -> TParameterization:
         return {self.param_name: next(self.iterator)}
-
-
-@dataclass(kw_only=True)
-class IdentityTestFunction(BenchmarkTestFunction):
-    outcome_names: Sequence[str] = field(default_factory=lambda: ["objective"])
-    n_steps: int = 1
-
-    # pyre-fixme[14]: Inconsistent override
-    def evaluate_true(self, params: Mapping[str, float]) -> torch.Tensor:
-        """
-        Args:
-            params: A dictionary with key "x0".
-        """
-        value = params["x0"]
-        return torch.full(
-            (len(self.outcome_names), self.n_steps), value, dtype=torch.float64
-        )
 
 
 def get_discrete_search_space(n_values: int = 20) -> SearchSpace:
