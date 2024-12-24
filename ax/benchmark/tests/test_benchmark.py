@@ -31,6 +31,7 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
 from ax.benchmark.methods.modular_botorch import (
     get_sobol_botorch_modular_acquisition,
     get_sobol_mbm_generation_strategy,
@@ -61,7 +62,6 @@ from ax.utils.testing.benchmark_stubs import (
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
     get_soo_surrogate,
-    IdentityTestFunction,
     TestDataset,
 )
 

@@ -24,6 +24,7 @@ class TestProblems(TestCase):
 
     def test_name(self) -> None:
         expected_names = [
+            ("Bandit", "Bandit"),
             ("branin", "Branin"),
             ("hartmann3", "Hartmann_3d"),
             ("hartmann6", "Hartmann_6d"),

@@ -276,8 +276,6 @@ class DiscreteModelBridgeTest(TestCase):
     def test_get_parameter_values(self) -> None:
         parameter_values = _get_parameter_values(self.search_space, ["x", "y", "z"])
         self.assertEqual(parameter_values, [[0.0, 1.0], ["foo", "bar"], [True]])
-        # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-        #  `List[Union[ChoiceParameter, FixedParameter]]`.
         search_space = SearchSpace(self.parameters)
         search_space._parameters["x"] = RangeParameter(
             "x", ParameterType.FLOAT, 0.1, 0.4

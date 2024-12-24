@@ -16,6 +16,7 @@ from ax.benchmark.problems.hpo.torchvision import (
     get_pytorch_cnn_torchvision_benchmark_problem,
 )
 from ax.benchmark.problems.runtime_funcs import int_from_params
+from ax.benchmark.problems.synthetic.bandit import get_bandit_problem
 from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_ackley,
     get_discrete_hartmann,
@@ -54,6 +55,9 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "step_runtime_function": int_from_params,
             "name": "ackley4_async_noisy",
         },
+    ),
+    "Bandit": BenchmarkProblemRegistryEntry(
+        factory_fn=get_bandit_problem, factory_kwargs={}
     ),
     "branin": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
