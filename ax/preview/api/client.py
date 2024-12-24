@@ -761,8 +761,6 @@ class Client(WithDBSettingsBase):
         """
         for parameters in points:
             self._experiment.search_space.check_membership(
-                # pyre-fixme[6]: Core Ax allows users to specify TParameterization
-                # values as None but we do not allow this in the API.
                 parameterization=parameters,
                 raise_error=True,
                 check_all_parameters_present=True,

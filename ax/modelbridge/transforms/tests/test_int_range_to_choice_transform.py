@@ -131,7 +131,7 @@ class IntRangeToChoiceTransformTest(TestCase):
             new_search_space.parameters["d"],
             ChoiceParameter(
                 "d",
-                values=list(range(1, 10)),  # pyre-ignore
+                values=list(range(1, 10)),
                 is_ordered=True,
                 parameter_type=ParameterType.INT,
             ),

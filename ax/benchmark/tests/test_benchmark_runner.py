@@ -388,10 +388,6 @@ class TestBenchmarkRunner(TestCase):
                 )
 
                 trial = Trial(experiment=experiment)
-                # pyre-fixme: Incompatible parameter type [6]: In call
-                # `Arm.__init__`, for argument `parameters`, expected `Dict[str,
-                # Union[None, bool, float, int, str]]` but got `Dict[str,
-                # float]`.
                 arm = Arm(name="0_0", parameters=params)
                 trial.add_arm(arm=arm)
                 metadata_dict = runner.run(trial=trial)
@@ -413,7 +409,6 @@ class TestBenchmarkRunner(TestCase):
                 test_function=test_function, noise_std=0.0, max_concurrency=2
             )
 
-            # pyre-fixme[6]: Incompatible parameter type (because argument is mutable)
             arm = Arm(name="0_0", parameters=params)
             trial = Trial(experiment=experiment)
             trial.add_arm(arm=arm)

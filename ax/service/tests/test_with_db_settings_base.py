@@ -297,8 +297,6 @@ class TestWithDBSettingsBase(TestCase):
 
         self.with_db_settings._save_or_update_trials_in_db_if_possible(
             experiment=experiment,
-            # pyre-fixme[6]: For 2nd param expected `List[BaseTrial]` but got
-            #  `List[Trial]`.
             trials=trials,
         )
         loaded_experiment = _load_experiment(

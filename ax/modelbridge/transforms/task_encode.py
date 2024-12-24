@@ -84,7 +84,7 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
                 transformed_parameters[p_name] = ChoiceParameter(
                     name=p_name,
                     parameter_type=ParameterType.INT,
-                    values=list(range(len(p.values))),  # pyre-ignore [6]
+                    values=list(range(len(p.values))),
                     is_ordered=p.is_ordered,
                     is_task=True,
                     sort_values=True,

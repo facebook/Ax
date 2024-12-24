@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 import torch
@@ -38,7 +38,7 @@ class SurrogateTestFunction(BenchmarkTestFunction):
     """
 
     name: str
-    outcome_names: list[str]
+    outcome_names: Sequence[str]
     _surrogate: TorchModelBridge | None = None
     get_surrogate: None | Callable[[], TorchModelBridge] = None
 
@@ -59,8 +59,8 @@ class SurrogateTestFunction(BenchmarkTestFunction):
         # We're ignoring the uncertainty predictions of the surrogate model here and
         # use the mean predictions as the outcomes (before potentially adding noise)
         means, _ = self.surrogate.predict(
-            # pyre-fixme[6]: params is a Mapping, but ObservationFeatures expects a Dict
-            observation_features=[ObservationFeatures(params)]
+            # `dict` makes a copy so that parameters are not mutated
+            observation_features=[ObservationFeatures(parameters=dict(params))]
         )
         means = [means[name][0] for name in self.outcome_names]
         return torch.tensor(

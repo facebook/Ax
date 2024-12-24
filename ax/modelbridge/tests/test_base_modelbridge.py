@@ -598,7 +598,6 @@ class BaseModelBridgeTest(TestCase):
                 )
                 for i in range(5)
             ],
-            # pyre-fixme[6]: For 2nd param expected `List[float]` but got `List[int]`.
             weights=[1] * 5,
         )
         exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
@@ -724,8 +723,6 @@ class BaseModelBridgeTest(TestCase):
         self.assertEqual(arms[0].parameters, p1)
         self.assertIsNone(candidate_metadata)
 
-        # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, int]`.
         arm = Arm(name="1_1", parameters=p1)
         arms_by_signature = {arm.signature: arm}
         observation_features[0].metadata = {"some_key": "some_val_0"}

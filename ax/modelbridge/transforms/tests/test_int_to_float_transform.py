@@ -188,8 +188,6 @@ class IntToFloatTransformTest(TestCase):
             RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
         ]
         constrained_int_search_space = SearchSpace(
-            # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-            #  `List[RangeParameter]`.
             parameters=parameters,
             parameter_constraints=[
                 # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
@@ -244,8 +242,6 @@ class IntToFloatTransformTest(TestCase):
             RangeParameter("y", lower=1, upper=5, parameter_type=ParameterType.INT),
         ]
         constrained_int_search_space = SearchSpace(
-            # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-            #  `List[RangeParameter]`.
             parameters=parameters,
             parameter_constraints=[
                 # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
