@@ -129,7 +129,7 @@ class BenchmarkMetricBase(Metric):
         self.lower_is_better: bool = lower_is_better
         self.observe_noise_sd: bool = observe_noise_sd
 
-    def _class_specific_metdata_validation(
+    def _class_specific_metadata_validation(
         self, metadata: BenchmarkTrialMetadata | None
     ) -> None:
         return
@@ -164,7 +164,7 @@ class BenchmarkMetricBase(Metric):
             )
 
         metadata = trial.run_metadata["benchmark_metadata"]
-        self._class_specific_metdata_validation(metadata=metadata)
+        self._class_specific_metadata_validation(metadata=metadata)
         backend_simulator = metadata.backend_simulator
         df = metadata.dfs[self.name]
 

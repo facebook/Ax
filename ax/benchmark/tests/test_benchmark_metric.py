@@ -34,28 +34,25 @@ from pyre_extensions import assert_is_instance, none_throws
 
 def _get_one_step_df(batch: bool, metric_name: str, step: int) -> pd.DataFrame:
     if metric_name == "test_metric1":
-        return pd.DataFrame(
-            {
-                "arm_name": ["0_0", "0_1"] if batch else ["0_0"],
-                "metric_name": metric_name,
-                "mean": [1.0, 2.5] if batch else [1.0],
-                "sem": [0.1, 0.0] if batch else [0.1],
-                "trial_index": 0,
-                "step": step,
-                "virtual runtime": step,
-            }
-        )
-    return pd.DataFrame(
+        mean = [1.0, 2.5] if batch else [1.0]
+        sem = [0.1, 0.0] if batch else [0.1]
+    else:
+        mean = [0.5, 1.5] if batch else [0.5]
+        sem = [0.1, 0.0] if batch else [0.1]
+
+    df = pd.DataFrame(
         {
             "arm_name": ["0_0", "0_1"] if batch else ["0_0"],
             "metric_name": metric_name,
-            "mean": [0.5, 1.5] if batch else [0.5],
-            "sem": [0.1, 0.0] if batch else [0.1],
+            "mean": mean,
+            "sem": sem,
             "trial_index": 0,
             "step": step,
             "virtual runtime": step,
         }
     )
+    df["mean"] += step / 10
+    return df
 
 
 def get_test_trial(
@@ -111,6 +108,7 @@ def get_test_trial(
 
 class TestBenchmarkMetric(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.outcome_names = ["test_metric1", "test_metric2"]
         self.metrics = {
             name: BenchmarkMetric(name=name, lower_is_better=True)
@@ -260,12 +258,15 @@ class TestBenchmarkMetric(TestCase):
             if not isinstance(metric, MapMetric):
                 drop_cols += ["step"]
 
+            step = 0 if has_simulator else 2
             expected_df = _get_one_step_df(
-                batch=batch, metric_name=metric_name, step=0
+                batch=batch, metric_name=metric_name, step=step
             ).drop(columns=drop_cols)
             if returns_full_data:
                 self.assertEqual(
-                    df_or_map_df[df_or_map_df["step"] == 0].to_dict(),
+                    df_or_map_df[df_or_map_df["step"] == step]
+                    .reset_index(drop=True)
+                    .to_dict(),
                     expected_df.to_dict(),
                 )
             else:
