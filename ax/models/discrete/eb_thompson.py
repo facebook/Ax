@@ -7,6 +7,7 @@
 # pyre-strict
 
 import logging
+from collections.abc import Sequence
 
 import numpy as np
 from ax.models.discrete.thompson import ThompsonSampler
@@ -25,18 +26,21 @@ class EmpiricalBayesThompsonSampler(ThompsonSampler):
     """
 
     def _fit_Ys_and_Yvars(
-        self, Ys: list[list[float]], Yvars: list[list[float]], outcome_names: list[str]
+        self,
+        Ys: Sequence[Sequence[float]],
+        Yvars: Sequence[Sequence[float]],
+        outcome_names: Sequence[str],
     ) -> tuple[list[list[float]], list[list[float]]]:
         newYs = []
         newYvars = []
         for i, (Y, Yvar) in enumerate(zip(Ys, Yvars)):
-            newY, newYvar = self._apply_shrinkage(Y, Yvar, i)
+            newY, newYvar = self._apply_shrinkage(Y=Y, Yvar=Yvar, outcome=i)
             newYs.append(newY)
             newYvars.append(newYvar)
         return newYs, newYvars
 
     def _apply_shrinkage(
-        self, Y: list[float], Yvar: list[float], outcome: int
+        self, Y: Sequence[float], Yvar: Sequence[float], outcome: int
     ) -> tuple[list[float], list[float]]:
         npY = np.array(Y)
         npYvar = np.array(Yvar)
