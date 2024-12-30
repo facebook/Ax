@@ -16,7 +16,7 @@ from typing import Any, Generic, TypeVar
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from ax.core.data import Data
+from ax.core.data import _filter_df, Data
 from ax.core.types import TMapTrialEvaluation
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
@@ -278,13 +278,14 @@ class MapData(Data):
 
     @property
     def df(self) -> pd.DataFrame:
-        """Returns a Data shaped DataFrame"""
-
-        # If map_keys is empty just return the df
+        """Returns a DataFrame that only contains the last (determined by map keys)
+        observation for each (arm, metric) pair.
+        """
         if self._memo_df is not None:
             return self._memo_df
 
         if len(self.map_keys) == 0:
+            # If map_keys is empty just return the df
             return self.map_df
 
         self._memo_df = self.map_df.sort_values(self.map_keys).drop_duplicates(
@@ -299,8 +300,8 @@ class MapData(Data):
         trial_indices: Iterable[int] | None = None,
         metric_names: Iterable[str] | None = None,
     ) -> MapData:
-        return MapData(
-            df=self._filter_df(
+        return self.__class__(
+            df=_filter_df(
                 df=self.map_df, trial_indices=trial_indices, metric_names=metric_names
             ),
             map_key_infos=self.map_key_infos,
@@ -397,7 +398,7 @@ class MapData(Data):
             map_key = self.map_keys[0]
         subsampled_metric_dfs = []
         for metric_name in self.map_df["metric_name"].unique():
-            metric_map_df = self._filter_df(self.map_df, metric_names=[metric_name])
+            metric_map_df = _filter_df(self.map_df, metric_names=[metric_name])
             subsampled_metric_dfs.append(
                 _subsample_one_metric(
                     metric_map_df,
