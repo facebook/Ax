@@ -109,7 +109,21 @@ class MapData(Data):
         # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Iterable[MapKeyInfo] | None = None,
         description: str | None = None,
+        _skip_ordering_and_validation: bool = False,
     ) -> None:
+        """Initialize a ``MapData`` object from the given DataFrame and MapKeyInfos.
+
+        Args:
+            df: DataFrame with underlying data, and required columns.
+            map_key_infos: A list of MapKeyInfo objects, each of which contains
+                information about the mapping-like structure of the data.
+                See the class docstring for additional information.
+            description: Human-readable description of data.
+            _skip_ordering_and_validation: If True, uses the given DataFrame
+                as is, without ordering its columns or validating its contents.
+                Intended only for use in `MapData.filter`, where the contents
+                of the DataFrame are known to be ordered and valid.
+        """
         if map_key_infos is None and df is not None:
             raise ValueError("map_key_infos may be `None` iff `df` is None.")
 
@@ -120,6 +134,8 @@ class MapData(Data):
             self._map_df = pd.DataFrame(
                 columns=list(self.required_columns().union(self.map_keys))
             )
+        elif _skip_ordering_and_validation:
+            self._map_df = df
         else:
             columns = set(df.columns)
             missing_columns = self.required_columns() - columns
@@ -305,13 +321,16 @@ class MapData(Data):
                 df=self.map_df, trial_indices=trial_indices, metric_names=metric_names
             ),
             map_key_infos=self.map_key_infos,
+            _skip_ordering_and_validation=True,
         )
 
     @classmethod
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         map_data = checked_cast(MapData, obj)
-        properties = serialize_init_args(obj=map_data)
+        properties = serialize_init_args(
+            obj=map_data, exclude_fields=["_skip_ordering_and_validation"]
+        )
         properties["df"] = map_data.map_df
         properties["map_key_infos"] = [
             serialize_init_args(obj=mki) for mki in properties["map_key_infos"]

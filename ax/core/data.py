@@ -75,17 +75,23 @@ class BaseData(Base, SerializationMixin):
         self: TBaseData,
         df: pd.DataFrame | None = None,
         description: str | None = None,
+        _skip_ordering_and_validation: bool = False,
     ) -> None:
-        """Init Data.
+        """Initialize a ``Data`` object from the given DataFrame.
 
         Args:
             df: DataFrame with underlying data, and required columns.
             description: Human-readable description of data.
-
+            _skip_ordering_and_validation: If True, uses the given DataFrame
+                as is, without ordering its columns or validating its contents.
+                Intended only for use in `Data.filter`, where the contents
+                of the DataFrame are known to be ordered and valid.
         """
         if df is None:
             # Initialize with barebones DF.
             self._df = pd.DataFrame(columns=list(self.required_columns()))
+        elif _skip_ordering_and_validation:
+            self._df = df
         else:
             columns = set(df.columns)
             missing_columns = self.required_columns() - columns
@@ -189,7 +195,9 @@ class BaseData(Base, SerializationMixin):
         Used for storage and to help construct new similar Data.
         """
         data = checked_cast(cls, obj)
-        return serialize_init_args(obj=data)
+        return serialize_init_args(
+            obj=data, exclude_fields=["_skip_ordering_and_validation"]
+        )
 
     @classmethod
     def deserialize_init_args(
@@ -495,7 +503,8 @@ class Data(BaseData):
         return self.__class__(
             df=_filter_df(
                 df=self.df, trial_indices=trial_indices, metric_names=metric_names
-            )
+            ),
+            _skip_ordering_and_validation=True,
         )
 
     @classmethod
