@@ -83,8 +83,8 @@ class BaseData(Base, SerializationMixin):
             description: Human-readable description of data.
 
         """
-        # Initialize with barebones DF.
         if df is None:
+            # Initialize with barebones DF.
             self._df = pd.DataFrame(columns=list(self.required_columns()))
         else:
             columns = set(df.columns)
@@ -493,30 +493,10 @@ class Data(BaseData):
         """
 
         return self.__class__(
-            df=self._filter_df(
+            df=_filter_df(
                 df=self.df, trial_indices=trial_indices, metric_names=metric_names
             )
         )
-
-    @staticmethod
-    def _filter_df(
-        df: pd.DataFrame,
-        trial_indices: Iterable[int] | None = None,
-        metric_names: Iterable[str] | None = None,
-    ) -> pd.DataFrame:
-        trial_indices_mask = (
-            df["trial_index"].isin(trial_indices)
-            if trial_indices is not None
-            else pd.Series([True] * len(df))
-        )
-
-        metric_names_mask = (
-            df["metric_name"].isin(metric_names)
-            if metric_names is not None
-            else pd.Series([True] * len(df))
-        )
-
-        return df.loc[trial_indices_mask & metric_names_mask]
 
     @classmethod
     def from_multiple_data(
@@ -615,3 +595,26 @@ def custom_data_class(
             )
 
     return CustomData
+
+
+def _filter_df(
+    df: pd.DataFrame,
+    trial_indices: Iterable[int] | None = None,
+    metric_names: Iterable[str] | None = None,
+) -> pd.DataFrame:
+    """Filter rows of a dataframe by trial indices and metric names."""
+    if trial_indices is not None:
+        # Trial indices is not None, metric names is not yet known.
+        trial_indices_mask = df["trial_index"].isin(trial_indices)
+        if metric_names is None:
+            # If metric names is None, we can filter & return.
+            return df.loc[trial_indices_mask]
+        # Both are given, filter by both.
+        metric_names_mask = df["metric_name"].isin(metric_names)
+        return df.loc[trial_indices_mask & metric_names_mask]
+    if metric_names is not None:
+        # Trial indices is None, metric names is not None.
+        metric_names_mask = df["metric_name"].isin(metric_names)
+        return df.loc[metric_names_mask]
+    # Both are None, return the dataframe as is.
+    return df
