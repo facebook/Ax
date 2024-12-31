@@ -383,6 +383,13 @@ class TrialTest(TestCase):
         self.assertTrue(new_trial.status.is_completed)
         self.assertFalse(self.trial.status.is_completed)
 
+        # check that trial_type is cloned correctly
+        self.assertEqual(new_trial.trial_type, "foo")
+
+        # test clear_trial_type
+        new_trial = self.trial.clone_to(clear_trial_type=True)
+        self.assertIsNone(new_trial.trial_type)
+
     def test_update_trial_status_on_clone(self) -> None:
         for status in [
             TrialStatus.CANDIDATE,

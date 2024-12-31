@@ -568,6 +568,7 @@ class BatchTrial(BaseTrial):
         self,
         experiment: core.experiment.Experiment | None = None,
         include_sq: bool = True,
+        clear_trial_type: bool = False,
     ) -> BatchTrial:
         """Clone the trial and attach it to a specified experiment.
         If None provided, attach it to the current experiment.
@@ -576,6 +577,7 @@ class BatchTrial(BaseTrial):
             experiment: The experiment to which the cloned trial will belong.
                 If unspecified, uses the current experiment.
             include_sq: Whether to include status quo in the cloned trial.
+            clear_trial_type: Whether to clear the trial type of the cloned trial.
 
         Returns:
             A new instance of the trial.
@@ -583,7 +585,8 @@ class BatchTrial(BaseTrial):
         use_old_experiment = experiment is None
         experiment = self._experiment if experiment is None else experiment
         new_trial = experiment.new_batch_trial(
-            trial_type=self._trial_type, ttl_seconds=self._ttl_seconds
+            trial_type=None if clear_trial_type else self._trial_type,
+            ttl_seconds=self._ttl_seconds,
         )
         for struct in self._generator_run_structs:
             if use_old_experiment:
