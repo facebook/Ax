@@ -89,12 +89,11 @@ enumerates use cases.
 from abc import abstractmethod
 from typing import Any
 
+import numpy as np
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
-
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
@@ -198,7 +197,7 @@ class BenchmarkMetricBase(Metric):
             available_data = df[df["virtual runtime"] <= max_t]
 
         if not self.observe_noise_sd:
-            available_data.loc[:, "sem"] = None
+            available_data.loc[:, "sem"] = np.nan
         return self._df_to_result(df=available_data.drop(columns=["virtual runtime"]))
 
     @abstractmethod

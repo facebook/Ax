@@ -5,9 +5,11 @@
 
 # pyre-strict
 
+import math
 from itertools import product
 from unittest.mock import Mock
 
+import numpy as np
 import pandas as pd
 from ax.benchmark.benchmark_metric import (
     _get_no_metadata_msg,
@@ -20,7 +22,6 @@ from ax.benchmark.benchmark_metric import (
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
-
 from ax.core.data import Data
 from ax.core.map_metric import MapMetric
 from ax.core.metric import MetricFetchE
@@ -32,14 +33,20 @@ from ax.utils.testing.core_stubs import get_experiment
 from pyre_extensions import assert_is_instance, none_throws
 
 
-def _get_one_step_df(batch: bool, metric_name: str, step: int) -> pd.DataFrame:
+def _get_one_step_df(
+    batch: bool, metric_name: str, step: int, observe_noise_sd: bool
+) -> pd.DataFrame:
+    if observe_noise_sd:
+        sem = [0.1, 0.0] if batch else [0.1]
+    else:
+        sem = [np.nan, np.nan] if batch else [np.nan]
     if metric_name == "test_metric1":
         return pd.DataFrame(
             {
                 "arm_name": ["0_0", "0_1"] if batch else ["0_0"],
                 "metric_name": metric_name,
                 "mean": [1.0, 2.5] if batch else [1.0],
-                "sem": [0.1, 0.0] if batch else [0.1],
+                "sem": sem,
                 "trial_index": 0,
                 "step": step,
                 "virtual runtime": step,
@@ -50,7 +57,7 @@ def _get_one_step_df(batch: bool, metric_name: str, step: int) -> pd.DataFrame:
             "arm_name": ["0_0", "0_1"] if batch else ["0_0"],
             "metric_name": metric_name,
             "mean": [0.5, 1.5] if batch else [0.5],
-            "sem": [0.1, 0.0] if batch else [0.1],
+            "sem": sem,
             "trial_index": 0,
             "step": step,
             "virtual runtime": step,
@@ -83,7 +90,9 @@ def get_test_trial(
     dfs = {
         name: pd.concat(
             (
-                _get_one_step_df(batch=batch, metric_name=name, step=i)
+                _get_one_step_df(
+                    batch=batch, metric_name=name, step=i, observe_noise_sd=True
+                )
                 for i in range(n_steps)
             )
         )
@@ -113,8 +122,12 @@ class TestBenchmarkMetric(TestCase):
     def setUp(self) -> None:
         self.outcome_names = ["test_metric1", "test_metric2"]
         self.metrics = {
-            name: BenchmarkMetric(name=name, lower_is_better=True)
-            for name in self.outcome_names
+            name: BenchmarkMetric(
+                name=name, lower_is_better=True, observe_noise_sd=observe_noise_sd
+            )
+            for name, observe_noise_sd in zip(
+                self.outcome_names, (False, True), strict=True
+            )
         }
         self.tv_metrics = {
             name: BenchmarkTimeVaryingMetric(name=name, lower_is_better=True)
@@ -197,11 +210,22 @@ class TestBenchmarkMetric(TestCase):
         df1 = assert_is_instance(metric.fetch_trial_data(trial=trial).value, Data).df
         self.assertEqual(len(df1), len(trial.arms))
         expected_results = _get_one_step_df(
-            batch=batch, metric_name=metric.name, step=0
+            batch=batch,
+            metric_name=metric.name,
+            step=0,
+            observe_noise_sd=metric.observe_noise_sd,
         ).drop(columns=["virtual runtime"])
         if not isinstance(metric, MapMetric):
             expected_results = expected_results.drop(columns=["step"])
-        self.assertDictEqual(df1.to_dict(), expected_results.to_dict())
+        df1_dict = df1.to_dict()
+        expected_dict = expected_results.to_dict()
+        # Compare SEM separately since NaN equality fails.
+        sem, expected_sem = df1_dict.pop("sem"), expected_dict.pop("sem")
+        try:
+            self.assertEqual(sem, expected_sem)
+        except AssertionError:
+            self.assertTrue(all(math.isnan(s) for s in sem.values()))
+        self.assertDictEqual(df1_dict, expected_dict)
 
     def test_fetch_trial_data_one_time_step(self) -> None:
         for batch, metrics in product(
@@ -261,7 +285,10 @@ class TestBenchmarkMetric(TestCase):
                 drop_cols += ["step"]
 
             expected_df = _get_one_step_df(
-                batch=batch, metric_name=metric_name, step=0
+                batch=batch,
+                metric_name=metric_name,
+                step=0,
+                observe_noise_sd=metric.observe_noise_sd,
             ).drop(columns=drop_cols)
             if returns_full_data:
                 self.assertEqual(
@@ -296,7 +323,10 @@ class TestBenchmarkMetric(TestCase):
             df = data.df
             self.assertEqual(len(df), len(trial.arms))
             expected_df = _get_one_step_df(
-                batch=batch, metric_name=metric_name, step=1
+                batch=batch,
+                metric_name=metric_name,
+                step=1,
+                observe_noise_sd=metric.observe_noise_sd,
             ).drop(columns=drop_cols)
             self.assertEqual(df.reset_index(drop=True).to_dict(), expected_df.to_dict())
 
