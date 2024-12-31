@@ -8,6 +8,7 @@
 
 import itertools
 import logging
+from collections.abc import Sequence
 from functools import reduce
 from operator import mul
 
@@ -48,14 +49,15 @@ class FullFactorialGenerator(DiscreteModel):
         self.check_cardinality = check_cardinality
 
     @copy_doc(DiscreteModel.gen)
+    # pyre-fixme[15]: Inconsistent override in return
     def gen(
         self,
         n: int,
-        parameter_values: list[TParamValueList],
+        parameter_values: Sequence[Sequence[TParamValue]],
         objective_weights: npt.NDArray | None,
         outcome_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, TParamValue] | None = None,
-        pending_observations: list[list[TParamValueList]] | None = None,
+        pending_observations: Sequence[Sequence[Sequence[TParamValue]]] | None = None,
         model_gen_options: TConfig | None = None,
     ) -> tuple[list[TParamValueList], list[float], TGenMetadata]:
         if n != -1:
@@ -66,6 +68,8 @@ class FullFactorialGenerator(DiscreteModel):
             )
 
         if fixed_features:
+            # Make a copy so as to not mutate it
+            parameter_values = list(parameter_values)
             for fixed_feature_index, fixed_feature_value in fixed_features.items():
                 parameter_values[fixed_feature_index] = [fixed_feature_value]
 

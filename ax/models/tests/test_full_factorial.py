@@ -20,8 +20,6 @@ class FullFactorialGeneratorTest(TestCase):
         parameter_values = [[1, 2], ["foo", "bar"]]
         generated_points, weights, _ = generator.gen(
             n=-1,
-            # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
-            #  float, int, str]]]` but got `List[Union[List[int], List[str]]]`.
             parameter_values=parameter_values,
             objective_weights=np.ones(1),
         )
@@ -36,9 +34,6 @@ class FullFactorialGeneratorTest(TestCase):
         with self.assertRaises(ValueError):
             generated_points, weights, _ = generator.gen(
                 n=-1,
-                # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
-                #  float, int, str]]]` but got `List[Union[List[bool], List[int],
-                #  List[str]]]`.
                 parameter_values=parameter_values,
                 objective_weights=np.ones(1),
             )
@@ -51,8 +46,6 @@ class FullFactorialGeneratorTest(TestCase):
         ) as logger:
             generated_points, weights, _ = generator.gen(
                 n=5,
-                # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
-                #  float, int, str]]]` but got `List[Union[List[int], List[str]]]`.
                 parameter_values=parameter_values,
                 objective_weights=np.ones(1),
             )
@@ -67,8 +60,6 @@ class FullFactorialGeneratorTest(TestCase):
         parameter_values = [[1, 2], ["foo", "bar"]]
         generated_points, weights, _ = generator.gen(
             n=-1,
-            # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
-            #  float, int, str]]]` but got `List[Union[List[int], List[str]]]`.
             parameter_values=parameter_values,
             objective_weights=np.ones(1),
             fixed_features={1: "foo"},
