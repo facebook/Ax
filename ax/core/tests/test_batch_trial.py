@@ -453,6 +453,9 @@ class BatchTrialTest(TestCase):
         self.assertEqual(new_batch_trial_0, batch)
         self.assertEqual(new_batch_trial_1, batch)
 
+        # check that trial_type is cloned correctly
+        self.assertEqual(new_batch_trial_0.trial_type, "foo")
+
         # make sure modifying the cloned batch trial does not affect original one
         new_batch_trial_1.add_arm(
             Arm(name="new_arm", parameters={"w": 2.6, "x": 2, "y": "baz", "z": True})
@@ -472,6 +475,9 @@ class BatchTrialTest(TestCase):
         new_batch_trial._index = batch.index
         new_batch_trial._time_created = batch._time_created
         self.assertEqual(new_batch_trial, batch)
+        # test cloning with clear_trial_type=True
+        new_batch_trial = batch.clone_to(clear_trial_type=True)
+        self.assertIsNone(new_batch_trial.trial_type)
 
     def test_Runner(self) -> None:
         # Verify BatchTrial without runner will fail

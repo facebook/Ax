@@ -1157,6 +1157,20 @@ class ExperimentTest(TestCase):
         cloned_experiment._time_created = experiment._time_created
         self.assertEqual(cloned_experiment, experiment)
 
+        # test clear_trial_type
+        experiment = get_branin_experiment(
+            with_batch=True,
+            num_batch_trial=1,
+            with_completed_batch=True,
+        )
+        experiment.trials[0]._trial_type = "foo"
+        with self.assertRaisesRegex(
+            ValueError, "Experiment does not support trial_type foo."
+        ):
+            experiment.clone_with()
+        cloned_experiment = experiment.clone_with(clear_trial_type=True)
+        self.assertIsNone(cloned_experiment.trials[0].trial_type)
+
     def test_metric_summary_df(self) -> None:
         experiment = Experiment(
             name="test_experiment",

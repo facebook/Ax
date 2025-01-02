@@ -1644,6 +1644,7 @@ class Experiment(Base):
         properties: dict[str, Any] | None = None,
         trial_indices: list[int] | None = None,
         data: Data | None = None,
+        clear_trial_type: bool = False,
     ) -> Experiment:
         r"""
         Return a copy of this experiment with some attributes replaced.
@@ -1673,6 +1674,8 @@ class Experiment(Base):
             data: If specified, attach this data to the cloned experiment. If None,
                 clones the latest data attached to the original experiment if
                 the experiment has any data.
+            clear_trial_type: If True, all cloned trials on the cloned experiment have
+                `trial_type` set to `None`.
         """
         search_space = (
             self.search_space.clone() if (search_space is None) else search_space
@@ -1739,7 +1742,9 @@ class Experiment(Base):
         for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
             trial = self.trials[trial_index]
             if isinstance(trial, BatchTrial) or isinstance(trial, Trial):
-                new_trial = trial.clone_to(cloned_experiment)
+                new_trial = trial.clone_to(
+                    cloned_experiment, clear_trial_type=clear_trial_type
+                )
                 new_index = new_trial.index
                 trial_data, timestamp = self.lookup_data_for_trial(trial_index)
                 # Clone the data to avoid overwriting the original in the DB.
