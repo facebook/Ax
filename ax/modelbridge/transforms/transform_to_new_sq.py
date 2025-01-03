@@ -19,6 +19,7 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.utils import get_target_trial_index
 from ax.modelbridge.transforms.relativize import BaseRelativize, get_metric_index
 from ax.models.types import TConfig
 from ax.utils.common.typeutils import checked_cast
@@ -59,23 +60,23 @@ class TransformToNewSQ(BaseRelativize):
         self._status_quo_name: str = none_throws(
             none_throws(modelbridge).status_quo_name
         )
-        if config is not None:
-            target_trial_index = config.get("target_trial_index")
-            if target_trial_index is not None:
-                self.default_trial_idx: int = checked_cast(int, target_trial_index)
 
-            trial_indices = {}
-            if observations is not None:
-                trial_indices = {
-                    obs.features.trial_index
-                    for obs in observations
-                    if obs.features.trial_index is not None
-                }
-            # in case no target trial index is provided or the provided target
-            # trial index is not a part of any trial from the observations,
-            # use the smallest trial index from the observations
-            if len(trial_indices) > 0 and (target_trial_index not in trial_indices):
-                self.default_trial_idx = min(trial_indices)
+        target_trial_index = None
+
+        if config is not None:
+            target_trial_index = config.get("target_trial_index", None)
+
+        if (
+            target_trial_index is None
+            and modelbridge is not None
+            and modelbridge._experiment is not None
+        ):
+            target_trial_index = get_target_trial_index(
+                experiment=modelbridge._experiment
+            )
+
+        if target_trial_index is not None:
+            self.default_trial_idx: int = checked_cast(int, target_trial_index)
 
     @property
     def control_as_constant(self) -> bool:

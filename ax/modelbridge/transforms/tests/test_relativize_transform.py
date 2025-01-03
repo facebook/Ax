@@ -277,6 +277,7 @@ class RelativizeDataTest(TestCase):
             ),
             status_quo_name=arm_names[2],
             status_quo_data_by_trial={0: obs_data[0], 1: obs_data[2]},
+            _experiment=None,
         )
 
         for relativize_cls, expected_mean_and_covar in self.cases:

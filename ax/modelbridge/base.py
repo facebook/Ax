@@ -190,6 +190,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             experiment is not None and experiment.immutable_search_space_and_opt_config
         )
         self._experiment_properties: dict[str, Any] = {}
+        self._experiment: Experiment | None = experiment
 
         if experiment is not None:
             if self._optimization_config is None:

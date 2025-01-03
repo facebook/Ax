@@ -6,6 +6,8 @@
 # pyre-strict
 
 
+from unittest import mock
+
 import numpy as np
 import numpy.typing as npt
 from ax.core.batch_trial import BatchTrial
@@ -149,11 +151,6 @@ class TransformToNewSQSpecificTest(TestCase):
             experiment=self.exp,
             data=self.exp.lookup_data(),
         )
-        trial_indices = {
-            obs.features.trial_index
-            for obs in observations
-            if obs.features.trial_index is not None
-        }
 
         t = TransformToNewSQ(
             search_space=self.exp.search_space,
@@ -161,4 +158,16 @@ class TransformToNewSQSpecificTest(TestCase):
             modelbridge=self.modelbridge,
         )
 
-        self.assertEqual(t.default_trial_idx, min(trial_indices))
+        self.assertEqual(t.default_trial_idx, 1)
+
+        with mock.patch(
+            "ax.modelbridge.transforms.transform_to_new_sq.get_target_trial_index",
+            return_value=10,
+        ):
+            t = TransformToNewSQ(
+                search_space=self.exp.search_space,
+                observations=observations,
+                modelbridge=self.modelbridge,
+            )
+
+        self.assertEqual(t.default_trial_idx, 10)
