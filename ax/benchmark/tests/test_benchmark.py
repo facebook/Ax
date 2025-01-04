@@ -5,8 +5,10 @@
 
 # pyre-strict
 
+import logging
 import tempfile
 from itertools import product
+from logging import WARNING
 from math import pi
 from time import monotonic
 from unittest.mock import patch
@@ -52,6 +54,7 @@ from ax.modelbridge.registry import Models
 from ax.service.utils.scheduler_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
+from ax.utils.common.logger import get_logger
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
@@ -101,7 +104,6 @@ class TestBenchmark(TestCase):
                     },
                     num_sobol_trials=1,
                 )
-                # this is generating more calls to optimize_acqf than expected
                 with patch(
                     "ax.models.torch.botorch_modular.acquisition.optimize_acqf",
                     wraps=optimize_acqf,
@@ -654,11 +656,11 @@ class TestBenchmark(TestCase):
 
     def test_benchmark_one_method_problem(self) -> None:
         problem = get_single_objective_benchmark_problem()
-        agg = benchmark_one_method_problem(
-            problem=problem,
-            method=get_sobol_benchmark_method(distribute_replications=False),
-            seeds=(0, 1),
-        )
+        method = get_sobol_benchmark_method(distribute_replications=False)
+        with self.assertNoLogs(level="INFO"):
+            agg = benchmark_one_method_problem(
+                problem=problem, method=method, seeds=(0, 1)
+            )
 
         self.assertEqual(len(agg.results), 2)
         self.assertTrue(
@@ -674,18 +676,22 @@ class TestBenchmark(TestCase):
 
     @mock_botorch_optimize
     def test_benchmark_multiple_problems_methods(self) -> None:
-        aggs = benchmark_multiple_problems_methods(
-            problems=[get_single_objective_benchmark_problem(num_trials=6)],
-            methods=[
-                get_sobol_benchmark_method(distribute_replications=False),
-                get_sobol_botorch_modular_acquisition(
-                    model_cls=SingleTaskGP,
-                    acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
-                ),
-            ],
-            seeds=(0, 1),
-        )
+        problems = [get_single_objective_benchmark_problem(num_trials=6)]
+        methods = [
+            get_sobol_benchmark_method(distribute_replications=False),
+            get_sobol_botorch_modular_acquisition(
+                model_cls=SingleTaskGP,
+                acquisition_cls=qLogNoisyExpectedImprovement,
+                distribute_replications=False,
+            ),
+        ]
+        with self.assertNoLogs(level="INFO"):
+            aggs = benchmark_multiple_problems_methods(
+                problems=problems,
+                methods=methods,
+                seeds=(0, 1),
+                scheduler_logging_level=WARNING,
+            )
 
         self.assertEqual(len(aggs), 2)
         for agg in aggs:
@@ -700,16 +706,13 @@ class TestBenchmark(TestCase):
             baseline_value=100,
         )
 
-        generation_strategy = get_sobol_botorch_modular_acquisition(
+        generation_strategy = get_sobol_mbm_generation_strategy(
             model_cls=SingleTaskGP,
             acquisition_cls=qLogNoisyExpectedImprovement,
-            distribute_replications=False,
             num_sobol_trials=1000,  # Ensures we don't use BO
-        ).generation_strategy
-
+        )
         timeout_seconds = 2.0
         method = BenchmarkMethod(
-            name=generation_strategy.name,
             generation_strategy=generation_strategy,
             timeout_hours=timeout_seconds / 3600,
         )
@@ -748,8 +751,11 @@ class TestBenchmark(TestCase):
             ),
         )
         problem = get_single_objective_benchmark_problem()
-        res = benchmark_replication(problem=problem, method=method, seed=0)
+        with self.assertNoLogs(logger=get_logger("ax.core.experiment"), level="INFO"):
+            res = benchmark_replication(problem=problem, method=method, seed=0)
 
+        # Check that logger level has been reset
+        self.assertEqual(get_logger("ax.core.experiment").level, logging.INFO)
         self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
         self.assertFalse(np.isnan(res.score_trace).any())
 
