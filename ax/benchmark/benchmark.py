@@ -19,9 +19,10 @@ Key terms used:
 
 """
 
+import warnings
 from collections.abc import Iterable, Mapping
 from itertools import product
-from logging import Logger
+from logging import Logger, WARNING
 from time import monotonic, time
 from typing import Set
 
@@ -44,7 +45,7 @@ from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
-from ax.utils.common.logger import get_logger
+from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
 
 logger: Logger = get_logger(__name__)
@@ -142,6 +143,12 @@ def get_oracle_experiment_from_params(
 
     runner = BenchmarkRunner(test_function=problem.test_function, noise_std=0.0)
 
+    # Silence INFO logs from ax.core.experiment that state "Attached custom
+    # parameterizations"
+    logger = get_logger("ax.core.experiment")
+    original_log_level = logger.level
+    logger.setLevel(level="WARNING")
+
     for trial_index, dict_of_params in dict_of_dict_of_params.items():
         if len(dict_of_params) == 0:
             raise ValueError(
@@ -159,6 +166,8 @@ def get_oracle_experiment_from_params(
         metadata = runner.run(trial=trial)
         trial.update_run_metadata(metadata=metadata)
         trial.mark_completed()
+
+    logger.setLevel(level=original_log_level)
 
     experiment.fetch_data()
     return experiment
@@ -184,6 +193,7 @@ def get_oracle_experiment_from_experiment(
 def get_benchmark_scheduler_options(
     method: BenchmarkMethod,
     include_sq: bool = False,
+    logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> SchedulerOptions:
     """
     Get the ``SchedulerOptions`` for the given ``BenchmarkMethod``.
@@ -212,6 +222,7 @@ def get_benchmark_scheduler_options(
         run_trials_in_batches=method.run_trials_in_batches,
         early_stopping_strategy=method.early_stopping_strategy,
         status_quo_weight=1.0 if include_sq else 0.0,
+        logging_level=logging_level,
     )
 
 
@@ -220,6 +231,7 @@ def benchmark_replication(
     method: BenchmarkMethod,
     seed: int,
     strip_runner_before_saving: bool = True,
+    scheduler_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> BenchmarkResult:
     """
     Run one benchmarking replication (equivalent to one optimization loop).
@@ -248,6 +260,7 @@ def benchmark_replication(
     scheduler_options = get_benchmark_scheduler_options(
         method=method,
         include_sq=sq_arm is not None,
+        logging_level=scheduler_logging_level,
     )
     runner = get_benchmark_runner(
         problem=problem,
@@ -277,7 +290,14 @@ def benchmark_replication(
     # Run the optimization loop.
     timeout_hours = method.timeout_hours
     remaining_hours = timeout_hours
-    with with_rng_seed(seed=seed):
+
+    with with_rng_seed(seed=seed), warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="Encountered exception in computing model fit quality",
+            category=UserWarning,
+            module="ax.modelbridge.cross_validation",
+        )
         start = monotonic()
         # These next several lines do the same thing as `run_n_trials`, but
         # decrement the timeout with each step, so that the timeout refers to
@@ -304,7 +324,11 @@ def benchmark_replication(
             currently_completed_trials = {
                 t.index
                 for t in experiment.trials.values()
-                if t.status in (TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED)
+                if t.status
+                in (
+                    TrialStatus.COMPLETED,
+                    TrialStatus.EARLY_STOPPED,
+                )
             }
             newly_completed_trials = (
                 currently_completed_trials - trials_used_for_best_point
@@ -430,7 +454,12 @@ def compute_baseline_value_from_sobol(
 
     values = np.full(n_repeats, np.nan)
     for i in range(n_repeats):
-        result = benchmark_replication(problem=dummy_problem, method=method, seed=i)
+        result = benchmark_replication(
+            problem=dummy_problem,
+            method=method,
+            seed=i,
+            scheduler_logging_level=WARNING,
+        )
         values[i] = result.optimization_trace[-1]
 
     return values.mean()
@@ -440,10 +469,16 @@ def benchmark_one_method_problem(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seeds: Iterable[int],
+    scheduler_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> AggregatedBenchmarkResult:
     return AggregatedBenchmarkResult.from_benchmark_results(
         results=[
-            benchmark_replication(problem=problem, method=method, seed=seed)
+            benchmark_replication(
+                problem=problem,
+                method=method,
+                seed=seed,
+                scheduler_logging_level=scheduler_logging_level,
+            )
             for seed in seeds
         ]
     )
@@ -453,6 +488,7 @@ def benchmark_multiple_problems_methods(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
     seeds: Iterable[int],
+    scheduler_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> list[AggregatedBenchmarkResult]:
     """
     For each `problem` and `method` in the Cartesian product of `problems` and
@@ -461,6 +497,11 @@ def benchmark_multiple_problems_methods(
     `AggregatedBenchmarkResult`.
     """
     return [
-        benchmark_one_method_problem(problem=p, method=m, seeds=seeds)
+        benchmark_one_method_problem(
+            problem=p,
+            method=m,
+            seeds=seeds,
+            scheduler_logging_level=scheduler_logging_level,
+        )
         for p, m in product(problems, methods)
     ]
