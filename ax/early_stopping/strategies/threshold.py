@@ -25,7 +25,6 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def __init__(
         self,
         metric_names: Iterable[str] | None = None,
-        seconds_between_polls: int = 300,
         metric_threshold: float = 0.2,
         min_progression: float | None = 10,
         max_progression: float | None = None,
@@ -39,8 +38,6 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             metric_names: A (length-one) list of name of the metric to observe. If
                 None will default to the objective metric on the Experiment's
                 OptimizationConfig.
-            seconds_between_polls: How often to poll the early stopping metric to
-                evaluate whether or not the trial should be early stopped.
             metric_threshold: The metric threshold that a trial needs to reach by
                 min_progression in order not to be stopped.
             min_progression: Only stop trials if the latest progression value
@@ -64,7 +61,6 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """
         super().__init__(
             metric_names=metric_names,
-            seconds_between_polls=seconds_between_polls,
             min_progression=min_progression,
             max_progression=max_progression,
             min_curves=min_curves,

@@ -13,7 +13,6 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.benchmark.methods.sobol import get_sobol_generation_strategy
 from ax.core.experiment import Experiment
-from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.utils.common.testutils import TestCase
 from pyre_extensions import none_throws
 
@@ -43,14 +42,6 @@ class TestBenchmarkMethod(TestCase):
                 none_throws(node.model_spec_to_gen_from.model_kwargs).get(
                     "fit_tracking_metrics"
                 )
-            )
-
-    def test_raises_when_ess_polls_with_delay(self) -> None:
-        ess = ThresholdEarlyStoppingStrategy(seconds_between_polls=10)
-        with self.assertWarnsRegex(Warning, "seconds_between_polls"):
-            BenchmarkMethod(
-                generation_strategy=self.gs,
-                early_stopping_strategy=ess,
             )
 
     def test_get_best_parameters(self) -> None:

@@ -575,8 +575,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
         timeout_hours: float | None = None,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Callable[[Scheduler], Any] | None = None,
+        idle_callback: Optional[Callable[[Scheduler], None]] = None,
     ) -> OptimizationResult:
         """Run up to ``max_trials`` trials; will run all ``max_trials`` unless
         completion criterion is reached. For base ``Scheduler``, completion criterion
@@ -625,8 +624,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def run_all_trials(
         self,
         timeout_hours: float | None = None,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Callable[[Scheduler], Any] | None = None,
+        idle_callback: Optional[Callable[[Scheduler], None]] = None,
     ) -> OptimizationResult:
         """Run all trials until ``should_consider_optimization_complete`` yields
         true (by default, ``should_consider_optimization_complete`` will yield true when
@@ -874,36 +872,15 @@ class Scheduler(AnalysisBase, BestPointMixin):
             dict. The contents of the dict depend on the implementation of
             `report_results` in the given `Scheduler` subclass.
         """
-        if (
-            self.options.init_seconds_between_polls is None
-            and self.options.early_stopping_strategy is None
-        ):
+        if self.options.init_seconds_between_polls is None:
             raise ValueError(
                 "Default `wait_for_completed_trials_and_report_results` in base "
                 "`Scheduler` relies on non-null `init_seconds_between_polls` scheduler "
-                "option or for an EarlyStoppingStrategy to be specified."
-            )
-        elif (
-            self.options.init_seconds_between_polls is not None
-            and self.options.early_stopping_strategy is not None
-        ):
-            self.logger.warning(
-                "Both `init_seconds_between_polls` and `early_stopping_strategy "
-                "supplied. `init_seconds_between_polls="
-                f"{self.options.init_seconds_between_polls}` will be overrridden by "
-                "`early_stopping_strategy.seconds_between_polls="
-                f"{self.options.early_stopping_strategy.seconds_between_polls}` and "
-                "polling will take place at a constant rate."
+                "option."
             )
 
         seconds_between_polls = self.options.init_seconds_between_polls
         backoff_factor = self.options.seconds_between_polls_backoff_factor
-        if self.options.early_stopping_strategy is not None:
-            seconds_between_polls = (
-                self.options.early_stopping_strategy.seconds_between_polls
-            )
-            # Do not backoff with early stopping, a constant heartbeat is preferred
-            backoff_factor = 1
 
         total_seconds_elapsed = 0
         while len(self.pending_trials) > 0 and not self.poll_and_process_results():
@@ -912,7 +889,13 @@ class Scheduler(AnalysisBase, BestPointMixin):
                 # criterion again and and re-attempt scheduling more trials.
 
             if idle_callback is not None:
-                idle_callback(self)
+                try:
+                    idle_callback(self)
+                except Exception as e:
+                    self.logger.warning(
+                        f"Exception raised in ``idle_callback``: {e}. "
+                        "Continuing to poll for completed trials."
+                    )
 
             log_seconds = (
                 int(seconds_between_polls)
@@ -1558,8 +1541,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def _complete_optimization(
         self,
         num_preexisting_trials: int,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Callable[[Scheduler], Any] | None = None,
+        idle_callback: Optional[Callable[[Scheduler], None]] = None,
     ) -> dict[str, Any]:
         """Conclude optimization with waiting for anymore running trials and
         return final results via `wait_for_completed_trials_and_report_results`.

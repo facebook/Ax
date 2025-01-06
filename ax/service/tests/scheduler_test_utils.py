@@ -1479,9 +1479,7 @@ class AxSchedulerTestCase(TestCase):
             generation_strategy=gs,
             options=SchedulerOptions(
                 init_seconds_between_polls=0,
-                early_stopping_strategy=OddIndexEarlyStoppingStrategy(
-                    seconds_between_polls=1
-                ),
+                early_stopping_strategy=OddIndexEarlyStoppingStrategy(),
                 fetch_kwargs={
                     "overwrite_existing_data": False,
                 },
@@ -2933,3 +2931,16 @@ class AxSchedulerTestCase(TestCase):
         self.assertEqual(
             scheduler.markdown_messages["Generation strategy"].priority, 10
         )
+
+    def test_seconds_between_polls_backoff_factor_is_set(self) -> None:
+        options = SchedulerOptions(
+            **self.scheduler_options_kwargs,
+        )
+
+        self.assertEqual(options.seconds_between_polls_backoff_factor, 1.5)
+
+        options_with_ess = SchedulerOptions(
+            early_stopping_strategy=DummyEarlyStoppingStrategy(),
+            **self.scheduler_options_kwargs,
+        )
+        self.assertEqual(options_with_ess.seconds_between_polls_backoff_factor, 1.0)
