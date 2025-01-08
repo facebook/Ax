@@ -40,17 +40,16 @@ class BenchmarkResult(Base):
             Oracle values are typically ground-truth (rather than noisy) and
             evaluated at the target task and fidelity.
         inference_trace: Inference trace comes from choosing a "best" point
-            based only on data that would be observable in realistic settings
-            and then evaluating the oracle value of that point. For
-            multi-objective problems, we find a Pareto set and evaluate its
-            hypervolume.
+            based only on data that would be observable in realistic settings,
+            as specified by `BenchmarkMethod.get_best_parameters`,
+            and then evaluating the oracle value of that point according to the
+            problem's `OptimizationConfig`. For multi-objective problems, the
+            hypervolume of a set of points is considered.
 
-            There are several ways of specifying the "best" point: One could
-            pick the point with the best observed value, or the point with the
-            best model prediction, and could consider the whole search space,
-            the set of trials completed so far, etc. How the inference trace is
-            computed is specified by a best-point selector, which is an
-            attribute of the `BenchmarkMethod`.
+            By default, if it is not overridden,
+            `BenchmarkMethod.get_best_parameters` uses the empirical best point
+            if `use_model_predictions_for_best_point` is False and the best
+            point of those evaluated so far if it is True.
 
             Note: This is not "inference regret", which is a lower-is-better value
             that is relative to the best possible value. The inference value
