@@ -53,7 +53,7 @@ from ax.utils.testing.core_stubs import (
     get_search_space_for_range_values,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
-from ax.utils.testing.modeling_stubs import get_observation1, transform_1, transform_2
+from ax.utils.testing.modeling_stubs import transform_1, transform_2
 from botorch.utils.datasets import (
     ContextualDataset,
     MultiTaskDataset,
@@ -428,44 +428,13 @@ class TorchModelBridgeTest(TestCase):
             )
         )
 
-    @mock.patch(
-        f"{ModelBridge.__module__}.unwrap_observation_data",
-        autospec=True,
-        return_value=(2, 2),
-    )
-    @mock.patch(
-        f"{ModelBridge.__module__}.gen_arms",
-        autospec=True,
-        return_value=([Arm(parameters={})], {}),
-    )
-    @mock.patch(
-        f"{ModelBridge.__module__}.ModelBridge.predict",
-        autospec=True,
-        return_value=({"m": [1.0]}, {"m": {"m": [2.0]}}),
-    )
-    @mock.patch(f"{TorchModelBridge.__module__}.TorchModelBridge._fit", autospec=True)
-    @mock.patch(
-        f"{TorchModel.__module__}.TorchModel.gen",
-        return_value=TorchGenResults(
-            points=torch.tensor([[1]]),
-            weights=torch.tensor([1.0]),
-        ),
-        autospec=True,
-    )
-    def test_best_point(
-        self,
-        _mock_gen,
-        _mock_fit,
-        _mock_predict,
-        _mock_gen_arms,
-        _mock_unwrap,
-    ) -> None:
-        exp = Experiment(search_space=get_search_space_for_range_value(), name="test")
+    def test_best_point(self) -> None:
+        search_space = get_search_space_for_range_value()
+        exp = Experiment(search_space=search_space, name="test")
         oc = OptimizationConfig(
             objective=Objective(metric=Metric("a"), minimize=False),
             outcome_constraints=[],
         )
-        search_space = get_search_space_for_range_value()
         modelbridge = TorchModelBridge(
             search_space=search_space,
             model=TorchModel(),
@@ -484,25 +453,40 @@ class TorchModelBridgeTest(TestCase):
         modelbridge.parameters = list(search_space.parameters.keys())
         modelbridge.outcomes = ["a"]
 
+        mean = 1.0
+        cov = 2.0
+        predict_return_value = ({"m": [mean]}, {"m": {"m": [cov]}})
+        best_point_value = 25
+        gen_return_value = TorchGenResults(
+            points=torch.tensor([[1.0]]), weights=torch.tensor([1.0])
+        )
         with mock.patch(
             f"{TorchModel.__module__}.TorchModel.best_point",
-            return_value=torch.tensor([1.0]),
+            return_value=torch.tensor([best_point_value]),
             autospec=True,
-        ):
-            run = modelbridge.gen(n=1, optimization_config=oc)
-            arm, predictions = none_throws(run.best_arm_predictions)
-            model_arm, model_predictions = none_throws(modelbridge.model_best_point())
-            predictions = none_throws(predictions)
-            model_predictions = none_throws(model_predictions)
-        self.assertEqual(arm.parameters, {})
-        self.assertEqual(predictions[0], {"m": 1.0})
-        self.assertEqual(predictions[1], {"m": {"m": 2.0}})
-        self.assertEqual(model_predictions[0], {"m": 1.0})
-        self.assertEqual(model_predictions[1], {"m": {"m": 2.0}})
+        ), mock.patch.object(modelbridge, "predict", return_value=predict_return_value):
+            with mock.patch.object(
+                modelbridge.model, "gen", return_value=gen_return_value
+            ):
+                run = modelbridge.gen(n=1, optimization_config=oc)
+
+            _, model_predictions = none_throws(modelbridge.model_best_point())
+
+        arm, predictions = none_throws(run.best_arm_predictions)
+        predictions = none_throws(predictions)
+        model_predictions = none_throws(model_predictions)
+        # The transforms add one and square, and need to be reversed
+        self.assertEqual(arm.parameters, {"x": (best_point_value**0.5) - 1})
+        # Gets clamped to the search space
+        self.assertEqual(run.arms[0].parameters, {"x": 3.0})
+        self.assertEqual(predictions[0], {"m": mean})
+        self.assertEqual(predictions[1], {"m": {"m": cov}})
+        self.assertEqual(model_predictions[0], {"m": mean})
+        self.assertEqual(model_predictions[1], {"m": {"m": cov}})
 
         # test optimization config validation - raise error when
         # ScalarizedOutcomeConstraint contains a metric that is not in the outcomes
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "is a relative constraint."):
             modelbridge.gen(
                 n=1,
                 optimization_config=OptimizationConfig(
