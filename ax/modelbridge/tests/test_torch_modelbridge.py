@@ -223,6 +223,7 @@ class TorchModelBridgeTest(TestCase):
             weights=torch.tensor([1.0], **tkwargs),
             gen_metadata={"foo": 99},
         )
+        model.best_point.return_value = torch.tensor([1.0, 2.0, 3.0], **tkwargs)
         opt_config = OptimizationConfig(
             objective=Objective(metric=Metric("y1"), minimize=False),
         )
@@ -428,11 +429,6 @@ class TorchModelBridgeTest(TestCase):
         )
 
     @mock.patch(
-        f"{ModelBridge.__module__}.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1()]),
-    )
-    @mock.patch(
         f"{ModelBridge.__module__}.unwrap_observation_data",
         autospec=True,
         return_value=(2, 2),
@@ -451,7 +447,7 @@ class TorchModelBridgeTest(TestCase):
     @mock.patch(
         f"{TorchModel.__module__}.TorchModel.gen",
         return_value=TorchGenResults(
-            points=torch.tensor([[1, 2]]),
+            points=torch.tensor([[1]]),
             weights=torch.tensor([1.0]),
         ),
         autospec=True,
@@ -463,7 +459,6 @@ class TorchModelBridgeTest(TestCase):
         _mock_predict,
         _mock_gen_arms,
         _mock_unwrap,
-        _mock_obs_from_data,
     ) -> None:
         exp = Experiment(search_space=get_search_space_for_range_value(), name="test")
         oc = OptimizationConfig(
@@ -491,7 +486,7 @@ class TorchModelBridgeTest(TestCase):
 
         with mock.patch(
             f"{TorchModel.__module__}.TorchModel.best_point",
-            return_value=torch.tensor([1.0, 2.0]),
+            return_value=torch.tensor([1.0]),
             autospec=True,
         ):
             run = modelbridge.gen(n=1, optimization_config=oc)
@@ -871,7 +866,7 @@ class TorchModelBridgeTest(TestCase):
             },
         ):
             gen_return_value = TorchGenResults(
-                points=torch.tensor([[1.0, 2.0, 3.0]]),
+                points=torch.tensor([[1.0, 2.0]]),
                 weights=torch.tensor([1.0]),
                 gen_metadata={Keys.EXPECTED_ACQF_VAL: [1.0], **additional_metadata},
             )
