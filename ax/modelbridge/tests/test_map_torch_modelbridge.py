@@ -71,7 +71,7 @@ class MapTorchModelBridgeTest(TestCase):
         # Test _gen
         model = mock.MagicMock(TorchModel, autospec=True, instance=True)
         model.gen.return_value = TorchGenResults(
-            points=torch.tensor([[0.0, 0.0]]),
+            points=torch.tensor([[0.0, 0.0, 0.0]]),
             weights=torch.tensor([1.0]),
             gen_metadata={},
         )
@@ -79,6 +79,7 @@ class MapTorchModelBridgeTest(TestCase):
             torch.tensor([[0.0, 0.0]]),
             torch.tensor([[[1.0, 0.0], [0.0, 1.0]]]),
         )
+        model.best_point.return_value = torch.tensor([0.0, 0.0])
         modelbridge.model = model
         gen_results = modelbridge._gen(
             n=1,
@@ -93,7 +94,8 @@ class MapTorchModelBridgeTest(TestCase):
             {"map_dim_to_target": {2: 4.0}},
         )
         self.assertEqual(
-            gen_results.observation_features[0].parameters, {"x1": 0.0, "x2": 0.0}
+            gen_results.observation_features[0].parameters,
+            {"x1": 0.0, "x2": 0.0, "timestamp": 0.0},
         )
 
         # Test _predict

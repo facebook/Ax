@@ -614,7 +614,7 @@ def parse_observation_features(
     for i, x in enumerate(X):
         observation_features.append(
             ObservationFeatures(
-                parameters=dict(zip(param_names, x)),
+                parameters=dict(zip(param_names, x, strict=True)),
                 metadata=candidate_metadata[i] if candidate_metadata else None,
             )
         )

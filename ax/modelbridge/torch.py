@@ -736,7 +736,9 @@ class TorchModelBridge(ModelBridge):
         best_obsf = None
         if xbest is not None:
             best_obsf = ObservationFeatures(
-                parameters={p: float(xbest[i]) for i, p in enumerate(self.parameters)}
+                parameters={
+                    p: float(x) for p, x in zip(self.parameters, xbest, strict=True)
+                }
             )
 
         return GenResults(
