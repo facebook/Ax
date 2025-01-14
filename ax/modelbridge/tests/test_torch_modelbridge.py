@@ -66,7 +66,6 @@ from pyre_extensions import none_throws
 def _get_modelbridge_from_experiment(
     experiment: Experiment,
     transforms: list[type[Transform]] | None = None,
-    dtype: torch.dtype | None = None,
     device: torch.device | None = None,
 ) -> TorchModelBridge:
     return TorchModelBridge(
@@ -75,13 +74,11 @@ def _get_modelbridge_from_experiment(
         data=experiment.lookup_data(),
         model=BoTorchModel(),
         transforms=transforms or [],
-        torch_dtype=dtype,
         torch_device=device,
     )
 
 
 def _get_mock_modelbridge(
-    dtype: torch.dtype | None = None,
     device: torch.device | None = None,
     fit_out_of_design: bool = False,
 ) -> TorchModelBridge:
@@ -91,7 +88,6 @@ def _get_mock_modelbridge(
         data=Mock(),
         model=Mock(),
         transforms=[],
-        torch_dtype=dtype,
         torch_device=device,
         fit_out_of_design=fit_out_of_design,
     )
@@ -106,18 +102,16 @@ class TorchModelBridgeTest(TestCase):
     def test_TorchModelBridge(
         self,
         mock_init: Mock,
-        dtype: torch.dtype | None = None,
         device: torch.device | None = None,
     ) -> None:
-        ma = _get_mock_modelbridge(dtype=dtype, device=device)
+        ma = _get_mock_modelbridge(device=device)
         ma._fit_tracking_metrics = True
         ma._experiment_properties = {}
-        dtype = dtype or torch.double
-        self.assertEqual(ma.dtype, dtype)
+        self.assertEqual(ma.dtype, torch.double)
         self.assertEqual(ma.device, device)
         self.assertFalse(mock_init.call_args[-1]["fit_out_of_design"])
         self.assertIsNone(ma._last_observations)
-        tkwargs: dict[str, Any] = {"dtype": dtype, "device": device}
+        tkwargs: dict[str, Any] = {"dtype": torch.double, "device": device}
         # Test `_fit`.
         feature_names = ["x1", "x2", "x3"]
         model = mock.MagicMock(TorchModel, autospec=True, instance=True)
@@ -340,8 +334,33 @@ class TorchModelBridgeTest(TestCase):
         _get_mock_modelbridge(fit_out_of_design=True)
         self.assertTrue(mock_init.call_args[-1]["fit_out_of_design"])
 
+    def _test_TorchModelBridge_torch_dtype_deprecated(
+        self, torch_dtype: torch.dtype
+    ) -> None:
+        search_space = get_search_space_for_range_values(
+            min=0.0, max=5.0, parameter_names=["x1", "x2", "x3"]
+        )
+        model = mock.MagicMock(TorchModel, autospec=True, instance=True)
+        experiment = Experiment(search_space=search_space, name="test")
+        with self.assertWarnsRegex(
+            DeprecationWarning,
+            "The `torch_dtype` argument to `TorchModelBridge` is deprecated",
+        ):
+            TorchModelBridge(
+                experiment=experiment,
+                search_space=search_space,
+                data=experiment.lookup_data(),
+                model=model,
+                transforms=[],
+                fit_on_init=False,
+                torch_dtype=torch_dtype,
+            )
+
     def test_TorchModelBridge_float(self) -> None:
-        self.test_TorchModelBridge(dtype=torch.float)
+        self._test_TorchModelBridge_torch_dtype_deprecated(torch_dtype=torch.float32)
+
+    def test_TorchModelBridge_float64(self) -> None:
+        self._test_TorchModelBridge_torch_dtype_deprecated(torch_dtype=torch.float64)
 
     def test_TorchModelBridge_cuda(self) -> None:
         if torch.cuda.is_available():

@@ -141,6 +141,7 @@ class MapTorchModelBridge(TorchModelBridge):
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
             fit_out_of_design=fit_out_of_design,
+            fit_abandoned=fit_abandoned,
             fit_on_init=fit_on_init,
             default_model_gen_options=default_model_gen_options,
         )
