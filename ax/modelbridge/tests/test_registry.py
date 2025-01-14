@@ -8,7 +8,6 @@
 
 from collections import OrderedDict
 
-import torch
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.modelbridge.discrete import DiscreteModelBridge
@@ -55,6 +54,10 @@ from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 
 
 class ModelRegistryTest(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.maxDiff = None
+
     @mock_botorch_optimize
     def test_botorch_modular(self) -> None:
         exp = get_branin_experiment(with_batch=True)
@@ -155,7 +158,7 @@ class ModelRegistryTest(TestCase):
             gpei._bridge_kwargs,
             {
                 "transform_configs": None,
-                "torch_dtype": torch.float64,
+                "torch_dtype": None,
                 "torch_device": None,
                 "status_quo_name": None,
                 "status_quo_features": None,
