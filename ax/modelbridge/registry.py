@@ -22,7 +22,6 @@ from inspect import isfunction, signature
 from logging import Logger
 from typing import Any, NamedTuple
 
-import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -145,8 +144,6 @@ MBM_MTGP_trans: list[type[Transform]] = MBM_X_trans + [
     TaskChoiceToIntTaskChoice,
 ]
 
-STANDARD_TORCH_BRIDGE_KWARGS: dict[str, Any] = {"torch_dtype": torch.double}
-
 
 class ModelSetup(NamedTuple):
     """A model setup defines a coupled combination of a model, a model bridge,
@@ -172,13 +169,11 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
         transforms=MBM_X_trans + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "Legacy_GPEI": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
         transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "EB": ModelSetup(
         bridge_class=DiscreteModelBridge,
@@ -209,13 +204,11 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
         transforms=MBM_MTGP_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "BO_MIXED": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
         transforms=Mixed_transforms + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "SAASBO": ModelSetup(
         bridge_class=TorchModelBridge,
@@ -226,7 +219,6 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
                 botorch_model_class=SaasFullyBayesianSingleTaskGP
             )
         },
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "SAAS_MTGP": ModelSetup(
         bridge_class=TorchModelBridge,
@@ -237,13 +229,11 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
                 botorch_model_class=SaasFullyBayesianMultiTaskGP
             )
         },
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "Contextual_SACBO": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=SACBO,
         transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
 }
 
