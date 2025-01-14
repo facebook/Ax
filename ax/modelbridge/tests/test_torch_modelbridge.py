@@ -67,6 +67,7 @@ def _get_modelbridge_from_experiment(
     experiment: Experiment,
     transforms: list[type[Transform]] | None = None,
     device: torch.device | None = None,
+    fit_on_init: bool = True,
 ) -> TorchModelBridge:
     return TorchModelBridge(
         experiment=experiment,
@@ -75,12 +76,12 @@ def _get_modelbridge_from_experiment(
         model=BoTorchModel(),
         transforms=transforms or [],
         torch_device=device,
+        fit_on_init=fit_on_init,
     )
 
 
 def _get_mock_modelbridge(
     device: torch.device | None = None,
-    fit_out_of_design: bool = False,
 ) -> TorchModelBridge:
     return TorchModelBridge(
         experiment=Mock(),
@@ -89,35 +90,28 @@ def _get_mock_modelbridge(
         model=Mock(),
         transforms=[],
         torch_device=device,
-        fit_out_of_design=fit_out_of_design,
     )
 
 
 class TorchModelBridgeTest(TestCase):
-    @mock.patch(
-        f"{ModelBridge.__module__}.ModelBridge.__init__",
-        autospec=True,
-        return_value=None,
-    )
-    def test_TorchModelBridge(
-        self,
-        mock_init: Mock,
-        device: torch.device | None = None,
-    ) -> None:
-        ma = _get_mock_modelbridge(device=device)
-        ma._fit_tracking_metrics = True
-        ma._experiment_properties = {}
-        self.assertEqual(ma.dtype, torch.double)
-        self.assertEqual(ma.device, device)
-        self.assertFalse(mock_init.call_args[-1]["fit_out_of_design"])
-        self.assertIsNone(ma._last_observations)
-        tkwargs: dict[str, Any] = {"dtype": torch.double, "device": device}
-        # Test `_fit`.
+    @mock_botorch_optimize
+    def test_TorchModelBridge(self, device: torch.device | None = None) -> None:
         feature_names = ["x1", "x2", "x3"]
-        model = mock.MagicMock(TorchModel, autospec=True, instance=True)
         search_space = get_search_space_for_range_values(
             min=0.0, max=5.0, parameter_names=feature_names
         )
+        experiment = Experiment(search_space=search_space, name="test")
+        model_bridge = _get_modelbridge_from_experiment(
+            experiment=experiment,
+            device=device,
+            fit_on_init=False,
+        )
+        dtype = torch.double
+        self.assertEqual(model_bridge.dtype, dtype)
+        self.assertEqual(model_bridge.device, device)
+        self.assertIsNone(model_bridge._last_observations)
+        tkwargs: dict[str, Any] = {"dtype": dtype, "device": device}
+        # Test `_fit`.
         X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
         datasets = {
             "y1": SupervisedDataset(
@@ -153,28 +147,24 @@ class TorchModelBridgeTest(TestCase):
             )
         ]
         observations = recombine_observations(observation_features, observation_data)
-        ssd = SearchSpaceDigest(
-            feature_names=feature_names,
-            bounds=[(0, 1)] * 3,
-        )
 
-        with mock.patch(
-            f"{TorchModelBridge.__module__}.extract_search_space_digest",
-            return_value=ssd,
-        ):
-            ma._fit(
-                model=model,
-                search_space=search_space,
-                observations=observations,
+        model = BoTorchModel()
+        with mock.patch.object(model, "fit", wraps=model.fit) as mock_fit:
+            model_bridge._fit(
+                model=model, search_space=search_space, observations=observations
             )
-        model_fit_args = model.fit.mock_calls[0][2]
+        model_fit_args = mock_fit.mock_calls[0][2]
         self.assertEqual(model_fit_args["datasets"], list(datasets.values()))
-        self.assertEqual(model_fit_args["search_space_digest"], ssd)
+
+        expected_ssd = SearchSpaceDigest(
+            feature_names=feature_names, bounds=[(0, 5)] * 3
+        )
+        self.assertEqual(model_fit_args["search_space_digest"], expected_ssd)
         self.assertIsNone(model_fit_args["candidate_metadata"])
-        self.assertEqual(ma._last_observations, observations)
+        self.assertEqual(model_bridge._last_observations, observations)
 
         with mock.patch(f"{TorchModelBridge.__module__}.logger.debug") as mock_logger:
-            ma._fit(
+            model_bridge._fit(
                 model=model,
                 search_space=search_space,
                 observations=observations,
@@ -185,59 +175,46 @@ class TorchModelBridgeTest(TestCase):
         )
 
         # Test `_predict`
-        model.predict.return_value = (
-            torch.tensor([[3.0, 2.0]], **tkwargs),
-            torch.tensor([[[4.0, 0.0], [0.0, 3.0]]], **tkwargs),
+        pred_means = [3.0, 2.0]
+        pred_var = [4.0, 3.0]
+        predict_return_value = (
+            torch.tensor([pred_means], **tkwargs),
+            torch.tensor([[[pred_var[0], 0.0], [0.0, pred_var[1]]]], **tkwargs),
         )
         pr_obs_data_expected = ObservationData(
             metric_names=["y1", "y2"],
-            means=np.array([3.0, 2.0]),
-            covariance=np.diag([4.0, 3.0]),
+            means=np.array(pred_means),
+            covariance=np.diag(pred_var),
         )
-        pr_obs_data = ma._predict(observation_features=observation_features[:1])
-        self.assertTrue(torch.equal(model.predict.mock_calls[0][2]["X"], X[:1]))
-        self.assertEqual(
-            pr_obs_data,
-            [pr_obs_data_expected],
-        )
+        with mock.patch.object(
+            model, "predict", return_value=predict_return_value
+        ) as mock_predict:
+            pr_obs_data = model_bridge._predict(
+                observation_features=observation_features[:1]
+            )
+        self.assertTrue(torch.equal(mock_predict.mock_calls[0][2]["X"], X[:1]))
+        self.assertEqual(pr_obs_data, [pr_obs_data_expected])
 
         # Test `_gen`
 
-        # Hack in some properties set in the (mocked) `Modelbridge.__init__`
-        ma.transforms = {}
-        ma.fit_time_since_gen = 0.0
-        ma._arms_by_signature = {}
-        ma._fit_out_of_design = False
-        ma._model_key = None
-        ma._model_kwargs = None
-        ma._bridge_kwargs = None
-
-        model.gen.return_value = TorchGenResults(
+        gen_return_value = TorchGenResults(
             points=torch.tensor([[1.0, 2.0, 3.0]], **tkwargs),
             weights=torch.tensor([1.0], **tkwargs),
             gen_metadata={"foo": 99},
         )
-        model.best_point.return_value = torch.tensor([1.0, 2.0, 3.0], **tkwargs)
+        best_point_return_value = torch.tensor([1.0, 2.0, 3.0], **tkwargs)
         opt_config = OptimizationConfig(
             objective=Objective(metric=Metric("y1"), minimize=False),
         )
-        with ExitStack() as es:
+        pending_observations = {
+            "y2": [ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0, "x3": 3.0})]
+        }
+        with ExitStack() as es, mock.patch.object(
+            model, "gen", return_value=gen_return_value
+        ) as mock_gen:
             es.enter_context(
-                mock.patch(
-                    f"{TorchModelBridge.__module__}.extract_search_space_digest",
-                    return_value=ssd,
-                )
-            )
-            es.enter_context(
-                mock.patch(
-                    f"{ModelBridge.__module__}.clamp_observation_features",
-                    side_effect=lambda of, ss: of,
-                )
-            )
-            es.enter_context(
-                mock.patch(
-                    f"{ModelBridge.__module__}.ModelBridge._get_serialized_model_state",
-                    return_value={},
+                mock.patch.object(
+                    model, "best_point", return_value=best_point_return_value
                 )
             )
             es.enter_context(
@@ -247,23 +224,21 @@ class TorchModelBridgeTest(TestCase):
                     return_value=torch.round,
                 )
             )
-            gen_run = ma.gen(
+            es.enter_context(
+                # silence a warning about inability to generate unique candidates
+                mock.patch(f"{ModelBridge.__module__}.logger.warning")
+            )
+            gen_run = model_bridge.gen(
                 n=3,
                 search_space=search_space,
                 optimization_config=opt_config,
-                pending_observations={
-                    "y2": [
-                        ObservationFeatures(
-                            parameters={"x1": 1.0, "x2": 2.0, "x3": 3.0}
-                        )
-                    ]
-                },
+                pending_observations=pending_observations,
                 fixed_features=ObservationFeatures(parameters={"x2": 3.0}),
                 model_gen_options={"option": "yes"},
             )
-        gen_args = model.gen.mock_calls[0][2]
+        gen_args = mock_gen.mock_calls[0][2]
         self.assertEqual(gen_args["n"], 3)
-        self.assertEqual(gen_args["search_space_digest"].bounds, [(0, 1)] * 3)
+        self.assertEqual(gen_args["search_space_digest"], expected_ssd)
         gen_opt_config = gen_args["torch_opt_config"]
         self.assertTrue(
             torch.equal(
@@ -291,10 +266,6 @@ class TorchModelBridgeTest(TestCase):
         self.assertEqual(gen_run.gen_metadata, {"foo": 99})
 
         # Test `_cross_validate`
-        model.cross_validate.return_value = (
-            torch.tensor([[3.0, 2.0]], **tkwargs),
-            torch.tensor([[[4.0, 0.0], [0.0, 3.0]]], **tkwargs),
-        )
         cv_obs_data_expected = ObservationData(
             metric_names=["y1", "y2"],
             means=np.array([3.0, 2.0]),
@@ -305,34 +276,32 @@ class TorchModelBridgeTest(TestCase):
         ]
         X_test = torch.tensor([[1.0, 3.0, 2.0]], **tkwargs)
 
-        with mock.patch(
-            f"{TorchModelBridge.__module__}.extract_search_space_digest",
-            return_value=ssd,
-        ):
-            cv_obs_data = ma._cross_validate(
+        with mock.patch.object(
+            model,
+            "cross_validate",
+            return_value=predict_return_value,
+        ) as mock_cross_validate:
+            cv_obs_data = model_bridge._cross_validate(
                 search_space=search_space,
                 cv_training_data=observations,
                 cv_test_points=cv_test_points,
             )
-        model_cv_args = model.cross_validate.mock_calls[0][2]
+        model_cv_args = mock_cross_validate.mock_calls[0][2]
         self.assertEqual(model_cv_args["datasets"], list(datasets.values()))
         self.assertTrue(torch.equal(model_cv_args["X_test"], X_test))
-        self.assertEqual(model_cv_args["search_space_digest"], ssd)
+        self.assertEqual(model_cv_args["search_space_digest"], expected_ssd)
         self.assertEqual(cv_obs_data, [cv_obs_data_expected])
 
         # Transform observations
         # This functionality is likely to be deprecated (T134940274)
         # so this is not a thorough test.
-        ma.transform_observations(observations)
+        model_bridge.transform_observations(observations=observations)
 
         # Transform observation features
         obsf = [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
-        ma.parameters = ["x", "y"]
-        X = ma._transform_observation_features(obsf)
+        model_bridge.parameters = ["x", "y"]
+        X = model_bridge._transform_observation_features(observation_features=obsf)
         self.assertTrue(torch.equal(X, torch.tensor([[1.0, 2.0]], **tkwargs)))
-        # test fit out of design
-        _get_mock_modelbridge(fit_out_of_design=True)
-        self.assertTrue(mock_init.call_args[-1]["fit_out_of_design"])
 
     def _test_TorchModelBridge_torch_dtype_deprecated(
         self, torch_dtype: torch.dtype
