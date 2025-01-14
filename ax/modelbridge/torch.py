@@ -914,7 +914,9 @@ class TorchModelBridge(ModelBridge):
             )
         except (KeyError, TypeError):
             raise ValueError("Invalid formatting of observation data.")
-        X = self._transform_observation_features(observation_features)
+        X = self._transform_observation_features(
+            observation_features=observation_features
+        )
         return X, self._array_to_tensor(mean), self._array_to_tensor(cov)
 
     def _untransform_objective_thresholds(
