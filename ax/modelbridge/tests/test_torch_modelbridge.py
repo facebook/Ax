@@ -9,7 +9,6 @@
 from contextlib import ExitStack
 from typing import Any
 from unittest import mock
-from unittest.mock import Mock
 
 import numpy as np
 import torch
@@ -25,10 +24,7 @@ from ax.core.observation import (
     ObservationFeatures,
     recombine_observations,
 )
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
@@ -77,19 +73,6 @@ def _get_modelbridge_from_experiment(
         transforms=transforms or [],
         torch_device=device,
         fit_on_init=fit_on_init,
-    )
-
-
-def _get_mock_modelbridge(
-    device: torch.device | None = None,
-) -> TorchModelBridge:
-    return TorchModelBridge(
-        experiment=Mock(),
-        search_space=Mock(),
-        data=Mock(),
-        model=Mock(),
-        transforms=[],
-        torch_device=device,
     )
 
 
@@ -335,6 +318,7 @@ class TorchModelBridgeTest(TestCase):
         if torch.cuda.is_available():
             self.test_TorchModelBridge(device=torch.device("cuda"))
 
+    @mock_botorch_optimize
     def test_evaluate_acquisition_function(self) -> None:
         experiment = get_branin_experiment(with_completed_trial=True)
         modelbridge = _get_modelbridge_from_experiment(
@@ -498,6 +482,7 @@ class TorchModelBridgeTest(TestCase):
             res = modelbridge.model_best_point()
         self.assertIsNone(res)
 
+    @mock_botorch_optimize
     def test_importances(self) -> None:
         experiment = get_branin_experiment_with_multi_objective(
             with_completed_trial=True
@@ -511,26 +496,7 @@ class TorchModelBridgeTest(TestCase):
             modelbridge.feature_importances("branin_b"), {"x1": 0.5, "x2": 0.5}
         )
 
-    @mock.patch(
-        f"{TorchModel.__module__}.TorchModel.gen",
-        return_value=TorchGenResults(
-            points=torch.tensor([[1, 2], [2, 3]]),
-            weights=torch.tensor([1.0, 2.0]),
-            candidate_metadata=[
-                {"some_key": "some_value_0"},
-                {"some_key": "some_value_1"},
-            ],
-        ),
-        autospec=True,
-    )
-    @mock.patch(f"{TorchModel.__module__}.TorchModel.update", autospec=True)
-    @mock.patch(f"{TorchModel.__module__}.TorchModel.fit", autospec=True)
-    def test_candidate_metadata_propagation(
-        self,
-        mock_model_fit: Mock,
-        mock_model_update: Mock,
-        mock_model_gen: Mock,
-    ) -> None:
+    def test_candidate_metadata_propagation(self) -> None:
         exp = get_branin_experiment(with_status_quo=True, with_batch=True)
         # Check that the metadata is correctly re-added to observation
         # features during `fit`.
@@ -541,13 +507,15 @@ class TorchModelBridgeTest(TestCase):
                 "preexisting_batch_cand_metadata": "some_value"
             }
         }
-        modelbridge = TorchModelBridge(
-            experiment=exp,
-            search_space=exp.search_space,
-            model=TorchModel(),
-            transforms=[],
-            data=get_branin_data(),
-        )
+        model = TorchModel()
+        with mock.patch.object(model, "fit", wraps=model.fit) as mock_model_fit:
+            modelbridge = TorchModelBridge(
+                experiment=exp,
+                search_space=exp.search_space,
+                model=model,
+                transforms=[],
+                data=get_branin_data(),
+            )
 
         datasets = mock_model_fit.call_args[1].get("datasets")
         X_expected = torch.tensor(
@@ -563,64 +531,81 @@ class TorchModelBridgeTest(TestCase):
         )
 
         # Check that `gen` correctly propagates the metadata to the GR.
-        gr = modelbridge.gen(n=1)
+        candidate_metadata = [
+            {"some_key": "some_value_0"},
+            {"some_key": "some_value_1"},
+        ]
+        gen_results = TorchGenResults(
+            points=torch.tensor([[1, 2], [2, 3]]),
+            weights=torch.tensor([1.0, 2.0]),
+            # pyre-fixme: Incompatible parameter type [6]: In call
+            # `TorchGenResults.__init__`, for argument `candidate_metadata`,
+            # expected `Optional[List[Optional[Dict[str, typing.Any]]]]` but got
+            # `List[Dict[str, str]]`.
+            candidate_metadata=candidate_metadata,
+        )
+        with mock.patch.object(model, "gen", return_value=gen_results):
+            gr = modelbridge.gen(n=1)
         self.assertEqual(
             gr.candidate_metadata_by_arm_signature,
             {
-                gr.arms[0].signature: {"some_key": "some_value_0"},
-                gr.arms[1].signature: {"some_key": "some_value_1"},
+                gr.arms[0].signature: candidate_metadata[0],
+                gr.arms[1].signature: candidate_metadata[1],
             },
         )
 
         # Check that `None` candidate metadata is handled correctly.
-        mock_model_gen.return_value = TorchGenResults(
+        gen_results = TorchGenResults(
             points=torch.tensor([[2, 4], [3, 5]]),
             weights=torch.tensor([1.0, 2.0]),
             candidate_metadata=None,
         )
-        gr = modelbridge.gen(n=1)
+        with mock.patch.object(model, "gen", return_value=gen_results):
+            gr = modelbridge.gen(n=1)
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
 
         # Check that no candidate metadata is handled correctly.
         exp = get_branin_experiment(with_status_quo=True)
 
+        model = TorchModel()
         with mock.patch(
             f"{TorchModelBridge.__module__}."
             "TorchModelBridge._validate_observation_data",
             autospec=True,
-        ):
+        ), mock.patch.object(model, "fit", wraps=model.fit) as mock_model_fit:
             modelbridge = TorchModelBridge(
                 search_space=exp.search_space,
                 experiment=exp,
-                model=TorchModel(),
+                model=model,
                 data=Data(),
                 transforms=[],
             )
-            # Hack in outcome names to bypass validation (since we did not pass any
-            # to the model so _fit did not populate this)
-            metric_name = next(iter(exp.metrics))
-            modelbridge.outcomes = [metric_name]
-            modelbridge._metric_names = {metric_name}
-        gr = modelbridge.gen(n=1)
+        # Hack in outcome names to bypass validation (since we did not pass any
+        # to the model so _fit did not populate this)
+        metric_name = next(iter(exp.metrics))
+        modelbridge.outcomes = [metric_name]
+        modelbridge._metric_names = {metric_name}
+        with mock.patch.object(model, "gen", return_value=gen_results):
+            gr = modelbridge.gen(n=1)
         self.assertIsNone(mock_model_fit.call_args[1].get("candidate_metadata"))
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
 
-    @mock.patch(f"{TorchModel.__module__}.TorchModel.fit", autospec=True)
-    def test_fit_tracking_metrics(self, mock_model_fit: Mock) -> None:
+    def test_fit_tracking_metrics(self) -> None:
         exp = get_experiment_with_observations(
             observations=[[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]],
             with_tracking_metrics=True,
         )
         for fit_tracking_metrics in (True, False):
-            mock_model_fit.reset_mock()
-            modelbridge = TorchModelBridge(
-                experiment=exp,
-                search_space=exp.search_space,
-                data=exp.lookup_data(),
-                model=TorchModel(),
-                transforms=[],
-                fit_tracking_metrics=fit_tracking_metrics,
-            )
+            model = TorchModel()
+            with mock.patch.object(model, "fit", wraps=model.fit) as mock_model_fit:
+                modelbridge = TorchModelBridge(
+                    experiment=exp,
+                    search_space=exp.search_space,
+                    data=exp.lookup_data(),
+                    model=model,
+                    transforms=[],
+                    fit_tracking_metrics=fit_tracking_metrics,
+                )
             mock_model_fit.assert_called_once()
             call_kwargs = mock_model_fit.call_args.kwargs
             if fit_tracking_metrics:
@@ -708,15 +693,18 @@ class TorchModelBridgeTest(TestCase):
         parameter_decomposition = {f"c{i}": [f"x{i}"] for i in range(3)}
         metric_decomposition = {f"c{i}": [f"y:c{i}"] for i in range(3)}
 
-        with mock.patch(
-            f"{ModelBridge.__module__}.ModelBridge.__init__",
-            autospec=True,
-        ):
-            mb = _get_mock_modelbridge()
-            mb._experiment_properties = {
+        search_space = get_search_space_for_range_values(
+            min=0.0, max=5.0, parameter_names=feature_names
+        )
+        experiment = Experiment(
+            search_space=search_space,
+            name="test",
+            properties={
                 "parameter_decomposition": parameter_decomposition,
                 "metric_decomposition": metric_decomposition,
-            }
+            },
+        )
+        mb = _get_modelbridge_from_experiment(experiment=experiment, fit_on_init=False)
 
         observation_features = [
             ObservationFeatures(
@@ -807,7 +795,9 @@ class TorchModelBridgeTest(TestCase):
         )
         self.assertEqual(mb.outcomes, expected_outcomes)
         self.assertEqual(converted_datasets, converted_datasets2)
-        datasets, _, _ = mb._get_fit_args(
+        # Check that outcomes are not updated when
+        # `update_outcomes_and_parameters` is False
+        mb._get_fit_args(
             search_space=search_space,
             observations=observations,
             parameters=feature_names,
@@ -831,11 +821,7 @@ class TorchModelBridgeTest(TestCase):
         for additional_metadata in (
             {},
             {"objective_thresholds": None},
-            {
-                "objective_thresholds": checked_cast(
-                    MultiObjectiveOptimizationConfig, experiment.optimization_config
-                ).objective_thresholds,
-            },
+            {"objective_thresholds": torch.tensor([0.0, 0.0])},
         ):
             gen_return_value = TorchGenResults(
                 points=torch.tensor([[1.0, 2.0]]),
@@ -843,9 +829,13 @@ class TorchModelBridgeTest(TestCase):
                 gen_metadata={Keys.EXPECTED_ACQF_VAL: [1.0], **additional_metadata},
             )
             with mock.patch.object(
-                mb, "_untransform_objective_thresholds"
+                mb,
+                "_untransform_objective_thresholds",
+                wraps=mb._untransform_objective_thresholds,
             ) as mock_untransform, mock.patch.object(
-                model, "gen", return_value=gen_return_value
+                model,
+                "gen",
+                return_value=gen_return_value,
             ):
                 mb.gen(n=1)
             if additional_metadata.get("objective_thresholds", None) is None:
