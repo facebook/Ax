@@ -13,6 +13,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from logging import Logger
 from typing import Any
+from warnings import warn
 
 import numpy as np
 import numpy.typing as npt
@@ -119,7 +120,19 @@ class TorchModelBridge(ModelBridge):
         fit_on_init: bool = True,
         default_model_gen_options: TConfig | None = None,
     ) -> None:
-        self.dtype: torch.dtype = torch.double if torch_dtype is None else torch_dtype
+        # This warning is being added while we are on 0.4.3, so it will be
+        # released in 0.4.4 or 0.5.0. The `torch_dtype` argument can be removed
+        # in the subsequent minor version. It should also be removed from
+        # `TorchModelBridge` subclasses.
+        if torch_dtype is not None:
+            warn(
+                "The `torch_dtype` argument to `TorchModelBridge` is deprecated"
+                " and will be ignored; data will be in double precision.",
+                DeprecationWarning,
+            )
+
+        # Note: When `torch_dtype` is removed, this attribute can be removed
+        self.dtype: torch.dtype = torch.double
         self.device = torch_device
         # pyre-ignore [4]: Attribute `_default_model_gen_options` of class
         # `TorchModelBridge` must have a type that does not contain `Any`.
