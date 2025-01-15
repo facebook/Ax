@@ -33,7 +33,7 @@ from ax.modelbridge.transforms.utils import (
 )
 from ax.models.types import TConfig, WinsorizationConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -234,7 +234,9 @@ def _get_cutoffs(
 
     # Make sure we winsorize from the correct direction if a `ScalarizedObjective`.
     if isinstance(optimization_config.objective, ScalarizedObjective):
-        objective = checked_cast(ScalarizedObjective, optimization_config.objective)
+        objective = assert_is_instance(
+            optimization_config.objective, ScalarizedObjective
+        )
         weight = [w for m, w in objective.metric_weights if m.name == metric_name][0]
         # Winsorize from above if the weight is positive and minimize is `True` or the
         # weight is negative and minimize is `False`.
@@ -266,8 +268,8 @@ def _get_auto_winsorization_cutoffs_multi_objective(
     # We approach a multi-objective metric the same as output constraints. It may be
     # worth investigating setting the winsorization cutoffs based on the Pareto
     # frontier in the future.
-    optimization_config = checked_cast(
-        MultiObjectiveOptimizationConfig, optimization_config
+    optimization_config = assert_is_instance(
+        optimization_config, MultiObjectiveOptimizationConfig
     )
     objective_threshold = _get_objective_threshold_from_moo_config(
         optimization_config=optimization_config, metric_name=metric_name
@@ -283,7 +285,7 @@ def _get_auto_winsorization_cutoffs_multi_objective(
             "winsorize each objective separately. We strongly recommend specifying "
             "the objective thresholds when using multi-objective optimization."
         )
-        objectives = checked_cast(MultiObjective, optimization_config.objective)
+        objectives = assert_is_instance(optimization_config.objective, MultiObjective)
         minimize = [
             objective.minimize
             for objective in objectives.objectives

@@ -28,8 +28,7 @@ from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -429,7 +428,7 @@ def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
     # use observations_from_map_data, which is required
     # to properly handle MapData features (e.g. fidelity).
     if is_map_data:
-        data = checked_cast(MapData, data)
+        data = assert_is_instance(data, MapData)
         feature_cols = feature_cols.union(data.map_keys)
 
     for column in TIME_COLS:

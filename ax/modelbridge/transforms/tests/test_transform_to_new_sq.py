@@ -18,13 +18,13 @@ from ax.modelbridge.transforms.tests.test_relativize_transform import Relativize
 from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.models.base import Model
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
     get_branin_experiment,
     get_branin_optimization_config,
     get_sobol,
 )
+from pyre_extensions import assert_is_instance
 
 
 class TransformToNewSQTest(RelativizeDataTest):
@@ -64,7 +64,9 @@ class TransformToNewSQSpecificTest(TestCase):
         )
         t = self.exp.trials[0]
         t.mark_running(no_runner_required=True)
-        self.exp.attach_data(get_branin_data_batch(batch=checked_cast(BatchTrial, t)))
+        self.exp.attach_data(
+            get_branin_data_batch(batch=assert_is_instance(t, BatchTrial))
+        )
         t.mark_completed()
         self.data = self.exp.fetch_data()
 
@@ -143,9 +145,11 @@ class TransformToNewSQSpecificTest(TestCase):
         sobol = get_sobol(search_space=self.exp.search_space)
         self.exp.new_batch_trial(generator_run=sobol.gen(2))
         t = self.exp.trials[1]
-        t = checked_cast(BatchTrial, t)
+        t = assert_is_instance(t, BatchTrial)
         t.mark_running(no_runner_required=True)
-        self.exp.attach_data(get_branin_data_batch(batch=checked_cast(BatchTrial, t)))
+        self.exp.attach_data(
+            get_branin_data_batch(batch=assert_is_instance(t, BatchTrial))
+        )
 
         observations = observations_from_data(
             experiment=self.exp,

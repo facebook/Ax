@@ -15,7 +15,7 @@ from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -71,7 +71,10 @@ class SearchSpaceToChoice(Transform):
                 name=self.parameter_name,
                 parameter_type=ParameterType.STRING,
                 values=values,
-                is_ordered=checked_cast(bool, self.config.get("use_ordered", False)),
+                is_ordered=assert_is_instance(
+                    self.config.get("use_ordered", False),
+                    bool,
+                ),
                 sort_values=False,
             )
         else:

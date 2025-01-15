@@ -40,7 +40,6 @@ from ax.models.torch.botorch_moo_defaults import (
 from ax.service.utils.report_utils import exp_to_df
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
@@ -52,7 +51,7 @@ from ax.utils.testing.core_stubs import (
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import transform_1, transform_2
 from botorch.utils.multi_objective.pareto import is_non_dominated
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 PARETO_FRONTIER_EVALUATOR_PATH = (
     f"{get_pareto_frontier_and_configs.__module__}.pareto_frontier_evaluator"
@@ -205,8 +204,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         self.assertEqual(observed_frontier, observed_frontier2)
 
         # Remove the thresholds for testing None handling.
-        checked_cast(
-            MultiObjectiveOptimizationConfig, modelbridge._optimization_config
+        assert_is_instance(
+            modelbridge._optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds = []
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
@@ -465,8 +464,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
 
         for use_partial_thresholds in (False, True):
             if use_partial_thresholds:
-                checked_cast(
-                    MultiObjectiveOptimizationConfig, oc
+                assert_is_instance(
+                    oc, MultiObjectiveOptimizationConfig
                 )._objective_thresholds = [
                     ObjectiveThreshold(
                         metric=oc.objective.metrics[0],

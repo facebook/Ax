@@ -58,7 +58,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.equality import same_elements
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
@@ -68,7 +67,7 @@ from ax.utils.testing.core_stubs import (
     get_hierarchical_search_space_experiment,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestGenerationStrategyWithoutModelBridgeMocks(TestCase):
@@ -908,8 +907,8 @@ class TestGenerationStrategy(TestCase):
                 self.sobol_GS.gen(experiment=experiment)
                 mock_model_fit.assert_called_once()
                 observations = mock_model_fit.call_args[1].get("observations")
-                all_parameter_names = checked_cast(
-                    HierarchicalSearchSpace, experiment.search_space
+                all_parameter_names = assert_is_instance(
+                    experiment.search_space, HierarchicalSearchSpace
                 )._all_parameter_names.copy()
                 for obs in observations:
                     for p_name in all_parameter_names:

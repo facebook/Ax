@@ -11,7 +11,6 @@ from functools import partial
 from typing import Any
 
 import torch
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
 from botorch.models.model import Model
 from botorch.posteriors.gpytorch import GPyTorchPosterior
@@ -20,7 +19,7 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
 from gpytorch.distributions import MultivariateNormal
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 def sample_discrete_parameters(
@@ -92,7 +91,7 @@ class GpDGSMGpMean:
                 rather than the default (pseudo-)random continuous uniform distribution.
         """
         # pyre-fixme[4]: Attribute must be annotated.
-        self.dim = checked_cast(tuple, model.train_inputs)[0].shape[-1]
+        self.dim = assert_is_instance(model.train_inputs, tuple)[0].shape[-1]
         self.derivative_gp = derivative_gp
         self.kernel_type = kernel_type
         # pyre-fixme[4]: Attribute must be annotated.
@@ -131,8 +130,8 @@ class GpDGSMGpMean:
             )
         else:
             self.input_mc_samples.requires_grad = True
-            posterior = checked_cast(
-                GPyTorchPosterior, model.posterior(self.input_mc_samples)
+            posterior = assert_is_instance(
+                model.posterior(self.input_mc_samples), GPyTorchPosterior
             )
         self._compute_gradient_quantities(posterior, Y_scale)
 
@@ -140,12 +139,14 @@ class GpDGSMGpMean:
         self, posterior: GPyTorchPosterior | MultivariateNormal, Y_scale: float
     ) -> None:
         if self.derivative_gp:
-            self.mean_gradients = checked_cast(torch.Tensor, posterior.mean) * Y_scale
+            self.mean_gradients = (
+                assert_is_instance(posterior.mean, torch.Tensor) * Y_scale
+            )
         else:
             predictive_mean = posterior.mean
             torch.sum(predictive_mean).backward()
             self.mean_gradients = (
-                checked_cast(torch.Tensor, self.input_mc_samples.grad) * Y_scale
+                assert_is_instance(self.input_mc_samples.grad, torch.Tensor) * Y_scale
             )
         if self.bootstrap:
             subset_size = 2
@@ -154,7 +155,7 @@ class GpDGSMGpMean:
             )
             self.mean_gradients_btsp = [
                 torch.index_select(
-                    checked_cast(torch.Tensor, self.mean_gradients), 0, indices
+                    assert_is_instance(self.mean_gradients, torch.Tensor), 0, indices
                 )
                 for indices in self.bootstrap_indices
             ]

@@ -25,7 +25,7 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
-from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance
 
 
 class SearchSpaceAnalysis(HealthcheckAnalysis):
@@ -141,7 +141,9 @@ def search_space_boundary_proportions(
             lower = parameter.lower
             upper = parameter.upper
         elif isinstance(parameter, ChoiceParameter) and parameter.is_ordered:
-            values = [checked_cast(Union[int, float], v) for v in parameter.values]
+            values = [
+                assert_is_instance(v, Union[int, float]) for v in parameter.values
+            ]
             lower = min(values)
             upper = max(values)
         else:
@@ -176,7 +178,8 @@ def search_space_boundary_proportions(
     for pc in search_space.parameter_constraints:
         weighted_sums = [
             sum(
-                float(checked_cast(Union[int, float], parametrization[param])) * weight
+                float(assert_is_instance(parametrization[param], Union[int, float]))
+                * weight
                 for param, weight in pc.constraint_dict.items()
             )
             for parametrization in parametrizations

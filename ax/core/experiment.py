@@ -55,8 +55,7 @@ from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -1389,8 +1388,8 @@ class Experiment(Base):
                 old_data = (
                     old_experiment.default_data_constructor(
                         df=new_df,
-                        map_key_infos=checked_cast(
-                            MapData, old_experiment.lookup_data()
+                        map_key_infos=assert_is_instance(
+                            old_experiment.lookup_data(), MapData
                         ).map_key_infos,
                     )
                     if old_experiment.default_data_type == DataType.MAP_DATA
@@ -1603,7 +1602,7 @@ class Experiment(Base):
             # data for this arm "complete" in the flattened search space.
             candidate_metadata = None
             if self.search_space.is_hierarchical:
-                hss = checked_cast(HierarchicalSearchSpace, self.search_space)
+                hss = assert_is_instance(self.search_space, HierarchicalSearchSpace)
                 candidate_metadata = hss.cast_observation_features(
                     observation_features=hss.flatten_observation_features(
                         observation_features=observation.ObservationFeatures(
@@ -1785,7 +1784,9 @@ class Experiment(Base):
         if self.optimization_config is not None:
             opt_config = self.optimization_config
             if self.is_moo_problem:
-                multi_objective = checked_cast(MultiObjective, opt_config.objective)
+                multi_objective = assert_is_instance(
+                    opt_config.objective, MultiObjective
+                )
                 objectives = multi_objective.objectives
             else:
                 objectives = [opt_config.objective]

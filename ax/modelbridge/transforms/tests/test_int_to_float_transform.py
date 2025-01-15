@@ -16,8 +16,8 @@ from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.int_to_float import IntToFloat, LogIntToFloat
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
+from pyre_extensions import assert_is_instance
 
 
 class IntToFloatTransformTest(TestCase):
@@ -54,8 +54,8 @@ class IntToFloatTransformTest(TestCase):
             config={"min_choices": 3},
         )
         self.search_space_with_log = self.search_space.clone()
-        checked_cast(
-            RangeParameter, self.search_space_with_log.parameters["a"]
+        assert_is_instance(
+            self.search_space_with_log.parameters["a"], RangeParameter
         )._log_scale = True
         self.t4 = IntToFloat(
             search_space=self.search_space_with_log,

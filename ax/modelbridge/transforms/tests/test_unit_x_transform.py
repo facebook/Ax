@@ -16,8 +16,8 @@ from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
+from pyre_extensions import assert_is_instance
 
 
 class UnitXTransformTest(TestCase):
@@ -187,11 +187,11 @@ class UnitXTransformTest(TestCase):
             "a": [0, 2],
         }
         for p_name, (l, u) in true_bounds.items():
-            p = checked_cast(RangeParameter, new_ss.parameters[p_name])
+            p = assert_is_instance(new_ss.parameters[p_name], RangeParameter)
             self.assertEqual(p.lower, l)
             self.assertEqual(p.upper, u)
         self.assertEqual(
-            checked_cast(ChoiceParameter, new_ss.parameters["b"]).values,
+            assert_is_instance(new_ss.parameters["b"], ChoiceParameter).values,
             ["a", "b", "c"],
         )
         self.assertEqual(len(new_ss.parameters), 5)

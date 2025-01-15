@@ -26,7 +26,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.base import ConstrainedBaseTestProblem
 from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBraninCurrin
 from botorch.test_functions.synthetic import (
@@ -225,14 +224,14 @@ class TestBenchmarkProblem(TestCase):
         )
 
         self.assertEqual(
-            checked_cast(BenchmarkMetric, metric).observe_noise_sd,
+            assert_is_instance(metric, BenchmarkMetric).observe_noise_sd,
             observe_noise_sd,
         )
 
         # TODO: Support observing noise variance only for some outputs
         for constraint in outcome_constraints:
             self.assertEqual(
-                checked_cast(BenchmarkMetric, constraint.metric).observe_noise_sd,
+                assert_is_instance(constraint.metric, BenchmarkMetric).observe_noise_sd,
                 observe_noise_sd,
             )
 

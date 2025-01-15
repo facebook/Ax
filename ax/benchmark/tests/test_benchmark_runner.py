@@ -32,7 +32,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.benchmark_stubs import (
     DummyTestFunction,
     get_jenatton_trials,
@@ -42,7 +41,7 @@ from ax.utils.testing.benchmark_stubs import (
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
 from pandas import DataFrame
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestBenchmarkRunner(TestCase):
@@ -315,7 +314,7 @@ class TestBenchmarkRunner(TestCase):
                 noise_std=noise_std,
             )
             self.assertDictEqual(
-                checked_cast(dict, runner.get_noise_stds()), noise_dict
+                assert_is_instance(runner.get_noise_stds(), dict), noise_dict
             )
 
             X = torch.rand(1, 6, dtype=torch.double)

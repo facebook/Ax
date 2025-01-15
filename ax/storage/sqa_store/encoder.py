@@ -67,8 +67,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -503,7 +502,7 @@ class Encoder:
                 )
             )
 
-        return checked_cast(SQAMetric, objective_sqa)
+        return assert_is_instance(objective_sqa, SQAMetric)
 
     def multi_objective_to_sqa(self, multi_objective: MultiObjective) -> SQAMetric:
         """Convert Ax Multi Objective to SQLAlchemy.

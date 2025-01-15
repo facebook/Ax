@@ -20,7 +20,7 @@ from ax.core.search_space import HierarchicalSearchSpace
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance
 
 
 class TestInstantiationtUtils(TestCase):
@@ -314,8 +314,8 @@ class TestInstantiationtUtils(TestCase):
             self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
             self.assertEqual(
                 len(
-                    checked_cast(
-                        MultiObjectiveOptimizationConfig, multi_optimization_config
+                    assert_is_instance(
+                        multi_optimization_config, MultiObjectiveOptimizationConfig
                     ).objective_thresholds
                 ),
                 1,
@@ -331,8 +331,8 @@ class TestInstantiationtUtils(TestCase):
             self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
             self.assertEqual(
                 len(
-                    checked_cast(
-                        MultiObjectiveOptimizationConfig, multi_optimization_config
+                    assert_is_instance(
+                        multi_optimization_config, MultiObjectiveOptimizationConfig
                     ).objective_thresholds
                 ),
                 2,
@@ -358,8 +358,8 @@ class TestInstantiationtUtils(TestCase):
             }
             if use_dependents:
                 representation["dependents"] = {1.0: ["foo_or_bar", "bazz"]}
-            output = checked_cast(
-                FixedParameter, InstantiationBase.parameter_from_json(representation)
+            output = assert_is_instance(
+                InstantiationBase.parameter_from_json(representation), FixedParameter
             )
             self.assertIsInstance(output, FixedParameter)
             self.assertEqual(output.value, 1.0)
@@ -375,8 +375,8 @@ class TestInstantiationtUtils(TestCase):
                 "sort_values": sort_values,
                 "is_ordered": True,
             }
-            output = checked_cast(
-                ChoiceParameter, InstantiationBase.parameter_from_json(representation)
+            output = assert_is_instance(
+                InstantiationBase.parameter_from_json(representation), ChoiceParameter
             )
             self.assertIsInstance(output, ChoiceParameter)
             self.assertEqual(output.is_ordered, True)

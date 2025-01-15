@@ -62,9 +62,8 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.common.typeutils_torch import torch_type_from_str
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 logger: Logger = get_logger(__name__)
@@ -1056,7 +1055,7 @@ def get_input_transform_json_components(
         input_transform_json["index"] for input_transform_json in input_transforms_json
     ]
     input_transform_options_json = {
-        checked_cast(str, input_transform_json["__type"]): input_transform_json[
+        assert_is_instance(input_transform_json["__type"], str): input_transform_json[
             "state_dict"
         ]
         for input_transform_json in input_transforms_json
@@ -1082,9 +1081,9 @@ def get_outcome_transform_json_components(
         for outcome_transform_json in outcome_transforms_json
     ]
     outcome_transform_options_json = {
-        checked_cast(str, outcome_transform_json["__type"]): outcome_transform_json[
-            "state_dict"
-        ]
+        assert_is_instance(
+            outcome_transform_json["__type"], str
+        ): outcome_transform_json["state_dict"]
         for outcome_transform_json in outcome_transforms_json
     }
     return outcome_transform_classes_json, outcome_transform_options_json

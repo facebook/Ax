@@ -31,7 +31,6 @@ from ax.modelbridge.transforms.relativize import (
 )
 from ax.models.base import Model
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
@@ -42,7 +41,7 @@ from ax.utils.testing.core_stubs import (
     get_search_space,
 )
 from hypothesis import assume, given, settings, strategies as st
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class RelativizeDataTest(TestCase):
@@ -126,7 +125,7 @@ class RelativizeDataTest(TestCase):
             for t in exp.trials.values():
                 t.mark_running(no_runner_required=True)
                 exp.attach_data(
-                    get_branin_data_batch(batch=checked_cast(BatchTrial, t))
+                    get_branin_data_batch(batch=assert_is_instance(t, BatchTrial))
                 )
                 t.mark_completed()
             data = exp.fetch_data()
@@ -163,7 +162,7 @@ class RelativizeDataTest(TestCase):
             for t in new_exp.trials.values():
                 t.mark_running(no_runner_required=True)
                 new_exp.attach_data(
-                    get_branin_data_batch(batch=checked_cast(BatchTrial, t))
+                    get_branin_data_batch(batch=assert_is_instance(t, BatchTrial))
                 )
                 t.mark_completed()
             new_data = new_exp.fetch_data()

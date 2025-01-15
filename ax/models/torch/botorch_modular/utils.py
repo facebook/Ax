@@ -20,7 +20,6 @@ from ax.models.torch_base import TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
@@ -44,7 +43,7 @@ from gpytorch.kernels.kernel import Kernel
 from gpytorch.likelihoods import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
@@ -262,13 +261,17 @@ def construct_acquisition_and_optimizer_options(
 
     if model_gen_options:
         acq_options.update(
-            checked_cast(dict, model_gen_options.get(Keys.ACQF_KWARGS, {}))
+            assert_is_instance(
+                model_gen_options.get(Keys.ACQF_KWARGS, {}),
+                dict,
+            )
         )
         # TODO: Add this if all acq. functions accept the `subset_model`
         # kwarg or opt for kwarg filtering.
         # acq_options[SUBSET_MODEL] = model_gen_options.get(SUBSET_MODEL)
-        opt_options = checked_cast(
-            dict, model_gen_options.get(Keys.OPTIMIZER_KWARGS, {})
+        opt_options = assert_is_instance(
+            model_gen_options.get(Keys.OPTIMIZER_KWARGS, {}),
+            dict,
         ).copy()
     return acq_options, opt_options
 

@@ -14,7 +14,6 @@ from ax.models.torch.utils import (
     get_botorch_objective_and_transform,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
@@ -34,7 +33,7 @@ from botorch.acquisition.objective import (
 from botorch.acquisition.risk_measures import Expectation
 from botorch.exceptions.errors import BotorchTensorDimensionError
 from botorch.models.model import Model
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TorchUtilsTest(TestCase):
@@ -249,7 +248,7 @@ class TorchUtilsTest(TestCase):
             X_observed=torch.ones(2, 2),  # dummy
         )
         mock_set_baseline_Y.assert_called_once()
-        risk_measure = checked_cast(MARS, risk_measure)
+        risk_measure = assert_is_instance(risk_measure, MARS)
         self.assertIsInstance(
             risk_measure.preprocessing_function, WeightedMCMultiOutputObjective
         )

@@ -15,7 +15,7 @@ from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
-from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance
 
 
 class AnalysisBase(WithDBSettingsBase):
@@ -67,7 +67,10 @@ class AnalysisBase(WithDBSettingsBase):
 
         for result in results:
             if result.is_err():
-                e = checked_cast(AnalysisE, result.err)
+                e = assert_is_instance(
+                    result.err,
+                    AnalysisE,
+                )
                 traceback_str = "".join(
                     traceback.format_exception(
                         type(result.err.exception),

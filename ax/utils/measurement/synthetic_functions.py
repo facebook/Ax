@@ -13,9 +13,8 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions import synthetic as botorch_synthetic
-from pyre_extensions import none_throws, override
+from pyre_extensions import assert_is_instance, none_throws, override
 
 T = TypeVar("T")
 
@@ -67,7 +66,7 @@ class SyntheticFunction(ABC):
             ), f"Expected numerical arguments or numpy arrays, got {type(x)}."
             if isinstance(x, int):
                 x = float(x)
-        return checked_cast(float, self.f(np.array(args)))
+        return assert_is_instance(self.f(np.array(args)), float)
 
     def f(self, X: npt.NDArray) -> float | npt.NDArray:
         """Synthetic function implementation.

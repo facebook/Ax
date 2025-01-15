@@ -37,7 +37,6 @@ from ax.models.torch.botorch_modular.utils import (
 )
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
@@ -426,7 +425,7 @@ class SurrogateTest(TestCase):
             search_space_digest=self.search_space_digest,
             refit=True,
         )
-        models = checked_cast(ModuleList, surrogate.model.models)
+        models = assert_is_instance(surrogate.model.models, ModuleList)
 
         model1_old_lengtscale = (
             models[1].covar_module.base_kernel.lengthscale.detach().clone()
@@ -1301,7 +1300,7 @@ class SurrogateTest(TestCase):
         self.assertIsInstance(surrogate.model, MixedSingleTaskGP)
         # _ignore_X_dims_scaling_check is the easiest way to check cat dims.
         self.assertEqual(surrogate.model._ignore_X_dims_scaling_check, [0])
-        covar_module = checked_cast(Kernel, surrogate.model.covar_module)
+        covar_module = assert_is_instance(surrogate.model.covar_module, Kernel)
         self.assertEqual(
             # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[An...
             covar_module.kernels[0].base_kernel.kernels[1].active_dims.tolist(),
@@ -1333,7 +1332,7 @@ class SurrogateTest(TestCase):
         self.assertTrue(
             all(
                 isinstance(m, MixedSingleTaskGP)
-                for m in checked_cast(ModelListGP, surrogate.model).models
+                for m in assert_is_instance(surrogate.model, ModelListGP).models
             )
         )
 
@@ -1717,7 +1716,7 @@ class SurrogateWithModelListTest(TestCase):
                     task_features=[],
                 ),
             )
-            models = checked_cast(ModelListGP, surrogate._model).models
+            models = assert_is_instance(surrogate._model, ModelListGP).models
             self.assertEqual(len(models), 2)
             self.assertEqual(
                 surrogate.surrogate_spec.model_configs[0].mll_class,
@@ -1791,6 +1790,6 @@ class SurrogateWithModelListTest(TestCase):
         # pyre-fixme[29]: `Union[(self: Tensor) -> Any, Tensor, Module]` is not a
         #  function.
         for m in surrogate.model.models:
-            intf = checked_cast(InputPerturbation, m.input_transform)
+            intf = assert_is_instance(m.input_transform, InputPerturbation)
             self.assertIsInstance(intf, InputPerturbation)
             self.assertTrue(torch.equal(intf.perturbation_set, torch.zeros(2, 2)))

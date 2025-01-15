@@ -20,8 +20,8 @@ from ax.modelbridge.transforms.choice_encode import (
     OrderedChoiceToIntegerRange,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
+from pyre_extensions import assert_is_instance
 
 
 class ChoiceEncodeTransformTest(TestCase):
@@ -117,9 +117,11 @@ class ChoiceEncodeTransformTest(TestCase):
         ss2 = self.t.transform_search_space(ss2)
         for p in ("d", "e"):
             with self.subTest(p):
-                tranformed_param = checked_cast(ChoiceParameter, ss2.parameters[p])
-                original_param = checked_cast(
-                    ChoiceParameter, self.search_space.parameters[p]
+                tranformed_param = assert_is_instance(
+                    ss2.parameters[p], ChoiceParameter
+                )
+                original_param = assert_is_instance(
+                    self.search_space.parameters[p], ChoiceParameter
                 )
                 self.assertEqual(tranformed_param.is_ordered, original_param.is_ordered)
                 self.assertEqual(
@@ -177,13 +179,13 @@ class ChoiceEncodeTransformTest(TestCase):
 
     def test_with_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
-        checked_cast(ChoiceParameter, rss.parameters["c"])._is_ordered = True
+        assert_is_instance(rss.parameters["c"], ChoiceParameter)._is_ordered = True
         # Transform a non-distributional parameter.
         t = self.t_class(
             search_space=rss,
             observations=[],
         )
-        rss_new = checked_cast(RobustSearchSpace, t.transform_search_space(rss))
+        rss_new = assert_is_instance(t.transform_search_space(rss), RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
         self.assertEqual(rss_new.parameters["c"].parameter_type, ParameterType.INT)
@@ -199,7 +201,7 @@ class ChoiceEncodeTransformTest(TestCase):
             search_space=rss,
             observations=[],
         )
-        rss_new = checked_cast(RobustSearchSpace, t.transform_search_space(rss))
+        rss_new = assert_is_instance(t.transform_search_space(rss), RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
         self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
