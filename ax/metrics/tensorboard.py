@@ -63,10 +63,11 @@ try:
                 cumulative_best: If True, for each trial, apply cumulative best to
                     the curve (i.e., if lower is better, then we return a curve
                     representing the cumulative min of the raw curve).
-                percentile: If not None, return the (rolling) percentile value of the curve.
+                percentile: If not None, return the (rolling) percentile value
+                    of the curve.
                     e.g. if the original curve is [0, 6, 4, 2] and percentile=0.5, then
-                    the returned curve is [0, 3, 4, 3]. Rolling percentile is applied after
-                    any potential smoothing or cumulative_best processing.
+                    the returned curve is [0, 3, 4, 3]. Rolling percentile is applied
+                    after any potential smoothing or cumulative_best processing.
             """
             super().__init__(name=name, lower_is_better=lower_is_better)
 
