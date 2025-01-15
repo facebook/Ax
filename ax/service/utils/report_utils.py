@@ -64,10 +64,9 @@ from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasi
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from pandas.core.frame import DataFrame
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     from ax.service.scheduler import Scheduler
@@ -161,7 +160,7 @@ def _get_objective_v_param_plots(
     search_space = experiment.search_space
 
     range_params = [
-        checked_cast(Parameter, param)
+        assert_is_instance(param, Parameter)
         for param in search_space.range_parameters.values()
     ]
     range_params = get_range_parameters_from_list(range_params, min_num_values=5)
@@ -1095,8 +1094,8 @@ def _get_metric_name_pairs(
         experiment=experiment
     )
     if none_throws(optimization_config).is_moo_problem:
-        multi_objective = checked_cast(
-            MultiObjective, none_throws(optimization_config).objective
+        multi_objective = assert_is_instance(
+            none_throws(optimization_config).objective, MultiObjective
         )
         metric_names = [obj.metric.name for obj in multi_objective.objectives]
         if len(metric_names) > use_first_n_metrics:
@@ -1318,8 +1317,8 @@ def _build_result_tuple(
         comparison_arm_name,
         comparison_arm_value,)
     """
-    comparison_arm_name = checked_cast(str, comparison_row["arm_name"])
-    comparison_value = checked_cast(float, comparison_row[objective_name])
+    comparison_arm_name = assert_is_instance(comparison_row["arm_name"], str)
+    comparison_value = assert_is_instance(comparison_row[objective_name], float)
 
     result = (
         objective_name,
@@ -1392,7 +1391,9 @@ def maybe_extract_baseline_comparison_values(
     baseline_rows = arms_df[arms_df["arm_name"] == baseline_arm_name]
 
     if experiment.is_moo_problem:
-        multi_objective = checked_cast(MultiObjective, optimization_config.objective)
+        multi_objective = assert_is_instance(
+            optimization_config.objective, MultiObjective
+        )
         result_list = []
         for objective in multi_objective.objectives:
             name = objective.metric.name

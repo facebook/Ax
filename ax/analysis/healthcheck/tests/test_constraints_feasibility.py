@@ -26,10 +26,9 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_branin_experiment_with_multi_objective
 from ax.utils.testing.mock import mock_botorch_optimize
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestConstraintsFeasibilityAnalysis(TestCase):
@@ -74,7 +73,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         sobol = get_sobol(search_space=experiment.search_space)
         experiment.new_batch_trial(generator_run=sobol.gen(5))
 
-        batch_trial = checked_cast(BatchTrial, experiment.trials[0])
+        batch_trial = assert_is_instance(experiment.trials[0], BatchTrial)
 
         batch_trial.add_arm(experiment.status_quo)
         batch_trial.set_status_quo_with_weight(
@@ -107,8 +106,8 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
     def test_constraints_feasibility(self) -> None:
         self.setUp()
         model = none_throws(self.generation_strategy.model)
-        optimization_config = checked_cast(
-            OptimizationConfig, self.experiment.optimization_config
+        optimization_config = assert_is_instance(
+            self.experiment.optimization_config, OptimizationConfig
         )
         constraints_feasible, df_arms = constraints_feasibility(
             optimization_config=optimization_config,
@@ -136,8 +135,8 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         experiment.attach_data(data=Data(df=df))
         generation_strategy._fit_current_model(data=experiment.lookup_data())
         model = none_throws(generation_strategy.model)
-        optimization_config = checked_cast(
-            OptimizationConfig, experiment.optimization_config
+        optimization_config = assert_is_instance(
+            experiment.optimization_config, OptimizationConfig
         )
         constraints_feasible, df_arms = constraints_feasibility(
             optimization_config=optimization_config, model=model
@@ -146,8 +145,8 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         experiment.optimization_config = OptimizationConfig(
             objective=Objective(metric=Metric(name="branin_a"), minimize=False),
         )
-        optimization_config = checked_cast(
-            OptimizationConfig, experiment.optimization_config
+        optimization_config = assert_is_instance(
+            experiment.optimization_config, OptimizationConfig
         )
         with self.assertRaises(UserInputError):
             constraints_feasibility(

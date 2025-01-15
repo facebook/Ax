@@ -22,9 +22,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.modelbridge.transforms.relativize import BaseRelativize, get_metric_index
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.stats.statstools import relativize, unrelativize
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -76,7 +75,10 @@ class TransformToNewSQ(BaseRelativize):
             )
 
         if target_trial_index is not None:
-            self.default_trial_idx: int = checked_cast(int, target_trial_index)
+            self.default_trial_idx: int = assert_is_instance(
+                target_trial_index,
+                int,
+            )
 
     @property
     def control_as_constant(self) -> bool:

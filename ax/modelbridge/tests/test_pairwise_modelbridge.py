@@ -19,7 +19,6 @@ from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.preference_stubs import get_pbo_experiment
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.preference import (
@@ -29,6 +28,7 @@ from botorch.acquisition.preference import (
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.transforms.input import Normalize
 from botorch.utils.datasets import RankingDataset
+from pyre_extensions import assert_is_instance
 
 
 class PairwiseModelBridgeTest(TestCase):
@@ -108,7 +108,7 @@ class PairwiseModelBridgeTest(TestCase):
             ),
         ]
         parameter_names = list(self.experiment.parameters.keys())
-        outcomes = [checked_cast(str, Keys.PAIRWISE_PREFERENCE_QUERY.value)]
+        outcomes = [assert_is_instance(Keys.PAIRWISE_PREFERENCE_QUERY.value, str)]
 
         datasets, _, candidate_metadata = pmb._convert_observations(
             observation_data=observation_data,

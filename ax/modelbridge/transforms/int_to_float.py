@@ -21,8 +21,7 @@ from ax.modelbridge.transforms.rounding import (
 from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -59,11 +58,11 @@ class IntToFloat(Transform):
             search_space, "IntToFloat requires search space"
         )
         config = config or {}
-        self.rounding: str = checked_cast(str, config.get("rounding", "strict"))
-        self.max_round_attempts: int = checked_cast(
-            int, config.get("max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS)
+        self.rounding: str = assert_is_instance(config.get("rounding", "strict"), str)
+        self.max_round_attempts: int = assert_is_instance(
+            config.get("max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS), int
         )
-        self.min_choices: int = checked_cast(int, config.get("min_choices", 0))
+        self.min_choices: int = assert_is_instance(config.get("min_choices", 0), int)
 
         # Identify parameters that should be transformed
         self.transform_parameters: set[str] = self._get_transform_parameters()

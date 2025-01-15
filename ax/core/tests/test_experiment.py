@@ -46,7 +46,6 @@ from ax.storage.sqa_store.save import save_experiment
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_arm,
     get_branin_arms,
@@ -67,6 +66,7 @@ from ax.utils.testing.core_stubs import (
     get_test_map_data_experiment,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
+from pyre_extensions import assert_is_instance
 
 DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
 DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
@@ -1060,22 +1060,23 @@ class ExperimentTest(TestCase):
             cloned_trial = cloned_experiment.trials[trial_index]
             original_trial = experiment.trials[trial_index]
             self.assertEqual(cloned_trial.status, original_trial.status)
-        x1 = checked_cast(
-            RangeParameter, cloned_experiment.search_space.parameters["x1"]
+        x1 = assert_is_instance(
+            cloned_experiment.search_space.parameters["x1"], RangeParameter
         )
         self.assertEqual(x1.lower, -10.0)
         self.assertEqual(x1.upper, 10.0)
-        x2 = checked_cast(
-            ChoiceParameter, cloned_experiment.search_space.parameters["x2"]
+        x2 = assert_is_instance(
+            cloned_experiment.search_space.parameters["x2"], ChoiceParameter
         )
         self.assertEqual(len(x2.values), 16)
         self.assertEqual(
-            checked_cast(Arm, cloned_experiment.status_quo).parameters,
+            assert_is_instance(cloned_experiment.status_quo, Arm).parameters,
             {"x1": 1.0, "x2": 1.0},
         )
         # make sure the sq of the original experiment is unchanged
         self.assertEqual(
-            checked_cast(Arm, experiment.status_quo).parameters, {"x1": 0.0, "x2": 0.0}
+            assert_is_instance(experiment.status_quo, Arm).parameters,
+            {"x1": 0.0, "x2": 0.0},
         )
         self.assertEqual(len(cloned_experiment.trials[0].arms), 16)
 
@@ -1086,11 +1087,12 @@ class ExperimentTest(TestCase):
         # make sure updating cloned experiment doesn't change the original experiment
         cloned_experiment.status_quo = Arm({"x1": -1.0, "x2": 1.0})
         self.assertEqual(
-            checked_cast(Arm, cloned_experiment.status_quo).parameters,
+            assert_is_instance(cloned_experiment.status_quo, Arm).parameters,
             {"x1": -1.0, "x2": 1.0},
         )
         self.assertEqual(
-            checked_cast(Arm, experiment.status_quo).parameters, {"x1": 0.0, "x2": 0.0}
+            assert_is_instance(experiment.status_quo, Arm).parameters,
+            {"x1": 0.0, "x2": 0.0},
         )
 
         # Save the cloned experiment to db and make sure the original

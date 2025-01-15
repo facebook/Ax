@@ -21,8 +21,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.standardize_y import compute_standardization_parameters
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 if TYPE_CHECKING:
@@ -109,8 +108,8 @@ class StratifiedStandardizeY(Transform):
                 )
             self.p_name = task_parameters[0]
         if self.strata_mapping is None:
-            strat_p = checked_cast(
-                ChoiceParameter, search_space.parameters[self.p_name]
+            strat_p = assert_is_instance(
+                search_space.parameters[self.p_name], ChoiceParameter
             )
             # pyre-ignore [8]
             self.strata_mapping = {v: v for v in strat_p.values}

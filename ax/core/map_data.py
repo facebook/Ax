@@ -28,7 +28,7 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
-from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
 
@@ -327,7 +327,7 @@ class MapData(Data):
     @classmethod
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
-        map_data = checked_cast(MapData, obj)
+        map_data = assert_is_instance(obj, MapData)
         properties = serialize_init_args(
             obj=map_data, exclude_fields=["_skip_ordering_and_validation"]
         )

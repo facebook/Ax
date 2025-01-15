@@ -51,11 +51,7 @@ from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import (
-    _argparse_type_encoder,
-    checked_cast,
-    checked_cast_optional,
-)
+from ax.utils.common.typeutils import _argparse_type_encoder, checked_cast_optional
 from ax.utils.stats.model_fit_stats import (
     DIAGNOSTIC_FN_DIRECTIONS,
     DIAGNOSTIC_FNS,
@@ -793,7 +789,10 @@ class Surrogate(Base):
             if isinstance(dataset, RankingDataset):
                 # directly accessing the d-dim X tensor values
                 # instead of the augmented 2*d-dim dataset.X from RankingDataset
-                Xi = checked_cast(SliceContainer, dataset._X).values
+                Xi = assert_is_instance(
+                    dataset._X,
+                    SliceContainer,
+                ).values
             else:
                 Xi = dataset.X
             for _ in range(dataset.Y.shape[-1]):
@@ -1279,7 +1278,10 @@ class Surrogate(Base):
         acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
             outcome_constraints=torch_opt_config.outcome_constraints,
             seed_inner=checked_cast_optional(int, options.get(Keys.SEED_INNER, None)),
-            qmc=checked_cast(bool, options.get(Keys.QMC, True)),
+            qmc=assert_is_instance(
+                options.get(Keys.QMC, True),
+                bool,
+            ),
             risk_measure=torch_opt_config.risk_measure,
         )
 

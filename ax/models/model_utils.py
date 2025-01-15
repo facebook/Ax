@@ -19,9 +19,9 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import SearchSpaceExhausted, UnsupportedError
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.exceptions.warnings import OptimizationWarning
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -426,7 +426,7 @@ def best_in_sample_point(
     # Get points observed for all objective and constraint outcomes
     if objective_weights is None:
         return None
-    objective_weights_np = checked_cast(np.ndarray, as_array(objective_weights))
+    objective_weights_np = assert_is_instance(as_array(objective_weights), np.ndarray)
     X_obs = get_observed(
         Xs=Xs,
         objective_weights=objective_weights,

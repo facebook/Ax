@@ -91,7 +91,6 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.random import with_rng_seed
-from ax.utils.common.typeutils import checked_cast
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -981,7 +980,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         # optimization trace.
         def _constrained_trial_objective_mean(trial: BaseTrial) -> float:
             if constraint_satisfaction(trial):
-                return checked_cast(Trial, trial).objective_mean
+                return assert_is_instance(trial, Trial).objective_mean
             return float("inf") if self.objective.minimize else float("-inf")
 
         objective_name = self.objective_name
@@ -995,7 +994,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             ]
         )
         hover_labels = [
-            _format_dict(none_throws(checked_cast(Trial, trial).arm).parameters)
+            _format_dict(none_throws(assert_is_instance(trial, Trial).arm).parameters)
             for trial in self.experiment.trials.values()
             if trial.status.is_completed
         ]
@@ -1509,7 +1508,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def get_trial(self, trial_index: int) -> Trial:
         """Return a trial on experiment cast as Trial"""
-        return checked_cast(Trial, self.experiment.trials[trial_index])
+        return assert_is_instance(self.experiment.trials[trial_index], Trial)
 
     @property
     def generation_strategy(self) -> GenerationStrategy:

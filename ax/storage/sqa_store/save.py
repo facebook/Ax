@@ -40,8 +40,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import copy_db_ids
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -98,7 +97,7 @@ def _save_experiment(
         decode_func=decoder.experiment_from_sqa,
     )
 
-    return checked_cast(SQABase, experiment_sqa) if return_sqa else None
+    return assert_is_instance(experiment_sqa, SQABase) if return_sqa else None
 
 
 def save_generation_strategy(

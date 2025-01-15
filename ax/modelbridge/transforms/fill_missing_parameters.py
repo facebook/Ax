@@ -13,8 +13,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -44,7 +43,7 @@ class FillMissingParameters(Transform):
         self.fill_values: TParameterization | None = config.get(  # pyre-ignore[8]
             "fill_values", None
         )
-        self.fill_None: bool = checked_cast(bool, config.get("fill_None", True))
+        self.fill_None: bool = assert_is_instance(config.get("fill_None", True), bool)
 
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]

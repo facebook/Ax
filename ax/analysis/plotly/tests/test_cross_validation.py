@@ -11,9 +11,8 @@ from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import mock_botorch_optimize
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestCrossValidationPlot(TestCase):
@@ -71,7 +70,7 @@ class TestCrossValidationPlot(TestCase):
             # and therefore hasn't observed it
             if t.index == max(self.client.experiment.trials.keys()):
                 continue
-            arm_name = none_throws(checked_cast(Trial, t).arm).name
+            arm_name = none_throws(assert_is_instance(t, Trial).arm).name
             self.assertIn(
                 arm_name,
                 card.df["arm_name"].unique(),
@@ -93,7 +92,7 @@ class TestCrossValidationPlot(TestCase):
             # and therefore hasn't observed it
             if t.index == max(self.client.experiment.trials.keys()):
                 continue
-            arm_name = none_throws(checked_cast(Trial, t).arm).name
+            arm_name = none_throws(assert_is_instance(t, Trial).arm).name
             self.assertIn(
                 arm_name,
                 card.df["arm_name"].unique(),

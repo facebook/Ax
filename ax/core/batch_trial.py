@@ -34,8 +34,7 @@ from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -490,7 +489,10 @@ class BatchTrial(BaseTrial):
         return len(self.arms) == param_cardinality
 
     def run(self) -> BatchTrial:
-        return checked_cast(BatchTrial, super().run())
+        return assert_is_instance(
+            super().run(),
+            BatchTrial,
+        )
 
     def normalized_arm_weights(
         self, total: float = 1, trunc_digits: int | None = None

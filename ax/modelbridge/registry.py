@@ -67,10 +67,9 @@ from ax.utils.common.kwargs import (
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import callable_from_reference, callable_to_reference
-from ax.utils.common.typeutils import checked_cast
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -540,7 +539,7 @@ def _decode_callables_from_references(kwarg_dict: dict[str, Any]) -> dict[str, A
     """
     return {
         k: (
-            callable_from_reference(checked_cast(str, v.get("value")))
+            callable_from_reference(assert_is_instance(v.get("value"), str))
             if isinstance(v, dict) and v.get("is_callable_as_path", False)
             else v
         )

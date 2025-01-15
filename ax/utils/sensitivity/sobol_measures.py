@@ -15,7 +15,6 @@ import torch
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.sensitivity.derivative_measures import (
     compute_derivatives_from_model_list,
     sample_discrete_parameters,
@@ -25,6 +24,7 @@ from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import is_ensemble, unnormalize
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -485,7 +485,10 @@ class SobolSensitivityGPMean:
                 # Since we're only looking at mean & variance, we can freely
                 # use mini-batches.
                 for x_split in x.split(split_size=mini_batch_size):
-                    p = checked_cast(GPyTorchPosterior, self.model.posterior(x_split))
+                    p = assert_is_instance(
+                        self.model.posterior(x_split),
+                        GPyTorchPosterior,
+                    )
                     means.append(p.mean)
                     variances.append(p.variance)
 

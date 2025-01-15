@@ -47,7 +47,6 @@ from ax.service.utils.best_point import (
 )
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -382,9 +381,9 @@ class BestPointMixin(metaclass=ABCMeta):
         data = experiment.lookup_data()
         if len(data.df) == 0:
             return 0.0
-        moo_optimization_config = checked_cast(
-            MultiObjectiveOptimizationConfig,
+        moo_optimization_config = assert_is_instance(
             optimization_config or experiment.optimization_config,
+            MultiObjectiveOptimizationConfig,
         )
 
         if use_model_predictions:

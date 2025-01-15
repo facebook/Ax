@@ -24,8 +24,9 @@ from ax.models.model_utils import (
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_to_tuple
+from ax.utils.common.typeutils import checked_cast_to_tuple
 from botorch.utils.sampling import HitAndRunPolytopeSampler
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -74,7 +75,7 @@ class RandomModel(Model):
         self.seed: int = (
             seed
             if seed is not None
-            else checked_cast(int, torch.randint(high=100_000, size=(1,)).item())
+            else assert_is_instance(torch.randint(high=100_000, size=(1,)).item(), int)
         )
         self.init_position = init_position
         # Used for deduplication.

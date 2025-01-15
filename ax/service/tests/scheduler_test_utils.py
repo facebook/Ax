@@ -71,7 +71,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import AX_ROOT_LOGGER_NAME
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     CustomTestMetric,
     CustomTestRunner,
@@ -1845,7 +1844,7 @@ class AxSchedulerTestCase(TestCase):
             mock_gen_multi_from_multi.assert_called_once()
             mock_get_pending.assert_called()
         self.assertEqual(len(scheduler.experiment.trials), 1)
-        trial = checked_cast(BatchTrial, scheduler.experiment.trials[0])
+        trial = assert_is_instance(scheduler.experiment.trials[0], BatchTrial)
         self.assertEqual(
             len(trial.arms),
             2 if status_quo_weight == 0.0 else 3,
@@ -2675,7 +2674,9 @@ class AxSchedulerTestCase(TestCase):
             none_throws(options.batch_size) + 1,
         )
         self.assertIn(self.branin_experiment.status_quo, candidate_trial.arms)
-        self.assertIsNotNone(checked_cast(BatchTrial, candidate_trial).status_quo)
+        self.assertIsNotNone(
+            assert_is_instance(candidate_trial, BatchTrial).status_quo, BatchTrial
+        )
 
     @mock_botorch_optimize
     def test_generate_candidates_works_for_iteration(self) -> None:

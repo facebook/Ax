@@ -8,14 +8,14 @@
 
 import numpy.typing as npt
 from ax.metrics.noisy_function import NoisyFunctionMetric
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.measurement.synthetic_functions import aug_branin, branin
+from pyre_extensions import assert_is_instance
 
 
 class BraninMetric(NoisyFunctionMetric):
     def f(self, x: npt.NDArray) -> float:
         x1, x2 = x
-        return checked_cast(float, branin(x1=x1, x2=x2))
+        return assert_is_instance(branin(x1=x1, x2=x2), float)
 
 
 class NegativeBraninMetric(BraninMetric):
@@ -26,4 +26,4 @@ class NegativeBraninMetric(BraninMetric):
 
 class AugmentedBraninMetric(NoisyFunctionMetric):
     def f(self, x: npt.NDArray) -> float:
-        return checked_cast(float, aug_branin(x))
+        return assert_is_instance(aug_branin(x), float)

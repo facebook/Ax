@@ -93,7 +93,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     CustomTestMetric,
     CustomTestRunner,
@@ -131,7 +130,7 @@ from ax.utils.testing.modeling_stubs import (
     sobol_gpei_generation_node_gs,
 )
 from plotly import graph_objects as go, io as pio
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -454,8 +453,8 @@ class SQAStoreTest(TestCase):
                 # check generator runs
                 gr = trial.generator_runs[0]
                 if multi_objective and not immutable:
-                    objectives = checked_cast(
-                        MultiObjective, none_throws(gr.optimization_config).objective
+                    objectives = assert_is_instance(
+                        none_throws(gr.optimization_config).objective, MultiObjective
                     ).objectives
                     for i, objective in enumerate(objectives):
                         metric = objective.metric
@@ -506,7 +505,7 @@ class SQAStoreTest(TestCase):
             # Experiments are not the same, because one has abandoned arms info.
             self.assertNotEqual(loaded_experiment, exp)
             # Remove all abandoned arms and check that all else is equal as expected.
-            t = checked_cast(BatchTrial, exp.trials[0])
+            t = assert_is_instance(exp.trials[0], BatchTrial)
             t._abandoned_arms_metadata = {}
             loaded_experiment.runner = exp.runner
             loaded_experiment._trials[0]._runner = exp._trials[0]._runner

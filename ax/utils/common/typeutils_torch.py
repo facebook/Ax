@@ -9,7 +9,7 @@
 import json
 
 import torch
-from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance
 
 
 def torch_type_to_str(value: torch.dtype | torch.device | torch.Size) -> str:
@@ -17,7 +17,7 @@ def torch_type_to_str(value: torch.dtype | torch.device | torch.Size) -> str:
     if isinstance(value, torch.dtype):
         return str(value)
     if isinstance(value, torch.device):
-        return checked_cast(str, value.type)
+        return assert_is_instance(value.type, str)
     if isinstance(value, torch.Size):
         return json.dumps(list(value))
     raise ValueError(f"Object {value} was of unexpected torch type.")

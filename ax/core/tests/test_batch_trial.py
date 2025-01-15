@@ -22,7 +22,6 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
     get_arm,
@@ -33,6 +32,7 @@ from ax.utils.testing.core_stubs import (
     get_generator_run2,
     get_weights,
 )
+from pyre_extensions import assert_is_instance
 
 
 class BatchTrialTest(TestCase):
@@ -443,7 +443,7 @@ class BatchTrialTest(TestCase):
         new_experiment = get_experiment()
         new_experiment.status_quo = None
         batch.clone_to(new_experiment)
-        new_batch_trial_1 = checked_cast(BatchTrial, new_experiment.trials[0])
+        new_batch_trial_1 = assert_is_instance(new_experiment.trials[0], BatchTrial)
 
         self.assertEqual(new_batch_trial_0.index, 1)
         # Set index to original trial's value for equality check.

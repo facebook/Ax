@@ -39,7 +39,6 @@ from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
@@ -56,7 +55,7 @@ from botorch.utils.datasets import (
     SupervisedDataset,
 )
 from pandas import DataFrame
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 def _get_modelbridge_from_experiment(
@@ -745,7 +744,7 @@ class TorchModelBridgeTest(TestCase):
             self.assertIsInstance(dataset, ContextualDataset)
             self.assertEqual(dataset.feature_names, feature_names)
             self.assertDictEqual(
-                checked_cast(ContextualDataset, dataset).parameter_decomposition,
+                assert_is_instance(dataset, ContextualDataset).parameter_decomposition,
                 parameter_decomposition,
             )
             if len(dataset.outcome_names) == 1:
@@ -755,12 +754,14 @@ class TorchModelBridgeTest(TestCase):
             else:
                 self.assertListEqual(dataset.outcome_names, ["y:c0", "y:c1", "y:c2"])
                 self.assertListEqual(
-                    checked_cast(ContextualDataset, dataset).context_buckets,
+                    assert_is_instance(dataset, ContextualDataset).context_buckets,
                     ["c0", "c1", "c2"],
                 )
                 self.assertDictEqual(
                     none_throws(
-                        checked_cast(ContextualDataset, dataset).metric_decomposition
+                        assert_is_instance(
+                            dataset, ContextualDataset
+                        ).metric_decomposition
                     ),
                     metric_decomposition,
                 )

@@ -26,9 +26,8 @@ from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.plot.helper import _format_CI, _format_dict, extend_range
 from ax.plot.pareto_utils import ParetoFrontierResults
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.utils.common.typeutils import checked_cast
 from plotly import express as px
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from scipy.stats import norm
 
 
@@ -863,8 +862,8 @@ def _validate_and_maybe_get_default_metric_names(
     # Default metric_names is all metrics, producing an error if more than 2
     if metric_names is None:
         if none_throws(optimization_config).is_moo_problem:
-            multi_objective = checked_cast(
-                MultiObjective, none_throws(optimization_config).objective
+            multi_objective = assert_is_instance(
+                none_throws(optimization_config).objective, MultiObjective
             )
             metric_names = tuple(obj.metric.name for obj in multi_objective.objectives)
         else:
@@ -891,8 +890,8 @@ def _validate_experiment_and_maybe_get_objective_thresholds(
     objective_thresholds = []
     # Validate `objective_thresholds` if `reference_point` is unspecified.
     if reference_point is None:
-        objective_thresholds = checked_cast(
-            MultiObjectiveOptimizationConfig, optimization_config
+        objective_thresholds = assert_is_instance(
+            optimization_config, MultiObjectiveOptimizationConfig
         ).objective_thresholds
         if any(
             ot.relative for ot in objective_thresholds if ot.metric.name in metric_names
@@ -1005,8 +1004,8 @@ def _maybe_get_default_minimize_single_metric(
         and metric_name in optimization_config.objective.metric_names
     ):
         if optimization_config.is_moo_problem:
-            multi_objective = checked_cast(
-                MultiObjective, optimization_config.objective
+            multi_objective = assert_is_instance(
+                optimization_config.objective, MultiObjective
             )
             for objective in multi_objective.objectives:
                 if objective.metric.name == metric_name:

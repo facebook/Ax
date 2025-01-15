@@ -40,11 +40,11 @@ from ax.modelbridge.transforms.derelativize import derelativize_bound
 from ax.modelbridge.transforms.search_space_to_float import SearchSpaceToFloat
 from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.stats.statstools import relativize
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.utils.multi_objective import is_non_dominated
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
+from pyre_extensions import assert_is_instance
 
 # type aliases
 Mu = dict[str, list[float]]
@@ -605,8 +605,8 @@ def infer_reference_point_from_experiment(
     # when calculating the Pareto front. Also, defining a multiplier to turn all
     # the objectives to be maximized. Note that the multiplier at this point
     # contains 0 for outcome_constraint metrics, but this will be dropped later.
-    opt_config = checked_cast(
-        MultiObjectiveOptimizationConfig, experiment.optimization_config
+    opt_config = assert_is_instance(
+        experiment.optimization_config, MultiObjectiveOptimizationConfig
     )
     inferred_rp = _get_objective_thresholds(optimization_config=opt_config)
     multiplier = [0] * len(objective_orders)
@@ -614,7 +614,9 @@ def infer_reference_point_from_experiment(
         inferred_rp = deepcopy(opt_config.objective_thresholds)
     else:
         inferred_rp = []
-        for objective in checked_cast(MultiObjective, opt_config.objective).objectives:
+        for objective in assert_is_instance(
+            opt_config.objective, MultiObjective
+        ).objectives:
             ot = ObjectiveThreshold(
                 metric=objective.metric,
                 bound=0.0,  # dummy value
@@ -724,8 +726,8 @@ def _get_objective_thresholds(
     if optimization_config.objective_thresholds is not None:
         return deepcopy(optimization_config.objective_thresholds)
     objective_thresholds = []
-    for objective in checked_cast(
-        MultiObjective, optimization_config.objective
+    for objective in assert_is_instance(
+        optimization_config.objective, MultiObjective
     ).objectives:
         ot = ObjectiveThreshold(
             metric=objective.metric,

@@ -47,7 +47,6 @@ from ax.service.utils.report_utils import (
 )
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
@@ -61,7 +60,7 @@ from ax.utils.testing.core_stubs import (
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from plotly import graph_objects as go
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 OBJECTIVE_NAME = "branin"
 PARAMETER_COLUMNS = ["x1", "x2"]
@@ -423,8 +422,8 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         exp.optimization_config.objective.objectives[0].minimize = False
         exp.optimization_config.objective.objectives[1].minimize = True
-        checked_cast(
-            MultiObjectiveOptimizationConfig, exp.optimization_config
+        assert_is_instance(
+            exp.optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds = [
             ObjectiveThreshold(
                 metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0
@@ -462,8 +461,8 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         exp.optimization_config.objective.objectives[0].minimize = False
         exp.optimization_config.objective.objectives[1].minimize = True
-        checked_cast(
-            MultiObjectiveOptimizationConfig, exp.optimization_config
+        assert_is_instance(
+            exp.optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds = [
             ObjectiveThreshold(
                 metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0
@@ -474,8 +473,8 @@ class ReportUtilsTest(TestCase):
         ]
         exp.trials[0].run()
 
-        for ot in checked_cast(
-            MultiObjectiveOptimizationConfig, exp.optimization_config
+        for ot in assert_is_instance(
+            exp.optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds:
             ot.relative = False
         plots = get_standard_plots(

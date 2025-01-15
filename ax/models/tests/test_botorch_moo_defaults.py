@@ -292,7 +292,7 @@ class BotorchMOODefaultsTest(TestCase):
         with ExitStack() as es:
             mock_get_acqf = es.enter_context(mock.patch(GET_ACQF_PATH))
             es.enter_context(
-                mock.patch(MOO_DEFAULTS_PATH + ".checked_cast", wraps=cast)
+                mock.patch(MOO_DEFAULTS_PATH + ".assert_is_instance", wraps=cast)
             )
             es.enter_context(mock.patch(GET_CONSTRAINT_PATH, return_value=cons_tfs))
             es.enter_context(mock.patch(GET_OBJ_PATH, return_value=obj_and_obj_t))

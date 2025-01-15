@@ -27,8 +27,7 @@ from ax.plot.pareto_utils import (
     infer_reference_point_from_experiment,
 )
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 logger: Logger = get_logger(__name__)
@@ -294,12 +293,12 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         is_feasible = []
         for trial in experiment.trials_by_status[TrialStatus.COMPLETED]:
             if trial.index <= trial_to_check:
-                tr = checked_cast(Trial, trial)
+                tr = assert_is_instance(trial, Trial)
                 objectives.append(tr.objective_mean)
                 is_feasible.append(constraint_satisfaction(tr))
 
-        if checked_cast(
-            OptimizationConfig, experiment.optimization_config
+        if assert_is_instance(
+            experiment.optimization_config, OptimizationConfig
         ).objective.minimize:
             selector, mask_val = np.minimum, np.inf
         else:
