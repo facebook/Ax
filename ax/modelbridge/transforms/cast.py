@@ -13,8 +13,7 @@ from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -50,18 +49,22 @@ class Cast(Transform):
     ) -> None:
         self.search_space: SearchSpace = none_throws(search_space).clone()
         config = (config or {}).copy()
-        self.flatten_hss: bool = checked_cast(
-            bool,
+        self.flatten_hss: bool = assert_is_instance(
             config.pop(
                 "flatten_hss", isinstance(search_space, HierarchicalSearchSpace)
             ),
-        )
-        self.inject_dummy_values_to_complete_flat_parameterization: bool = checked_cast(
             bool,
-            config.pop("inject_dummy_values_to_complete_flat_parameterization", True),
         )
-        self.use_random_dummy_values: bool = checked_cast(
-            bool, config.pop("use_random_dummy_values", False)
+        self.inject_dummy_values_to_complete_flat_parameterization: bool = (
+            assert_is_instance(
+                config.pop(
+                    "inject_dummy_values_to_complete_flat_parameterization", True
+                ),
+                bool,
+            )
+        )
+        self.use_random_dummy_values: bool = assert_is_instance(
+            config.pop("use_random_dummy_values", False), bool
         )
         if config:
             raise UserInputError(
@@ -85,7 +88,7 @@ class Cast(Transform):
         """
         if not self.flatten_hss:
             return search_space
-        return checked_cast(HierarchicalSearchSpace, search_space).flatten()
+        return assert_is_instance(search_space, HierarchicalSearchSpace).flatten()
 
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
@@ -105,8 +108,8 @@ class Cast(Transform):
         # got removed during casting to HSS as they were not applicable under the
         # hierarchical structure of the search space.
         return [
-            checked_cast(
-                HierarchicalSearchSpace, self.search_space
+            assert_is_instance(
+                self.search_space, HierarchicalSearchSpace
             ).flatten_observation_features(
                 observation_features=obs_feats,
                 inject_dummy_values_to_complete_flat_parameterization=(
@@ -139,8 +142,8 @@ class Cast(Transform):
             return observation_features
 
         return [
-            checked_cast(
-                HierarchicalSearchSpace, self.search_space
+            assert_is_instance(
+                self.search_space, HierarchicalSearchSpace
             ).cast_observation_features(observation_features=obs_feats)
             for obs_feats in observation_features
         ]

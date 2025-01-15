@@ -39,12 +39,12 @@ from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models import ModelList
 from botorch.models.model import Model
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.transforms import is_ensemble
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 from torch.nn import ModuleList  # @manual
 
@@ -397,12 +397,14 @@ class BotorchModel(TorchModel):
                 **acf_options,
                 **add_kwargs,
             )
-            acquisition_function = checked_cast(
-                AcquisitionFunction, acquisition_function
+            acquisition_function = assert_is_instance(
+                acquisition_function, AcquisitionFunction
             )
             # pyre-ignore: [28]
             candidates, expected_acquisition_value = self.acqf_optimizer(
-                acq_function=checked_cast(AcquisitionFunction, acquisition_function),
+                acq_function=assert_is_instance(
+                    acquisition_function, AcquisitionFunction
+                ),
                 bounds=bounds_,
                 n=n,
                 inequality_constraints=_to_inequality_constraints(

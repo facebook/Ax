@@ -19,7 +19,6 @@ from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.prediction_utils import predict_at_point
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_metric,
@@ -28,7 +27,7 @@ from ax.utils.testing.core_stubs import (
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_sobol_MBM_MTGP_gs
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestPredictedEffectsPlot(TestCase):
@@ -298,7 +297,7 @@ class TestPredictedEffectsPlot(TestCase):
         # THEN it has all arms represented in the dataframe
         for trial in experiment.trials.values():
             self.assertIn(
-                none_throws(checked_cast(Trial, trial).arm).name,
+                none_throws(assert_is_instance(trial, Trial).arm).name,
                 card.df["arm_name"].unique(),
             )
 

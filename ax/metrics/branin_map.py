@@ -23,8 +23,8 @@ from ax.core.map_metric import MapMetricFetchResult
 from ax.core.metric import MetricFetchE
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
 from ax.utils.common.result import Err, Ok
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.measurement.synthetic_functions import branin
+from pyre_extensions import assert_is_instance
 
 FIDELITY = [0.1, 0.4, 0.7, 1.0]
 
@@ -145,7 +145,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         else:
             weight = 1.0
 
-        mean = checked_cast(float, branin(x1=x1, x2=x2)) * weight
+        mean = assert_is_instance(branin(x1=x1, x2=x2), float) * weight
 
         return {"mean": mean, "timestamp": timestamp}
 
@@ -188,6 +188,6 @@ class BraninFidelityMapMetric(NoisyFunctionMapMetric):
         fidelity = FIDELITY[self.index]
 
         fidelity_penalty = random() * math.pow(1.0 - fidelity, 2.0)
-        mean = checked_cast(float, branin(x1=x1, x2=x2)) - fidelity_penalty
+        mean = assert_is_instance(branin(x1=x1, x2=x2), float) - fidelity_penalty
 
         return {"mean": mean, "fidelity": fidelity}

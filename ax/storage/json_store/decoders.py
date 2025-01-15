@@ -37,11 +37,11 @@ from ax.storage.botorch_modular_registry import (
 from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
 from ax.utils.common.kwargs import warn_on_kwargs
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.common.typeutils_torch import torch_type_from_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
 from botorch.utils.types import _DefaultType, DEFAULT
+from pyre_extensions import assert_is_instance
 from torch.distributions.transformed_distribution import TransformedDistribution
 
 logger: logging.Logger = get_logger(__name__)
@@ -217,22 +217,22 @@ def class_from_json(json: dict[str, Any]) -> type[Any]:
 def tensor_from_json(json: dict[str, Any]) -> torch.Tensor:
     try:
         device = (
-            checked_cast(
-                torch.device,
+            assert_is_instance(
                 torch_type_from_str(
                     identifier=json["device"]["value"], type_name="device"
                 ),
+                torch.device,
             )
             if torch.cuda.is_available()
             else torch.device("cpu")
         )
         return torch.tensor(
             json["value"],
-            dtype=checked_cast(
-                torch.dtype,
+            dtype=assert_is_instance(
                 torch_type_from_str(
                     identifier=json["dtype"]["value"], type_name="dtype"
                 ),
+                torch.dtype,
             ),
             device=device,
         )
@@ -247,9 +247,9 @@ def tensor_or_size_from_json(json: dict[str, Any]) -> torch.Tensor | torch.Size:
     if json["__type"] == "Tensor":
         return tensor_from_json(json)
     elif json["__type"] == "torch_Size":
-        return checked_cast(
-            torch.Size,
+        return assert_is_instance(
             torch_type_from_str(identifier=json["value"], type_name="Size"),
+            torch.Size,
         )
     else:
         raise JSONDecodeError(

@@ -27,8 +27,7 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 TBaseData = TypeVar("TBaseData", bound="BaseData")
 DF_REPR_MAX_LENGTH = 1000
@@ -148,7 +147,7 @@ class BaseData(Base, SerializationMixin):
             and coltype is not Any
         }
 
-        return checked_cast(pd.DataFrame, df.astype(dtype=dtype))
+        return assert_is_instance(df.astype(dtype=dtype), pd.DataFrame)
 
     @classmethod
     def required_columns(cls) -> set[str]:
@@ -194,7 +193,7 @@ class BaseData(Base, SerializationMixin):
         """Serialize the class-dependent properties needed to initialize this Data.
         Used for storage and to help construct new similar Data.
         """
-        data = checked_cast(cls, obj)
+        data = assert_is_instance(obj, cls)
         return serialize_init_args(
             obj=data, exclude_fields=["_skip_ordering_and_validation"]
         )

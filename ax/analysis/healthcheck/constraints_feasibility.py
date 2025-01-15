@@ -26,8 +26,7 @@ from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.derelativize import Derelativize
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
@@ -101,12 +100,8 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             raise UserInputError(
                 "ConstraintsFeasibilityAnalysis requires a GenerationStrategy."
             )
-        generation_strategy = checked_cast(
-            GenerationStrategy,
-            generation_strategy,
-            exception=UserInputError(
-                "ConstraintsFeasibilityAnalysis requires a GenerationStrategy."
-            ),
+        generation_strategy = assert_is_instance(
+            generation_strategy, GenerationStrategy
         )
 
         if generation_strategy.model is None:
@@ -120,8 +115,8 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
                 "The current model is {model._model_key} and does not support "
                 "prediction."
             )
-        optimization_config = checked_cast(
-            OptimizationConfig, experiment.optimization_config
+        optimization_config = assert_is_instance(
+            experiment.optimization_config, OptimizationConfig
         )
         constraints_feasible, df = constraints_feasibility(
             optimization_config=optimization_config,

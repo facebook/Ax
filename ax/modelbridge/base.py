@@ -48,9 +48,8 @@ from ax.modelbridge.transforms.cast import Cast
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from botorch.exceptions.warnings import InputDataWarning
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -1214,9 +1213,9 @@ def clamp_observation_features(
             if p.name not in obsf.parameters:
                 continue
             if p.parameter_type == ParameterType.FLOAT:
-                val = checked_cast(float, obsf.parameters[p.name])
+                val = assert_is_instance(obsf.parameters[p.name], float)
             else:
-                val = checked_cast(int, obsf.parameters[p.name])
+                val = assert_is_instance(obsf.parameters[p.name], int)
             if val < p.lower:
                 logger.info(
                     f"Untransformed parameter {val} "

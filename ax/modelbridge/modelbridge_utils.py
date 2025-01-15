@@ -56,11 +56,7 @@ from ax.models.torch.botorch_moo_defaults import (
     pareto_frontier_evaluator,
 )
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import (
-    checked_cast,
-    checked_cast_optional,
-    checked_cast_to_tuple,
-)
+from ax.utils.common.typeutils import checked_cast_optional, checked_cast_to_tuple
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
     IndependentCVaR,
     IndependentVaR,
@@ -761,13 +757,13 @@ def get_pareto_frontier_and_configs(
     # de-relativize outcome constraints and objective thresholds
     observations = modelbridge.get_training_data()
 
-    optimization_config = checked_cast(
-        MultiObjectiveOptimizationConfig,
+    optimization_config = assert_is_instance(
         derelativize_optimization_config_with_raw_status_quo(
             optimization_config=optimization_config,
             modelbridge=modelbridge,
             observations=observations,
         ),
+        MultiObjectiveOptimizationConfig,
     )
     # Extract weights, constraints, and objective_thresholds
     objective_weights = extract_objective_weights(

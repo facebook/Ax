@@ -35,7 +35,6 @@ from ax.modelbridge.transforms.map_unit_x import MapUnitX
 from ax.models.torch_base import TorchModel
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
@@ -190,7 +189,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             )
             return None
 
-        data = checked_cast(MapData, data)
+        data = assert_is_instance(data, MapData)
         map_keys = data.map_keys
         if len(list(map_keys)) > 1:
             logger.info(

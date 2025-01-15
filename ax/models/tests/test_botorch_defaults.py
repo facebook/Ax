@@ -21,7 +21,6 @@ from ax.models.torch.botorch_defaults import (
     NO_OBSERVED_POINTS_MESSAGE,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.logei import (
     qLogExpectedImprovement,
@@ -50,7 +49,7 @@ from gpytorch.module import Module
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
 from gpytorch.priors.prior import Prior
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class BotorchDefaultsTest(TestCase):
@@ -555,17 +554,18 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(covar_module, Module)
         self.assertIsInstance(covar_module, ScaleKernel)
         self.assertIsInstance(covar_module.outputscale_prior, GammaPrior)
-        prior = checked_cast(GammaPrior, covar_module.outputscale_prior)
+        prior = assert_is_instance(covar_module.outputscale_prior, GammaPrior)
         self.assertEqual(prior.concentration, 2.0)
         self.assertEqual(prior.rate, 0.15)
         self.assertIsInstance(covar_module.base_kernel, MaternKernel)
-        base_kernel = checked_cast(MaternKernel, covar_module.base_kernel)
+        base_kernel = assert_is_instance(covar_module.base_kernel, MaternKernel)
         self.assertIsInstance(base_kernel.lengthscale_prior, GammaPrior)
         self.assertEqual(
-            checked_cast(GammaPrior, base_kernel.lengthscale_prior).concentration, 3.0
+            assert_is_instance(base_kernel.lengthscale_prior, GammaPrior).concentration,
+            3.0,
         )
         self.assertEqual(
-            checked_cast(GammaPrior, base_kernel.lengthscale_prior).rate, 6.0
+            assert_is_instance(base_kernel.lengthscale_prior, GammaPrior).rate, 6.0
         )
         self.assertEqual(base_kernel.ard_num_dims, ard_num_dims)
         self.assertEqual(base_kernel.batch_shape, batch_shape)
@@ -582,17 +582,18 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(covar_module, Module)
         self.assertIsInstance(covar_module, ScaleKernel)
         self.assertIsInstance(covar_module.outputscale_prior, GammaPrior)
-        prior = checked_cast(GammaPrior, covar_module.outputscale_prior)
+        prior = assert_is_instance(covar_module.outputscale_prior, GammaPrior)
         self.assertEqual(prior.concentration, 2.0)
         self.assertEqual(prior.rate, 12.0)
         self.assertIsInstance(covar_module.base_kernel, MaternKernel)
-        base_kernel = checked_cast(MaternKernel, covar_module.base_kernel)
+        base_kernel = assert_is_instance(covar_module.base_kernel, MaternKernel)
         self.assertIsInstance(base_kernel.lengthscale_prior, GammaPrior)
         self.assertEqual(
-            checked_cast(GammaPrior, base_kernel.lengthscale_prior).concentration, 12.0
+            assert_is_instance(base_kernel.lengthscale_prior, GammaPrior).concentration,
+            12.0,
         )
         self.assertEqual(
-            checked_cast(GammaPrior, base_kernel.lengthscale_prior).rate, 2.0
+            assert_is_instance(base_kernel.lengthscale_prior, GammaPrior).rate, 2.0
         )
         self.assertEqual(base_kernel.ard_num_dims, ard_num_dims - 1)
         self.assertEqual(base_kernel.batch_shape, batch_shape)

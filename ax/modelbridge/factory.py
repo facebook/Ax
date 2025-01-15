@@ -32,7 +32,7 @@ from ax.models.torch.botorch_defaults import (
 from ax.models.torch.utils import predict_from_model
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance
 
 
 logger: Logger = get_logger(__name__)
@@ -71,8 +71,7 @@ def get_sobol(
     Returns:
         RandomModelBridge, with SobolGenerator as model.
     """
-    return checked_cast(
-        RandomModelBridge,
+    return assert_is_instance(
         Models.SOBOL(
             search_space=search_space,
             seed=seed,
@@ -81,6 +80,7 @@ def get_sobol(
             scramble=scramble,
             fallback_to_sample_polytope=fallback_to_sample_polytope,
         ),
+        RandomModelBridge,
     )
 
 
@@ -96,9 +96,9 @@ def get_uniform(
     Returns:
         RandomModelBridge, with UniformGenerator as model.
     """
-    return checked_cast(
-        RandomModelBridge,
+    return assert_is_instance(
         Models.UNIFORM(search_space=search_space, seed=seed, deduplicate=deduplicate),
+        RandomModelBridge,
     )
 
 
@@ -120,8 +120,7 @@ def get_botorch(
     """Instantiates a BotorchModel."""
     if data.df.empty:
         raise ValueError("`BotorchModel` requires non-empty data.")
-    return checked_cast(
-        TorchModelBridge,
+    return assert_is_instance(
         Models.LEGACY_BOTORCH(
             experiment=experiment,
             data=data,
@@ -137,14 +136,15 @@ def get_botorch(
             refit_on_cv=refit_on_cv,
             optimization_config=optimization_config,
         ),
+        TorchModelBridge,
     )
 
 
 def get_factorial(search_space: SearchSpace) -> DiscreteModelBridge:
     """Instantiates a factorial generator."""
-    return checked_cast(
-        DiscreteModelBridge,
+    return assert_is_instance(
         Models.FACTORIAL(search_space=search_space, fit_out_of_design=True),
+        DiscreteModelBridge,
     )
 
 
@@ -159,8 +159,7 @@ def get_empirical_bayes_thompson(
     """Instantiates an empirical Bayes / Thompson sampling model."""
     if data.df.empty:
         raise ValueError("Empirical Bayes Thompson sampler requires non-empty data.")
-    return checked_cast(
-        DiscreteModelBridge,
+    return assert_is_instance(
         Models.EMPIRICAL_BAYES_THOMPSON(
             experiment=experiment,
             data=data,
@@ -170,6 +169,7 @@ def get_empirical_bayes_thompson(
             uniform_weights=uniform_weights,
             fit_out_of_design=True,
         ),
+        DiscreteModelBridge,
     )
 
 
@@ -184,8 +184,7 @@ def get_thompson(
     """Instantiates a Thompson sampling model."""
     if data.df.empty:
         raise ValueError("Thompson sampler requires non-empty data.")
-    return checked_cast(
-        DiscreteModelBridge,
+    return assert_is_instance(
         Models.THOMPSON(
             experiment=experiment,
             data=data,
@@ -195,4 +194,5 @@ def get_thompson(
             uniform_weights=uniform_weights,
             fit_out_of_design=True,
         ),
+        DiscreteModelBridge,
     )

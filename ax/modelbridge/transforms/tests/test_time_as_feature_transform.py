@@ -17,8 +17,8 @@ from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.time_as_feature import TimeAsFeature
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import unixtime_to_pandas_ts
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
+from pyre_extensions import assert_is_instance
 
 
 class TimeAsFeatureTransformTest(TestCase):
@@ -116,11 +116,11 @@ class TimeAsFeatureTransformTest(TestCase):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(set(ss2.parameters.keys()), {"x", "start_time", "duration"})
-        p = checked_cast(RangeParameter, ss2.parameters["start_time"])
+        p = assert_is_instance(ss2.parameters["start_time"], RangeParameter)
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 0.0)
         self.assertEqual(p.upper, 3.0)
-        p = checked_cast(RangeParameter, ss2.parameters["duration"])
+        p = assert_is_instance(ss2.parameters["duration"], RangeParameter)
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 0.0)
         self.assertEqual(p.upper, 1.0)

@@ -21,7 +21,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.utils.common.result import Err, Ok
-from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance
 from sklearn import datasets
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import cross_val_score
@@ -127,7 +127,7 @@ class SklearnMetric(Metric):
     def clone(self) -> SklearnMetric:
         return self.__class__(
             name=self._name,
-            lower_is_better=checked_cast(bool, self.lower_is_better),
+            lower_is_better=assert_is_instance(self.lower_is_better, bool),
             model_type=self.model_type,
             dataset=self.dataset,
         )
@@ -180,9 +180,9 @@ class SklearnMetric(Metric):
         if self.model_type == SklearnModelType.NN:
             hidden_layer_size = params.pop("hidden_layer_size", None)
             if hidden_layer_size is not None:
-                hidden_layer_size = checked_cast(int, hidden_layer_size)
-                num_hidden_layers = checked_cast(
-                    int, params.pop("num_hidden_layers", 1)
+                hidden_layer_size = assert_is_instance(hidden_layer_size, int)
+                num_hidden_layers = assert_is_instance(
+                    params.pop("num_hidden_layers", 1), int
                 )
                 params["hidden_layer_sizes"] = [hidden_layer_size] * num_hidden_layers
         model = self._model_cls(**params)

@@ -33,7 +33,6 @@ from ax.models.torch.utils import _filter_X_observed
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition import qLogNoisyExpectedImprovement
@@ -57,7 +56,7 @@ from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.types import DEFAULT
 from gpytorch.likelihoods.gaussian_likelihood import FixedNoiseGaussianLikelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 CURRENT_PATH: str = __name__
@@ -157,9 +156,9 @@ class BoTorchModelTest(TestCase):
                 outcome_names=[mn],
             )
             for X, Y, Yvar, mn in zip(
-                checked_cast(list, self.Xs) * 3,
+                assert_is_instance(self.Xs, list) * 3,
                 self.Ys + Ys2 + self.Ys,
-                checked_cast(list, self.Yvars) * 3,
+                assert_is_instance(self.Yvars, list) * 3,
                 self.moo_metric_names,
             )
         ]
@@ -802,7 +801,7 @@ class BoTorchModelTest(TestCase):
             candidate_metadata=self.candidate_metadata,
         )
         # A model list should be chosen, since Xs are not all the same.
-        model_list = checked_cast(ModelList, model.surrogate.model)
+        model_list = assert_is_instance(model.surrogate.model, ModelList)
         for submodel in model_list.models:
             # There are fidelity features and nonempty Yvars, so
             # MFGP should be chosen.

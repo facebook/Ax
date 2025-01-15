@@ -20,7 +20,7 @@ from ax.modelbridge.transforms.rounding import (
 )
 from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -132,7 +132,7 @@ class OneHot(Transform):
         transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters:
-                p = checked_cast(ChoiceParameter, p)
+                p = assert_is_instance(p, ChoiceParameter)
                 if p.is_fidelity:
                     raise ValueError(
                         f"Cannot one-hot-encode fidelity parameter {p_name}"

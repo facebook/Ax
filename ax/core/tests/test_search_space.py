@@ -39,7 +39,6 @@ from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_hierarchical_search_space,
     get_l2_reg_weight_parameter,
@@ -48,6 +47,7 @@ from ax.utils.testing.core_stubs import (
     get_num_boost_rounds_parameter,
     get_parameter_constraint,
 )
+from pyre_extensions import assert_is_instance
 
 TOTAL_PARAMS = 6
 TUNABLE_PARAMS = 4
@@ -970,11 +970,11 @@ class HierarchicalSearchSpaceTest(TestCase):
         - `l2_reg_weight` is Range, can be made logit-scale
         - `num_boost_rounds` is Int-Range.
         """
-        checked_cast(
-            RangeParameter, self.hss_2.parameters["learning_rate"]
+        assert_is_instance(
+            self.hss_2.parameters["learning_rate"], RangeParameter
         )._log_scale = True
-        checked_cast(
-            RangeParameter, self.hss_2.parameters["l2_reg_weight"]
+        assert_is_instance(
+            self.hss_2.parameters["l2_reg_weight"], RangeParameter
         )._logit_scale = True
         # This has no other parameters on it, so they should all be set to
         # middle value in their respective domains.
