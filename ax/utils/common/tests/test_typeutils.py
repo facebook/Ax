@@ -10,43 +10,36 @@
 import numpy as np
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import (
-    checked_cast,
-    checked_cast_dict,
-    checked_cast_list,
-    checked_cast_optional,
+    assert_is_instance_dict,
+    assert_is_instance_list,
+    assert_is_instance_optional,
 )
 from ax.utils.common.typeutils_nonnative import numpy_type_to_python_type
+from pyre_extensions import assert_is_instance
 
 
 class TestTypeUtils(TestCase):
-    def test_checked_cast(self) -> None:
-        self.assertEqual(checked_cast(float, 2.0), 2.0)
-        with self.assertRaises(ValueError):
-            checked_cast(float, 2)
+    def test_assert_is_instance(self) -> None:
+        self.assertEqual(assert_is_instance(2.0, float), 2.0)
+        with self.assertRaises(TypeError):
+            assert_is_instance(2, float)
 
-    def test_checked_cast_with_error_override(self) -> None:
-        self.assertEqual(checked_cast(float, 2.0), 2.0)
-        with self.assertRaises(NotImplementedError):
-            checked_cast(
-                float, 2, exception=NotImplementedError("foo() doesn't support ints")
-            )
+    def test_assert_is_instance_list(self) -> None:
+        self.assertEqual(assert_is_instance_list([1.0, 2.0], float), [1.0, 2.0])
+        with self.assertRaises(TypeError):
+            assert_is_instance_list([1.0, 2], float)
 
-    def test_checked_cast_list(self) -> None:
-        self.assertEqual(checked_cast_list(float, [1.0, 2.0]), [1.0, 2.0])
-        with self.assertRaises(ValueError):
-            checked_cast_list(float, [1.0, 2])
+    def test_assert_is_instance_optional(self) -> None:
+        self.assertEqual(assert_is_instance_optional(None, float), None)
+        with self.assertRaises(TypeError):
+            assert_is_instance_optional(2, float)
 
-    def test_checked_cast_optional(self) -> None:
-        self.assertEqual(checked_cast_optional(float, None), None)
-        with self.assertRaises(ValueError):
-            checked_cast_optional(float, 2)
-
-    def test_checked_cast_dict(self) -> None:
-        self.assertEqual(checked_cast_dict(str, int, {"some": 1}), {"some": 1})
-        with self.assertRaises(ValueError):
-            checked_cast_dict(str, int, {"some": 1.0})
-        with self.assertRaises(ValueError):
-            checked_cast_dict(str, int, {1: 1})
+    def test_assert_is_instance_dict(self) -> None:
+        self.assertEqual(assert_is_instance_dict({"some": 1}, str, int), {"some": 1})
+        with self.assertRaises(TypeError):
+            assert_is_instance_dict({"some": 1.0}, str, int)
+        with self.assertRaises(TypeError):
+            assert_is_instance_dict({1: 1}, str, int)
 
     def test_numpy_type_to_python_type(self) -> None:
         self.assertEqual(type(numpy_type_to_python_type(np.int64(2))), int)

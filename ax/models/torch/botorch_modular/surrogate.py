@@ -51,7 +51,10 @@ from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import _argparse_type_encoder, checked_cast_optional
+from ax.utils.common.typeutils import (
+    _argparse_type_encoder,
+    assert_is_instance_optional,
+)
 from ax.utils.stats.model_fit_stats import (
     DIAGNOSTIC_FN_DIRECTIONS,
     DIAGNOSTIC_FNS,
@@ -1277,7 +1280,9 @@ class Surrogate(Base):
         options = options or {}
         acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
             outcome_constraints=torch_opt_config.outcome_constraints,
-            seed_inner=checked_cast_optional(int, options.get(Keys.SEED_INNER, None)),
+            seed_inner=assert_is_instance_optional(
+                options.get(Keys.SEED_INNER, None), int
+            ),
             qmc=assert_is_instance(
                 options.get(Keys.QMC, True),
                 bool,

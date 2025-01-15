@@ -34,7 +34,7 @@ from ax.modelbridge.generation_node_input_constructors import InputConstructorPu
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast_list
+from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
@@ -626,7 +626,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             return GenerationStrategy(name=self.name, nodes=cloned_nodes)
 
         return GenerationStrategy(
-            name=self.name, steps=checked_cast_list(GenerationStep, cloned_nodes)
+            name=self.name, steps=assert_is_instance_list(cloned_nodes, GenerationStep)
         )
 
     def _unset_non_persistent_state_fields(self) -> None:

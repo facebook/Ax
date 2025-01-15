@@ -385,7 +385,10 @@ class TestInstantiationtUtils(TestCase):
             else:
                 self.assertEqual(output.sort_values, sort_values)
 
-        with self.assertRaisesRegex(ValueError, "Value was not of type <class 'bool'>"):
+        with self.assertRaisesRegex(
+            TypeError,
+            r"obj is not an instance of cls: obj=\['Foo'\] cls=<class 'bool'>",
+        ):
             representation: dict[str, Any] = {
                 "name": "foo_or_bar",
                 "type": "choice",

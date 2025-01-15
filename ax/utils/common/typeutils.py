@@ -7,6 +7,7 @@
 
 from typing import Any, TypeVar
 
+from pyre_extensions import assert_is_instance
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -15,79 +16,69 @@ X = TypeVar("X")
 Y = TypeVar("Y")
 
 
-def checked_cast(typ: type[T], val: V, exception: Exception | None = None) -> T:
+def assert_is_instance_optional(val: V | None, typ: type[T]) -> T | None:
     """
-    Cast a value to a type (with a runtime safety check).
-
-    Returns the value unchanged and checks its type at runtime. This signals to the
-    typechecker that the value has the designated type.
-
-    Like `typing.cast`_ ``check_cast`` performs no runtime conversion on its argument,
-    but, unlike ``typing.cast``, ``checked_cast`` will throw an error if the value is
-    not of the expected type. The type passed as an argument should be a python class.
+    Asserts that the value is an instance of the given type if it is not None.
 
     Args:
-        typ: the type to cast to
-        val: the value that we are casting
-        exception: override exception to raise if  typecheck fails
+        val: the value to check
+        typ: the type to check against
     Returns:
-        the ``val`` argument, unchanged
-
-    .. _typing.cast: https://docs.python.org/3/library/typing.html#typing.cast
+        the `val` argument, unchanged
     """
-    if not isinstance(val, typ):
-        raise (
-            exception
-            if exception is not None
-            else ValueError(f"Value was not of type {typ}:\n{val}")
-        )
-    return val
-
-
-def checked_cast_optional(typ: type[T], val: V | None) -> T | None:
-    """Calls checked_cast only if value is not None."""
     if val is None:
         return val
-    return checked_cast(typ, val)
+    return assert_is_instance(val, typ)
 
 
-def checked_cast_list(typ: type[T], old_l: list[V]) -> list[T]:
-    """Calls checked_cast on all items in a list."""
-    new_l = []
-    for val in old_l:
-        val = checked_cast(typ, val)
-        new_l.append(val)
-    return new_l
+def assert_is_instance_list(old_l: list[V], typ: type[T]) -> list[T]:
+    """
+    Asserts that all items in a list are instances of the given type.
+
+    Args:
+        old_l: the list to check
+        typ: the type to check against
+    Returns:
+        the `old_l` argument, unchanged
+    """
+    return [assert_is_instance(val, typ) for val in old_l]
 
 
-def checked_cast_dict(
-    key_typ: type[K], value_typ: type[V], d: dict[X, Y]
+def assert_is_instance_dict(
+    d: dict[X, Y], key_type: type[K], val_type: type[V]
 ) -> dict[K, V]:
-    """Calls checked_cast on all keys and values in the dictionary."""
+    """
+    Asserts that all keys and values in the dictionary are instances
+    of the given classes.
+
+    Args:
+        d: the dictionary to check
+        key_type: the type to check against for keys
+        val_type: the type to check against for values
+    Returns:
+        the `d` argument, unchanged
+    """
     new_dict = {}
     for key, val in d.items():
-        val = checked_cast(value_typ, val)
-        key = checked_cast(key_typ, key)
+        key = assert_is_instance(key, key_type)
+        val = assert_is_instance(val, val_type)
         new_dict[key] = val
     return new_dict
 
 
 # pyre-fixme[34]: `T` isn't present in the function's parameters.
-def checked_cast_to_tuple(typ: tuple[type[V], ...], val: V) -> T:
+def assert_is_instance_of_tuple(val: V, typ: tuple[type[V], ...]) -> T:
     """
-    Cast a value to a union of multiple types (with a runtime safety check).
-    This function is similar to `checked_cast`, but allows for the type to be
-    defined as a tuple of types, in which case the value is cast as a union of
-    the types in the tuple.
+    Asserts that a value is an instance of any type in a tuple of types.
 
     Args:
-        typ: the tuple of types to cast to
-        val: the value that we are casting
+        typ: the tuple of types to check against
+        val: the value that we are checking
     Returns:
-        the ``val`` argument, unchanged
+        the `val` argument, unchanged
     """
     if not isinstance(val, typ):
-        raise ValueError(f"Value was not of type {type!r}:\n{val!r}")
+        raise TypeError(f"Value was not of any type {typ!r}:\n{val!r}")
     # pyre-fixme[7]: Expected `T` but got `V`.
     return val
 

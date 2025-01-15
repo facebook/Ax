@@ -24,7 +24,7 @@ from ax.models.model_utils import (
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast_to_tuple
+from ax.utils.common.typeutils import assert_is_instance_of_tuple
 from botorch.utils.sampling import HitAndRunPolytopeSampler
 from pyre_extensions import assert_is_instance
 from torch import Tensor
@@ -129,7 +129,7 @@ class RandomModel(Model):
         if model_gen_options:
             max_draws = model_gen_options.get("max_rs_draws")
             if max_draws is not None:
-                max_draws = int(checked_cast_to_tuple((int, float), max_draws))
+                max_draws = int(assert_is_instance_of_tuple(max_draws, (int, float)))
         try:
             # Always rejection sample, but this only rejects if there are
             # constraints or actual duplicates and deduplicate is specified.

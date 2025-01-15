@@ -47,7 +47,10 @@ from ax.core.types import ComparisonOp, TParameterization, TParamValue
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast_optional, checked_cast_to_tuple
+from ax.utils.common.typeutils import (
+    assert_is_instance_of_tuple,
+    assert_is_instance_optional,
+)
 from pyre_extensions import assert_is_instance, none_throws
 
 DEFAULT_OBJECTIVE_NAME = "objective"
@@ -227,8 +230,8 @@ class InstantiationBase:
             parameter_type=cls._to_parameter_type(
                 bounds, parameter_type, name, "bounds"
             ),
-            lower=checked_cast_to_tuple((float, int), bounds[0]),
-            upper=checked_cast_to_tuple((float, int), bounds[1]),
+            lower=assert_is_instance_of_tuple(bounds[0], (float, int)),
+            upper=assert_is_instance_of_tuple(bounds[1], (float, int)),
             log_scale=assert_is_instance(representation.get("log_scale", False), bool),
             digits=representation.get("digits", None),  # pyre-ignore[6]
             is_fidelity=assert_is_instance(
@@ -258,17 +261,19 @@ class InstantiationBase:
                 values, parameter_type, name, "values"
             ),
             values=values,
-            is_ordered=checked_cast_optional(bool, representation.get("is_ordered")),
+            is_ordered=assert_is_instance_optional(
+                representation.get("is_ordered"), bool
+            ),
             is_fidelity=assert_is_instance(
                 representation.get("is_fidelity", False), bool
             ),
             is_task=assert_is_instance(representation.get("is_task", False), bool),
             target_value=representation.get("target_value", None),  # pyre-ignore[6]
-            sort_values=checked_cast_optional(
-                bool, representation.get("sort_values", None)
+            sort_values=assert_is_instance_optional(
+                representation.get("sort_values", None), bool
             ),
-            dependents=checked_cast_optional(
-                dict, representation.get("dependents", None)
+            dependents=assert_is_instance_optional(
+                representation.get("dependents", None), dict
             ),
         )
 
