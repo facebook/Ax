@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+import json
+
 import numpy as np
 import pandas as pd
 
@@ -13,6 +15,7 @@ from ax.analysis.healthcheck.constraints_feasibility import (
     constraints_feasibility,
     ConstraintsFeasibilityAnalysis,
 )
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -26,7 +29,10 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment_with_multi_objective
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -196,6 +202,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             "We suggest relaxing the constraint bounds for the constraints."
         )
         self.assertEqual(card.subtitle, subtitle)
+        self.assertEqual(json.loads(card.blob), {"status": HealthcheckStatus.WARNING})
 
         # experiment with no constraints
         experiment.optimization_config = OptimizationConfig(
@@ -210,3 +217,14 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.subtitle, "No constraints are specified.")
+        self.assertEqual(json.loads(card.blob), {"status": HealthcheckStatus.PASS})
+
+    def test_no_optimization_config(self) -> None:
+        experiment = get_branin_experiment(has_optimization_config=False)
+        cfa = ConstraintsFeasibilityAnalysis()
+        card = cfa.compute(experiment=experiment, generation_strategy=None)
+        self.assertEqual(card.name, "ConstraintsFeasibility")
+        self.assertEqual(card.title, "Ax Constraints Feasibility Success")
+        self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        self.assertEqual(card.subtitle, "No optimization config is specified.")
+        self.assertEqual(json.loads(card.blob), {"status": HealthcheckStatus.PASS})

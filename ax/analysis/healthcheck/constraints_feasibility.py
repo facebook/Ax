@@ -77,9 +77,14 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             )
 
         if experiment.optimization_config is None:
-            raise UserInputError(
-                "ConstraintsFeasibilityAnalysis requires an Experiment with an "
-                "optimization config."
+            subtitle = "No optimization config is specified."
+            return HealthcheckAnalysisCard(
+                name="ConstraintsFeasibility",
+                title=f"Ax Constraints Feasibility {title_status}",
+                blob=json.dumps({"status": status}),
+                subtitle=subtitle,
+                df=df,
+                level=level,
             )
 
         if (
