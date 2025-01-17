@@ -161,24 +161,26 @@ def _prepare_data(
                     f"trial {trial_index}, but has observations from trial "
                     f"{observed.features.trial_index}."
                 )
-        for i in range(len(observed.data.metric_names)):
-            # Find the index of the metric we want to plot
-            if not (
-                observed.data.metric_names[i] == metric_name
-                and predicted.metric_names[i] == metric_name
-            ):
-                continue
+        observed_i = next(
+            i
+            for i in range(len(observed.data.metric_names))
+            if observed.data.metric_names[i] == metric_name
+        )
+        predicted_i = next(
+            i
+            for i in range(len(observed.data.metric_names))
+            if predicted.metric_names[i] == metric_name
+        )
 
-            record = {
-                "arm_name": observed.arm_name,
-                "observed": observed.data.means[i],
-                "predicted": predicted.means[i],
-                # Take the square root of the the SEM to get the standard deviation
-                "observed_sem": observed.data.covariance[i][i] ** 0.5,
-                "predicted_sem": predicted.covariance[i][i] ** 0.5,
-            }
-            records.append(record)
-            break
+        record = {
+            "arm_name": observed.arm_name,
+            "observed": observed.data.means[observed_i],
+            "predicted": predicted.means[predicted_i],
+            # Take the square root of the variance to get the standard deviation
+            "observed_sem": observed.data.covariance[observed_i][observed_i] ** 0.5,
+            "predicted_sem": predicted.covariance[predicted_i][predicted_i] ** 0.5,
+        }
+        records.append(record)
 
     return pd.DataFrame.from_records(records)
 
