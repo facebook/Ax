@@ -585,7 +585,7 @@ class TestAxClient(TestCase):
         self.assertFalse(is_complete)
 
     @patch(
-        f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",
+        f"{GenerationStrategy.__module__}.GenerationStrategy._gen_with_multiple_nodes",
         side_effect=OptimizationComplete("test error"),
     )
     def test_optimization_complete(self, _mock_gen) -> None:
