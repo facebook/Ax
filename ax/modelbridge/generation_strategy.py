@@ -384,7 +384,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 "By calling into GenerationStrategy.gen(), you are should be "
                 "expecting a single `Trial` with only one `GeneratorRun`. However, "
                 "the underlying GenerationStrategy produced multiple `GeneratorRuns` "
-                f"and returned the following list of `GeneratorRun`s: {gr}"
+                f"and returned the following list of `GeneratorRun`-s: {gr}"
             )
         return gr[0]
 
@@ -398,8 +398,9 @@ class GenerationStrategy(GenerationStrategyInterface):
         arms_per_node: dict[str, int] | None = None,
     ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
-        ``BatchTrial``, and if producing a ``BatchTrial`` allows for multiple
-        models to be used to generate ``GeneratorRun``s for that trial.
+        ``BatchTrial``, and if producing a ``BatchTrial``, allows for multiple
+        ``GenerationNode``-s (and therefore models) to be used to generate
+        ``GeneratorRun``-s for that trial.
 
 
         Args:
@@ -433,7 +434,6 @@ class GenerationStrategy(GenerationStrategyInterface):
         Returns:
             A list of ``GeneratorRuns`` for a single trial.
         """
-        # TODO: @mgarrard merge into gen method, just starting here to derisk
         grs = []
         continue_gen_for_trial = True
         pending_observations = deepcopy(pending_observations) or {}
@@ -481,24 +481,31 @@ class GenerationStrategy(GenerationStrategyInterface):
             sq_ft_from_node = self._determine_sq_features_from_node(
                 node_to_gen_from=node_to_gen_from, gen_kwargs=gen_kwargs
             )
-            # TODO: @mgarrard clean this up after gens merge. This is currently needed
-            # because the actual transition occurs in gs.gen(), but if a node is
-            # skipped, we need to transition here to actually initiate that transition
+            self._maybe_transition_to_next_node()
             if node_to_gen_from._should_skip:
-                self._maybe_transition_to_next_node()
                 continue
+            self._fit_current_model(data=data, status_quo_features=sq_ft_from_node)
+            self._curr.generator_run_limit(raise_generation_errors=True)
             if arms_from_node != 0:
-                grs.extend(
-                    self._gen_multiple(
-                        experiment=experiment,
-                        num_generator_runs=1,
-                        data=data,
+                try:
+                    curr_node_gr = self._curr.gen(
                         n=arms_from_node,
                         pending_observations=pending_observations,
+                        arms_by_signature_for_deduplication=(
+                            experiment.arms_by_signature_for_deduplication
+                        ),
                         fixed_features=fixed_features_from_node,
-                        status_quo_features=sq_ft_from_node,
                     )
-                )
+                except DataRequiredError as err:
+                    # Model needs more data, so we log the error and return
+                    # as many generator runs as we were able to produce, unless
+                    # no trials were produced at all (in which case its safe to raise).
+                    if len(grs) == 0:
+                        raise
+                    logger.debug(f"Model required more data: {err}.")
+                    break
+                self._generator_runs.append(curr_node_gr)
+                grs.append(curr_node_gr)
                 # ensure that the points generated from each node are marked as pending
                 # points for future calls to gen
                 pending_observations = extend_pending_observations(

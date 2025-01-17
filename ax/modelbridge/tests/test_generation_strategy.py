@@ -1289,11 +1289,12 @@ class TestGenerationStrategy(TestCase):
             )
 
     def test_gs_with_suggested_n_is_zero(self) -> None:
-        """Test that the number of arms from a node is zero if the node is not
-        active.
+        """Ensure that a node can be properly skipped, ie not used during generation
+        and not blocking generation, if the suggested n from the input constructor is
+        zero
         """
         exp = get_branin_experiment()
-        node_2 = GenerationNode(
+        sobol_node_2 = GenerationNode(
             node_name="sobol_2",
             model_specs=[self.sobol_model_spec],
             transition_criteria=[
@@ -1307,7 +1308,7 @@ class TestGenerationStrategy(TestCase):
         )
         gs = GenerationStrategy(
             nodes=[
-                node_2,
+                sobol_node_2,
                 GenerationNode(
                     node_name="sobol_3",
                     model_specs=[self.sobol_model_spec],
@@ -1328,11 +1329,13 @@ class TestGenerationStrategy(TestCase):
         # in a cyclic gs dag
         for _i in range(3):
             # if you request < 6 arms, repeat arm input constructor will return 0 arms
+            # meaning sobol_node_2 should be skipped, and sobol_3 should exclusively
+            # be used for generation
             grs = gs._gen_with_multiple_nodes(experiment=exp, n=5)
             self.assertEqual(len(grs), 1)  # only generated from one node
             self.assertEqual(grs[0]._generation_node_name, "sobol_3")
             self.assertEqual(len(grs[0].arms), 5)  # all 5 arms from sobol 3
-            self.assertTrue(node_2._should_skip)
+            self.assertTrue(sobol_node_2._should_skip)
 
         # Now validate that we can get grs from sobol_2 if we request enough n
         grs = gs._gen_with_multiple_nodes(experiment=exp, n=8)
@@ -1341,7 +1344,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(len(grs[0].arms), 1)
         self.assertEqual(grs[1]._generation_node_name, "sobol_3")
         self.assertEqual(len(grs[1].arms), 7)
-        self.assertFalse(node_2._should_skip)
+        self.assertFalse(sobol_node_2._should_skip)
 
     def test_gen_with_multiple_nodes_pending_points(self) -> None:
         exp = get_experiment_with_multi_objective()
