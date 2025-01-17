@@ -572,8 +572,6 @@ def recommend_best_observed_point(
     )
     if x_best is None:
         return None
-    # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any, typing.Any],
-    #  Tensor]` has no attribute `to`.
     return x_best.to(dtype=model.dtype, device=torch.device("cpu"))
 
 
@@ -760,7 +758,7 @@ def _get_aug_batch_shape(X: Tensor, Y: Tensor) -> torch.Size:
     num_outputs = Y.shape[-1]
     if num_outputs > 1:
         batch_shape += torch.Size([num_outputs])  # pyre-ignore
-    return batch_shape  # pyre-ignore
+    return batch_shape
 
 
 def get_warping_transform(
