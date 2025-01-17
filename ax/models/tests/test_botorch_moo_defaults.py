@@ -9,11 +9,13 @@
 from contextlib import ExitStack
 from typing import Any, cast
 from unittest import mock
+from warnings import catch_warnings, simplefilter
 
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_defaults import NO_OBSERVED_POINTS_MESSAGE
+from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
     get_outcome_constraint_transforms,
@@ -24,12 +26,15 @@ from ax.models.torch.botorch_moo_defaults import (
     pareto_frontier_evaluator,
 )
 from ax.models.torch.utils import _get_X_pending_and_observed
+from ax.models.torch_base import TorchModel
 from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import mock_botorch_optimize_context_manager
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.testing import MockModel, MockPosterior
+from gpytorch.utils.warnings import NumericalWarning
 from torch._tensor import Tensor
 
 
@@ -42,12 +47,23 @@ GET_OBJ_PATH: str = (
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_mll"
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def dummy_predict(model, X) -> tuple[Tensor, Tensor]:
-    # Add column to X that is a product of previous elements.
-    mean = torch.cat([X, torch.prod(X, dim=1).reshape(-1, 1)], dim=1)
-    cov = torch.zeros(mean.shape[0], mean.shape[1], mean.shape[1])
-    return mean, cov
+def _fit_model(
+    model: TorchModel, X: torch.Tensor, Y: torch.Tensor, Yvar: torch.Tensor
+) -> None:
+    bounds = [(0.0, 4.0), (0.0, 4.0)]
+    datasets = [
+        SupervisedDataset(
+            X=X,
+            Y=Y,
+            Yvar=Yvar,
+            feature_names=["x1", "x2"],
+            outcome_names=["a", "b", "c"],
+        )
+    ]
+    search_space_digest = SearchSpaceDigest(feature_names=["x1", "x2"], bounds=bounds)
+    with mock_botorch_optimize_context_manager(), catch_warnings():
+        simplefilter(action="ignore", category=NumericalWarning)
+        model.fit(datasets=datasets, search_space_digest=search_space_digest)
 
 
 class FrontierEvaluatorTest(TestCase):
@@ -66,45 +82,24 @@ class FrontierEvaluatorTest(TestCase):
             ]
         )
         self.Yvar = torch.zeros(5, 3)
-        self.outcome_constraints = (
-            torch.tensor([[0.0, 0.0, 1.0]]),
-            torch.tensor([[3.5]]),
-        )
         self.objective_thresholds = torch.tensor([0.5, 1.5])
         self.objective_weights = torch.tensor([1.0, 1.0])
-        bounds = [(0.0, 4.0), (0.0, 4.0)]
-        self.model = MultiObjectiveBotorchModel(model_predictor=dummy_predict)
-        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
-            self.model.fit(
-                datasets=[
-                    SupervisedDataset(
-                        X=self.X,
-                        Y=self.Y,
-                        Yvar=self.Yvar,
-                        feature_names=["x1", "x2"],
-                        outcome_names=["a", "b", "c"],
-                    )
-                ],
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=["x1", "x2"],
-                    bounds=bounds,
-                ),
-            )
-            _mock_fit_model.assert_called_once()
 
     def test_pareto_frontier_raise_error_when_missing_data(self) -> None:
         with self.assertRaises(ValueError):
             pareto_frontier_evaluator(
-                model=self.model,
+                model=MultiObjectiveBotorchModel(),
                 objective_thresholds=self.objective_thresholds,
                 objective_weights=self.objective_weights,
                 Yvar=self.Yvar,
             )
 
     def test_pareto_frontier_evaluator_raw(self) -> None:
+        model = BoTorchModel()
+        _fit_model(model=model, X=self.X, Y=self.Y, Yvar=self.Yvar)
         Yvar = torch.diag_embed(self.Yvar)
         Y, cov, indx = pareto_frontier_evaluator(
-            model=self.model,
+            model=model,
             objective_weights=self.objective_weights,
             objective_thresholds=self.objective_thresholds,
             Y=self.Y,
@@ -118,7 +113,7 @@ class FrontierEvaluatorTest(TestCase):
 
         # Omit objective_thresholds
         Y, cov, indx = pareto_frontier_evaluator(
-            model=self.model,
+            model=model,
             objective_weights=self.objective_weights,
             Y=self.Y,
             Yvar=Yvar,
@@ -131,7 +126,7 @@ class FrontierEvaluatorTest(TestCase):
 
         # Change objective_weights so goal is to minimize b
         Y, cov, indx = pareto_frontier_evaluator(
-            model=self.model,
+            model=model,
             objective_weights=torch.tensor([1.0, -1.0]),
             objective_thresholds=self.objective_thresholds,
             Y=self.Y,
@@ -146,7 +141,7 @@ class FrontierEvaluatorTest(TestCase):
 
         # test no points better than reference point
         Y, cov, indx = pareto_frontier_evaluator(
-            model=self.model,
+            model=model,
             objective_weights=self.objective_weights,
             objective_thresholds=torch.full_like(self.objective_thresholds, 100.0),
             Y=self.Y,
@@ -157,8 +152,25 @@ class FrontierEvaluatorTest(TestCase):
         self.assertTrue(torch.equal(torch.tensor([], dtype=torch.long), indx))
 
     def test_pareto_frontier_evaluator_predict(self) -> None:
-        Y, cov, indx = pareto_frontier_evaluator(
-            model=self.model,
+        def dummy_predict(
+            model: MultiObjectiveBotorchModel,
+            X: Tensor,
+            use_posterior_predictive: bool = False,
+        ) -> tuple[Tensor, Tensor]:
+            # Add column to X that is a product of previous elements.
+            mean = torch.cat([X, torch.prod(X, dim=1).reshape(-1, 1)], dim=1)
+            cov = torch.zeros(mean.shape[0], mean.shape[1], mean.shape[1])
+            return mean, cov
+
+        # pyre-fixme: Incompatible parameter type [6]: In call
+        # `MultiObjectiveBotorchModel.__init__`, for argument `model_predictor`,
+        # expected `typing.Callable[[Model, Tensor, bool], Tuple[Tensor,
+        # Tensor]]` but got named arguments
+        model = MultiObjectiveBotorchModel(model_predictor=dummy_predict)
+        _fit_model(model=model, X=self.X, Y=self.Y, Yvar=self.Yvar)
+
+        Y, _, indx = pareto_frontier_evaluator(
+            model=model,
             objective_weights=self.objective_weights,
             objective_thresholds=self.objective_thresholds,
             X=self.X,
@@ -170,13 +182,17 @@ class FrontierEvaluatorTest(TestCase):
         self.assertTrue(torch.equal(torch.arange(2, 4), indx))
 
     def test_pareto_frontier_evaluator_with_outcome_constraints(self) -> None:
-        Y, cov, indx = pareto_frontier_evaluator(
-            model=self.model,
+        model = MultiObjectiveBotorchModel()
+        Y, _, indx = pareto_frontier_evaluator(
+            model=model,
             objective_weights=self.objective_weights,
             objective_thresholds=self.objective_thresholds,
             Y=self.Y,
             Yvar=self.Yvar,
-            outcome_constraints=self.outcome_constraints,
+            outcome_constraints=(
+                torch.tensor([[0.0, 0.0, 1.0]]),
+                torch.tensor([[3.5]]),
+            ),
         )
         pred = self.Y[2, :]
         self.assertTrue(
