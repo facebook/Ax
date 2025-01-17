@@ -459,7 +459,9 @@ def _get_EHVI(
     if outcome_constraints is None:
         cons_tfs = None
     else:
-        cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
+        cons_tfs = get_outcome_constraint_transforms(
+            outcome_constraints=outcome_constraints
+        )
     num_objectives = objective_thresholds.shape[0]
     # NOTE: Not using checked_cast here because for Python 3.9, isinstance fails with
     # `TypeError: Subscripted generics cannot be used with class and instance checks`.
