@@ -22,7 +22,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast_list
+from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import assert_is_instance
 from sklearn.preprocessing import PowerTransformer
 
@@ -216,5 +216,5 @@ def _compute_inverse_bounds(
             bounds[1] = (-1.0 / lambda_ - mu) / sigma
         elif lambda_ > 2.0 + tol:
             bounds[0] = (1.0 / (2.0 - lambda_) - mu) / sigma
-        inv_bounds[k] = tuple(checked_cast_list(float, bounds))
+        inv_bounds[k] = tuple(assert_is_instance_list(bounds, float))
     return inv_bounds

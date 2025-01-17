@@ -56,7 +56,10 @@ from ax.models.torch.botorch_moo_defaults import (
     pareto_frontier_evaluator,
 )
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast_optional, checked_cast_to_tuple
+from ax.utils.common.typeutils import (
+    assert_is_instance_of_tuple,
+    assert_is_instance_optional,
+)
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
     IndependentCVaR,
     IndependentVaR,
@@ -218,7 +221,9 @@ def extract_search_space_digest(
         if isinstance(p, ChoiceParameter):
             if p.is_task:
                 task_features.append(i)
-                target_values[i] = checked_cast_to_tuple((int, float), p.target_value)
+                target_values[i] = assert_is_instance_of_tuple(
+                    p.target_value, (int, float)
+                )
             elif p.is_ordered:
                 ordinal_features.append(i)
             else:
@@ -243,7 +248,7 @@ def extract_search_space_digest(
             raise ValueError(f"Unknown parameter type {type(p)}")
         if p.is_fidelity:
             fidelity_features.append(i)
-            target_values[i] = checked_cast_to_tuple((int, float), p.target_value)
+            target_values[i] = assert_is_instance_of_tuple(p.target_value, (int, float))
 
     return SearchSpaceDigest(
         feature_names=param_names,
@@ -1054,8 +1059,8 @@ def _get_multiobjective_optimization_config(
     objective_thresholds: TRefPoint | None = None,
 ) -> MultiObjectiveOptimizationConfig:
     # Optimization_config
-    mooc = optimization_config or checked_cast_optional(
-        MultiObjectiveOptimizationConfig, modelbridge._optimization_config
+    mooc = optimization_config or assert_is_instance_optional(
+        modelbridge._optimization_config, MultiObjectiveOptimizationConfig
     )
     if not mooc:
         raise ValueError(
