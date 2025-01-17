@@ -8,6 +8,7 @@
 
 import hashlib
 import json
+import warnings
 from collections.abc import Iterable, Mapping, Sequence
 
 import numpy as np
@@ -18,7 +19,8 @@ from ax.exceptions.model import ModelError
 from ax.models.discrete_base import DiscreteModel
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
-from pyre_extensions import none_throws
+
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class ThompsonSampler(DiscreteModel):
@@ -49,12 +51,11 @@ class ThompsonSampler(DiscreteModel):
         self.uniform_weights = uniform_weights
 
         self.X: Sequence[Sequence[TParamValue]] | None = None
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.Ys = None
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.Yvars = None
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.X_to_Ys_and_Yvars = None
+        self.Ys: Sequence[Sequence[float]] | None = None
+        self.Yvars: Sequence[Sequence[float]] | None = None
+        self.X_to_Ys_and_Yvars: (
+            list[dict[TParamValueList, tuple[float, float]]] | None
+        ) = None
 
     @copy_doc(DiscreteModel.fit)
     def fit(
@@ -70,7 +71,9 @@ class ThompsonSampler(DiscreteModel):
             Ys=Ys, Yvars=Yvars, outcome_names=outcome_names
         )
         self.X_to_Ys_and_Yvars = self._fit_X_to_Ys_and_Yvars(
-            X=none_throws(self.X), Ys=self.Ys, Yvars=self.Yvars
+            X=none_throws(self.X),
+            Ys=none_throws(self.Ys),
+            Yvars=none_throws(self.Yvars),
         )
 
     @copy_doc(DiscreteModel.gen)
@@ -86,6 +89,13 @@ class ThompsonSampler(DiscreteModel):
     ) -> tuple[list[Sequence[TParamValue]], list[float], TGenMetadata]:
         if objective_weights is None:
             raise ValueError("ThompsonSampler requires objective weights.")
+
+        if np.sum(abs(objective_weights) > 0) > 1:
+            warnings.warn(
+                "In case of multi-objective adding metric values together might"
+                " not lead to a meaningful result.",
+                stacklevel=2,
+            )
 
         arms = none_throws(self.X)
         k = len(arms)
@@ -135,11 +145,11 @@ class ThompsonSampler(DiscreteModel):
         self, X: Sequence[Sequence[TParamValue]]
     ) -> tuple[npt.NDArray, npt.NDArray]:
         n = len(X)  # number of parameterizations at which to make predictions
-        m = len(self.Ys)  # number of outcomes
+        m = len(none_throws(self.Ys))  # number of outcomes
         f = np.zeros((n, m))  # array of outcome predictions
         cov = np.zeros((n, m, m))  # array of predictive covariances
         predictX = [self._hash_TParamValueList(x) for x in X]
-        for i, X_to_Y_and_Yvar in enumerate(self.X_to_Ys_and_Yvars):
+        for i, X_to_Y_and_Yvar in enumerate(none_throws(self.X_to_Ys_and_Yvars)):
             # iterate through outcomes
             for j, x in enumerate(predictX):
                 # iterate through parameterizations at which to make predictions
@@ -147,7 +157,9 @@ class ThompsonSampler(DiscreteModel):
                     raise ValueError(
                         "ThompsonSampler does not support out-of-sample prediction."
                     )
-                f[j, i], cov[j, i, i] = X_to_Y_and_Yvar[x]
+                f[j, i], cov[j, i, i] = X_to_Y_and_Yvar[
+                    assert_is_instance(x, TParamValue)
+                ]
         return f, cov
 
     def _generate_weights(
@@ -187,10 +199,10 @@ class ThompsonSampler(DiscreteModel):
     def _generate_samples_per_metric(self, num_samples: int) -> npt.NDArray:
         k = len(none_throws(self.X))
         samples_per_metric = np.zeros(
-            (k, num_samples, len(self.Ys))
+            (k, num_samples, len(none_throws(self.Ys)))
         )  # k x num_samples x m
-        for i, Y in enumerate(self.Ys):  # (k x 1)
-            Yvar = self.Yvars[i]  # (k x 1)
+        for i, Y in enumerate(none_throws(self.Ys)):  # (k x 1)
+            Yvar = none_throws(self.Yvars)[i]  # (k x 1)
             cov = np.diag(Yvar)  # (k x k)
             samples = np.random.multivariate_normal(
                 Y, cov, num_samples
