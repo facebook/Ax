@@ -7,6 +7,8 @@
 # pyre-strict
 
 
+from warnings import catch_warnings
+
 import numpy as np
 from ax.exceptions.model import ModelError
 from ax.models.discrete.thompson import ThompsonSampler
@@ -199,3 +201,25 @@ class ThompsonSamplerTest(TestCase):
 
         with self.assertRaises(ValueError):
             generator.predict([[1, 2]])
+
+    def test_ThompsonSamplerMultiObjectiveWarning(self) -> None:
+        generator = ThompsonSampler(min_weight=0.0)
+        generator.fit(
+            Xs=self.multiple_metrics_Xs,
+            Ys=self.multiple_metrics_Ys,
+            Yvars=self.multiple_metrics_Yvars,
+            parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
+        )
+        with catch_warnings(record=True) as warning_list:
+            arms, weights, _ = generator.gen(
+                n=4,
+                parameter_values=self.parameter_values,
+                objective_weights=np.array([1, -1]),
+                outcome_constraints=None,
+            )
+        self.assertEqual(
+            "In case of multi-objective adding metric values together might"
+            " not lead to a meaningful result.",
+            str(warning_list[0].message),
+        )
