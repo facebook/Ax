@@ -34,10 +34,6 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             outcome_names=self.outcome_names,
         )
         self.assertEqual(generator.X, self.Xs[0])
-        print(generator.Ys)
-        print(
-            np.array([[1.3, 2.1, 2.9, 3.7], [0.25, 0.25, 0.25, 0.25]]),
-        )
         self.assertTrue(
             np.allclose(
                 np.array(generator.Ys),
