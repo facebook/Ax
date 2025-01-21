@@ -119,8 +119,10 @@ try:
                     metric.name: Err(
                         MetricFetchE(
                             message=(
-                                "No 'scalar' data found for trial in multiplexer "
-                                f"{mul=}"
+                                "Tensorboard multiplexer is empty. This can happen if "
+                                "TB data is not populated at the time of fetch. Check "
+                                "the corresponding logs to confirm that Tensorboard "
+                                "data is available."
                             ),
                             exception=None,
                         )
