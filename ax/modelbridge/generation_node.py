@@ -279,25 +279,26 @@ class GenerationNode(SerializationMixin, SortableBase):
     def fit(
         self,
         experiment: Experiment,
-        data: Data,
-        search_space: SearchSpace | None = None,
-        optimization_config: OptimizationConfig | None = None,
-        **kwargs: Any,
+        data: Data | None = None,
     ) -> None:
         """Fits the specified models to the given experiment + data using
         the model kwargs set on each corresponding model spec and the kwargs
         passed to this method.
 
+        NOTE: During fitting of the ``ModelSpec``, state of this ``ModelSpec``
+        after its last candidate generation is extracted from the last
+        ``GeneratorRun`` it produced (if any was captured in
+        ``GeneratorRun.model_state_after_gen``) and passed into ``ModelSpec.fit``
+        as keyword arguments.
+
         Args:
             experiment: The experiment to fit the model to.
             data: The experiment data used to fit the model.
-            search_space: An optional overwrite for the experiment search space.
-            optimization_config: An optional overwrite for the experiment
-                optimization config.
-            kwargs: Additional keyword arguments to pass to the model's
-                ``fit`` method. NOTE: Local kwargs take precedence over the ones
-                stored in ``ModelSpec.model_kwargs``.
+
         """
+        data = data if data is not None else experiment.lookup_data()
+        search_space = experiment.search_space
+        optimization_config = experiment.optimization_config
         if not data.df.empty:
             trial_indices_in_data = sorted(data.df["trial_index"].unique())
         else:
@@ -313,12 +314,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 data=data,
                 search_space=search_space,
                 optimization_config=optimization_config,
-                **{
-                    **self._get_model_state_from_last_generator_run(
-                        model_spec=model_spec
-                    ),
-                    **kwargs,
-                },
+                **self._get_model_state_from_last_generator_run(model_spec=model_spec),
             )
 
     def _get_model_state_from_last_generator_run(
