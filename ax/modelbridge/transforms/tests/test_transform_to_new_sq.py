@@ -70,11 +70,14 @@ class TransformToNewSQSpecificTest(TestCase):
         t.mark_completed()
         self.data = self.exp.fetch_data()
 
+        self._refresh_modelbridge()
+
+    def _refresh_modelbridge(self) -> None:
         self.modelbridge = ModelBridge(
             search_space=self.exp.search_space,
             model=Model(),
             experiment=self.exp,
-            data=self.data,
+            data=self.exp.lookup_data(),
             status_quo_name="status_quo",
         )
 
@@ -141,15 +144,17 @@ class TransformToNewSQSpecificTest(TestCase):
         obs2 = tf.transform_observations(obs)
         self.assertEqual(obs, obs2)
 
-    def test_taget_trial_index(self) -> None:
+    def test_target_trial_index(self) -> None:
         sobol = get_sobol(search_space=self.exp.search_space)
-        self.exp.new_batch_trial(generator_run=sobol.gen(2))
+        self.exp.new_batch_trial(generator_run=sobol.gen(2), optimize_for_power=True)
         t = self.exp.trials[1]
         t = assert_is_instance(t, BatchTrial)
         t.mark_running(no_runner_required=True)
         self.exp.attach_data(
             get_branin_data_batch(batch=assert_is_instance(t, BatchTrial))
         )
+
+        self._refresh_modelbridge()
 
         observations = observations_from_data(
             experiment=self.exp,
@@ -166,6 +171,18 @@ class TransformToNewSQSpecificTest(TestCase):
 
         with mock.patch(
             "ax.modelbridge.transforms.transform_to_new_sq.get_target_trial_index",
+            return_value=0,
+        ):
+            t = TransformToNewSQ(
+                search_space=self.exp.search_space,
+                observations=observations,
+                modelbridge=self.modelbridge,
+            )
+
+        self.assertEqual(t.default_trial_idx, 0)
+        # test falling back to latest trial with SQ data
+        with mock.patch(
+            "ax.modelbridge.transforms.transform_to_new_sq.get_target_trial_index",
             return_value=10,
         ):
             t = TransformToNewSQ(
@@ -174,4 +191,4 @@ class TransformToNewSQSpecificTest(TestCase):
                 modelbridge=self.modelbridge,
             )
 
-        self.assertEqual(t.default_trial_idx, 10)
+        self.assertEqual(t.default_trial_idx, 1)
