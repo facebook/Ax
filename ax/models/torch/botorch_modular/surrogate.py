@@ -1242,8 +1242,6 @@ class Surrogate(Base):
             raise ValueError("Could not obtain best in-sample point.")
         best_point, observed_value = best_point_and_observed_value
         return (
-            # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any,
-            #  typing.Any], Tensor]` has no attribute `to`.
             best_point.to(dtype=self.dtype, device=torch.device("cpu")),
             observed_value,
         )
