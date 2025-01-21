@@ -1,0 +1,421 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.6/css/main.css"/><script src="/versions/0.1.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.6/"><img class="logo" src="/versions/0.1.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.6/versions.html"><h3>0.1.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.plot.trace</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">plotly.graph_objs</span> <span class="k">as</span> <span class="nn">go</span>
+<span class="kn">from</span> <span class="nn">ax.plot.base</span> <span class="k">import</span> <span class="n">AxPlotConfig</span><span class="p">,</span> <span class="n">AxPlotTypes</span>
+<span class="kn">from</span> <span class="nn">ax.plot.color</span> <span class="k">import</span> <span class="n">COLORS</span><span class="p">,</span> <span class="n">DISCRETE_COLOR_SCALE</span><span class="p">,</span> <span class="n">rgba</span>
+
+
+<span class="c1"># type aliases</span>
+<span class="n">Traces</span> <span class="o">=</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
+
+
+<div class="viewcode-block" id="mean_trace_scatter"><a class="viewcode-back" href="../../../plot.html#ax.plot.trace.mean_trace_scatter">[docs]</a><span class="k">def</span> <span class="nf">mean_trace_scatter</span><span class="p">(</span>
+    <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">trace_color</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">COLORS</span><span class="o">.</span><span class="n">STEELBLUE</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+    <span class="n">legend_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"mean"</span><span class="p">,</span>
+    <span class="n">hover_labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">:</span>
+    <span class="sd">"""Creates a graph object for trace of the mean of the given series across</span>
+<span class="sd">    runs.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        y: (r x t) array with results from  r runs and t trials.</span>
+<span class="sd">        trace_color: tuple of 3 int values representing an RGB color.</span>
+<span class="sd">            Defaults to blue.</span>
+<span class="sd">        legend_label: label for this trace.</span>
+<span class="sd">        hover_labels: optional, text to show on hover; list where the i-th value</span>
+<span class="sd">            corresponds to the i-th value in the value of the `y` argument.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        go.Scatter: plotly graph object</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">legend_label</span><span class="p">,</span>
+        <span class="n">legendgroup</span><span class="o">=</span><span class="n">legend_label</span><span class="p">,</span>
+        <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="n">mode</span><span class="o">=</span><span class="s2">"lines"</span><span class="p">,</span>
+        <span class="n">line</span><span class="o">=</span><span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="n">rgba</span><span class="p">(</span><span class="n">trace_color</span><span class="p">)},</span>
+        <span class="n">fillcolor</span><span class="o">=</span><span class="n">rgba</span><span class="p">(</span><span class="n">trace_color</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">),</span>
+        <span class="n">fill</span><span class="o">=</span><span class="s2">"tonexty"</span><span class="p">,</span>
+        <span class="n">text</span><span class="o">=</span><span class="n">hover_labels</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="sem_range_scatter"><a class="viewcode-back" href="../../../plot.html#ax.plot.trace.sem_range_scatter">[docs]</a><span class="k">def</span> <span class="nf">sem_range_scatter</span><span class="p">(</span>
+    <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">trace_color</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">COLORS</span><span class="o">.</span><span class="n">STEELBLUE</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+    <span class="n">legend_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">,</span> <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">]:</span>
+    <span class="sd">"""Creates a graph object for trace of mean +/- 2 SEMs for y, across runs.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        y: (r x t) array with results from  r runs and t trials.</span>
+<span class="sd">        trace_color: tuple of 3 int values representing an RGB color.</span>
+<span class="sd">            Defaults to blue.</span>
+<span class="sd">        legend_label: Label for the legend group.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple[go.Scatter]: plotly graph objects for lower and upper bounds</span>
+<span class="sd">    """</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">sem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">mean</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">sem</span><span class="p">,</span>
+            <span class="n">legendgroup</span><span class="o">=</span><span class="n">legend_label</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="s2">"lines"</span><span class="p">,</span>
+            <span class="n">line</span><span class="o">=</span><span class="p">{</span><span class="s2">"width"</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+            <span class="n">showlegend</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">hoverinfo</span><span class="o">=</span><span class="s2">"none"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">mean</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">sem</span><span class="p">,</span>
+            <span class="n">legendgroup</span><span class="o">=</span><span class="n">legend_label</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="s2">"lines"</span><span class="p">,</span>
+            <span class="n">line</span><span class="o">=</span><span class="p">{</span><span class="s2">"width"</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+            <span class="n">fillcolor</span><span class="o">=</span><span class="n">rgba</span><span class="p">(</span><span class="n">trace_color</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">),</span>
+            <span class="n">fill</span><span class="o">=</span><span class="s2">"tonexty"</span><span class="p">,</span>
+            <span class="n">showlegend</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">hoverinfo</span><span class="o">=</span><span class="s2">"none"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="optimum_objective_scatter"><a class="viewcode-back" href="../../../plot.html#ax.plot.trace.optimum_objective_scatter">[docs]</a><span class="k">def</span> <span class="nf">optimum_objective_scatter</span><span class="p">(</span>
+    <span class="n">optimum</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">num_iterations</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">optimum_color</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">COLORS</span><span class="o">.</span><span class="n">ORANGE</span><span class="o">.</span><span class="n">value</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">:</span>
+    <span class="sd">"""Creates a graph object for the line representing optimal objective.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        optimum: value of the optimal objective</span>
+<span class="sd">        num_iterations: how many trials were in the optimization (used to</span>
+<span class="sd">            determine the width of the plot)</span>
+<span class="sd">        trace_color: tuple of 3 int values representing an RGB color.</span>
+<span class="sd">            Defaults to orange.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        go.Scatter: plotly graph objects for the optimal objective line</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
+        <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_iterations</span><span class="p">],</span>
+        <span class="n">y</span><span class="o">=</span><span class="p">[</span><span class="n">optimum</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">mode</span><span class="o">=</span><span class="s2">"lines"</span><span class="p">,</span>
+        <span class="n">line</span><span class="o">=</span><span class="p">{</span><span class="s2">"dash"</span><span class="p">:</span> <span class="s2">"dash"</span><span class="p">,</span> <span class="s2">"color"</span><span class="p">:</span> <span class="n">rgba</span><span class="p">(</span><span class="n">optimum_color</span><span class="p">)},</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"Optimum"</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="generator_changes_scatter"><a class="viewcode-back" href="../../../plot.html#ax.plot.trace.generator_changes_scatter">[docs]</a><span class="k">def</span> <span class="nf">generator_changes_scatter</span><span class="p">(</span>
+    <span class="n">generator_changes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">y_range</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">generator_change_color</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">COLORS</span><span class="o">.</span><span class="n">TEAL</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">]:</span>
+    <span class="sd">"""Creates a graph object for the line(s) representing generator changes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        generator_changes: iterations, before which generators</span>
+<span class="sd">            changed</span>
+<span class="sd">        y_range: upper and lower values of the y-range of the plot</span>
+<span class="sd">        generator_change_color: tuple of 3 int values representing</span>
+<span class="sd">            an RGB color. Defaults to orange.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        go.Scatter: plotly graph objects for the lines representing generator</span>
+<span class="sd">            changes</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_range</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"y_range should have two values, lower and upper."</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">change</span> <span class="ow">in</span> <span class="n">generator_changes</span><span class="p">:</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
+                <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="n">change</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="n">y</span><span class="o">=</span><span class="n">y_range</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="s2">"lines"</span><span class="p">,</span>
+                <span class="n">line</span><span class="o">=</span><span class="p">{</span><span class="s2">"dash"</span><span class="p">:</span> <span class="s2">"dash"</span><span class="p">,</span> <span class="s2">"color"</span><span class="p">:</span> <span class="n">rgba</span><span class="p">(</span><span class="n">generator_change_color</span><span class="p">)},</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"Generator change"</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="optimization_trace_single_method"><a class="viewcode-back" href="../../../plot.html#ax.plot.trace.optimization_trace_single_method">[docs]</a><span class="k">def</span> <span class="nf">optimization_trace_single_method</span><span class="p">(</span>
+    <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">optimum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">generator_changes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
+    <span class="n">hover_labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">trace_color</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">COLORS</span><span class="o">.</span><span class="n">STEELBLUE</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+    <span class="n">optimum_color</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">COLORS</span><span class="o">.</span><span class="n">ORANGE</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+    <span class="n">generator_change_color</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">COLORS</span><span class="o">.</span><span class="n">TEAL</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AxPlotConfig</span><span class="p">:</span>
+    <span class="sd">"""Plots an optimization trace with mean and 2 SEMs</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        y: (r x t) array; result to plot, with r runs and t trials</span>
+<span class="sd">        optimum: value of the optimal objective</span>
+<span class="sd">        generator_changes: iterations, before which generators</span>
+<span class="sd">            changed</span>
+<span class="sd">        title: title for this plot.</span>
+<span class="sd">        ylabel: label for the Y-axis.</span>
+<span class="sd">        hover_labels: optional, text to show on hover; list where the i-th value</span>
+<span class="sd">            corresponds to the i-th value in the value of the `y` argument.</span>
+<span class="sd">        trace_color: tuple of 3 int values representing an RGB color.</span>
+<span class="sd">            Defaults to orange.</span>
+<span class="sd">        optimum_color: tuple of 3 int values representing an RGB color.</span>
+<span class="sd">            Defaults to orange.</span>
+<span class="sd">        generator_change_color: tuple of 3 int values representing</span>
+<span class="sd">            an RGB color. Defaults to orange.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        AxPlotConfig: plot of the optimization trace with IQR</span>
+<span class="sd">    """</span>
+    <span class="n">trace</span> <span class="o">=</span> <span class="n">mean_trace_scatter</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">trace_color</span><span class="o">=</span><span class="n">trace_color</span><span class="p">,</span> <span class="n">hover_labels</span><span class="o">=</span><span class="n">hover_labels</span><span class="p">)</span>
+    <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span> <span class="o">=</span> <span class="n">sem_range_scatter</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">trace_color</span><span class="o">=</span><span class="n">trace_color</span><span class="p">)</span>
+
+    <span class="n">layout</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Layout</span><span class="p">(</span>
+        <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+        <span class="n">showlegend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">yaxis</span><span class="o">=</span><span class="p">{</span><span class="s2">"title"</span><span class="p">:</span> <span class="n">ylabel</span><span class="p">},</span>
+        <span class="n">xaxis</span><span class="o">=</span><span class="p">{</span><span class="s2">"title"</span><span class="p">:</span> <span class="s2">"Iteration"</span><span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">lower</span><span class="p">,</span> <span class="n">trace</span><span class="p">,</span> <span class="n">upper</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">optimum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">optimum_objective_scatter</span><span class="p">(</span>
+                <span class="n">optimum</span><span class="o">=</span><span class="n">optimum</span><span class="p">,</span> <span class="n">num_iterations</span><span class="o">=</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">optimum_color</span><span class="o">=</span><span class="n">optimum_color</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">generator_changes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="n">y_lower</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">y_upper</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">optimum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">optimum</span> <span class="o">&lt;</span> <span class="n">y_lower</span><span class="p">:</span>
+            <span class="n">y_lower</span> <span class="o">=</span> <span class="n">optimum</span>
+        <span class="k">if</span> <span class="n">optimum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">optimum</span> <span class="o">&gt;</span> <span class="n">y_upper</span><span class="p">:</span>
+            <span class="n">y_upper</span> <span class="o">=</span> <span class="n">optimum</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+            <span class="n">generator_changes_scatter</span><span class="p">(</span>
+                <span class="n">generator_changes</span><span class="o">=</span><span class="n">generator_changes</span><span class="p">,</span>
+                <span class="n">y_range</span><span class="o">=</span><span class="p">[</span><span class="n">y_lower</span><span class="p">,</span> <span class="n">y_upper</span><span class="p">],</span>
+                <span class="n">generator_change_color</span><span class="o">=</span><span class="n">generator_change_color</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">AxPlotConfig</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">(</span><span class="n">layout</span><span class="o">=</span><span class="n">layout</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">),</span> <span class="n">plot_type</span><span class="o">=</span><span class="n">AxPlotTypes</span><span class="o">.</span><span class="n">GENERIC</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="optimization_trace_all_methods"><a class="viewcode-back" href="../../../plot.html#ax.plot.trace.optimization_trace_all_methods">[docs]</a><span class="k">def</span> <span class="nf">optimization_trace_all_methods</span><span class="p">(</span>
+    <span class="n">y_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">optimum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
+    <span class="n">hover_labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">trace_colors</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="n">DISCRETE_COLOR_SCALE</span><span class="p">,</span>
+    <span class="n">optimum_color</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">COLORS</span><span class="o">.</span><span class="n">ORANGE</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AxPlotConfig</span><span class="p">:</span>
+    <span class="sd">"""Plots a comparison of optimization traces with 2-SEM bands for multiple</span>
+<span class="sd">    methods on the same problem.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        y: a mapping of method names to (r x t) arrays, where r is the number</span>
+<span class="sd">            of runs in the test, and t is the number of trials.</span>
+<span class="sd">        optimum: value of the optimal objective.</span>
+<span class="sd">        title: title for this plot.</span>
+<span class="sd">        ylabel: label for the Y-axis.</span>
+<span class="sd">        hover_labels: optional, text to show on hover; list where the i-th value</span>
+<span class="sd">            corresponds to the i-th value in the value of the `y` argument.</span>
+<span class="sd">        trace_colors: tuples of 3 int values representing</span>
+<span class="sd">            RGB colors to use for different methods shown in the combination plot.</span>
+<span class="sd">            Defaults to Ax discrete color scale.</span>
+<span class="sd">        optimum_color: tuple of 3 int values representing an RGB color.</span>
+<span class="sd">            Defaults to orange.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        AxPlotConfig: plot of the comparison of optimization traces with IQR</span>
+<span class="sd">    """</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">y_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+        <span class="c1"># If there are more traces than colors, start reusing colors.</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="n">trace_colors</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">trace_colors</span><span class="p">)]</span>
+        <span class="n">trace</span> <span class="o">=</span> <span class="n">mean_trace_scatter</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">trace_color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">legend_label</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+        <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span> <span class="o">=</span> <span class="n">sem_range_scatter</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">trace_color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">legend_label</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+
+        <span class="n">data</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">lower</span><span class="p">,</span> <span class="n">trace</span><span class="p">,</span> <span class="n">upper</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">optimum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">num_iterations</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">y_dict</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">optimum_objective_scatter</span><span class="p">(</span>
+                <span class="n">optimum</span><span class="o">=</span><span class="n">optimum</span><span class="p">,</span>
+                <span class="n">num_iterations</span><span class="o">=</span><span class="n">num_iterations</span><span class="p">,</span>
+                <span class="n">optimum_color</span><span class="o">=</span><span class="n">optimum_color</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="n">layout</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Layout</span><span class="p">(</span>
+        <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+        <span class="n">showlegend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">yaxis</span><span class="o">=</span><span class="p">{</span><span class="s2">"title"</span><span class="p">:</span> <span class="n">ylabel</span><span class="p">},</span>
+        <span class="n">xaxis</span><span class="o">=</span><span class="p">{</span><span class="s2">"title"</span><span class="p">:</span> <span class="s2">"Iteration"</span><span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">AxPlotConfig</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">(</span><span class="n">layout</span><span class="o">=</span><span class="n">layout</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">),</span> <span class="n">plot_type</span><span class="o">=</span><span class="n">AxPlotTypes</span><span class="o">.</span><span class="n">GENERIC</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="optimization_times"><a class="viewcode-back" href="../../../plot.html#ax.plot.trace.optimization_times">[docs]</a><span class="k">def</span> <span class="nf">optimization_times</span><span class="p">(</span>
+    <span class="n">fit_times</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+    <span class="n">gen_times</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AxPlotConfig</span><span class="p">:</span>
+    <span class="sd">"""Plots wall times for each method as a bar chart.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        fit_times: A map from method name to a list of the model fitting times.</span>
+<span class="sd">        gen_times: A map from method name to a list of the gen times.</span>
+<span class="sd">        title: Title for this plot.</span>
+
+<span class="sd">    Returns: AxPlotConfig with the plot</span>
+<span class="sd">    """</span>
+    <span class="c1"># Compute means and SEs</span>
+    <span class="n">methods</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">fit_times</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">fit_res</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"Fitting"</span><span class="p">}</span>
+    <span class="n">fit_res</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">fit_times</span><span class="p">[</span><span class="n">m</span><span class="p">])</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">methods</span><span class="p">]</span>
+    <span class="n">fit_res</span><span class="p">[</span><span class="s2">"2sems"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">fit_times</span><span class="p">[</span><span class="n">m</span><span class="p">])</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fit_times</span><span class="p">[</span><span class="n">m</span><span class="p">]))</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">methods</span>
+    <span class="p">]</span>
+    <span class="n">gen_res</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"Generation"</span><span class="p">}</span>
+    <span class="n">gen_res</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">gen_times</span><span class="p">[</span><span class="n">m</span><span class="p">])</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">methods</span><span class="p">]</span>
+    <span class="n">gen_res</span><span class="p">[</span><span class="s2">"2sems"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">gen_times</span><span class="p">[</span><span class="n">m</span><span class="p">])</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">gen_times</span><span class="p">[</span><span class="n">m</span><span class="p">]))</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">methods</span>
+    <span class="p">]</span>
+    <span class="n">total_mean</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">total_2sems</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">methods</span><span class="p">:</span>
+        <span class="n">totals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">fit_times</span><span class="p">[</span><span class="n">m</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">gen_times</span><span class="p">[</span><span class="n">m</span><span class="p">])</span>
+        <span class="n">total_mean</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">totals</span><span class="p">))</span>
+        <span class="n">total_2sems</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">totals</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">totals</span><span class="p">)))</span>
+    <span class="n">total_res</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"Total"</span><span class="p">,</span>
+        <span class="s2">"mean"</span><span class="p">:</span> <span class="n">total_mean</span><span class="p">,</span>
+        <span class="s2">"2sems"</span><span class="p">:</span> <span class="n">total_2sems</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Construct plot</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">go</span><span class="o">.</span><span class="n">Bar</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">res</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="n">fit_res</span><span class="p">,</span> <span class="n">gen_res</span><span class="p">,</span> <span class="n">total_res</span><span class="p">]):</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">go</span><span class="o">.</span><span class="n">Bar</span><span class="p">(</span>
+                <span class="n">x</span><span class="o">=</span><span class="n">methods</span><span class="p">,</span>
+                <span class="n">y</span><span class="o">=</span><span class="n">res</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">],</span>
+                <span class="n">text</span><span class="o">=</span><span class="n">res</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span>
+                <span class="n">textposition</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span>
+                <span class="n">error_y</span><span class="o">=</span><span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"data"</span><span class="p">,</span> <span class="s2">"array"</span><span class="p">:</span> <span class="n">res</span><span class="p">[</span><span class="s2">"2sems"</span><span class="p">],</span> <span class="s2">"visible"</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+                <span class="n">marker</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s2">"color"</span><span class="p">:</span> <span class="n">rgba</span><span class="p">(</span><span class="n">DISCRETE_COLOR_SCALE</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span>
+                    <span class="s2">"line"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"rgb(0,0,0)"</span><span class="p">,</span> <span class="s2">"width"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+                <span class="p">},</span>
+                <span class="n">opacity</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">res</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="n">layout</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Layout</span><span class="p">(</span>
+        <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+        <span class="n">showlegend</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">yaxis</span><span class="o">=</span><span class="p">{</span><span class="s2">"title"</span><span class="p">:</span> <span class="s2">"Time"</span><span class="p">},</span>
+        <span class="n">xaxis</span><span class="o">=</span><span class="p">{</span><span class="s2">"title"</span><span class="p">:</span> <span class="s2">"Method"</span><span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">AxPlotConfig</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">(</span><span class="n">layout</span><span class="o">=</span><span class="n">layout</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">),</span> <span class="n">plot_type</span><span class="o">=</span><span class="n">AxPlotTypes</span><span class="o">.</span><span class="n">GENERIC</span>
+    <span class="p">)</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

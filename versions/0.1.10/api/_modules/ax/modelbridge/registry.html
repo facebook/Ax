@@ -1,0 +1,473 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.10/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.10/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.10/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.10/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.10/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.10/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.10/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.10/css/main.css"/><script src="/versions/0.1.10/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.10/"><img class="logo" src="/versions/0.1.10/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.10/versions.html"><h3>0.1.10</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.10/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.10/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.10/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.registry</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">isfunction</span><span class="p">,</span> <span class="n">signature</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.base</span> <span class="kn">import</span> <span class="n">ModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.discrete</span> <span class="kn">import</span> <span class="n">DiscreteModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.random</span> <span class="kn">import</span> <span class="n">RandomModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.torch</span> <span class="kn">import</span> <span class="n">TorchModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.base</span> <span class="kn">import</span> <span class="n">Transform</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.convert_metric_names</span> <span class="kn">import</span> <span class="n">ConvertMetricNames</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.derelativize</span> <span class="kn">import</span> <span class="n">Derelativize</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.int_range_to_choice</span> <span class="kn">import</span> <span class="n">IntRangeToChoice</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.int_to_float</span> <span class="kn">import</span> <span class="n">IntToFloat</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.ivw</span> <span class="kn">import</span> <span class="n">IVW</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.log</span> <span class="kn">import</span> <span class="n">Log</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.one_hot</span> <span class="kn">import</span> <span class="n">OneHot</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.ordered_choice_encode</span> <span class="kn">import</span> <span class="n">OrderedChoiceEncode</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.remove_fixed</span> <span class="kn">import</span> <span class="n">RemoveFixed</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.search_space_to_choice</span> <span class="kn">import</span> <span class="n">SearchSpaceToChoice</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.standardize_y</span> <span class="kn">import</span> <span class="n">StandardizeY</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.stratified_standardize_y</span> <span class="kn">import</span> <span class="n">StratifiedStandardizeY</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.task_encode</span> <span class="kn">import</span> <span class="n">TaskEncode</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.trial_as_task</span> <span class="kn">import</span> <span class="n">TrialAsTask</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.unit_x</span> <span class="kn">import</span> <span class="n">UnitX</span>
+<span class="kn">from</span> <span class="nn">ax.models.discrete.eb_thompson</span> <span class="kn">import</span> <span class="n">EmpiricalBayesThompsonSampler</span>
+<span class="kn">from</span> <span class="nn">ax.models.discrete.full_factorial</span> <span class="kn">import</span> <span class="n">FullFactorialGenerator</span>
+<span class="kn">from</span> <span class="nn">ax.models.discrete.thompson</span> <span class="kn">import</span> <span class="n">ThompsonSampler</span>
+<span class="kn">from</span> <span class="nn">ax.models.random.sobol</span> <span class="kn">import</span> <span class="n">SobolGenerator</span>
+<span class="kn">from</span> <span class="nn">ax.models.random.uniform</span> <span class="kn">import</span> <span class="n">UniformGenerator</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch</span> <span class="kn">import</span> <span class="n">BotorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_kg</span> <span class="kn">import</span> <span class="n">KnowledgeGradient</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_mes</span> <span class="kn">import</span> <span class="n">MaxValueEntropySearch</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.kwargs</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">consolidate_kwargs</span><span class="p">,</span>
+    <span class="n">get_function_argument_names</span><span class="p">,</span>
+    <span class="n">get_function_default_arguments</span><span class="p">,</span>
+    <span class="n">validate_kwarg_typing</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.serialization</span> <span class="kn">import</span> <span class="n">callable_from_reference</span><span class="p">,</span> <span class="n">callable_to_reference</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">checked_cast</span><span class="p">,</span> <span class="n">not_none</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="sd">"""</span>
+<span class="sd">Module containing a registry of standard models (and generators, samplers etc.)</span>
+<span class="sd">such as Sobol generator, GP+EI, Thompson sampler, etc.</span>
+
+<span class="sd">Use of `Models` enum allows for serialization and reinstantiation of models and</span>
+<span class="sd">generation strategies from generator runs they produced. To reinstantiate a model</span>
+<span class="sd">from generator run, use `get_model_from_generator_run` utility from this module.</span>
+<span class="sd">"""</span>
+
+
+<span class="n">Cont_X_trans</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">RemoveFixed</span><span class="p">,</span>
+    <span class="n">OrderedChoiceEncode</span><span class="p">,</span>
+    <span class="n">OneHot</span><span class="p">,</span>
+    <span class="n">IntToFloat</span><span class="p">,</span>
+    <span class="n">Log</span><span class="p">,</span>
+    <span class="n">UnitX</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">Discrete_X_trans</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="n">IntRangeToChoice</span><span class="p">]</span>
+
+<span class="n">Y_trans</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="n">IVW</span><span class="p">,</span> <span class="n">Derelativize</span><span class="p">,</span> <span class="n">StandardizeY</span><span class="p">]</span>
+
+<span class="c1"># Expected `List[Type[Transform]]` for 2nd anonymous parameter to</span>
+<span class="c1"># call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.</span>
+<span class="n">TS_trans</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Y_trans</span> <span class="o">+</span> <span class="p">[</span><span class="n">SearchSpaceToChoice</span><span class="p">]</span>
+
+<span class="c1"># Multi-type MTGP transforms</span>
+<span class="n">MT_MTGP_trans</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Cont_X_trans</span> <span class="o">+</span> <span class="p">[</span>
+    <span class="n">Derelativize</span><span class="p">,</span>
+    <span class="n">ConvertMetricNames</span><span class="p">,</span>
+    <span class="n">TrialAsTask</span><span class="p">,</span>
+    <span class="n">StratifiedStandardizeY</span><span class="p">,</span>
+    <span class="n">TaskEncode</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="c1"># Single-type MTGP transforms</span>
+<span class="n">ST_MTGP_trans</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Cont_X_trans</span> <span class="o">+</span> <span class="p">[</span>
+    <span class="n">Derelativize</span><span class="p">,</span>
+    <span class="n">TrialAsTask</span><span class="p">,</span>
+    <span class="n">StratifiedStandardizeY</span><span class="p">,</span>
+    <span class="n">TaskEncode</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="c1"># Single-type MTGP transforms</span>
+<span class="n">Specified_Task_ST_MTGP_trans</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">Cont_X_trans</span> <span class="o">+</span> <span class="p">[</span><span class="n">Derelativize</span><span class="p">,</span> <span class="n">StratifiedStandardizeY</span><span class="p">,</span> <span class="n">TaskEncode</span><span class="p">]</span>
+<span class="p">)</span>
+
+<span class="n">STANDARD_TORCH_BRIDGE_KWARGS</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"torch_dtype"</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">double</span><span class="p">,</span>
+    <span class="s2">"torch_device"</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">"cpu"</span><span class="p">),</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="ModelSetup"><a class="viewcode-back" href="../../../modelbridge.html#ax.ModelSetup">[docs]</a><span class="k">class</span> <span class="nc">ModelSetup</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">"""A model setup defines a coupled combination of a model, a model bridge,</span>
+<span class="sd">    standard set of transforms, and standard model bridge keyword arguments.</span>
+<span class="sd">    This coupled combination yields a given standard modeling strategy in Ax,</span>
+<span class="sd">    such as BoTorch GP+EI, a Thompson sampler, or a Sobol quasirandom generator.</span>
+<span class="sd">    """</span>
+
+    <span class="n">bridge_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">ModelBridge</span><span class="p">]</span>
+    <span class="n">model_class</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">transforms</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]]</span>
+    <span class="n">standard_bridge_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<span class="sd">"""A mapping of string keys that indicate a model, to the corresponding</span>
+<span class="sd">model setup, which defines which model, model bridge, transforms, and</span>
+<span class="sd">standard arguments a given model requires.</span>
+<span class="sd">"""</span>
+<span class="n">MODEL_KEY_TO_MODEL_SETUP</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ModelSetup</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"BO"</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">(</span>
+        <span class="n">bridge_class</span><span class="o">=</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">BotorchModel</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="n">Cont_X_trans</span> <span class="o">+</span> <span class="n">Y_trans</span><span class="p">,</span>
+        <span class="n">standard_bridge_kwargs</span><span class="o">=</span><span class="n">STANDARD_TORCH_BRIDGE_KWARGS</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="s2">"GPEI"</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">(</span>
+        <span class="n">bridge_class</span><span class="o">=</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">BotorchModel</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="n">Cont_X_trans</span> <span class="o">+</span> <span class="n">Y_trans</span><span class="p">,</span>
+        <span class="n">standard_bridge_kwargs</span><span class="o">=</span><span class="n">STANDARD_TORCH_BRIDGE_KWARGS</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="s2">"GPKG"</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">(</span>
+        <span class="n">bridge_class</span><span class="o">=</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">KnowledgeGradient</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="n">Cont_X_trans</span> <span class="o">+</span> <span class="n">Y_trans</span><span class="p">,</span>
+        <span class="n">standard_bridge_kwargs</span><span class="o">=</span><span class="n">STANDARD_TORCH_BRIDGE_KWARGS</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="s2">"GPMES"</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">(</span>
+        <span class="n">bridge_class</span><span class="o">=</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">MaxValueEntropySearch</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="n">Cont_X_trans</span> <span class="o">+</span> <span class="n">Y_trans</span><span class="p">,</span>
+        <span class="n">standard_bridge_kwargs</span><span class="o">=</span><span class="n">STANDARD_TORCH_BRIDGE_KWARGS</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="s2">"EB"</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">(</span>
+        <span class="n">bridge_class</span><span class="o">=</span><span class="n">DiscreteModelBridge</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">EmpiricalBayesThompsonSampler</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="n">TS_trans</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="s2">"Factorial"</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">(</span>
+        <span class="n">bridge_class</span><span class="o">=</span><span class="n">DiscreteModelBridge</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">FullFactorialGenerator</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="n">Discrete_X_trans</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="s2">"Thompson"</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">(</span>
+        <span class="n">bridge_class</span><span class="o">=</span><span class="n">DiscreteModelBridge</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">ThompsonSampler</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="n">TS_trans</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="s2">"Sobol"</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">(</span>
+        <span class="n">bridge_class</span><span class="o">=</span><span class="n">RandomModelBridge</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">SobolGenerator</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="n">Cont_X_trans</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="s2">"Uniform"</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">(</span>
+        <span class="n">bridge_class</span><span class="o">=</span><span class="n">RandomModelBridge</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="n">UniformGenerator</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="n">Cont_X_trans</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="Models"><a class="viewcode-back" href="../../../modelbridge.html#ax.Models">[docs]</a><span class="k">class</span> <span class="nc">Models</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">"""Registry of available models.</span>
+
+<span class="sd">    Uses MODEL_KEY_TO_MODEL_SETUP to retrieve settings for model and model bridge,</span>
+<span class="sd">    by the key stored in the enum value.</span>
+
+<span class="sd">    To instantiate a model in this enum, simply call an enum member like so:</span>
+<span class="sd">    `Models.SOBOL(search_space=search_space)` or</span>
+<span class="sd">    `Models.GPEI(experiment=experiment, data=data)`. Keyword arguments</span>
+<span class="sd">    specified to the call will be passed into the model or the model bridge</span>
+<span class="sd">    constructors according to their keyword.</span>
+
+<span class="sd">    For instance, `Models.SOBOL(search_space=search_space, scramble=False)`</span>
+<span class="sd">    will instantiate a `RandomModelBridge(search_space=search_space)`</span>
+<span class="sd">    with a `SobolGenerator(scramble=False)` underlying model.</span>
+<span class="sd">    """</span>
+
+    <span class="n">SOBOL</span> <span class="o">=</span> <span class="s2">"Sobol"</span>
+    <span class="n">GPEI</span> <span class="o">=</span> <span class="s2">"GPEI"</span>
+    <span class="n">GPKG</span> <span class="o">=</span> <span class="s2">"GPKG"</span>
+    <span class="n">GPMES</span> <span class="o">=</span> <span class="s2">"GPMES"</span>
+    <span class="n">FACTORIAL</span> <span class="o">=</span> <span class="s2">"Factorial"</span>
+    <span class="n">THOMPSON</span> <span class="o">=</span> <span class="s2">"Thompson"</span>
+    <span class="n">BOTORCH</span> <span class="o">=</span> <span class="s2">"BO"</span>
+    <span class="n">EMPIRICAL_BAYES_THOMPSON</span> <span class="o">=</span> <span class="s2">"EB"</span>
+    <span class="n">UNIFORM</span> <span class="o">=</span> <span class="s2">"Uniform"</span>
+
+    <span class="c1"># TODO[Lena]: test that none of the preset model+bridge combos share a kwarg</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SearchSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Experiment</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Data</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">silently_filter_kwargs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>  <span class="c1"># TODO[Lena]: default to False</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelBridge</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="n">MODEL_KEY_TO_MODEL_SETUP</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Unknown model </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">"</span>
+        <span class="c1"># All model bridges require either a search space or an experiment.</span>
+        <span class="k">assert</span> <span class="n">search_space</span> <span class="ow">or</span> <span class="n">experiment</span><span class="p">,</span> <span class="s2">"Search space or experiment required."</span>
+        <span class="n">model_setup_info</span> <span class="o">=</span> <span class="n">MODEL_KEY_TO_MODEL_SETUP</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">]</span>
+        <span class="n">model_class</span> <span class="o">=</span> <span class="n">model_setup_info</span><span class="o">.</span><span class="n">model_class</span>
+        <span class="n">bridge_class</span> <span class="o">=</span> <span class="n">model_setup_info</span><span class="o">.</span><span class="n">bridge_class</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">silently_filter_kwargs</span><span class="p">:</span>
+            <span class="n">validate_kwarg_typing</span><span class="p">(</span>  <span class="c1"># TODO[Lena]: T46467254, pragma: no cover</span>
+                <span class="n">typed_callables</span><span class="o">=</span><span class="p">[</span><span class="n">model_class</span><span class="p">,</span> <span class="n">bridge_class</span><span class="p">],</span>
+                <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Create model with consolidated arguments: defaults + passed in kwargs.</span>
+        <span class="n">model_kwargs</span> <span class="o">=</span> <span class="n">consolidate_kwargs</span><span class="p">(</span>
+            <span class="n">kwargs_iterable</span><span class="o">=</span><span class="p">[</span><span class="n">get_function_default_arguments</span><span class="p">(</span><span class="n">model_class</span><span class="p">),</span> <span class="n">kwargs</span><span class="p">],</span>
+            <span class="n">keywords</span><span class="o">=</span><span class="n">get_function_argument_names</span><span class="p">(</span><span class="n">model_class</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">model_class</span><span class="p">(</span><span class="o">**</span><span class="n">model_kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Create `ModelBridge`: defaults + standard kwargs + passed in kwargs.</span>
+        <span class="n">bridge_kwargs</span> <span class="o">=</span> <span class="n">consolidate_kwargs</span><span class="p">(</span>
+            <span class="n">kwargs_iterable</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">get_function_default_arguments</span><span class="p">(</span><span class="n">bridge_class</span><span class="p">),</span>
+                <span class="n">model_setup_info</span><span class="o">.</span><span class="n">standard_bridge_kwargs</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">"transforms"</span><span class="p">:</span> <span class="n">model_setup_info</span><span class="o">.</span><span class="n">transforms</span><span class="p">},</span>
+                <span class="n">kwargs</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">keywords</span><span class="o">=</span><span class="n">get_function_argument_names</span><span class="p">(</span>
+                <span class="n">function</span><span class="o">=</span><span class="n">bridge_class</span><span class="p">,</span> <span class="n">omit</span><span class="o">=</span><span class="p">[</span><span class="s2">"experiment"</span><span class="p">,</span> <span class="s2">"search_space"</span><span class="p">,</span> <span class="s2">"data"</span><span class="p">]</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Create model bridge with the consolidated kwargs.</span>
+        <span class="n">model_bridge</span> <span class="o">=</span> <span class="n">bridge_class</span><span class="p">(</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span> <span class="ow">or</span> <span class="n">not_none</span><span class="p">(</span><span class="n">experiment</span><span class="p">)</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">bridge_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Store all kwargs on model bridge, to be saved on generator run.</span>
+        <span class="n">model_bridge</span><span class="o">.</span><span class="n">_set_kwargs_to_save</span><span class="p">(</span>
+            <span class="n">model_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">model_kwargs</span><span class="o">=</span><span class="n">_encode_callables_as_references</span><span class="p">(</span><span class="n">model_kwargs</span><span class="p">),</span>
+            <span class="n">bridge_kwargs</span><span class="o">=</span><span class="n">_encode_callables_as_references</span><span class="p">(</span><span class="n">bridge_kwargs</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">model_bridge</span>
+
+<div class="viewcode-block" id="Models.view_defaults"><a class="viewcode-back" href="../../../modelbridge.html#ax.Models.view_defaults">[docs]</a>    <span class="k">def</span> <span class="nf">view_defaults</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="sd">"""Obtains the default keyword arguments for the model and the modelbridge</span>
+<span class="sd">        specified through the Models enum, for ease of use in notebook environment,</span>
+<span class="sd">        since models and bridges cannot be inspected directly through the enum.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A tuple of default keyword arguments for the model and the model bridge.</span>
+<span class="sd">        """</span>
+        <span class="n">model_setup_info</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">MODEL_KEY_TO_MODEL_SETUP</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_get_model_kwargs</span><span class="p">(</span><span class="n">info</span><span class="o">=</span><span class="n">model_setup_info</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_get_bridge_kwargs</span><span class="p">(</span><span class="n">info</span><span class="o">=</span><span class="n">model_setup_info</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Models.view_kwargs"><a class="viewcode-back" href="../../../modelbridge.html#ax.Models.view_kwargs">[docs]</a>    <span class="k">def</span> <span class="nf">view_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="sd">"""Obtains annotated keyword arguments that the model and the modelbridge</span>
+<span class="sd">        (corresponding to a given member of the Models enum) constructors expect.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A tuple of annotated keyword arguments for the model and the model bridge.</span>
+<span class="sd">        """</span>
+        <span class="n">model_class</span> <span class="o">=</span> <span class="n">MODEL_KEY_TO_MODEL_SETUP</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">]</span><span class="o">.</span><span class="n">model_class</span>
+        <span class="n">bridge_class</span> <span class="o">=</span> <span class="n">MODEL_KEY_TO_MODEL_SETUP</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">]</span><span class="o">.</span><span class="n">bridge_class</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="p">{</span><span class="n">kw</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">annotation</span> <span class="k">for</span> <span class="n">kw</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">signature</span><span class="p">(</span><span class="n">model_class</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="p">{</span><span class="n">kw</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">annotation</span> <span class="k">for</span> <span class="n">kw</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">signature</span><span class="p">(</span><span class="n">bridge_class</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_model_kwargs</span><span class="p">(</span>
+        <span class="n">info</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">consolidate_kwargs</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">get_function_default_arguments</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">model_class</span><span class="p">),</span> <span class="n">kwargs</span><span class="p">],</span>
+            <span class="n">keywords</span><span class="o">=</span><span class="n">get_function_argument_names</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">model_class</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_bridge_kwargs</span><span class="p">(</span>
+        <span class="n">info</span><span class="p">:</span> <span class="n">ModelSetup</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">consolidate_kwargs</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">get_function_default_arguments</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">bridge_class</span><span class="p">),</span>
+                <span class="n">info</span><span class="o">.</span><span class="n">standard_bridge_kwargs</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">"transforms"</span><span class="p">:</span> <span class="n">info</span><span class="o">.</span><span class="n">transforms</span><span class="p">},</span>
+                <span class="n">kwargs</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">keywords</span><span class="o">=</span><span class="n">get_function_argument_names</span><span class="p">(</span>
+                <span class="n">info</span><span class="o">.</span><span class="n">bridge_class</span><span class="p">,</span> <span class="n">omit</span><span class="o">=</span><span class="p">[</span><span class="s2">"experiment"</span><span class="p">,</span> <span class="s2">"search_space"</span><span class="p">,</span> <span class="s2">"data"</span><span class="p">]</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_model_from_generator_run"><a class="viewcode-back" href="../../../modelbridge.html#ax.get_model_from_generator_run">[docs]</a><span class="k">def</span> <span class="nf">get_model_from_generator_run</span><span class="p">(</span>
+    <span class="n">generator_run</span><span class="p">:</span> <span class="n">GeneratorRun</span><span class="p">,</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span>
+    <span class="n">models_enum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="s2">"Models"</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">after_gen</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelBridge</span><span class="p">:</span>
+    <span class="sd">"""Reinstantiate a model from model key and kwargs stored on a given generator</span>
+<span class="sd">    run, with the given experiment and the data to initialize the model with.</span>
+
+<span class="sd">    Note: requires that the model that was used to get the generator run, is part</span>
+<span class="sd">    of the `Models` registry enum.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        generator_run: A `GeneratorRun` created by the model we are looking to</span>
+<span class="sd">            reinstantiate.</span>
+<span class="sd">        experiment: The experiment for which the model is reinstantiated.</span>
+<span class="sd">        data: Data, with which to reinstantiate the model.</span>
+<span class="sd">        models_enum: Optional subclass of `Models` registry, from which to obtain</span>
+<span class="sd">            the settings of the model. Useful only if the generator run was</span>
+<span class="sd">            created via a model that could not be included into the main registry,</span>
+<span class="sd">            but can still be represented as a `ModelSetup` and was added to a</span>
+<span class="sd">            registry that extends `Models`.</span>
+<span class="sd">        after_gen: Whether to reinstantiate the model in the state, in which it</span>
+<span class="sd">            was after it created this generator run, as opposed to before.</span>
+<span class="sd">            Defaults to False, useful when reinstantiating the model to resume</span>
+<span class="sd">            optimization, rather than to recreate its state at the time of</span>
+<span class="sd">            generation.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">generator_run</span><span class="o">.</span><span class="n">_model_key</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Cannot restore model from generator run as no model key was "</span>
+            <span class="s2">"on the generator run stored."</span>
+        <span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="p">(</span><span class="n">models_enum</span> <span class="ow">or</span> <span class="n">Models</span><span class="p">)(</span><span class="n">generator_run</span><span class="o">.</span><span class="n">_model_key</span><span class="p">)</span>
+    <span class="n">model_kwargs</span> <span class="o">=</span> <span class="n">generator_run</span><span class="o">.</span><span class="n">_model_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">after_gen</span> <span class="ow">and</span> <span class="n">generator_run</span><span class="o">.</span><span class="n">_model_state_after_gen</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">model_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="n">generator_run</span><span class="o">.</span><span class="n">_model_state_after_gen</span><span class="p">))</span>
+    <span class="n">bridge_kwargs</span> <span class="o">=</span> <span class="n">generator_run</span><span class="o">.</span><span class="n">_bridge_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">model_kwargs</span> <span class="o">=</span> <span class="n">_decode_callables_from_references</span><span class="p">(</span><span class="n">model_kwargs</span><span class="p">)</span>
+    <span class="n">bridge_kwargs</span> <span class="o">=</span> <span class="n">_decode_callables_from_references</span><span class="p">(</span><span class="n">bridge_kwargs</span><span class="p">)</span>
+    <span class="n">model_keywords</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">model_kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">model_keywords</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">bridge_kwargs</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Keyword argument `</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">` occurs in both model and model bridge "</span>
+                <span class="sa">f</span><span class="s2">"kwargs stored in the generator run. Assuming the `</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">` kwarg "</span>
+                <span class="s2">"is passed into the model by the model bridge and removing its "</span>
+                <span class="s2">"value from the model kwargs."</span>
+            <span class="p">)</span>
+            <span class="k">del</span> <span class="n">model_kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">model</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="o">**</span><span class="n">bridge_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">model_kwargs</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_encode_callables_as_references</span><span class="p">(</span><span class="n">kwarg_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Converts callables to references of form &lt;module&gt;.&lt;qualname&gt;, and returns</span>
+<span class="sd">    the resulting dictionary.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="n">k</span><span class="p">:</span> <span class="p">{</span><span class="s2">"is_callable_as_path"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="n">callable_to_reference</span><span class="p">(</span><span class="n">v</span><span class="p">)}</span>
+        <span class="k">if</span> <span class="n">isfunction</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">else</span> <span class="n">v</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwarg_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">_decode_callables_from_references</span><span class="p">(</span><span class="n">kwarg_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Retrieves callables from references of form &lt;module&gt;.&lt;qualname&gt;, and returns</span>
+<span class="sd">    the resulting dictionary.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="n">k</span><span class="p">:</span> <span class="n">callable_from_reference</span><span class="p">(</span><span class="n">checked_cast</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"value"</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"is_callable_as_path"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span> <span class="n">v</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwarg_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.10/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>
