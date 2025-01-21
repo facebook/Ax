@@ -19,6 +19,7 @@ import numpy as np
 import torch
 from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.surrogate import (
@@ -35,8 +36,10 @@ from ax.models.torch.botorch_modular.utils import (
     fit_botorch_model,
     ModelConfig,
 )
+from ax.models.torch.utils import predict_from_model
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
+from ax.utils.stats.model_fit_stats import DIAGNOSTIC_FNS
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
@@ -320,6 +323,7 @@ class SurrogateTest(TestCase):
         self.fixed_features = {1: 2.0}
         self.refit = True
         self.objective_weights = torch.tensor([-1.0, 1.0], **self.tkwargs)
+        # Note: these only work with 1 outcome
         self.outcome_constraints = (
             torch.tensor([[1.0]], **self.tkwargs),
             torch.tensor([[0.5]], **self.tkwargs),
@@ -347,7 +351,10 @@ class SurrogateTest(TestCase):
         )
 
     def _get_surrogate(
-        self, botorch_model_class: type[Model], use_outcome_transform: bool = True
+        self,
+        botorch_model_class: type[Model],
+        use_outcome_transform: bool = True,
+        n_outcomes: int = 1,
     ) -> tuple[Surrogate, dict[str, Any]]:
         if botorch_model_class is SaasFullyBayesianSingleTaskGP:
             mll_options = {"jit_compile": True}
@@ -356,7 +363,7 @@ class SurrogateTest(TestCase):
 
         if use_outcome_transform:
             outcome_transform_classes: list[type[OutcomeTransform]] = [Standardize]
-            outcome_transform_options = {"Standardize": {"m": 1}}
+            outcome_transform_options = {"Standardize": {"m": n_outcomes}}
         else:
             outcome_transform_classes = None
             outcome_transform_options = None
@@ -533,11 +540,12 @@ class SurrogateTest(TestCase):
             self.assertEqual(self.dtype, surrogate.dtype)
             self.assertEqual(self.device, surrogate.device)
 
+    @mock_botorch_optimize
     @patch(
         f"{SURROGATE_PATH}.submodel_input_constructor",
         wraps=submodel_input_constructor,
     )
-    @patch(f"{SURROGATE_PATH}.fit_botorch_model")
+    @patch(f"{SURROGATE_PATH}.fit_botorch_model", wraps=fit_botorch_model)
     def test_fit_model_reuse(self, mock_fit: Mock, mock_constructor: Mock) -> None:
         surrogate, _ = self._get_surrogate(
             botorch_model_class=SingleTaskGP, use_outcome_transform=False
@@ -792,10 +800,12 @@ class SurrogateTest(TestCase):
         self.assertIsInstance(surrogate.model.models[2].covar_module, LinearKernel)
 
     @mock_botorch_optimize
-    @patch("ax.models.torch.botorch_modular.surrogate.DIAGNOSTIC_FNS")
-    def test_fit_multiple_model_configs(
-        self, mock_diag_dict: Mock, cuda: bool = False
-    ) -> None:
+    @patch(
+        "ax.models.torch.botorch_modular.surrogate.DIAGNOSTIC_FNS", wraps=DIAGNOSTIC_FNS
+    )
+    def test_fit_multiple_model_configs(self, mock_diag_dict: Mock) -> None:
+        # These mocks are used because we control which kernel is selected by
+        # changing the values of model diagnostics
         mse_side_effect = [0.2, 0.1]
         ll_side_effect = [0.3, 0.05]
         mock_mse = Mock()  # this should select linear kernel
@@ -954,7 +964,7 @@ class SurrogateTest(TestCase):
     def test_fit_multiple_model_configs_cuda(self) -> None:
         if torch.cuda.is_available():
             self.setUp(cuda=True)
-            self.test_fit_multiple_model_configs(cuda=True)
+            self.test_fit_multiple_model_configs()
 
     def test_cross_validate_error_for_heterogeneous_datasets(self) -> None:
         # self.ds2.outcome_names[0] = "metric"
@@ -986,7 +996,9 @@ class SurrogateTest(TestCase):
             surrogate.fit(datasets=[dataset], search_space_digest=ssd)
 
     @mock_botorch_optimize
-    @patch("ax.models.torch.botorch_modular.surrogate.DIAGNOSTIC_FNS")
+    @patch(
+        "ax.models.torch.botorch_modular.surrogate.DIAGNOSTIC_FNS", wraps=DIAGNOSTIC_FNS
+    )
     def test_fit_model_selection_metric_to_model_configs_multiple_metrics(
         self, mock_diag_dict: Mock
     ) -> None:
@@ -1112,8 +1124,7 @@ class SurrogateTest(TestCase):
             )
 
     @mock_botorch_optimize
-    @patch(f"{SURROGATE_PATH}.predict_from_model")
-    def test_predict(self, mock_predict: Mock) -> None:
+    def test_predict(self) -> None:
         for botorch_model_class, use_posterior_predictive in product(
             (SaasFullyBayesianSingleTaskGP, SingleTaskGP), (True, False)
         ):
@@ -1122,9 +1133,12 @@ class SurrogateTest(TestCase):
                 datasets=self.training_data,
                 search_space_digest=self.search_space_digest,
             )
-            surrogate.predict(
-                X=self.Xs[0], use_posterior_predictive=use_posterior_predictive
-            )
+            with patch(
+                f"{SURROGATE_PATH}.predict_from_model", wraps=predict_from_model
+            ) as mock_predict:
+                surrogate.predict(
+                    X=self.Xs[0], use_posterior_predictive=use_posterior_predictive
+                )
             mock_predict.assert_called_with(
                 model=surrogate.model,
                 X=self.Xs[0],
@@ -1133,17 +1147,47 @@ class SurrogateTest(TestCase):
 
     @mock_botorch_optimize
     def test_best_in_sample_point(self) -> None:
+        #  Set up data with 2 outcomes
+        training_data = [
+            SupervisedDataset(
+                X=self.Xs[0],
+                Y=self.Ys[0] + i,
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
+            )
+            for i in range(2)
+        ]
+
+        # There are two points, and each have a nonzero probability of obeying
+        # the constraints, with the first more likely
+        outcome_constraints = (
+            torch.tensor([[1.0, 0.0]], **self.tkwargs),
+            torch.tensor([[4.0]], **self.tkwargs),
+        )
+        objective_weights = -torch.ones(2, **self.tkwargs)
+
+        self.options = {}
+
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
-            surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
+            surrogate, _ = self._get_surrogate(
+                botorch_model_class=botorch_model_class,
+                # When `SaasFullyBayesianSingleTaskGP` is used, there will be
+                # multiple BoTorch `Model`s with 1d data
+                n_outcomes=2 if botorch_model_class == SingleTaskGP else 1,
+            )
+
             surrogate.fit(
-                datasets=self.training_data,
+                datasets=training_data,
                 search_space_digest=self.search_space_digest,
             )
+
             # `best_in_sample_point` requires `objective_weights`
-            with patch(
-                f"{SURROGATE_PATH}.best_in_sample_point", return_value=None
-            ) as mock_best_in_sample:
-                with self.assertRaisesRegex(ValueError, "Could not obtain"):
+            with self.subTest("no objective weights"):
+                with patch(
+                    f"{SURROGATE_PATH}.best_in_sample_point", return_value=None
+                ) as mock_best_in_sample, self.assertRaisesRegex(
+                    ValueError, "Could not obtain"
+                ):
                     surrogate.best_in_sample_point(
                         search_space_digest=self.search_space_digest,
                         torch_opt_config=dataclasses.replace(
@@ -1151,14 +1195,68 @@ class SurrogateTest(TestCase):
                             objective_weights=None,
                         ),
                     )
-            with patch(
-                f"{SURROGATE_PATH}.best_in_sample_point", return_value=(self.Xs[0], 0.0)
-            ) as mock_best_in_sample:
-                best_point, observed_value = surrogate.best_in_sample_point(
-                    search_space_digest=self.search_space_digest,
-                    torch_opt_config=self.torch_opt_config,
+            with self.subTest("All points are in the search space"):
+                # No linear constraints
+                torch_opt_config = TorchOptConfig(
+                    objective_weights=objective_weights,
+                    outcome_constraints=outcome_constraints,
+                )
+                # Expand bounds so they aren't violated
+                ssd = dataclasses.replace(
+                    self.search_space_digest, bounds=[(-100, 100)] * 3
+                )
+
+                best_point, value = surrogate.best_in_sample_point(
+                    search_space_digest=ssd,
+                    torch_opt_config=torch_opt_config,
                     options=self.options,
                 )
+                # The first point has a higher probability of feasibility and a
+                # better predicted objective value (because it had a better
+                # observed objective valu)e, so it should be the best point and
+                # have positive utility
+                self.assertTrue(torch.equal(best_point, self.Xs[0][0]))
+                self.assertGreater(value, 0)
+
+            with self.subTest("One point is in the search space"):
+                # use linear constraints that won't be violated
+                linear_constraints = (
+                    torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]], **self.tkwargs),
+                    torch.tensor([[0.5], [4.0]], **self.tkwargs),
+                )
+
+                # the second point is out of bounds and doesn't obey the fixed
+                # features
+                torch_opt_config = TorchOptConfig(
+                    objective_weights=self.objective_weights,
+                    outcome_constraints=outcome_constraints,
+                    linear_constraints=linear_constraints,
+                    fixed_features=self.fixed_features,
+                )
+
+                best_point, value = surrogate.best_in_sample_point(
+                    search_space_digest=self.search_space_digest,
+                    torch_opt_config=torch_opt_config,
+                    options=self.options,
+                )
+                self.assertTrue(torch.equal(best_point, self.Xs[0][0]))
+                # The objective value is `obj[best] - min(obj)`, so when there
+                # is only one feasible point, it is zero
+                self.assertEqual(value, 0)
+
+            # Case 3: Errors when all points are infeasible
+            with self.subTest("No points are in the search space"):
+                with patch(
+                    f"{SURROGATE_PATH}.best_in_sample_point",
+                    wraps=best_in_sample_point,
+                ) as mock_best_in_sample, self.assertRaisesRegex(
+                    ValueError, "Could not obtain best in-sample point."
+                ):
+                    surrogate.best_in_sample_point(
+                        search_space_digest=self.search_space_digest,
+                        torch_opt_config=self.torch_opt_config,
+                        options=self.options,
+                    )
                 mock_best_in_sample.assert_called_once()
                 _, ckwargs = mock_best_in_sample.call_args
                 for X, dataset in zip(ckwargs["Xs"], self.training_data):
