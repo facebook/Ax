@@ -41,12 +41,6 @@ logger: Logger = get_logger(__name__)
 
 
 MAX_CONDITIONS_GENERATED = 10000
-MAX_GEN_DRAWS = 5
-MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
-    f"GenerationStrategy exceeded `MAX_GEN_DRAWS` of {MAX_GEN_DRAWS} while trying to "
-    "generate a unique parameterization. This indicates that the search space has "
-    "likely been fully explored, or that the sweep has converged."
-)
 T = TypeVar("T")
 
 
@@ -1134,25 +1128,13 @@ class GenerationStrategy(GenerationStrategyInterface):
         Args:
             data: Optional ``Data`` to fit or update with; if not specified, generation
                 strategy will obtain the data via ``experiment.lookup_data``.
-            status_quo_features: An ``ObservationFeature`` of the status quo arm,
-                needed by some models during fit to accomadate relative constraints.
-                Includes the status quo parameterization and target trial index.
+            status_quo_features: UNSUPPORTED. This will not used in GenNode.fit and is
+                not needed here. This will be removed in the future.
         """
         data = self.experiment.lookup_data() if data is None else data
-
-        # Only pass status_quo_features if not None to avoid errors
-        # with ``ExternalGenerationNode``.
         if status_quo_features is not None:
-            self._curr.fit(
-                experiment=self.experiment,
-                data=data,
-                status_quo_features=status_quo_features,
-            )
-        else:
-            self._curr.fit(
-                experiment=self.experiment,
-                data=data,
-            )
+            logger.warning("`status_quo_features` is passed in but will not be used!")
+        self._curr.fit(experiment=self.experiment, data=data)
         self._model = self._curr._fitted_model
 
     def _maybe_transition_to_next_node(
