@@ -163,17 +163,6 @@ Typeutils Torch
     :undoc-members:
     :show-inheritance:
 
-Flake8 Plugins
---------------
-
-Docstring Checker
-~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.utils.flake8_plugins.docstring_checker
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Measurement
 -----------
 
