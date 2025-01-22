@@ -228,20 +228,28 @@ def get_predictions_by_arm(
     metric_name: str,
     outcome_constraints: list[OutcomeConstraint],
     gr: GeneratorRun | None = None,
+    abandoned_arms: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     trial_index = _get_trial_index_for_predictions(model)
     if gr is None:
+        if abandoned_arms:
+            raise UserInputError(
+                "`abandoned_arms` should only be specified if a generator run is "
+                "provided."
+            )
         observations = model.get_training_data()
         features = [o.features for o in observations]
         arm_names = [o.arm_name for o in observations]
         for feature in features:
             feature.trial_index = trial_index
     else:
+        abandoned_arms = set() if abandoned_arms is None else abandoned_arms
         features = [
             ObservationFeatures(parameters=arm.parameters, trial_index=trial_index)
             for arm in gr.arms
+            if arm.name not in abandoned_arms
         ]
-        arm_names = [a.name for a in gr.arms]
+        arm_names = [a.name for a in gr.arms if a.name not in abandoned_arms]
     try:
         predictions = [
             predict_at_point(

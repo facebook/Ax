@@ -285,6 +285,7 @@ def _prepare_data(
             metric_name=metric_name,
             outcome_constraints=outcome_constraints,
             gr=gr,
+            abandoned_arms={a.name for a in trial.abandoned_arms},
         )
         for gr in trial.generator_runs
     ]
