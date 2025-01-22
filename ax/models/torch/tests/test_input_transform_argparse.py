@@ -183,9 +183,13 @@ class InputTransformArgparseTest(TestCase):
             search_space_digest=self.search_space_digest,
         )
 
-        self.assertEqual(
-            input_transform_kwargs,
-            {"indices": [1, 2]},
+        self.assertEqual(input_transform_kwargs["indices"], [1, 2])
+        self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertTrue(
+            torch.equal(
+                input_transform_kwargs["bounds"],
+                torch.tensor([[0.0, 0.0, 0.0], [1.0, 2.0, 4.0]]),
+            )
         )
 
         input_transform_kwargs = input_transform_argparse(
@@ -194,8 +198,30 @@ class InputTransformArgparseTest(TestCase):
             search_space_digest=self.search_space_digest,
             input_transform_options={"indices": [0, 1]},
         )
-
-        self.assertEqual(input_transform_kwargs, {"indices": [0, 1]})
+        self.assertEqual(
+            input_transform_kwargs["indices"],
+            [0, 1],
+        )
+        self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertTrue(
+            torch.equal(
+                input_transform_kwargs["bounds"],
+                torch.tensor([[0.0, 0.0, 0.0], [1.0, 2.0, 4.0]]),
+            )
+        )
+        input_transform_kwargs = input_transform_argparse(
+            Warp,
+            dataset=self.dataset,
+            search_space_digest=self.search_space_digest,
+            input_transform_options={"indices": [0, 1]},
+            torch_dtype=torch.float64,
+        )
+        self.assertTrue(
+            torch.equal(
+                input_transform_kwargs["bounds"],
+                torch.tensor([[0.0, 0.0, 0.0], [1.0, 2.0, 4.0]], dtype=torch.float64),
+            )
+        )
 
     def test_argparse_input_perturbation(self) -> None:
         self.search_space_digest.robust_digest = RobustSearchSpaceDigest(

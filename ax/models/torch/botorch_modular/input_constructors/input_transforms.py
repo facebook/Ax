@@ -29,6 +29,41 @@ input_transform_argparse = Dispatcher(
 )
 
 
+def _set_default_bounds(
+    search_space_digest: SearchSpaceDigest,
+    input_transform_options: dict[str, Any],
+    d: int,
+    torch_device: torch.device | None = None,
+    torch_dtype: torch.dtype | None = None,
+) -> None:
+    """Set default bounds in input_transform_options, in-place.
+
+    Args:
+        search_space_digest: Search space digest.
+        input_transform_options: Input transform kwargs.
+        d: The dimension of the input space.
+        torch_device: The device on which the input transform will be used.
+        torch_dtype: The dtype on which the input transform will be used.
+    """
+    bounds = torch.as_tensor(
+        search_space_digest.bounds,
+        dtype=torch_dtype,
+        device=torch_device,
+    ).T
+
+    if (
+        ("bounds" not in input_transform_options)
+        and (bounds.shape[-1] < d)
+        and (len(search_space_digest.task_features) == 0)
+    ):
+        raise NotImplementedError(
+            "Normalization bounds should be specified explicitly if there"
+            " are task features outside the search space."
+        )
+
+    input_transform_options.setdefault("bounds", bounds)
+
+
 @input_transform_argparse.register(InputTransform)
 def _input_transform_argparse_base(
     input_transform_class: type[InputTransform],
@@ -63,6 +98,8 @@ def _input_transform_argparse_warp(
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
     input_transform_options: dict[str, Any] | None = None,
+    torch_device: torch.device | None = None,
+    torch_dtype: torch.dtype | None = None,
 ) -> dict[str, Any]:
     """Extract the base input transform kwargs form the given arguments.
 
@@ -71,6 +108,8 @@ def _input_transform_argparse_warp(
         dataset: Dataset containing feature matrix and the response.
         search_space_digest: Search space digest.
         input_transform_options: Input transform kwargs.
+        torch_device: The device on which the input transform will be used.
+        torch_dtype: The dtype on which the input transform will be used.
 
     Returns:
         A dictionary with input transform kwargs.
@@ -83,7 +122,15 @@ def _input_transform_argparse_warp(
     for task_feature in sorted(task_features, reverse=True):
         del indices[task_feature]
 
+    input_transform_options.setdefault("d", d)
     input_transform_options.setdefault("indices", indices)
+    _set_default_bounds(
+        search_space_digest=search_space_digest,
+        input_transform_options=input_transform_options,
+        d=d,
+        torch_device=torch_device,
+        torch_dtype=torch_dtype,
+    )
     return input_transform_options
 
 
@@ -107,6 +154,8 @@ def _input_transform_argparse_normalize(
         dataset: Dataset containing feature matrix and the response.
         search_space_digest: Search space digest.
         input_transform_options: Input transform kwargs.
+        torch_device: The device on which the input transform will be used.
+        torch_dtype: The dtype on which the input transform will be used.
 
     Returns:
         A dictionary with input transform kwargs.
@@ -130,23 +179,13 @@ def _input_transform_argparse_normalize(
     if ("indices" in input_transform_options) or (len(indices) < d):
         input_transform_options.setdefault("indices", indices)
 
-    bounds = torch.as_tensor(
-        search_space_digest.bounds,
-        dtype=torch_dtype,
-        device=torch_device,
-    ).T
-
-    if (
-        ("bounds" not in input_transform_options)
-        and (bounds.shape[-1] < d)
-        and (len(search_space_digest.task_features) == 0)
-    ):
-        raise NotImplementedError(
-            "Normalize transform bounds should be specified explicitly if there"
-            " are task features outside the search space."
-        )
-
-    input_transform_options.setdefault("bounds", bounds)
+    _set_default_bounds(
+        search_space_digest=search_space_digest,
+        input_transform_options=input_transform_options,
+        d=d,
+        torch_device=torch_device,
+        torch_dtype=torch_dtype,
+    )
 
     return input_transform_options
 
