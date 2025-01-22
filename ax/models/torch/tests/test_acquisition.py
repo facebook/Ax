@@ -298,13 +298,14 @@ class AcquisitionTest(TestCase):
         )
 
     @mock_botorch_optimize
-    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf)
-    def test_optimize(self, mock_optimize_acqf: Mock) -> None:
+    def test_optimize(self) -> None:
         acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
         n = 5
         with mock.patch(
             f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-        ) as mock_optimizer_argparse:
+        ) as mock_optimizer_argparse, mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf
+        ) as mock_optimize_acqf:
             acquisition.optimize(
                 n=n,
                 search_space_digest=self.search_space_digest,
@@ -579,6 +580,57 @@ class AcquisitionTest(TestCase):
         self.assertTrue(  # The order of the rows may not match
             all((X_avoid_true == x).all(dim=-1).any().item() for x in kwargs["X_avoid"])
         )
+
+    @mock_botorch_optimize
+    def test_optimize_acqf_discrete_too_many_choices(self) -> None:
+        # Check that mixed optimizer is used when there are too many choices.
+        # If there are categorical features or non-integer valued discrete
+        # features, it should use local search.
+        ssd_ordinal_integer = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 100 * (i + 1)) for i in range(3)],
+            ordinal_features=[0, 1, 2],
+            discrete_choices={i: list(range(100 * (i + 1) + 1)) for i in range(3)},
+        )
+        ssd_categorical_integer = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 100 * (i + 1)) for i in range(3)],
+            categorical_features=[0, 1, 2],
+            discrete_choices={i: list(range(100 * (i + 1) + 1)) for i in range(3)},
+        )
+        ssd_ordinal_noninteger = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 50 * (i + 1)) for i in range(3)],
+            ordinal_features=[0, 1, 2],
+            discrete_choices={
+                i: np.arange(0, 50 * (i + 1) + 0.1, 0.5).tolist() for i in range(3)
+            },
+        )
+        acquisition = self.get_acquisition_function()
+        for ssd, expected_optimizer in [
+            (ssd_ordinal_integer, "optimize_acqf_mixed_alternating"),
+            (ssd_categorical_integer, "optimize_acqf_discrete_local_search"),
+            (ssd_ordinal_noninteger, "optimize_acqf_discrete_local_search"),
+        ]:
+            with mock.patch(
+                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+            ) as mock_optimizer_argparse, mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
+                return_value=(Mock(), Mock()),
+            ):
+                acquisition.optimize(
+                    n=3,
+                    search_space_digest=ssd,
+                    inequality_constraints=self.inequality_constraints,
+                    fixed_features=None,
+                    rounding_func=self.rounding_func,
+                    optimizer_options=self.optimizer_options,
+                )
+            mock_optimizer_argparse.assert_called_once_with(
+                acquisition.acqf,
+                optimizer_options=self.optimizer_options,
+                optimizer=expected_optimizer,
+            )
 
     @mock_botorch_optimize
     def test_optimize_mixed(self) -> None:
