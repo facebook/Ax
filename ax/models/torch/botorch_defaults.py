@@ -780,12 +780,18 @@ def get_warping_transform(
     # apply warping to all non-task features, including fidelity features
     if task_feature is not None:
         del indices[task_feature]
+    # Legacy Ax models operate in the unit cube
+    bounds = torch.zeros(2, d, dtype=torch.double)
+    bounds[1] = 1
     # Note: this currently uses the same warping functions for all tasks
     tf = Warp(
+        d=d,
         indices=indices,
         # prior with a median of 1
         concentration1_prior=LogNormalPrior(0.0, 0.75**0.5),
         concentration0_prior=LogNormalPrior(0.0, 0.75**0.5),
         batch_shape=batch_shape,
+        # Legacy Ax models operate in the unit cube
+        bounds=bounds,
     )
     return tf
