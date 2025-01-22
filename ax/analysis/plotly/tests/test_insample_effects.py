@@ -186,11 +186,19 @@ class TestInsampleEffectsPlot(TestCase):
         experiment = get_branin_experiment()
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
-        experiment.new_batch_trial(
+        trial = experiment.new_batch_trial(
             generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
-        ).mark_completed(unsafe=True)
+        )
+        trial.mark_arm_abandoned(
+            arm_name="0_3",
+            reason=(
+                "We need to make sure it doesn't try to predict for abandoned arms "
+                "because the Thompson model doesn't support out-of-sample prediction."
+            ),
+        )
+        trial.mark_completed(unsafe=True)
         experiment.fetch_data()
         # WHEN we compute the analysis
         analysis = InSampleEffectsPlot(
@@ -216,9 +224,13 @@ class TestInsampleEffectsPlot(TestCase):
         data_df = experiment.lookup_data(trial_indices=[trial.index]).df
         self.assertEqual(
             len(card.df),
-            len(trial.arms),
+            # -1 because the abandoned arm is not in card.df
+            len(trial.arms) - 1,
         )
         for arm in trial.arms:
+            # arm 0_3 is abandoned so it's not in card.df
+            if arm.name == "0_3":
+                continue
             self.assertIn(arm.name, card.df["arm_name"].unique())
             self.assertAlmostEqual(
                 card.df.loc[card.df["arm_name"] == arm.name, "mean"].item(),

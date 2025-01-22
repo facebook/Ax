@@ -146,6 +146,47 @@ class TestPredictedEffectsPlot(TestCase):
                     for arm in trial.arms:
                         self.assertIn(arm.name, card.df["arm_name"].unique())
 
+    def test_it_does_not_plot_abandoned_arms(self) -> None:
+        # GIVEN an experiment with candidate and abandoned arms
+        # in the completed and candidate trials
+        experiment = get_branin_experiment(with_status_quo=True)
+        generation_strategy = self.generation_strategy
+        completed_trial = experiment.new_batch_trial(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
+        ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
+        completed_trial.mark_arm_abandoned(
+            arm_name="0_0", reason="This arm is bad, I'm abandoning it"
+        )
+        completed_trial.mark_completed(unsafe=True)
+        experiment.fetch_data()
+        candidate_trial = experiment.new_batch_trial(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
+        ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
+        candidate_trial.mark_arm_abandoned(
+            arm_name="1_0", reason="This arm is bad, I'm abandoning it"
+        )
+        # WHEN we compute the analysis
+        analysis = PredictedEffectsPlot(
+            metric_name=none_throws(
+                experiment.optimization_config
+            ).objective.metric.name
+        )
+        card = analysis.compute(
+            experiment=experiment, generation_strategy=generation_strategy
+        )
+        # THEN it has the right arms
+        plotted_arm_names = set(card.df["arm_name"].unique())
+        for trial in experiment.trials.values():
+            for arm in trial.arms:
+                if arm.name in ("0_0", "1_0"):
+                    self.assertNotIn(arm.name, plotted_arm_names)
+                else:
+                    self.assertIn(arm.name, plotted_arm_names)
+
     @mock_botorch_optimize
     def test_compute_multitask(self) -> None:
         # GIVEN an experiment with candidates generated with a multitask model
