@@ -956,13 +956,12 @@ class Decoder:
                         new_generator_run_structs.append(struct)
                 generator_run_structs = new_generator_run_structs
             trial._generator_run_structs = generator_run_structs
-            if not reduced_state:
-                trial._abandoned_arms_metadata = {
-                    abandoned_arm_sqa.name: self.abandoned_arm_from_sqa(
-                        abandoned_arm_sqa=abandoned_arm_sqa
-                    )
-                    for abandoned_arm_sqa in trial_sqa.abandoned_arms
-                }
+            trial._abandoned_arms_metadata = {
+                abandoned_arm_sqa.name: self.abandoned_arm_from_sqa(
+                    abandoned_arm_sqa=abandoned_arm_sqa
+                )
+                for abandoned_arm_sqa in trial_sqa.abandoned_arms
+            }
             trial._refresh_arms_by_name()  # Trigger cache build
         else:
             trial = Trial(
