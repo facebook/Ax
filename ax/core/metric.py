@@ -82,6 +82,11 @@ class Metric(SortableBase, SerializationMixin):
     """
 
     data_constructor: type[Data] = Data
+    # The set of exception types stored in a ``MetchFetchE.exception`` that are
+    # recoverable ``Scheduler._fetch_and_process_trials_data_results()``.
+    # Exception may be a subclass of any of these types.  If you want your metric
+    # to never fail the trial, set this to ``{Exception}`` in your metric subclass.
+    recoverable_exceptions: set[type[Exception]] = set()
 
     def __init__(
         self,
@@ -137,6 +142,17 @@ class Metric(SortableBase, SerializationMixin):
         else it is checked.
         """
         return timedelta(0)
+
+    @classmethod
+    def is_reconverable_fetch_e(cls, metric_fetch_e: MetricFetchE) -> bool:
+        """Checks whether the given MetricFetchE is recoverable for this metric class
+        in ``Scheduler._fetch_and_process_trials_data_results``.
+        """
+        if metric_fetch_e.exception is None:
+            return False
+        return any(
+            isinstance(metric_fetch_e.exception, e) for e in cls.recoverable_exceptions
+        )
 
     # NOTE: This is rarely overridden –– oonly if you want to fetch data in groups
     # consisting of multiple different metric classes, for data to be fetched together.

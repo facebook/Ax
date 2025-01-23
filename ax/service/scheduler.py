@@ -2041,11 +2041,14 @@ class Scheduler(AnalysisBase, BestPointMixin):
                 )
 
                 # If the fetch failure was for a metric in the optimization config (an
-                # objective or constraint) the trial as failed
+                # objective or constraint) mark the trial as failed
                 optimization_config = self.experiment.optimization_config
                 if (
                     optimization_config is not None
                     and metric_name in optimization_config.metrics.keys()
+                    and not self.experiment.metrics[
+                        metric_name
+                    ].is_reconverable_fetch_e(metric_fetch_e=metric_fetch_e)
                 ):
                     status = self._mark_err_trial_status(
                         trial=self.experiment.trials[trial_index],

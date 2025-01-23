@@ -37,7 +37,12 @@ from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status,
 )
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
-from ax.exceptions.core import OptimizationComplete, UnsupportedError, UserInputError
+from ax.exceptions.core import (
+    AxError,
+    OptimizationComplete,
+    UnsupportedError,
+    UserInputError,
+)
 from ax.exceptions.generation_strategy import AxGenerationException
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
@@ -1981,43 +1986,137 @@ class AxSchedulerTestCase(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
         )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                **self.scheduler_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
         with patch(
             f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
         ), patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,
         ), self.assertLogs(logger="ax.service.scheduler") as lg:
-            scheduler = Scheduler(
-                experiment=self.branin_experiment,
-                generation_strategy=gs,
-                options=SchedulerOptions(
-                    **self.scheduler_options_kwargs,
-                ),
-                db_settings=self.db_settings_if_always_needed,
-            )
-
             # This trial will fail
             with self.assertRaises(FailureRateExceededError):
                 scheduler.run_n_trials(max_trials=1)
-            self.assertTrue(
-                any(
-                    re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
-                    is not None
-                    for warning in lg.output
-                )
+        self.assertTrue(
+            any(
+                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
+                is not None
+                for warning in lg.output
             )
-            self.assertTrue(
-                any(
-                    re.search(
-                        r"Because (branin|m1) is an objective, marking trial 0 as "
-                        "TrialStatus.FAILED",
-                        warning,
-                    )
-                    is not None
-                    for warning in lg.output
+        )
+        self.assertTrue(
+            any(
+                re.search(
+                    r"Because (branin|m1) is an objective, marking trial 0 as "
+                    "TrialStatus.FAILED",
+                    warning,
                 )
+                is not None
+                for warning in lg.output
             )
-            self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
+        )
+        self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
+
+    def test_fetch_and_process_trials_data_results_failed_objective_but_recoverable(
+        self,
+    ) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                enforce_immutable_search_space_and_opt_config=False,
+                **self.scheduler_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        BraninMetric.recoverable_exceptions = {AxError, TypeError}
+        # we're throwing a recoverable exception because UserInputError
+        # is a subclass of AxError
+        with patch(
+            f"{BraninMetric.__module__}.BraninMetric.f",
+            side_effect=UserInputError("yikes!"),
+        ), patch(
+            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+            return_value=False,
+        ), self.assertLogs(logger="ax.service.scheduler") as lg:
+            scheduler.run_n_trials(max_trials=1)
+        self.assertTrue(
+            any(
+                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
+                is not None
+                for warning in lg.output
+            ),
+            lg.output,
+        )
+        self.assertTrue(
+            any(
+                re.search(
+                    "MetricFetchE INFO: Continuing optimization even though "
+                    "MetricFetchE encountered",
+                    warning,
+                )
+                is not None
+                for warning in lg.output
+            )
+        )
+        self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.COMPLETED)
+
+    def test_fetch_and_process_trials_data_results_failed_objective_not_recoverable(
+        self,
+    ) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                **self.scheduler_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        # we're throwing a unrecoverable exception because Exception is not subclass
+        # of either error type in recoverable_exceptions
+        BraninMetric.recoverable_exceptions = {AxError, TypeError}
+        with patch(
+            f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
+        ), patch(
+            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+            return_value=False,
+        ), self.assertLogs(logger="ax.service.scheduler") as lg:
+            # This trial will fail
+            with self.assertRaises(FailureRateExceededError):
+                scheduler.run_n_trials(max_trials=1)
+        self.assertTrue(
+            any(
+                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
+                is not None
+                for warning in lg.output
+            )
+        )
+        self.assertTrue(
+            any(
+                re.search(
+                    r"Because (branin|m1) is an objective, marking trial 0 as "
+                    "TrialStatus.FAILED",
+                    warning,
+                )
+                is not None
+                for warning in lg.output
+            )
+        )
+        self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
 
     def test_should_consider_optimization_complete(self) -> None:
         # Tests non-GSS parts of the completion criterion.
