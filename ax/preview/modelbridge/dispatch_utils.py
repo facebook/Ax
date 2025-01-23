@@ -13,7 +13,7 @@ from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import MinTrials
 from ax.models.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.preview.api.configs import GenerationMethod, GenerationStrategyConfig
-from botorch.models.transforms.input import Warp
+from botorch.models.transforms.input import Normalize, Warp
 from gpytorch.kernels.linear_kernel import LinearKernel
 
 
@@ -98,7 +98,8 @@ def _get_mbm_node(
             ModelConfig(name="MBM defaults"),
             ModelConfig(
                 covar_module_class=LinearKernel,
-                input_transform_classes=[Warp],
+                input_transform_classes=[Warp, Normalize],
+                input_transform_options={"Normalize": {"center": 0.0}},
                 name="LinearKernel with Warp",
             ),
         ]

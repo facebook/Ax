@@ -20,7 +20,7 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.utils import run_trials_with_gs
-from botorch.models.transforms.input import Warp
+from botorch.models.transforms.input import Normalize, Warp
 from gpytorch.kernels.linear_kernel import LinearKernel
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -154,7 +154,8 @@ class TestDispatchUtils(TestCase):
                 ModelConfig(name="MBM defaults"),
                 ModelConfig(
                     covar_module_class=LinearKernel,
-                    input_transform_classes=[Warp],
+                    input_transform_classes=[Warp, Normalize],
+                    input_transform_options={"Normalize": {"center": 0.0}},
                     name="LinearKernel with Warp",
                 ),
             ]
