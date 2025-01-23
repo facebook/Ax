@@ -279,7 +279,6 @@ def _get_experiment_sqa_reduced_state(
     large experiments, in cases where model state history is not required.
     """
     options = get_query_options_to_defer_immutable_duplicates()
-    options.append(lazyload("abandoned_arms"))
     options.extend(get_query_options_to_defer_large_model_cols())
 
     return _get_experiment_sqa(
