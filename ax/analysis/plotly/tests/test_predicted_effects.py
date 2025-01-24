@@ -146,6 +146,7 @@ class TestPredictedEffectsPlot(TestCase):
                     for arm in trial.arms:
                         self.assertIn(arm.name, card.df["arm_name"].unique())
 
+    @mock_botorch_optimize
     def test_it_does_not_plot_abandoned_arms(self) -> None:
         # GIVEN an experiment with candidate and abandoned arms
         # in the completed and candidate trials
