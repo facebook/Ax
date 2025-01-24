@@ -439,7 +439,7 @@ def get_target_trial_index(experiment: Experiment) -> int | None:
     In the event of any ties, the tie breaking order is:
         a. longest running trial by duration
         b. trial with most arms
-        c. arbitraty selection
+        c. arbitrary selection
 
     Args:
         experiment: The experiment associated with this ``GenerationStrategy``.
