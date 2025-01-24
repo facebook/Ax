@@ -51,6 +51,7 @@ from botorch.acquisition.multi_objective.parego import qLogNParEGO
 from botorch.acquisition.preference import AnalyticExpectedUtilityOfBestOption
 from botorch.models import SaasFullyBayesianSingleTaskGP
 from botorch.models.contextual import LCEAGP
+from botorch.models.fully_bayesian import FullyBayesianLinearSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 
 # BoTorch `Model` imports
@@ -113,6 +114,7 @@ MODEL_REGISTRY: dict[type[Model], str] = {
     MultiTaskGP: "MultiTaskGP",
     SingleTaskGP: "SingleTaskGP",
     SingleTaskMultiFidelityGP: "SingleTaskMultiFidelityGP",
+    FullyBayesianLinearSingleTaskGP: "FullyBayesianLinearSingleTaskGP",
     SaasFullyBayesianSingleTaskGP: "SaasFullyBayesianSingleTaskGP",
     SaasFullyBayesianMultiTaskGP: "SaasFullyBayesianMultiTaskGP",
     LCEAGP: "LCEAGP",
