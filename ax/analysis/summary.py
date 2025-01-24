@@ -95,7 +95,7 @@ class Summary(Analysis):
         df = pd.DataFrame(records)
 
         if self.omit_empty_columns:
-            df = df.loc[:, df.notnull().all()]
+            df = df.loc[:, df.notnull().any()]
 
         return self._create_analysis_card(
             title=f"Summary for {experiment.name}",
