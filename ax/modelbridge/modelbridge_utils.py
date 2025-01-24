@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from copy import deepcopy
 from functools import partial
 from logging import Logger
-from typing import Any, SupportsFloat, TYPE_CHECKING
+from typing import Any, Sequence, SupportsFloat, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
@@ -594,7 +594,7 @@ def pending_observations_as_array_list(
 def parse_observation_features(
     X: npt.NDArray,
     param_names: list[str],
-    candidate_metadata: list[TCandidateMetadata] | None = None,
+    candidate_metadata: Sequence[TCandidateMetadata] | None = None,
 ) -> list[ObservationFeatures]:
     """Re-format raw model-generated candidates into ObservationFeatures.
 
