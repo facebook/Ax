@@ -26,7 +26,7 @@ from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
-from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
+from botorch.models.fully_bayesian import FullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
@@ -149,7 +149,7 @@ def use_model_list(
         botorch_model_class = (
             model_configs[0].botorch_model_class or botorch_model_class
         )
-    if issubclass(botorch_model_class, SaasFullyBayesianSingleTaskGP):
+    if issubclass(botorch_model_class, FullyBayesianSingleTaskGP):
         # SAAS models do not support multiple outcomes.
         # Use model list if there are multiple outcomes.
         return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
