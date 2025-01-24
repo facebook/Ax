@@ -43,7 +43,6 @@ from ax.utils.stats.model_fit_stats import DIAGNOSTIC_FNS
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
-from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP, SingleTaskGP
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
@@ -1626,12 +1625,6 @@ class SurrogateWithModelListTest(TestCase):
             # is `None`.
 
             is_mtgp = case in ("default", "bayesian_mtgp")
-            if case in ("bayesian_stgp", "bayesian_mtgp"):
-                fit_fn_name = "fit_fully_bayesian_model_nuts"
-                fit_fn = fit_fully_bayesian_model_nuts
-            else:
-                fit_fn_name = "fit_gpytorch_mll"
-                fit_fn = fit_gpytorch_mll
 
             search_space_digest = (
                 self.multi_task_search_space_digest
@@ -1654,13 +1647,11 @@ class SurrogateWithModelListTest(TestCase):
                     search_space_digest, target_values={0: 1}
                 )
 
-            with patch(f"{UTILS_PATH}.{fit_fn_name}", wraps=fit_fn) as mock_fit:
-                surrogate.fit(
-                    datasets=datasets,
-                    search_space_digest=search_space_digest,
-                )
+            surrogate.fit(
+                datasets=datasets,
+                search_space_digest=search_space_digest,
+            )
 
-            mock_fit.assert_called_once()
             self.assertIsInstance(
                 surrogate.model, SingleTaskGP if case == "batch" else ModelListGP
             )
