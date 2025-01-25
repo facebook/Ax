@@ -537,10 +537,6 @@ class TorchModelBridgeTest(TestCase):
         gen_results = TorchGenResults(
             points=torch.tensor([[1, 2], [2, 3]]),
             weights=torch.tensor([1.0, 2.0]),
-            # pyre-fixme: Incompatible parameter type [6]: In call
-            # `TorchGenResults.__init__`, for argument `candidate_metadata`,
-            # expected `Optional[List[Optional[Dict[str, typing.Any]]]]` but got
-            # `List[Dict[str, str]]`.
             candidate_metadata=candidate_metadata,
         )
         with mock.patch.object(model, "gen", return_value=gen_results):

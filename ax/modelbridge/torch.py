@@ -12,7 +12,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from copy import deepcopy
 from logging import Logger
-from typing import Any
+from typing import Any, Sequence
 from warnings import warn
 
 import numpy as np
@@ -714,7 +714,7 @@ class TorchModelBridge(ModelBridge):
             torch_opt_config=torch_opt_config,
         )
 
-        gen_metadata = gen_results.gen_metadata
+        gen_metadata = dict(gen_results.gen_metadata)
         if (
             isinstance(optimization_config, MultiObjectiveOptimizationConfig)
             and gen_metadata.get("objective_thresholds", None) is not None
@@ -785,7 +785,7 @@ class TorchModelBridge(ModelBridge):
     def _array_to_observation_features(
         self,
         X: npt.NDArray,
-        candidate_metadata: list[TCandidateMetadata] | None,
+        candidate_metadata: Sequence[TCandidateMetadata] | None,
     ) -> list[ObservationFeatures]:
         return parse_observation_features(
             X=X, param_names=self.parameters, candidate_metadata=candidate_metadata

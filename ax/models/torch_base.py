@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 import torch
 from ax.core.metric import Metric
@@ -106,8 +106,8 @@ class TorchGenResults:
 
     points: Tensor  # (n x d)-dim
     weights: Tensor  # n-dim
-    gen_metadata: dict[str, Any] = field(default_factory=dict)
-    candidate_metadata: list[TCandidateMetadata] | None = None
+    gen_metadata: Mapping[str, Any] = field(default_factory=dict)
+    candidate_metadata: Sequence[TCandidateMetadata] | None = None
 
 
 class TorchModel(BaseModel):
