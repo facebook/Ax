@@ -58,6 +58,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment,
     get_experiment_with_data,
     get_experiment_with_map_data_type,
+    get_experiment_with_observations,
     get_optimization_config,
     get_scalarized_outcome_constraint,
     get_search_space,
@@ -1318,6 +1319,52 @@ class ExperimentTest(TestCase):
             "Unable to stop trial runs: Runner not configured for experiment or trial.",
         ):
             self.experiment.stop_trial_runs(trials=[self.experiment.trials[0]])
+
+    def test_to_df(self) -> None:
+        experiment = get_experiment_with_observations(
+            observations=[[1.0, 2.0], [3.0, 4.0]]
+        )
+        df = experiment.to_df()
+        xs = [
+            experiment.trials[0].arms[0].parameters["x"],
+            experiment.trials[1].arms[0].parameters["x"],
+        ]
+        ys = [
+            experiment.trials[0].arms[0].parameters["y"],
+            experiment.trials[1].arms[0].parameters["y"],
+        ]
+        expected_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [0, 1],
+                "arm_name": ["0_0", "1_0"],
+                "trial_status": ["COMPLETED", "COMPLETED"],
+                "generation_method": ["Sobol", "Sobol"],
+                "name": ["0", "1"],  # the metadata
+                "m1": [1.0, 3.0],
+                "m2": [2.0, 4.0],
+                "x": xs,
+                "y": ys,
+            }
+        )
+        self.assertTrue(df.equals(expected_df))
+        # Check that empty columns are included when omit=False.
+        df = experiment.to_df(omit_empty_columns=False)
+        self.assertEqual(
+            df.columns.tolist(),
+            [
+                "trial_index",
+                "arm_name",
+                "trial_status",
+                "fail_reason",
+                "generation_method",
+                "generation_node",
+                "name",
+                "m1",
+                "m2",
+                "x",
+                "y",
+            ],
+        )
 
 
 class ExperimentWithMapDataTest(TestCase):
