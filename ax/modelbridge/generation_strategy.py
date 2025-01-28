@@ -8,8 +8,8 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
-
 from copy import deepcopy
 from functools import wraps
 from logging import Logger
@@ -33,7 +33,7 @@ from ax.modelbridge.generation_node import GenerationNode, GenerationStep
 from ax.modelbridge.generation_node_input_constructors import InputConstructorPurpose
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
-from ax.utils.common.logger import _round_floats_for_logging, get_logger
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import none_throws
 
@@ -277,54 +277,18 @@ class GenerationStrategy(GenerationStrategyInterface):
         """Puts information on individual trials into a data frame for easy
         viewing.
 
-        For example for a GenerationStrategy composed of GenerationSteps:
-        Gen. Step | Models   | Trial Index | Trial Status | Arm Parameterizations
-        [0]       | [Sobol]  | 0           | RUNNING      | {"0_0":{"x":9.17...}}
+        THIS METHOD IS DEPRECATED AND WILL BE REMOVED IN A FUTURE RELEASE.
+        Please use `Experiment.to_df()` instead.
         """
-        logger.info(
-            "Note that parameter values in dataframe are rounded to 2 decimal "
-            "points; the values in the dataframe are thus not the exact ones "
-            "suggested by Ax in trials."
+        warnings.warn(
+            "`GenerationStrategy.trials_as_df` is deprecated and will be removed in "
+            "a future release. Please use `Experiment.to_df()` instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-        if self._experiment is None or len(self.experiment.trials) == 0:
+        if self._experiment is None:
             return None
-
-        step_or_node_col = (
-            "Generation Nodes" if self.is_node_based else "Generation Step"
-        )
-        records = [
-            {
-                step_or_node_col: [
-                    (
-                        gr._generation_node_name
-                        if gr.generator_run_type != "MANUAL"
-                        else "MANUAL"
-                    )
-                    for gr in trial.generator_runs
-                ],
-                "Generation Model(s)": [
-                    (gr._model_key if gr.generator_run_type != "MANUAL" else "MANUAL")
-                    for gr in trial.generator_runs
-                ],
-                "Trial Index": trial_idx,
-                "Trial Status": trial.status.name,
-                "Arm Parameterizations": {
-                    arm.name: _round_floats_for_logging(arm.parameters)
-                    for arm in trial.arms
-                },
-            }
-            for trial_idx, trial in self.experiment.trials.items()
-        ]
-
-        return pd.DataFrame.from_records(records).reindex(
-            columns=[
-                step_or_node_col,
-                "Generation Model(s)",
-                "Trial Index",
-                "Trial Status",
-                "Arm Parameterizations",
-            ]
-        )
+        return self.experiment.to_df()
 
     @property
     def optimization_complete(self) -> bool:

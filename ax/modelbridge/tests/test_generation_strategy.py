@@ -743,24 +743,14 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(model=Models.SOBOL, num_trials=3),
             ]
         )
-        # No trials yet, so the DF will be None.
-        self.assertIsNone(sobol_generation_strategy.trials_as_df)
-        # Now the trial should appear in the DF.
-        trial = exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
-        trials_df = none_throws(sobol_generation_strategy.trials_as_df)
-        self.assertFalse(trials_df.empty)
-        self.assertEqual(trials_df.head()["Trial Status"][0], "CANDIDATE")
-        # Changes in trial status should be reflected in the DF.
-        trial._status = TrialStatus.RUNNING
-        trials_df = none_throws(sobol_generation_strategy.trials_as_df)
-        self.assertEqual(trials_df.head()["Trial Status"][0], "RUNNING")
-        # Check that rows are present for step 0 and 1 after moving to step 1
-        for _i in range(3):
-            # attach necessary trials to fill up the Generation Strategy
-            trial = exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
-        trials_df = none_throws(sobol_generation_strategy.trials_as_df)
-        self.assertEqual(trials_df.head()["Generation Step"][0], ["GenerationStep_0"])
-        self.assertEqual(trials_df.head()["Generation Step"][2], ["GenerationStep_1"])
+        # No experiment attached to the GS, should be None.
+        with self.assertWarnsRegex(DeprecationWarning, "trials_as_df"):
+            self.assertIsNone(sobol_generation_strategy.trials_as_df)
+        # Experiment attached with a trial, should match Experiment.to_df().
+        exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
+        with self.assertWarnsRegex(DeprecationWarning, "trials_as_df"):
+            trials_df = none_throws(sobol_generation_strategy.trials_as_df)
+        self.assertTrue(trials_df.equals(exp.to_df()))
 
     def test_max_parallelism_reached(self) -> None:
         exp = get_branin_experiment()
@@ -1846,41 +1836,6 @@ class TestGenerationStrategy(TestCase):
         trial.run()
         trial = exp.new_batch_trial(generator_runs=gs_2._gen_with_multiple_nodes(exp))
         self.assertEqual(trial.generator_runs[0]._generation_node_name, "sobol_4")
-
-    def test_trials_as_df_node_gs(self) -> None:
-        exp = get_branin_experiment()
-        gs = self.complex_multinode_per_trial_gs
-        arms_per_node = {
-            "sobol": 3,
-            "mbm": 1,
-            "sobol_2": 2,
-            "sobol_3": 3,
-            "sobol_4": 4,
-        }
-        gs.experiment = exp
-        self.assertIsNone(gs.trials_as_df)
-        # Now the trial should appear in the DF.
-        trial = exp.new_batch_trial(
-            generator_runs=gs._gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
-        )
-        trials_df = none_throws(gs.trials_as_df)
-        self.assertFalse(trials_df.empty)
-        self.assertEqual(trials_df.head()["Trial Status"][0], "CANDIDATE")
-        self.assertEqual(trials_df.head()["Generation Model(s)"][0], ["Sobol"])
-        # Changes in trial status should be reflected in the DF.
-        trial.run()
-        self.assertEqual(
-            none_throws(gs.trials_as_df).head()["Trial Status"][0], "RUNNING"
-        )
-        # Add a new trial which will be generated from multiple nodes, and check that
-        # is properly reflected in the DF.
-        trial = exp.new_batch_trial(
-            generator_runs=gs._gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
-        )
-        self.assertEqual(
-            none_throws(gs.trials_as_df).head()["Generation Nodes"][1],
-            ["mbm", "sobol_2", "sobol_3"],
-        )
 
     def test_gs_with_fixed_features_constructor(self) -> None:
         exp = get_branin_experiment()
