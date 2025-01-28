@@ -3,21 +3,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import os
+import argparse
+import io
 import json
+import os
 import re
 import shutil
 import subprocess
 import uuid
-import io
-import argparse
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
-import mdformat  # @manual=fbsource//third-party/pypi/mdformat:mdformat
+import mdformat
 import nbformat
 import pandas as pd
-from lxml import etree  # pyre-ignore
 from nbformat.notebooknode import NotebookNode
 
 SCRIPTS_DIR = Path(__file__).parent.resolve()
@@ -39,8 +38,6 @@ priorities = [
     "text/markdown",
     "image/png",  # matplotlib output.
     "application/vnd.jupyter.widget-view+json",  # tqdm progress bars.
-    "application/vnd.bokehjs_load.v0+json",  # Bokeh loading output.
-    "application/vnd.bokehjs_exec.v0+json",  # Bokeh `show` outputs.
     "application/vnd.plotly.v1+json",  # Plotly
     "text/html",
     "stream",
@@ -130,15 +127,10 @@ def create_frontmatter(path: Path, nb_metadata: Dict[str, Dict[str, str]]) -> st
     # that define the tutorial sidebar_label information.
     frontmatter_delimiter = ["---"]
     frontmatter = [
-        f"\"{key}\": \"{value}\""
+        f'"{key}": "{value}"'
         for key, value in {
             "title": metadata["title"],
             "sidebar_label": metadata["title"],
-            # "displayed_sidebar": "tutorials",
-            # "path": "",
-            # "nb_path": "",
-            # "github": "",
-            # "colab": "",
         }.items()
     ]
     frontmatter = "\n".join(frontmatter_delimiter + frontmatter + frontmatter_delimiter)
@@ -158,7 +150,7 @@ def create_imports() -> str:
     plot_out = "@site/src/components/Plotting.jsx"
     imports = f'import LinkButtons from "{link_btn}";\n'
     imports += f'import CellOutput from "{cell_out}";\n'
-    imports += f'import {{BokehFigure, PlotlyFigure}} from "{plot_out}";\n'
+    imports += f'import {{PlotlyFigure}} from "{plot_out}";\n'
     return f"{imports}\n"
 
 
@@ -170,7 +162,13 @@ def get_current_git_tag() -> Optional[str]:
         Optional[str]: The current Git tag as a string if available, otherwise None.
     """
     try:
-        tag = subprocess.check_output(['git', 'describe', '--tags', '--exact-match'], stderr=subprocess.STDOUT).strip().decode('utf-8')
+        tag = (
+            subprocess.check_output(
+                ["git", "describe", "--tags", "--exact-match"], stderr=subprocess.STDOUT
+            )
+            .strip()
+            .decode("utf-8")
+        )
         return tag
     except subprocess.CalledProcessError:
         return None
@@ -189,7 +187,10 @@ def create_buttons(
         str: MDX formatted buttons.
     """
     version = get_current_git_tag() or "main"
-    github_path = f"{ORGANIZATION}/{PROJECT}/blob/{version}/tutorials/{nb_metadata['id']}/{nb_metadata['id']}.ipynb"
+    github_path = (
+        f"{ORGANIZATION}/{PROJECT}/blob/{version}/tutorials/"
+        f"{nb_metadata['id']}/{nb_metadata['id']}.ipynb"
+    )
     github_url = f"https://github.com/{github_path}"
     colab_url = f"https://colab.research.google.com/github/{github_path}"
     return f'<LinkButtons\n  githubUrl="{github_url}"\n  colabUrl="{colab_url}"\n/>\n\n'
@@ -300,6 +301,7 @@ def transform_style_attributes(markdown: str) -> str:
         markdown = markdown.replace('"{{', "{{").replace('}}"', "}}")
     return markdown
 
+
 def sanitize_mdx(mdx: str) -> str:
     """
     Sanitize the given MDX string.
@@ -322,13 +324,22 @@ def sanitize_mdx(mdx: str) -> str:
 
     # -- KaTeX --
     # Wrap '\begin{}...\end{}' in $$ for KaTeX to work.
-    mdx = re.sub("(\\\\begin\\\\{(\\w*?)\\\\}(.|\n)*?end\\\\{\\2\\\\})", "$$\\g<1>$$", mdx)
-    # # make sure $$ symbols are not escaped and include line breaks.
-    mdx = re.sub("\\\\?\\$\\\\?\\$((?:.|\n)*?)\\\\?\\$\\\\?\\$", "\n$$\n\\g<1>\n$$\n", mdx)
-    # # Escaping braces causes issues in math blocks, unescape them.
-    mdx = re.sub("\\$?\\$(.|\n)*?\\$\\$?", lambda match: match[0].replace("\\{", "{").replace("\\}", "}"), mdx)
+    mdx = re.sub(
+        "(\\\\begin\\\\{(\\w*?)\\\\}(.|\n)*?end\\\\{\\2\\\\})", "$$\\g<1>$$", mdx
+    )
+    # Make sure $$ symbols are not escaped and include line breaks.
+    mdx = re.sub(
+        "\\\\?\\$\\\\?\\$((?:.|\n)*?)\\\\?\\$\\\\?\\$", "\n$$\n\\g<1>\n$$\n", mdx
+    )
+    # Escaping braces causes issues in math blocks, unescape them.
+    mdx = re.sub(
+        "\\$?\\$(.|\n)*?\\$\\$?",
+        lambda match: match[0].replace("\\{", "{").replace("\\}", "}"),
+        mdx,
+    )
 
     return mdx
+
 
 def handle_markdown_cell(
     cell: NotebookNode,
@@ -350,15 +361,16 @@ def handle_markdown_cell(
     markdown = cell["source"]
 
     # Update image paths in the Markdown and copy them to the Markdown tutorials folder.
-    # Skip - Our images are base64 encoded, so we don't need to copy them to the docs folder.
+    # Skip - Our images are base64 encoded, so we don't need to copy them to the docs
+    # folder.
     # markdown = handle_images_found_in_markdown(markdown, new_img_dir, lib_dir)
 
     markdown = sanitize_mdx(markdown)
     mdx = mdformat.text(markdown, options={"wrap": 88}, extensions={"myst"})
 
     # We will attempt to handle inline style attributes written in HTML by converting
-    # them to something React can consume. This has to be done after the mdformat.text() step
-    # since mdformat complains about the converted styles.
+    # them to something React can consume. This has to be done after the
+    # mdformat.text() step since mdformat complains about the converted styles.
     mdx = transform_style_attributes(mdx)
 
     return f"{mdx}\n"
@@ -382,110 +394,6 @@ def handle_cell_input(cell: NotebookNode, language: str) -> str:
     """
     cell_source = cell.get("source", "")
     return f"```{language}\n{cell_source}\n```\n\n"
-
-
-def transform_bokeh_json(json_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Transform Bokeh JSON found in a cell output to something BokehJS can consume.
-
-    Args:
-        json_data (Dict[str, Any]): JSON data found in a notebook's cell output that is
-            for Bokeh.
-
-    Returns:
-        Dict[str, Any]: Reorganized JSON output for BokehJS.
-    """
-    key = list(json_data.keys())[0]
-    data = json_data[key]
-    json_tx = {}
-    json_tx["target_id"] = key
-    json_tx["root_id"] = data["roots"]["root_ids"][0]
-    json_tx["doc"] = {
-        "defs": data["defs"],
-        "roots": data["roots"],
-        "title": data["title"],
-        "version": data["version"],
-    }
-    json_tx["version"] = data["version"]
-    return json_tx
-
-
-def handle_bokeh(
-    values: List[Dict[str, Union[int, str, NotebookNode]]],
-    plot_data_folder: Path,
-) -> List[Tuple[int, str]]:
-    """
-    Convert Bokeh `show` outputs and Applications to MDX.
-
-    Args:
-        values (List[Dict[str, Union[int, str, NotebookNode]]]): Bokeh tagged cell
-            outputs.
-        plot_data_folder (Path): Path to the folder where plot data should be
-            stored.
-
-    Returns:
-        List[Tuple[int, str]]: A list of tuples, where the first entry in the tuple is
-            the index where the output occurred from the cell, and the second entry of
-            the tuple is the MDX formatted string.
-    """
-    output = []
-    for value in values:
-        index = int(value["index"])
-        data = str(value["data"])
-        app_flag = data.startswith("<!DOCTYPE html>")
-        json_data = {}
-        # Handle Bokeh `show` outputs.
-        if not app_flag:
-            # Parse the JavaScript for the Bokeh JSON data. The BokehJS output is
-            # standardized, so we can make the following assumption for finding the
-            # right spot to for the JSON data. Also, this is pure JavaScript so
-            # parsing it with lxml is not an option.
-            json_string = list(
-                filter(
-                    lambda line: line.startswith("const docs_json = "),
-                    [line.strip() for line in data.splitlines() if line],
-                ),
-            )[0]
-
-            # Ignore the `const` definition and the ending `;` from the line.
-            json_string = json_string[len("const docs_json = ") : -1]
-            json_data = json.loads(json_string)
-
-        # Handle Bokeh Applications.
-        if app_flag:
-            # Bokeh Application objects are rendered in the notebook as HTML. This
-            # HTML is saved in the output cell, which we parse below using lxml and
-            # xpaths.
-            doc = etree.HTML(data)  # pyre-ignore
-            scripts = doc.xpath("//body/script[@type='application/json']")
-            script = scripts[0]
-            script = "".join(script.itertext())
-            # Unescape characters. If we skip this step, then the JSON read in by
-            # the React BokehFigure object will error in the browser.
-            script = script.replace("&amp;", "&")
-            script = script.replace("&lt;", "<")
-            script = script.replace("&gt;", ">")
-            script = script.replace("&quot;", '"')
-            script = script.replace("&#x27;", "'")
-            script = script.replace("&#x60;", "`")
-            json_data = json.loads(script)
-
-        # Shuffle the data so we can save it in a format BokehJS will be able to
-        # consume later.
-        js = transform_bokeh_json(json_data)
-        file_name = js["target_id"]
-        # Save the Bokeh JSON data to disk. It will be read by React when loaded in
-        # Docusaurus.
-        file_path = plot_data_folder / f"{file_name}.json"
-        with file_path.open("w") as f:
-            json.dump(js, f, indent=2)
-
-        # Add the Bokeh figure to the MDX output.
-        path_to_data = f"./assets/plot_data/{file_name}.json"
-        output.append(
-            (index, f"<BokehFigure data={{require('{path_to_data}')}} />\n\n"),
-        )
-    return output
 
 
 def handle_image(
@@ -693,8 +601,6 @@ def aggregate_mdx(
     for key, values in cell_outputs_to_process.items():
         if not values:
             continue
-        if key == "bokeh":
-            processed_mdx.extend(handle_bokeh(values, plot_data_folder))
         if key == "image":
             processed_mdx.extend(handle_image(values))
         if key == "markdown":
@@ -730,9 +636,11 @@ def prioritize_dtypes(
             associated with the cell output having Plotly information in it or not.
     """
     cell_output_dtypes = [
-        list(cell_output["data"].keys())
-        if "data" in cell_output
-        else [cell_output["output_type"]]
+        (
+            list(cell_output["data"].keys())
+            if "data" in cell_output
+            else [cell_output["output_type"]]
+        )
         for cell_output in cell_outputs
     ]
     prioritized_cell_output_dtypes = [
@@ -750,39 +658,6 @@ def prioritize_dtypes(
         for outputs in cell_output_dtypes
     ]
     return prioritized_cell_output_dtypes, plotly_flags
-
-
-def aggregate_bokeh(
-    prioritized_data_dtype: str,
-    cell_output: NotebookNode,
-    data: NotebookNode,
-    cell_outputs_to_process: CELL_OUTPUTS_TO_PROCESS,
-    i: int,
-) -> None:
-    """
-    Aggregate Bokeh cell outputs.
-
-    Args:
-        prioritized_data_dtype (str): The prioritized cell output data type.
-        cell_output (NotebookNode): The actual cell output from the notebook.
-        data (NotebookNode): The data of the cell output.
-        cell_outputs_to_process (CELL_OUTPUTS_TO_PROCESS): Dictionary containing
-            aggregated cell output objects.
-        i (int): Index for the cell output in the list of cell output objects.
-
-    Returns:
-        None: Does not return anything, instead adds values to the
-            cell_outputs_to_process if applicable.
-    """
-    if prioritized_data_dtype == "application/vnd.bokehjs_load.v0+json":
-        pass
-    # Bokeh `show` outputs.
-    if prioritized_data_dtype == "application/vnd.bokehjs_exec.v0+json":
-        data = cell_output["data"]["application/javascript"]
-        cell_outputs_to_process["bokeh"].append({"index": i, "data": data})
-    # Bokeh applications.
-    if prioritized_data_dtype == "text/html" and "Bokeh Application" in data:
-        cell_outputs_to_process["bokeh"].append({"index": i, "data": data})
 
 
 def aggregate_images_and_plotly(
@@ -867,7 +742,6 @@ def aggregate_output_types(cell_outputs: List[NotebookNode]) -> CELL_OUTPUTS_TO_
     prioritized_cell_output_dtypes, plotly_flags = prioritize_dtypes(cell_outputs)
 
     cell_outputs_to_process = {
-        "bokeh": [],
         "image": [],
         "markdown": [],
         "pandas": [],
@@ -884,20 +758,14 @@ def aggregate_output_types(cell_outputs: List[NotebookNode]) -> CELL_OUTPUTS_TO_
         data = (
             cell_output["data"][prioritized_data_dtype]
             if "data" in cell_output
-            else cell_output["text"] if "text" in cell_output else cell_output["evalue"]
+            else cell_output["text"]
+            if "text" in cell_output
+            else cell_output["evalue"]
         )
-        bokeh_check = "bokeh" in prioritized_data_dtype or (
-            prioritized_data_dtype == "text/html" and "Bokeh Application" in data
+        image_check = (
+            prioritized_data_dtype.startswith("image")
+            or "plotly" in prioritized_data_dtype
         )
-        if bokeh_check:
-            aggregate_bokeh(
-                prioritized_data_dtype,
-                cell_output,
-                data,
-                cell_outputs_to_process,
-                i,
-            )
-        image_check = prioritized_data_dtype.startswith("image") or "plotly" in prioritized_data_dtype
         if image_check:
             aggregate_images_and_plotly(
                 prioritized_data_dtype,
@@ -1022,15 +890,22 @@ def clean_up_directories() -> None:
         None: Does not return anything.
     """
     if TUTORIALS_DIR.exists():
-        # We intentionally leave the static `index.mdx` file in place since that is not autogenerated.
+        # We intentionally leave the static `index.mdx` file in place since that is not
+        # autogenerated.
         for item in os.scandir(TUTORIALS_DIR):
             if item.is_dir():
                 shutil.rmtree(item.path)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Convert tutorial notebooks into mdx files.")
-    parser.add_argument("--clean", action='store_true', help="Delete output from previously converted notebooks.")
+    parser = argparse.ArgumentParser(
+        description="Convert tutorial notebooks into mdx files."
+    )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Delete output from previously converted notebooks.",
+    )
     args = parser.parse_args()
 
     tutorials_metadata = load_nb_metadata()
@@ -1040,7 +915,9 @@ if __name__ == "__main__":
     if args.clean:
         clean_up_directories()
     for metadata in tutorials_metadata:
-        path = (LIB_DIR / "tutorials" / metadata["id"] / (metadata["id"] + ".ipynb")).resolve()
+        path = (
+            LIB_DIR / "tutorials" / metadata["id"] / (metadata["id"] + ".ipynb")
+        ).resolve()
         print(f"{path.stem}")
         mdx = transform_notebook(path, metadata)
     print("")
