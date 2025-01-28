@@ -1830,6 +1830,78 @@ class Experiment(Base):
         ]
         return df
 
+    def to_df(self, omit_empty_columns: bool = True) -> pd.DataFrame:
+        """
+        High-level summary of the Experiment with one row per arm. Any values missing at
+        compute time will be represented as None. Columns where every value is None will
+        be omitted by default.
+
+        The DataFrame computed will contain one row per arm and the following columns:
+            - trial_index: The trial index of the arm
+            - arm_name: The name of the arm
+            - trial_status: The status of the trial (e.g. RUNNING, SUCCEDED, FAILED)
+            - failure_reason: The reason for the failure, if applicable
+            - generation_method: The model_key of the model that generated the arm
+            - generation_node: The name of the ``GenerationNode`` that generated the arm
+            - **METADATA: Any metadata associated with the trial, as specified by the
+                Experiment's runner.run_metadata_report_keys field
+            - **METRIC_NAME: The observed mean of the metric specified, for each metric
+            - **PARAMETER_NAME: The parameter value for the arm, for each parameter
+        """
+
+        records = []
+        data_df = self.lookup_data().df
+        for index, trial in self.trials.items():
+            for arm in trial.arms:
+                # Find the observed means for each metric, placing None if not found
+                observed_means = {}
+                for metric in self.metrics.keys():
+                    try:
+                        observed_means[metric] = data_df[
+                            (data_df["arm_name"] == arm.name)
+                            & (data_df["metric_name"] == metric)
+                        ]["mean"].item()
+                    except ValueError:
+                        observed_means[metric] = None
+
+                # Find the arm's associated generation method from the trial via the
+                # GeneratorRuns if possible
+                grs = [gr for gr in trial.generator_runs if arm in gr.arms]
+                generation_method = grs[0]._model_key if len(grs) > 0 else None
+                generation_node = grs[0]._generation_node_name if len(grs) > 0 else None
+
+                # Find other metadata from the trial to include from the trial based
+                # on the experiment's runner
+                metadata = (
+                    {
+                        key: value
+                        for key, value in trial.run_metadata.items()
+                        if key in none_throws(self.runner).run_metadata_report_keys
+                    }
+                    if self.runner is not None
+                    else {}
+                )
+
+                # Construct the record
+                record = {
+                    "trial_index": index,
+                    "arm_name": arm.name,
+                    "trial_status": trial.status.name,
+                    "fail_reason": trial.run_metadata.get("fail_reason", None),
+                    "generation_method": generation_method,
+                    "generation_node": generation_node,
+                    **metadata,
+                    **observed_means,
+                    **arm.parameters,
+                }
+
+                records.append(record)
+
+        df = pd.DataFrame(records)
+        if omit_empty_columns:
+            df = df.loc[:, df.notnull().any()]
+        return df
+
 
 def add_arm_and_prevent_naming_collision(
     new_trial: Trial, old_trial: Trial, old_experiment_name: str | None = None
