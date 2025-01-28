@@ -69,13 +69,13 @@ class TestSummary(TestCase):
             {
                 "trial_index",
                 "arm_name",
+                "trial_status",
                 "generation_method",
                 "generation_node",
-                "status",
-                "x1",
-                "x2",
                 "foo",
                 "bar",
+                "x1",
+                "x2",
             },
         )
 
@@ -89,9 +89,11 @@ class TestSummary(TestCase):
             {
                 "trial_index": {0: 0, 1: 1},
                 "arm_name": {0: "0_0", 1: "1_0"},
+                "trial_status": {0: "COMPLETED", 1: "FAILED"},
                 "generation_method": {0: "Sobol", 1: "Sobol"},
                 "generation_node": {0: "Sobol", 1: "Sobol"},
-                "status": {0: "COMPLETED", 1: "FAILED"},
+                "foo": {0: 1.0, 1: np.nan},  # NaN because trial 1 failed
+                "bar": {0: 2.0, 1: np.nan},
                 "x1": {
                     0: trial_0_parameters["x1"],
                     1: trial_1_parameters["x1"],
@@ -100,8 +102,6 @@ class TestSummary(TestCase):
                     0: trial_0_parameters["x2"],
                     1: trial_1_parameters["x2"],
                 },
-                "foo": {0: 1.0, 1: np.nan},  # NaN because trial 1 failed
-                "bar": {0: 2.0, 1: np.nan},
             }
         )
         self.assertTrue(card.df.equals(expected))
@@ -114,14 +114,14 @@ class TestSummary(TestCase):
             {
                 "trial_index",
                 "arm_name",
+                "trial_status",
+                "fail_reason",
                 "generation_method",
                 "generation_node",
-                "status",
-                "fail_reason",
-                "x1",
-                "x2",
                 "foo",
                 "bar",
+                "x1",
+                "x2",
             },
         )
         self.assertEqual(len(card_no_omit.df), len(experiment.arms_by_name))
