@@ -42,15 +42,21 @@ from ax.modelbridge.transforms.int_to_float import IntToFloat, LogIntToFloat
 from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.logit import Logit
+from ax.modelbridge.transforms.merge_repeated_measurements import (
+    MergeRepeatedMeasurements,
+)
 from ax.modelbridge.transforms.one_hot import OneHot
+from ax.modelbridge.transforms.relativize import Relativize
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandardizeY
 from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice
+from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.models.base import Model
+from ax.models.discrete.eb_ashr import EBAshr
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
@@ -107,6 +113,18 @@ MBM_X_trans: list[type[Transform]] = [
 
 
 Discrete_X_trans: list[type[Transform]] = [IntRangeToChoice]
+
+EB_ashr_trans: list[type[Transform]] = [
+    TransformToNewSQ,
+    MergeRepeatedMeasurements,
+    SearchSpaceToChoice,
+]
+
+rel_EB_ashr_trans: list[type[Transform]] = [
+    Relativize,
+    MergeRepeatedMeasurements,
+    SearchSpaceToChoice,
+]
 
 # This is a modification of Cont_X_trans that replaces OneHot and
 # OrderedChoiceToIntegerRange with ChoiceToNumericChoice. This results in retaining
@@ -178,6 +196,11 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         bridge_class=DiscreteModelBridge,
         model_class=EmpiricalBayesThompsonSampler,
         transforms=TS_trans,
+    ),
+    "EB_Ashr": ModelSetup(
+        bridge_class=DiscreteModelBridge,
+        model_class=EBAshr,
+        transforms=EB_ashr_trans,
     ),
     "Factorial": ModelSetup(
         bridge_class=DiscreteModelBridge,
@@ -424,6 +447,7 @@ class Models(ModelRegistryBase):
     LEGACY_BOTORCH = "Legacy_GPEI"
     BOTORCH_MODULAR = "BoTorch"
     EMPIRICAL_BAYES_THOMPSON = "EB"
+    EB_ASHR = "EB_Ashr"
     UNIFORM = "Uniform"
     ST_MTGP = "ST_MTGP"
     BO_MIXED = "BO_MIXED"
