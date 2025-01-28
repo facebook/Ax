@@ -137,22 +137,13 @@ def positive_part_james_stein(
     sigma2_i = np.power(sems, 2)
     ybar = np.mean(y_i)
     s2 = np.var(y_i - ybar, ddof=3)  # sample variance normalized by K-3
-    if s2 == 0:
-        phi_i = 1
-    else:
-        phi_i = np.minimum(1, sigma2_i / s2)
-    # pyre-fixme[6]: For 1st argument expected `int` but got `floating[typing.Any]`.
-    # pyre-fixme[6]: For 1st argument expected `bool` but got `ndarray[typing.Any,
-    #  dtype[typing.Any]]`.
-    mu_hat_i = y_i + phi_i * (ybar - y_i)
+    phi_i = np.ones_like(sigma2_i) if s2 == 0 else np.minimum(1, sigma2_i / s2)
+    mu_hat_i = y_i + phi_i * np.subtract(ybar, y_i)
+
     sigma_hat_i = np.sqrt(
-        # pyre-fixme[58]: `-` is not supported for operand types `int` and
-        #  `Union[np.ndarray[typing.Any, np.dtype[typing.Any]], int]`.
-        (1 - phi_i) * sigma2_i
+        np.subtract(1.0, phi_i) * sigma2_i
         + phi_i * sigma2_i / K
-        # pyre-fixme[58]: `*` is not supported for operand types `int` and
-        #  `Union[np.ndarray[typing.Any, np.dtype[typing.Any]], int]`.
-        + 2 * phi_i**2 * (y_i - ybar) ** 2 / (K - 3)
+        + np.multiply(2, phi_i**2) * (y_i - ybar) ** 2 / (K - 3)
     )
     return mu_hat_i, sigma_hat_i
 
@@ -318,6 +309,8 @@ def unrelativize(
             m_t = mean_c
             s_t = sem_c
     else:
+        m_t = np.array(m_t)
+        s_t = np.array(s_t)
         m_t[means_t == 0.0] = mean_c
         s_t[means_t == 0.0] = sem_c
 

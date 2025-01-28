@@ -13,12 +13,11 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, InitVar
 from logging import Logger
 from typing import Any
 
 import numpy as np
-
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
@@ -43,6 +42,7 @@ from ax.models.torch.botorch_modular.utils import (
 )
 from ax.models.torch.utils import (
     _to_inequality_constraints,
+    normalize_indices,
     pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
 )
@@ -53,8 +53,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     _argparse_type_encoder,
-    checked_cast,
-    checked_cast_optional,
+    assert_is_instance_optional,
 )
 from ax.utils.stats.model_fit_stats import (
     DIAGNOSTIC_FN_DIRECTIONS,
@@ -63,6 +62,7 @@ from ax.utils.stats.model_fit_stats import (
     RANK_CORRELATION,
 )
 from botorch.exceptions.errors import ModelFittingError
+from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
@@ -70,12 +70,14 @@ from botorch.models.transforms.input import (
     ChainedInputTransform,
     InputPerturbation,
     InputTransform,
+    Normalize,
 )
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.utils.containers import SliceContainer
 from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
+from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -127,7 +129,7 @@ def _extract_model_kwargs(
 
 
 def _make_botorch_input_transform(
-    input_transform_classes: list[type[InputTransform]],
+    input_transform_classes: list[type[InputTransform]] | _DefaultType,
     input_transform_options: dict[str, dict[str, Any]],
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
@@ -135,15 +137,46 @@ def _make_botorch_input_transform(
     """
     Makes a BoTorch input transform from the provided input classes and options.
     """
+    if isinstance(input_transform_classes, _DefaultType):
+        transforms = _construct_default_input_transforms(
+            search_space_digest=search_space_digest, dataset=dataset
+        )
+    else:
+        transforms = _construct_specified_input_transforms(
+            input_transform_classes=input_transform_classes,
+            dataset=dataset,
+            search_space_digest=search_space_digest,
+            input_transform_options=input_transform_options,
+        )
+    if len(transforms) == 0:
+        return None
+    elif len(transforms) > 1:
+        return ChainedInputTransform(
+            **{f"tf{i}": t_i for i, t_i in enumerate(transforms)}
+        )
+    else:
+        return transforms[0]
+
+
+def _construct_specified_input_transforms(
+    input_transform_classes: list[type[InputTransform]],
+    input_transform_options: dict[str, dict[str, Any]],
+    dataset: SupervisedDataset,
+    search_space_digest: SearchSpaceDigest,
+) -> list[InputTransform]:
+    """Constructs a list of input transforms from input transform classes and
+    options provided in ``ModelConfig``.
+    """
     if not (
         isinstance(input_transform_classes, list)
         and all(issubclass(c, InputTransform) for c in input_transform_classes)
     ):
-        raise UserInputError("Expected a list of input transforms.")
+        raise UserInputError(
+            "Expected a list of input transform classes. "
+            f"Got {input_transform_classes=}."
+        )
     if search_space_digest.robust_digest is not None:
         input_transform_classes = [InputPerturbation] + input_transform_classes
-    if len(input_transform_classes) == 0:
-        return None
 
     input_transform_kwargs = [
         input_transform_argparse(
@@ -157,7 +190,7 @@ def _make_botorch_input_transform(
         for transform_class in input_transform_classes
     ]
 
-    input_transforms = [
+    return [
         # pyre-fixme[45]: Cannot instantiate abstract class `InputTransform`.
         transform_class(**single_input_transform_kwargs)
         for transform_class, single_input_transform_kwargs in zip(
@@ -165,15 +198,47 @@ def _make_botorch_input_transform(
         )
     ]
 
-    input_transform_instance = (
-        ChainedInputTransform(
-            **{f"tf{i}": input_transforms[i] for i in range(len(input_transforms))}
-        )
-        if len(input_transforms) > 1
-        else input_transforms[0]
-    )
 
-    return input_transform_instance
+def _construct_default_input_transforms(
+    search_space_digest: SearchSpaceDigest,
+    dataset: SupervisedDataset,
+) -> list[InputTransform]:
+    """Construct the default input transforms for the given search space digest.
+
+    The default transforms are added in this order:
+    - If the search space digest has a robust digest, an ``InputPerturbation`` transform
+        is used.
+    - If the bounds for the non-task features are not [0, 1], a ``Normalize`` transform
+        is used. The transfrom only applies to the non-task features.
+    """
+    transforms = []
+    # Add InputPerturbation if there is a robust digest.
+    if search_space_digest.robust_digest is not None:
+        transforms.append(
+            InputPerturbation(
+                **input_transform_argparse(
+                    InputPerturbation,
+                    dataset=dataset,
+                    search_space_digest=search_space_digest,
+                )
+            )
+        )
+    # Processing for Normalize.
+    bounds = torch.tensor(search_space_digest.bounds, dtype=torch.get_default_dtype()).T
+    indices = list(range(bounds.shape[-1]))
+    # Remove task features.
+    for task_feature in normalize_indices(
+        search_space_digest.task_features, d=bounds.shape[-1]
+    ):
+        indices.remove(task_feature)
+    # Skip the Normalize transform if the bounds are [0, 1].
+    if not (
+        torch.allclose(bounds[0, indices], torch.zeros(len(indices)))
+        and torch.allclose(bounds[1, indices], torch.ones(len(indices)))
+    ):
+        transforms.append(Normalize(d=bounds.shape[-1], indices=indices, bounds=bounds))
+
+    return transforms
 
 
 def _make_botorch_outcome_transform(
@@ -315,10 +380,14 @@ def _raise_deprecation_warning(
         msg += "Please specify {k} via `model_configs`."
     warnings_raised = False
     default_is_dict = {"botorch_model_kwargs", "mll_kwargs"}
+    default_is_default = {"input_transform_classes"}
     for k, v in kwargs.items():
         should_raise = False
         if k in default_is_dict:
-            if v != {}:
+            if v not in [{}, None]:
+                should_raise = True
+        elif k in default_is_default:
+            if v != DEFAULT:
                 should_raise = True
         elif (v is not None and k != "mll_class") or (
             k == "mll_class" and v is not ExactMarginalLogLikelihood
@@ -341,7 +410,7 @@ def get_model_config_from_deprecated_args(
     mll_options: dict[str, Any] | None,
     outcome_transform_classes: list[type[OutcomeTransform]] | None,
     outcome_transform_options: dict[str, dict[str, Any]] | None,
-    input_transform_classes: list[type[InputTransform]] | None,
+    input_transform_classes: list[type[InputTransform]] | _DefaultType | None,
     input_transform_options: dict[str, dict[str, Any]] | None,
     covar_module_class: type[Kernel] | None,
     covar_module_options: dict[str, Any] | None,
@@ -349,30 +418,21 @@ def get_model_config_from_deprecated_args(
     likelihood_options: dict[str, Any] | None,
 ) -> ModelConfig:
     """Construct a ModelConfig from deprecated arguments."""
-    model_config_kwargs = {
-        "botorch_model_class": botorch_model_class,
-        "model_options": (model_options or {}).copy(),
-        "mll_class": mll_class,
-        "mll_options": (mll_options or {}).copy(),
-        "outcome_transform_classes": outcome_transform_classes,
-        "outcome_transform_options": outcome_transform_options,
-        "input_transform_classes": input_transform_classes,
-        "input_transform_options": input_transform_options,
-        "covar_module_class": covar_module_class,
-        "covar_module_options": covar_module_options,
-        "likelihood_class": likelihood_class,
-        "likelihood_options": likelihood_options,
-    }
-    model_config_kwargs = {
-        k: v for k, v in model_config_kwargs.items() if v is not None
-    }
-    # pyre-fixme [6]: Incompatible parameter type [6]: In call
-    # `ModelConfig.__init__`, for 1st positional argument, expected
-    # `Dict[str, typing.Any]` but got `Union[Dict[str, typing.Any],
-    # Dict[str, Dict[str, typing.Any]], Sequence[Type[InputTransform]],
-    # Sequence[Type[OutcomeTransform]], Type[Union[MarginalLogLikelihood,
-    #  Model]], Type[Likelihood], Type[Kernel]]`.
-    return ModelConfig(**model_config_kwargs, name="from deprecated args")
+    return ModelConfig(
+        botorch_model_class=botorch_model_class,
+        model_options=(model_options or {}).copy(),
+        mll_class=mll_class or ExactMarginalLogLikelihood,
+        mll_options=(mll_options or {}).copy(),
+        outcome_transform_classes=outcome_transform_classes,
+        outcome_transform_options=(outcome_transform_options or {}).copy(),
+        input_transform_classes=input_transform_classes,
+        input_transform_options=(input_transform_options or {}).copy(),
+        covar_module_class=covar_module_class,
+        covar_module_options=(covar_module_options or {}).copy(),
+        likelihood_class=likelihood_class,
+        likelihood_options=(likelihood_options or {}).copy(),
+        name="from deprecated args",
+    )
 
 
 @dataclass(frozen=True)
@@ -417,6 +477,9 @@ class SurrogateSpec:
         input_transform_classes: List of BoTorch input transforms classes.
             Passed down to the BoTorch ``Model``. Multiple input transforms
             will be chained together using ``ChainedInputTransform``.
+            If `DEFAULT`, a default set of input transforms may be constructed
+            based on the search space digest (in `_construct_default_input_transforms`).
+            To disable this behavior, pass in `input_transform_classes=None`.
             This argument is deprecated in favor of model_configs.
         input_transform_options: Input transform classes kwargs. The keys are
             class string names and the values are dictionaries of input transform
@@ -452,72 +515,86 @@ class SurrogateSpec:
             cross-validation.
     """
 
-    botorch_model_class: type[Model] | None = None
-    botorch_model_kwargs: dict[str, Any] = field(default_factory=dict)
-
-    mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood
-    mll_kwargs: dict[str, Any] = field(default_factory=dict)
-
-    covar_module_class: type[Kernel] | None = None
-    covar_module_kwargs: dict[str, Any] | None = None
-
-    likelihood_class: type[Likelihood] | None = None
-    likelihood_kwargs: dict[str, Any] | None = None
-
-    input_transform_classes: list[type[InputTransform]] | None = None
-    input_transform_options: dict[str, dict[str, Any]] | None = None
-
-    outcome_transform_classes: list[type[OutcomeTransform]] | None = None
-    outcome_transform_options: dict[str, dict[str, Any]] | None = None
-
-    allow_batched_models: bool = True
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    botorch_model_class: InitVar[type[Model] | None] = None
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    botorch_model_kwargs: InitVar[dict[str, Any] | None] = None
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    mll_class: InitVar[type[MarginalLogLikelihood]] = ExactMarginalLogLikelihood
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    mll_kwargs: InitVar[dict[str, Any] | None] = None
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    covar_module_class: InitVar[type[Kernel] | None] = None
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    covar_module_kwargs: InitVar[dict[str, Any] | None] = None
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    likelihood_class: InitVar[type[Likelihood] | None] = None
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    likelihood_kwargs: InitVar[dict[str, Any] | None] = None
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    input_transform_classes: InitVar[
+        list[type[InputTransform]] | _DefaultType | None
+    ] = DEFAULT
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    input_transform_options: InitVar[dict[str, dict[str, Any]] | None] = None
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    outcome_transform_classes: InitVar[list[type[OutcomeTransform]] | None] = None
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    outcome_transform_options: InitVar[dict[str, dict[str, Any]] | None] = None
 
     model_configs: list[ModelConfig] = field(default_factory=list)
     metric_to_model_configs: dict[str, list[ModelConfig]] = field(default_factory=dict)
     eval_criterion: str = RANK_CORRELATION
     outcomes: list[str] = field(default_factory=list)
+    allow_batched_models: bool = True
     use_posterior_predictive: bool = False
 
-    def __post_init__(self) -> None:
+    def __post_init__(
+        self,
+        botorch_model_class: type[Model] | None,
+        botorch_model_kwargs: dict[str, Any] | None,
+        mll_class: type[MarginalLogLikelihood],
+        mll_kwargs: dict[str, Any] | None,
+        covar_module_class: type[Kernel] | None,
+        covar_module_kwargs: dict[str, Any] | None,
+        likelihood_class: type[Likelihood] | None,
+        likelihood_kwargs: dict[str, Any] | None,
+        input_transform_classes: list[type[InputTransform]] | None,
+        input_transform_options: dict[str, dict[str, Any]] | None,
+        outcome_transform_classes: list[type[OutcomeTransform]] | None,
+        outcome_transform_options: dict[str, dict[str, Any]] | None,
+    ) -> None:
         warnings_raised = _raise_deprecation_warning(
             is_surrogate=False,
-            botorch_model_class=self.botorch_model_class,
-            botorch_model_kwargs=self.botorch_model_kwargs,
-            mll_class=self.mll_class,
-            mll_kwargs=self.mll_kwargs,
-            outcome_transform_classes=self.outcome_transform_classes,
-            outcome_transform_options=self.outcome_transform_options,
-            input_transform_classes=self.input_transform_classes,
-            input_transform_options=self.input_transform_options,
-            covar_module_class=self.covar_module_class,
-            covar_module_options=self.covar_module_kwargs,
-            likelihood_class=self.likelihood_class,
-            likelihood_options=self.likelihood_kwargs,
+            botorch_model_class=botorch_model_class,
+            botorch_model_kwargs=botorch_model_kwargs,
+            mll_class=mll_class,
+            mll_kwargs=mll_kwargs,
+            outcome_transform_classes=outcome_transform_classes,
+            outcome_transform_options=outcome_transform_options,
+            input_transform_classes=input_transform_classes,
+            input_transform_options=input_transform_options,
+            covar_module_class=covar_module_class,
+            covar_module_options=covar_module_kwargs,
+            likelihood_class=likelihood_class,
+            likelihood_options=likelihood_kwargs,
         )
         if len(self.model_configs) == 0:
             model_config = get_model_config_from_deprecated_args(
-                botorch_model_class=self.botorch_model_class,
-                model_options=self.botorch_model_kwargs,
-                mll_class=self.mll_class,
-                mll_options=self.mll_kwargs,
-                outcome_transform_classes=self.outcome_transform_classes,
-                outcome_transform_options=self.outcome_transform_options,
-                input_transform_classes=self.input_transform_classes,
-                input_transform_options=self.input_transform_options,
-                covar_module_class=self.covar_module_class,
-                covar_module_options=self.covar_module_kwargs,
-                likelihood_class=self.likelihood_class,
-                likelihood_options=self.likelihood_kwargs,
+                botorch_model_class=botorch_model_class,
+                model_options=botorch_model_kwargs,
+                mll_class=mll_class,
+                mll_options=mll_kwargs,
+                outcome_transform_classes=outcome_transform_classes,
+                outcome_transform_options=outcome_transform_options,
+                input_transform_classes=input_transform_classes,
+                input_transform_options=input_transform_options,
+                covar_module_class=covar_module_class,
+                covar_module_options=covar_module_kwargs,
+                likelihood_class=likelihood_class,
+                likelihood_options=likelihood_kwargs,
             )
-            # re-initialize with the non-deprecated arguments
-            self.__init__(
-                allow_batched_models=self.allow_batched_models,
-                model_configs=[model_config],
-                metric_to_model_configs=self.metric_to_model_configs,
-                eval_criterion=self.eval_criterion,
-                outcomes=self.outcomes,
-                use_posterior_predictive=self.use_posterior_predictive,
-            )
+            object.__setattr__(self, "model_configs", [model_config])
         elif warnings_raised:
             raise UserInputError(
                 "model_configs and deprecated arguments were both specified. "
@@ -566,6 +643,9 @@ class Surrogate(Base):
         input_transform_classes: List of BoTorch input transforms classes.
             Passed down to the BoTorch ``Model``. Multiple input transforms
             will be chained together using ``ChainedInputTransform``.
+            If `DEFAULT`, a default set of input transforms may be constructed
+            based on the search space digest. To disable this behavior, pass
+            in `input_transform_classes=None`.
             This argument is deprecated in favor of model_configs.
         input_transform_options: Input transform classes kwargs. The keys are
             class string names and the values are dictionaries of input transform
@@ -593,9 +673,9 @@ class Surrogate(Base):
         allow_batched_models: Set to true to fit the models in a batch if supported.
             Set to false to fit individual models to each metric in a loop.
         refit_on_cv: Whether to refit the model on the cross-validation folds.
-        metric_to_best_model_config: Dictionary mapping a tuple of metric names
-            to the best model config. This is only used by BotorchModel.cross_validate
-            and for logging what model was used.
+        metric_to_best_model_config: Dictionary mapping a metric name to the best
+            model config. This is only used by BotorchModel.cross_validate and for
+            logging what model was used.
 
     """
 
@@ -608,7 +688,9 @@ class Surrogate(Base):
         mll_options: dict[str, Any] | None = None,
         outcome_transform_classes: list[type[OutcomeTransform]] | None = None,
         outcome_transform_options: dict[str, dict[str, Any]] | None = None,
-        input_transform_classes: list[type[InputTransform]] | None = None,
+        input_transform_classes: list[type[InputTransform]]
+        | _DefaultType
+        | None = DEFAULT,
         input_transform_options: dict[str, dict[str, Any]] | None = None,
         covar_module_class: type[Kernel] | None = None,
         covar_module_options: dict[str, Any] | None = None,
@@ -616,7 +698,7 @@ class Surrogate(Base):
         likelihood_options: dict[str, Any] | None = None,
         allow_batched_models: bool = True,
         refit_on_cv: bool = False,
-        metric_to_best_model_config: dict[tuple[str], ModelConfig] | None = None,
+        metric_to_best_model_config: dict[str, ModelConfig] | None = None,
     ) -> None:
         warnings_raised = _raise_deprecation_warning(
             is_surrogate=True,
@@ -670,7 +752,7 @@ class Surrogate(Base):
         # though we need n-tuples for LCE-M models. This will be used to skip model
         # construction & fitting if the datasets are identical.
         self._submodels: dict[tuple[str], Model] = {}
-        self.metric_to_best_model_config: dict[tuple[str], ModelConfig] = (
+        self.metric_to_best_model_config: dict[str, ModelConfig] = (
             metric_to_best_model_config or {}
         )
         # Store a reference to search space digest used while fitting the cached models.
@@ -710,7 +792,10 @@ class Surrogate(Base):
             if isinstance(dataset, RankingDataset):
                 # directly accessing the d-dim X tensor values
                 # instead of the augmented 2*d-dim dataset.X from RankingDataset
-                Xi = checked_cast(SliceContainer, dataset._X).values
+                Xi = assert_is_instance(
+                    dataset._X,
+                    SliceContainer,
+                ).values
             else:
                 Xi = dataset.X
             for _ in range(dataset.Y.shape[-1]):
@@ -870,7 +955,9 @@ class Surrogate(Base):
             # Case 1: There is either 1 model config, or we don't want to refit
             # and we know what the previous best model was
             outcome_name_tuple = tuple(dataset.outcome_names)
-            model_config = self.metric_to_best_model_config.get(outcome_name_tuple)
+            model_config = self.metric_to_best_model_config.get(
+                dataset.outcome_names[0]
+            )
             if len(model_configs) == 1 or (not refit and model_config is not None):
                 best_model_config = model_config or model_configs[0]
                 model = self._construct_model(
@@ -901,9 +988,10 @@ class Surrogate(Base):
             outcome_names.extend(dataset.outcome_names)
 
             # store best model config, model, and dataset
-            self.metric_to_best_model_config[outcome_name_tuple] = none_throws(
-                best_model_config
-            )
+            for metric_name in dataset.outcome_names:
+                self.metric_to_best_model_config[metric_name] = none_throws(
+                    best_model_config
+                )
             self._submodels[outcome_name_tuple] = model
             self._last_datasets[outcome_name_tuple] = dataset
 
@@ -1048,16 +1136,24 @@ class Surrogate(Base):
             test_X = X[i : i + 1]
             # fit model to all but one data point
             # TODO: consider batchifying
-            loo_model = self._construct_model(
-                dataset=train_dataset,
-                search_space_digest=search_space_digest,
-                model_config=model_config,
-                default_botorch_model_class=none_throws(default_botorch_model_class),
-                # pyre-fixme [6]: state_dict() has a generic dict[str, Any] return type
-                # but it is actually an OrderedDict[str, Tensor].
-                state_dict=state_dict,
-                refit=self.refit_on_cv,
-            )
+            with warnings.catch_warnings():
+                # Suppress BoTorch input standardization warnings here, since they're
+                # expected to be triggered due to subsetting of the data.
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r"Data \(outcome observations\) is not standardized",
+                    category=InputDataWarning,
+                )
+                loo_model = self._construct_model(
+                    dataset=train_dataset,
+                    search_space_digest=search_space_digest,
+                    model_config=model_config,
+                    default_botorch_model_class=none_throws(
+                        default_botorch_model_class
+                    ),
+                    state_dict=state_dict,
+                    refit=self.refit_on_cv,
+                )
             # evaluate model
             with torch.no_grad():
                 posterior = loo_model.posterior(
@@ -1068,14 +1164,13 @@ class Surrogate(Base):
                 posterior = assert_is_instance(posterior, GPyTorchPosterior)
                 pred_mean = posterior.mean
                 pred_var = posterior.variance
-            pred_Y[i] = pred_mean.view(-1).numpy()
-            pred_Yvar[i] = pred_var.view(-1).numpy()
+            pred_Y[i] = pred_mean.view(-1).cpu().numpy()
+            pred_Yvar[i] = pred_var.view(-1).cpu().numpy()
             train_mask[i] = 1
         # evaluate model fit metric
         diag_fn = DIAGNOSTIC_FNS[none_throws(self.surrogate_spec.eval_criterion)]
-        # pyre-ignore [28]: Unexpected keyword argument `y_obs` to anonymous call.
         return diag_fn(
-            y_obs=Y.view(-1).numpy(),
+            y_obs=Y.view(-1).cpu().numpy(),
             y_pred=pred_Y,
             se_pred=pred_Yvar,
         )
@@ -1147,8 +1242,6 @@ class Surrogate(Base):
             raise ValueError("Could not obtain best in-sample point.")
         best_point, observed_value = best_point_and_observed_value
         return (
-            # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any,
-            #  typing.Any], Tensor]` has no attribute `to`.
             best_point.to(dtype=self.dtype, device=torch.device("cpu")),
             observed_value,
         )
@@ -1185,8 +1278,13 @@ class Surrogate(Base):
         options = options or {}
         acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
             outcome_constraints=torch_opt_config.outcome_constraints,
-            seed_inner=checked_cast_optional(int, options.get(Keys.SEED_INNER, None)),
-            qmc=checked_cast(bool, options.get(Keys.QMC, True)),
+            seed_inner=assert_is_instance_optional(
+                options.get(Keys.SEED_INNER, None), int
+            ),
+            qmc=assert_is_instance(
+                options.get(Keys.QMC, True),
+                bool,
+            ),
             risk_measure=torch_opt_config.risk_measure,
         )
 

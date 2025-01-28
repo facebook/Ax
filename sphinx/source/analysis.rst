@@ -63,6 +63,23 @@ Healthcheck Analysis
     :undoc-members:
     :show-inheritance:
 
+Constraints Feasibility Analysis
+~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.constraints_feasibility
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Search Space Analysis
+~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.search_space_analysis
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 InSample Effects Analysis
 ~~~~~~~~~~~~~~~
 
@@ -115,6 +132,47 @@ Summary
 ~~~~~~~
 
 .. automodule:: ax.analysis.summary
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Interaction
+~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.interaction
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Contour
+~~~~~~~
+
+.. automodule:: ax.analysis.plotly.surface.contour
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Slice
+~~~~~
+
+.. automodule:: ax.analysis.plotly.surface.slice
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Utils
+~~~~~
+
+.. automodule:: ax.analysis.plotly.surface.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Utils
+~~~~~
+
+.. automodule:: ax.analysis.utils
     :members:
     :undoc-members:
     :show-inheritance:

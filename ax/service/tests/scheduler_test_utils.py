@@ -25,6 +25,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
@@ -36,19 +37,25 @@ from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status,
 )
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
-from ax.exceptions.core import OptimizationComplete, UnsupportedError, UserInputError
+from ax.exceptions.core import (
+    AxError,
+    OptimizationComplete,
+    UnsupportedError,
+    UserInputError,
+)
 from ax.exceptions.generation_strategy import AxGenerationException
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models, ST_MTGP_trans
+from ax.modelbridge.registry import MBM_MTGP_trans, Models
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
     FailureRateExceededError,
     get_fitted_model_bridge,
+    MessageOutput,
     OptimizationResult,
     Scheduler,
     SchedulerInternalError,
@@ -69,7 +76,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import AX_ROOT_LOGGER_NAME
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     CustomTestMetric,
     CustomTestRunner,
@@ -88,7 +94,7 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from sqlalchemy.orm.exc import StaleDataError
 
 DUMMY_EXCEPTION = "test_exception"
@@ -821,8 +827,6 @@ class AxSchedulerTestCase(TestCase):
         )
         trial = scheduler.experiment.new_trial()
         parameter_dict = {"x1": 5, "x2": 5}
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, int]`.
         trial.add_arm(Arm(parameters=parameter_dict))
 
         # check no new trials are run, when max_trials = 0
@@ -1479,9 +1483,7 @@ class AxSchedulerTestCase(TestCase):
             generation_strategy=gs,
             options=SchedulerOptions(
                 init_seconds_between_polls=0,
-                early_stopping_strategy=OddIndexEarlyStoppingStrategy(
-                    seconds_between_polls=1
-                ),
+                early_stopping_strategy=OddIndexEarlyStoppingStrategy(),
                 fetch_kwargs={
                     "overwrite_existing_data": False,
                 },
@@ -1517,13 +1519,11 @@ class AxSchedulerTestCase(TestCase):
         num_metrics = 2
         expected_num_rows = num_metrics * total_trials
         # There are 3 trials, and only one metric for "type1".
-        # Currently, lookup_data pulls all metrics for
-        # MultiTypeExperiment (regardless of trial type)
-        self.assertEqual(len(looked_up_data.df), expected_num_rows)
         if isinstance(scheduler.experiment, MultiTypeExperiment):
             # fetch_data only pulls metrics for trial type
             # "type1"
             expected_num_rows = 3
+        self.assertEqual(len(looked_up_data.df), expected_num_rows)
         self.assertEqual(len(fetched_data.df), expected_num_rows)
 
         # expect number of rows in map df to equal:
@@ -1533,15 +1533,16 @@ class AxSchedulerTestCase(TestCase):
         # For MultiTypeExperiment there is only 1 metric
         # for trial type "type1"
         expected_num_rows = 7
-        # Currently lookup_data pulls all metrics for
-        # MultiTypeExperiment (regardless of trial type)
-        # pyre-fixme[16]: `Data` has no attribute `map_df`.
-        self.assertEqual(len(looked_up_data.map_df), expected_num_rows)
         if isinstance(scheduler.experiment, MultiTypeExperiment):
             # fetch_data only pulls metrics for trial type
             # "type1"
             expected_num_rows = 4
-        self.assertEqual(len(fetched_data.map_df), expected_num_rows)
+        self.assertEqual(
+            len(assert_is_instance(looked_up_data, MapData).map_df), expected_num_rows
+        )
+        self.assertEqual(
+            len(assert_is_instance(fetched_data, MapData).map_df), expected_num_rows
+        )
         self.assertIsNotNone(scheduler.options.early_stopping_strategy)
         self.assertAlmostEqual(
             scheduler.options.early_stopping_strategy.estimate_early_stopping_savings(
@@ -1848,7 +1849,7 @@ class AxSchedulerTestCase(TestCase):
             mock_gen_multi_from_multi.assert_called_once()
             mock_get_pending.assert_called()
         self.assertEqual(len(scheduler.experiment.trials), 1)
-        trial = checked_cast(BatchTrial, scheduler.experiment.trials[0])
+        trial = assert_is_instance(scheduler.experiment.trials[0], BatchTrial)
         self.assertEqual(
             len(trial.arms),
             2 if status_quo_weight == 0.0 else 3,
@@ -1971,7 +1972,7 @@ class AxSchedulerTestCase(TestCase):
 
             self.assertTrue(
                 any(
-                    re.search(r"Failed to fetch (branin|m2) for trial 0", warning)
+                    re.search(r"Failed to fetch branin for trial 0", warning)
                     is not None
                     for warning in lg.output
                 )
@@ -1985,45 +1986,139 @@ class AxSchedulerTestCase(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
         )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                **self.scheduler_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
         with patch(
             f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
         ), patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,
         ), self.assertLogs(logger="ax.service.scheduler") as lg:
-            scheduler = Scheduler(
-                experiment=self.branin_experiment,
-                generation_strategy=gs,
-                options=SchedulerOptions(
-                    **self.scheduler_options_kwargs,
-                ),
-                db_settings=self.db_settings_if_always_needed,
-            )
-
             # This trial will fail
             with self.assertRaises(FailureRateExceededError):
                 scheduler.run_n_trials(max_trials=1)
-            self.assertTrue(
-                any(
-                    re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
-                    is not None
-                    for warning in lg.output
-                )
+        self.assertTrue(
+            any(
+                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
+                is not None
+                for warning in lg.output
             )
-            self.assertTrue(
-                any(
-                    re.search(
-                        r"Because (branin|m1) is an objective, marking trial 0 as "
-                        "TrialStatus.FAILED",
-                        warning,
-                    )
-                    is not None
-                    for warning in lg.output
+        )
+        self.assertTrue(
+            any(
+                re.search(
+                    r"Because (branin|m1) is an objective, marking trial 0 as "
+                    "TrialStatus.FAILED",
+                    warning,
                 )
+                is not None
+                for warning in lg.output
             )
-            self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
+        )
+        self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
 
-    def test_completion_criterion(self) -> None:
+    def test_fetch_and_process_trials_data_results_failed_objective_but_recoverable(
+        self,
+    ) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                enforce_immutable_search_space_and_opt_config=False,
+                **self.scheduler_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        BraninMetric.recoverable_exceptions = {AxError, TypeError}
+        # we're throwing a recoverable exception because UserInputError
+        # is a subclass of AxError
+        with patch(
+            f"{BraninMetric.__module__}.BraninMetric.f",
+            side_effect=UserInputError("yikes!"),
+        ), patch(
+            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+            return_value=False,
+        ), self.assertLogs(logger="ax.service.scheduler") as lg:
+            scheduler.run_n_trials(max_trials=1)
+        self.assertTrue(
+            any(
+                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
+                is not None
+                for warning in lg.output
+            ),
+            lg.output,
+        )
+        self.assertTrue(
+            any(
+                re.search(
+                    "MetricFetchE INFO: Continuing optimization even though "
+                    "MetricFetchE encountered",
+                    warning,
+                )
+                is not None
+                for warning in lg.output
+            )
+        )
+        self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.COMPLETED)
+
+    def test_fetch_and_process_trials_data_results_failed_objective_not_recoverable(
+        self,
+    ) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                **self.scheduler_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        # we're throwing a unrecoverable exception because Exception is not subclass
+        # of either error type in recoverable_exceptions
+        BraninMetric.recoverable_exceptions = {AxError, TypeError}
+        with patch(
+            f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
+        ), patch(
+            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+            return_value=False,
+        ), self.assertLogs(logger="ax.service.scheduler") as lg:
+            # This trial will fail
+            with self.assertRaises(FailureRateExceededError):
+                scheduler.run_n_trials(max_trials=1)
+        self.assertTrue(
+            any(
+                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
+                is not None
+                for warning in lg.output
+            )
+        )
+        self.assertTrue(
+            any(
+                re.search(
+                    r"Because (branin|m1) is an objective, marking trial 0 as "
+                    "TrialStatus.FAILED",
+                    warning,
+                )
+                is not None
+                for warning in lg.output
+            )
+        )
+        self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
+
+    def test_should_consider_optimization_complete(self) -> None:
         # Tests non-GSS parts of the completion criterion.
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
@@ -2039,7 +2134,7 @@ class AxSchedulerTestCase(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
         # With total_trials=None.
-        should_stop, message = scheduler.completion_criterion()
+        should_stop, message = scheduler.should_consider_optimization_complete()
         self.assertFalse(should_stop)
         self.assertEqual(message, "")
 
@@ -2049,7 +2144,7 @@ class AxSchedulerTestCase(TestCase):
             **self.scheduler_options_kwargs,
         )
         # Experiment has fewer trials.
-        should_stop, message = scheduler.completion_criterion()
+        should_stop, message = scheduler.should_consider_optimization_complete()
         self.assertFalse(should_stop)
         self.assertEqual(message, "")
         # Experiment has 5 trials.
@@ -2058,7 +2153,7 @@ class AxSchedulerTestCase(TestCase):
             sobol_run = sobol_generator.gen(n=1)
             self.branin_experiment.new_trial(generator_run=sobol_run)
         self.assertEqual(len(self.branin_experiment.trials), 5)
-        should_stop, message = scheduler.completion_criterion()
+        should_stop, message = scheduler.should_consider_optimization_complete()
         self.assertTrue(should_stop)
         self.assertEqual(message, "Exceeding the total number of trials.")
 
@@ -2196,6 +2291,8 @@ class AxSchedulerTestCase(TestCase):
             scheduler.experiment.trials[0].lookup_data().df["arm_name"].iloc[0]
         )
         percent_improvement = scheduler.get_improvement_over_baseline(
+            experiment=scheduler.experiment,
+            generation_strategy=scheduler.standard_generation_strategy,
             baseline_arm_name=first_trial_name,
         )
 
@@ -2208,11 +2305,7 @@ class AxSchedulerTestCase(TestCase):
         self.branin_experiment.optimization_config = (
             get_branin_multi_objective_optimization_config()
         )
-
-        gs = self._get_generation_strategy_strategy_for_test(
-            experiment=self.branin_experiment,
-            generation_strategy=self.sobol_MBM_GS,
-        )
+        gs = self.sobol_MBM_GS
 
         scheduler = Scheduler(
             experiment=self.branin_experiment,
@@ -2226,6 +2319,8 @@ class AxSchedulerTestCase(TestCase):
 
         with self.assertRaises(NotImplementedError):
             scheduler.get_improvement_over_baseline(
+                experiment=scheduler.experiment,
+                generation_strategy=scheduler.standard_generation_strategy,
                 baseline_arm_name=None,
             )
 
@@ -2235,10 +2330,7 @@ class AxSchedulerTestCase(TestCase):
         experiment.name = f"{self.branin_experiment.name}_but_moo"
         experiment.runner = self.runner
 
-        gs = self._get_generation_strategy_strategy_for_test(
-            experiment=experiment,
-            generation_strategy=self.two_sobol_steps_GS,
-        )
+        gs = self.two_sobol_steps_GS
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
@@ -2250,8 +2342,10 @@ class AxSchedulerTestCase(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
 
-        with self.assertRaises(UserInputError):
+        with self.assertRaises(ValueError):
             scheduler.get_improvement_over_baseline(
+                experiment=scheduler.experiment,
+                generation_strategy=scheduler.standard_generation_strategy,
                 baseline_arm_name=None,
             )
 
@@ -2266,19 +2360,20 @@ class AxSchedulerTestCase(TestCase):
         scheduler.experiment = exp_copy
 
         with self.assertRaises(ValueError):
-            scheduler.get_improvement_over_baseline(baseline_arm_name="baseline")
+            scheduler.get_improvement_over_baseline(
+                experiment=scheduler.experiment,
+                generation_strategy=scheduler.standard_generation_strategy,
+                baseline_arm_name="baseline",
+            )
 
     def test_get_improvement_over_baseline_no_baseline(self) -> None:
         """Test that get_improvement_over_baseline returns UserInputError when
         baseline is not found in data."""
         n_total_trials = 8
-        gs = self._get_generation_strategy_strategy_for_test(
-            experiment=self.branin_experiment,
-            generation_strategy=self.two_sobol_steps_GS,
-        )
-
+        experiment = self.branin_experiment
+        gs = self.two_sobol_steps_GS
         scheduler = Scheduler(
-            experiment=self.branin_experiment,  # Has runner and metrics.
+            experiment=experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=SchedulerOptions(
                 total_trials=n_total_trials,
@@ -2292,6 +2387,8 @@ class AxSchedulerTestCase(TestCase):
 
         with self.assertRaises(UserInputError):
             scheduler.get_improvement_over_baseline(
+                experiment=experiment,
+                generation_strategy=gs,
                 baseline_arm_name="baseline_arm_not_in_data",
             )
 
@@ -2390,7 +2487,7 @@ class AxSchedulerTestCase(TestCase):
                         model_kwargs={
                             # this will cause and error if the model
                             # doesn't get fixed features
-                            "transforms": ST_MTGP_trans,
+                            "transforms": MBM_MTGP_trans,
                             "transform_configs": {
                                 "TrialAsTask": {
                                     "trial_level_map": {
@@ -2676,7 +2773,9 @@ class AxSchedulerTestCase(TestCase):
             none_throws(options.batch_size) + 1,
         )
         self.assertIn(self.branin_experiment.status_quo, candidate_trial.arms)
-        self.assertIsNotNone(checked_cast(BatchTrial, candidate_trial).status_quo)
+        self.assertIsNotNone(
+            assert_is_instance(candidate_trial, BatchTrial).status_quo, BatchTrial
+        )
 
     @mock_botorch_optimize
     def test_generate_candidates_works_for_iteration(self) -> None:
@@ -2896,3 +2995,52 @@ class AxSchedulerTestCase(TestCase):
                 options=options,
                 db_settings=self.db_settings,
             )
+
+    def test_markdown_messages(self) -> None:
+        rgs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.sobol_MBM_GS,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=rgs,
+            options=SchedulerOptions(
+                total_trials=0,
+                tolerated_trial_failure_rate=0.2,
+                init_seconds_between_polls=10,
+                **self.scheduler_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        self.assertDictEqual(
+            scheduler.markdown_messages,
+            {
+                "Generation strategy": MessageOutput(
+                    text=(
+                        "This optimization run uses a 'Sobol+BoTorch' generation "
+                        "strategy."
+                    ),
+                    priority=10,
+                )
+            },
+        )
+        scheduler.markdown_messages["Generation strategy"].append("foo")
+        self.assertEqual(
+            scheduler.markdown_messages["Generation strategy"].text[-3:], "foo"
+        )
+        self.assertEqual(
+            scheduler.markdown_messages["Generation strategy"].priority, 10
+        )
+
+    def test_seconds_between_polls_backoff_factor_is_set(self) -> None:
+        options = SchedulerOptions(
+            **self.scheduler_options_kwargs,
+        )
+
+        self.assertEqual(options.seconds_between_polls_backoff_factor, 1.5)
+
+        options_with_ess = SchedulerOptions(
+            early_stopping_strategy=DummyEarlyStoppingStrategy(),
+            **self.scheduler_options_kwargs,
+        )
+        self.assertEqual(options_with_ess.seconds_between_polls_backoff_factor, 1.0)

@@ -40,7 +40,6 @@ from ax.models.torch.utils import (
     subset_model,
 )
 from ax.models.torch_base import TorchModel
-from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.logei import (
@@ -60,7 +59,7 @@ from botorch.posteriors.posterior import Posterior
 from botorch.posteriors.posterior_list import PosteriorList
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.pareto import is_non_dominated
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 DEFAULT_EHVI_MC_SAMPLES = 128
@@ -165,8 +164,7 @@ def get_NEHVI(
     Returns:
         qNoisyExpectedHyperVolumeImprovement: The instantiated acquisition function.
     """
-    return checked_cast(
-        qNoisyExpectedHypervolumeImprovement,
+    return assert_is_instance(
         _get_NEHVI(
             acqf_name="qNEHVI",
             model=model,
@@ -182,6 +180,7 @@ def get_NEHVI(
             cache_root=cache_root,
             seed=seed,
         ),
+        qNoisyExpectedHypervolumeImprovement,
     )
 
 
@@ -232,8 +231,7 @@ def get_qLogNEHVI(
     Returns:
         qLogNoisyExpectedHyperVolumeImprovement: The instantiated acquisition function.
     """
-    return checked_cast(
-        qLogNoisyExpectedHypervolumeImprovement,
+    return assert_is_instance(
         _get_NEHVI(
             acqf_name="qLogNEHVI",
             model=model,
@@ -249,6 +247,7 @@ def get_qLogNEHVI(
             cache_root=cache_root,
             seed=seed,
         ),
+        qLogNoisyExpectedHypervolumeImprovement,
     )
 
 
@@ -356,8 +355,7 @@ def get_EHVI(
     Returns:
         qExpectedHypervolumeImprovement: The instantiated acquisition function.
     """
-    return checked_cast(
-        qExpectedHypervolumeImprovement,
+    return assert_is_instance(
         _get_EHVI(
             acqf_name="qEHVI",
             model=model,
@@ -370,6 +368,7 @@ def get_EHVI(
             alpha=alpha,
             seed=seed,
         ),
+        qExpectedHypervolumeImprovement,
     )
 
 
@@ -415,8 +414,7 @@ def get_qLogEHVI(
     Returns:
         qLogExpectedHypervolumeImprovement: The instantiated acquisition function.
     """
-    return checked_cast(
-        qLogExpectedHypervolumeImprovement,
+    return assert_is_instance(
         _get_EHVI(
             acqf_name="qLogEHVI",
             model=model,
@@ -429,6 +427,7 @@ def get_qLogEHVI(
             alpha=alpha,
             seed=seed,
         ),
+        qLogExpectedHypervolumeImprovement,
     )
 
 
@@ -460,7 +459,9 @@ def _get_EHVI(
     if outcome_constraints is None:
         cons_tfs = None
     else:
-        cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
+        cons_tfs = get_outcome_constraint_transforms(
+            outcome_constraints=outcome_constraints
+        )
     num_objectives = objective_thresholds.shape[0]
     # NOTE: Not using checked_cast here because for Python 3.9, isinstance fails with
     # `TypeError: Subscripted generics cannot be used with class and instance checks`.

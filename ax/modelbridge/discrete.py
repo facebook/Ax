@@ -170,19 +170,22 @@ class DiscreteModelBridge(ModelBridge):
             pending_observations=pending_array,
             model_gen_options=model_gen_options,
         )
-        observation_features = []
-        for x in X:
-            observation_features.append(
-                ObservationFeatures(
-                    parameters={p: x[i] for i, p in enumerate(self.parameters)}
-                )
+        observation_features = [
+            ObservationFeatures(parameters=dict(zip(self.parameters, x))) for x in X
+        ]
+
+        if "best_x" in gen_metadata:
+            best_observation_features = ObservationFeatures(
+                parameters=dict(zip(self.parameters, gen_metadata["best_x"]))
             )
-        # TODO[drfreund, bletham]: implement best_point identification and
-        # return best_point instead of None
+        else:
+            best_observation_features = None
+
         return GenResults(
             observation_features=observation_features,
             weights=w,
             gen_metadata=gen_metadata,
+            best_observation_features=best_observation_features,
         )
 
     def _cross_validate(

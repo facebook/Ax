@@ -5,11 +5,17 @@
 
 # pyre-strict
 
-from ax.core.trial import Trial
+from collections.abc import Mapping
+
+from ax.core.arm import Arm
+from ax.core.types import TParamValue
 
 
-def async_runtime_func_from_pi(trial: Trial) -> int:
-    # First 49 digits of pi, not including the decimal
-    pi_digits_str = "3141592653589793115997963468544185161590576171875"
-    idx = trial.index % len(pi_digits_str)
-    return int(pi_digits_str[idx])
+def int_from_params(
+    params: Mapping[str, TParamValue], n_possibilities: int = 10
+) -> int:
+    """
+    Get an int between 0 and n_possibilities - 1, using a hash of the parameters.
+    """
+    arm_hash = Arm.md5hash(parameters=params)
+    return int(arm_hash[-1], base=16) % n_possibilities

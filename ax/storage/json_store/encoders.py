@@ -620,7 +620,7 @@ def botorch_input_transform_to_init_args(
     else:
         try:
             # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
-            return input_transform.get_init_args()  # pyre-fixme [16]
+            return input_transform.get_init_args()
         except AttributeError:
             raise JSONEncodeError(
                 f"{input_transform.__class__.__name__} does not define `get_init_args` "
@@ -639,7 +639,6 @@ def percentile_early_stopping_strategy_to_dict(
         "min_progression": strategy.min_progression,
         "min_curves": strategy.min_curves,
         "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
-        "seconds_between_polls": strategy.seconds_between_polls,
         "normalize_progressions": strategy.normalize_progressions,
     }
 

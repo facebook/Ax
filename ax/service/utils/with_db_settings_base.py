@@ -11,7 +11,7 @@ import time
 from collections.abc import Iterable
 
 from logging import INFO, Logger
-from typing import Optional
+from typing import Optional, Sequence
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -19,6 +19,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
+from ax.core.runner import Runner
 from ax.exceptions.core import (
     IncompatibleDependencyVersion,
     ObjectNotFoundError,
@@ -69,6 +70,7 @@ try:  # We don't require SQLAlchemy by default.
         _update_generation_strategy,
         save_analysis_cards,
         update_properties_on_experiment,
+        update_runner_on_experiment,
     )
     from ax.storage.sqa_store.sqa_config import SQAConfig
     from ax.storage.sqa_store.structs import DBSettings
@@ -347,7 +349,7 @@ class WithDBSettingsBase:
     def _save_or_update_trials_in_db_if_possible(
         self,
         experiment: Experiment,
-        trials: list[BaseTrial],
+        trials: Sequence[BaseTrial],
         reduce_state_generator_runs: bool = False,
     ) -> bool:
         """Saves new trials or update existing trials on given experiment if DB
@@ -435,6 +437,21 @@ class WithDBSettingsBase:
                     reduce_state_generator_runs=reduce_state_generator_runs,
                 )
                 return True
+        return False
+
+    def _update_runner_on_experiment_in_db_if_possible(
+        self, experiment: Experiment, runner: Runner
+    ) -> bool:
+        if self.db_settings_set:
+            _update_runner_on_experiment_in_db_if_possible(
+                experiment=experiment,
+                runner=runner,
+                encoder=self.db_settings.encoder,
+                decoder=self.db_settings.decoder,
+                suppress_all_errors=self._suppress_all_errors,
+            )
+            return True
+
         return False
 
     def _update_experiment_properties_in_db(
@@ -572,6 +589,23 @@ def _update_generation_strategy_in_db_if_possible(
         f"Updated generation strategy {generation_strategy.name} in "
         f"{_round_floats_for_logging(time.time() - start_time)} seconds in "
         f"mini-batches of {STORAGE_MINI_BATCH_SIZE} generator runs."
+    )
+
+
+@retry_on_exception(
+    retries=3,
+    default_return_on_suppression=False,
+    exception_types=RETRY_EXCEPTION_TYPES,
+)
+def _update_runner_on_experiment_in_db_if_possible(
+    experiment: Experiment,
+    runner: Runner,
+    encoder: Encoder,
+    decoder: Decoder,
+    suppress_all_errors: bool,  # Used by the decorator.
+) -> None:
+    update_runner_on_experiment(
+        experiment=experiment, runner=runner, encoder=encoder, decoder=decoder
     )
 
 

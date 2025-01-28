@@ -422,7 +422,7 @@ class RangeParameter(Parameter):
         self._upper = cast_upper
         return self
 
-    def set_digits(self, digits: int) -> RangeParameter:
+    def set_digits(self, digits: int | None) -> RangeParameter:
         self._digits = digits
 
         # Re-scale min and max to new digits definition

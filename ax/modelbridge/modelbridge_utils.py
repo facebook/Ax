@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from copy import deepcopy
 from functools import partial
 from logging import Logger
-from typing import Any, TYPE_CHECKING
+from typing import Any, Sequence, SupportsFloat, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
@@ -57,9 +57,8 @@ from ax.models.torch.botorch_moo_defaults import (
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
-    checked_cast,
-    checked_cast_optional,
-    checked_cast_to_tuple,
+    assert_is_instance_of_tuple,
+    assert_is_instance_optional,
 )
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
     IndependentCVaR,
@@ -80,7 +79,7 @@ from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
 
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -222,7 +221,9 @@ def extract_search_space_digest(
         if isinstance(p, ChoiceParameter):
             if p.is_task:
                 task_features.append(i)
-                target_values[i] = checked_cast_to_tuple((int, float), p.target_value)
+                target_values[i] = assert_is_instance_of_tuple(
+                    p.target_value, (int, float)
+                )
             elif p.is_ordered:
                 ordinal_features.append(i)
             else:
@@ -247,7 +248,7 @@ def extract_search_space_digest(
             raise ValueError(f"Unknown parameter type {type(p)}")
         if p.is_fidelity:
             fidelity_features.append(i)
-            target_values[i] = checked_cast_to_tuple((int, float), p.target_value)
+            target_values[i] = assert_is_instance_of_tuple(p.target_value, (int, float))
 
     return SearchSpaceDigest(
         feature_names=param_names,
@@ -526,15 +527,21 @@ def get_fixed_features(
     fixed_features: ObservationFeatures | None, param_names: list[str]
 ) -> dict[int, float] | None:
     """Reformat a set of fixed_features."""
-    if fixed_features is None:
+    if fixed_features is None or not fixed_features.parameters:
         return None
-    fixed_features_dict = {}
-    for p_name, val in fixed_features.parameters.items():
-        # These all need to be floats at this point.
-        # pyre-ignore[6]: All float here.
-        val_ = float(val)
-        fixed_features_dict[param_names.index(p_name)] = val_
-    fixed_features_dict = fixed_features_dict if len(fixed_features_dict) > 0 else None
+    params = fixed_features.parameters
+    params_set = set(params)
+    param_names_set = set(param_names)
+    if params_set > param_names_set:
+        raise ValueError(
+            "Fixed features contains parameters not in "
+            f"`param_names`: {params_set - param_names_set}."
+        )
+    fixed_features_dict = {
+        i: float(assert_is_instance(params[p_name], SupportsFloat))
+        for i, p_name in enumerate(param_names)
+        if p_name in params
+    }
     return fixed_features_dict
 
 
@@ -587,7 +594,7 @@ def pending_observations_as_array_list(
 def parse_observation_features(
     X: npt.NDArray,
     param_names: list[str],
-    candidate_metadata: list[TCandidateMetadata] | None = None,
+    candidate_metadata: Sequence[TCandidateMetadata] | None = None,
 ) -> list[ObservationFeatures]:
     """Re-format raw model-generated candidates into ObservationFeatures.
 
@@ -608,7 +615,7 @@ def parse_observation_features(
     for i, x in enumerate(X):
         observation_features.append(
             ObservationFeatures(
-                parameters=dict(zip(param_names, x)),
+                parameters=dict(zip(param_names, x, strict=True)),
                 metadata=candidate_metadata[i] if candidate_metadata else None,
             )
         )
@@ -621,7 +628,7 @@ def transform_callback(
 ) -> Callable[[npt.NDArray], npt.NDArray]:
     """A closure for performing the `round trip` transformations.
 
-    The function round points by de-transforming points back into
+    The function rounds points by de-transforming points back into
     the original space (done by applying transforms in reverse), and then
     re-transforming them.
     This function is specifically for points which are formatted as numpy
@@ -755,13 +762,13 @@ def get_pareto_frontier_and_configs(
     # de-relativize outcome constraints and objective thresholds
     observations = modelbridge.get_training_data()
 
-    optimization_config = checked_cast(
-        MultiObjectiveOptimizationConfig,
+    optimization_config = assert_is_instance(
         derelativize_optimization_config_with_raw_status_quo(
             optimization_config=optimization_config,
             modelbridge=modelbridge,
             observations=observations,
         ),
+        MultiObjectiveOptimizationConfig,
     )
     # Extract weights, constraints, and objective_thresholds
     objective_weights = extract_objective_weights(
@@ -1052,8 +1059,8 @@ def _get_multiobjective_optimization_config(
     objective_thresholds: TRefPoint | None = None,
 ) -> MultiObjectiveOptimizationConfig:
     # Optimization_config
-    mooc = optimization_config or checked_cast_optional(
-        MultiObjectiveOptimizationConfig, modelbridge._optimization_config
+    mooc = optimization_config or assert_is_instance_optional(
+        modelbridge._optimization_config, MultiObjectiveOptimizationConfig
     )
     if not mooc:
         raise ValueError(

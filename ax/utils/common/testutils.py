@@ -261,7 +261,6 @@ def setup_import_mocks(
             set on all modules being mocked.
     """
 
-    # pyre-fixme[3]
     def custom_import(name: str, *args: Any, **kwargs: Any) -> ModuleType:
         for import_path in mocked_import_paths:
             if name == import_path or name.startswith(f"{import_path}."):
@@ -484,6 +483,33 @@ class TestCase(fake_filesystem_unittest.TestCase):
                     self.assertAlmostEqual(a_field, b_field, msg=msg)
             else:
                 self.assertEqual(a_field, b_field, msg=msg)
+
+    def assertIsSubDict(
+        self,
+        subdict: dict[str, Any],
+        superdict: dict[str, Any],
+        almost_equal: bool = False,
+        consider_nans_equal: bool = False,
+    ) -> None:
+        """Testing utility that checks that all keys and values of `subdict` are
+        contained in `dict`.
+
+        Args:
+            subdict: A smaller dictionary.
+            superdict: A larger dictionary which should contain all keys of subdict
+                and the same values as subdict for the corresponding keys.
+        """
+        intersection_dict = {k: superdict[k] for k in subdict if k in superdict}
+        if consider_nans_equal and not almost_equal:
+            raise ValueError(
+                "`consider_nans_equal` can only be used with `almost_equal`"
+            )
+        if almost_equal:
+            self.assertDictsAlmostEqual(
+                subdict, intersection_dict, consider_nans_equal=consider_nans_equal
+            )
+        else:
+            self.assertEqual(subdict, intersection_dict)
 
     @staticmethod
     @contextlib.contextmanager

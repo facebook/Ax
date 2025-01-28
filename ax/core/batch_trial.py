@@ -34,8 +34,7 @@ from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -490,7 +489,10 @@ class BatchTrial(BaseTrial):
         return len(self.arms) == param_cardinality
 
     def run(self) -> BatchTrial:
-        return checked_cast(BatchTrial, super().run())
+        return assert_is_instance(
+            super().run(),
+            BatchTrial,
+        )
 
     def normalized_arm_weights(
         self, total: float = 1, trunc_digits: int | None = None
@@ -568,6 +570,7 @@ class BatchTrial(BaseTrial):
         self,
         experiment: core.experiment.Experiment | None = None,
         include_sq: bool = True,
+        clear_trial_type: bool = False,
     ) -> BatchTrial:
         """Clone the trial and attach it to a specified experiment.
         If None provided, attach it to the current experiment.
@@ -576,6 +579,7 @@ class BatchTrial(BaseTrial):
             experiment: The experiment to which the cloned trial will belong.
                 If unspecified, uses the current experiment.
             include_sq: Whether to include status quo in the cloned trial.
+            clear_trial_type: Whether to clear the trial type of the cloned trial.
 
         Returns:
             A new instance of the trial.
@@ -583,7 +587,8 @@ class BatchTrial(BaseTrial):
         use_old_experiment = experiment is None
         experiment = self._experiment if experiment is None else experiment
         new_trial = experiment.new_batch_trial(
-            trial_type=self._trial_type, ttl_seconds=self._ttl_seconds
+            trial_type=None if clear_trial_type else self._trial_type,
+            ttl_seconds=self._ttl_seconds,
         )
         for struct in self._generator_run_structs:
             if use_old_experiment:

@@ -30,9 +30,8 @@ from ax.global_stopping.strategies.improvement import (
     ImprovementGlobalStoppingStrategy,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_experiment, get_experiment_with_data
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestImprovementGlobalStoppingStrategy(TestCase):
@@ -68,7 +67,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
 
         # Check that we properly count completed trials.
         for i in range(4):
-            trial = checked_cast(BatchTrial, exp.trials[0]).clone_to()
+            trial = assert_is_instance(exp.trials[0], BatchTrial).clone_to()
             if i < 3:
                 trial._status = TrialStatus.CANDIDATE
         stop, message = gss.should_stop_optimization(experiment=exp)
@@ -320,8 +319,8 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         )
 
         # Test with no objective thresholds specified.
-        checked_cast(
-            MultiObjectiveOptimizationConfig, exp._optimization_config
+        assert_is_instance(
+            exp._optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds = []
         stop, message = gss.should_stop_optimization(
             experiment=exp,

@@ -12,6 +12,7 @@ from typing import Optional, TYPE_CHECKING
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.rounding import (
     contains_constrained_integer,
@@ -20,8 +21,7 @@ from ax.modelbridge.transforms.rounding import (
 from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -58,25 +58,29 @@ class IntToFloat(Transform):
             search_space, "IntToFloat requires search space"
         )
         config = config or {}
-        self.rounding: str = checked_cast(str, config.get("rounding", "strict"))
-        self.max_round_attempts: int = checked_cast(
-            int, config.get("max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS)
+        self.rounding: str = assert_is_instance(config.get("rounding", "strict"), str)
+        self.max_round_attempts: int = assert_is_instance(
+            config.get("max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS), int
         )
-        self.min_choices: int = checked_cast(int, config.get("min_choices", 0))
+        self.min_choices: int = assert_is_instance(config.get("min_choices", 0), int)
 
         # Identify parameters that should be transformed
-        self.transform_parameters: set[str] = {
+        self.transform_parameters: set[str] = self._get_transform_parameters()
+        if contains_constrained := contains_constrained_integer(
+            self.search_space, self.transform_parameters
+        ):
+            self.rounding = "randomized"
+        self.contains_constrained_integer: bool = contains_constrained
+
+    def _get_transform_parameters(self) -> set[str]:
+        """Identify parameters that should be transformed."""
+        return {
             p_name
             for p_name, p in self.search_space.parameters.items()
             if isinstance(p, RangeParameter)
             and p.parameter_type == ParameterType.INT
             and ((p.cardinality() >= self.min_choices) or p.log_scale)
         }
-        if contains_constrained_integer(self.search_space, self.transform_parameters):
-            self.rounding = "randomized"
-            self.contains_constrained_integer: bool = True
-        else:
-            self.contains_constrained_integer: bool = False
 
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
@@ -183,3 +187,41 @@ class IntToFloat(Transform):
                         obsf.parameters[p_name] = rounded_parameters[p_name]
 
         return observation_features
+
+
+class LogIntToFloat(IntToFloat):
+    """Convert a log-scale RangeParameter of type int to type float.
+
+    The behavior of this transform mirrors ``IntToFloat`` with the key difference
+    being that it only operates on log-scale parameters.
+    """
+
+    def __init__(
+        self,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        config: TConfig | None = None,
+    ) -> None:
+        if config is not None and "min_choices" in config:
+            raise UserInputError(
+                "`min_choices` cannot be specified for `LogIntToFloat` transform. "
+            )
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            modelbridge=modelbridge,
+            config=config,
+        )
+        # Delete the attribute to avoid it presenting a misleading value.
+        del self.min_choices
+
+    def _get_transform_parameters(self) -> set[str]:
+        """Identify parameters that should be transformed."""
+        return {
+            p_name
+            for p_name, p in self.search_space.parameters.items()
+            if isinstance(p, RangeParameter)
+            and p.parameter_type == ParameterType.INT
+            and p.log_scale
+        }

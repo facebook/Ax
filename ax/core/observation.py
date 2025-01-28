@@ -28,8 +28,7 @@ from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -414,13 +413,22 @@ def _filter_data_on_status(
 
 
 def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
+    """Get the columns used to identify and group observations from a Data object.
+
+    Args:
+        data: the Data object from which to extract the feature columns.
+        is_map_data: If True, the Data object's map_keys will be included.
+
+    Returns:
+        A list of column names to be used to group observations.
+    """
     feature_cols = OBS_COLS.intersection(data.df.columns)
     # note we use this check, rather than isinstance, since
     # only some Modelbridges (e.g. MapTorchModelBridge)
     # use observations_from_map_data, which is required
     # to properly handle MapData features (e.g. fidelity).
     if is_map_data:
-        data = checked_cast(MapData, data)
+        data = assert_is_instance(data, MapData)
         feature_cols = feature_cols.union(data.map_keys)
 
     for column in TIME_COLS:
@@ -431,8 +439,10 @@ def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
                 stacklevel=5,
             )
             feature_cols.discard(column)
-
-    return list(feature_cols)
+    # NOTE: This ensures the order of feature_cols is deterministic so that the order
+    # of lists of observations are deterministic, to avoid nondeterministic tests.
+    # Necessary for test_TorchModelBridge.
+    return sorted(feature_cols)
 
 
 def observations_from_data(

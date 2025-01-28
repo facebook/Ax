@@ -129,8 +129,8 @@ class PyTorchCNNTorchvisionBenchmarkTestFunction(BenchmarkTestFunction):
     def __post_init__(self, train_loader: None, test_loader: None) -> None:
         if self.name not in _REGISTRY:
             raise UserInputError(
-                f"Unrecognized torchvision dataset {self.name}. Please ensure it "
-                "is listed in ax/benchmark/problems/hop/torchvision.py registry."
+                f"Unrecognized torchvision dataset '{self.name}'. Please ensure"
+                " is listed in ax/benchmark/problems/hpo/torchvision._REGISTRY"
             )
         dataset_fn = _REGISTRY[self.name]
 
@@ -210,11 +210,18 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
     optimization_config = get_soo_opt_config(
         outcome_names=test_function.outcome_names, lower_is_better=False
     )
+    # The baseline value for MNIST was not obtained with
+    # `compute_baseline_value_from_sobol`, as usual, but rather by using
+    # the best of 5 Sobol trials and averaging over seeds 1118-1127, since
+    # that data was readily available.
+    # FashionMNIST was computed using just 5 Sobol trials.
+    baseline_value = 0.16 if name == "FashionMNIST" else 0.21452
     return BenchmarkProblem(
         name=f"HPO_PyTorchCNN_Torchvision::{name}",
         search_space=search_space,
         optimization_config=optimization_config,
         num_trials=num_trials,
         optimal_value=CLASSIFICATION_OPTIMAL_VALUE,
+        baseline_value=baseline_value,
         test_function=test_function,
     )

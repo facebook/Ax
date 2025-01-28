@@ -12,13 +12,8 @@ import torch
 from ax.analysis.analysis import AnalysisCardLevel
 from ax.analysis.plotly.arm_effects.insample_effects import InSampleEffectsPlot
 from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
-from ax.core.base_trial import TrialStatus
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.prediction_utils import predict_at_point
-from ax.modelbridge.registry import Models
-from ax.modelbridge.transition_criterion import MaxTrials
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -26,6 +21,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_outcome_constraint,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.modeling_stubs import get_sobol_MBM_MTGP_gs
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
@@ -33,47 +29,7 @@ from pyre_extensions import none_throws
 class TestInsampleEffectsPlot(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.generation_strategy = GenerationStrategy(
-            nodes=[
-                GenerationNode(
-                    node_name="Sobol",
-                    model_specs=[ModelSpec(model_enum=Models.SOBOL)],
-                    transition_criteria=[
-                        MaxTrials(
-                            threshold=1,
-                            transition_to="MBM",
-                        )
-                    ],
-                ),
-                GenerationNode(
-                    node_name="MBM",
-                    model_specs=[
-                        ModelSpec(
-                            model_enum=Models.BOTORCH_MODULAR,
-                        ),
-                    ],
-                    transition_criteria=[
-                        MaxTrials(
-                            threshold=1,
-                            transition_to="MTGP",
-                            only_in_statuses=[
-                                TrialStatus.RUNNING,
-                                TrialStatus.COMPLETED,
-                                TrialStatus.EARLY_STOPPED,
-                            ],
-                        )
-                    ],
-                ),
-                GenerationNode(
-                    node_name="MTGP",
-                    model_specs=[
-                        ModelSpec(
-                            model_enum=Models.ST_MTGP,
-                        ),
-                    ],
-                ),
-            ],
-        )
+        self.generation_strategy = get_sobol_MBM_MTGP_gs()
 
     def test_compute_for_requires_an_exp(self) -> None:
         analysis = InSampleEffectsPlot(
@@ -89,14 +45,14 @@ class TestInsampleEffectsPlot(TestCase):
         experiment = get_branin_experiment(with_status_quo=True)
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1.0
         ).mark_completed(unsafe=True)
         experiment.fetch_data()
-        generation_strategy.gen_with_multiple_nodes(experiment=experiment, n=10)
+        generation_strategy._gen_with_multiple_nodes(experiment=experiment, n=10)
         # Ensure the current model is Botorch
         self.assertEqual(none_throws(generation_strategy.model)._model_key, "BoTorch")
         # WHEN we compute the analysis
@@ -135,7 +91,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).mark_completed(unsafe=True)
@@ -185,7 +141,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).mark_completed(unsafe=True)
@@ -230,11 +186,19 @@ class TestInsampleEffectsPlot(TestCase):
         experiment = get_branin_experiment()
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
-        experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+        trial = experiment.new_batch_trial(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
-        ).mark_completed(unsafe=True)
+        )
+        trial.mark_arm_abandoned(
+            arm_name="0_3",
+            reason=(
+                "We need to make sure it doesn't try to predict for abandoned arms "
+                "because the Thompson model doesn't support out-of-sample prediction."
+            ),
+        )
+        trial.mark_completed(unsafe=True)
         experiment.fetch_data()
         # WHEN we compute the analysis
         analysis = InSampleEffectsPlot(
@@ -260,9 +224,13 @@ class TestInsampleEffectsPlot(TestCase):
         data_df = experiment.lookup_data(trial_indices=[trial.index]).df
         self.assertEqual(
             len(card.df),
-            len(trial.arms),
+            # -1 because the abandoned arm is not in card.df
+            len(trial.arms) - 1,
         )
         for arm in trial.arms:
+            # arm 0_3 is abandoned so it's not in card.df
+            if arm.name == "0_3":
+                continue
             self.assertIn(arm.name, card.df["arm_name"].unique())
             self.assertAlmostEqual(
                 card.df.loc[card.df["arm_name"] == arm.name, "mean"].item(),
@@ -290,7 +258,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).mark_completed(unsafe=True)
@@ -317,7 +285,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).set_status_quo_with_weight(
@@ -326,7 +294,7 @@ class TestInsampleEffectsPlot(TestCase):
         experiment.fetch_data()
         # AND GIVEN the experiment has a trial with no data
         empty_trial = experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             ),
         )
@@ -364,7 +332,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         trial = experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             ),
         )
@@ -372,7 +340,7 @@ class TestInsampleEffectsPlot(TestCase):
         trial.mark_completed(unsafe=True)
         experiment.fetch_data()
         trial = experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             ),
         )
@@ -444,7 +412,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         trial = experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             ),
         ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)

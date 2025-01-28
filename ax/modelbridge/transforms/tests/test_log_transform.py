@@ -16,6 +16,7 @@ from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.log import Log
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_robust_search_space
+from pyre_extensions import assert_is_instance
 
 
 class LogTransformTest(TestCase):
@@ -29,6 +30,7 @@ class LogTransformTest(TestCase):
                     upper=3,
                     parameter_type=ParameterType.FLOAT,
                     log_scale=True,
+                    digits=3,
                 ),
                 RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
                 ChoiceParameter(
@@ -74,10 +76,10 @@ class LogTransformTest(TestCase):
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
-        # pyre-fixme[16]: `Parameter` has no attribute `lower`.
-        self.assertEqual(ss2.parameters["x"].lower, math.log10(1))
-        # pyre-fixme[16]: `Parameter` has no attribute `upper`.
-        self.assertEqual(ss2.parameters["x"].upper, math.log10(3))
+        param = assert_is_instance(ss2.parameters["x"], RangeParameter)
+        self.assertEqual(param.lower, math.log10(1))
+        self.assertEqual(param.upper, math.log10(3))
+        self.assertIsNone(param.digits)
         t2 = Log(
             search_space=self.search_space_with_target,
             observations=[],

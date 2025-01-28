@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from logging import Logger
 
 from math import sqrt
 from typing import TYPE_CHECKING
@@ -19,15 +20,17 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.utils import get_target_trial_index
 from ax.modelbridge.transforms.relativize import BaseRelativize, get_metric_index
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize, unrelativize
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401
+logger: Logger = get_logger(__name__)
 
 
 class TransformToNewSQ(BaseRelativize):
@@ -59,10 +62,33 @@ class TransformToNewSQ(BaseRelativize):
         self._status_quo_name: str = none_throws(
             none_throws(modelbridge).status_quo_name
         )
+
+        target_trial_index = None
+
         if config is not None:
-            target_trial_index = config.get("target_trial_index")
-            if target_trial_index is not None:
-                self.default_trial_idx: int = checked_cast(int, target_trial_index)
+            target_trial_index = config.get("target_trial_index", None)
+
+        if (
+            target_trial_index is None
+            and modelbridge is not None
+            and modelbridge._experiment is not None
+        ):
+            target_trial_index = get_target_trial_index(
+                experiment=modelbridge._experiment
+            )
+            trials_indices_with_sq_data = self.status_quo_data_by_trial.keys()
+            if target_trial_index not in trials_indices_with_sq_data:
+                target_trial_index = max(trials_indices_with_sq_data)
+                logger.info(
+                    "No SQ data for target trial. Failing back to "
+                    f"{target_trial_index}."
+                )
+
+        if target_trial_index is not None:
+            self.default_trial_idx: int = assert_is_instance(
+                target_trial_index,
+                int,
+            )
 
     @property
     def control_as_constant(self) -> bool:
@@ -187,7 +213,7 @@ class TransformToNewSQ(BaseRelativize):
             sems_t=sems_t,
             mean_c=mean_c,
             sem_c=sem_c,
-            as_percent=True,
+            as_percent=False,
             control_as_constant=self.control_as_constant,
         )
         if rel_op == relativize:

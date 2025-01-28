@@ -5,8 +5,7 @@
 
 # pyre-strict
 
-import warnings
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from math import sqrt
 from typing import Any
@@ -14,6 +13,7 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
@@ -29,15 +29,24 @@ from pyre_extensions import assert_is_instance
 
 
 def _dict_of_arrays_to_df(
-    Y_true_by_arm: Mapping[str, npt.NDArray], outcome_names: Sequence[str]
+    Y_true_by_arm: Mapping[str, npt.NDArray],
+    step_duration_by_arm: Mapping[str, float],
+    outcome_names: Sequence[str],
 ) -> pd.DataFrame:
     """
-    Return a DataFrame with columns ["metric_name", "arm_name",
-    "Y_true", "t"].
+    Return a DataFrame with columns
+    ["metric_name", "arm_name", "Y_true", "step", and "virtual runtime"].
+
+    When the trial produces MapData, the "step" column is 0, 1, 2, ...., and
+    "virtual runtime" contains cumulative time for each element of the
+    progression. When the trial does not produce MapData, the "step" column is
+    just 0, and "virtual runtime" is the total runtime of the trial.
 
     Args:
         Y_true_by_arm: A mapping from arm name to a 2D arrays each with shape
-            (len(outcome_names), n_time_intervals).
+            (len(outcome_names), n_steps).
+        step_duration_by_arm: A mapping from arm name to a number representing
+            the runtime of each step.
         outcome_names: The names of the outcomes; will be mapped to the first
             dimension of each array in ``Y_true_by_arm``.
     """
@@ -48,7 +57,9 @@ def _dict_of_arrays_to_df(
                     "metric_name": outcome_name,
                     "arm_name": arm_name,
                     "Y_true": y_true[i, :],
-                    "t": np.arange(y_true.shape[1]),
+                    "step": np.arange(y_true.shape[1], dtype=int),
+                    "virtual runtime": np.arange(1, y_true.shape[1] + 1, dtype=int)
+                    * step_duration_by_arm[arm_name],
                 }
             )
             for i, outcome_name in enumerate(outcome_names)
@@ -99,12 +110,28 @@ def _add_noise(
         else:
             df["sem"] = noise_std_ser
 
-        df["mean"] = df["Y_true"] + np.random.normal(len(df)) * df["sem"]
+        df["mean"] = df["Y_true"] + np.random.normal(loc=0, scale=df["sem"])
 
     else:
         df["sem"] = 0.0
         df["mean"] = df["Y_true"]
     return df
+
+
+def get_total_runtime(
+    trial: BaseTrial,
+    step_runtime_function: TBenchmarkStepRuntimeFunction | None,
+    n_steps: int,
+) -> float:
+    """Get the total runtime of a trial."""
+    # By default, each step takes 1 virtual second.
+    if step_runtime_function is not None:
+        max_step_runtime = max(
+            (step_runtime_function(arm.parameters) for arm in trial.arms)
+        )
+    else:
+        max_step_runtime = 1
+    return n_steps * max_step_runtime
 
 
 @dataclass(kw_only=True)
@@ -126,18 +153,17 @@ class BenchmarkRunner(Runner):
           conceptually clear how to benchmark such problems, so we decided to
           not over-engineer for that before such a use case arrives.
 
-    If ``trial_runtime_func`` and ``max_concurrency`` are both left as default,
-    trials run serially and complete immediately. Otherwise, a
-    ``SimulatedBackendRunner`` is constructed to track the status of trials.
+    If ``max_concurrency`` is left as default (1), trials run serially and
+    complete immediately. Otherwise, a ``SimulatedBackendRunner`` is constructed
+    to track the status of trials.
 
     Args:
         test_function: A ``BenchmarkTestFunction`` from which to generate
             deterministic data before adding noise.
         noise_std: The standard deviation of the noise added to the data. Can be
             a list or dict to be per-metric.
-        trial_runtime_func: A callable that takes a trial and returns its
-            runtime, in simulated seconds. If `None`, each trial completes in
-            one simulated second.
+        step_runtime_function: A function that takes in parameters
+            (in ``TParameterization`` format) and returns the runtime of a step.
         max_concurrency: The maximum number of trials that can be running at a
             given time. Typically, this is ``max_pending_trials`` from the
             ``scheduler_options`` on the ``BenchmarkMethod``.
@@ -145,7 +171,7 @@ class BenchmarkRunner(Runner):
 
     test_function: BenchmarkTestFunction
     noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
-    trial_runtime_func: Callable[[BaseTrial], int] | None = None
+    step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
     max_concurrency: int = 1
     simulated_backend_runner: SimulatedBackendRunner | None = field(init=False)
 
@@ -159,17 +185,13 @@ class BenchmarkRunner(Runner):
                     use_update_as_start_time=True,
                 ),
             )
-            if self.trial_runtime_func is None:
-                warnings.warn(
-                    "`trial_runtime_func` is not set and `max_concurrency` > 1."
-                    " Each trial will take one simulated second to run.",
-                    stacklevel=2,
-                )
             self.simulated_backend_runner = SimulatedBackendRunner(
                 simulator=simulator,
-                sample_runtime_func=self.trial_runtime_func
-                if self.trial_runtime_func is not None
-                else lambda _: 1,
+                sample_runtime_func=lambda trial: get_total_runtime(
+                    trial=trial,
+                    step_runtime_function=self.step_runtime_function,
+                    n_steps=self.test_function.n_steps,
+                ),
             )
         else:
             self.simulated_backend_runner = None
@@ -222,8 +244,23 @@ class BenchmarkRunner(Runner):
             arm.name: self.get_Y_true(arm.parameters) for arm in trial.arms
         }
 
+        step_duration_by_arm = {
+            arm.name: 1
+            if self.step_runtime_function is None
+            else self.step_runtime_function(arm.parameters)
+            for arm in trial.arms
+        }
+        for arm_name, duration in step_duration_by_arm.items():
+            if duration < 0:
+                raise ValueError(
+                    "Step duration must be non-negative for each arm. For arm "
+                    f"{arm_name}, duration is {duration}."
+                )
+
         df = _dict_of_arrays_to_df(
-            Y_true_by_arm=Y_true_by_arm, outcome_names=self.outcome_names
+            Y_true_by_arm=Y_true_by_arm,
+            step_duration_by_arm=step_duration_by_arm,
+            outcome_names=self.outcome_names,
         )
 
         arm_weights = (

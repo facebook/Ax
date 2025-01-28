@@ -57,7 +57,7 @@ class MixedIntegerProblemsTest(TestCase):
         cases: list[tuple[BenchmarkProblem, dict[str, float], torch.Tensor]] = [
             (
                 get_discrete_hartmann(),
-                {f"x{i+1}": 0.0 for i in range(6)},
+                {f"x{i + 1}": 0.0 for i in range(6)},
                 torch.zeros(6, dtype=torch.double),
             ),
             (
@@ -67,28 +67,28 @@ class MixedIntegerProblemsTest(TestCase):
             ),
             (
                 get_discrete_ackley(),
-                {f"x{i+1}": 0.0 for i in range(13)},
+                {f"x{i + 1}": 0.0 for i in range(13)},
                 torch.zeros(13, dtype=torch.double),
             ),
             (
                 get_discrete_ackley(),
                 {
-                    **{f"x{i+1}": 2 for i in range(0, 5)},
-                    **{f"x{i+1}": 4 for i in range(5, 10)},
-                    **{f"x{i+1}": 1.0 for i in range(10, 13)},
+                    **{f"x{i + 1}": 2 for i in range(0, 5)},
+                    **{f"x{i + 1}": 4 for i in range(5, 10)},
+                    **{f"x{i + 1}": 1.0 for i in range(10, 13)},
                 },
                 torch.ones(13, dtype=torch.double),
             ),
             (
                 get_discrete_rosenbrock(),
-                {f"x{i+1}": 0.0 for i in range(10)},
+                {f"x{i + 1}": 0.0 for i in range(10)},
                 torch.full((10,), -5.0, dtype=torch.double),
             ),
             (
                 get_discrete_rosenbrock(),
                 {
-                    **{f"x{i+1}": 3 for i in range(0, 6)},
-                    **{f"x{i+1}": 1.0 for i in range(6, 10)},
+                    **{f"x{i + 1}": 3 for i in range(0, 6)},
+                    **{f"x{i + 1}": 1.0 for i in range(6, 10)},
                 },
                 torch.full((10,), 10.0, dtype=torch.double),
             ),

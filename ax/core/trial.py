@@ -333,6 +333,7 @@ class Trial(BaseTrial):
     def clone_to(
         self,
         experiment: core.experiment.Experiment | None = None,
+        clear_trial_type: bool = False,
     ) -> Trial:
         """Clone the trial and attach it to the specified experiment.
         If no experiment is provided, the original experiment will be used.
@@ -340,13 +341,16 @@ class Trial(BaseTrial):
         Args:
             experiment: The experiment to which the cloned trial will belong.
                 If unspecified, uses the current experiment.
+            clear_trial_type: If True, all cloned trials on the cloned experiment have
+                `trial_type` set to `None`.
 
         Returns:
             A new instance of the trial.
         """
         experiment = self._experiment if experiment is None else experiment
         new_trial = experiment.new_trial(
-            ttl_seconds=self.ttl_seconds, trial_type=self.trial_type
+            ttl_seconds=self.ttl_seconds,
+            trial_type=None if clear_trial_type else self.trial_type,
         )
         if self.generator_run is not None:
             new_trial.add_generator_run(self.generator_run.clone())

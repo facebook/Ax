@@ -39,7 +39,6 @@ from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_hierarchical_search_space,
     get_l2_reg_weight_parameter,
@@ -48,6 +47,7 @@ from ax.utils.testing.core_stubs import (
     get_num_boost_rounds_parameter,
     get_parameter_constraint,
 )
+from pyre_extensions import assert_is_instance
 
 TOTAL_PARAMS = 6
 TUNABLE_PARAMS = 4
@@ -254,48 +254,30 @@ class SearchSpaceTest(TestCase):
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
         # Valid
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         self.assertTrue(self.ss2.check_membership(p_dict))
 
         # Value out of range
         p_dict["a"] = 20.0
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         self.assertFalse(self.ss2.check_membership(p_dict))
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_membership(p_dict, raise_error=True)
 
         # Violate constraints
         p_dict["a"] = 5.3
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         self.assertFalse(self.ss2.check_membership(p_dict))
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_membership(p_dict, raise_error=True)
 
         # Incomplete param dict
         p_dict.pop("a")
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         self.assertFalse(self.ss2.check_membership(p_dict))
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_membership(p_dict, raise_error=True)
 
         # Unknown parameter
         p_dict["q"] = 40
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         self.assertFalse(self.ss2.check_membership(p_dict))
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_membership(p_dict, raise_error=True)
 
     def test_CheckTypes(self) -> None:
@@ -335,15 +317,11 @@ class SearchSpaceTest(TestCase):
 
         # Check "b" parameter goes from float to int
         self.assertTrue(isinstance(p_dict["b"], float))
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         new_arm = self.ss2.cast_arm(Arm(p_dict))
         self.assertTrue(isinstance(new_arm.parameters["b"], int))
 
         # Unknown parameter should be unchanged
         p_dict["q"] = 40
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         new_arm = self.ss2.cast_arm(Arm(p_dict))
         self.assertTrue(isinstance(new_arm.parameters["q"], int))
 
@@ -992,11 +970,11 @@ class HierarchicalSearchSpaceTest(TestCase):
         - `l2_reg_weight` is Range, can be made logit-scale
         - `num_boost_rounds` is Int-Range.
         """
-        checked_cast(
-            RangeParameter, self.hss_2.parameters["learning_rate"]
+        assert_is_instance(
+            self.hss_2.parameters["learning_rate"], RangeParameter
         )._log_scale = True
-        checked_cast(
-            RangeParameter, self.hss_2.parameters["l2_reg_weight"]
+        assert_is_instance(
+            self.hss_2.parameters["l2_reg_weight"], RangeParameter
         )._logit_scale = True
         # This has no other parameters on it, so they should all be set to
         # middle value in their respective domains.

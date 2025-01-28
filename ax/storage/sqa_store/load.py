@@ -35,8 +35,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 
 from ax.storage.utils import MetricIntent
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from sqlalchemy.orm import defaultload, lazyload, noload
 from sqlalchemy.orm.exc import DetachedInstanceError
 
@@ -280,7 +279,6 @@ def _get_experiment_sqa_reduced_state(
     large experiments, in cases where model state history is not required.
     """
     options = get_query_options_to_defer_immutable_duplicates()
-    options.append(lazyload("abandoned_arms"))
     options.extend(get_query_options_to_defer_large_model_cols())
 
     return _get_experiment_sqa(
@@ -567,7 +565,10 @@ def get_generator_runs_by_id(
         sqa_grs = query.all()
     return [
         decoder.generator_run_from_sqa(
-            generator_run_sqa=checked_cast(SQAGeneratorRun, sqa_gr),
+            generator_run_sqa=assert_is_instance(
+                sqa_gr,
+                SQAGeneratorRun,
+            ),
             reduced_state=reduced_state,
             immutable_search_space_and_opt_config=immutable_search_space_and_opt_config,
         )

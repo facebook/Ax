@@ -66,6 +66,7 @@ from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict
 from ax.plot.trace import optimization_trace_single_method
+from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.instantiation import (
     FixedFeatures,
@@ -73,7 +74,7 @@ from ax.service.utils.instantiation import (
     ObjectiveProperties,
 )
 from ax.service.utils.report_utils import exp_to_df
-from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
+from ax.service.utils.with_db_settings_base import DBSettings
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -90,7 +91,6 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.random import with_rng_seed
-from ax.utils.common.typeutils import checked_cast
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -108,7 +108,7 @@ round_floats_for_logging = partial(
 )
 
 
-class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
+class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     """
     Convenience handler for management of experimentation cycle through a
     service-like API. External system manages scheduling of the cycle and makes
@@ -980,7 +980,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # optimization trace.
         def _constrained_trial_objective_mean(trial: BaseTrial) -> float:
             if constraint_satisfaction(trial):
-                return checked_cast(Trial, trial).objective_mean
+                return assert_is_instance(trial, Trial).objective_mean
             return float("inf") if self.objective.minimize else float("-inf")
 
         objective_name = self.objective_name
@@ -994,7 +994,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             ]
         )
         hover_labels = [
-            _format_dict(none_throws(checked_cast(Trial, trial).arm).parameters)
+            _format_dict(none_throws(assert_is_instance(trial, Trial).arm).parameters)
             for trial in self.experiment.trials.values()
             if trial.status.is_completed
         ]
@@ -1508,7 +1508,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def get_trial(self, trial_index: int) -> Trial:
         """Return a trial on experiment cast as Trial"""
-        return checked_cast(Trial, self.experiment.trials[trial_index])
+        return assert_is_instance(self.experiment.trials[trial_index], Trial)
 
     @property
     def generation_strategy(self) -> GenerationStrategy:

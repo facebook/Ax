@@ -15,7 +15,13 @@ from ax.benchmark.problems.hd_embedding import embed_higher_dimension
 from ax.benchmark.problems.hpo.torchvision import (
     get_pytorch_cnn_torchvision_benchmark_problem,
 )
-from ax.benchmark.problems.runtime_funcs import async_runtime_func_from_pi
+from ax.benchmark.problems.runtime_funcs import int_from_params
+from ax.benchmark.problems.synthetic.bandit import get_bandit_problem
+from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
+    get_discrete_ackley,
+    get_discrete_hartmann,
+    get_discrete_rosenbrock,
+)
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from botorch.test_functions import synthetic
 from botorch.test_functions.multi_objective import BraninCurrin
@@ -27,6 +33,7 @@ class BenchmarkProblemRegistryEntry:
     factory_kwargs: dict[str, Any]
 
 
+# Baseline values were obtained with `compute_baseline_value_from_sobol`
 BENCHMARK_PROBLEM_REGISTRY = {
     "ackley4": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
@@ -45,9 +52,12 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "num_trials": 40,
             "noise_std": 1.0,
             "observe_noise_sd": False,
-            "trial_runtime_func": async_runtime_func_from_pi,
+            "step_runtime_function": int_from_params,
             "name": "ackley4_async_noisy",
         },
+    ),
+    "Bandit": BenchmarkProblemRegistryEntry(
+        factory_fn=get_bandit_problem, factory_kwargs={}
     ),
     "branin": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
@@ -74,6 +84,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
                 test_problem_kwargs={},
                 num_trials=num_trials,
                 observe_noise_sd=False,
+                baseline_value=3.0187520516793587,
             ),
             total_dimensionality=n,
         ),
@@ -245,6 +256,16 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "num_trials": 50,
             "observe_noise_sd": True,
         },
+    ),
+    "Discrete Hartmann": BenchmarkProblemRegistryEntry(
+        factory_fn=get_discrete_hartmann,
+        factory_kwargs={},
+    ),
+    "Discrete Ackley": BenchmarkProblemRegistryEntry(
+        factory_fn=get_discrete_ackley, factory_kwargs={}
+    ),
+    "Discrete Rosenbrock": BenchmarkProblemRegistryEntry(
+        factory_fn=get_discrete_rosenbrock, factory_kwargs={}
     ),
 }
 

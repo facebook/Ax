@@ -22,7 +22,6 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
     get_arm,
@@ -33,6 +32,7 @@ from ax.utils.testing.core_stubs import (
     get_generator_run2,
     get_weights,
 )
+from pyre_extensions import assert_is_instance
 
 
 class BatchTrialTest(TestCase):
@@ -443,7 +443,7 @@ class BatchTrialTest(TestCase):
         new_experiment = get_experiment()
         new_experiment.status_quo = None
         batch.clone_to(new_experiment)
-        new_batch_trial_1 = checked_cast(BatchTrial, new_experiment.trials[0])
+        new_batch_trial_1 = assert_is_instance(new_experiment.trials[0], BatchTrial)
 
         self.assertEqual(new_batch_trial_0.index, 1)
         # Set index to original trial's value for equality check.
@@ -452,6 +452,9 @@ class BatchTrialTest(TestCase):
         new_batch_trial_1._time_created = batch._time_created
         self.assertEqual(new_batch_trial_0, batch)
         self.assertEqual(new_batch_trial_1, batch)
+
+        # check that trial_type is cloned correctly
+        self.assertEqual(new_batch_trial_0.trial_type, "foo")
 
         # make sure modifying the cloned batch trial does not affect original one
         new_batch_trial_1.add_arm(
@@ -472,6 +475,9 @@ class BatchTrialTest(TestCase):
         new_batch_trial._index = batch.index
         new_batch_trial._time_created = batch._time_created
         self.assertEqual(new_batch_trial, batch)
+        # test cloning with clear_trial_type=True
+        new_batch_trial = batch.clone_to(clear_trial_type=True)
+        self.assertIsNone(new_batch_trial.trial_type)
 
     def test_Runner(self) -> None:
         # Verify BatchTrial without runner will fail
@@ -539,8 +545,6 @@ class BatchTrialTest(TestCase):
             {"w": 0.75, "x": 1, "y": "foo", "z": True},
             {"w": 0.77, "x": 2, "y": "foo", "z": True},
         ]
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         arms = [Arm(parameters=p) for i, p in enumerate(parameterizations)]
         new_batch_trial.add_arms_and_weights(arms=arms, weights=[2, 1])
 
@@ -592,8 +596,6 @@ class BatchTrialTest(TestCase):
             {"w": 0.75, "x": 1, "y": "foo", "z": True},
             {"w": 0.77, "x": 2, "y": "foo", "z": True},
         ]
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         arms = [Arm(parameters=p) for i, p in enumerate(parameterizations)]
         batch_trial.add_arms_and_weights(arms=arms)
         batch_trial.set_status_quo_and_optimize_power(status_quo)
@@ -619,8 +621,6 @@ class BatchTrialTest(TestCase):
             {"w": 0.77, "x": 2, "y": "foo", "z": True},
             {"w": 0.0, "x": 1, "y": "foo", "z": True},
         ]
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
         arms = [Arm(parameters=p) for i, p in enumerate(parameterizations)]
         batch_trial.add_arms_and_weights(arms=arms)
         batch_trial.set_status_quo_and_optimize_power(status_quo)

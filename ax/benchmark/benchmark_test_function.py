@@ -22,9 +22,14 @@ class BenchmarkTestFunction(ABC):
 
     Args:
         outcome_names: Names of the outcomes.
+        n_steps: Number of data points produced per metric and per evaluation. 1
+            if data is not time-series. If data is time-series, this will
+            eventually become the number of values on a `MapMetric` for
+            evaluations that run to completion.
     """
 
     outcome_names: Sequence[str]
+    n_steps: int = 1
 
     @abstractmethod
     def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:
@@ -32,8 +37,6 @@ class BenchmarkTestFunction(ABC):
         Evaluate noiselessly.
 
         Returns:
-            A 2d tensor of shape (len(outcome_names), n_intervals).
-            ``n_intervals`` is only relevant when using time-series data
-            (``MapData``). Otherwise, it is 1.
+            A 2d tensor of shape (len(self.outcome_names), self.n_steps).
         """
         ...

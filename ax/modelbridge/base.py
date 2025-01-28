@@ -32,7 +32,7 @@ from ax.core.observation import (
     separate_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import (
     TCandidateMetadata,
@@ -48,9 +48,8 @@ from ax.modelbridge.transforms.cast import Cast
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from botorch.exceptions.warnings import InputDataWarning
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -190,6 +189,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             experiment is not None and experiment.immutable_search_space_and_opt_config
         )
         self._experiment_properties: dict[str, Any] = {}
+        self._experiment: Experiment | None = experiment
 
         if experiment is not None:
             if self._optimization_config is None:
@@ -432,8 +432,6 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             if isinstance(p, RangeParameter):
                 p.lower = min(p.lower, min(param_vals[p.name]))
                 p.upper = max(p.upper, max(param_vals[p.name]))
-            elif isinstance(p, ChoiceParameter) and not p.is_ordered:
-                p.set_values(values=list(set(p.values).union(set(param_vals[p.name]))))
 
     def _set_status_quo(
         self,
@@ -1215,9 +1213,9 @@ def clamp_observation_features(
             if p.name not in obsf.parameters:
                 continue
             if p.parameter_type == ParameterType.FLOAT:
-                val = checked_cast(float, obsf.parameters[p.name])
+                val = assert_is_instance(obsf.parameters[p.name], float)
             else:
-                val = checked_cast(int, obsf.parameters[p.name])
+                val = assert_is_instance(obsf.parameters[p.name], int)
             if val < p.lower:
                 logger.info(
                     f"Untransformed parameter {val} "

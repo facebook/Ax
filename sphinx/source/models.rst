@@ -87,6 +87,21 @@ ax.models.discrete.thompson module
     :undoc-members:
     :show-inheritance:
 
+ax.models.discrete.eb\_ashr module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.discrete.eb_ashr
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.discrete.ashr\_utils module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.discrete.ashr_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 
 Random Models

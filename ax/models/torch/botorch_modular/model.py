@@ -34,10 +34,10 @@ from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.deterministic import FixedSingleSampleModel
 from botorch.utils.datasets import SupervisedDataset
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -260,7 +260,10 @@ class BoTorchModel(TorchModel, Base):
             ),
             fixed_features=torch_opt_config.fixed_features,
             rounding_func=botorch_rounding_func,
-            optimizer_options=checked_cast(dict, opt_options),
+            optimizer_options=assert_is_instance(
+                opt_options,
+                dict,
+            ),
         )
         gen_metadata = self._get_gen_metadata_from_acqf(
             acqf=acqf,
@@ -270,10 +273,9 @@ class BoTorchModel(TorchModel, Base):
         # log what model was used
         metric_to_model_config_name = {
             metric_name: model_config.name or str(model_config)
-            for metric_name_tuple, model_config in (
+            for metric_name, model_config in (
                 self.surrogate.metric_to_best_model_config.items()
             )
-            for metric_name in metric_name_tuple
         }
         gen_metadata["metric_to_model_config_name"] = metric_to_model_config_name
         return TorchGenResults(

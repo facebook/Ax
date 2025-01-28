@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import itertools
 import warnings
-from collections.abc import Callable, Mapping
-from typing import Protocol, Sequence, Union
+from collections.abc import Callable, Mapping, Sequence
+from typing import Protocol, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -19,14 +19,15 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import SearchSpaceExhausted, UnsupportedError
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.exceptions.warnings import OptimizationWarning
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
 # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 Tensoray = Union[torch.Tensor, np.ndarray]
+TTensoray = TypeVar("TTensoray", bound=Tensoray)
 
 
 class TorchModelLike(Protocol):
@@ -250,7 +251,7 @@ def tunable_feature_indices(
 
 
 def validate_bounds(
-    bounds: list[tuple[float, float]],
+    bounds: Sequence[tuple[float, float]],
     fixed_feature_indices: npt.NDArray,
 ) -> None:
     """Ensure the requested space is [0,1]^d.
@@ -275,14 +276,14 @@ def validate_bounds(
 
 def best_observed_point(
     model: TorchModelLike,
-    bounds: list[tuple[float, float]],
-    objective_weights: Tensoray | None,
-    outcome_constraints: tuple[Tensoray, Tensoray] | None = None,
-    linear_constraints: tuple[Tensoray, Tensoray] | None = None,
+    bounds: Sequence[tuple[float, float]],
+    objective_weights: TTensoray | None,
+    outcome_constraints: tuple[TTensoray, TTensoray] | None = None,
+    linear_constraints: tuple[TTensoray, TTensoray] | None = None,
     fixed_features: dict[int, float] | None = None,
     risk_measure: RiskMeasureMCObjective | None = None,
     options: TConfig | None = None,
-) -> Tensoray | None:
+) -> TTensoray | None:
     """Select the best point that has been observed.
 
     Implements two approaches to selecting the best point.
@@ -349,16 +350,16 @@ def best_observed_point(
 
 
 def best_in_sample_point(
-    Xs: list[torch.Tensor] | list[npt.NDArray],
+    Xs: Sequence[TTensoray],
     model: TorchModelLike,
-    bounds: list[tuple[float, float]],
-    objective_weights: Tensoray | None,
-    outcome_constraints: tuple[Tensoray, Tensoray] | None = None,
-    linear_constraints: tuple[Tensoray, Tensoray] | None = None,
+    bounds: Sequence[tuple[float, float]],
+    objective_weights: TTensoray | None,
+    outcome_constraints: tuple[TTensoray, TTensoray] | None = None,
+    linear_constraints: tuple[TTensoray, TTensoray] | None = None,
     fixed_features: dict[int, float] | None = None,
     risk_measure: RiskMeasureMCObjective | None = None,
     options: TConfig | None = None,
-) -> tuple[Tensoray, float] | None:
+) -> tuple[TTensoray, float] | None:
     """Select the best point that has been observed.
 
     Implements two approaches to selecting the best point.
@@ -426,7 +427,7 @@ def best_in_sample_point(
     # Get points observed for all objective and constraint outcomes
     if objective_weights is None:
         return None
-    objective_weights_np = checked_cast(np.ndarray, as_array(objective_weights))
+    objective_weights_np = assert_is_instance(as_array(objective_weights), np.ndarray)
     X_obs = get_observed(
         Xs=Xs,
         objective_weights=objective_weights,
@@ -447,17 +448,22 @@ def best_in_sample_point(
         # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any, typing.Any],
         #  Tensor]` has no attribute `detach`.
         X_obs = X_obs.detach().clone()
+    # (n_feasible x n_outcomes), (n_feasible x n_outcomes x n_outcomes)
     f, cov = as_array(model.predict(X_obs))
+    # (n_outcomes,) x (n_outcomes, n_feasible) => (n_feasible,)
     obj = objective_weights_np @ f.transpose()
     pfeas = np.ones_like(obj)
     if outcome_constraints is not None:
-        A, b = as_array(outcome_constraints)  # (m x j) and (m x 1)
+        # (n_constraints x n_outcomes) and (n_constraints x 1)
+        A, b = as_array(outcome_constraints)
         # Use Monte Carlo to compute pfeas, to properly handle covariance
         # across outcomes.
         for i, _ in enumerate(X_obs):
+            # nsamp x n_outcomes
             z = np.random.multivariate_normal(
                 mean=f[i, :], cov=cov[i, :, :], size=nsamp
-            )  # (nsamp x j)
+            )
+            # (n_constraints x n_outcomes) @ (n_outcomes x nsamp)
             pfeas[i] = (A @ z.transpose() <= b).all(axis=0).mean()
     # Identify best point
     if method == "feasible_threshold":
@@ -498,12 +504,10 @@ def as_array(
 
 
 def get_observed(
-    Xs: list[torch.Tensor] | list[npt.NDArray],
-    objective_weights: Tensoray,
-    outcome_constraints: tuple[Tensoray, Tensoray] | None = None,
-    # pyre-fixme[7]: Expected `Union[ndarray[typing.Any, typing.Any], Tensor]` but got
-    #  implicit return value of `None`.
-) -> Tensoray:
+    Xs: Sequence[TTensoray],
+    objective_weights: TTensoray,
+    outcome_constraints: tuple[TTensoray, TTensoray] | None = None,
+) -> TTensoray:
     """Filter points to those that are observed for objective outcomes and outcomes
     that show up in outcome_constraints (if there are any).
 
@@ -534,22 +538,24 @@ def get_observed(
             {tuple(float(x_i) for x_i in x) for x in Xs[idx]}
         )
     if isinstance(Xs[0], np.ndarray):
-        # pyre-fixme[6]: For 2nd param expected `Union[None, Dict[str, Tuple[typing.A...
+        # pyre-fixme[7]: This function only returns a Numpy array when Xs
+        # contains all Numpy arrays, but Pyre doesn't understand
         return np.array(list(X_obs_set), dtype=Xs[0].dtype)  # (n x d)
-    if isinstance(Xs[0], torch.Tensor):
-        # pyre-fixme[6]: For 3rd param expected `Optional[_C.dtype]` but got
-        #  `Union[np.dtype, _C.dtype]`.
-        # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any, typing.Any],
-        #  Tensor]` has no attribute `device`.
-        return torch.tensor(list(X_obs_set), device=Xs[0].device, dtype=Xs[0].dtype)
+    # pyre-fixme[7]: This function only returns a tensor when Xs
+    # contains all tensors, but Pyre doesn't understand`.
+    return torch.tensor(
+        list(X_obs_set),
+        device=assert_is_instance(Xs[0], torch.Tensor).device,
+        dtype=Xs[0].dtype,
+    )
 
 
 def filter_constraints_and_fixed_features(
-    X: Tensoray,
-    bounds: list[tuple[float, float]],
-    linear_constraints: tuple[Tensoray, Tensoray] | None = None,
+    X: TTensoray,
+    bounds: Sequence[tuple[float, float]],
+    linear_constraints: tuple[TTensoray, TTensoray] | None = None,
     fixed_features: dict[int, float] | None = None,
-) -> Tensoray:
+) -> TTensoray:
     """Filter points to those that satisfy bounds, linear_constraints, and
     fixed_features.
 
@@ -567,17 +573,14 @@ def filter_constraints_and_fixed_features(
     """
     if len(X) == 0:  # if there are no points, nothing to filter
         return X
-    X_np = X
-    if isinstance(X, torch.Tensor):
-        X_np = X.cpu().numpy()
+    # pyre-ignore: Undefined attribute [16]: `np.ndarray` has no attribute
+    # `cpu`.
+    X_np = X.cpu().numpy() if isinstance(X, torch.Tensor) else X
     feas = np.ones(X_np.shape[0], dtype=bool)  # (n)
     for i, b in enumerate(bounds):
-        # pyre-fixme[6]: For 1st argument expected `Tensor` but got
-        #  `Union[ndarray[Any, dtype[Any]], Tensor]`.
         feas &= (X_np[:, i] >= b[0]) & (X_np[:, i] <= b[1])
     if linear_constraints is not None:
         A, b = as_array(linear_constraints)  # (m x d) and (m x 1)
-        # pyre-fixme[20]: Call `torch._C.TensorBase.transpose` expects argument `dim0`.
         feas &= (A @ X_np.transpose() <= b).all(axis=0)
     if fixed_features is not None:
         for idx, val in fixed_features.items():
@@ -585,8 +588,7 @@ def filter_constraints_and_fixed_features(
     X_feas = X_np[feas, :]
     if isinstance(X, torch.Tensor):
         return torch.from_numpy(X_feas).to(device=X.device, dtype=X.dtype)
-    else:
-        return X_feas
+    return X_feas
 
 
 def mk_discrete_choices(

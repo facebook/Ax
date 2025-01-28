@@ -8,20 +8,16 @@
 
 from __future__ import annotations
 
-import traceback
-
 from collections.abc import Callable, Generator, Iterable, Mapping
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
+from enum import IntEnum
 from logging import LoggerAdapter
 from time import sleep
 from typing import Any, cast, NamedTuple, Optional
 
 import ax.service.utils.early_stopping as early_stopping_utils
-import pandas as pd
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel, AnalysisE
-from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
-from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
@@ -55,6 +51,7 @@ from ax.exceptions.generation_strategy import (
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
+from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
@@ -68,7 +65,6 @@ from ax.utils.common.logger import (
     set_ax_logger_levels,
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import checked_cast
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -119,7 +115,37 @@ NO_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
 )
 
 
-class Scheduler(WithDBSettingsBase, BestPointMixin):
+class OutputPriority(IntEnum):
+    """Priority of a message. Messages with higher priority will be shown first, and
+    messages with the same priority will be sorted alphabetically."""
+
+    NOTSET = 0
+    DEBUG = 10
+    INFO = 20
+    TOPLINE = 30
+    WARNING = 40
+    ERROR = 50
+
+
+@dataclass
+class MessageOutput:
+    """Message to be shown in the output of the scheduler."""
+
+    text: str
+    priority: OutputPriority | int
+
+    def __str__(self) -> str:
+        return self.text
+
+    def __repr__(self) -> str:
+        return f"MessageOutput(text={self.text}, priority={self.priority})"
+
+    def append(self, text: str) -> None:
+        """Append text to the text of an existing message."""
+        self.text += text
+
+
+class Scheduler(AnalysisBase, BestPointMixin):
     """Closed-loop manager class for Ax optimization.
 
     Attributes:
@@ -144,7 +170,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # results}. This is a mapping and not a list to allow for changing of
     # some optimization messages throughout the course of the optimization
     # (e.g. progress report of the optimization).
-    markdown_messages: dict[str, str]
+    markdown_messages: dict[str, MessageOutput]
 
     # Number of trials that existed on the scheduler's experiment before
     # the scheduler instantiation with that experiment.
@@ -232,7 +258,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # a row.
         self._log_next_no_trials_reason = True
         self.markdown_messages = {
-            "Generation strategy": GS_TYPE_MSG.format(gs_name=generation_strategy.name)
+            "Generation strategy": MessageOutput(
+                text=GS_TYPE_MSG.format(gs_name=generation_strategy.name),
+                priority=OutputPriority.DEBUG,
+            ),
         }
 
     @classmethod
@@ -546,8 +575,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
         timeout_hours: float | None = None,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Callable[[Scheduler], Any] | None = None,
+        idle_callback: Optional[Callable[[Scheduler], None]] = None,
     ) -> OptimizationResult:
         """Run up to ``max_trials`` trials; will run all ``max_trials`` unless
         completion criterion is reached. For base ``Scheduler``, completion criterion
@@ -558,7 +586,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         Args:
             max_trials: Maximum number of trials to run.
             ignore_global_stopping_strategy: If set, Scheduler will skip the global
-                stopping strategy in completion_criterion.
+                stopping strategy in ``should_consider_optimization_complete``.
             timeout_hours: Limit on length of ths optimization; if reached, the
                 optimization will abort even if completon criterion is not yet reached.
             idle_callback: Callable that takes a Scheduler instance as an argument to
@@ -596,12 +624,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def run_all_trials(
         self,
         timeout_hours: float | None = None,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Callable[[Scheduler], Any] | None = None,
+        idle_callback: Optional[Callable[[Scheduler], None]] = None,
     ) -> OptimizationResult:
-        """Run all trials until ``completion_criterion`` is reached (by default,
-        completion criterion is reaching the ``num_trials`` setting, passed to
-        scheduler on instantiation as part of ``SchedulerOptions``).
+        """Run all trials until ``should_consider_optimization_complete`` yields
+        true (by default, ``should_consider_optimization_complete`` will yield true when
+        reaching the ``num_trials`` setting, passed to scheduler on instantiation as
+        part of ``SchedulerOptions``).
 
         NOTE: This function is available only when ``SchedulerOptions.num_trials`` is
         specified.
@@ -643,62 +671,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             idle_callback=idle_callback,
         )
 
-    def compute_analyses(
-        self, analyses: Iterable[Analysis] | None = None
-    ) -> list[AnalysisCard]:
-        """
-        Compute Analyses for the Experiment and GenerationStrategy associated with this
-        Scheduler instance and save them to the DB if possible. If an Analysis fails to
-        compute (e.g. due to a missing metric), it will be skipped and a warning will
-        be logged.
-
-        Args:
-            analyses: Analyses to compute. If None, the Scheduler will choose a set of
-                Analyses to compute based on the Experiment and GenerationStrategy.
-        """
-        analyses = analyses if analyses is not None else self._choose_analyses()
-
-        results = [
-            analysis.compute_result(
-                experiment=self.experiment, generation_strategy=self.generation_strategy
-            )
-            for analysis in analyses
-        ]
-
-        # TODO Accumulate Es into their own card, perhaps via unwrap_or_else
-        cards = [result.unwrap() for result in results if result.is_ok()]
-
-        for result in results:
-            if result.is_err():
-                e = checked_cast(AnalysisE, result.err)
-                traceback_str = "".join(
-                    traceback.format_exception(
-                        type(result.err.exception),
-                        e.exception,
-                        e.exception.__traceback__,
-                    )
-                )
-                cards.append(
-                    MarkdownAnalysisCard(
-                        name=e.analysis.name,
-                        # It would be better if we could reliably compute the title
-                        # without risking another error
-                        title=f"{e.analysis.name} Error",
-                        subtitle=f"An error occurred while computing {e.analysis}",
-                        attributes=e.analysis.attributes,
-                        blob=traceback_str,
-                        df=pd.DataFrame(),
-                        level=AnalysisCardLevel.DEBUG,
-                    )
-                )
-
-        self._save_analysis_cards_to_db_if_possible(
-            analysis_cards=cards,
-            experiment=self.experiment,
-        )
-
-        return cards
-
     def run_trials_and_yield_results(
         self,
         max_trials: int,
@@ -716,7 +688,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 a completion signal is received from the generation strategy, or
                 ``max_trials`` trials have been run (whichever happens first).
             ignore_global_stopping_strategy: If set, Scheduler will skip the global
-                stopping strategy in completion_criterion.
+                stopping strategy in ``should_consider_optimization_complete``.
             timeout_hours: Maximum number of hours, for which
                 to run the optimization. This function will abort after running
                 for `timeout_hours` even if stopping criterion has not been reached.
@@ -900,36 +872,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             dict. The contents of the dict depend on the implementation of
             `report_results` in the given `Scheduler` subclass.
         """
-        if (
-            self.options.init_seconds_between_polls is None
-            and self.options.early_stopping_strategy is None
-        ):
+        if self.options.init_seconds_between_polls is None:
             raise ValueError(
                 "Default `wait_for_completed_trials_and_report_results` in base "
                 "`Scheduler` relies on non-null `init_seconds_between_polls` scheduler "
-                "option or for an EarlyStoppingStrategy to be specified."
-            )
-        elif (
-            self.options.init_seconds_between_polls is not None
-            and self.options.early_stopping_strategy is not None
-        ):
-            self.logger.warning(
-                "Both `init_seconds_between_polls` and `early_stopping_strategy "
-                "supplied. `init_seconds_between_polls="
-                f"{self.options.init_seconds_between_polls}` will be overrridden by "
-                "`early_stopping_strategy.seconds_between_polls="
-                f"{self.options.early_stopping_strategy.seconds_between_polls}` and "
-                "polling will take place at a constant rate."
+                "option."
             )
 
         seconds_between_polls = self.options.init_seconds_between_polls
         backoff_factor = self.options.seconds_between_polls_backoff_factor
-        if self.options.early_stopping_strategy is not None:
-            seconds_between_polls = (
-                self.options.early_stopping_strategy.seconds_between_polls
-            )
-            # Do not backoff with early stopping, a constant heartbeat is preferred
-            backoff_factor = 1
 
         total_seconds_elapsed = 0
         while len(self.pending_trials) > 0 and not self.poll_and_process_results():
@@ -938,7 +889,13 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 # criterion again and and re-attempt scheduling more trials.
 
             if idle_callback is not None:
-                idle_callback(self)
+                try:
+                    idle_callback(self)
+                except Exception as e:
+                    self.logger.warning(
+                        f"Exception raised in ``idle_callback``: {e}. "
+                        "Continuing to poll for completed trials."
+                    )
 
             log_seconds = (
                 int(seconds_between_polls)
@@ -964,19 +921,33 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         run more trials (and conclude the optimization via ``_complete_optimization``).
 
         NOTE: An optimization is considered complete when a generation strategy signaled
-        completion or when the ``completion_criterion`` on this scheduler
-        evaluates to ``True``. The ``completion_criterion`` method is also responsible
-        for checking global_stopping_strategy's decision as well. Alongside the stop
-        decision, this function returns a string describing the reason for stopping
-        the optimization.
+        completion or when the ``should_consider_optimization_complete`` method on this
+        scheduler evaluates to ``True``. The ``should_consider_optimization_complete``
+        method is also responsible for checking global_stopping_strategy's decision as
+        well. Alongside the stop decision, this function returns a string describing the
+        reason for stopping the optimization.
         """
         if self._optimization_complete:
             return True, ""
+        if len(self.pending_trials) == 0 and self._get_max_pending_trials() == 0:
+            return (
+                True,
+                "All pending trials have completed and max_pending_trials is zero.",
+            )
 
-        should_complete, completion_message = self.completion_criterion()
-        if should_complete:
-            self.logger.info(f"Completing the optimization: {completion_message}.")
-        return should_complete, completion_message
+        should_stop, message = self._should_stop_due_to_global_stopping_strategy()
+        if not should_stop:
+            if self.options.total_trials is None:
+                return False, ""
+            should_stop, message = self._should_stop_due_to_total_trials()
+
+        if should_stop:
+            self.logger.info(
+                f"Completing the optimization: {message}. "
+                f"`should_consider_optimization_complete` "
+                f"is `True`, not running more trials."
+            )
+        return should_stop, message
 
     def should_abort_optimization(self, timeout_hours: float | None = None) -> bool:
         """Checks whether this scheduler has reached some intertuption / abort
@@ -985,65 +956,30 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # If failure rate has been exceeded, log a warning and make sure we are not
         # scheduling additional trials. Raises an exception after pending trials have
         # completed, but does not abort the optimization immediately.
-        self._check_if_failure_rate_exceeded()
+        self.error_if_failure_rate_exceeded()
 
         # if optimization is timed out, return True, else return False
-        timed_out = (
-            timeout_hours is not None
-            and self._latest_optimization_start_timestamp is not None
-            and current_timestamp_in_millis()
-            - none_throws(self._latest_optimization_start_timestamp)
-            >= none_throws(timeout_hours) * 60 * 60 * 1000
+        latest_optimization_start_timestamp = self._latest_optimization_start_timestamp
+        timeout_in_millis = (
+            timeout_hours * 60 * 60 * 1000 if timeout_hours is not None else None
         )
+        timed_out = False
+
+        if (
+            latest_optimization_start_timestamp is not None
+            and timeout_in_millis is not None
+        ):
+            time_elapsed_in_millis = (
+                current_timestamp_in_millis() - latest_optimization_start_timestamp
+            )
+            timed_out = time_elapsed_in_millis >= timeout_in_millis
+
         if timed_out:
             self.logger.error(
                 "Optimization timed out (timeout hours: " f"{timeout_hours})!"
             )
+
         return timed_out
-
-    def completion_criterion(self) -> tuple[bool, str]:
-        """Optional stopping criterion for optimization, which checks whether
-        ``total_trials`` trials have been run or the ``global_stopping_strategy``
-        suggests stopping the optimization.
-
-        Returns:
-            A boolean representing whether the optimization should be stopped,
-            and a string describing the reason for stopping.
-        """
-        if len(self.pending_trials) == 0 and self._get_max_pending_trials() == 0:
-            return (
-                True,
-                "All pending trials have completed and max_pending_trials is zero.",
-            )
-
-        if (
-            not self.__ignore_global_stopping_strategy
-            and self.options.global_stopping_strategy is not None
-        ):
-            gss = none_throws(self.options.global_stopping_strategy)
-            if (num_trials := len(self.trials)) > 1000:
-                # When there are many trials, checking the global stopping
-                # strategy can get a little bit slow, so we log when we start it,
-                # to avoid user confusion and to keep a record of the run times.
-                self.logger.info(
-                    f"There are {num_trials} trials; performing "
-                    f"completion criterion check with {gss}..."
-                )
-            stop_optimization, global_stopping_msg = gss.should_stop_optimization(
-                experiment=self.experiment
-            )
-            if stop_optimization:
-                return True, global_stopping_msg
-
-        if self.options.total_trials is None:
-            # We validate that `total_trials` is set in `run_all_trials`,
-            # so it will not run indefinitely.
-            return False, ""
-
-        num_trials = len(self.trials)
-        should_stop = num_trials >= none_throws(self.options.total_trials)
-        message = "Exceeding the total number of trials." if should_stop else ""
-        return should_stop, message
 
     def report_results(self, force_refit: bool = False) -> dict[str, Any]:
         """Optional user-defined function for reporting intermediate
@@ -1067,71 +1003,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         were the metric values, what were encountered failures, etc.
         """
         return OptimizationResult()
-
-    def get_improvement_over_baseline(
-        self,
-        baseline_arm_name: str | None = None,
-    ) -> float:
-        """Returns the scalarized improvement over baseline, if applicable.
-
-        Returns:
-            For Single Objective cases, returns % improvement of objective.
-            Positive indicates improvement over baseline. Negative indicates regression.
-            For Multi Objective cases, throws NotImplementedError
-        """
-        if self.experiment.is_moo_problem:
-            raise NotImplementedError(
-                "`get_improvement_over_baseline` not yet implemented"
-                + " for multi-objective problems."
-            )
-        if not baseline_arm_name:
-            raise UserInputError(
-                "`get_improvement_over_baseline` missing required parameter: "
-                + f"{baseline_arm_name=}, "
-            )
-
-        optimization_config = self.experiment.optimization_config
-        if not optimization_config:
-            raise ValueError("No optimization config found.")
-
-        objective_metric_name = optimization_config.objective.metric.name
-
-        # get the baseline trial
-        data = self.experiment.lookup_data().df
-        data = data[data["arm_name"] == baseline_arm_name]
-        if len(data) == 0:
-            raise UserInputError(
-                "`get_improvement_over_baseline`"
-                " could not find baseline arm"
-                f" `{baseline_arm_name}` in the experiment data."
-            )
-        data = data[data["metric_name"] == objective_metric_name]
-        baseline_value = data.iloc[0]["mean"]
-
-        # Find objective value of the best trial
-        idx, param, best_arm = none_throws(
-            self.get_best_trial(
-                optimization_config=optimization_config, use_model_predictions=False
-            )
-        )
-        best_arm = none_throws(best_arm)
-        best_obj_value = best_arm[0][objective_metric_name]
-
-        def percent_change(x: float, y: float, minimize: bool) -> float:
-            if x == 0:
-                raise ZeroDivisionError(
-                    "Cannot compute percent improvement when denom is zero"
-                )
-            percent_change = (y - x) / abs(x) * 100
-            if minimize:
-                percent_change = -percent_change
-            return percent_change
-
-        return percent_change(
-            x=baseline_value,
-            y=best_obj_value,
-            minimize=optimization_config.objective.minimize,
-        )
 
     def _check_if_failure_rate_exceeded(self, force_check: bool = False) -> bool:
         """Checks if the failure rate (set in scheduler options) has been exceeded at
@@ -1258,10 +1129,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             completion_message,
         ) = self.should_consider_optimization_complete()
         if optimization_complete:
-            self.logger.info(
-                completion_message
-                + "`completion_criterion` is `True`, not running more trials."
-            )
             return False
 
         if self.should_abort_optimization(timeout_hours=timeout_hours):
@@ -1542,12 +1409,82 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     trial.mark_as(status=status, unsafe=True)
         return updated_trial_indices
 
+    def _identify_trial_indices_to_fetch(
+        self,
+        old_status_to_trial_idcs: Mapping[TrialStatus, set[int]],
+        new_status_to_trial_idcs: Mapping[TrialStatus, set[int]],
+    ) -> set[int]:
+        """
+        Identify trial indices to fetch data for based on changes in trial statuses.
+
+        Args:
+            old_status_to_trial_idcs: Mapping of old trial statuses
+                to their corresponding trial indices.
+            new_status_to_trial_idcs: Mapping of new trial statuses
+                to their corresponding trial indices.
+        Returns:
+            Set of trial indices to fetch data for.
+        """
+        # Get newly completed trials
+        prev_completed_trial_idcs = old_status_to_trial_idcs.get(
+            TrialStatus.COMPLETED, set()
+        ) | old_status_to_trial_idcs.get(TrialStatus.EARLY_STOPPED, set())
+
+        newly_completed = (
+            new_status_to_trial_idcs.get(TrialStatus.COMPLETED, set())
+            - prev_completed_trial_idcs
+        )
+
+        idcs = make_indices_str(indices=newly_completed)
+        if newly_completed:
+            self.logger.debug(f"Will fetch data for newly completed trials: {idcs}.")
+        else:
+            self.logger.debug("No newly completed trials; not fetching data for any.")
+
+        # Get running trials with metrics available while running
+        running_trial_indices_with_metrics = set()
+        if any(
+            m.is_available_while_running() for m in self.experiment.metrics.values()
+        ):
+            running_trial_indices_with_metrics = new_status_to_trial_idcs.get(
+                TrialStatus.RUNNING, set()
+            ) | old_status_to_trial_idcs.get(TrialStatus.RUNNING, set())
+
+            for status, indices in new_status_to_trial_idcs.items():
+                if status.is_terminal and indices:
+                    running_trial_indices_with_metrics -= indices
+
+            if running_trial_indices_with_metrics:
+                idcs = make_indices_str(indices=running_trial_indices_with_metrics)
+                self.logger.debug(
+                    f"Will fetch data for trials: {idcs} because some metrics "
+                    "on experiment are available while trials are running."
+                )
+
+        # Get previously completed trials with new data after completion
+        recently_completed_trial_indices = self._get_recently_completed_trial_indices()
+        if len(recently_completed_trial_indices) > 0:
+            idcs = make_indices_str(indices=recently_completed_trial_indices)
+            self.logger.debug(
+                f"Will fetch data for trials: {idcs} because some metrics "
+                "on experiment have new data after completion."
+            )
+
+        # Combine all trial indices to fetch data for
+        trial_indices_to_fetch = (
+            newly_completed
+            | running_trial_indices_with_metrics
+            | recently_completed_trial_indices
+        )
+
+        return trial_indices_to_fetch
+
     def _get_trial_indices_to_fetch(
         self, new_status_to_trial_idcs: Mapping[TrialStatus, set[int]]
     ) -> set[int]:
         """Get trial indices to fetch data for the experiment given
         `new_status_to_trial_idcs` and metric properties.  This should include:
-            - newly completed trials (about to be completed)
+            - newly completed trials
             - running trials if the experiment has metrics available while running
             - previously completed (or early stopped) trials if the experiment
                 has metrics with new data after completion which finished recently
@@ -1558,68 +1495,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         Returns:
             Set of trial indices to fetch data for.
         """
-        terminated_trial_idcs = {
-            index
-            for status, indices in new_status_to_trial_idcs.items()
-            if status.is_terminal
-            for index in indices
-        }
-        running_trial_indices = {
-            trial.index
-            for trial in self.running_trials
-            if trial.index not in terminated_trial_idcs
-        }
-        # add in any trials that will be marked running
-        running_trial_indices.update(
-            new_status_to_trial_idcs.get(TrialStatus.RUNNING, set())
+        old_status_to_trial_idcs = {status: set() for status in TrialStatus}
+
+        for trial in self.trials:
+            old_status_to_trial_idcs[trial.status].add(trial.index)
+
+        return self._identify_trial_indices_to_fetch(
+            old_status_to_trial_idcs=old_status_to_trial_idcs,
+            new_status_to_trial_idcs=new_status_to_trial_idcs,
         )
-
-        # includes completed and early stopped trials
-        prev_completed_trial_idcs = {
-            t.index for t in self.trials_expecting_data
-        } - self.running_trial_indices
-        trial_indices_to_fetch = set()
-
-        # Fetch data for newly completed trials
-        newly_completed = (
-            new_status_to_trial_idcs.get(TrialStatus.COMPLETED, set())
-            - prev_completed_trial_idcs
-        )
-        idcs = make_indices_str(indices=newly_completed)
-        if newly_completed:
-            self.logger.info(f"Fetching data for newly completed trials: {idcs}.")
-            trial_indices_to_fetch.update(newly_completed)
-        else:
-            self.logger.info("No newly completed trials; not fetching data for any.")
-
-        # Fetch data for running trials that have metrics available while running
-        if (
-            any(
-                m.is_available_while_running() for m in self.experiment.metrics.values()
-            )
-            and len(running_trial_indices) > 0
-        ):
-            # NOTE: Metrics that are *not* available_while_running will be skipped
-            # in fetch_trials_data
-            idcs = make_indices_str(indices=running_trial_indices)
-            self.logger.info(
-                f"Fetching data for trials: {idcs} because some metrics "
-                "on experiment are available while trials are running."
-            )
-            trial_indices_to_fetch.update(running_trial_indices)
-
-        # Fetch data for previously completed trials that have metrics available
-        # after trial completion that were completed within the max of the period
-        # specified by metrics
-        recently_completed_trial_indices = self._get_recently_completed_trial_indices()
-        if len(recently_completed_trial_indices) > 0:
-            idcs = make_indices_str(indices=recently_completed_trial_indices)
-            self.logger.info(
-                f"Fetching data for trials: {idcs} because some metrics "
-                "on experiment have new data after completion."
-            )
-            trial_indices_to_fetch.update(recently_completed_trial_indices)
-        return trial_indices_to_fetch
 
     def _get_recently_completed_trial_indices(self) -> set[int]:
         """Get trials that have completed within the max period specified by metrics."""
@@ -1657,8 +1541,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def _complete_optimization(
         self,
         num_preexisting_trials: int,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Callable[[Scheduler], Any] | None = None,
+        idle_callback: Optional[Callable[[Scheduler], None]] = None,
     ) -> dict[str, Any]:
         """Conclude optimization with waiting for anymore running trials and
         return final results via `wait_for_completed_trials_and_report_results`.
@@ -1796,7 +1679,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         except OptimizationComplete as err:
             completion_str = f"Optimization complete: {err}"
             self.logger.info(completion_str)
-            self.markdown_messages["Optimization complete"] = completion_str
+            self.markdown_messages["Optimization complete"] = MessageOutput(
+                text=completion_str,
+                priority=OutputPriority.DEBUG,
+            )
             self._optimization_complete = True
             return [], err
         except DataRequiredError as err:
@@ -1867,14 +1753,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
             trials.append(trial)
         return trials, None
-
-    def _choose_analyses(self) -> list[Analysis]:
-        """
-        Choose Analyses to compute based on the Experiment, GenerationStrategy, etc.
-        """
-
-        # TODO Create a useful heuristic for choosing analyses
-        return [ParallelCoordinatesPlot()]
 
     def _gen_new_trials_from_generation_strategy(
         self,
@@ -2084,9 +1962,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             ),
         )
         if "Optimization complete" in self.markdown_messages:
-            self.markdown_messages["Optimization complete"] += "\n\n" + completion_msg
+            self.markdown_messages["Optimization complete"].append(text=completion_msg)
         else:
-            self.markdown_messages["Optimization complete"] = completion_msg
+            self.markdown_messages["Optimization complete"] = MessageOutput(
+                text=completion_msg,
+                priority=OutputPriority.DEBUG,
+            )
 
     def _fetch_and_process_trials_data_results(
         self,
@@ -2106,6 +1987,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             ):
                 # to avoid error https://fburl.com/code/ilix4okj
                 kwargs["overwrite_existing_data"] = False
+            if self.trial_type is not None:
+                metrics = assert_is_instance(
+                    self.experiment, MultiTypeExperiment
+                ).metrics_for_trial_type(trial_type=none_throws(self.trial_type))
+                kwargs["metrics"] = metrics
             results = self.experiment.fetch_trials_data_results(
                 trial_indices=trial_indices,
                 **kwargs,
@@ -2155,11 +2041,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 )
 
                 # If the fetch failure was for a metric in the optimization config (an
-                # objective or constraint) the trial as failed
+                # objective or constraint) mark the trial as failed
                 optimization_config = self.experiment.optimization_config
                 if (
                     optimization_config is not None
                     and metric_name in optimization_config.metrics.keys()
+                    and not self.experiment.metrics[
+                        metric_name
+                    ].is_reconverable_fetch_e(metric_fetch_e=metric_fetch_e)
                 ):
                     status = self._mark_err_trial_status(
                         trial=self.experiment.trials[trial_index],
@@ -2223,6 +2112,34 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 f"Found {len(non_terminal_trials)} non-terminal trials on "
                 f"{self.experiment.name}: {non_terminal_trials}."
             )
+
+    def _should_stop_due_to_global_stopping_strategy(self) -> tuple[bool, str]:
+        """Check if optimization should stop due to global stopping strategy."""
+        if (
+            self.__ignore_global_stopping_strategy
+            or self.options.global_stopping_strategy is None
+        ):
+            return False, ""
+        gss = none_throws(self.options.global_stopping_strategy)
+        num_trials = len(self.trials)
+        if num_trials > 1000:
+            self.logger.info(
+                f"There are {num_trials} trials; performing "
+                f"completion criterion check with {gss}..."
+            )
+        stop_optimization, global_stopping_msg = gss.should_stop_optimization(
+            experiment=self.experiment
+        )
+        return stop_optimization, global_stopping_msg
+
+    def _should_stop_due_to_total_trials(self) -> tuple[bool, str]:
+        """Check if optimization should stop due to total number of trials."""
+        num_trials = len(self.trials)
+        should_stop = num_trials >= none_throws(self.options.total_trials)
+        return (
+            should_stop,
+            "Exceeding the total number of trials." if should_stop else "",
+        )
 
 
 def get_fitted_model_bridge(

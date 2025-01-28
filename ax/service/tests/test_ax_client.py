@@ -57,9 +57,8 @@ from ax.modelbridge.generation_strategy import (
 )
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Cont_X_trans, Models
 from ax.runners.synthetic import SyntheticRunner
-
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
@@ -76,7 +75,6 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.measurement.synthetic_functions import Branin
 from ax.utils.testing.core_stubs import (
     DummyEarlyStoppingStrategy,
@@ -220,7 +218,14 @@ def get_client_with_simple_discrete_moo_problem(
     gs = GenerationStrategy(
         steps=[
             GenerationStep(model=Models.SOBOL, num_trials=3),
-            GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1),
+            GenerationStep(
+                model=Models.BOTORCH_MODULAR,
+                num_trials=-1,
+                model_kwargs={
+                    # To avoid search space exhausted errors.
+                    "transforms": Cont_X_trans,
+                },
+            ),
         ]
     )
 
@@ -296,8 +301,12 @@ class TestAxClient(TestCase):
             x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(
                 trial_index,
-                raw_data=checked_cast(
-                    float, branin(checked_cast(float, x), checked_cast(float, y))
+                raw_data=assert_is_instance(
+                    branin(
+                        assert_is_instance(x, float),
+                        assert_is_instance(y, float),
+                    ),
+                    float,
                 ),
             )
             old_client = ax_client
@@ -325,8 +334,6 @@ class TestAxClient(TestCase):
         ax_client.set_status_quo(status_quo_params)
         self.assertEqual(
             ax_client.experiment.status_quo,
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, float]`.
             Arm(parameters=status_quo_params, name="status_quo"),
         )
 
@@ -516,9 +523,12 @@ class TestAxClient(TestCase):
                 trial_index,
                 raw_data={
                     "branin": (
-                        checked_cast(
+                        assert_is_instance(
+                            branin(
+                                assert_is_instance(x, float),
+                                assert_is_instance(y, float),
+                            ),
                             float,
-                            branin(checked_cast(float, x), checked_cast(float, y)),
                         ),
                         0.0,
                     )
@@ -558,12 +568,12 @@ class TestAxClient(TestCase):
                 idx,
                 raw_data={
                     "branin": (
-                        checked_cast(
-                            float,
+                        assert_is_instance(
                             branin(
-                                checked_cast(float, parameterization.get("x")),
-                                checked_cast(float, parameterization.get("y")),
+                                assert_is_instance(parameterization.get("x"), float),
+                                assert_is_instance(parameterization.get("y"), float),
                             ),
+                            float,
                         ),
                         0.0,
                     )
@@ -575,7 +585,7 @@ class TestAxClient(TestCase):
         self.assertFalse(is_complete)
 
     @patch(
-        f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",
+        f"{GenerationStrategy.__module__}.GenerationStrategy._gen_with_multiple_nodes",
         side_effect=OptimizationComplete("test error"),
     )
     def test_optimization_complete(self, _mock_gen) -> None:
@@ -732,16 +742,22 @@ class TestAxClient(TestCase):
                 trial_index,
                 raw_data={
                     "branin": (
-                        checked_cast(
+                        assert_is_instance(
+                            branin(
+                                assert_is_instance(x, float),
+                                assert_is_instance(y, float),
+                            ),
                             float,
-                            branin(checked_cast(float, x), checked_cast(float, y)),
                         ),
                         0.0,
                     ),
                     "b": (
-                        checked_cast(
+                        assert_is_instance(
+                            branin(
+                                assert_is_instance(x, float),
+                                assert_is_instance(y, float),
+                            ),
                             float,
-                            branin(checked_cast(float, x), checked_cast(float, y)),
                         ),
                         0.0,
                     ),
@@ -1870,7 +1886,9 @@ class TestAxClient(TestCase):
             )
         )
         with self.assertRaisesRegex(
-            ValueError, "Value was not of type <class 'ax.core.trial.Trial'>"
+            TypeError,
+            r"obj is not an instance of cls: obj=.*BatchTrial.*"
+            r"cls=<class 'ax.core.trial.Trial'>",
         ):
             ax_client.complete_trial(batch_trial.index, 0)
 
@@ -2831,7 +2849,9 @@ class TestAxClient(TestCase):
             objectives={"objective": ObjectiveProperties(minimize=True)},
             choose_generation_strategy_kwargs={"num_initialization_trials": 2},
         )
-        hss = checked_cast(HierarchicalSearchSpace, ax_client.experiment.search_space)
+        hss = assert_is_instance(
+            ax_client.experiment.search_space, HierarchicalSearchSpace
+        )
         self.assertTrue(hss.root.is_hierarchical)
 
         ax_client.attach_trial({"model": "XGBoost", "num_boost_rounds": 2})
@@ -2993,10 +3013,12 @@ class TestAxClient(TestCase):
             name="fixed_features",
         )
         with mock.patch.object(
-            GenerationStrategy, "gen", wraps=ax_client.generation_strategy.gen
+            GenerationStrategy,
+            "gen",
+            wraps=ax_client.generation_strategy.gen,
         ) as mock_gen:
             with self.subTest("fixed_features is None"):
-                params, idx = ax_client.get_next_trial()
+                ax_client.get_next_trial()
                 call_kwargs = mock_gen.call_args_list[0][1]
                 ff = call_kwargs["fixed_features"]
                 self.assertIsNone(ff)
@@ -3004,7 +3026,7 @@ class TestAxClient(TestCase):
                 fixed_features = FixedFeatures(
                     parameters={"x": 0.0, "y": 5.0}, trial_index=0
                 )
-                params, idx = ax_client.get_next_trial(fixed_features=fixed_features)
+                ax_client.get_next_trial(fixed_features=fixed_features)
                 call_kwargs = mock_gen.call_args_list[1][1]
                 ff = call_kwargs["fixed_features"]
                 self.assertEqual(ff.parameters, fixed_features.parameters)
@@ -3097,8 +3119,8 @@ class TestAxClient(TestCase):
 
         self.assertEqual(ax_client.generation_strategy.name, "Sobol")
         self.assertEqual(
-            checked_cast(
-                Trial, ax_client.experiment.trials[0]
+            assert_is_instance(
+                ax_client.experiment.trials[0], Trial
             )._generator_run._model_key,
             "Sobol",
         )

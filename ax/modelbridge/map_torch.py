@@ -5,13 +5,14 @@
 
 # pyre-strict
 
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 import numpy.typing as npt
 
 import torch
 from ax.core.base_trial import TrialStatus
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
@@ -119,6 +120,9 @@ class MapTorchModelBridge(TorchModelBridge):
             raise ValueError(
                 "`MapTorchModelBridge expects `MapData` instead of `Data`."
             )
+
+        if any(isinstance(t, BatchTrial) for t in experiment.trials.values()):
+            raise ValueError("MapTorchModelBridge does not support batch trials.")
         # pyre-fixme[4]: Attribute must be annotated.
         self._map_key_features = data.map_keys
         self._map_data_limit_rows_per_metric = map_data_limit_rows_per_metric
@@ -137,6 +141,7 @@ class MapTorchModelBridge(TorchModelBridge):
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
             fit_out_of_design=fit_out_of_design,
+            fit_abandoned=fit_abandoned,
             fit_on_init=fit_on_init,
             default_model_gen_options=default_model_gen_options,
         )
@@ -147,6 +152,12 @@ class MapTorchModelBridge(TorchModelBridge):
 
     @property
     def parameters_with_map_keys(self) -> list[str]:
+        """The parameters used for fitting the model, including map_keys."""
+        # NOTE: This list determines the order of feature columns in the training data.
+        # Learning-curve-based modeling methods assume that the last columns are
+        # map_keys, so we place self._map_key_features on the end.
+        # TODO: Plumb down the `map_key` feature indices to the model, so that we don't
+        # have to make the assumption in the above note.
         return self.parameters + self._map_key_features
 
     def _predict(
@@ -227,7 +238,7 @@ class MapTorchModelBridge(TorchModelBridge):
     def _array_to_observation_features(
         self,
         X: npt.NDArray,
-        candidate_metadata: list[TCandidateMetadata] | None,
+        candidate_metadata: Sequence[TCandidateMetadata] | None,
     ) -> list[ObservationFeatures]:
         """The difference b/t this method and
         TorchModelBridge._array_to_observation_features(...) is

@@ -28,7 +28,6 @@ class TestSurrogateTestFunction(TestCase):
                     name="test test function",
                     outcome_names=["dummy metric"],
                     _surrogate=surrogate,
-                    _datasets=[],
                 )
                 self.assertEqual(test_function.name, "test test function")
                 self.assertIs(test_function.surrogate, surrogate)
@@ -37,30 +36,22 @@ class TestSurrogateTestFunction(TestCase):
         test_function = get_soo_surrogate_test_function()
 
         self.assertIsNone(test_function._surrogate)
-        self.assertIsNone(test_function._datasets)
 
         # Accessing `surrogate` sets datasets and surrogate
         self.assertIsInstance(test_function.surrogate, TorchModelBridge)
         self.assertIsInstance(test_function._surrogate, TorchModelBridge)
-        self.assertIsInstance(test_function._datasets, list)
-
-        # Accessing `datasets` also sets datasets and surrogate
-        test_function = get_soo_surrogate_test_function()
-        self.assertIsInstance(test_function.datasets, list)
-        self.assertIsInstance(test_function._surrogate, TorchModelBridge)
-        self.assertIsInstance(test_function._datasets, list)
 
         with patch.object(
             test_function,
-            "get_surrogate_and_datasets",
-            wraps=test_function.get_surrogate_and_datasets,
-        ) as mock_get_surrogate_and_datasets:
+            "get_surrogate",
+            wraps=test_function.get_surrogate,
+        ) as mock_get_surrogate:
             test_function.surrogate
-        mock_get_surrogate_and_datasets.assert_not_called()
+        mock_get_surrogate.assert_not_called()
 
     def test_instantiation_raises_with_missing_args(self) -> None:
         with self.assertRaisesRegex(
-            ValueError, "If `get_surrogate_and_datasets` is None, `_surrogate` and "
+            ValueError, "If `get_surrogate` is None, `_surrogate`"
         ):
             SurrogateTestFunction(name="test runner", outcome_names=[])
 
@@ -69,7 +60,6 @@ class TestSurrogateTestFunction(TestCase):
             return SurrogateTestFunction(
                 name=name,
                 _surrogate=MagicMock(),
-                _datasets=[],
                 outcome_names=["dummy_metric"],
             )
 
@@ -79,3 +69,4 @@ class TestSurrogateTestFunction(TestCase):
         self.assertEqual(runner_1, runner_1a)
         self.assertNotEqual(runner_1, runner_2)
         self.assertNotEqual(runner_1, 1)
+        self.assertNotEqual(runner_1, None)

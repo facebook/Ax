@@ -21,7 +21,6 @@ from ax.models.torch.botorch_defaults import (
     NO_OBSERVED_POINTS_MESSAGE,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.logei import (
     qLogExpectedImprovement,
@@ -50,7 +49,7 @@ from gpytorch.module import Module
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
 from gpytorch.priors.prior import Prior
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class BotorchDefaultsTest(TestCase):
@@ -93,18 +92,14 @@ class BotorchDefaultsTest(TestCase):
         with self.assertRaises(NotImplementedError):
             _get_model(X=x, Y=y, Yvar=var, task_feature=1, fidelity_features=[-1])
         # test fixed prior
-        kwargs = {
-            "prior": {
-                "type": LKJCovariancePrior,
-                "sd_prior": GammaPrior(2.0, 0.44),
-                "eta": 0.6,
-            }
+        prior = {
+            "type": LKJCovariancePrior,
+            "sd_prior": GammaPrior(2.0, 0.44),
+            "eta": 0.6,
         }
-        # pyre-fixme[6]: For 5th param expected `Optional[List[int]]` but got
-        #  `Dict[str, Union[Type[LKJCovariancePrior], float, GammaPrior]]`.
-        # pyre-fixme[6]: For 5th param expected `bool` but got `Dict[str,
-        #  Union[Type[LKJCovariancePrior], float, GammaPrior]]`.
-        model = _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs)
+        model = _get_model(
+            X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, prior=prior
+        )
         self.assertIsInstance(
             # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
             #  `IndexKernelPrior`.
@@ -127,17 +122,12 @@ class BotorchDefaultsTest(TestCase):
             0.6,
         )
 
-        kwargs2 = {"prior": {"type": LKJCovariancePrior}}
         model = _get_model(
             X=x,
             Y=y,
             Yvar=partial_var.clone(),
             task_feature=1,
-            # pyre-fixme[6]: For 5th param expected `Optional[List[int]]` but got
-            #  `Dict[str, Type[LKJCovariancePrior]]`.
-            # pyre-fixme[6]: For 5th param expected `bool` but got `Dict[str,
-            #  Type[LKJCovariancePrior]]`.
-            **kwargs2,
+            prior={"type": LKJCovariancePrior},
         )
         self.assertIsInstance(
             # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
@@ -160,37 +150,23 @@ class BotorchDefaultsTest(TestCase):
             model.task_covar_module.IndexKernelPrior.correlation_prior.eta,
             0.5,
         )
-        kwargs3 = {
-            "prior": {
-                "type": LKJCovariancePrior,
-                "sd_prior": GammaPrior(2.0, 0.44),
-                "eta": "hi",
-            }
+        prior = {
+            "type": LKJCovariancePrior,
+            "sd_prior": GammaPrior(2.0, 0.44),
+            "eta": "hi",
         }
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 5th param expected `Optional[List[int]]` but got
-            #  `Dict[str, Union[Type[LKJCovariancePrior], GammaPrior, str]]`.
-            # pyre-fixme[6]: For 5th param expected `bool` but got `Dict[str,
-            #  Union[Type[LKJCovariancePrior], GammaPrior, str]]`.
-            _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs3)
+            _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, prior=prior)
 
-        kwargs5 = {
-            "prior": {"type": Prior, "sd_prior": GammaPrior(2.0, 0.44), "eta": 0.5}
-        }
+        prior = {"type": Prior, "sd_prior": GammaPrior(2.0, 0.44), "eta": 0.5}
         with self.assertRaises(NotImplementedError):
-            # pyre-fixme[6]: For 5th param expected `Optional[List[int]]` but got
-            #  `Dict[str, Union[Type[Prior], float, GammaPrior]]`.
-            # pyre-fixme[6]: For 5th param expected `bool` but got `Dict[str,
-            #  Union[Type[Prior], float, GammaPrior]]`.
-            _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs5)
+            _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, prior=prior)
         # test passing customized prior
-        kwargs6 = {
-            "prior": {
-                "covar_module_prior": {"lengthscale_prior": GammaPrior(12.0, 2.0)},
-                "type": LKJCovariancePrior,
-            }
+        prior = {
+            "covar_module_prior": {"lengthscale_prior": GammaPrior(12.0, 2.0)},
+            "type": LKJCovariancePrior,
         }
-        model = _get_model(X=x, Y=y, Yvar=var, **deepcopy(kwargs6))  # pyre-ignore
+        model = _get_model(X=x, Y=y, Yvar=var, prior=deepcopy(prior))
         self.assertIsInstance(model, SingleTaskGP)
         self.assertEqual(
             # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
@@ -206,7 +182,7 @@ class BotorchDefaultsTest(TestCase):
             Y=y,
             Yvar=unknown_var,
             task_feature=1,
-            **deepcopy(kwargs6),  # pyre-ignore
+            prior=deepcopy(prior),
         )
         self.assertIs(type(model), MultiTaskGP)
         self.assertIsInstance(model.likelihood, GaussianLikelihood)
@@ -230,7 +206,7 @@ class BotorchDefaultsTest(TestCase):
             Y=y,
             Yvar=var,
             task_feature=1,
-            **deepcopy(kwargs6),  # pyre-ignore
+            prior=deepcopy(prior),
         )
         self.assertIsInstance(model, MultiTaskGP)
         self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
@@ -250,10 +226,8 @@ class BotorchDefaultsTest(TestCase):
             LKJCovariancePrior,
         )
         # test passing customized prior
-        kwargs7 = {
-            "prior": {
-                "covar_module_prior": {"lengthscale_prior": GammaPrior(12.0, 2.0)},
-            }
+        prior = {
+            "covar_module_prior": {"lengthscale_prior": GammaPrior(12.0, 2.0)},
         }
         covar_module = MaternKernel(
             nu=2.5,
@@ -265,7 +239,7 @@ class BotorchDefaultsTest(TestCase):
             Y=y,
             Yvar=var,
             covar_module=covar_module,
-            **kwargs7,  # pyre-ignore
+            prior=prior,
         )
         self.assertIsInstance(model, SingleTaskGP)
         self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
@@ -282,9 +256,7 @@ class BotorchDefaultsTest(TestCase):
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
     @mock_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_task_feature(self, get_model_mock):
+    def test_task_feature(self, get_model_mock: Mock) -> None:
         x = [torch.zeros(2, 2)]
         y = [torch.zeros(2, 1)]
         yvars = [torch.ones(2, 1)]
@@ -340,19 +312,16 @@ class BotorchDefaultsTest(TestCase):
                 refit_model=False,
             )
 
-    @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
     @mock_botorch_optimize
-    def test_pass_customized_prior(self, get_model_mock: Mock) -> None:
+    def test_pass_customized_prior(self) -> None:
         x = [torch.zeros(2, 2)]
         y = [torch.zeros(2, 1)]
         yvars = [torch.ones(2, 1)]
-        kwarg = {
-            "prior": {
-                "covar_module_prior": {
-                    "lengthscale_prior": GammaPrior(12.0, 2.0),
-                    "outputscale_prior": GammaPrior(2.0, 12.0),
-                },
-            }
+        prior = {
+            "covar_module_prior": {
+                "lengthscale_prior": GammaPrior(12.0, 2.0),
+                "outputscale_prior": GammaPrior(2.0, 12.0),
+            },
         }
         model = get_and_fit_model(
             Xs=x,
@@ -363,7 +332,7 @@ class BotorchDefaultsTest(TestCase):
             metric_names=["L2NormMetric"],
             state_dict=None,
             refit_model=False,
-            **kwarg,  # pyre-ignore
+            prior=prior,
         )
         self.assertIsInstance(model, SingleTaskGP)
         self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
@@ -393,7 +362,7 @@ class BotorchDefaultsTest(TestCase):
             metric_names=["L2NormMetric", "L2NormMetric2"],
             state_dict=None,
             refit_model=False,
-            **kwarg,  # pyre-ignore
+            prior=prior,
         )
         # pyre-fixme[29]: `Union[(self: Tensor) -> Any, Tensor, Module]` is not a
         #  function.
@@ -555,17 +524,18 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(covar_module, Module)
         self.assertIsInstance(covar_module, ScaleKernel)
         self.assertIsInstance(covar_module.outputscale_prior, GammaPrior)
-        prior = checked_cast(GammaPrior, covar_module.outputscale_prior)
+        prior = assert_is_instance(covar_module.outputscale_prior, GammaPrior)
         self.assertEqual(prior.concentration, 2.0)
         self.assertEqual(prior.rate, 0.15)
         self.assertIsInstance(covar_module.base_kernel, MaternKernel)
-        base_kernel = checked_cast(MaternKernel, covar_module.base_kernel)
+        base_kernel = assert_is_instance(covar_module.base_kernel, MaternKernel)
         self.assertIsInstance(base_kernel.lengthscale_prior, GammaPrior)
         self.assertEqual(
-            checked_cast(GammaPrior, base_kernel.lengthscale_prior).concentration, 3.0
+            assert_is_instance(base_kernel.lengthscale_prior, GammaPrior).concentration,
+            3.0,
         )
         self.assertEqual(
-            checked_cast(GammaPrior, base_kernel.lengthscale_prior).rate, 6.0
+            assert_is_instance(base_kernel.lengthscale_prior, GammaPrior).rate, 6.0
         )
         self.assertEqual(base_kernel.ard_num_dims, ard_num_dims)
         self.assertEqual(base_kernel.batch_shape, batch_shape)
@@ -582,17 +552,18 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(covar_module, Module)
         self.assertIsInstance(covar_module, ScaleKernel)
         self.assertIsInstance(covar_module.outputscale_prior, GammaPrior)
-        prior = checked_cast(GammaPrior, covar_module.outputscale_prior)
+        prior = assert_is_instance(covar_module.outputscale_prior, GammaPrior)
         self.assertEqual(prior.concentration, 2.0)
         self.assertEqual(prior.rate, 12.0)
         self.assertIsInstance(covar_module.base_kernel, MaternKernel)
-        base_kernel = checked_cast(MaternKernel, covar_module.base_kernel)
+        base_kernel = assert_is_instance(covar_module.base_kernel, MaternKernel)
         self.assertIsInstance(base_kernel.lengthscale_prior, GammaPrior)
         self.assertEqual(
-            checked_cast(GammaPrior, base_kernel.lengthscale_prior).concentration, 12.0
+            assert_is_instance(base_kernel.lengthscale_prior, GammaPrior).concentration,
+            12.0,
         )
         self.assertEqual(
-            checked_cast(GammaPrior, base_kernel.lengthscale_prior).rate, 2.0
+            assert_is_instance(base_kernel.lengthscale_prior, GammaPrior).rate, 2.0
         )
         self.assertEqual(base_kernel.ard_num_dims, ard_num_dims - 1)
         self.assertEqual(base_kernel.batch_shape, batch_shape)

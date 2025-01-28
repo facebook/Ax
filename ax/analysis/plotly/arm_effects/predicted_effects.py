@@ -26,8 +26,7 @@ from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.derelativize import Derelativize
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class PredictedEffectsPlot(PlotlyAnalysis):
@@ -73,14 +72,14 @@ class PredictedEffectsPlot(PlotlyAnalysis):
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("PredictedEffectsPlot requires an Experiment.")
-
-        generation_strategy = checked_cast(
-            GenerationStrategy,
-            generation_strategy,
-            exception=UserInputError(
+        try:
+            generation_strategy = assert_is_instance(
+                generation_strategy, GenerationStrategy
+            )
+        except TypeError as e:
+            raise UserInputError(
                 "PredictedEffectsPlot requires a GenerationStrategy."
-            ),
-        )
+            ) from e
 
         try:
             trial_indices = [
@@ -186,6 +185,7 @@ def _prepare_data(
                 metric_name=metric_name,
                 outcome_constraints=outcome_constraints,
                 gr=gr,
+                abandoned_arms={a.name for a in candidate_trial.abandoned_arms},
             )
             for gr in candidate_trial.generator_runs
         ]

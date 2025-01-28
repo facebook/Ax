@@ -121,7 +121,8 @@ class ChoiceToNumericChoice(Transform):
                     # pyre: pval is declared to have type `int` but is used as
                     # pyre-fixme[9]: type `Union[bool, float, str]`.
                     pval: int = obsf.parameters[p_name]
-                    obsf.parameters[p_name] = reverse_transform[pval]
+                    if pval in reverse_transform:
+                        obsf.parameters[p_name] = reverse_transform[pval]
         return observation_features
 
 

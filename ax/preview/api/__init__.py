@@ -9,26 +9,26 @@
 from ax.preview.api.client import Client
 from ax.preview.api.configs import (
     ChoiceParameterConfig,
-    DatabaseConfig,
     ExperimentConfig,
     GenerationStrategyConfig,
     OrchestrationConfig,
     ParameterScaling,
     ParameterType,
     RangeParameterConfig,
+    StorageConfig,
 )
 from ax.preview.api.types import TOutcome, TParameterization
 
 __all__ = [
     "Client",
     "ChoiceParameterConfig",
-    "DatabaseConfig",
     "ExperimentConfig",
     "GenerationStrategyConfig",
     "OrchestrationConfig",
     "ParameterScaling",
     "ParameterType",
     "RangeParameterConfig",
+    "StorageConfig",
     "TOutcome",
     "TParameterization",
 ]

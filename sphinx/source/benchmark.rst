@@ -66,6 +66,14 @@ Benchmark Test Function
     :undoc-members:
     :show-inheritance:
 
+Benchmark Step Runtime Function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.benchmark_step_runtime_function
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Trial Metadata
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -94,6 +102,14 @@ Benchmark Problems Registry
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.problems.registry
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Problems: Bandit
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.synthetic.bandit
     :members:
     :undoc-members:
     :show-inheritance:
@@ -138,6 +154,7 @@ Benchmark Problems PyTorchCNN TorchVision
     :undoc-members:
     :show-inheritance:
 
+
 Benchmark Problems Runtime Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -158,6 +175,14 @@ Benchmark Test Functions: Surrogate
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.benchmark_test_functions.surrogate
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Test Functions: Synthetic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.benchmark_test_functions.synthetic
     :members:
     :undoc-members:
     :show-inheritance:

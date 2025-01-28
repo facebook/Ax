@@ -8,17 +8,25 @@
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
+
+from ax.analysis.healthcheck.constraints_feasibility import (
+    ConstraintsFeasibilityAnalysis,
+)
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
+
+from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 
 __all__ = [
+    "ConstraintsFeasibilityAnalysis",
     "CanGenerateCandidatesAnalysis",
     "HealthcheckAnalysis",
     "HealthcheckAnalysisCard",
     "HealthcheckStatus",
     "ShouldGenerateCandidates",
+    "SearchSpaceAnalysis",
 ]

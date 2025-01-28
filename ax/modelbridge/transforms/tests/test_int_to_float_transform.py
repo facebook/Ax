@@ -13,11 +13,11 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import OrderConstraint, SumConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.exceptions.core import UnsupportedError
-from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.modelbridge.transforms.int_to_float import IntToFloat, LogIntToFloat
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
+from pyre_extensions import assert_is_instance
 
 
 class IntToFloatTransformTest(TestCase):
@@ -54,8 +54,8 @@ class IntToFloatTransformTest(TestCase):
             config={"min_choices": 3},
         )
         self.search_space_with_log = self.search_space.clone()
-        checked_cast(
-            RangeParameter, self.search_space_with_log.parameters["a"]
+        assert_is_instance(
+            self.search_space_with_log.parameters["a"], RangeParameter
         )._log_scale = True
         self.t4 = IntToFloat(
             search_space=self.search_space_with_log,
@@ -188,8 +188,6 @@ class IntToFloatTransformTest(TestCase):
             RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
         ]
         constrained_int_search_space = SearchSpace(
-            # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-            #  `List[RangeParameter]`.
             parameters=parameters,
             parameter_constraints=[
                 # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
@@ -244,8 +242,6 @@ class IntToFloatTransformTest(TestCase):
             RangeParameter("y", lower=1, upper=5, parameter_type=ParameterType.INT),
         ]
         constrained_int_search_space = SearchSpace(
-            # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-            #  `List[RangeParameter]`.
             parameters=parameters,
             parameter_constraints=[
                 # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
@@ -324,3 +320,33 @@ class IntToFloatTransformTest(TestCase):
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)
+
+
+class LogIntToFloatTransformTest(TestCase):
+    def test_log_int_to_float(self) -> None:
+        parameters = [
+            RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
+            RangeParameter("y", lower=1, upper=50, parameter_type=ParameterType.INT),
+            RangeParameter(
+                "z", lower=1, upper=50, parameter_type=ParameterType.INT, log_scale=True
+            ),
+        ]
+        search_space = SearchSpace(parameters=parameters)
+        with self.assertRaisesRegex(UserInputError, "min_choices"):
+            LogIntToFloat(search_space=search_space, config={"min_choices": 5})
+        t = LogIntToFloat(search_space=search_space)
+        self.assertFalse(hasattr(t, "min_choices"))
+        self.assertEqual(t.transform_parameters, {"z"})
+        t_ss = t.transform_search_space(search_space)
+        self.assertEqual(t_ss.parameters["x"], parameters[0])
+        self.assertEqual(t_ss.parameters["y"], parameters[1])
+        self.assertEqual(
+            t_ss.parameters["z"],
+            RangeParameter(
+                name="z",
+                lower=0.50001,
+                upper=50.49999,
+                parameter_type=ParameterType.FLOAT,
+                log_scale=True,
+            ),
+        )

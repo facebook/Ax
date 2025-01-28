@@ -61,12 +61,12 @@ from ax.plot.trace import (
     plot_objective_value_vs_trial_index,
 )
 from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
+from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from pandas.core.frame import DataFrame
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     from ax.service.scheduler import Scheduler
@@ -160,7 +160,7 @@ def _get_objective_v_param_plots(
     search_space = experiment.search_space
 
     range_params = [
-        checked_cast(Parameter, param)
+        assert_is_instance(param, Parameter)
         for param in search_space.range_parameters.values()
     ]
     range_params = get_range_parameters_from_list(range_params, min_num_values=5)
@@ -874,23 +874,6 @@ def exp_to_df(
         metric_names = [m.name for m in metrics]
         results = results[results["metric_name"].isin(metric_names)]
 
-    # Calculate relative metrics if `show_relative_metrics` is True.
-    if show_relative_metrics:
-        if exp.status_quo is None:
-            logger.warning(
-                "No status quo arm found. Showing raw metric values instead of "
-                "relative metric values."
-            )
-        else:
-            status_quo_arm_name = exp.status_quo.name
-            try:
-                results = _get_relative_results(results, status_quo_arm_name)
-            except Exception:
-                logger.warning(
-                    "Failed to calculate relative metrics. Showing raw metric values "
-                    "instead of relative metric values."
-                )
-
     # Add `FEASIBLE_COL_NAME` column according to constraints if any.
     if (
         exp.optimization_config is not None
@@ -909,6 +892,23 @@ def exp_to_df(
             )
         except (KeyError, ValueError, DataRequiredError) as e:
             logger.warning(f"Feasibility calculation failed with error: {e}")
+
+    # Calculate relative metrics if `show_relative_metrics` is True.
+    if show_relative_metrics:
+        if exp.status_quo is None:
+            logger.warning(
+                "No status quo arm found. Showing raw metric values instead of "
+                "relative metric values."
+            )
+        else:
+            status_quo_arm_name = exp.status_quo.name
+            try:
+                results = _get_relative_results(results, status_quo_arm_name)
+            except Exception:
+                logger.warning(
+                    "Failed to calculate relative metrics. Showing raw metric values "
+                    "instead of relative metric values."
+                )
 
     # If arms_df is empty, return empty results (legacy behavior)
     if len(arms_df.index) == 0:
@@ -1094,8 +1094,8 @@ def _get_metric_name_pairs(
         experiment=experiment
     )
     if none_throws(optimization_config).is_moo_problem:
-        multi_objective = checked_cast(
-            MultiObjective, none_throws(optimization_config).objective
+        multi_objective = assert_is_instance(
+            none_throws(optimization_config).objective, MultiObjective
         )
         metric_names = [obj.metric.name for obj in multi_objective.objectives]
         if len(metric_names) > use_first_n_metrics:
@@ -1317,8 +1317,8 @@ def _build_result_tuple(
         comparison_arm_name,
         comparison_arm_value,)
     """
-    comparison_arm_name = checked_cast(str, comparison_row["arm_name"])
-    comparison_value = checked_cast(float, comparison_row[objective_name])
+    comparison_arm_name = assert_is_instance(comparison_row["arm_name"], str)
+    comparison_value = assert_is_instance(comparison_row[objective_name], float)
 
     result = (
         objective_name,
@@ -1329,50 +1329,6 @@ def _build_result_tuple(
         comparison_value,
     )
     return result
-
-
-def select_baseline_arm(
-    experiment: Experiment, arms_df: pd.DataFrame, baseline_arm_name: str | None
-) -> tuple[str, bool]:
-    """
-    Choose a baseline arm that is found in arms_df
-
-    Returns:
-        Tuple:
-            baseline_arm_name if valid baseline exists
-            true when baseline selected from first arm of sweep
-        raise ValueError if no valid baseline found
-    """
-
-    if baseline_arm_name:
-        if arms_df[arms_df["arm_name"] == baseline_arm_name].empty:
-            raise ValueError(
-                f"compare_to_baseline: baseline row: {baseline_arm_name=}"
-                " not found in arms"
-            )
-        return baseline_arm_name, False
-
-    else:
-        if (
-            experiment.status_quo
-            and not arms_df[
-                arms_df["arm_name"] == none_throws(experiment.status_quo).name
-            ].empty
-        ):
-            baseline_arm_name = none_throws(experiment.status_quo).name
-            return baseline_arm_name, False
-
-        if (
-            experiment.trials
-            and experiment.trials[0].arms
-            and not arms_df[
-                arms_df["arm_name"] == experiment.trials[0].arms[0].name
-            ].empty
-        ):
-            baseline_arm_name = experiment.trials[0].arms[0].name
-            return baseline_arm_name, True
-        else:
-            raise ValueError("compare_to_baseline: could not find valid baseline arm")
 
 
 def maybe_extract_baseline_comparison_values(
@@ -1425,8 +1381,8 @@ def maybe_extract_baseline_comparison_values(
         return None
 
     try:
-        baseline_arm_name, _ = select_baseline_arm(
-            experiment=experiment, arms_df=arms_df, baseline_arm_name=baseline_arm_name
+        baseline_arm_name, _ = select_baseline_name_default_first_trial(
+            experiment=experiment, baseline_arm_name=baseline_arm_name
         )
     except Exception as e:
         logger.info(f"compare_to_baseline: could not select baseline arm. Reason: {e}")
@@ -1435,7 +1391,9 @@ def maybe_extract_baseline_comparison_values(
     baseline_rows = arms_df[arms_df["arm_name"] == baseline_arm_name]
 
     if experiment.is_moo_problem:
-        multi_objective = checked_cast(MultiObjective, optimization_config.objective)
+        multi_objective = assert_is_instance(
+            optimization_config.objective, MultiObjective
+        )
         result_list = []
         for objective in multi_objective.objectives:
             name = objective.metric.name

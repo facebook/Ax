@@ -51,9 +51,8 @@ from ax.modelbridge.transforms.utils import (
 )
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from numpy import nan
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -543,8 +542,9 @@ def get_pareto_optimal_parameters(
             "Please use `get_best_parameters` for single-objective problems."
         )
 
-    moo_optimization_config = checked_cast(
-        MultiObjectiveOptimizationConfig, optimization_config
+    moo_optimization_config = assert_is_instance(
+        optimization_config,
+        MultiObjectiveOptimizationConfig,
     )
 
     # Use existing modelbridge if it supports MOO otherwise create a new MOO modelbridge
@@ -553,18 +553,25 @@ def get_pareto_optimal_parameters(
     is_moo_modelbridge = (
         modelbridge
         and isinstance(modelbridge, TorchModelBridge)
-        and checked_cast(TorchModelBridge, modelbridge).is_moo_problem
+        and assert_is_instance(
+            modelbridge,
+            TorchModelBridge,
+        ).is_moo_problem
     )
     if is_moo_modelbridge:
         generation_strategy._fit_current_model(data=None)
     else:
         modelbridge = Models.BOTORCH_MODULAR(
             experiment=experiment,
-            data=checked_cast(
-                Data, experiment.lookup_data(trial_indices=trial_indices)
+            data=assert_is_instance(
+                experiment.lookup_data(trial_indices=trial_indices),
+                Data,
             ),
         )
-    modelbridge = checked_cast(TorchModelBridge, modelbridge)
+    modelbridge = assert_is_instance(
+        modelbridge,
+        TorchModelBridge,
+    )
 
     # If objective thresholds are not specified in optimization config, extract
     # the inferred ones if possible or infer them anew if not.
@@ -700,8 +707,9 @@ def _is_row_feasible(
     )
     # Mark all rows corresponding to infeasible arms as infeasible.
     bad_arm_names = df[~mask]["arm_name"].tolist()
-    return checked_cast(
-        pd.Series, df["arm_name"].apply(lambda x: x not in bad_arm_names)
+    return assert_is_instance(
+        df["arm_name"].apply(lambda x: x not in bad_arm_names),
+        pd.Series,
     )
 
 
@@ -863,8 +871,9 @@ def _objective_threshold_from_nadir(
 
     logger.info(f"Inferring ObjectiveThreshold for {objective} using nadir point.")
 
-    optimization_config = optimization_config or checked_cast(
-        MultiObjectiveOptimizationConfig, experiment.optimization_config
+    optimization_config = optimization_config or assert_is_instance(
+        experiment.optimization_config,
+        MultiObjectiveOptimizationConfig,
     )
 
     data_df = experiment.fetch_data().df
@@ -893,9 +902,13 @@ def fill_missing_thresholds_from_nadir(
         A list of objective thresholds, one for each objective in
         optimization config.
     """
-    objectives = checked_cast(MultiObjective, optimization_config.objective).objectives
-    optimization_config = checked_cast(
-        MultiObjectiveOptimizationConfig, optimization_config
+    objectives = assert_is_instance(
+        optimization_config.objective,
+        MultiObjective,
+    ).objectives
+    optimization_config = assert_is_instance(
+        optimization_config,
+        MultiObjectiveOptimizationConfig,
     )
     provided_thresholds = {
         obj_t.metric.name: obj_t for obj_t in optimization_config.objective_thresholds

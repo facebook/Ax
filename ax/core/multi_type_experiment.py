@@ -47,7 +47,7 @@ class MultiTypeExperiment(Experiment):
         name: str,
         search_space: SearchSpace,
         default_trial_type: str,
-        default_runner: Runner,
+        default_runner: Runner | None,
         optimization_config: OptimizationConfig | None = None,
         tracking_metrics: list[Metric] | None = None,
         status_quo: Arm | None = None,
@@ -79,7 +79,7 @@ class MultiTypeExperiment(Experiment):
         self._default_trial_type = default_trial_type
 
         # Map from trial type to default runner of that type
-        self._trial_type_to_runner: dict[str, Runner] = {
+        self._trial_type_to_runner: dict[str, Runner | None] = {
             default_trial_type: default_runner
         }
 
@@ -131,6 +131,10 @@ class MultiTypeExperiment(Experiment):
             self._metric_to_trial_type[metric_name] = none_throws(
                 self.default_trial_type
             )
+        # prune metrics that are no longer attached to the experiment
+        for metric_name in list(self._metric_to_trial_type.keys()):
+            if metric_name not in self.metrics:
+                del self._metric_to_trial_type[metric_name]
 
     def update_runner(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":
         """Update the default runner for an existing trial_type.
@@ -328,6 +332,19 @@ class MultiTypeExperiment(Experiment):
         if not self.supports_trial_type(trial_type):
             raise ValueError(f"Trial type `{trial_type}` is not supported.")
         return self._trial_type_to_runner[trial_type]
+
+    def metrics_for_trial_type(self, trial_type: str) -> list[Metric]:
+        """The default runner to use for a given trial type.
+
+        Looks up the appropriate runner for this trial type in the trial_type_to_runner.
+        """
+        if not self.supports_trial_type(trial_type):
+            raise ValueError(f"Trial type `{trial_type}` is not supported.")
+        return [
+            self.metrics[metric_name]
+            for metric_name, metric_trial_type in self._metric_to_trial_type.items()
+            if metric_trial_type == trial_type
+        ]
 
     def supports_trial_type(self, trial_type: str | None) -> bool:
         """Whether this experiment allows trials of the given type.

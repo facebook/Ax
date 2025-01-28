@@ -5,14 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterator
+from typing import Any, Iterator
 
 import numpy as np
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
+from ax.benchmark.benchmark_metric import (
+    BenchmarkMapMetric,
+    BenchmarkMapUnavailableWhileRunningMetric,
+    BenchmarkMetric,
+    BenchmarkTimeVaryingMetric,
+)
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_problem_from_botorch,
@@ -20,8 +24,10 @@ from ax.benchmark.benchmark_problem import (
     get_soo_opt_config,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
+from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
+from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_search_space
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
@@ -29,7 +35,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
-from ax.core.trial import BaseTrial, Trial
+from ax.core.trial import Trial
 from ax.core.types import TParameterization, TParamValue
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
@@ -54,6 +60,7 @@ def get_single_objective_benchmark_problem(
     test_problem_kwargs: dict[str, Any] | None = None,
     report_inference_value_as_trace: bool = False,
     noise_std: float | list[float] = 0.0,
+    status_quo_params: TParameterization | None = None,
 ) -> BenchmarkProblem:
     return create_problem_from_botorch(
         test_problem_class=Branin,
@@ -62,6 +69,8 @@ def get_single_objective_benchmark_problem(
         observe_noise_sd=observe_noise_sd,
         report_inference_value_as_trace=report_inference_value_as_trace,
         noise_std=noise_std,
+        status_quo_params=status_quo_params,
+        baseline_value=3,
     )
 
 
@@ -77,6 +86,7 @@ def get_multi_objective_benchmark_problem(
         num_trials=num_trials,
         observe_noise_sd=observe_noise_sd,
         report_inference_value_as_trace=report_inference_value_as_trace,
+        baseline_value=0.0,
     )
 
 
@@ -91,16 +101,13 @@ def get_soo_surrogate_test_function(lazy: bool = True) -> SurrogateTestFunction:
     )
     if lazy:
         test_function = SurrogateTestFunction(
-            outcome_names=["branin"],
-            name="test",
-            get_surrogate_and_datasets=lambda: (surrogate, []),
+            outcome_names=["branin"], name="test", get_surrogate=lambda: surrogate
         )
     else:
         test_function = SurrogateTestFunction(
             outcome_names=["branin"],
             name="test",
             _surrogate=surrogate,
-            _datasets=[],
         )
     return test_function
 
@@ -120,6 +127,7 @@ def get_soo_surrogate() -> BenchmarkProblem:
         optimization_config=optimization_config,
         num_trials=6,
         optimal_value=0.0,
+        baseline_value=3.0,
         test_function=test_function,
     )
 
@@ -136,9 +144,7 @@ def get_moo_surrogate() -> BenchmarkProblem:
 
     outcome_names = ["branin_a", "branin_b"]
     test_function = SurrogateTestFunction(
-        name="test",
-        outcome_names=outcome_names,
-        get_surrogate_and_datasets=lambda: (surrogate, []),
+        name="test", outcome_names=outcome_names, get_surrogate=lambda: surrogate
     )
     optimization_config = get_moo_opt_config(
         outcome_names=outcome_names,
@@ -152,6 +158,7 @@ def get_moo_surrogate() -> BenchmarkProblem:
         optimization_config=optimization_config,
         num_trials=10,
         optimal_value=1.0,
+        baseline_value=0.0,
         test_function=test_function,
     )
 
@@ -294,34 +301,13 @@ class DeterministicGenerationNode(ExternalGenerationNode):
         return {self.param_name: next(self.iterator)}
 
 
-@dataclass(kw_only=True)
-class IdentityTestFunction(BenchmarkTestFunction):
-    outcome_names: Sequence[str] = field(default_factory=lambda: ["objective"])
-    n_time_intervals: int = 1
-
-    # pyre-fixme[14]: Inconsistent override
-    def evaluate_true(self, params: Mapping[str, float]) -> torch.Tensor:
-        """
-        Args:
-            params: A dictionary with key "x0".
-        """
-        value = params["x0"]
-        return torch.full(
-            (len(self.outcome_names), self.n_time_intervals), value, dtype=torch.float64
-        )
-
-
-def get_discrete_search_space() -> SearchSpace:
+def get_discrete_search_space(n_values: int = 20) -> SearchSpace:
     return SearchSpace(
         parameters=[
             ChoiceParameter(
                 name="x0",
                 parameter_type=ParameterType.INT,
-                # pyre-fixme: Incompatible parameter type [6]: In call
-                # `ChoiceParameter.__init__`, for argument `values`, expected
-                # `List[Union[None, bool, float, int, str]]` but got
-                # `List[int]`.
-                values=list(range(20)),
+                values=list(range(n_values)),
             )
         ]
     )
@@ -344,24 +330,44 @@ def get_async_benchmark_method(
 
 def get_async_benchmark_problem(
     map_data: bool,
-    trial_runtime_func: Callable[[BaseTrial], int],
-    n_time_intervals: int = 1,
+    step_runtime_fn: TBenchmarkStepRuntimeFunction | None = None,
+    n_steps: int = 1,
     lower_is_better: bool = False,
 ) -> BenchmarkProblem:
     search_space = get_discrete_search_space()
-    test_function = IdentityTestFunction(n_time_intervals=n_time_intervals)
+    test_function = IdentityTestFunction(n_steps=n_steps)
     optimization_config = get_soo_opt_config(
         outcome_names=["objective"],
         use_map_metric=map_data,
         observe_noise_sd=True,
         lower_is_better=lower_is_better,
     )
+
     return BenchmarkProblem(
         name="test",
         search_space=search_space,
         optimization_config=optimization_config,
         test_function=test_function,
         num_trials=4,
-        optimal_value=19.0,
-        trial_runtime_func=trial_runtime_func,
+        baseline_value=19 if lower_is_better else 0,
+        optimal_value=0 if lower_is_better else 19,
+        step_runtime_function=step_runtime_fn,
     )
+
+
+def get_benchmark_metric() -> BenchmarkMetric:
+    return BenchmarkMetric(name="test", lower_is_better=True)
+
+
+def get_benchmark_map_metric() -> BenchmarkMapMetric:
+    return BenchmarkMapMetric(name="test", lower_is_better=True)
+
+
+def get_benchmark_time_varying_metric() -> BenchmarkTimeVaryingMetric:
+    return BenchmarkTimeVaryingMetric(name="test", lower_is_better=True)
+
+
+def get_benchmark_map_unavailable_while_running_metric() -> (
+    BenchmarkMapUnavailableWhileRunningMetric
+):
+    return BenchmarkMapUnavailableWhileRunningMetric(name="test", lower_is_better=True)

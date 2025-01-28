@@ -61,3 +61,44 @@ Types
     :members:
     :undoc-members:
     :show-inheritance:
+
+From Config
+~~~~~~~~~~~
+
+.. automodule:: ax.preview.api.utils.instantiation.from_config
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+From String
+~~~~~~~~~~~
+
+.. automodule:: ax.preview.api.utils.instantiation.from_string
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+ModelBridge
+~~~~~~~~~~~
+
+.. automodule:: ax.preview.modelbridge
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Dispatch Utils
+~~~~~~~~~~~~~~
+
+.. automodule:: ax.preview.modelbridge.dispatch_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Storage Utils
+~~~~~~~~~~~~~
+
+.. automodule:: ax.preview.api.utils.storage
+    :members:
+    :undoc-members:
+    :show-inheritance:

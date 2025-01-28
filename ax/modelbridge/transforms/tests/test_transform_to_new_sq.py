@@ -6,21 +6,25 @@
 # pyre-strict
 
 
+from unittest import mock
+
 import numpy as np
 import numpy.typing as npt
 from ax.core.batch_trial import BatchTrial
+from ax.core.observation import observations_from_data
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.tests.test_relativize_transform import RelativizeDataTest
 from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.models.base import Model
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
     get_branin_experiment,
     get_branin_optimization_config,
+    get_sobol,
 )
+from pyre_extensions import assert_is_instance
 
 
 class TransformToNewSQTest(RelativizeDataTest):
@@ -34,8 +38,8 @@ class TransformToNewSQTest(RelativizeDataTest):
             TransformToNewSQ,
             [
                 (
-                    np.array([-38.0, 505.0]),
-                    np.array([[1600.0, 0.0], [0.0, 2892.56198347]]),
+                    np.array([1.6, 10.0]),
+                    np.array([[0.16, 0.0], [0.0, 0.2892562]]),
                 ),
                 (np.array([2.0, 5.0]), np.array([[0.1, 0.0], [0.0, 0.2]])),
                 (np.array([1.0, 10.0]), np.array([[0.3, 0.0], [0.0, 0.4]])),
@@ -60,15 +64,20 @@ class TransformToNewSQSpecificTest(TestCase):
         )
         t = self.exp.trials[0]
         t.mark_running(no_runner_required=True)
-        self.exp.attach_data(get_branin_data_batch(batch=checked_cast(BatchTrial, t)))
+        self.exp.attach_data(
+            get_branin_data_batch(batch=assert_is_instance(t, BatchTrial))
+        )
         t.mark_completed()
         self.data = self.exp.fetch_data()
 
+        self._refresh_modelbridge()
+
+    def _refresh_modelbridge(self) -> None:
         self.modelbridge = ModelBridge(
             search_space=self.exp.search_space,
             model=Model(),
             experiment=self.exp,
-            data=self.data,
+            data=self.exp.lookup_data(),
             status_quo_name="status_quo",
         )
 
@@ -134,3 +143,52 @@ class TransformToNewSQSpecificTest(TestCase):
         )
         obs2 = tf.transform_observations(obs)
         self.assertEqual(obs, obs2)
+
+    def test_target_trial_index(self) -> None:
+        sobol = get_sobol(search_space=self.exp.search_space)
+        self.exp.new_batch_trial(generator_run=sobol.gen(2), optimize_for_power=True)
+        t = self.exp.trials[1]
+        t = assert_is_instance(t, BatchTrial)
+        t.mark_running(no_runner_required=True)
+        self.exp.attach_data(
+            get_branin_data_batch(batch=assert_is_instance(t, BatchTrial))
+        )
+
+        self._refresh_modelbridge()
+
+        observations = observations_from_data(
+            experiment=self.exp,
+            data=self.exp.lookup_data(),
+        )
+
+        t = TransformToNewSQ(
+            search_space=self.exp.search_space,
+            observations=observations,
+            modelbridge=self.modelbridge,
+        )
+
+        self.assertEqual(t.default_trial_idx, 1)
+
+        with mock.patch(
+            "ax.modelbridge.transforms.transform_to_new_sq.get_target_trial_index",
+            return_value=0,
+        ):
+            t = TransformToNewSQ(
+                search_space=self.exp.search_space,
+                observations=observations,
+                modelbridge=self.modelbridge,
+            )
+
+        self.assertEqual(t.default_trial_idx, 0)
+        # test falling back to latest trial with SQ data
+        with mock.patch(
+            "ax.modelbridge.transforms.transform_to_new_sq.get_target_trial_index",
+            return_value=10,
+        ):
+            t = TransformToNewSQ(
+                search_space=self.exp.search_space,
+                observations=observations,
+                modelbridge=self.modelbridge,
+            )
+
+        self.assertEqual(t.default_trial_idx, 1)

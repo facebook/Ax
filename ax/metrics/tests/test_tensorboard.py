@@ -216,3 +216,36 @@ class TensorboardMetricTest(TestCase):
             )
 
             self.assertTrue(df.equals(expected_df))
+
+    def test_percentile(self) -> None:
+        fake_data = [8.0, 4.0, 2.0, 1.0]
+        percentile = 0.5
+        percentile_data = pd.Series(fake_data).expanding().quantile(percentile)
+        fake_multiplexer = _get_fake_multiplexer(fake_data=fake_data)
+        trial = get_trial()
+
+        with mock.patch.object(
+            TensorboardMetric,
+            "_get_event_multiplexer_for_trial",
+            return_value=fake_multiplexer,
+        ):
+            metric = TensorboardMetric(
+                name="loss", tag="loss", lower_is_better=True, percentile=percentile
+            )
+            result = metric.fetch_trial_data(trial=trial)
+        df = assert_is_instance(result.unwrap(), MapData).map_df
+        expected_df = pd.DataFrame(
+            [
+                {
+                    "arm_name": "0_0",
+                    "metric_name": "loss",
+                    "mean": percentile_data[i],
+                    "sem": float("nan"),
+                    "trial_index": 0,
+                    "step": float(i),
+                }
+                for i in range(len(fake_data))
+            ]
+        )
+
+        self.assertTrue(df.equals(expected_df))

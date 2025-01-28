@@ -67,8 +67,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -84,11 +83,6 @@ class Encoder:
     """
 
     def __init__(self, config: SQAConfig) -> None:
-        logger.error(
-            "ATTENTION: The Ax team is considering deprecating SQLAlchemy storage. "
-            "If you are currently using SQLAlchemy storage, please reach out to us "
-            "via GitHub Issues here: https://github.com/facebook/Ax/issues/2975"
-        )
         self.config = config
 
     @classmethod
@@ -152,6 +146,13 @@ class Encoder:
         create and store copies of the Trials, Metrics, Parameters,
         ParameterConstraints, and Runner owned by this Experiment.
         """
+
+        logger.error(
+            "ATTENTION: The Ax team is considering deprecating SQLAlchemy storage. "
+            "If you are currently using SQLAlchemy storage, please reach out to us "
+            "via GitHub Issues here: https://github.com/facebook/Ax/issues/2975"
+        )
+
         optimization_metrics = self.optimization_config_to_sqa(
             experiment.optimization_config
         )
@@ -195,7 +196,7 @@ class Encoder:
         if isinstance(experiment, MultiTypeExperiment):
             properties[Keys.SUBCLASS] = "MultiTypeExperiment"
             for trial_type, runner in experiment._trial_type_to_runner.items():
-                runner_sqa = self.runner_to_sqa(runner, trial_type)
+                runner_sqa = self.runner_to_sqa(none_throws(runner), trial_type)
                 runners.append(runner_sqa)
 
             for metric in tracking_metrics:
@@ -501,7 +502,7 @@ class Encoder:
                 )
             )
 
-        return checked_cast(SQAMetric, objective_sqa)
+        return assert_is_instance(objective_sqa, SQAMetric)
 
     def multi_objective_to_sqa(self, multi_objective: MultiObjective) -> SQAMetric:
         """Convert Ax Multi Objective to SQLAlchemy.

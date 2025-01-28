@@ -58,6 +58,9 @@ class Log(Transform):
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, p in search_space.parameters.items():
             if p_name in self.transform_parameters and isinstance(p, RangeParameter):
+                # Don't round in log space
+                if p.digits is not None:
+                    p.set_digits(digits=None)
                 p.set_log_scale(False).update_range(
                     lower=math.log10(p.lower), upper=math.log10(p.upper)
                 )

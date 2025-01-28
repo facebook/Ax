@@ -15,9 +15,8 @@ from ax.core.experiment import Experiment
 from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import checked_cast
 from botorch.utils.sampling import draw_sobol_samples
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 # from ExperimentType in ae/lazarus/fb/utils/if/ae.thrift
 PBO_EXPERIMENT_TYPE: str = "PREFERENCE_LEARNING"
@@ -26,7 +25,7 @@ PE_EXPERIMENT_TYPE: str = "PREFERENCE_EXPLORATION"
 
 def sum_utility(parameters: TParameterization) -> float:
     """Test utility function that sums over parameter values"""
-    values = [checked_cast(float, v) for v in parameters.values()]
+    values = [assert_is_instance(v, float) for v in parameters.values()]
     return sum(values)
 
 
@@ -171,7 +170,7 @@ def get_pbo_experiment(
         # create incomplete data by dropping the first metric
         if partial_data:
             for v in raw_data.values():
-                del checked_cast(dict, v)[tracking_metric_names[-1]]
+                del assert_is_instance(v, dict)[tracking_metric_names[-1]]
         trial.attach_batch_trial_data(raw_data=raw_data)
         trial.mark_running(no_runner_required=True)
         trial.mark_completed()

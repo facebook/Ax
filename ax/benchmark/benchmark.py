@@ -19,9 +19,10 @@ Key terms used:
 
 """
 
+import warnings
 from collections.abc import Iterable, Mapping
 from itertools import product
-from logging import Logger
+from logging import Logger, WARNING
 from time import monotonic, time
 from typing import Set
 
@@ -31,40 +32,51 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
+from ax.benchmark.methods.sobol import get_sobol_generation_strategy
+from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
+from ax.core.objective import MultiObjective
+from ax.core.optimization_config import OptimizationConfig
+from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.utils.common.logger import get_logger
+from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
+from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
 
 logger: Logger = get_logger(__name__)
 
 
 def compute_score_trace(
-    optimization_trace: npt.NDArray,
-    num_baseline_trials: int,
-    problem: BenchmarkProblem,
+    optimization_trace: npt.NDArray, baseline_value: float, optimal_value: float
 ) -> npt.NDArray:
-    """Computes a score trace from the optimization trace."""
+    """
+    Compute a score trace from the optimization trace.
 
-    # Use the first GenerationStep's best found point as baseline. Sometimes (ex. in
-    # a timeout) the first GenerationStep will not have not completed and we will not
-    # have enough trials; in this case we do not score.
-    if len(optimization_trace) <= num_baseline_trials:
-        return np.full(len(optimization_trace), np.nan)
-    optimum = problem.optimal_value
-    baseline = optimization_trace[num_baseline_trials - 1]
+    Score is expressed as a percentage of possible improvement over a baseline.
+    A higher score is better.
 
-    score_trace = 100 * (1 - (optimization_trace - optimum) / (baseline - optimum))
-    if score_trace.max() > 100:
-        logger.info(
-            "Observed scores above 100. This indicates that we found a trial that is "
-            "better than the optimum. Clipping scores to 100 for now."
-        )
-    return score_trace.clip(min=0, max=100)
+    Element `i` of the score trace is `optimization_trace[i] - baseline`
+    expressed as a percent of `optimal_value - baseline`, where `baseline` is
+    `optimization_trace[num_baseline_trials - 1]`. It can be over 100 if values
+    better than `optimal_value` are attained or below 0 if values worse than the
+    baseline value are attained.
+
+    Args:
+        optimization_trace: Objective values. Can be either higher- or
+            lower-is-better.
+        baseline_value: Value to use as a baseline. Any values that are not
+            better than the baseline will receive negative scores.
+        optimal_value: The best possible value of the objective; when the
+            optimization_trace equals the optimal_value, the score is 100.
+    """
+    return (
+        100 * (optimization_trace - baseline_value) / (optimal_value - baseline_value)
+    )
 
 
 def get_benchmark_runner(
@@ -79,16 +91,17 @@ def get_benchmark_runner(
 
     Args:
         problem: The ``BenchmarkProblem``; provides a ``BenchmarkTestFunction``
-            (used to generate data) and ``trial_runtime_func`` (used to
-            determine the length of trials for the simulator).
+            (used to generate data) and ``step_runtime_function`` (used to
+            determine timing for the simulator).
         max_concurrency: The maximum number of trials that can be run concurrently.
             Typically, ``max_pending_trials`` from ``SchedulerOptions``, which are
             stored on the ``BenchmarkMethod``.
     """
+
     return BenchmarkRunner(
         test_function=problem.test_function,
         noise_std=problem.noise_std,
-        trial_runtime_func=problem.trial_runtime_func,
+        step_runtime_function=problem.step_runtime_function,
         max_concurrency=max_concurrency,
     )
 
@@ -130,6 +143,12 @@ def get_oracle_experiment_from_params(
 
     runner = BenchmarkRunner(test_function=problem.test_function, noise_std=0.0)
 
+    # Silence INFO logs from ax.core.experiment that state "Attached custom
+    # parameterizations"
+    logger = get_logger("ax.core.experiment")
+    original_log_level = logger.level
+    logger.setLevel(level="WARNING")
+
     for trial_index, dict_of_params in dict_of_dict_of_params.items():
         if len(dict_of_params) == 0:
             raise ValueError(
@@ -147,6 +166,8 @@ def get_oracle_experiment_from_params(
         metadata = runner.run(trial=trial)
         trial.update_run_metadata(metadata=metadata)
         trial.mark_completed()
+
+    logger.setLevel(level=original_log_level)
 
     experiment.fetch_data()
     return experiment
@@ -169,11 +190,48 @@ def get_oracle_experiment_from_experiment(
     )
 
 
+def get_benchmark_scheduler_options(
+    method: BenchmarkMethod,
+    include_sq: bool = False,
+    logging_level: int = DEFAULT_LOG_LEVEL,
+) -> SchedulerOptions:
+    """
+    Get the ``SchedulerOptions`` for the given ``BenchmarkMethod``.
+
+    Args:
+        method: The ``BenchmarkMethod``.
+        include_sq: Whether to include the status quo in each trial.
+
+    Returns:
+        ``SchedulerOptions``
+    """
+    if method.batch_size > 1 or include_sq:
+        trial_type = TrialType.BATCH_TRIAL
+    else:
+        trial_type = TrialType.TRIAL
+    return SchedulerOptions(
+        # No new candidates can be generated while any are pending.
+        # If batched, an entire batch must finish before the next can be
+        # generated.
+        max_pending_trials=method.max_pending_trials,
+        # Do not throttle, as is often necessary when polling real endpoints
+        init_seconds_between_polls=0,
+        min_seconds_before_poll=0,
+        trial_type=trial_type,
+        batch_size=method.batch_size,
+        run_trials_in_batches=method.run_trials_in_batches,
+        early_stopping_strategy=method.early_stopping_strategy,
+        status_quo_weight=1.0 if include_sq else 0.0,
+        logging_level=logging_level,
+    )
+
+
 def benchmark_replication(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seed: int,
     strip_runner_before_saving: bool = True,
+    scheduler_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> BenchmarkResult:
     """
     Run one benchmarking replication (equivalent to one optimization loop).
@@ -194,22 +252,33 @@ def benchmark_replication(
     Return:
         ``BenchmarkResult`` object.
     """
-
-    runner = get_benchmark_runner(
-        problem=problem, max_concurrency=method.scheduler_options.max_pending_trials
+    sq_arm = (
+        None
+        if problem.status_quo_params is None
+        else Arm(name="status_quo", parameters=problem.status_quo_params)
     )
-
+    scheduler_options = get_benchmark_scheduler_options(
+        method=method,
+        include_sq=sq_arm is not None,
+        logging_level=scheduler_logging_level,
+    )
+    runner = get_benchmark_runner(
+        problem=problem,
+        max_concurrency=scheduler_options.max_pending_trials,
+    )
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
         runner=runner,
+        status_quo=sq_arm,
+        auxiliary_experiments_by_purpose=problem.auxiliary_experiments_by_purpose,
     )
 
     scheduler = Scheduler(
         experiment=experiment,
         generation_strategy=method.generation_strategy.clone_reset(),
-        options=method.scheduler_options,
+        options=scheduler_options,
     )
 
     # list of parameters for each trial
@@ -221,7 +290,14 @@ def benchmark_replication(
     # Run the optimization loop.
     timeout_hours = method.timeout_hours
     remaining_hours = timeout_hours
-    with with_rng_seed(seed=seed):
+
+    with with_rng_seed(seed=seed), warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="Encountered exception in computing model fit quality",
+            category=UserWarning,
+            module="ax.modelbridge.cross_validation",
+        )
         start = monotonic()
         # These next several lines do the same thing as `run_n_trials`, but
         # decrement the timeout with each step, so that the timeout refers to
@@ -248,7 +324,11 @@ def benchmark_replication(
             currently_completed_trials = {
                 t.index
                 for t in experiment.trials.values()
-                if t.status in (TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED)
+                if t.status
+                in (
+                    TrialStatus.COMPLETED,
+                    TrialStatus.EARLY_STOPPED,
+                )
             }
             newly_completed_trials = (
                 currently_completed_trials - trials_used_for_best_point
@@ -301,27 +381,11 @@ def benchmark_replication(
         inference_trace if problem.report_inference_value_as_trace else oracle_trace
     )
 
-    try:
-        # Catch any errors that may occur during score computation, such as errors
-        # while accessing "steps" in node based generation strategies. The error
-        # handling here is intentionally broad. The score computations is not
-        # an essential step of the benchmark runs. We do not want to throw away
-        # valuable results after the benchmark run completes just because a
-        # non-essential step failed.
-        num_baseline_trials = scheduler.standard_generation_strategy._steps[
-            0
-        ].num_trials
-
-        score_trace = compute_score_trace(
-            optimization_trace=optimization_trace,
-            num_baseline_trials=num_baseline_trials,
-            problem=problem,
-        )
-    except Exception as e:
-        logger.warning(
-            f"Failed to compute score trace. Returning NaN. Original error message: {e}"
-        )
-        score_trace = np.full(len(optimization_trace), np.nan)
+    score_trace = compute_score_trace(
+        optimization_trace=optimization_trace,
+        optimal_value=problem.optimal_value,
+        baseline_value=problem.baseline_value,
+    )
 
     fit_time, gen_time = get_model_times(experiment=experiment)
     if strip_runner_before_saving:
@@ -342,14 +406,79 @@ def benchmark_replication(
     )
 
 
+def compute_baseline_value_from_sobol(
+    optimization_config: OptimizationConfig,
+    search_space: SearchSpace,
+    test_function: BenchmarkTestFunction,
+    target_fidelity_and_task: Mapping[str, TParamValue] | None = None,
+    n_repeats: int = 50,
+) -> float:
+    """
+    Compute the `baseline_value` that will be assigned to
+    a `BenchmarkProblem`.
+
+    Computed by taking the best of five quasi-random Sobol trials and then
+    repeating 50 times. The value is evaluated at the ground truth (noiseless
+    and at the target task and fidelity).
+
+    Args:
+        optimization_config: Typically, the `optimization_config` of a
+            `BenchmarkProblem` (or that will later be used to define a
+            `BenchmarkProblem`).
+        search_space: Similarly, the `search_space` of a `BenchmarkProblem`.
+        test_function: Similarly, the `test_function` of a `BenchmarkProblem`.
+        target_fidelity_and_task: Typically, the `target_fidelity_and_task` of a
+            `BenchmarkProblem`.
+        n_repeats: Number of times to repeat the five Sobol trials.
+    """
+    gs = get_sobol_generation_strategy()
+    method = BenchmarkMethod(generation_strategy=gs)
+    target_fidelity_and_task = {} if target_fidelity_and_task is None else {}
+
+    # set up a dummy problem so we can use `benchmark_replication`
+    # MOO problems are always higher-is-better because they use hypervolume
+    higher_is_better = isinstance(optimization_config.objective, MultiObjective) or (
+        not optimization_config.objective.minimize
+    )
+    dummy_optimal_value = float("inf") if higher_is_better else float("-inf")
+    dummy_problem = BenchmarkProblem(
+        name="dummy",
+        optimization_config=optimization_config,
+        search_space=search_space,
+        num_trials=5,
+        test_function=test_function,
+        optimal_value=dummy_optimal_value,
+        baseline_value=-dummy_optimal_value,
+        target_fidelity_and_task=target_fidelity_and_task,
+    )
+
+    values = np.full(n_repeats, np.nan)
+    for i in range(n_repeats):
+        result = benchmark_replication(
+            problem=dummy_problem,
+            method=method,
+            seed=i,
+            scheduler_logging_level=WARNING,
+        )
+        values[i] = result.optimization_trace[-1]
+
+    return values.mean()
+
+
 def benchmark_one_method_problem(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seeds: Iterable[int],
+    scheduler_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> AggregatedBenchmarkResult:
     return AggregatedBenchmarkResult.from_benchmark_results(
         results=[
-            benchmark_replication(problem=problem, method=method, seed=seed)
+            benchmark_replication(
+                problem=problem,
+                method=method,
+                seed=seed,
+                scheduler_logging_level=scheduler_logging_level,
+            )
             for seed in seeds
         ]
     )
@@ -359,6 +488,7 @@ def benchmark_multiple_problems_methods(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
     seeds: Iterable[int],
+    scheduler_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> list[AggregatedBenchmarkResult]:
     """
     For each `problem` and `method` in the Cartesian product of `problems` and
@@ -367,6 +497,11 @@ def benchmark_multiple_problems_methods(
     `AggregatedBenchmarkResult`.
     """
     return [
-        benchmark_one_method_problem(problem=p, method=m, seeds=seeds)
+        benchmark_one_method_problem(
+            problem=p,
+            method=m,
+            seeds=seeds,
+            scheduler_logging_level=scheduler_logging_level,
+        )
         for p, m in product(problems, methods)
     ]

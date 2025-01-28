@@ -29,7 +29,6 @@ from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
@@ -42,7 +41,7 @@ from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.utils.datasets import SupervisedDataset
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class BoTorchModelUtilsTest(TestCase):
@@ -623,7 +622,7 @@ class BoTorchModelUtilsTest(TestCase):
         m0 = SingleTaskGP(train_X=torch.rand(5, 2), train_Y=torch.rand(5, 1))
         m1 = SingleTaskGP(train_X=torch.rand(5, 2), train_Y=torch.rand(5, 1))
         model_list = ModelListGP(m0, m1)
-        model_list_state_dict = checked_cast(OrderedDict, model_list.state_dict())
+        model_list_state_dict = assert_is_instance(model_list.state_dict(), OrderedDict)
         # Subset the model dict from model list and check that it is correct.
         m0_state_dict = model_list.models[0].state_dict()
         subsetted_m0_state_dict = subset_state_dict(

@@ -15,9 +15,11 @@ from unittest.mock import Mock, patch
 import numpy as np
 
 import torch
-from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_runner import _add_noise, BenchmarkRunner
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
+
+from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
 from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
     Jenatton,
@@ -30,16 +32,16 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.benchmark_stubs import (
     DummyTestFunction,
     get_jenatton_trials,
     get_soo_surrogate_test_function,
-    IdentityTestFunction,
 )
+
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
-from pyre_extensions import none_throws
+from pandas import DataFrame
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestBenchmarkRunner(TestCase):
@@ -51,7 +53,7 @@ class TestBenchmarkRunner(TestCase):
         # Initialize
         runner = BenchmarkRunner(
             test_function=Jenatton(outcome_names=["objective"]),
-            trial_runtime_func=lambda trial: trial.index + 1,
+            step_runtime_function=lambda params: params["x1"] + 1,
             max_concurrency=2,
         )
         simulated_backend_runner = none_throws(runner.simulated_backend_runner)
@@ -222,8 +224,6 @@ class TestBenchmarkRunner(TestCase):
 
             with self.subTest(f"test `run()`, {test_description}"):
                 trial = Mock(spec=Trial)
-                # pyre-fixme[6]: Incomptabile parameter type: params is a
-                # mutable subtype of the type expected by `Arm`.
                 arm = Arm(name="0_0", parameters=params)
                 trial.arms = [arm]
                 trial.arm = arm
@@ -233,8 +233,6 @@ class TestBenchmarkRunner(TestCase):
                     nullcontext()
                     if not isinstance(test_function, SurrogateTestFunction)
                     else patch.object(
-                        # pyre-fixme: BenchmarkTestFunction` has no attribute
-                        # `_surrogate`.
                         runner.test_function._surrogate,
                         "predict",
                         return_value=({"branin": [4.2]}, None),
@@ -272,6 +270,38 @@ class TestBenchmarkRunner(TestCase):
                 ):
                     BenchmarkRunner.deserialize_init_args({})
 
+    def test__add_noise(self) -> None:
+        np.random.seed(0)
+        y_true = np.arange(6)
+        arm_name = ["0_0", "0_1", "0_0", "0_1", "0_0", "0_1"]
+        metric_name = ["foo", "foo", "bar", "bar", "baz", "baz"]
+
+        df = DataFrame(
+            {"Y_true": y_true, "metric_name": metric_name, "arm_name": arm_name}
+        )
+
+        noise_stds = {"foo": 1, "bar": 2, "baz": 3}
+        arm_weights = {"0_0": 1, "0_1": 2}
+        result = _add_noise(df=df, noise_stds=noise_stds, arm_weights=arm_weights)
+        self.assertEqual(set(result.columns), set(df.columns) | {"mean", "sem"})
+        expected_sem = df["metric_name"].map(noise_stds) / np.sqrt(
+            df["arm_name"].map(arm_weights) / 3
+        )
+        self.assertEqual(result["sem"].tolist(), expected_sem.tolist())
+        noise = df["mean"] - df["Y_true"]
+        self.assertNotEqual(noise.std(), 0)
+
+        z_scores = noise / expected_sem
+        self.assertNotEqual(z_scores.std(), 0)
+
+        chi_squared_stat = (z_scores**2).sum()
+        # None of these assertions would have failed in 10M simulations.
+        # Each has some tolerance from the most extreme value seen in 10M sims.
+        self.assertGreater(chi_squared_stat, 0.005)
+        self.assertLess(chi_squared_stat, 45)
+        self.assertLess(np.abs(z_scores).min(), 2)
+        self.assertGreater(z_scores.max(), 0.05)
+
     def test_heterogeneous_noise(self) -> None:
         outcome_names = ["objective_0", "constraint"]
         noise_dict = {"objective_0": 0.1, "constraint": 0.05}
@@ -284,7 +314,7 @@ class TestBenchmarkRunner(TestCase):
                 noise_std=noise_std,
             )
             self.assertDictEqual(
-                checked_cast(dict, runner.get_noise_stds()), noise_dict
+                assert_is_instance(runner.get_noise_stds(), dict), noise_dict
             )
 
             X = torch.rand(1, 6, dtype=torch.double)
@@ -304,7 +334,15 @@ class TestBenchmarkRunner(TestCase):
             obj_df = res["objective_0"]
             self.assertEqual(len(obj_df), 1)
             self.assertEqual(
-                {"arm_name", "metric_name", "mean", "sem", "trial_index", "t"},
+                {
+                    "arm_name",
+                    "metric_name",
+                    "mean",
+                    "sem",
+                    "trial_index",
+                    "step",
+                    "virtual runtime",
+                },
                 set(obj_df.columns),
             )
             self.assertEqual(obj_df["arm_name"].item(), "0_0")
@@ -330,9 +368,7 @@ class TestBenchmarkRunner(TestCase):
                     )
 
     def test_with_learning_curve(self) -> None:
-        test_function = IdentityTestFunction(
-            outcome_names=["foo", "bar"], n_time_intervals=10
-        )
+        test_function = IdentityTestFunction(outcome_names=["foo", "bar"], n_steps=10)
 
         params = {"x0": 1.2}
         runner = BenchmarkRunner(test_function=test_function, noise_std=0.0)
@@ -351,10 +387,6 @@ class TestBenchmarkRunner(TestCase):
                 )
 
                 trial = Trial(experiment=experiment)
-                # pyre-fixme: Incompatible parameter type [6]: In call
-                # `Arm.__init__`, for argument `parameters`, expected `Dict[str,
-                # Union[None, bool, float, int, str]]` but got `Dict[str,
-                # float]`.
                 arm = Arm(name="0_0", parameters=params)
                 trial.add_arm(arm=arm)
                 metadata_dict = runner.run(trial=trial)
@@ -364,7 +396,7 @@ class TestBenchmarkRunner(TestCase):
                 for df in metadata.values():
                     self.assertEqual(len(df), 10)
                     self.assertTrue((df["arm_name"] == "0_0").all())
-                    self.assertTrue(np.array_equal(df["t"], np.arange(10)))
+                    self.assertTrue(np.array_equal(df["step"], np.arange(10)))
                     self.assertTrue((df["sem"] == noise_std).all())
 
                 noiseless = test_function.evaluate_true(params=params)
@@ -373,13 +405,9 @@ class TestBenchmarkRunner(TestCase):
 
         with self.subTest("with SimulatedBackendRunner"):
             runner = BenchmarkRunner(
-                test_function=test_function,
-                noise_std=0.0,
-                trial_runtime_func=lambda _: 1,
-                max_concurrency=2,
+                test_function=test_function, noise_std=0.0, max_concurrency=2
             )
 
-            # pyre-fixme[6]: Incompatible parameter type (because argument is mutable)
             arm = Arm(name="0_0", parameters=params)
             trial = Trial(experiment=experiment)
             trial.add_arm(arm=arm)
@@ -393,10 +421,48 @@ class TestBenchmarkRunner(TestCase):
             self.assertEqual(sim_trial.sim_start_time, 0)
             self.assertEqual(backend_simulator.time, 0)
 
-    def test_warns_if_concurrent_and_trial_runtime_func_is_none(self) -> None:
-        test_function = IdentityTestFunction(outcome_names=["foo"])
-        with self.assertWarnsRegex(Warning, "`trial_runtime_func` is not set"):
-            BenchmarkRunner(
-                test_function=test_function,
-                max_concurrency=2,
-            )
+    def test_heterogeneous_step_runtime(self) -> None:
+        n_steps = 10
+        test_function = IdentityTestFunction(
+            outcome_names=["foo", "bar"], n_steps=n_steps
+        )
+        runner = BenchmarkRunner(
+            test_function=test_function,
+            noise_std=0.0,
+            step_runtime_function=lambda params: params["x0"],
+        )
+        experiment = Experiment(
+            name="test",
+            is_test=True,
+            runner=runner,
+            search_space=Mock(spec=SearchSpace),
+        )
+        trial = BatchTrial(experiment=experiment)
+        arm_0_step_time = 0.5
+        arm_1_step_time = 1.5
+        trial.add_arm(Arm(name="0_0", parameters={"x0": arm_0_step_time}))
+        trial.add_arm(Arm(name="0_1", parameters={"x0": arm_1_step_time}))
+        df = runner.run(trial=trial)["benchmark_metadata"].dfs["foo"]
+        total_runtime = df.groupby("arm_name")["virtual runtime"].max()
+        self.assertEqual(
+            total_runtime.to_dict(),
+            {"0_0": arm_0_step_time * n_steps, "0_1": arm_1_step_time * n_steps},
+        )
+        max_step = df.groupby("arm_name")["step"].max()
+        self.assertEqual(max_step.to_list(), [9, 9])
+
+        with self.subTest("Test runtimes non-negative"):
+            trial = BatchTrial(experiment=experiment)
+            trial.add_arm(Arm(name="0_0", parameters={"x0": -1}))
+            with self.assertRaisesRegex(
+                ValueError, "Step duration must be non-negative"
+            ):
+                runner.run(trial=trial)
+
+    def test_wrong_noise_std_keys(self) -> None:
+        test_function = IdentityTestFunction(outcome_names=["foo", "bar"])
+        runner = BenchmarkRunner(test_function=test_function, noise_std={"alpaca": 4})
+        with self.assertRaisesRegex(
+            ValueError, "Noise std must have keys equal to outcome names"
+        ):
+            runner.get_noise_stds()

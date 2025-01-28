@@ -25,8 +25,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 TArmTrial = tuple[str, int]
 
@@ -414,18 +413,16 @@ def extend_pending_observations(
     Returns:
         A new dictionary of pending observations to avoid in-place modification
     """
-    # TODO: T203665729 @mgarrard add arm signature to ObservationFeatures and then use
-    # that to compare to arm signature in GR to speed up this method
-    extended_obs = deepcopy(pending_observations)
+    pending_observations = deepcopy(pending_observations)
+    extended_observations: dict[str, list[ObservationFeatures]] = {}
     for m in experiment.metrics:
-        if m not in extended_obs:
-            extended_obs[m] = []
+        extended_obs_set = set(pending_observations.get(m, []))
         for generator_run in generator_runs:
             for a in generator_run.arms:
                 ob_ft = ObservationFeatures.from_arm(a)
-                if ob_ft not in extended_obs[m]:
-                    extended_obs[m].append(ob_ft)
-    return extended_obs
+                extended_obs_set.add(ob_ft)
+        extended_observations[m] = list(extended_obs_set)
+    return extended_observations
 
 
 # -------------------- Get target trial utils. ---------------------
@@ -442,7 +439,7 @@ def get_target_trial_index(experiment: Experiment) -> int | None:
     In the event of any ties, the tie breaking order is:
         a. longest running trial by duration
         b. trial with most arms
-        c. arbitraty selection
+        c. arbitrary selection
 
     Args:
         experiment: The experiment associated with this ``GenerationStrategy``.
@@ -454,7 +451,7 @@ def get_target_trial_index(experiment: Experiment) -> int | None:
     # takes into account the age of the trial, and consider more heavily weighting
     # long run trials.
     running_trials = [
-        checked_cast(BatchTrial, trial)
+        assert_is_instance(trial, BatchTrial)
         for trial in experiment.trials_by_status[TrialStatus.RUNNING]
     ]
     sorted_running_trials = _sort_trials(trials=running_trials, trials_are_running=True)
@@ -477,7 +474,7 @@ def get_target_trial_index(experiment: Experiment) -> int | None:
     # Priortiy 3: the longest running trial expecting data, discounting running trials
     # as we handled those above
     trials_expecting_data = [
-        checked_cast(BatchTrial, trial)
+        assert_is_instance(trial, BatchTrial)
         for trial in experiment.trials_expecting_data
         if trial.status != TrialStatus.RUNNING
     ]

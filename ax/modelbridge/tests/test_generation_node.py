@@ -30,7 +30,7 @@ from ax.modelbridge.generation_node_input_constructors import (
 )
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import Models
-from ax.modelbridge.transition_criterion import MaxTrials
+from ax.modelbridge.transition_criterion import MinTrials
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
@@ -299,23 +299,23 @@ class TestGenerationNode(TestCase):
                 self.mbm_model_spec,
             ],
             transition_criteria=[
-                MaxTrials(threshold=5, only_in_statuses=[TrialStatus.RUNNING])
+                MinTrials(threshold=5, only_in_statuses=[TrialStatus.RUNNING])
             ],
         )
         string_rep = str(node)
+
         self.assertEqual(
             string_rep,
-            (
-                "GenerationNode(model_specs=[ModelSpec(model_enum=BoTorch,"
-                " model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
-                " )], node_name=test, "
-                "transition_criteria=[MaxTrials({'threshold': 5, "
-                "'only_in_statuses': [<enum 'TrialStatus'>.RUNNING], "
-                "'not_in_statuses': None, 'transition_to': None, "
-                "'block_transition_if_unmet': True, 'block_gen_if_met': False, "
-                "'use_all_trials_in_exp': False, "
-                "'continue_trial_generation': False})])"
-            ),
+            "GenerationNode(model_specs=[ModelSpec(model_enum=BoTorch,"
+            " model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
+            " model_key_override=None)], node_name=test, "
+            "transition_criteria=[MinTrials({'threshold': 5, "
+            "'only_in_statuses': [<enum 'TrialStatus'>.RUNNING], "
+            "'not_in_statuses': None, 'transition_to': None, "
+            "'block_transition_if_unmet': True, 'block_gen_if_met': False, "
+            "'use_all_trials_in_exp': False, "
+            "'continue_trial_generation': False, "
+            "'count_only_trials_with_data': False})])",
         )
 
     def test_single_fixed_features(self) -> None:

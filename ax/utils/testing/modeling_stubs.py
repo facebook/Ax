@@ -41,7 +41,6 @@ from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
     IsSingleObjective,
     MaxGenerationParallelism,
-    MaxTrials,
     MinimumPreferenceOccurances,
     MinTrials,
 )
@@ -261,7 +260,7 @@ def sobol_gpei_generation_node_gs(
         )
 
     sobol_criterion = [
-        MaxTrials(
+        MinTrials(
             threshold=5,
             transition_to="MBM_node",
             block_gen_if_met=True,
@@ -272,7 +271,7 @@ def sobol_gpei_generation_node_gs(
     # self-transitioning for mbm criterion isn't representative of real-world, but is
     # useful for testing attributes likes repr etc
     mbm_criterion = [
-        MaxTrials(
+        MinTrials(
             threshold=2,
             transition_to="MBM_node",
             block_gen_if_met=True,
@@ -397,6 +396,50 @@ def sobol_gpei_generation_node_gs(
         steps=None,
     )
     return sobol_mbm_GS_nodes
+
+
+def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
+    return GenerationStrategy(
+        nodes=[
+            GenerationNode(
+                node_name="Sobol",
+                model_specs=[ModelSpec(model_enum=Models.SOBOL)],
+                transition_criteria=[
+                    MinTrials(
+                        threshold=1,
+                        transition_to="MBM",
+                    )
+                ],
+            ),
+            GenerationNode(
+                node_name="MBM",
+                model_specs=[
+                    ModelSpec(
+                        model_enum=Models.BOTORCH_MODULAR,
+                    ),
+                ],
+                transition_criteria=[
+                    MinTrials(
+                        threshold=1,
+                        transition_to="MTGP",
+                        only_in_statuses=[
+                            TrialStatus.RUNNING,
+                            TrialStatus.COMPLETED,
+                            TrialStatus.EARLY_STOPPED,
+                        ],
+                    )
+                ],
+            ),
+            GenerationNode(
+                node_name="MTGP",
+                model_specs=[
+                    ModelSpec(
+                        model_enum=Models.ST_MTGP,
+                    ),
+                ],
+            ),
+        ],
+    )
 
 
 def get_transform_type() -> type[Transform]:

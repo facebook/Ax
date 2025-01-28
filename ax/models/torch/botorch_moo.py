@@ -45,10 +45,9 @@ from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
@@ -330,7 +329,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 for objective_weights in objective_weights_list
             ]
             acquisition_function_list = [
-                checked_cast(AcquisitionFunction, acq_function)
+                assert_is_instance(acq_function, AcquisitionFunction)
                 for acq_function in acquisition_function_list
             ]
             # Multiple acquisition functions require a sequential optimizer
@@ -374,12 +373,14 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 X_pending=X_pending,
                 **acf_options,
             )
-            acquisition_function = checked_cast(
-                AcquisitionFunction, acquisition_function
+            acquisition_function = assert_is_instance(
+                acquisition_function, AcquisitionFunction
             )
             # pyre-ignore: [28]
             candidates, expected_acquisition_value = self.acqf_optimizer(
-                acq_function=checked_cast(AcquisitionFunction, acquisition_function),
+                acq_function=assert_is_instance(
+                    acquisition_function, AcquisitionFunction
+                ),
                 bounds=bounds_,
                 n=n,
                 inequality_constraints=_to_inequality_constraints(

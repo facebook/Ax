@@ -28,6 +28,7 @@ REQUIRES = [
     # Needed for compatibility with ipywidgets >= 8.0.0
     "plotly>=5.12.0",
     "pyre-extensions",
+    "sympy",
 ]
 
 # pytest-cov requires pytest >= 3.6

@@ -55,8 +55,11 @@ from pyre_extensions import none_throws
 from torch import Tensor
 
 
-MAX_CHOICES_ENUMERATE = 100_000  # For fully discrete search spaces.
-ALTERNATING_OPTIMIZER_THRESHOLD = 10  # For mixed search spaces.
+# For fully discrete search spaces.
+MAX_CHOICES_ENUMERATE = 100_000
+MAX_CARDINALITY_FOR_LOCAL_SEARCH = 100
+# For mixed search spaces.
+ALTERNATING_OPTIMIZER_THRESHOLD = 10
 
 logger: Logger = get_logger(__name__)
 
@@ -299,21 +302,35 @@ class Acquisition(Base):
         else:
             fully_discrete = len(discrete_choices) == len(ssd.feature_names)
             if fully_discrete:
+                # One of the three optimizers may be used depending on the number of
+                # discrete choices and the cardinality of individual parameters.
                 # If there are less than `MAX_CHOICES_ENUMERATE` choices, we will
-                # evaluate all of them and pick the best. Otherwise, we will use
-                # local search.
-                total_discrete_choices = reduce(
-                    operator.mul, [float(len(c)) for c in discrete_choices.values()]
-                )
+                # evaluate all of them and pick the best.
+                # If there are less than `MAX_CARDINALITY_FOR_LOCAL_SEARCH` choices
+                # for all parameters, if there are any categorical features, or if
+                # any of the parameters has non-integer valued choices, we will use
+                # local search.  Otherwise, we will use the mixed alternating optimizer,
+                # which may use continuous relaxation for the high cardinality
+                # parameters, while using local search for the remaining parameters.
+                cardinalities = [len(c) for c in discrete_choices.values()]
+                max_cardinality = max(cardinalities)
+                total_discrete_choices = reduce(operator.mul, cardinalities)
                 if total_discrete_choices > MAX_CHOICES_ENUMERATE:
-                    optimizer = "optimize_acqf_discrete_local_search"
+                    if (
+                        max_cardinality <= MAX_CARDINALITY_FOR_LOCAL_SEARCH
+                        or len(ssd.categorical_features) > 0
+                        or not all_ordinal_features_are_integer_valued(ssd=ssd)
+                    ):
+                        optimizer = "optimize_acqf_discrete_local_search"
+                    else:
+                        optimizer = "optimize_acqf_mixed_alternating"
                 else:
                     optimizer = "optimize_acqf_discrete"
-                    # `raw_samples` is not supported by `optimize_acqf_discrete`.
-                    # TODO[santorella]: Rather than manually removing it, we should
-                    # ensure that it is never passed.
+                    # `raw_samples` and `num_restarts` are not supported by
+                    # `optimize_acqf_discrete`.
                     if optimizer_options is not None:
                         optimizer_options.pop("raw_samples", None)
+                        optimizer_options.pop("num_restarts", None)
             else:
                 n_combos = math.prod([len(v) for v in discrete_choices.values()])
                 # If there are

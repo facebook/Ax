@@ -8,8 +8,9 @@
 
 import hashlib
 import json
+from collections.abc import Mapping
 
-from ax.core.types import TParameterization
+from ax.core.types import TParameterization, TParamValue
 from ax.utils.common.base import SortableBase
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.typeutils_nonnative import numpy_type_to_python_type
@@ -22,7 +23,9 @@ class Arm(SortableBase):
     encapsulates the parametrization needed by the unit.
     """
 
-    def __init__(self, parameters: TParameterization, name: str | None = None) -> None:
+    def __init__(
+        self, parameters: Mapping[str, TParamValue], name: str | None = None
+    ) -> None:
         """Inits Arm.
 
         Args:
@@ -73,7 +76,7 @@ class Arm(SortableBase):
         return self.md5hash(self.parameters)
 
     @staticmethod
-    def md5hash(parameters: TParameterization) -> str:
+    def md5hash(parameters: Mapping[str, TParamValue]) -> str:
         """Return unique identifier for arm's parameters.
 
         Args:
@@ -84,8 +87,9 @@ class Arm(SortableBase):
             Hash of arm's parameters.
 
         """
+        new_parameters = {}
         for k, v in parameters.items():
-            parameters[k] = numpy_type_to_python_type(v)
+            new_parameters[k] = numpy_type_to_python_type(v)
         parameters_str = json.dumps(parameters, sort_keys=True)
         return hashlib.md5(parameters_str.encode("utf-8")).hexdigest()
 
@@ -130,7 +134,7 @@ class Arm(SortableBase):
 
 
 def _numpy_types_to_python_types(
-    parameterization: TParameterization,
+    parameterization: Mapping[str, TParamValue],
 ) -> TParameterization:
     """If applicable, coerce values of the parameterization from Numpy int/float to
     Python int/float.

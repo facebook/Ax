@@ -12,7 +12,8 @@ from collections import defaultdict
 from collections.abc import Callable
 from copy import deepcopy
 from logging import Logger
-from typing import Any
+from typing import Any, Sequence
+from warnings import warn
 
 import numpy as np
 import numpy.typing as npt
@@ -119,7 +120,19 @@ class TorchModelBridge(ModelBridge):
         fit_on_init: bool = True,
         default_model_gen_options: TConfig | None = None,
     ) -> None:
-        self.dtype: torch.dtype = torch.double if torch_dtype is None else torch_dtype
+        # This warning is being added while we are on 0.4.3, so it will be
+        # released in 0.4.4 or 0.5.0. The `torch_dtype` argument can be removed
+        # in the subsequent minor version. It should also be removed from
+        # `TorchModelBridge` subclasses.
+        if torch_dtype is not None:
+            warn(
+                "The `torch_dtype` argument to `TorchModelBridge` is deprecated"
+                " and will be ignored; data will be in double precision.",
+                DeprecationWarning,
+            )
+
+        # Note: When `torch_dtype` is removed, this attribute can be removed
+        self.dtype: torch.dtype = torch.double
         self.device = torch_device
         # pyre-ignore [4]: Attribute `_default_model_gen_options` of class
         # `TorchModelBridge` must have a type that does not contain `Any`.
@@ -341,6 +354,7 @@ class TorchModelBridge(ModelBridge):
             Yvars,
             candidate_metadata_dict,
             any_candidate_metadata_is_not_none,
+            trial_indices,
         ) = self._extract_observation_data(
             observation_data, observation_features, parameters
         )
@@ -367,6 +381,9 @@ class TorchModelBridge(ModelBridge):
                 Yvar=Yvar,
                 feature_names=parameters,
                 outcome_names=[outcome],
+                group_indices=torch.tensor(trial_indices[outcome])
+                if trial_indices
+                else None,
             )
             datasets.append(dataset)
             candidate_metadata.append(candidate_metadata_dict[outcome])
@@ -654,7 +671,7 @@ class TorchModelBridge(ModelBridge):
         )
         # Fit
         self.model = model
-        self.model.fit(
+        none_throws(self.model).fit(
             datasets=datasets,
             search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
@@ -697,7 +714,7 @@ class TorchModelBridge(ModelBridge):
             torch_opt_config=torch_opt_config,
         )
 
-        gen_metadata = gen_results.gen_metadata
+        gen_metadata = dict(gen_results.gen_metadata)
         if (
             isinstance(optimization_config, MultiObjectiveOptimizationConfig)
             and gen_metadata.get("objective_thresholds", None) is not None
@@ -732,7 +749,9 @@ class TorchModelBridge(ModelBridge):
         best_obsf = None
         if xbest is not None:
             best_obsf = ObservationFeatures(
-                parameters={p: float(xbest[i]) for i, p in enumerate(self.parameters)}
+                parameters={
+                    p: float(x) for p, x in zip(self.parameters, xbest, strict=True)
+                }
             )
 
         return GenResults(
@@ -766,7 +785,7 @@ class TorchModelBridge(ModelBridge):
     def _array_to_observation_features(
         self,
         X: npt.NDArray,
-        candidate_metadata: list[TCandidateMetadata] | None,
+        candidate_metadata: Sequence[TCandidateMetadata] | None,
     ) -> list[ObservationFeatures]:
         return parse_observation_features(
             X=X, param_names=self.parameters, candidate_metadata=candidate_metadata
@@ -895,7 +914,9 @@ class TorchModelBridge(ModelBridge):
             )
         except (KeyError, TypeError):
             raise ValueError("Invalid formatting of observation data.")
-        X = self._transform_observation_features(observation_features)
+        X = self._transform_observation_features(
+            observation_features=observation_features
+        )
         return X, self._array_to_tensor(mean), self._array_to_tensor(cov)
 
     def _untransform_objective_thresholds(
@@ -969,6 +990,7 @@ class TorchModelBridge(ModelBridge):
         dict[str, list[Tensor]],
         dict[str, list[TCandidateMetadata]],
         bool,
+        dict[str, list[int]] | None,
     ]:
         """Extract observation features & data into tensors and metadata.
 
@@ -990,14 +1012,19 @@ class TorchModelBridge(ModelBridge):
                 observation tensors `Yvar`.
             - A dictionary mapping metric names to lists of corresponding metadata.
             - A boolean denoting whether any candidate metadata is not none.
+            - A dictionary mapping metric names to lists of corresponding trial indices,
+                or None if trial indices are not provided. This is used to support
+                learning-curve-based modeling.
         """
         Xs: dict[str, list[Tensor]] = defaultdict(list)
         Ys: dict[str, list[Tensor]] = defaultdict(list)
         Yvars: dict[str, list[Tensor]] = defaultdict(list)
         candidate_metadata_dict: dict[str, list[TCandidateMetadata]] = defaultdict(list)
         any_candidate_metadata_is_not_none = False
+        trial_indices: dict[str, list[int]] = defaultdict(list)
 
-        for obsd, obsf in zip(observation_data, observation_features):
+        at_least_one_trial_index_is_none = False
+        for obsd, obsf in zip(observation_data, observation_features, strict=True):
             try:
                 x = torch.tensor(
                     [obsf.parameters[p] for p in parameters],
@@ -1015,6 +1042,16 @@ class TorchModelBridge(ModelBridge):
                 if obsf.metadata is not None:
                     any_candidate_metadata_is_not_none = True
                 candidate_metadata_dict[metric_name].append(obsf.metadata)
+                trial_index = obsf.trial_index
+                if trial_index is not None:
+                    trial_indices[metric_name].append(trial_index)
+                else:
+                    at_least_one_trial_index_is_none = True
+        if len(trial_indices) > 0 and at_least_one_trial_index_is_none:
+            raise ValueError(
+                "Trial indices must be provided for all observation_features "
+                "or none of them."
+            )
 
         return (
             Xs,
@@ -1022,6 +1059,7 @@ class TorchModelBridge(ModelBridge):
             Yvars,
             candidate_metadata_dict,
             any_candidate_metadata_is_not_none,
+            trial_indices if len(trial_indices) > 0 else None,
         )
 
 

@@ -386,7 +386,7 @@ class ChoiceParameterTest(TestCase):
         ChoiceParameter(
             name="x",
             parameter_type=ParameterType.INT,
-            values=list(range(999)),  # pyre-ignore
+            values=list(range(999)),
         )
         with self.assertRaisesRegex(
             UserInputError,
@@ -396,7 +396,7 @@ class ChoiceParameterTest(TestCase):
             ChoiceParameter(
                 name="x",
                 parameter_type=ParameterType.INT,
-                values=list(range(1001)),  # pyre-ignore
+                values=list(range(1001)),
             )
 
     def test_Hierarchical(self) -> None:

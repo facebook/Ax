@@ -30,4 +30,4 @@ class MapMetric(Metric):
     """
 
     data_constructor: type[MapData] = MapData
-    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="steps", default_value=0.0)
+    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="step", default_value=0.0)

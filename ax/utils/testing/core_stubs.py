@@ -93,7 +93,6 @@ from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrateg
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.transition_criterion import (
     MaxGenerationParallelism,
-    MaxTrials,
     MinTrials,
     TrialBasedCriterion,
 )
@@ -108,7 +107,6 @@ from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import set_rng_seed
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.measurement.synthetic_functions import branin
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qExpectedImprovement
@@ -122,7 +120,7 @@ from gpytorch.kernels.rbf_kernel import RBFKernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -162,7 +160,7 @@ def get_experiment_with_map_data_type() -> Experiment:
 
 def get_trial_based_criterion() -> list[TrialBasedCriterion]:
     return [
-        MaxTrials(
+        MinTrials(
             threshold=3,
             only_in_statuses=[TrialStatus.RUNNING, TrialStatus.COMPLETED],
             not_in_statuses=None,
@@ -254,6 +252,7 @@ def get_branin_experiment(
     num_batch_trial: int = 1,
     with_completed_batch: bool = False,
     with_completed_trial: bool = False,
+    num_arms_per_trial: int = 15,
 ) -> Experiment:
     search_space = search_space or get_branin_search_space(
         with_fidelity_parameter=with_fidelity_parameter,
@@ -277,7 +276,7 @@ def get_branin_experiment(
     if with_batch or with_completed_batch:
         for _ in range(num_batch_trial):
             sobol_generator = get_sobol(search_space=exp.search_space)
-            sobol_run = sobol_generator.gen(n=15)
+            sobol_run = sobol_generator.gen(n=num_arms_per_trial)
             trial = exp.new_batch_trial(optimize_for_power=with_status_quo)
             trial.add_generator_run(sobol_run)
             if with_completed_batch:
@@ -371,12 +370,17 @@ def get_robust_branin_experiment(
     return exp
 
 
-def get_map_metric(name: str, rate: float | None = None) -> BraninTimestampMapMetric:
+def get_map_metric(
+    name: str,
+    rate: float | None = None,
+    decay_function_name: str = "exp_decay",
+) -> BraninTimestampMapMetric:
     return BraninTimestampMapMetric(
         name=name,
         param_names=["x1", "x2"],
         rate=rate,
         lower_is_better=True,
+        decay_function_name=decay_function_name,
     )
 
 
@@ -384,9 +388,14 @@ def get_branin_experiment_with_timestamp_map_metric(
     with_status_quo: bool = False,
     rate: float | None = None,
     map_tracking_metric: bool = False,
+    decay_function_name: str = "exp_decay",
 ) -> Experiment:
     tracking_metric = (
-        get_map_metric(name="tracking_branin_map", rate=rate)
+        get_map_metric(
+            name="tracking_branin_map",
+            rate=rate,
+            decay_function_name=decay_function_name,
+        )
         if map_tracking_metric
         else BraninMetric(name="branin", param_names=["x1", "x2"], lower_is_better=True)
     )
@@ -395,7 +404,12 @@ def get_branin_experiment_with_timestamp_map_metric(
         search_space=get_branin_search_space(),
         optimization_config=OptimizationConfig(
             objective=Objective(
-                metric=get_map_metric(name="branin_map", rate=rate), minimize=True
+                metric=get_map_metric(
+                    name="branin_map",
+                    rate=rate,
+                    decay_function_name=decay_function_name,
+                ),
+                minimize=True,
             )
         ),
         tracking_metrics=[tracking_metric],
@@ -850,8 +864,6 @@ def get_high_dimensional_branin_experiment(
     with_batch: bool = False, with_status_quo: bool = False
 ) -> Experiment:
     search_space = SearchSpace(
-        # pyre-fixme[6]: In call `SearchSpace.__init__`, for 1st parameter `parameters`
-        # expected `List[Parameter]` but got `List[RangeParameter]`.
         parameters=[
             RangeParameter(
                 name=f"x{i}",
@@ -888,7 +900,6 @@ def get_high_dimensional_branin_experiment(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
-        # pyre-fixme[6]: expects a union type for val instead of defined {str: float}
         status_quo=Arm(sq_parameters) if with_status_quo else None,
     )
     if with_batch:
@@ -1022,7 +1033,7 @@ def get_large_ordinal_search_space(
     n_continuous_range_parameters: int,
 ) -> SearchSpace:
     return SearchSpace(
-        parameters=[  # pyre-ignore[6]
+        parameters=[
             RangeParameter(
                 name=f"x{i}",
                 parameter_type=ParameterType.FLOAT,
@@ -1073,12 +1084,14 @@ def get_search_space_for_range_value(min: float = 3.0, max: float = 6.0) -> Sear
 
 
 def get_search_space_for_range_values(
-    min: float = 3.0, max: float = 6.0
+    min: float = 3.0, max: float = 6.0, parameter_names: list[str] | None = None
 ) -> SearchSpace:
+    if parameter_names is None:
+        parameter_names = ["x", "y"]
     return SearchSpace(
         [
-            RangeParameter("x", ParameterType.FLOAT, min, max),
-            RangeParameter("y", ParameterType.FLOAT, min, max),
+            RangeParameter(name, ParameterType.FLOAT, min, max)
+            for name in parameter_names
         ]
     )
 
@@ -1112,7 +1125,7 @@ def get_search_space_with_choice_parameters(
             ChoiceParameter(
                 name=f"ordered_{i}",
                 parameter_type=ParameterType.INT,
-                values=list(range(10)),  # pyre-ignore
+                values=list(range(10)),
                 is_ordered=True,
             )
         )
@@ -1120,7 +1133,7 @@ def get_search_space_with_choice_parameters(
         ChoiceParameter(
             name="unordered",
             parameter_type=ParameterType.INT,
-            values=list(range(num_unordered_choices)),  # pyre-ignore
+            values=list(range(num_unordered_choices)),
             is_ordered=False,
         )
     )
@@ -1399,6 +1412,8 @@ def get_choice_parameter() -> ChoiceParameter:
         # parameter `values` to call
         # `ax.core.parameter.ChoiceParameter.__init__` but got `List[str]`.
         values=["foo", "bar", "baz"],
+        sort_values=False,
+        is_ordered=False,
     )
 
 
@@ -2012,7 +2027,7 @@ def get_branin_data(
             {
                 "trial_index": trial.index,
                 "metric_name": "branin",
-                "arm_name": none_throws(checked_cast(Trial, trial).arm).name,
+                "arm_name": none_throws(assert_is_instance(trial, Trial).arm).name,
                 "mean": branin(
                     float(none_throws(none_throws(trial.arm).parameters["x1"])),
                     float(none_throws(none_throws(trial.arm).parameters["x2"])),
@@ -2137,7 +2152,6 @@ def get_or_early_stopping_strategy() -> OrEarlyStoppingStrategy:
 class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def __init__(self, early_stop_trials: dict[int, str | None] | None = None) -> None:
         self.early_stop_trials: dict[int, str | None] = early_stop_trials or {}
-        self.seconds_between_polls = 1
 
     def should_stop_trials_early(
         self,
@@ -2417,7 +2431,7 @@ def get_online_sobol_mbm_generation_strategy(
     # TODO: @mgarrard make this more realistic of an actual online gs
     step_model_kwargs = {"silently_filter_kwargs": True}
     sobol_criterion = [
-        MaxTrials(
+        MinTrials(
             threshold=1,
             transition_to="MBM_node",
             block_gen_if_met=True,

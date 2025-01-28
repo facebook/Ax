@@ -9,7 +9,11 @@
 from unittest.mock import patch
 
 import numpy as np
-from ax.benchmark.benchmark import benchmark_replication, get_benchmark_runner
+from ax.benchmark.benchmark import (
+    benchmark_replication,
+    get_benchmark_runner,
+    get_benchmark_scheduler_options,
+)
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
@@ -136,7 +140,7 @@ class TestMethods(TestCase):
         scheduler = Scheduler(
             experiment=experiment,
             generation_strategy=method.generation_strategy.clone_reset(),
-            options=method.scheduler_options,
+            options=get_benchmark_scheduler_options(method=method),
         )
 
         with with_rng_seed(seed=0):

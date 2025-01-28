@@ -12,73 +12,28 @@ import torch
 from ax.analysis.analysis import AnalysisCardLevel
 from ax.analysis.plotly.arm_effects.predicted_effects import PredictedEffectsPlot
 from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
-from ax.core.base_trial import TrialStatus
 from ax.core.observation import ObservationFeatures
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.prediction_utils import predict_at_point
 from ax.modelbridge.registry import Models
-from ax.modelbridge.transition_criterion import MaxTrials
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_metric,
     get_branin_outcome_constraint,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.modeling_stubs import get_sobol_MBM_MTGP_gs
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestPredictedEffectsPlot(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.generation_strategy = GenerationStrategy(
-            nodes=[
-                GenerationNode(
-                    node_name="Sobol",
-                    model_specs=[ModelSpec(model_enum=Models.SOBOL)],
-                    transition_criteria=[
-                        MaxTrials(
-                            threshold=1,
-                            transition_to="MBM",
-                        )
-                    ],
-                ),
-                GenerationNode(
-                    node_name="MBM",
-                    model_specs=[
-                        ModelSpec(
-                            model_enum=Models.BOTORCH_MODULAR,
-                        ),
-                    ],
-                    transition_criteria=[
-                        MaxTrials(
-                            threshold=1,
-                            transition_to="MTGP",
-                            only_in_statuses=[
-                                TrialStatus.RUNNING,
-                                TrialStatus.COMPLETED,
-                                TrialStatus.EARLY_STOPPED,
-                            ],
-                        )
-                    ],
-                ),
-                GenerationNode(
-                    node_name="MTGP",
-                    model_specs=[
-                        ModelSpec(
-                            model_enum=Models.ST_MTGP,
-                        ),
-                    ],
-                ),
-            ],
-        )
+        self.generation_strategy = get_sobol_MBM_MTGP_gs()
 
     def test_compute_for_requires_an_exp(self) -> None:
         analysis = PredictedEffectsPlot(metric_name="branin")
@@ -128,7 +83,7 @@ class TestPredictedEffectsPlot(TestCase):
         experiment.add_tracking_metric(get_branin_metric(name="tracking_branin"))
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).set_status_quo_with_weight(
@@ -136,7 +91,7 @@ class TestPredictedEffectsPlot(TestCase):
         ).mark_completed(unsafe=True)
         experiment.fetch_data()
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
@@ -192,32 +147,78 @@ class TestPredictedEffectsPlot(TestCase):
                         self.assertIn(arm.name, card.df["arm_name"].unique())
 
     @mock_botorch_optimize
+    def test_it_does_not_plot_abandoned_arms(self) -> None:
+        # GIVEN an experiment with candidate and abandoned arms
+        # in the completed and candidate trials
+        experiment = get_branin_experiment(with_status_quo=True)
+        generation_strategy = self.generation_strategy
+        completed_trial = experiment.new_batch_trial(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
+        ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
+        completed_trial.mark_arm_abandoned(
+            arm_name="0_0", reason="This arm is bad, I'm abandoning it"
+        )
+        completed_trial.mark_completed(unsafe=True)
+        experiment.fetch_data()
+        candidate_trial = experiment.new_batch_trial(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
+        ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
+        candidate_trial.mark_arm_abandoned(
+            arm_name="1_0", reason="This arm is bad, I'm abandoning it"
+        )
+        # WHEN we compute the analysis
+        analysis = PredictedEffectsPlot(
+            metric_name=none_throws(
+                experiment.optimization_config
+            ).objective.metric.name
+        )
+        card = analysis.compute(
+            experiment=experiment, generation_strategy=generation_strategy
+        )
+        # THEN it has the right arms
+        plotted_arm_names = set(card.df["arm_name"].unique())
+        for trial in experiment.trials.values():
+            for arm in trial.arms:
+                if arm.name in ("0_0", "1_0"):
+                    self.assertNotIn(arm.name, plotted_arm_names)
+                else:
+                    self.assertIn(arm.name, plotted_arm_names)
+
+    @mock_botorch_optimize
     def test_compute_multitask(self) -> None:
         # GIVEN an experiment with candidates generated with a multitask model
         experiment = get_branin_experiment(with_status_quo=True)
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1
         ).mark_completed(unsafe=True)
         experiment.fetch_data()
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1
         ).mark_completed(unsafe=True)
         experiment.fetch_data()
         # leave as a candidate
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment,
                 n=10,
                 fixed_features=ObservationFeatures(parameters={}, trial_index=1),
             )
         ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1)
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment,
                 n=10,
                 fixed_features=ObservationFeatures(parameters={}, trial_index=1),
@@ -268,15 +269,21 @@ class TestPredictedEffectsPlot(TestCase):
         experiment = get_branin_experiment()
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).mark_completed(unsafe=True)
         experiment.fetch_data()
         # candidate trial
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         )
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).mark_abandoned()
         arms_with_data = set(experiment.lookup_data().df["arm_name"].unique())
         # WHEN we compute the analysis
@@ -312,9 +319,10 @@ class TestPredictedEffectsPlot(TestCase):
         last_model_key = sobol_key
         while last_model_key == sobol_key:
             trial = experiment.new_trial(
-                generator_run=generation_strategy.gen(
-                    experiment=experiment, n=1, pending_observation=True
-                )
+                generator_run=generation_strategy._gen_with_multiple_nodes(
+                    experiment=experiment,
+                    n=1,
+                )[0]
             )
             last_model_key = none_throws(trial.generator_run)._model_key
             if last_model_key == sobol_key:
@@ -331,7 +339,7 @@ class TestPredictedEffectsPlot(TestCase):
         # THEN it has all arms represented in the dataframe
         for trial in experiment.trials.values():
             self.assertIn(
-                none_throws(checked_cast(Trial, trial).arm).name,
+                none_throws(assert_is_instance(trial, Trial).arm).name,
                 card.df["arm_name"].unique(),
             )
 
@@ -345,13 +353,17 @@ class TestPredictedEffectsPlot(TestCase):
         ]
         generation_strategy = self.generation_strategy
         trial = experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10),
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            ),
         )
         trial.set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
         trial.mark_completed(unsafe=True)
         experiment.fetch_data()
         trial = experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10),
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            ),
         )
         trial.set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
         # WHEN we compute the analysis and constraints are violated

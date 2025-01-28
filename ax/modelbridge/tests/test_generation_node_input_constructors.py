@@ -42,7 +42,6 @@ EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS = [
     inspect.Parameter(
         name="gs_gen_call_kwargs",
         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        # pyre-fixme[16]: `dict` has no attr. `__getitem__`
         annotation=dict[str, Any],
     ),
     inspect.Parameter(
@@ -113,7 +112,6 @@ class TestGenerationNodeInputConstructors(TestCase):
                     untested_constructors.remove(constructor)
 
         # There should be no untested constructors left.
-        print(untested_constructors)
         self.assertEqual(len(untested_constructors), 0)
 
     def test_consume_all_n_constructor(self) -> None:
@@ -657,8 +655,6 @@ class TestInstantiationFromNodeInputConstructor(TestCase):
                     func_parameters["previous_node"], GenerationNode | None
                 )
                 self.assertEqual(func_parameters["next_node"], GenerationNode)
-                # pyre-ignore [16]: Undefined attribute [16]: `dict` has no attribute
-                # `__getitem__`.¸
                 self.assertEqual(func_parameters["gs_gen_call_kwargs"], dict[str, Any])
                 self.assertEqual(func_parameters["experiment"], Experiment)
                 self.assertEqual(method_signature, inspect.signature(constructor))

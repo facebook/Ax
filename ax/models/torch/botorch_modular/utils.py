@@ -20,14 +20,13 @@ from ax.models.torch_base import TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
-from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
+from botorch.models.fully_bayesian import FullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
@@ -39,11 +38,12 @@ from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.transforms import is_fully_bayesian
+from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.likelihoods import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
@@ -64,7 +64,6 @@ class ModelConfig:
             Note that the corresponding attribute will later be updated to include any
             additional kwargs passed into ``BoTorchModel.fit``.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
-            This argument is deprecated in favor of model_configs.
         mll_options: Dictionary of options / kwargs for the MLL.
         outcome_transform_classes: List of BoTorch outcome transforms classes. Passed
             down to the BoTorch ``Model``. Multiple outcome transforms can be chained
@@ -81,6 +80,9 @@ class ModelConfig:
         input_transform_classes: List of BoTorch input transforms classes.
             Passed down to the BoTorch ``Model``. Multiple input transforms
             will be chained together using ``ChainedInputTransform``.
+            If `DEFAULT`, a default set of input transforms may be constructed
+            based on the search space digest (in `_construct_default_input_transforms`).
+            To disable this behavior, pass in `input_transform_classes=None`.
         input_transform_options: Input transform classes kwargs. The keys are
             class string names and the values are dictionaries of input transform
             kwargs. For example,
@@ -108,7 +110,7 @@ class ModelConfig:
     model_options: dict[str, Any] = field(default_factory=dict)
     mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood
     mll_options: dict[str, Any] = field(default_factory=dict)
-    input_transform_classes: list[type[InputTransform]] | None = None
+    input_transform_classes: list[type[InputTransform]] | _DefaultType | None = DEFAULT
     input_transform_options: dict[str, dict[str, Any]] | None = field(
         default_factory=dict
     )
@@ -147,7 +149,7 @@ def use_model_list(
         botorch_model_class = (
             model_configs[0].botorch_model_class or botorch_model_class
         )
-    if issubclass(botorch_model_class, SaasFullyBayesianSingleTaskGP):
+    if issubclass(botorch_model_class, FullyBayesianSingleTaskGP):
         # SAAS models do not support multiple outcomes.
         # Use model list if there are multiple outcomes.
         return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
@@ -259,13 +261,17 @@ def construct_acquisition_and_optimizer_options(
 
     if model_gen_options:
         acq_options.update(
-            checked_cast(dict, model_gen_options.get(Keys.ACQF_KWARGS, {}))
+            assert_is_instance(
+                model_gen_options.get(Keys.ACQF_KWARGS, {}),
+                dict,
+            )
         )
         # TODO: Add this if all acq. functions accept the `subset_model`
         # kwarg or opt for kwarg filtering.
         # acq_options[SUBSET_MODEL] = model_gen_options.get(SUBSET_MODEL)
-        opt_options = checked_cast(
-            dict, model_gen_options.get(Keys.OPTIMIZER_KWARGS, {})
+        opt_options = assert_is_instance(
+            model_gen_options.get(Keys.OPTIMIZER_KWARGS, {}),
+            dict,
         ).copy()
     return acq_options, opt_options
 

@@ -49,6 +49,15 @@ Scheduler
 Utils
 -----
 
+Analysis
+~~~~~~~~
+
+.. automodule:: ax.service.utils.analysis_base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Best Point Identification
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -59,6 +68,12 @@ Best Point Identification
 
 
 .. automodule:: ax.service.utils.best_point
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+.. automodule:: ax.service.utils.best_point_utils
     :members:
     :undoc-members:
     :show-inheritance:

@@ -67,7 +67,7 @@ class SearchSpace(Base):
 
     def __init__(
         self,
-        parameters: list[Parameter],
+        parameters: Sequence[Parameter],
         parameter_constraints: list[ParameterConstraint] | None = None,
     ) -> None:
         """Initialize SearchSpace
@@ -176,9 +176,7 @@ class SearchSpace(Base):
         self._parameters[parameter.name] = parameter
 
     def check_all_parameters_present(
-        self,
-        parameterization: TParameterization,
-        raise_error: bool = False,
+        self, parameterization: Mapping[str, TParamValue], raise_error: bool = False
     ) -> bool:
         """Whether a given parameterization contains all the parameters in the
         search space.
@@ -204,7 +202,7 @@ class SearchSpace(Base):
 
     def check_membership(
         self,
-        parameterization: TParameterization,
+        parameterization: Mapping[str, TParamValue],
         raise_error: bool = False,
         check_all_parameters_present: bool = True,
     ) -> bool:
@@ -567,7 +565,7 @@ class HierarchicalSearchSpace(SearchSpace):
 
     def check_membership(
         self,
-        parameterization: TParameterization,
+        parameterization: Mapping[str, TParamValue],
         raise_error: bool = False,
         check_all_parameters_present: bool = True,
     ) -> bool:
@@ -673,7 +671,7 @@ class HierarchicalSearchSpace(SearchSpace):
 
     def _cast_parameterization(
         self,
-        parameters: TParameterization,
+        parameters: Mapping[str, TParamValue],
         check_all_parameters_present: bool = True,
     ) -> TParameterization:
         """Cast parameterization (of an arm, observation features, etc.) to the

@@ -294,37 +294,18 @@ class TestSebo(TestCase):
         acquisition2.optimize(
             n=2,
             search_space_digest=self.search_space_digest,
-            # does not support in homotopy now
-            # inequality_constraints=self.inequality_constraints,
+            inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
             rounding_func=self.rounding_func,
             optimizer_options=self.optimizer_options,
         )
-        args, kwargs = mock_optimize_acqf_homotopy.call_args
+        _args, kwargs = mock_optimize_acqf_homotopy.call_args
         self.assertEqual(kwargs["acq_function"], acquisition2.acqf)
         self.assertEqual(kwargs["q"], 2)
+        self.assertEqual(kwargs["inequality_constraints"], self.inequality_constraints)
         self.assertEqual(kwargs["post_processing_func"], self.rounding_func)
         self.assertEqual(kwargs["num_restarts"], self.optimizer_options["num_restarts"])
         self.assertEqual(kwargs["raw_samples"], self.optimizer_options["raw_samples"])
-
-        # assert error raise with inequality_constraints input
-        acquisition = self.get_acquisition_function(
-            fixed_features=self.fixed_features,
-            options={"penalty": "L0_norm", "target_point": self.target_point},
-        )
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "Homotopy does not support optimization with inequality "
-            "constraints. Use L1 penalty norm instead.",
-        ):
-            acquisition.optimize(
-                n=2,
-                search_space_digest=self.search_space_digest,
-                inequality_constraints=self.inequality_constraints,
-                fixed_features=self.fixed_features,
-                rounding_func=self.rounding_func,
-                optimizer_options=self.optimizer_options,
-            )
 
     def test_optimization_result(self) -> None:
         acquisition = self.get_acquisition_function(
@@ -399,3 +380,43 @@ class TestSebo(TestCase):
         self.assertEqual(batch_initial_conditions.shape, torch.Size([3, 1, 3]))
         self.assertTrue(torch.all(batch_initial_conditions[:1] != 0.5))
         self.assertTrue(torch.all(batch_initial_conditions[1:, :, 1] == 0.5))
+
+    @mock.patch(f"{SEBOACQUISITION_PATH}.optimize_acqf_homotopy")
+    @mock.patch(
+        f"{SEBOACQUISITION_PATH}.get_batch_initial_conditions",
+        wraps=get_batch_initial_conditions,
+    )
+    def test_optimize_with_provided_batch_initial_conditions(
+        self, mock_get_batch_initial_conditions: Mock, mock_optimize_acqf_homotopy: Mock
+    ) -> None:
+        mock_optimize_acqf_homotopy.return_value = (
+            torch.tensor([[0.1, 0.1, 0.1]], dtype=torch.double),
+            torch.tensor([1.0], dtype=torch.double),
+        )
+
+        # Create batch initial conditions
+        batch_ics = torch.rand(3, 1, 3, dtype=torch.double)
+
+        acquisition = self.get_acquisition_function(
+            options={
+                "target_point": self.target_point,
+                "penalty": "L0_norm",
+            },
+        )
+
+        acquisition.optimize(
+            n=1,
+            search_space_digest=self.search_space_digest,
+            optimizer_options={
+                "batch_initial_conditions": batch_ics,
+                Keys.NUM_RESTARTS: 3,
+                Keys.RAW_SAMPLES: 32,
+            },
+        )
+
+        # Verify get_batch_initial_conditions was not called
+        mock_get_batch_initial_conditions.assert_not_called()
+
+        # Verify the batch_initial_conditions were passed to optimize_acqf_homotopy
+        call_kwargs = mock_optimize_acqf_homotopy.call_args[1]
+        self.assertTrue(torch.equal(call_kwargs["batch_initial_conditions"], batch_ics))

@@ -27,8 +27,7 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 TBaseData = TypeVar("TBaseData", bound="BaseData")
 DF_REPR_MAX_LENGTH = 1000
@@ -75,17 +74,23 @@ class BaseData(Base, SerializationMixin):
         self: TBaseData,
         df: pd.DataFrame | None = None,
         description: str | None = None,
+        _skip_ordering_and_validation: bool = False,
     ) -> None:
-        """Init Data.
+        """Initialize a ``Data`` object from the given DataFrame.
 
         Args:
             df: DataFrame with underlying data, and required columns.
             description: Human-readable description of data.
-
+            _skip_ordering_and_validation: If True, uses the given DataFrame
+                as is, without ordering its columns or validating its contents.
+                Intended only for use in `Data.filter`, where the contents
+                of the DataFrame are known to be ordered and valid.
         """
-        # Initialize with barebones DF.
         if df is None:
+            # Initialize with barebones DF.
             self._df = pd.DataFrame(columns=list(self.required_columns()))
+        elif _skip_ordering_and_validation:
+            self._df = df
         else:
             columns = set(df.columns)
             missing_columns = self.required_columns() - columns
@@ -142,7 +147,7 @@ class BaseData(Base, SerializationMixin):
             and coltype is not Any
         }
 
-        return checked_cast(pd.DataFrame, df.astype(dtype=dtype))
+        return assert_is_instance(df.astype(dtype=dtype), pd.DataFrame)
 
     @classmethod
     def required_columns(cls) -> set[str]:
@@ -188,8 +193,10 @@ class BaseData(Base, SerializationMixin):
         """Serialize the class-dependent properties needed to initialize this Data.
         Used for storage and to help construct new similar Data.
         """
-        data = checked_cast(cls, obj)
-        return serialize_init_args(obj=data)
+        data = assert_is_instance(obj, cls)
+        return serialize_init_args(
+            obj=data, exclude_fields=["_skip_ordering_and_validation"]
+        )
 
     @classmethod
     def deserialize_init_args(
@@ -493,34 +500,15 @@ class Data(BaseData):
         """
 
         return self.__class__(
-            df=self._filter_df(
+            df=_filter_df(
                 df=self.df, trial_indices=trial_indices, metric_names=metric_names
-            )
+            ),
+            _skip_ordering_and_validation=True,
         )
 
-    @staticmethod
-    def _filter_df(
-        df: pd.DataFrame,
-        trial_indices: Iterable[int] | None = None,
-        metric_names: Iterable[str] | None = None,
-    ) -> pd.DataFrame:
-        trial_indices_mask = (
-            df["trial_index"].isin(trial_indices)
-            if trial_indices is not None
-            else pd.Series([True] * len(df))
-        )
-
-        metric_names_mask = (
-            df["metric_name"].isin(metric_names)
-            if metric_names is not None
-            else pd.Series([True] * len(df))
-        )
-
-        return df.loc[trial_indices_mask & metric_names_mask]
-
-    @staticmethod
+    @classmethod
     def from_multiple_data(
-        data: Iterable[Data], subset_metrics: Iterable[str] | None = None
+        cls, data: Iterable[Data], subset_metrics: Iterable[str] | None = None
     ) -> Data:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
@@ -531,7 +519,7 @@ class Data(BaseData):
                 metrics, names of which appear in this iterable,
                 in the underlying dataframe.
         """
-        data_out = Data.from_multiple(data=data)
+        data_out = cls.from_multiple(data=data)
         if len(data_out.df.index) == 0:
             return data_out
         if subset_metrics:
@@ -615,3 +603,26 @@ def custom_data_class(
             )
 
     return CustomData
+
+
+def _filter_df(
+    df: pd.DataFrame,
+    trial_indices: Iterable[int] | None = None,
+    metric_names: Iterable[str] | None = None,
+) -> pd.DataFrame:
+    """Filter rows of a dataframe by trial indices and metric names."""
+    if trial_indices is not None:
+        # Trial indices is not None, metric names is not yet known.
+        trial_indices_mask = df["trial_index"].isin(trial_indices)
+        if metric_names is None:
+            # If metric names is None, we can filter & return.
+            return df.loc[trial_indices_mask]
+        # Both are given, filter by both.
+        metric_names_mask = df["metric_name"].isin(metric_names)
+        return df.loc[trial_indices_mask & metric_names_mask]
+    if metric_names is not None:
+        # Trial indices is None, metric names is not None.
+        metric_names_mask = df["metric_name"].isin(metric_names)
+        return df.loc[metric_names_mask]
+    # Both are None, return the dataframe as is.
+    return df

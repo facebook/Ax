@@ -5,8 +5,10 @@
 
 # pyre-strict
 
+import logging
 import tempfile
 from itertools import product
+from logging import WARNING
 from math import pi
 from time import monotonic
 from unittest.mock import patch
@@ -17,15 +19,29 @@ from ax.benchmark.benchmark import (
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
+    compute_baseline_value_from_sobol,
+    compute_score_trace,
+    get_benchmark_scheduler_options,
     get_oracle_experiment_from_experiment,
     get_oracle_experiment_from_params,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_problem import create_problem_from_botorch
+from ax.benchmark.benchmark_problem import (
+    create_problem_from_botorch,
+    get_moo_opt_config,
+    get_soo_opt_config,
+)
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
-from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
-from ax.benchmark.methods.sobol import get_sobol_benchmark_method
+from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
+from ax.benchmark.methods.modular_botorch import (
+    get_sobol_botorch_modular_acquisition,
+    get_sobol_mbm_generation_strategy,
+)
+from ax.benchmark.methods.sobol import (
+    get_sobol_benchmark_method,
+    get_sobol_generation_strategy,
+)
 from ax.benchmark.problems.registry import get_problem
 from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -35,13 +51,16 @@ from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
+from ax.service.utils.scheduler_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
+from ax.utils.common.logger import get_logger
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_async_benchmark_method,
     get_async_benchmark_problem,
+    get_discrete_search_space,
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
@@ -85,13 +104,15 @@ class TestBenchmark(TestCase):
                     },
                     num_sobol_trials=1,
                 )
-                # this is generating more calls to optimize_acqf than expected
                 with patch(
                     "ax.models.torch.botorch_modular.acquisition.optimize_acqf",
                     wraps=optimize_acqf,
                 ) as mock_optimize_acqf:
                     benchmark_one_method_problem(
-                        problem=problem, method=batch_method_joint, seeds=[0]
+                        problem=problem,
+                        method=batch_method_joint,
+                        seeds=[0],
+                        scheduler_logging_level=WARNING,
                     )
                 mock_optimize_acqf.assert_called_once()
                 self.assertEqual(
@@ -99,12 +120,12 @@ class TestBenchmark(TestCase):
                 )
                 self.assertEqual(mock_optimize_acqf.call_args.kwargs["q"], batch_size)
 
-    def test_storage(self) -> None:
-        problem = get_async_benchmark_problem(
-            map_data=False, trial_runtime_func=lambda _: 3
-        )
+    def _test_storage(self, map_data: bool) -> None:
+        problem = get_async_benchmark_problem(map_data=map_data)
         method = get_async_benchmark_method()
-        res = benchmark_replication(problem=problem, method=method, seed=0)
+        res = benchmark_replication(
+            problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
+        )
         # Experiment is not in storage yet
         self.assertTrue(res.experiment is not None)
         self.assertEqual(res.experiment_storage_id, None)
@@ -121,6 +142,10 @@ class TestBenchmark(TestCase):
             # load it back
             experiment = load_experiment(f.name)
             self.assertEqual(experiment, experiment)
+
+    def test_storage(self) -> None:
+        self._test_storage(map_data=False)
+        self._test_storage(map_data=True)
 
     def test_benchmark_result_invalid_inputs(self) -> None:
         """
@@ -162,7 +187,9 @@ class TestBenchmark(TestCase):
             get_problem("jenatton", num_trials=6),
         ]
         for problem in problems:
-            res = benchmark_replication(problem=problem, method=method, seed=0)
+            res = benchmark_replication(
+                problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
+            )
 
             self.assertEqual(
                 problem.num_trials, len(none_throws(res.experiment).trials)
@@ -176,6 +203,31 @@ class TestBenchmark(TestCase):
                 experiment.optimization_config, problem.optimization_config
             )
 
+    def test_compute_score_trace(self) -> None:
+        opt_trace = np.array([1, 0, -1, 2, float("nan"), 4])
+
+        with self.subTest("Higher is better"):
+            optimal_value = 5
+            baseline_value = 1
+            expected_trace = np.array([0, -25, -50, 25, float("nan"), 75.0])
+            trace = compute_score_trace(
+                optimization_trace=opt_trace,
+                baseline_value=baseline_value,
+                optimal_value=optimal_value,
+            )
+            self.assertTrue(np.array_equal(trace, expected_trace, equal_nan=True))
+
+        with self.subTest("Lower is better"):
+            optimal_value = -1
+            baseline_value = 0
+            expected_trace = np.array([-100, 0, 100, -200, float("nan"), -400])
+            trace = compute_score_trace(
+                optimization_trace=opt_trace,
+                baseline_value=baseline_value,
+                optimal_value=optimal_value,
+            )
+            self.assertTrue(np.array_equal(trace, expected_trace, equal_nan=True))
+
     def test_replication_sobol_surrogate(self) -> None:
         method = get_sobol_benchmark_method(distribute_replications=False)
 
@@ -188,7 +240,12 @@ class TestBenchmark(TestCase):
             ("moo", get_moo_surrogate()),
         ]:
             with self.subTest(name, problem=problem):
-                res = benchmark_replication(problem=problem, method=method, seed=0)
+                res = benchmark_replication(
+                    problem=problem,
+                    method=method,
+                    seed=0,
+                    scheduler_logging_level=WARNING,
+                )
 
                 self.assertEqual(
                     problem.num_trials,
@@ -209,9 +266,8 @@ class TestBenchmark(TestCase):
         order.
 
         Args:
-            map_data: If True, the test function produces time-series data of
-                length 30, but not nearly so many points are observed because
-                the trials stop sooner than that.
+            map_data: If True, the test function produces time-series data with
+                just one step, so behavior is the same as when map_data=False.
         """
         method = get_async_benchmark_method()
 
@@ -221,12 +277,12 @@ class TestBenchmark(TestCase):
             2: 3,
             3: 1,
         }
-        trial_runtime_funcs = {
-            "All complete at different times": lambda trial: trial.index * 3,
-            "Trials complete immediately": lambda trial: 0,
-            "Trials complete at same time": lambda trial: 1,
-            "Complete out of order": lambda trial: complete_out_of_order_runtimes[
-                trial.index
+        step_runtime_fns = {
+            "All complete at different times": lambda params: params["x0"] * 3,
+            "Trials complete immediately": lambda params: 0,
+            "Trials complete at same time": lambda params: 1,
+            "Complete out of order": lambda params: complete_out_of_order_runtimes[
+                params["x0"]
             ],
         }
 
@@ -250,7 +306,7 @@ class TestBenchmark(TestCase):
             # same effect as completing after 1 second (third case), because a
             # new trial can't start until the next time increment.
             # With MapData, trials complete at the same times as without
-            # MapData, but an extra epoch accrues in the third case.
+            # MapData, but an extra step accrues in the third case.
             "Trials complete at same time": [0, 0, 1, 1],
             "Complete out of order": [0, 0, 1, 2],
         }
@@ -271,12 +327,11 @@ class TestBenchmark(TestCase):
             "Complete out of order": [1, 1, 3, 3],
         }
 
-        for case_name, trial_runtime_func in trial_runtime_funcs.items():
-            with self.subTest(case_name, trial_runtime_func=trial_runtime_func):
+        for case_name, step_runtime_fn in step_runtime_fns.items():
+            with self.subTest(case_name, step_runtime_fn=step_runtime_fn):
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
-                    trial_runtime_func=trial_runtime_func,
-                    n_time_intervals=30 if map_data else 1,
+                    step_runtime_fn=step_runtime_fn,
                 )
 
                 with mock_patch_method_original(
@@ -290,6 +345,7 @@ class TestBenchmark(TestCase):
                         method=method,
                         seed=0,
                         strip_runner_before_saving=False,
+                        scheduler_logging_level=WARNING,
                     )
                 pending_in_each_gen = [
                     [
@@ -315,8 +371,9 @@ class TestBenchmark(TestCase):
                     expected_start_times[case_name]
                 ):
                     trial = experiment.trials[trial_index]
-                    self.assertEqual(trial.index, trial.arms[0].parameters["x0"])
-                    expected_runtime = trial_runtime_func(trial)
+                    params = trial.arms[0].parameters
+                    self.assertEqual(trial.index, params["x0"])
+                    expected_runtime = step_runtime_fn(params=params)
                     self.assertEqual(
                         backend_simulator.get_sim_trial_by_index(
                             trial_index=trial_index
@@ -338,16 +395,8 @@ class TestBenchmark(TestCase):
                 )
                 if map_data:
                     data = assert_is_instance(experiment.lookup_data(), MapData)
-                    self.assertEqual(len(data.df), 4)
-                    expected_map_df_length = sum(
-                        (
-                            trial_runtime_func(trial) + 1
-                            for trial in experiment.trials.values()
-                        )
-                    )
-                    self.assertEqual(
-                        len(data.map_df), expected_map_df_length, case_name
-                    )
+                    self.assertEqual(len(data.df), 4, msg=case_name)
+                    self.assertEqual(len(data.map_df), 4, msg=case_name)
 
     def test_replication_async(self) -> None:
         self._test_replication_async(map_data=False)
@@ -357,18 +406,20 @@ class TestBenchmark(TestCase):
         """
         Test early stopping with a deterministic generation strategy and ESS
         that stops if the objective exceeds 0.5 when their progression ("t") hits 2,
-        which happens when 3 epochs have passed (t=[0, 1, 2]).
+        which happens when 3 steps have passed (t=[0, 1, 2]).
 
         Each arm produces values equaling the trial index everywhere on the
         progression, so Trials 1, 2, and 3 will stop early, and trial 0 will not.
 
-        t=0-2: Trials 0 and 1 run
-        t=2: Trial 1 stops early. Trial 2 gets added to "_queued", and then to
-            "_running", with a queued time of 2 and a sim_start_time of 3.
-        t=3-4: Trials 0 and 2 run.
-        t=4: Trial 0 completes.
-        t=5: Trials 2 and 3 run, then trial 2 gets stopped early.
-        t=6-7: Trial 3 runs by itself then gets stopped early.
+        t=0-2: Trials 0 and 1 run.
+        t=3: Trial 1 stops early. Trial 2 gets added to "_queued", and then to
+            "_running", with a queued time of 3 and a sim_start_time of 4.
+        t=4: Trials 0 and 2 run.
+        t=5: Trial 0 completes. Trial 2 runs.
+        t=6: Trials 2 runs. Trial 3 starts with a sim_queued_time of 5 and a
+            sim_start_time of 5.
+        t=7: Trial 2 stops early. Trial 3 runs.
+        t=8-9: Trial 3 runs by itself then gets stopped early.
         """
         min_progression = 2
         progression_length_if_not_stopped = 5
@@ -384,31 +435,41 @@ class TestBenchmark(TestCase):
 
         problem = get_async_benchmark_problem(
             map_data=True,
-            trial_runtime_func=lambda _: progression_length_if_not_stopped,
-            n_time_intervals=progression_length_if_not_stopped,
+            n_steps=progression_length_if_not_stopped,
             lower_is_better=True,
         )
         result = benchmark_replication(
-            problem=problem, method=method, seed=0, strip_runner_before_saving=False
+            problem=problem,
+            method=method,
+            seed=0,
+            strip_runner_before_saving=False,
+            scheduler_logging_level=WARNING,
         )
         data = assert_is_instance(none_throws(result.experiment).lookup_data(), MapData)
+        expected_n_steps = {
+            0: progression_length_if_not_stopped,
+            # stopping after step=2, so 3 steps (0, 1, 2) have passed
+            **{i: min_progression + 1 for i in range(1, 4)},
+        }
+
         grouped = data.map_df.groupby("trial_index")
         self.assertEqual(
-            dict(grouped["t"].count()),
-            {
-                0: progression_length_if_not_stopped,
-                # stopping after t=2, so 3 epochs (0, 1, 2) have passed
-                **{i: min_progression + 1 for i in range(1, 4)},
-            },
+            dict(grouped["step"].count()),
+            expected_n_steps,
         )
+        for trial_index, sub_df in grouped:
+            self.assertEqual(
+                sub_df["step"].tolist(),
+                list(range(expected_n_steps[trial_index])),
+                msg=f"Trial {trial_index}",
+            )
         self.assertEqual(
-            dict(grouped["t"].max()),
+            dict(grouped["step"].max()),
             {
                 0: progression_length_if_not_stopped - 1,
                 **{i: min_progression for i in range(1, 4)},
             },
         )
-        map_df = data.map_df
         simulator = none_throws(
             assert_is_instance(
                 none_throws(result.experiment).runner, BenchmarkRunner
@@ -422,20 +483,13 @@ class TestBenchmark(TestCase):
             trial_index: sim_trial.sim_start_time
             for trial_index, sim_trial in trials.items()
         }
-        map_df["start_time"] = map_df["trial_index"].map(start_times).astype(int)
-        map_df["absolute_time"] = map_df["t"] + map_df["start_time"]
-        expected_start_end_times = {
-            0: (0, 4),
-            1: (0, 2),
-            2: (3, 5),
-            3: (5, 7),
+        expected_start_times = {
+            0: 0,
+            1: 0,
+            2: 4,
+            3: 5,
         }
-        for trial_index, (start, end) in expected_start_end_times.items():
-            sub_df = map_df[map_df["trial_index"] == trial_index]
-            self.assertEqual(
-                sub_df["absolute_time"].min(), start, msg=f"{trial_index=}"
-            )
-            self.assertEqual(sub_df["absolute_time"].max(), end, msg=f"{trial_index=}")
+        self.assertEqual(start_times, expected_start_times)
 
     @mock_botorch_optimize
     def _test_replication_with_inference_value(
@@ -460,7 +514,9 @@ class TestBenchmark(TestCase):
             report_inference_value_as_trace=report_inference_value_as_trace,
             noise_std=100.0,
         )
-        res = benchmark_replication(problem=problem, method=method, seed=seed)
+        res = benchmark_replication(
+            problem=problem, method=method, seed=seed, scheduler_logging_level=WARNING
+        )
         # The inference trace could coincide with the oracle trace, but it won't
         # happen in this example with high noise and a seed
         self.assertEqual(
@@ -474,8 +530,6 @@ class TestBenchmark(TestCase):
 
         self.assertEqual(res.optimization_trace.shape, (problem.num_trials,))
         self.assertTrue((res.inference_trace >= res.oracle_trace).all())
-        self.assertTrue((res.score_trace >= 0).all())
-        self.assertTrue((res.score_trace <= 100).all())
 
     def test_replication_with_inference_value(self) -> None:
         for (
@@ -587,7 +641,12 @@ class TestBenchmark(TestCase):
             ),
         ]:
             with self.subTest(method=method, problem=problem):
-                res = benchmark_replication(problem=problem, method=method, seed=0)
+                res = benchmark_replication(
+                    problem=problem,
+                    method=method,
+                    seed=0,
+                    scheduler_logging_level=WARNING,
+                )
                 self.assertEqual(
                     problem.num_trials,
                     len(none_throws(res.experiment).trials),
@@ -603,6 +662,7 @@ class TestBenchmark(TestCase):
             problem=problem,
             method=get_sobol_benchmark_method(distribute_replications=False),
             seed=0,
+            scheduler_logging_level=WARNING,
         )
 
         self.assertEqual(
@@ -618,11 +678,11 @@ class TestBenchmark(TestCase):
 
     def test_benchmark_one_method_problem(self) -> None:
         problem = get_single_objective_benchmark_problem()
-        agg = benchmark_one_method_problem(
-            problem=problem,
-            method=get_sobol_benchmark_method(distribute_replications=False),
-            seeds=(0, 1),
-        )
+        method = get_sobol_benchmark_method(distribute_replications=False)
+        with self.assertNoLogs(level="INFO"):
+            agg = benchmark_one_method_problem(
+                problem=problem, method=method, seeds=(0, 1)
+            )
 
         self.assertEqual(len(agg.results), 2)
         self.assertTrue(
@@ -638,18 +698,22 @@ class TestBenchmark(TestCase):
 
     @mock_botorch_optimize
     def test_benchmark_multiple_problems_methods(self) -> None:
-        aggs = benchmark_multiple_problems_methods(
-            problems=[get_single_objective_benchmark_problem(num_trials=6)],
-            methods=[
-                get_sobol_benchmark_method(distribute_replications=False),
-                get_sobol_botorch_modular_acquisition(
-                    model_cls=SingleTaskGP,
-                    acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
-                ),
-            ],
-            seeds=(0, 1),
-        )
+        problems = [get_single_objective_benchmark_problem(num_trials=6)]
+        methods = [
+            get_sobol_benchmark_method(distribute_replications=False),
+            get_sobol_botorch_modular_acquisition(
+                model_cls=SingleTaskGP,
+                acquisition_cls=qLogNoisyExpectedImprovement,
+                distribute_replications=False,
+            ),
+        ]
+        with self.assertNoLogs(level="INFO"):
+            aggs = benchmark_multiple_problems_methods(
+                problems=problems,
+                methods=methods,
+                seeds=(0, 1),
+                scheduler_logging_level=WARNING,
+            )
 
         self.assertEqual(len(aggs), 2)
         for agg in aggs:
@@ -661,18 +725,16 @@ class TestBenchmark(TestCase):
             test_problem_class=Branin,
             test_problem_kwargs={},
             num_trials=1000,  # Unachievable num_trials
+            baseline_value=100,
         )
 
-        generation_strategy = get_sobol_botorch_modular_acquisition(
+        generation_strategy = get_sobol_mbm_generation_strategy(
             model_cls=SingleTaskGP,
             acquisition_cls=qLogNoisyExpectedImprovement,
-            distribute_replications=False,
             num_sobol_trials=1000,  # Ensures we don't use BO
-        ).generation_strategy
-
+        )
         timeout_seconds = 2.0
         method = BenchmarkMethod(
-            name=generation_strategy.name,
             generation_strategy=generation_strategy,
             timeout_hours=timeout_seconds / 3600,
         )
@@ -682,7 +744,10 @@ class TestBenchmark(TestCase):
         start = monotonic()
         with self.assertLogs("ax.benchmark.benchmark", level="WARNING") as cm:
             result = benchmark_one_method_problem(
-                problem=problem, method=method, seeds=(0, 1)
+                problem=problem,
+                method=method,
+                seeds=(0, 1),
+                scheduler_logging_level=WARNING,
             )
         elapsed = monotonic() - start
         self.assertGreater(elapsed, timeout_seconds)
@@ -711,10 +776,13 @@ class TestBenchmark(TestCase):
             ),
         )
         problem = get_single_objective_benchmark_problem()
-        res = benchmark_replication(problem=problem, method=method, seed=0)
+        with self.assertNoLogs(logger=get_logger("ax.core.experiment"), level="INFO"):
+            res = benchmark_replication(problem=problem, method=method, seed=0)
 
+        # Check that logger level has been reset
+        self.assertEqual(get_logger("ax.core.experiment").level, logging.INFO)
         self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
-        self.assertTrue(np.isnan(res.score_trace).all())
+        self.assertFalse(np.isnan(res.score_trace).any())
 
     def test_get_oracle_experiment_from_params(self) -> None:
         problem = create_problem_from_botorch(
@@ -817,11 +885,9 @@ class TestBenchmark(TestCase):
         problem = create_problem_from_botorch(
             test_problem_class=AugmentedBranin,
             test_problem_kwargs={},
-            # pyre-fixme: Incompatible parameter type [6]: In call
-            # `SearchSpace.__init__`, for 1st positional argument, expected
-            # `List[Parameter]` but got `List[RangeParameter]`.
             search_space=SearchSpace(parameters),
             num_trials=3,
+            baseline_value=3.0,
         )
         params = {"x0": 1.0, "x1": 0.0, "x2": 0.0}
         at_target = assert_is_instance(
@@ -850,3 +916,114 @@ class TestBenchmark(TestCase):
     def test_multi_fidelity_or_multi_task(self) -> None:
         self._test_multi_fidelity_or_multi_task(fidelity_or_task="fidelity")
         self._test_multi_fidelity_or_multi_task(fidelity_or_task="task")
+
+    def test_get_benchmark_scheduler_options(self) -> None:
+        for include_sq, batch_size in product((False, True), (1, 2)):
+            method = BenchmarkMethod(
+                generation_strategy=get_sobol_mbm_generation_strategy(
+                    model_cls=SingleTaskGP, acquisition_cls=qLogNoisyExpectedImprovement
+                ),
+                distribute_replications=False,
+                max_pending_trials=2,
+                batch_size=batch_size,
+            )
+            scheduler_options = get_benchmark_scheduler_options(
+                method=method, include_sq=include_sq
+            )
+            self.assertEqual(scheduler_options.max_pending_trials, 2)
+            self.assertEqual(scheduler_options.init_seconds_between_polls, 0)
+            self.assertEqual(scheduler_options.min_seconds_before_poll, 0)
+            self.assertEqual(scheduler_options.batch_size, batch_size)
+            self.assertEqual(
+                scheduler_options.run_trials_in_batches, method.run_trials_in_batches
+            )
+            self.assertEqual(
+                scheduler_options.early_stopping_strategy,
+                method.early_stopping_strategy,
+            )
+            self.assertEqual(
+                scheduler_options.trial_type,
+                TrialType.BATCH_TRIAL
+                if include_sq or batch_size > 1
+                else TrialType.TRIAL,
+            )
+            self.assertEqual(
+                scheduler_options.status_quo_weight, 1.0 if include_sq else 0.0
+            )
+
+    def test_replication_with_status_quo(self) -> None:
+        method = BenchmarkMethod(
+            name="Sobol", generation_strategy=get_sobol_generation_strategy()
+        )
+        problem = get_single_objective_benchmark_problem(
+            status_quo_params={"x0": 0.0, "x1": 0.0}
+        )
+        res = benchmark_replication(
+            problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
+        )
+
+        self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
+        for t in none_throws(res.experiment).trials.values():
+            self.assertEqual(len(t.arms), 2, msg=f"Trial index: {t.index}")
+            self.assertEqual(
+                sum(a.name == "status_quo" for a in t.arms),
+                1,
+                msg=f"Trial index: {t.index}",
+            )
+
+    def test_compute_baseline_value_from_sobol(self) -> None:
+        """
+        In this setting, every point from 0-4 will be evaluated,
+        and it will produce outcomes 0-4.
+        """
+        search_space = get_discrete_search_space(n_values=5)
+        test_function = IdentityTestFunction()
+
+        with self.subTest("SOO, lower is better"):
+            opt_config = get_soo_opt_config(outcome_names=test_function.outcome_names)
+            result = compute_baseline_value_from_sobol(
+                optimization_config=opt_config,
+                search_space=search_space,
+                test_function=test_function,
+                n_repeats=1,
+            )
+            self.assertEqual(result, 0)
+
+        with self.subTest("SOO, MapData"):
+            map_test_function = IdentityTestFunction(n_steps=2)
+            map_opt_config = get_soo_opt_config(
+                outcome_names=test_function.outcome_names, use_map_metric=True
+            )
+            result = compute_baseline_value_from_sobol(
+                optimization_config=map_opt_config,
+                search_space=search_space,
+                test_function=map_test_function,
+                n_repeats=1,
+            )
+            self.assertEqual(result, 0)
+
+        with self.subTest("SOO, higher is better"):
+            opt_config = get_soo_opt_config(
+                outcome_names=test_function.outcome_names, lower_is_better=False
+            )
+            result = compute_baseline_value_from_sobol(
+                optimization_config=opt_config,
+                search_space=search_space,
+                test_function=test_function,
+                n_repeats=1,
+            )
+            self.assertEqual(result, 4)
+
+        moo_test_function = IdentityTestFunction(outcome_names=["foo", "bar"])
+        with self.subTest("MOO"):
+            moo_opt_config = get_moo_opt_config(
+                outcome_names=moo_test_function.outcome_names, ref_point=[5, 5]
+            )
+            result = compute_baseline_value_from_sobol(
+                optimization_config=moo_opt_config,
+                search_space=search_space,
+                test_function=moo_test_function,
+                n_repeats=1,
+            )
+            # (5-0) * (5-0)
+            self.assertEqual(result, 25)

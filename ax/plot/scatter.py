@@ -44,7 +44,7 @@ from ax.plot.helper import (
     TNullableGeneratorRunsDict,
 )
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast_optional
+from ax.utils.common.typeutils import assert_is_instance_optional
 from ax.utils.stats.statstools import relativize
 from plotly import subplots
 
@@ -419,7 +419,7 @@ def plot_multiple_metrics(
         layout_offset_x = 0.15
     else:
         layout_offset_x = 0
-    rel = checked_cast_optional(bool, kwargs.get("rel"))
+    rel = assert_is_instance_optional(kwargs.get("rel"), bool)
     if rel is not None:
         warnings.warn(
             "Use `rel_x` and `rel_y` instead of `rel`.",

@@ -31,8 +31,6 @@ class RandomForestTest(TestCase):
             datasets=datasets,
             search_space_digest=SearchSpaceDigest(
                 feature_names=["x1", "x2"],
-                # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float,
-                #  int], Union[float, int]]]` but got `List[Tuple[int, int]]`.
                 bounds=[(0, 1)] * 2,
             ),
         )

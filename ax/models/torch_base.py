@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 import torch
 from ax.core.metric import Metric
@@ -106,8 +106,8 @@ class TorchGenResults:
 
     points: Tensor  # (n x d)-dim
     weights: Tensor  # n-dim
-    gen_metadata: dict[str, Any] = field(default_factory=dict)
-    candidate_metadata: list[TCandidateMetadata] | None = None
+    gen_metadata: Mapping[str, Any] = field(default_factory=dict)
+    candidate_metadata: Sequence[TCandidateMetadata] | None = None
 
 
 class TorchModel(BaseModel):
@@ -227,32 +227,6 @@ class TorchModel(BaseModel):
               cov[j, m1, m2] is Cov[m1@j, m2@j].
         """
         raise NotImplementedError
-
-    def update(
-        self,
-        datasets: list[SupervisedDataset],
-        metric_names: list[str],
-        search_space_digest: SearchSpaceDigest,
-        candidate_metadata: list[list[TCandidateMetadata]] | None = None,
-    ) -> None:
-        """Update the model.
-
-        Updating the model requires both existing and additional data.
-        The data passed into this method will become the new training data.
-
-        Args:
-            datasets: A list of ``SupervisedDataset`` containers, each
-                corresponding to the data of one metric (outcome). `None`
-                means that there is no additional data for the corresponding
-                outcome.
-            metric_names: A list of metric names, with the i-th metric
-                corresponding to the i-th dataset.
-            search_space_digest: A SearchSpaceDigest object containing
-                metadata on the features in X.
-            candidate_metadata: Model-produced metadata for candidates, in
-                the order corresponding to the Xs.
-        """
-        raise DeprecationWarning("Model.update has been deprecated. Use `fit` instead.")
 
     def evaluate_acquisition_function(
         self,

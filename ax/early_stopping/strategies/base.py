@@ -35,7 +35,6 @@ from ax.modelbridge.transforms.map_unit_x import MapUnitX
 from ax.models.torch_base import TorchModel
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
@@ -70,7 +69,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     def __init__(
         self,
         metric_names: Iterable[str] | None = None,
-        seconds_between_polls: int = 300,
         min_progression: float | None = None,
         max_progression: float | None = None,
         min_curves: int | None = None,
@@ -82,8 +80,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         Args:
             metric_names: The names of the metrics the strategy will interact with.
                 If no metric names are provided the objective metric is assumed.
-            seconds_between_polls: How often to poll the early stopping metric to
-                evaluate whether or not the trial should be early stopped.
             min_progression: Only stop trials if the latest progression value
                 (e.g. timestamp, epochs, training data used) is greater than this
                 threshold. Prevents stopping prematurely before enough data is gathered
@@ -103,10 +99,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 should be > 0 to ensure that at least one trial has completed and that
                 we have a reliable approximation for `prog_max`.
         """
-        if seconds_between_polls < 0:
-            raise ValueError("`seconds_between_polls may not be less than 0.")
         self.metric_names = metric_names
-        self.seconds_between_polls = seconds_between_polls
         self.min_progression = min_progression
         self.max_progression = max_progression
         self.min_curves = min_curves
@@ -196,7 +189,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             )
             return None
 
-        data = checked_cast(MapData, data)
+        data = assert_is_instance(data, MapData)
         map_keys = data.map_keys
         if len(list(map_keys)) > 1:
             logger.info(
@@ -446,7 +439,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def __init__(
         self,
         metric_names: Iterable[str] | None = None,
-        seconds_between_polls: int = 300,
         min_progression: float | None = None,
         max_progression: float | None = None,
         min_curves: int | None = None,
@@ -459,8 +451,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         Args:
             metric_names: The names of the metrics the strategy will interact with.
                 If no metric names are provided the objective metric is assumed.
-            seconds_between_polls: How often to poll the early stopping metric to
-                evaluate whether or not the trial should be early stopped.
             min_progression: Only stop trials if the latest progression value
                 (e.g. timestamp, epochs, training data used) is greater than this
                 threshold. Prevents stopping prematurely before enough data is gathered
@@ -485,7 +475,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """
         super().__init__(
             metric_names=metric_names,
-            seconds_between_polls=seconds_between_polls,
             min_progression=min_progression,
             max_progression=max_progression,
             min_curves=min_curves,
