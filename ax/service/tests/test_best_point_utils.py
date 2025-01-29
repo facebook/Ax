@@ -8,6 +8,7 @@
 
 import copy
 import random
+from unittest import mock
 from unittest.mock import MagicMock, patch, PropertyMock
 
 import pandas as pd
@@ -27,8 +28,10 @@ from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.plot.pareto_utils import get_tensor_converter_model
+from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
     _derel_opt_config_wrapper,
+    _extract_best_arm_from_gr,
     _is_row_feasible,
     extract_Y_from_data,
     get_best_parameters,
@@ -36,6 +39,7 @@ from ax.service.utils.best_point import (
     logger as best_point_logger,
 )
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
+from ax.service.utils.instantiation import ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -630,6 +634,60 @@ class TestBestPointUtils(TestCase):
                 experiment=experiment_with_no_valid_baseline,
                 baseline_arm_name=None,
             )
+
+    # NOTE: Can't use mock optimize here, since we rely on model predictions.
+    # It is still very cheap even with model fitting.
+    def test_get_best_point_with_model_prediction(
+        self,
+    ) -> None:
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [1.0, 10.0],
+                },
+            ],
+            objectives={"y": ObjectiveProperties(minimize=True)},
+            is_test=True,
+            choose_generation_strategy_kwargs={"num_initialization_trials": 2},
+        )
+
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(idx, raw_data={"y": 0})
+
+        for i in range(1, 3):
+            ax_client.get_next_trial()
+            ax_client.complete_trial(i, raw_data={"y": i})
+
+        # Mock with no bad fir metrics ensures that the model is used
+        # to extract the best point.
+        with patch(
+            f"{best_point_module}.assess_model_fit",
+            return_value=AssessModelFitResult(
+                good_fit_metrics_to_fisher_score={"y": 1},
+                bad_fit_metrics_to_fisher_score={},
+            ),
+        ) as mock_model_fit:
+            best_index, best_params, predictions = none_throws(
+                ax_client.get_best_trial()
+            )
+        mock_model_fit.assert_called_once()
+        self.assertEqual(best_index, idx)
+        self.assertEqual(best_params, params)
+        # We should get both mean & covariance predictions.
+        self.assertEqual(predictions, ({"y": mock.ANY}, {"y": {"y": mock.ANY}}))
+
+        # Also verify that fallback option from GR produces the right trial index.
+        gr = ax_client.experiment.trials[2].generator_runs[0]
+        best_index, best_params, predictions = none_throws(
+            _extract_best_arm_from_gr(gr=gr, trials=ax_client.experiment.trials)
+        )
+        self.assertEqual(best_index, idx)
+        self.assertEqual(best_params, params)
+        self.assertEqual(predictions, ({"y": mock.ANY}, {"y": {"y": mock.ANY}}))
 
 
 def _repeat_elements(list_to_replicate: list[bool], n_repeats: int) -> pd.Series:
