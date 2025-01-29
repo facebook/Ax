@@ -33,6 +33,8 @@ from ax.core.runner import Runner
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
+from ax.fb.storage.sqa_store.constants import FB_SQA_CONFIG
+from ax.fb.storage.sqa_store.load_helper import load_sqa_experiment
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
@@ -71,6 +73,7 @@ from ax.storage.sqa_store.save import (
     save_or_update_trials,
     update_generation_strategy,
     update_properties_on_experiment,
+    update_properties_on_sqa_experiment,
     update_properties_on_trial,
     update_runner_on_experiment,
     update_trial_status,
@@ -237,6 +240,24 @@ class SQAStoreTest(TestCase):
             self.assertIsNotNone(exp.db_id)
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
+
+    def test_UpdatePropertiesOnSQAExperimentAndLoadSQAExperiment(self) -> None:
+        for exp in [
+            self.experiment,
+            get_experiment_with_map_data_type(),
+            get_experiment_with_multi_objective(),
+            get_experiment_with_scalarized_objective_and_outcome_constraint(),
+        ]:
+            save_experiment(exp)
+            sqa_exp = self.encoder.experiment_to_sqa(exp)
+            sqa_config = FB_SQA_CONFIG
+            sqa_exp.properties = sqa_exp.properties or {}
+            sqa_exp.properties["property1"] = "property1_value"
+            update_properties_on_sqa_experiment(sqa_exp, config=sqa_config)
+
+            loaded_sqa_exp = load_sqa_experiment(sqa_exp.name)
+            self.assertIsInstance(loaded_sqa_exp, SQAExperiment)
+            self.assertEqual(loaded_sqa_exp.properties["property1"], "property1_value")
 
     def test_saving_and_loading_experiment_with_aux_exp(self) -> None:
         aux_experiment = Experiment(
