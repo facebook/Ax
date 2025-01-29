@@ -585,6 +585,11 @@ class BaseTrial(ABC, SortableBase):
         """All abandoned arms, associated with this trial."""
         pass
 
+    @property
+    def active_arms(self) -> list[Arm]:
+        """All non abandoned arms associated with this trial."""
+        return [arm for arm in self.arms if arm not in self.abandoned_arms]
+
     @abstractproperty
     def generator_runs(self) -> list[GeneratorRun]:
         """All generator runs associated with this trial."""
