@@ -11,10 +11,11 @@ from collections.abc import Iterable
 from functools import reduce
 
 from logging import Logger
+from typing import Mapping
 
 import pandas as pd
 import torch
-from ax.core.base_trial import TrialStatus
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -149,9 +150,22 @@ def get_best_raw_objective_point(
     return parameterization, vals
 
 
-def _gr_to_prediction_with_trial_index(
-    idx: int, gr: GeneratorRun
+def _extract_best_arm_from_gr(
+    gr: GeneratorRun,
+    trials: Mapping[int, BaseTrial],
 ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
+    """Extracts best arm predictions from a GeneratorRun, if available,
+    and maps it to the trial index of the first trial that contains it.
+
+    Args:
+        gr: GeneratorRun, from which to extract best arm predictions.
+        trials: Trials from the experiment, used to map the arm to a trial index.
+
+    Returns:
+        If the best arm or the best arm predictions are not available, returns
+        None. Otherwise, returns a tuple of the trial index, parameterization,
+        and model predictions for the best arm.
+    """
     if gr.best_arm_predictions is None:
         return None
 
@@ -160,7 +174,9 @@ def _gr_to_prediction_with_trial_index(
     if best_arm is None:
         return None
 
-    return idx, best_arm.parameters, best_arm_predictions
+    for trial_index, trial in trials.items():
+        if best_arm in trial.arms:
+            return trial_index, best_arm.parameters, best_arm_predictions
 
 
 def _raw_values_to_model_predict_arm(
@@ -179,8 +195,16 @@ def get_best_parameters_from_model_predictions_with_trial_index(
     trial_indices: Iterable[int] | None = None,
 ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
     """Given an experiment, returns the best predicted parameterization and
-    corresponding prediction based on the most recent Trial with predictions. If no
-    trials have predictions returns None.
+    corresponding prediction.
+
+    The best point & predictions are computed using the model from the
+    (first) generator run of the latest trial. If the latest trial doesn't
+    have a generator run, returns None. If the model from the latest trial
+    is not TorchModelBridge or the model construction fails, this will
+    return the best point & the predictions that were saved on the
+    generator run (rather than re-computing them with latest data). If the
+    model fit assessment returns bad fit for any of the metrics, this will
+    fall back to returning the best point based on raw observations.
 
     Only some models return predictions. For instance GPEI does while Sobol does not.
 
@@ -211,9 +235,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
             "multi-objective optimization configs. This method will return an "
             "arbitrary point on the pareto frontier."
         )
-    for idx, trial in sorted(
-        experiment.trials.items(), key=lambda x: x[0], reverse=True
-    ):
+    for _, trial in sorted(experiment.trials.items(), key=lambda x: x[0], reverse=True):
         gr = None
         if isinstance(trial, Trial):
             gr = trial.generator_run
@@ -233,12 +255,12 @@ def get_best_parameters_from_model_predictions_with_trial_index(
                     models_enum=models_enum,
                 )
             except ValueError:
-                return _gr_to_prediction_with_trial_index(idx, gr)
+                return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
             # If model is not TorchModelBridge, just use the best arm from the
             # last good generator run
             if not isinstance(model, TorchModelBridge):
-                return _gr_to_prediction_with_trial_index(idx, gr)
+                return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
             # Check to see if the model is worth using
             cv_results = cross_validate(model=model)
@@ -269,11 +291,18 @@ def get_best_parameters_from_model_predictions_with_trial_index(
 
             res = model.model_best_point()
             if res is None:
-                return _gr_to_prediction_with_trial_index(idx, gr)
+                return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
             best_arm, best_arm_predictions = res
 
-            return idx, none_throws(best_arm).parameters, best_arm_predictions
+            # Map the arm to the trial index of the first trial that contains it.
+            for trial_index, trial in experiment.trials.items():
+                if best_arm in trial.arms:
+                    return (
+                        trial_index,
+                        none_throws(best_arm).parameters,
+                        best_arm_predictions,
+                    )
 
     return None
 
