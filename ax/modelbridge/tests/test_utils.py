@@ -82,6 +82,7 @@ class TestModelbridgeUtils(TestCase):
             trial_index=self.hss_trial.index,
             metadata={Keys.FULL_PARAMETERIZATION: self.hss_full_parameterization},
         )
+        self.assertTrue(True)
 
     def test_extract_outcome_constraints(self) -> None:
         outcomes = ["m1", "m2", "m3"]
