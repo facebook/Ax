@@ -75,6 +75,24 @@ class MetricTest(TestCase):
         )
         self.assertEqual(experiment_multi, data)
 
+    def test_unwrap_trial_multi_with_err(self) -> None:
+        err = Err(MetricFetchE(message="failed!", exception=Exception("panic!")))
+
+        with self.assertRaisesRegex(Exception, "panic"):
+            Metric._unwrap_trial_data_multi(results={"foo": err})
+
+    def test_unwrap_trial_multi_with_non_critical_error(self) -> None:
+        err = Err(MetricFetchE(message="failed!", exception=Exception("panic!")))
+
+        with self.assertLogs(logger="ax", level="WARNING") as cm:
+            Metric._unwrap_trial_data_multi(
+                results={"foo": err}, critical_metric_names=[]
+            )
+        self.assertTrue(
+            any("panic!" in msg for msg in cm.output),
+            str(cm.output),
+        )
+
     def test_wrap_err(self) -> None:
         err = Err(MetricFetchE(message="failed!", exception=Exception("panic!")))
 
