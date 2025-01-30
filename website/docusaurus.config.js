@@ -6,7 +6,7 @@ module.exports={
   "title": "Ax",
   "tagline": "Adaptive Experimentation Platform",
   "url": "https://ax.dev",
-  "baseUrl": "/Ax/",
+  "baseUrl": "/",
   "organizationName": "facebook",
   "projectName": "Ax",
   "scripts": [
