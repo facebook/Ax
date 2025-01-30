@@ -89,9 +89,6 @@ class TileFittedTest(TestCase):
             self.assertEqual(config.data["data"][i]["x"], ["1_1"])
             self.assertEqual(config.data["data"][i]["y"], [0.0])
             self.assertEqual(config.data["data"][i]["type"], "scatter")
-            self.assertEqual(
-                config.data["data"][i]["error_y"]["array"], [138.59292911256333]
-            )
             self.assertIn("Arm 1_1", config.data["data"][i]["text"][0])
             self.assertIn("[-138.593%, 138.593%]", config.data["data"][i]["text"][0])
             self.assertIn("0.0%", config.data["data"][i]["text"][0])

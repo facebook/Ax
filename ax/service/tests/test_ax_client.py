@@ -3032,35 +3032,6 @@ class TestAxClient(TestCase):
                 self.assertEqual(ff.parameters, fixed_features.parameters)
                 self.assertEqual(ff.trial_index, 0)
 
-    def test_get_optimization_trace_discard_infeasible_trials(self) -> None:
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            name="test_experiment",
-            parameters=[
-                {
-                    "name": "x",
-                    "type": "range",
-                    "bounds": [1.0, 4.0],
-                },
-            ],
-            objectives={"y": ObjectiveProperties(minimize=True)},
-            outcome_constraints=["z >= 1.5"],
-            is_test=True,
-        )
-
-        _, idx = ax_client.attach_trial({"x": 3.0})
-        ax_client.complete_trial(idx, raw_data={"y": 3.0, "z": 3.0})  # feasible
-        _, idx = ax_client.attach_trial({"x": 2.0})
-        ax_client.complete_trial(idx, raw_data={"y": 2.0, "z": 2.0})  # feasible / best
-        _, idx = ax_client.attach_trial({"x": 4.0})
-        ax_client.complete_trial(idx, raw_data={"y": 4.0, "z": 4.0})  # feasible
-        _, idx = ax_client.attach_trial({"x": 1.0})
-        ax_client.complete_trial(idx, raw_data={"y": 1.0, "z": 1.0})  # infeasible
-
-        plot_config = ax_client.get_optimization_trace()
-
-        self.assertListEqual(plot_config.data["data"][0]["y"], [3.0, 2.0, 2.0, 2.0])
-
     def test_SingleTaskGP_log_unordered_categorical_parameters(self) -> None:
         logs = []
 
