@@ -183,8 +183,8 @@ module.exports={
       copyright: `Copyright © ${new Date().getFullYear()} Meta Platforms, Inc.`,
     },
     algolia: {
-      appId: '', // TODO: T208893119 Add official app ID
-      apiKey: '467d4f1f6cace3ecb36ab551cb44905b',
+      appId: 'O2Q3QH4SYH',
+      apiKey: '330b76ae9b20640dacf7ef3e1256f584',
       indexName: 'ax',
     },
   }
