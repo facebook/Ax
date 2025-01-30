@@ -47,6 +47,6 @@ To generate a static build of the website in the `website/build` directory, run
 ## Publishing
 
 The site is hosted on GitHub pages, via the `gh-pages` branch of the Ax
-[GitHub repo](https://github.com/CristianLara/Ax/tree/gh-pages).
+[GitHub repo](https://github.com/facebook/Ax/tree/gh-pages).
 The website is automatically built and published from GitHub Actions - see the
-[config file](https://github.com/CristianLara/Ax/blob/main/.github/workflows/publish_website.yml) for details.
+[config file](https://github.com/facebook/Ax/blob/main/.github/workflows/publish_website.yml) for details.

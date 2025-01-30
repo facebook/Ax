@@ -5,9 +5,9 @@ import rehypeKatex from 'rehype-katex';
 module.exports={
   "title": "Ax",
   "tagline": "Adaptive Experimentation Platform",
-  "url": "http://cristianlara.me",
+  "url": "https://ax.dev",
   "baseUrl": "/Ax/",
-  "organizationName": "cristianlara",
+  "organizationName": "facebook",
   "projectName": "Ax",
   "scripts": [
     "https://cdn.plot.ly/plotly-latest.min.js",
@@ -114,7 +114,7 @@ module.exports={
             ],
         },
         {
-          "href": "https://github.com/cristianlara/Ax",
+          "href": "https://github.com/facebook/Ax",
           "className": "header-github-link",
           "aria-label": "GitHub",
           "position": "right"
@@ -154,12 +154,8 @@ module.exports={
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/cristianlara/ax',
-            },
-            {
-              label: 'Blog',
-              href: 'https://github.com/cristianlara/ax/blog',
-            },
+              href: 'https://github.com/facebook/ax',
+            }
           ],
         },
         {
