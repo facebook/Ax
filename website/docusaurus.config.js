@@ -183,9 +183,9 @@ module.exports={
       copyright: `Copyright © ${new Date().getFullYear()} Meta Platforms, Inc.`,
     },
     algolia: {
-      appId: '8X3RTPIIL1',
-      apiKey: 'df847ece5bb2b557f7f1ce9f73f32387',
-      indexName: 'cristianlara',
+      appId: '', // TODO: T208893119 Add official app ID
+      apiKey: '467d4f1f6cace3ecb36ab551cb44905b',
+      indexName: 'ax',
     },
   }
 }
