@@ -2,7 +2,6 @@
 id: storage
 title: Storage
 ---
-
 Ax has extensible support for saving and loading experiments in both JSON and SQL. The former is a good option for users who prefer lightweight, transportable storage, and the latter is better suited to production applications requiring a centralized, high-performance database.
 
 ## JSON
@@ -86,6 +85,7 @@ init_engine_and_session_factory(url="postgresql+psycopg2://[USERNAME]:[PASSWORD]
 ```
 
 Then create all tables:
+
 ```py
 from ax.storage.sqa_store.db import get_engine, create_all_tables
 
@@ -94,6 +94,7 @@ create_all_tables(engine)
 ```
 
 Then save your experiment:
+
 ```py
 from ax import Experiment
 from ax.storage.sqa_store.save import save_experiment
@@ -193,7 +194,6 @@ loaded_experiment = load_experiment(experiment_name="my_experiment", config=sqa_
 
 If you choose to add types to your experiments, create an Enum mapping experiment types to integer representations, pass this Enum to a custom instance of `SQAConfig`, and then pass the config to `sqa_store.save`:
 
-
 ```py
 from ax import Experiment
 from ax.storage.sqa_store.save import save_experiment
@@ -210,7 +210,6 @@ save_experiment(experiment, config=config)
 **Specifying generator run types:**
 
 If you choose to add types to your generator runs (beyond the existing `status_quo` type), create an enum mapping generator run types to integer representations, pass this enum to a custom instance of `SQAConfig`, and then pass the config to `sqa_store.save`:
-
 
 ```py
 from ax import Experiment
