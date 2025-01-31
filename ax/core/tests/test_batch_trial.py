@@ -413,6 +413,8 @@ class BatchTrialTest(TestCase):
         metadata = self.batch.abandoned_arms_metadata[0]
         self.assertEqual(metadata.reason, reason)
         self.assertEqual(metadata.name, arm.name)
+        self.assertEqual(len(self.batch.active_arms), len(self.arms) - 1)
+        self.assertNotIn(arm, self.batch.active_arms)
 
         # Fail to abandon arm not in BatchTrial
         with self.assertRaises(ValueError):
