@@ -40,7 +40,7 @@ Plotly Analysis
     :show-inheritance:
 
 Can Generate Candidates Healthcheck Analysis
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.healthcheck.can_generate_candidates
     :members:
@@ -48,7 +48,7 @@ Can Generate Candidates Healthcheck Analysis
     :show-inheritance:
 
 Should Generate Candidates Healthcheck Analysis
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.healthcheck.should_generate_candidates
     :members:
@@ -64,7 +64,7 @@ Healthcheck Analysis
     :show-inheritance:
 
 Constraints Feasibility Analysis
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.healthcheck.constraints_feasibility
     :members:
@@ -72,16 +72,31 @@ Constraints Feasibility Analysis
     :show-inheritance:
 
 Search Space Analysis
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.healthcheck.search_space_analysis
     :members:
     :undoc-members:
     :show-inheritance:
 
+Regression Analysis
+~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.regression_analysis
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Regression Analysis Utils
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.regression_detection_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 InSample Effects Analysis
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.arm_effects.insample_effects
     :members:
@@ -105,7 +120,7 @@ Predicted Effects Analysis
     :show-inheritance:
 
 Plotly Arm Effects Utils
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.arm_effects.utils
     :members:
@@ -113,7 +128,7 @@ Plotly Arm Effects Utils
     :show-inheritance:
 
 Plotly Analysis Utils
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.utils
     :members:

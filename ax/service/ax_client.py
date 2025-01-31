@@ -73,7 +73,6 @@ from ax.service.utils.instantiation import (
     InstantiationBase,
     ObjectiveProperties,
 )
-from ax.service.utils.report_utils import exp_to_df
 from ax.service.utils.with_db_settings_base import DBSettings
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
@@ -920,7 +919,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         one-arm trials, which is the case in base ``AxClient``; will correspond
         to arms in trials in the batch-trial case).
         """
-        return exp_to_df(exp=self.experiment)
+        return self.experiment.to_df()
 
     def get_max_parallelism(self) -> list[tuple[int, int]]:
         """Retrieves maximum number of trials that can be scheduled in parallel

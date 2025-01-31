@@ -37,7 +37,6 @@ from ax.models.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
     pareto_frontier_evaluator,
 )
-from ax.service.utils.report_utils import exp_to_df
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -546,7 +545,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
             self.assertFalse(obj_thresholds[0].relative)
             self.assertFalse(obj_thresholds[1].relative)
-            df = exp_to_df(exp)
+            df = exp.to_df()
             Y = np.stack([df.branin_a.values, df.branin_b.values]).T
             Y = torch.from_numpy(Y)
             Y[:, 0] *= -1
@@ -616,7 +615,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
         self.assertFalse(obj_thresholds[1].relative)
-        df = exp_to_df(exp)
+        df = exp.to_df()
         trial_mask = df.trial_index == 1
         Y = np.stack([df.branin_a.values[trial_mask], df.branin_b.values[trial_mask]]).T
         Y = torch.from_numpy(Y)
