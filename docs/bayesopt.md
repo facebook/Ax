@@ -2,16 +2,14 @@
 id: bayesopt
 title: Bayesian Optimization
 ---
-
 In complex engineering problems we often come across parameters that have to be tuned using several time-consuming and noisy evaluations. When the number of parameters is not small or some of the parameters are continuous, using large factorial designs (e.g., “grid search”) or global optimization techniques for optimization require more evaluations than is practically feasible. These types of problems show up in a diversity of applications, such as
 
-1. Tuning Internet service parameters and selection of weights for recommender systems,
-2. Hyperparameter optimization for machine learning,
-3. Finding optimal set of gait parameters for locomotive control in robotics, and
-4. Tuning design parameters and rule-of-thumb heuristics for hardware design.
+1.  Tuning Internet service parameters and selection of weights for recommender systems,
+2.  Hyperparameter optimization for machine learning,
+3.  Finding optimal set of gait parameters for locomotive control in robotics, and
+4.  Tuning design parameters and rule-of-thumb heuristics for hardware design.
 
 Bayesian optimization (BO) allows us to tune parameters in relatively few iterations by building a smooth model from an initial set of parameterizations (referred to as the "surrogate model") in order to predict the outcomes for as yet unexplored parameterizations. BO is an adaptive approach where the observations from previous evaluations are used to decide what parameterizations to evaluate next. The same strategy can be used to predict the expected gain from all future evaluations and decide on early termination, if the expected benefit is smaller than what is worthwhile for the problem at hand.
-
 
 ## How does it work?
 
@@ -23,9 +21,7 @@ The strategy of relying on successive surrogate models to update knowledge of th
 
 ![Gaussian process model fit to noisy data](assets/gp_opt.png)
 
-
 Figure 1 shows a 1D example, where a surrogate model is fitted to five noisy observations using GPs to predict the objective (solid line) and place uncertainty estimates (proportional to the width of the shaded bands) over the entire x-axis, which represents the range of possible parameter values. The model is able to predict the outcome of configurations that have not yet been tested. As intuitively expected, the uncertainty bands are tight in regions that are well-explored and become wider as we move away from them.
-
 
 ## Tradeoff between parallelism and total number of trials
 
@@ -33,14 +29,15 @@ In Bayesian Optimization (any optimization, really), we have the choice between 
 
 To balance end-to-end optimization time with finding the optimal solution in fewer trials, we opt for a ‘staggered’ approach by allowing a limited number of trials to be evaluated in parallel. By default, in simplified Ax APIs (e.g., in Service API) the allowed parallelism for the Bayesian phase of the optimization is 3. [Service API tutorial](https://ax.dev/tutorials/gpei_hartmann_service.html#How-many-trials-can-run-in-parallel?) has more information on how to handle and change allowed parallelism for that API.
 
-For cases where its not too computationally expensive to run many trials (and therefore sample efficiency is less of a concern), higher parallelism can significantly speed up the end-to-end optimization time. By default, we recommend keeping the ratio of allowed parallelism to total trials relatively small (<10%) in order to not hurt optimization performance too much, but the reasonable ratio can differ depending on the specific setup.
-
+For cases where its not too computationally expensive to run many trials (and therefore sample efficiency is less of a concern), higher parallelism can significantly speed up the end-to-end optimization time. By default, we recommend keeping the ratio of allowed parallelism to total trials relatively small (&lt;10%) in order to not hurt optimization performance too much, but the reasonable ratio can differ depending on the specific setup.
 
 ## Acquisition functions
 
 BoTorch — Ax's optimization engine — supports some of the most commonly used acquisition functions in BO like expected improvement (EI), probability of improvement, and upper confidence bound. Expected improvement is a popular acquisition function owing to its good practical performance and an analytic form that is easy to compute. As the name suggests it rewards evaluation of the objective $f$ based on the expected improvement relative to the current best. If $f^* = \max_i y_i$ is the current best observed outcome and our goal is to maximize $f$, then EI is defined as
 
-$$ \text{EI}(x) = \mathbb{E}\bigl[\max(f(x) - f^*, 0)\bigr] $$
+$$
+\text{EI}(x) = \mathbb{E}\bigl[\max(f(x) - f^*, 0)\bigr]
+$$
 
 The parameterization with the highest EI is selected and evaluated in the next step. Using an acquisition function like EI to sample new points initially promotes quick exploration because its values, like the uncertainty estimates, are higher in unexplored regions. Once the parameter space is adequately explored, EI naturally narrows in on locations where there is a high likelihood of a good objective value.
 
@@ -52,8 +49,8 @@ The above definition of the EI function assumes that the objective function is o
 
 How exactly do we model the true objective $f$ for making predictions about yet-to-be-explored regions using only a few noisy observations? GPs are a simple and powerful way of imposing assumptions over functions in the form of a probability distribution. The family of functions is characterized by,
 
-1. A *mean function* that is the average of all functions, and,
-2. A covariance or *kernel function* that provides an overall template for the look and feel of the individual functions (such as their shape or smoothness) and how much they can vary around the mean function.
+1.  A _mean function_ that is the average of all functions, and,
+2.  A covariance or _kernel function_ that provides an overall template for the look and feel of the individual functions (such as their shape or smoothness) and how much they can vary around the mean function.
 
 In most applications of BO, a radial basis function (RBF) or Matern kernel is used because they allow us the flexibility to fit a wide variety of functions in high dimensions. By default, BoTorch uses the Matern 5/2 kernel, which tends to allow for less smooth surfaces compared to the RBF. For more mathematical details and intuitions about GPs and the different kernels check out [this tutorial](https://distill.pub/2019/visual-exploration-gaussian-processes).
 

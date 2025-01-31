@@ -2,7 +2,6 @@
 id: core
 title: Core
 ---
-
 ### Overview
 
 In Ax, an [experiment](glossary.md#experiment) keeps track of the whole optimization process. It contains a search space, optimization config, metadata, information on what metrics to track and how to run iterations, etc. An [experiment](glossary.md#experiment) is composed of a sequence of [trials](glossary.md#trial) each of which has a set of parameterizations (or [arms](glossary.md#arm)) to be evaluated. A [trial](glossary.md#trial) is added to the experiment when a new set of arms is proposed by the optimization algorithm. The trial is then evaluated to compute the values of each [metric](glossary.md#metric) for each arm, which are fed into the algorithms to create a new trial. Most applications have one arm per trial, which is the default implementation.
@@ -17,11 +16,11 @@ An [experiment](glossary.md#experiment) consists of [trials](glossary.md#trial),
 
 ### Search Space and Parameters
 
-A [search space](glossary.md#search-space) is composed of a set of [parameters](glossary.md#parameter) to be tuned in the experiment, and optionally a set of [parameter constraints](glossary.md#parameter-constraint) that define restrictions across these parameters (e.g. `p_a <= p_b`). Each parameter has a name, a type (```int```, ```float```, ```bool```, or ```string```), and a domain, which is a representation of the possible values the parameter can take. The search space is used by the optimization algorithms to know which arms are valid to suggest.
+A [search space](glossary.md#search-space) is composed of a set of [parameters](glossary.md#parameter) to be tuned in the experiment, and optionally a set of [parameter constraints](glossary.md#parameter-constraint) that define restrictions across these parameters (e.g. `p_a <= p_b`). Each parameter has a name, a type (`int`, `float`, `bool`, or `string`), and a domain, which is a representation of the possible values the parameter can take. The search space is used by the optimization algorithms to know which arms are valid to suggest.
 
 Ax supports three types of parameters:
 
-* **Range parameters**: must be of type `int` or `float`, and the domain is represented by a lower and upper bound. If the parameter is specified as an `int`, newly generated points are rounded to the nearest integer by default.
+-   **Range parameters**: must be of type `int` or `float`, and the domain is represented by a lower and upper bound. If the parameter is specified as an `int`, newly generated points are rounded to the nearest integer by default.
 
 ```python
 from ax import RangeParameter, ParameterType
@@ -29,14 +28,14 @@ float_range_param = RangeParameter(name="x1", parameter_type=ParameterType.FLOAT
 int_range_param = RangeParameter(name="x2", parameter_type=ParameterType.INT, lower=0, upper=10)
 ```
 
-* **Choice parameters**: domain is a set of values
+-   **Choice parameters**: domain is a set of values
 
 ```python
 from ax import ChoiceParameter, ParameterType
 choice_param = ChoiceParameter(name="y", parameter_type=ParameterType.STRING, values=["foo", "bar"])
 ```
 
-* **Fixed parameters**: domain is a single value
+-   **Fixed parameters**: domain is a single value
 
 ```python
 from ax import FixedParameter, ParameterType
@@ -45,7 +44,7 @@ fixed_param = FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=
 
 Ax supports three types of parameter constraints, each of which can only be used on `int` or `float` parameters:
 
-* **Linear constraints**: `w * v` <= b where w is the vector of parameter weights, v is a vector of parameter values, * is the dot product, and b is the specified bound. Linear constraints are specified with the bound and a dictionary that maps parameter name to the weight
+-   **Linear constraints**: `w * v` &lt;= b where w is the vector of parameter weights, v is a vector of parameter values, * is the dot product, and b is the specified bound. Linear constraints are specified with the bound and a dictionary that maps parameter name to the weight
 
 ```python
 from ax import ParameterConstraint
@@ -57,7 +56,7 @@ param_b = RangeParameter(name="b", parameter_type=ParameterType.FLOAT, lower=0.0
 con_1 = ParameterConstraint(constraint_dict={"a": 1.0, "b": 0.5}, bound=1.0)
 ```
 
-* **Order constraints**: specifies that one parameter must be smaller than the other
+-   **Order constraints**: specifies that one parameter must be smaller than the other
 
 ```python
 from ax import OrderConstraint
@@ -66,7 +65,7 @@ from ax import OrderConstraint
 con_2 = OrderConstraint(lower_parameter=param_a, upper_parameter=param_b)
 ```
 
-* **Sum constraints**: specifies that the sum of the parameters must be greater or less than a bound
+-   **Sum constraints**: specifies that the sum of the parameters must be greater or less than a bound
 
 ```python
 from ax import SumConstraint
@@ -160,12 +159,12 @@ experiment.new_batch_trial().add_generator_run(generator_run=GeneratorRun(...))
 
 A trial goes through multiple phases during the experimentation cycle, tracked by its [`TrialStatus`](../api/core.html#ax.core.base_trial.TrialStatus) field. These stages are:
 
-* `CANDIDATE` - Trial has just been created and can still be modified before deployment.
-* `STAGED` - Relevant for external systems, where the trial configuration has been deployed but not begun the evaluation stage.
-* `RUNNING` - Trial is in the process of being evaluated.
-* `COMPLETED` - Trial completed evaluation successfully.
-* `FAILED` - Trial incurred a failure while being evaluated.
-* `ABANDONED` - User manually stopped the trial for some specified reason.
+-   `CANDIDATE` - Trial has just been created and can still be modified before deployment.
+-   `STAGED` - Relevant for external systems, where the trial configuration has been deployed but not begun the evaluation stage.
+-   `RUNNING` - Trial is in the process of being evaluated.
+-   `COMPLETED` - Trial completed evaluation successfully.
+-   `FAILED` - Trial incurred a failure while being evaluated.
+-   `ABANDONED` - User manually stopped the trial for some specified reason.
 
 When a trial is first created, its status is "candidate". If applicable, we can call `trial.mark_staged` to move the trial into "staged" mode. We then call `trial.run`
 to run the trial, which moves it into the "running" stage. We can then call
