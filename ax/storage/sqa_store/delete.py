@@ -34,13 +34,24 @@ def delete_experiment(exp_name: str) -> None:
     )
 
 
-def delete_generation_strategy(exp_name: str, config: SQAConfig | None = None) -> None:
+def delete_generation_strategy(
+    exp_name: str, config: SQAConfig | None = None, max_gs_to_delete: int = 1
+) -> None:
     """Delete the generation strategy associated with an experiment
 
     Args:
         exp_name: Name of the experiment for which the generation strategy
             should be deleted.
         config: The SQAConfig.
+        max_gs_to_delete: There is never supposed to be more than one generation
+            strategy associated with an experiment. However, we've seen cases where
+            there are, and we don't know why. This parameter allows us to delete
+            multiple generation strategies, but we raise an error if there are more
+            than `max_gs_to_delete` generation strategies associated with the
+            experiment.
+            This is a safeguard in case we have a bug in this code that deletes
+            all generation strategies.
+
     """
     config = config or SQAConfig()
     decoder = Decoder(config=config)
@@ -48,20 +59,32 @@ def delete_generation_strategy(exp_name: str, config: SQAConfig | None = None) -
     gs_sqa_class = decoder.config.class_to_sqa_class[GenerationStrategy]
     # get the generation strategy's db_id
     with session_scope() as session:
-        sqa_gs_id = (
+        sqa_gs_ids = (
             session.query(gs_sqa_class.id)  # pyre-ignore[16]
             .join(exp_sqa_class.generation_strategy)  # pyre-ignore[16]
             # pyre-fixme[16]: `SQABase` has no attribute `name`.
             .filter(exp_sqa_class.name == exp_name)
-            .one_or_none()
+            .all()
         )
 
-    if sqa_gs_id is None:
+    if sqa_gs_ids is None:
+        logger.info(f"No generation strategy found for experiment {exp_name}.")
         return None
 
-    gs_id = sqa_gs_id[0]
+    if len(sqa_gs_ids) > max_gs_to_delete:
+        raise ValueError(
+            f"Found {len(sqa_gs_ids)} generation strategies for experiment {exp_name}. "
+            "If you are sure you want to delete all of them, please set "
+            f"`max_gs_to_delete` (currently {max_gs_to_delete}) to a higher value."
+        )
+
     # delete generation strategy
     with session_scope() as session:
-        gs = session.query(gs_sqa_class).filter_by(id=gs_id).one_or_none()
-        session.delete(gs)
+        gs_list = (
+            session.query(gs_sqa_class)
+            .filter(gs_sqa_class.id.in_([id[0] for id in sqa_gs_ids]))
+            .all()
+        )
+        for gs in gs_list:
+            session.delete(gs)
         session.flush()
