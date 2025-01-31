@@ -51,7 +51,7 @@ from ax.storage.sqa_store.db import (
     session_scope,
 )
 from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.delete import delete_experiment
+from ax.storage.sqa_store.delete import delete_experiment, delete_generation_strategy
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.load import (
     _get_experiment_immutable_opt_config_and_search_space,
@@ -2248,3 +2248,55 @@ class SQAStoreTest(TestCase):
                 loaded_analysis_cards[2].blob,
                 plotly_analysis_card.blob,
             )
+
+    def test_delete_generation_strategy(self) -> None:
+        # GIVEN an experiment with a generation strategy
+        experiment = get_branin_experiment()
+        generation_strategy = choose_generation_strategy(experiment.search_space)
+        generation_strategy.experiment = experiment
+        save_experiment(experiment)
+        save_generation_strategy(generation_strategy=generation_strategy)
+
+        # AND GIVEN another experiment with a generation strategy
+        experiment2 = get_branin_experiment()
+        experiment2.name = "experiment2"
+        generation_strategy2 = choose_generation_strategy(experiment2.search_space)
+        generation_strategy2.experiment = experiment2
+        save_experiment(experiment2)
+        save_generation_strategy(generation_strategy=generation_strategy2)
+
+        # WHEN I delete the generation strategy
+        delete_generation_strategy(exp_name=experiment.name, max_gs_to_delete=2)
+
+        # THEN the generation strategy is deleted
+        with self.assertRaises(ObjectNotFoundError):
+            load_generation_strategy_by_experiment_name(experiment.name)
+
+        # AND the other generation strategy is still there
+        loaded_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment2.name
+        )
+        # Full GS fails the equality check
+        self.assertEqual(str(generation_strategy2), str(loaded_generation_strategy))
+
+    def test_delete_generation_strategy_max_gs_to_delete(self) -> None:
+        # GIVEN an experiment with a generation strategy
+        experiment = get_branin_experiment()
+        generation_strategy = choose_generation_strategy(experiment.search_space)
+        generation_strategy.experiment = experiment
+        save_experiment(experiment)
+        save_generation_strategy(generation_strategy=generation_strategy)
+
+        # WHEN I delete the generation strategy with max_gs_to_delete=0
+        with self.assertRaisesRegex(
+            ValueError,
+            "Found 1 generation strategies",
+        ):
+            delete_generation_strategy(exp_name=experiment.name, max_gs_to_delete=0)
+
+        # THEN the generation strategy is not deleted
+        loaded_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment.name
+        )
+        # Full GS fails the equality check
+        self.assertEqual(str(generation_strategy), str(loaded_generation_strategy))
