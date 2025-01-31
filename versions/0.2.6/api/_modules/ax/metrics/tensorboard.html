@@ -1,0 +1,199 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.6/css/main.css"/><script src="/versions/0.2.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.6/"><img class="logo" src="/versions/0.2.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.6/versions.html"><h3>0.2.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.metrics.tensorboard</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.core.map_data</span> <span class="kn">import</span> <span class="n">MapKeyInfo</span>
+<span class="kn">from</span> <span class="nn">ax.metrics.curve</span> <span class="kn">import</span> <span class="n">AbstractCurveMetric</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">tensorboard.backend.event_processing</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">plugin_event_multiplexer</span> <span class="k">as</span> <span class="n">event_multiplexer</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">tensorboard.compat.proto</span> <span class="kn">import</span> <span class="n">types_pb2</span>
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"tensorboard"</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">CRITICAL</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TensorboardCurveMetric"><a class="viewcode-back" href="../../../metrics.html#ax.metrics.tensorboard.TensorboardCurveMetric">[docs]</a>    <span class="k">class</span> <span class="nc">TensorboardCurveMetric</span><span class="p">(</span><span class="n">AbstractCurveMetric</span><span class="p">):</span>
+        <span class="sd">"""A `CurveMetric` for getting Tensorboard curves."""</span>
+
+        <span class="n">MAP_KEY</span> <span class="o">=</span> <span class="n">MapKeyInfo</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">"steps"</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TensorboardCurveMetric.get_curves_from_ids"><a class="viewcode-back" href="../../../metrics.html#ax.metrics.tensorboard.TensorboardCurveMetric.get_curves_from_ids">[docs]</a>        <span class="nd">@classmethod</span>
+        <span class="k">def</span> <span class="nf">get_curves_from_ids</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">ids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">]]:</span>
+            <span class="sd">"""Get curve data from tensorboard logs.</span>
+
+<span class="sd">            NOTE: If the ids are not simple paths/posix locations, subclass this metric</span>
+<span class="sd">            and replace this method with an appropriate one that retrieves the log</span>
+<span class="sd">            results.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                ids: A list of string paths to tensorboard log directories.</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                A dictionary mapping metric names to pandas Series of data.</span>
+<span class="sd">            """</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">idx</span><span class="p">:</span> <span class="n">get_tb_from_posix</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">idx</span><span class="p">))</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">}</span></div></div>
+
+<div class="viewcode-block" id="get_tb_from_posix"><a class="viewcode-back" href="../../../metrics.html#ax.metrics.tensorboard.get_tb_from_posix">[docs]</a>    <span class="k">def</span> <span class="nf">get_tb_from_posix</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">]:</span>
+        <span class="sa">r</span><span class="sd">"""Get Tensorboard data from a posix path.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path: The posix path for the directory that contains the tensorboard logs.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dictionary mapping metric names to pandas Series of data.</span>
+<span class="sd">        """</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Reading TB logs from </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+        <span class="n">mul</span> <span class="o">=</span> <span class="n">event_multiplexer</span><span class="o">.</span><span class="n">EventMultiplexer</span><span class="p">(</span><span class="n">max_reload_threads</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">mul</span><span class="o">.</span><span class="n">AddRunsFromDirectory</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">mul</span><span class="o">.</span><span class="n">Reload</span><span class="p">()</span>
+        <span class="n">scalar_dict</span> <span class="o">=</span> <span class="n">mul</span><span class="o">.</span><span class="n">PluginRunToTagToContent</span><span class="p">(</span><span class="s2">"scalars"</span><span class="p">)</span>
+        <span class="n">raw_result</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s2">"tag"</span><span class="p">:</span> <span class="n">tag</span><span class="p">,</span> <span class="s2">"event"</span><span class="p">:</span> <span class="n">mul</span><span class="o">.</span><span class="n">Tensors</span><span class="p">(</span><span class="n">run</span><span class="p">,</span> <span class="n">tag</span><span class="p">)}</span>
+            <span class="k">for</span> <span class="n">run</span><span class="p">,</span> <span class="n">run_dict</span> <span class="ow">in</span> <span class="n">scalar_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">run_dict</span>
+        <span class="p">]</span>
+        <span class="n">tb_run_data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">raw_result</span><span class="p">:</span>
+            <span class="n">latest_start_time</span> <span class="o">=</span> <span class="n">_get_latest_start_time</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"event"</span><span class="p">])</span>
+            <span class="n">steps</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">step</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">item</span><span class="p">[</span><span class="s2">"event"</span><span class="p">]</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">wall_time</span> <span class="o">&gt;=</span> <span class="n">latest_start_time</span><span class="p">]</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">_get_event_value</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">item</span><span class="p">[</span><span class="s2">"event"</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">wall_time</span> <span class="o">&gt;=</span> <span class="n">latest_start_time</span>
+            <span class="p">]</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s2">"tag"</span><span class="p">]</span>
+            <span class="n">series</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">steps</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">vals</span><span class="p">)</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">series</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">duplicated</span><span class="p">()):</span>  <span class="c1"># pyre-ignore[16]</span>
+                <span class="c1"># take average of repeated observations of the same "step"</span>
+                <span class="n">series</span> <span class="o">=</span> <span class="n">series</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">series</span><span class="o">.</span><span class="n">index</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>  <span class="c1"># pyre-ignore[16]</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Found duplicate steps for tag </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">. "</span>
+                    <span class="s2">"Removing duplicates by averaging."</span>
+                <span class="p">)</span>
+            <span class="n">tb_run_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">series</span>
+        <span class="k">return</span> <span class="n">tb_run_data</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_latest_start_time</span><span class="p">(</span><span class="n">events</span><span class="p">:</span> <span class="n">List</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">"""In each directory, there may be previous training runs due to restarting</span>
+<span class="sd">        training jobs.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            events: A list of TensorEvents.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The start time of the latest training run.</span>
+<span class="sd">        """</span>
+        <span class="n">events</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">wall_time</span><span class="p">)</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">events</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">wall_time</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">events</span><span class="p">)):</span>
+            <span class="c1"># detect points in time where restarts occurred</span>
+            <span class="k">if</span> <span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">step</span> <span class="o">&lt;</span> <span class="n">events</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">step</span><span class="p">:</span>
+                <span class="n">start_time</span> <span class="o">=</span> <span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">wall_time</span>
+        <span class="k">return</span> <span class="n">start_time</span>
+
+    <span class="k">def</span> <span class="nf">_get_event_value</span><span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="n">NamedTuple</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sa">r</span><span class="sd">"""Helper function to check the dtype and then get the value</span>
+<span class="sd">        stored in a TensorEvent."""</span>
+        <span class="n">tensor</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">tensor_proto</span>  <span class="c1"># pyre-ignore[16]</span>
+        <span class="k">if</span> <span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">types_pb2</span><span class="o">.</span><span class="n">DT_FLOAT</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">float_val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">types_pb2</span><span class="o">.</span><span class="n">DT_DOUBLE</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">double_val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">types_pb2</span><span class="o">.</span><span class="n">DT_INT32</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">int_val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Tensorboard dtype </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported."</span><span class="p">)</span>
+
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+        <span class="s2">"tensorboard package not found. If you would like to use "</span>
+        <span class="s2">"TensorboardCurveMetric, please install tensorboard."</span>
+    <span class="p">)</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

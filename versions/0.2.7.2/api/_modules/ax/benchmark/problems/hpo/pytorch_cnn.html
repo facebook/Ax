@@ -1,0 +1,292 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.7.2/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.7.2/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.7.2/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.7.2/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.7.2/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.7.2/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.7.2/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.7.2/css/main.css"/><script src="/versions/0.2.7.2/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.7.2/"><img class="logo" src="/versions/0.2.7.2/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.7.2/versions.html"><h3>0.2.7.2</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.7.2/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.7.2/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.7.2/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.benchmark.problems.hpo.pytorch_cnn</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Set</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_problem</span> <span class="kn">import</span> <span class="n">SingleObjectiveBenchmarkProblem</span>
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">BaseTrial</span><span class="p">,</span> <span class="n">TrialStatus</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">Objective</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">ParameterType</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.runner</span> <span class="kn">import</span> <span class="n">Runner</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.equality</span> <span class="kn">import</span> <span class="n">equality_typechecker</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span><span class="p">,</span> <span class="n">optim</span>
+<span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">functional</span> <span class="k">as</span> <span class="n">F</span>
+<span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">DataLoader</span><span class="p">,</span> <span class="n">Dataset</span>
+
+
+<div class="viewcode-block" id="PyTorchCNNBenchmarkProblem"><a class="viewcode-back" href="../../../../../benchmark.html#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem">[docs]</a><span class="k">class</span> <span class="nc">PyTorchCNNBenchmarkProblem</span><span class="p">(</span><span class="n">SingleObjectiveBenchmarkProblem</span><span class="p">):</span>
+    <span class="nd">@equality_typechecker</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Base</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">PyTorchCNNBenchmarkProblem</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># Checking the whole datasets' equality here would be too expensive to be</span>
+        <span class="c1"># worth it; just check names instead</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">name</span>
+
+<div class="viewcode-block" id="PyTorchCNNBenchmarkProblem.from_datasets"><a class="viewcode-back" href="../../../../../benchmark.html#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.from_datasets">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_datasets</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">train_set</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">test_set</span><span class="p">:</span> <span class="n">Dataset</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"PyTorchCNNBenchmarkProblem"</span><span class="p">:</span>
+        <span class="n">optimal_value</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="n">search_space</span> <span class="o">=</span> <span class="n">SearchSpace</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">RangeParameter</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">"lr"</span><span class="p">,</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mf">0.4</span>
+                <span class="p">),</span>
+                <span class="n">RangeParameter</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">"momentum"</span><span class="p">,</span>
+                    <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+                    <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">upper</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">RangeParameter</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">"weight_decay"</span><span class="p">,</span>
+                    <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+                    <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">upper</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">RangeParameter</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">"step_size"</span><span class="p">,</span>
+                    <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
+                    <span class="n">lower</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                    <span class="n">upper</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">RangeParameter</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">"gamma"</span><span class="p">,</span>
+                    <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+                    <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">upper</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+            <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span>
+                <span class="n">metric</span><span class="o">=</span><span class="n">PyTorchCNNMetric</span><span class="p">(),</span>
+                <span class="n">minimize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">runner</span> <span class="o">=</span> <span class="n">PyTorchCNNRunner</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">train_set</span><span class="o">=</span><span class="n">train_set</span><span class="p">,</span> <span class="n">test_set</span><span class="o">=</span><span class="n">test_set</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"HPO_PyTorchCNN_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">optimal_value</span><span class="o">=</span><span class="n">optimal_value</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+            <span class="n">runner</span><span class="o">=</span><span class="n">runner</span><span class="p">,</span>
+            <span class="n">num_trials</span><span class="o">=</span><span class="n">num_trials</span><span class="p">,</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="PyTorchCNNMetric"><a class="viewcode-back" href="../../../../../benchmark.html#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNMetric">[docs]</a><span class="k">class</span> <span class="nc">PyTorchCNNMetric</span><span class="p">(</span><span class="n">Metric</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"accuracy"</span><span class="p">)</span>
+
+    <span class="c1"># pyre-fixme[2]: Parameter must be annotated.</span>
+<div class="viewcode-block" id="PyTorchCNNMetric.fetch_trial_data"><a class="viewcode-back" href="../../../../../benchmark.html#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNMetric.fetch_trial_data">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_trial_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="n">accuracy</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">trial</span><span class="o">.</span><span class="n">run_metadata</span><span class="p">[</span><span class="s2">"accuracy"</span><span class="p">][</span><span class="n">name</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms_by_name</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">]</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"arm_name"</span><span class="p">:</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms_by_name</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
+                <span class="s2">"metric_name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="s2">"mean"</span><span class="p">:</span> <span class="n">accuracy</span><span class="p">,</span>
+                <span class="s2">"sem"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="s2">"trial_index"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Data</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="PyTorchCNNRunner"><a class="viewcode-back" href="../../../../../benchmark.html#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner">[docs]</a><span class="k">class</span> <span class="nc">PyTorchCNNRunner</span><span class="p">(</span><span class="n">Runner</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">train_set</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">test_set</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">train_set</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">test_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">test_set</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">statuses</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">TrialStatus</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">"cuda"</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">"cpu"</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PyTorchCNNRunner.CNN"><a class="viewcode-back" href="../../../../../benchmark.html#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.CNN">[docs]</a>    <span class="k">class</span> <span class="nc">CNN</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+        <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">8</span> <span class="o">*</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+        <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+        <span class="c1"># pyre-fixme[2]: Parameter must be annotated.</span>
+<div class="viewcode-block" id="PyTorchCNNRunner.CNN.forward"><a class="viewcode-back" href="../../../../../benchmark.html#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.CNN.forward">[docs]</a>        <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">20</span><span class="p">)</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc1</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">log_softmax</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="PyTorchCNNRunner.train_and_evaluate"><a class="viewcode-back" href="../../../../../benchmark.html#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.train_and_evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">train_and_evaluate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">momentum</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">step_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="n">net</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CNN</span><span class="p">()</span>
+        <span class="n">net</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="c1"># Train</span>
+        <span class="n">net</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+        <span class="n">criterion</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">NLLLoss</span><span class="p">(</span><span class="n">reduction</span><span class="o">=</span><span class="s2">"sum"</span><span class="p">)</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span>
+            <span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span>
+            <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">,</span>
+            <span class="n">momentum</span><span class="o">=</span><span class="n">momentum</span><span class="p">,</span>
+            <span class="n">weight_decay</span><span class="o">=</span><span class="n">weight_decay</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">lr_scheduler</span><span class="o">.</span><span class="n">StepLR</span><span class="p">(</span>
+            <span class="n">optimizer</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="n">step_size</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span>
+        <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">:</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">labels</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+            <span class="c1"># zero the parameter gradients</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+
+            <span class="c1"># forward + backward + optimize</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="n">scheduler</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+
+        <span class="c1"># Evaluate</span>
+        <span class="n">net</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="n">correct</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_loader</span><span class="p">:</span>
+                <span class="n">outputs</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">predicted</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">outputs</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">total</span> <span class="o">+=</span> <span class="n">labels</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">correct</span> <span class="o">+=</span> <span class="p">(</span><span class="n">predicted</span> <span class="o">==</span> <span class="n">labels</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">correct</span> <span class="o">/</span> <span class="n">total</span></div>
+
+<div class="viewcode-block" id="PyTorchCNNRunner.run"><a class="viewcode-back" href="../../../../../benchmark.html#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">statuses</span><span class="p">[</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">statuses</span><span class="p">[</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"accuracy"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="n">arm</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_and_evaluate</span><span class="p">(</span>
+                    <span class="n">lr</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">"lr"</span><span class="p">],</span>  <span class="c1"># pyre-ignore[6]</span>
+                    <span class="n">momentum</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">"momentum"</span><span class="p">],</span>  <span class="c1"># pyre-ignore[6]</span>
+                    <span class="n">weight_decay</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">"weight_decay"</span><span class="p">],</span>  <span class="c1"># pyre-ignore[6]</span>
+                    <span class="n">step_size</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">"step_size"</span><span class="p">],</span>  <span class="c1"># pyre-ignore[6]</span>
+                    <span class="n">gamma</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">"gamma"</span><span class="p">],</span>  <span class="c1"># pyre-ignore[6]</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms</span>
+            <span class="p">}</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="PyTorchCNNRunner.poll_trial_status"><a class="viewcode-back" href="../../../../../benchmark.html#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.poll_trial_status">[docs]</a>    <span class="k">def</span> <span class="nf">poll_trial_status</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trials</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">TrialStatus</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">:</span> <span class="p">{</span><span class="n">t</span><span class="o">.</span><span class="n">index</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">trials</span><span class="p">}}</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.7.2/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

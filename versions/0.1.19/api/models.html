@@ -1,0 +1,1942 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.19/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.19/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.19/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.19/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.19/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.19/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.19/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.19/css/main.css"/><script src="/versions/0.1.19/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.19/"><img class="logo" src="/versions/0.1.19/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.19/versions.html"><h3>0.1.19</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.19/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.19/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.19/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<div class="section" id="module-ax.models">
+<span id="ax-models"></span><h1>ax.models<a class="headerlink" href="#module-ax.models" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="base-models">
+<h2>Base Models<a class="headerlink" href="#base-models" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.models.base">
+<span id="ax-models-base"></span><h3>ax.models.base<a class="headerlink" href="#module-ax.models.base" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.base.Model">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.base.</code><code class="sig-name descname">Model</code><a class="reference internal" href="_modules/ax/models/base.html#Model"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.base.Model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Base class for an Ax model.</p>
+<p>Note: the core methods each model has: <cite>fit</cite>, <cite>predict</cite>, <cite>gen</cite>,
+<cite>cross_validate</cite>, and <cite>best_point</cite> are not present in this base class,
+because the signatures for those methods vary based on the type of the model.
+This class only contains the methods that all models have in common and for
+which they all share the signature.</p>
+<dl class="method">
+<dt id="ax.models.base.Model.deserialize_state">
+<em class="property">classmethod </em><code class="sig-name descname">deserialize_state</code><span class="sig-paren">(</span><em class="sig-param">serialized_state: Dict[str, Any]</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/models/base.html#Model.deserialize_state"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.base.Model.deserialize_state" title="Permalink to this definition">¶</a></dt>
+<dd><p>Restores model’s state from its serialized form, to the format it
+expects to receive as kwargs.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.base.Model.feature_importances">
+<code class="sig-name descname">feature_importances</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Any<a class="reference internal" href="_modules/ax/models/base.html#Model.feature_importances"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.base.Model.feature_importances" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.models.base.Model.serialize_state">
+<em class="property">classmethod </em><code class="sig-name descname">serialize_state</code><span class="sig-paren">(</span><em class="sig-param">raw_state: Dict[str, Any]</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/models/base.html#Model.serialize_state"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.base.Model.serialize_state" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serialized output of <cite>self._get_state</cite> to a JSON-ready dict.
+This may involve storing part of state in files / external storage and
+saving handles for that storage in the resulting serialized state.</p>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.models.discrete_base">
+<span id="ax-models-discrete-base-module"></span><h3>ax.models.discrete_base module<a class="headerlink" href="#module-ax.models.discrete_base" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.discrete_base.DiscreteModel">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.discrete_base.</code><code class="sig-name descname">DiscreteModel</code><a class="reference internal" href="_modules/ax/models/discrete_base.html#DiscreteModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete_base.DiscreteModel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.base.Model" title="ax.models.base.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.base.Model</span></code></a></p>
+<p>This class specifies the interface for a model based on discrete parameters.</p>
+<p>These methods should be implemented to have access to all of the features
+of Ax.</p>
+<dl class="method">
+<dt id="ax.models.discrete_base.DiscreteModel.best_point">
+<code class="sig-name descname">best_point</code><span class="sig-paren">(</span><em class="sig-param">n: int, parameter_values: List[List[Union[str, bool, float, int, None]]], objective_weights: Optional[numpy.ndarray], outcome_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, fixed_features: Optional[Dict[int, Union[str, bool, float, int, None]]] = None, pending_observations: Optional[List[List[List[Union[str, bool, float, int, None]]]]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None</em><span class="sig-paren">)</span> → Optional[List[Union[str, bool, float, int, None]]]<a class="reference internal" href="_modules/ax/models/discrete_base.html#DiscreteModel.best_point"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete_base.DiscreteModel.best_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtains the point that has the best value according to the model
+prediction and its model predictions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>(1 x d) parameter value list representing the point with the best
+value according to the model prediction. None if this function
+is not implemented for the given model.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.discrete_base.DiscreteModel.cross_validate">
+<code class="sig-name descname">cross_validate</code><span class="sig-paren">(</span><em class="sig-param">Xs_train: List[List[List[Union[str, bool, float, int, None]]]], Ys_train: List[List[float]], Yvars_train: List[List[float]], X_test: List[List[Union[str, bool, float, int, None]]]</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/discrete_base.html#DiscreteModel.cross_validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete_base.DiscreteModel.cross_validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do cross validation with the given training and test sets.</p>
+<p>Training set is given in the same format as to fit. Test set is given
+in the same format as to predict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs_train</strong> – A list of m lists X of parameterizations (each parameterization
+is a list of parameter values of length d), each of length k_i,
+for each outcome.</p></li>
+<li><p><strong>Ys_train</strong> – The corresponding list of m lists Y, each of length k_i, for
+each outcome.</p></li>
+<li><p><strong>Yvars_train</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>X_test</strong> – List of the j parameterizations at which to make predictions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) array of outcome predictions at X.</p></li>
+<li><p>(j x m x m) array of predictive covariances at X.
+<cite>cov[j, m1, m2]</cite> is <cite>Cov[m1@j, m2@j]</cite>.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.discrete_base.DiscreteModel.fit">
+<code class="sig-name descname">fit</code><span class="sig-paren">(</span><em class="sig-param">Xs: List[List[List[Union[str, bool, float, int, None]]]], Ys: List[List[float]], Yvars: List[List[float]], parameter_values: List[List[Union[str, bool, float, int, None]]], outcome_names: List[str]</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/models/discrete_base.html#DiscreteModel.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete_base.DiscreteModel.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fit model to m outcomes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – A list of m lists X of parameterizations (each parameterization
+is a list of parameter values of length d), each of length k_i,
+for each outcome.</p></li>
+<li><p><strong>Ys</strong> – The corresponding list of m lists Y, each of length k_i, for
+each outcome.</p></li>
+<li><p><strong>Yvars</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>parameter_values</strong> – A list of possible values for each parameter.</p></li>
+<li><p><strong>outcome_names</strong> – A list of m outcome names.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.discrete_base.DiscreteModel.gen">
+<code class="sig-name descname">gen</code><span class="sig-paren">(</span><em class="sig-param">n: int, parameter_values: List[List[Union[str, bool, float, int, None]]], objective_weights: Optional[numpy.ndarray], outcome_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, fixed_features: Optional[Dict[int, Union[str, bool, float, int, None]]] = None, pending_observations: Optional[List[List[List[Union[str, bool, float, int, None]]]]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None</em><span class="sig-paren">)</span> → Tuple[List[List[Union[str, bool, float, int, None]]], List[float], Dict[str, Any]]<a class="reference internal" href="_modules/ax/models/discrete_base.html#DiscreteModel.gen"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete_base.DiscreteModel.gen" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate new candidates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> – Number of candidates to generate.</p></li>
+<li><p><strong>parameter_values</strong> – A list of possible values for each parameter.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value during generation.</p></li>
+<li><p><strong>pending_observations</strong> – A list of m lists of parameterizations
+(each parameterization is a list of parameter values of length d),
+each of length k_i, for each outcome i.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>List of n generated points, where each point is represented
+by a list of parameter values.</p></li>
+<li><p>List of weights for each of the n points.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.discrete_base.DiscreteModel.predict">
+<code class="sig-name descname">predict</code><span class="sig-paren">(</span><em class="sig-param">X: List[List[Union[str, bool, float, int, None]]]</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/discrete_base.html#DiscreteModel.predict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete_base.DiscreteModel.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>X</strong> – List of the j parameterizations at which to make predictions.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) array of outcome predictions at X.</p></li>
+<li><p>(j x m x m) array of predictive covariances at X.
+cov[j, m1, m2] is Cov[m1@j, m2@j].</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.models.model_utils">
+<span id="ax-models-model-utils-module"></span><h3>ax.models.model_utils module<a class="headerlink" href="#module-ax.models.model_utils" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.models.model_utils.add_fixed_features">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">add_fixed_features</code><span class="sig-paren">(</span><em class="sig-param">tunable_points: numpy.ndarray, d: int, fixed_features: Optional[Dict[int, float]], tunable_feature_indices: numpy.ndarray</em><span class="sig-paren">)</span> → numpy.ndarray<a class="reference internal" href="_modules/ax/models/model_utils.html#add_fixed_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.add_fixed_features" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add fixed features to points in tunable space.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tunable_points</strong> – Points in tunable space.</p></li>
+<li><p><strong>d</strong> – Dimension of parameter space.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value during generation.</p></li>
+<li><p><strong>tunable_feature_indices</strong> – Parameter indices (in d) which are tunable.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Points in the full d-dimensional space, defined by bounds.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>points</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.model_utils.as_array">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">as_array</code><span class="sig-paren">(</span><em class="sig-param">x: Union[torch.Tensor, numpy.ndarray, Tuple[Union[torch.Tensor, numpy.ndarray], ...]]</em><span class="sig-paren">)</span> → Union[numpy.ndarray, Tuple[numpy.ndarray, ...]]<a class="reference internal" href="_modules/ax/models/model_utils.html#as_array"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.as_array" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert every item in a tuple of tensors/arrays into an array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> – A tensor, array, or a tuple of potentially mixed tensors and arrays.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>x, with everything converted to array.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.model_utils.best_in_sample_point">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">best_in_sample_point</code><span class="sig-paren">(</span><em class="sig-param">Xs: Union[List[torch.Tensor], List[numpy.ndarray]], model: Union[ax.models.numpy_base.NumpyModel, ax.models.torch_base.TorchModel], bounds: List[Tuple[float, float]], objective_weights: Union[torch.Tensor, numpy.ndarray, None], outcome_constraints: Optional[Tuple[Union[torch.Tensor, numpy.ndarray], Union[torch.Tensor, numpy.ndarray]]] = None, linear_constraints: Optional[Tuple[Union[torch.Tensor, numpy.ndarray], Union[torch.Tensor, numpy.ndarray]]] = None, fixed_features: Optional[Dict[int, float]] = None, options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None</em><span class="sig-paren">)</span> → Optional[Tuple[Union[torch.Tensor, numpy.ndarray], float]]<a class="reference internal" href="_modules/ax/models/model_utils.html#best_in_sample_point"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.best_in_sample_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select the best point that has been observed.</p>
+<p>Implements two approaches to selecting the best point.</p>
+<p>For both approaches, only points that satisfy parameter space constraints
+(bounds, linear_constraints, fixed_features) will be returned. Points must
+also be observed for all objective and constraint outcomes. Returned
+points may violate outcome constraints, depending on the method below.</p>
+<p>1: Select the point that maximizes the expected utility
+(objective_weights^T posterior_objective_means - baseline) * Prob(feasible)
+Here baseline should be selected so that at least one point has positive
+utility. It can be specified in the options dict, otherwise
+min (objective_weights^T posterior_objective_means)
+will be used, where the min is over observed points.</p>
+<p>2: Select the best-objective point that is feasible with at least
+probability p.</p>
+<p>The following quantities may be specified in the options dict:</p>
+<ul class="simple">
+<li><p>best_point_method: ‘max_utility’ (default) or ‘feasible_threshold’
+to select between the two approaches described above.</p></li>
+<li><p>utility_baseline: Value for the baseline used in max_utility approach. If
+not provided, defaults to min objective value.</p></li>
+<li><p>probability_threshold: Threshold for the feasible_threshold approach.
+Defaults to p=0.95.</p></li>
+<li><p>feasibility_mc_samples: Number of MC samples used for estimating the
+probability of feasibility (defaults 10k).</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – Training data for the points, among which to select the best.</p></li>
+<li><p><strong>model</strong> – Numpy or Torch model.</p></li>
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each feature.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value in the best point.</p></li>
+<li><p><strong>options</strong> – A config dictionary with settings described above.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>d-array of the best point,</p></li>
+<li><p>utility at the best point.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>A two-element tuple or None if no feasible point exist. In tuple</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.model_utils.best_observed_point">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">best_observed_point</code><span class="sig-paren">(</span><em class="sig-param">model: Union[ax.models.numpy_base.NumpyModel, ax.models.torch_base.TorchModel], bounds: List[Tuple[float, float]], objective_weights: Union[torch.Tensor, numpy.ndarray, None], outcome_constraints: Optional[Tuple[Union[torch.Tensor, numpy.ndarray], Union[torch.Tensor, numpy.ndarray]]] = None, linear_constraints: Optional[Tuple[Union[torch.Tensor, numpy.ndarray], Union[torch.Tensor, numpy.ndarray]]] = None, fixed_features: Optional[Dict[int, float]] = None, options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None</em><span class="sig-paren">)</span> → Union[torch.Tensor, numpy.ndarray, None]<a class="reference internal" href="_modules/ax/models/model_utils.html#best_observed_point"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.best_observed_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select the best point that has been observed.</p>
+<p>Implements two approaches to selecting the best point.</p>
+<p>For both approaches, only points that satisfy parameter space constraints
+(bounds, linear_constraints, fixed_features) will be returned. Points must
+also be observed for all objective and constraint outcomes. Returned
+points may violate outcome constraints, depending on the method below.</p>
+<p>1: Select the point that maximizes the expected utility
+(objective_weights^T posterior_objective_means - baseline) * Prob(feasible)
+Here baseline should be selected so that at least one point has positive
+utility. It can be specified in the options dict, otherwise
+min (objective_weights^T posterior_objective_means)
+will be used, where the min is over observed points.</p>
+<p>2: Select the best-objective point that is feasible with at least
+probability p.</p>
+<p>The following quantities may be specified in the options dict:</p>
+<ul class="simple">
+<li><p>best_point_method: ‘max_utility’ (default) or ‘feasible_threshold’
+to select between the two approaches described above.</p></li>
+<li><p>utility_baseline: Value for the baseline used in max_utility approach. If
+not provided, defaults to min objective value.</p></li>
+<li><p>probability_threshold: Threshold for the feasible_threshold approach.
+Defaults to p=0.95.</p></li>
+<li><p>feasibility_mc_samples: Number of MC samples used for estimating the
+probability of feasibility (defaults 10k).</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> – Numpy or Torch model.</p></li>
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each feature.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value in the best point.</p></li>
+<li><p><strong>options</strong> – A config dictionary with settings described above.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A d-array of the best point, or None if no feasible point exists.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.model_utils.check_duplicate">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">check_duplicate</code><span class="sig-paren">(</span><em class="sig-param">point: numpy.ndarray</em>, <em class="sig-param">points: numpy.ndarray</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/models/model_utils.html#check_duplicate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.check_duplicate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if a point exists in another array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>point</strong> – Newly generated point to check.</p></li>
+<li><p><strong>points</strong> – Points previously generated.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if the point is contained in points, else False</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.model_utils.check_param_constraints">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">check_param_constraints</code><span class="sig-paren">(</span><em class="sig-param">linear_constraints: Tuple[numpy.ndarray, numpy.ndarray], point: numpy.ndarray</em><span class="sig-paren">)</span> → Tuple[bool, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/model_utils.html#check_param_constraints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.check_param_constraints" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if a point satisfies parameter constraints.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>point</strong> – A candidate point in d-dimensional space, as a (1 x d) matrix.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>Flag that is True if all constraints are satisfied by the point.</p></li>
+<li><p>Indices of constraints which are violated by the point.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.model_utils.filter_constraints_and_fixed_features">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">filter_constraints_and_fixed_features</code><span class="sig-paren">(</span><em class="sig-param">X: Union[torch.Tensor, numpy.ndarray], bounds: List[Tuple[float, float]], linear_constraints: Optional[Tuple[Union[torch.Tensor, numpy.ndarray], Union[torch.Tensor, numpy.ndarray]]] = None, fixed_features: Optional[Dict[int, float]] = None</em><span class="sig-paren">)</span> → Union[torch.Tensor, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/model_utils.html#filter_constraints_and_fixed_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.filter_constraints_and_fixed_features" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter points to those that satisfy bounds, linear_constraints, and
+fixed_features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> – An tensor or array of points.</p></li>
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each feature.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value in the best point.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Feasible points.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.model_utils.get_observed">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">get_observed</code><span class="sig-paren">(</span><em class="sig-param">Xs: Union[List[torch.Tensor], List[numpy.ndarray]], objective_weights: Union[torch.Tensor, numpy.ndarray], outcome_constraints: Optional[Tuple[Union[torch.Tensor, numpy.ndarray], Union[torch.Tensor, numpy.ndarray]]] = None</em><span class="sig-paren">)</span> → Union[torch.Tensor, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/model_utils.html#get_observed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.get_observed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter points to those that are observed for objective outcomes and outcomes
+that show up in outcome_constraints (if there are any).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – A list of m (k_i x d) feature matrices X. Number of rows k_i
+can vary from i=1,…,m.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Points observed for all objective outcomes and outcome constraints.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.model_utils.rejection_sample">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">rejection_sample</code><span class="sig-paren">(</span><em class="sig-param">gen_unconstrained: Callable[[int, int, numpy.ndarray, Optional[Dict[int, float]]], numpy.ndarray], n: int, d: int, tunable_feature_indices: numpy.ndarray, linear_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, deduplicate: bool = False, max_draws: Optional[int] = None, fixed_features: Optional[Dict[int, float]] = None, rounding_func: Optional[Callable[[numpy.ndarray], numpy.ndarray]] = None, existing_points: Optional[numpy.ndarray] = None</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, int]<a class="reference internal" href="_modules/ax/models/model_utils.html#rejection_sample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.rejection_sample" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rejection sample in parameter space.</p>
+<p>Models must implement a <cite>gen_unconstrained</cite> method in order to support
+rejection sampling via this utility.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.model_utils.tunable_feature_indices">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">tunable_feature_indices</code><span class="sig-paren">(</span><em class="sig-param">bounds: List[Tuple[float, float]], fixed_features: Optional[Dict[int, float]] = None</em><span class="sig-paren">)</span> → numpy.ndarray<a class="reference internal" href="_modules/ax/models/model_utils.html#tunable_feature_indices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.tunable_feature_indices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the feature indices of tunable features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value during generation.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The indices of tunable features.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.model_utils.validate_bounds">
+<code class="sig-prename descclassname">ax.models.model_utils.</code><code class="sig-name descname">validate_bounds</code><span class="sig-paren">(</span><em class="sig-param">bounds: List[Tuple[float, float]], fixed_feature_indices: numpy.ndarray</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/models/model_utils.html#validate_bounds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.model_utils.validate_bounds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ensure the requested space is [0,1]^d.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bounds</strong> – A list of d (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>fixed_feature_indices</strong> – Indices of features which are fixed at a
+particular value.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.models.numpy_base">
+<span id="ax-models-numpy-base-module"></span><h3>ax.models.numpy_base module<a class="headerlink" href="#module-ax.models.numpy_base" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.numpy_base.NumpyModel">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.numpy_base.</code><code class="sig-name descname">NumpyModel</code><a class="reference internal" href="_modules/ax/models/numpy_base.html#NumpyModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy_base.NumpyModel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.base.Model" title="ax.models.base.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.base.Model</span></code></a></p>
+<p>This class specifies the interface for a numpy-based model.</p>
+<p>These methods should be implemented to have access to all of the features
+of Ax.</p>
+<dl class="method">
+<dt id="ax.models.numpy_base.NumpyModel.best_point">
+<code class="sig-name descname">best_point</code><span class="sig-paren">(</span><em class="sig-param">bounds: List[Tuple[float, float]], objective_weights: numpy.ndarray, outcome_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, linear_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, fixed_features: Optional[Dict[int, float]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None</em><span class="sig-paren">)</span> → Optional[numpy.ndarray]<a class="reference internal" href="_modules/ax/models/numpy_base.html#NumpyModel.best_point"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy_base.NumpyModel.best_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Identify the current best point, satisfying the constraints in the same
+format as to gen.</p>
+<p>Return None if no such point can be identified.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value in the best point.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A d-array of the best point.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.numpy_base.NumpyModel.cross_validate">
+<code class="sig-name descname">cross_validate</code><span class="sig-paren">(</span><em class="sig-param">Xs_train: List[numpy.ndarray], Ys_train: List[numpy.ndarray], Yvars_train: List[numpy.ndarray], X_test: numpy.ndarray</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/numpy_base.html#NumpyModel.cross_validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy_base.NumpyModel.cross_validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do cross validation with the given training and test sets.</p>
+<p>Training set is given in the same format as to fit. Test set is given
+in the same format as to predict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs_train</strong> – A list of m (k_i x d) feature matrices X. Number of rows
+k_i can vary from i=1,…,m.</p></li>
+<li><p><strong>Ys_train</strong> – The corresponding list of m (k_i x 1) outcome arrays Y,
+for each outcome.</p></li>
+<li><p><strong>Yvars_train</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>X_test</strong> – (j x d) array of the j points at which to make predictions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) array of outcome predictions at X.</p></li>
+<li><p>(j x m x m) array of predictive covariances at X.
+cov[j, m1, m2] is Cov[m1@j, m2@j].</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.numpy_base.NumpyModel.fit">
+<code class="sig-name descname">fit</code><span class="sig-paren">(</span><em class="sig-param">Xs: List[numpy.ndarray], Ys: List[numpy.ndarray], Yvars: List[numpy.ndarray], bounds: List[Tuple[float, float]], task_features: List[int], feature_names: List[str], metric_names: List[str], fidelity_features: List[int], candidate_metadata: Optional[List[List[Optional[Dict[str, Any]]]]] = None</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/models/numpy_base.html#NumpyModel.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy_base.NumpyModel.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fit model to m outcomes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – A list of m (k_i x d) feature matrices X. Number of rows k_i
+can vary from i=1,…,m.</p></li>
+<li><p><strong>Ys</strong> – The corresponding list of m (k_i x 1) outcome arrays Y, for
+each outcome.</p></li>
+<li><p><strong>Yvars</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>bounds</strong> – A list of d (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>task_features</strong> – Columns of X that take integer values and should be
+treated as task parameters.</p></li>
+<li><p><strong>feature_names</strong> – Names of each column of X.</p></li>
+<li><p><strong>metric_names</strong> – Names of each outcome Y in Ys.</p></li>
+<li><p><strong>fidelity_features</strong> – Columns of X that should be treated as fidelity
+parameters.</p></li>
+<li><p><strong>candidate_metadata</strong> – Model-produced metadata for candidates, in
+the order corresponding to the Xs.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.numpy_base.NumpyModel.gen">
+<code class="sig-name descname">gen</code><span class="sig-paren">(</span><em class="sig-param">n: int, bounds: List[Tuple[float, float]], objective_weights: numpy.ndarray, outcome_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, linear_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, fixed_features: Optional[Dict[int, float]] = None, pending_observations: Optional[List[numpy.ndarray]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None, rounding_func: Optional[Callable[[numpy.ndarray], numpy.ndarray]] = None</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray, Dict[str, Any], Optional[List[Optional[Dict[str, Any]]]]]<a class="reference internal" href="_modules/ax/models/numpy_base.html#NumpyModel.gen"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy_base.NumpyModel.gen" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate new candidates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> – Number of candidates to generate.</p></li>
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value during generation.</p></li>
+<li><p><strong>pending_observations</strong> – A list of m (k_i x d) feature arrays X
+for m outcomes and k_i pending observations for outcome i.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+<li><p><strong>rounding_func</strong> – A function that rounds an optimization result (xbest)
+appropriately (i.e., according to <cite>round-trip</cite> transformations)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>4-element tuple containing</p>
+<ul class="simple">
+<li><p>(n x d) tensor of generated points.</p></li>
+<li><p>n-tensor of weights for each point.</p></li>
+<li><p>Generation metadata</p></li>
+<li><dl class="simple">
+<dt>Dictionary of model-specific metadata for the given</dt><dd><p>generation candidates</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.numpy_base.NumpyModel.predict">
+<code class="sig-name descname">predict</code><span class="sig-paren">(</span><em class="sig-param">X: numpy.ndarray</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/numpy_base.html#NumpyModel.predict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy_base.NumpyModel.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>X</strong> – (j x d) array of the j points at which to make predictions.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) array of outcome predictions at X.</p></li>
+<li><p>(j x m x m) array of predictive covariances at X.
+<cite>cov[j, m1, m2]</cite> is <cite>Cov[m1@j, m2@j]</cite>.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.numpy_base.NumpyModel.update">
+<code class="sig-name descname">update</code><span class="sig-paren">(</span><em class="sig-param">Xs: List[numpy.ndarray], Ys: List[numpy.ndarray], Yvars: List[numpy.ndarray], candidate_metadata: Optional[List[List[Optional[Dict[str, Any]]]]] = None</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/models/numpy_base.html#NumpyModel.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy_base.NumpyModel.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the model.</p>
+<p>Updating the model requires both existing and additional data.
+The data passed into this method will become the new training data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – Existing + additional data for the model,
+in the same format as for <cite>fit</cite>.</p></li>
+<li><p><strong>Ys</strong> – Existing + additional data for the model,
+in the same format as for <cite>fit</cite>.</p></li>
+<li><p><strong>Yvars</strong> – Existing + additional data for the model,
+in the same format as for <cite>fit</cite>.</p></li>
+<li><p><strong>candidate_metadata</strong> – Model-produced metadata for candidates, in
+the order corresponding to the Xs.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.models.torch_base">
+<span id="ax-models-torch-base-module"></span><h3>ax.models.torch_base module<a class="headerlink" href="#module-ax.models.torch_base" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.torch_base.TorchModel">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.torch_base.</code><code class="sig-name descname">TorchModel</code><a class="reference internal" href="_modules/ax/models/torch_base.html#TorchModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch_base.TorchModel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.base.Model" title="ax.models.base.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.base.Model</span></code></a></p>
+<p>This class specifies the interface for a torch-based model.</p>
+<p>These methods should be implemented to have access to all of the features
+of Ax.</p>
+<dl class="method">
+<dt id="ax.models.torch_base.TorchModel.best_point">
+<code class="sig-name descname">best_point</code><span class="sig-paren">(</span><em class="sig-param">bounds: List[Tuple[float, float]], objective_weights: torch.Tensor, outcome_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, linear_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, fixed_features: Optional[Dict[int, float]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None, target_fidelities: Optional[Dict[int, float]] = None</em><span class="sig-paren">)</span> → Optional[torch.Tensor]<a class="reference internal" href="_modules/ax/models/torch_base.html#TorchModel.best_point"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch_base.TorchModel.best_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Identify the current best point, satisfying the constraints in the same
+format as to gen.</p>
+<p>Return None if no such point can be identified.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value in the best point.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+<li><p><strong>target_fidelities</strong> – A map {feature_index: value} of fidelity feature
+column indices to their respective target fidelities. Used for
+multi-fidelity optimization.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>d-tensor of the best point.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.torch_base.TorchModel.cross_validate">
+<code class="sig-name descname">cross_validate</code><span class="sig-paren">(</span><em class="sig-param">Xs_train: List[torch.Tensor], Ys_train: List[torch.Tensor], Yvars_train: List[torch.Tensor], X_test: torch.Tensor</em><span class="sig-paren">)</span> → Tuple[torch.Tensor, torch.Tensor]<a class="reference internal" href="_modules/ax/models/torch_base.html#TorchModel.cross_validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch_base.TorchModel.cross_validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do cross validation with the given training and test sets.</p>
+<p>Training set is given in the same format as to fit. Test set is given
+in the same format as to predict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs_train</strong> – A list of m (k_i x d) feature tensors X. Number of rows
+k_i can vary from i=1,…,m.</p></li>
+<li><p><strong>Ys_train</strong> – The corresponding list of m (k_i x 1) outcome tensors Y,
+for each outcome.</p></li>
+<li><p><strong>Yvars_train</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>X_test</strong> – (j x d) tensor of the j points at which to make predictions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) tensor of outcome predictions at X.</p></li>
+<li><p>(j x m x m) tensor of predictive covariances at X.
+cov[j, m1, m2] is Cov[m1@j, m2@j].</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.models.torch_base.TorchModel.device">
+<code class="sig-name descname">device</code><em class="property">: Optional[torch.device]</em><em class="property"> = None</em><a class="headerlink" href="#ax.models.torch_base.TorchModel.device" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.models.torch_base.TorchModel.dtype">
+<code class="sig-name descname">dtype</code><em class="property">: Optional[torch.dtype]</em><em class="property"> = None</em><a class="headerlink" href="#ax.models.torch_base.TorchModel.dtype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.models.torch_base.TorchModel.evaluate_acquisition_function">
+<code class="sig-name descname">evaluate_acquisition_function</code><span class="sig-paren">(</span><em class="sig-param">X: torch.Tensor</em><span class="sig-paren">)</span> → torch.Tensor<a class="reference internal" href="_modules/ax/models/torch_base.html#TorchModel.evaluate_acquisition_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch_base.TorchModel.evaluate_acquisition_function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate the acquisition function on the candidate set <cite>X</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>X</strong> – (j x d) tensor of the j points at which to evaluate the acquisition
+function.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A single-element tensor with the acquisition value for these points.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.torch_base.TorchModel.fit">
+<code class="sig-name descname">fit</code><span class="sig-paren">(</span><em class="sig-param">Xs: List[torch.Tensor], Ys: List[torch.Tensor], Yvars: List[torch.Tensor], bounds: List[Tuple[float, float]], task_features: List[int], feature_names: List[str], metric_names: List[str], fidelity_features: List[int], candidate_metadata: Optional[List[List[Optional[Dict[str, Any]]]]] = None</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/models/torch_base.html#TorchModel.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch_base.TorchModel.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fit model to m outcomes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – A list of m (k_i x d) feature tensors X. Number of rows k_i can
+vary from i=1,…,m.</p></li>
+<li><p><strong>Ys</strong> – The corresponding list of m (k_i x 1) outcome tensors Y, for
+each outcome.</p></li>
+<li><p><strong>Yvars</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>bounds</strong> – A list of d (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>task_features</strong> – Columns of X that take integer values and should be
+treated as task parameters.</p></li>
+<li><p><strong>feature_names</strong> – Names of each column of X.</p></li>
+<li><p><strong>metric_names</strong> – Names of each outcome Y in Ys.</p></li>
+<li><p><strong>fidelity_features</strong> – Columns of X that should be treated as fidelity
+parameters.</p></li>
+<li><p><strong>candidate_metadata</strong> – Model-produced metadata for candidates, in
+the order corresponding to the Xs.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.torch_base.TorchModel.gen">
+<code class="sig-name descname">gen</code><span class="sig-paren">(</span><em class="sig-param">n: int, bounds: List[Tuple[float, float]], objective_weights: torch.Tensor, outcome_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, linear_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, fixed_features: Optional[Dict[int, float]] = None, pending_observations: Optional[List[torch.Tensor]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None, rounding_func: Optional[Callable[[torch.Tensor], torch.Tensor]] = None, target_fidelities: Optional[Dict[int, float]] = None</em><span class="sig-paren">)</span> → Tuple[torch.Tensor, torch.Tensor, Dict[str, Any], Optional[List[Optional[Dict[str, Any]]]]]<a class="reference internal" href="_modules/ax/models/torch_base.html#TorchModel.gen"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch_base.TorchModel.gen" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate new candidates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> – Number of candidates to generate.</p></li>
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value during generation.</p></li>
+<li><p><strong>pending_observations</strong> – A list of m (k_i x d) feature tensors X
+for m outcomes and k_i pending observations for outcome i.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+<li><p><strong>rounding_func</strong> – A function that rounds an optimization result
+appropriately (i.e., according to <cite>round-trip</cite> transformations).</p></li>
+<li><p><strong>target_fidelities</strong> – A map {feature_index: value} of fidelity feature
+column indices to their respective target fidelities. Used for
+multi-fidelity optimization.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>4-element tuple containing</p>
+<ul class="simple">
+<li><p>(n x d) tensor of generated points.</p></li>
+<li><p>n-tensor of weights for each point.</p></li>
+<li><p>Generation metadata</p></li>
+<li><dl class="simple">
+<dt>Dictionary of model-specific metadata for the given</dt><dd><p>generation candidates</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.torch_base.TorchModel.predict">
+<code class="sig-name descname">predict</code><span class="sig-paren">(</span><em class="sig-param">X: torch.Tensor</em><span class="sig-paren">)</span> → Tuple[torch.Tensor, torch.Tensor]<a class="reference internal" href="_modules/ax/models/torch_base.html#TorchModel.predict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch_base.TorchModel.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>X</strong> – (j x d) tensor of the j points at which to make predictions.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) tensor of outcome predictions at X.</p></li>
+<li><p>(j x m x m) tensor of predictive covariances at X.
+cov[j, m1, m2] is Cov[m1@j, m2@j].</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.torch_base.TorchModel.update">
+<code class="sig-name descname">update</code><span class="sig-paren">(</span><em class="sig-param">Xs: List[torch.Tensor], Ys: List[torch.Tensor], Yvars: List[torch.Tensor], candidate_metadata: Optional[List[List[Optional[Dict[str, Any]]]]] = None</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/models/torch_base.html#TorchModel.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch_base.TorchModel.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the model.</p>
+<p>Updating the model requires both existing and additional data.
+The data passed into this method will become the new training data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – Existing + additional data for the model,
+in the same format as for <cite>fit</cite>.</p></li>
+<li><p><strong>Ys</strong> – Existing + additional data for the model,
+in the same format as for <cite>fit</cite>.</p></li>
+<li><p><strong>Yvars</strong> – Existing + additional data for the model,
+in the same format as for <cite>fit</cite>.</p></li>
+<li><p><strong>candidate_metadata</strong> – Model-produced metadata for candidates, in
+the order corresponding to the Xs.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="discrete-models">
+<h2>Discrete Models<a class="headerlink" href="#discrete-models" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.models.discrete.eb_thompson">
+<span id="ax-models-discrete-eb-thompson-module"></span><h3>ax.models.discrete.eb_thompson module<a class="headerlink" href="#module-ax.models.discrete.eb_thompson" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.discrete.eb_thompson.EmpiricalBayesThompsonSampler">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.discrete.eb_thompson.</code><code class="sig-name descname">EmpiricalBayesThompsonSampler</code><span class="sig-paren">(</span><em class="sig-param">num_samples: int = 10000</em>, <em class="sig-param">min_weight: Optional[float] = None</em>, <em class="sig-param">uniform_weights: bool = False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/models/discrete/eb_thompson.html#EmpiricalBayesThompsonSampler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete.eb_thompson.EmpiricalBayesThompsonSampler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.discrete.thompson.ThompsonSampler" title="ax.models.discrete.thompson.ThompsonSampler"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.discrete.thompson.ThompsonSampler</span></code></a></p>
+<p>Generator for Thompson sampling using Empirical Bayes estimates.</p>
+<p>The generator applies positive-part James-Stein Estimator to the data
+passed in via <cite>fit</cite> and then performs Thompson Sampling.</p>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.models.discrete.full_factorial">
+<span id="ax-models-discrete-full-factorial-module"></span><h3>ax.models.discrete.full_factorial module<a class="headerlink" href="#module-ax.models.discrete.full_factorial" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.discrete.full_factorial.FullFactorialGenerator">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.discrete.full_factorial.</code><code class="sig-name descname">FullFactorialGenerator</code><span class="sig-paren">(</span><em class="sig-param">max_cardinality: int = 100</em>, <em class="sig-param">check_cardinality: bool = True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/models/discrete/full_factorial.html#FullFactorialGenerator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete.full_factorial.FullFactorialGenerator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.discrete_base.DiscreteModel" title="ax.models.discrete_base.DiscreteModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.discrete_base.DiscreteModel</span></code></a></p>
+<p>Generator for full factorial designs.</p>
+<p>Generates arms for all possible combinations of parameter values,
+each with weight 1.</p>
+<p>The value of n supplied to <cite>gen</cite> will be ignored, as the number
+of arms generated is determined by the list of parameter values.
+To suppress this warning, use n = -1.</p>
+<dl class="method">
+<dt id="ax.models.discrete.full_factorial.FullFactorialGenerator.gen">
+<code class="sig-name descname">gen</code><span class="sig-paren">(</span><em class="sig-param">n: int, parameter_values: List[List[Union[str, bool, float, int, None]]], objective_weights: Optional[numpy.ndarray], outcome_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, fixed_features: Optional[Dict[int, Union[str, bool, float, int, None]]] = None, pending_observations: Optional[List[List[List[Union[str, bool, float, int, None]]]]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None</em><span class="sig-paren">)</span> → Tuple[List[List[Union[str, bool, float, int, None]]], List[float], Dict[str, Any]]<a class="reference internal" href="_modules/ax/models/discrete/full_factorial.html#FullFactorialGenerator.gen"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete.full_factorial.FullFactorialGenerator.gen" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate new candidates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> – Number of candidates to generate.</p></li>
+<li><p><strong>parameter_values</strong> – A list of possible values for each parameter.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value during generation.</p></li>
+<li><p><strong>pending_observations</strong> – A list of m lists of parameterizations
+(each parameterization is a list of parameter values of length d),
+each of length k_i, for each outcome i.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>List of n generated points, where each point is represented
+by a list of parameter values.</p></li>
+<li><p>List of weights for each of the n points.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.models.discrete.thompson">
+<span id="ax-models-discrete-thompson-module"></span><h3>ax.models.discrete.thompson module<a class="headerlink" href="#module-ax.models.discrete.thompson" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.discrete.thompson.ThompsonSampler">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.discrete.thompson.</code><code class="sig-name descname">ThompsonSampler</code><span class="sig-paren">(</span><em class="sig-param">num_samples: int = 10000</em>, <em class="sig-param">min_weight: Optional[float] = None</em>, <em class="sig-param">uniform_weights: bool = False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/models/discrete/thompson.html#ThompsonSampler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete.thompson.ThompsonSampler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.discrete_base.DiscreteModel" title="ax.models.discrete_base.DiscreteModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.discrete_base.DiscreteModel</span></code></a></p>
+<p>Generator for Thompson sampling.</p>
+<p>The generator performs Thompson sampling on the data passed in via <cite>fit</cite>.
+Arms are given weight proportional to the probability that they are
+winners, according to Monte Carlo simulations.</p>
+<dl class="method">
+<dt id="ax.models.discrete.thompson.ThompsonSampler.fit">
+<code class="sig-name descname">fit</code><span class="sig-paren">(</span><em class="sig-param">Xs: List[List[List[Union[str, bool, float, int, None]]]], Ys: List[List[float]], Yvars: List[List[float]], parameter_values: List[List[Union[str, bool, float, int, None]]], outcome_names: List[str]</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/models/discrete/thompson.html#ThompsonSampler.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete.thompson.ThompsonSampler.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fit model to m outcomes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – A list of m lists X of parameterizations (each parameterization
+is a list of parameter values of length d), each of length k_i,
+for each outcome.</p></li>
+<li><p><strong>Ys</strong> – The corresponding list of m lists Y, each of length k_i, for
+each outcome.</p></li>
+<li><p><strong>Yvars</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>parameter_values</strong> – A list of possible values for each parameter.</p></li>
+<li><p><strong>outcome_names</strong> – A list of m outcome names.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.discrete.thompson.ThompsonSampler.gen">
+<code class="sig-name descname">gen</code><span class="sig-paren">(</span><em class="sig-param">n: int, parameter_values: List[List[Union[str, bool, float, int, None]]], objective_weights: Optional[numpy.ndarray], outcome_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, fixed_features: Optional[Dict[int, Union[str, bool, float, int, None]]] = None, pending_observations: Optional[List[List[List[Union[str, bool, float, int, None]]]]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None</em><span class="sig-paren">)</span> → Tuple[List[List[Union[str, bool, float, int, None]]], List[float], Dict[str, Any]]<a class="reference internal" href="_modules/ax/models/discrete/thompson.html#ThompsonSampler.gen"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete.thompson.ThompsonSampler.gen" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate new candidates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> – Number of candidates to generate.</p></li>
+<li><p><strong>parameter_values</strong> – A list of possible values for each parameter.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value during generation.</p></li>
+<li><p><strong>pending_observations</strong> – A list of m lists of parameterizations
+(each parameterization is a list of parameter values of length d),
+each of length k_i, for each outcome i.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>List of n generated points, where each point is represented
+by a list of parameter values.</p></li>
+<li><p>List of weights for each of the n points.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.discrete.thompson.ThompsonSampler.predict">
+<code class="sig-name descname">predict</code><span class="sig-paren">(</span><em class="sig-param">X: List[List[Union[str, bool, float, int, None]]]</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/discrete/thompson.html#ThompsonSampler.predict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.discrete.thompson.ThompsonSampler.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>X</strong> – List of the j parameterizations at which to make predictions.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) array of outcome predictions at X.</p></li>
+<li><p>(j x m x m) array of predictive covariances at X.
+cov[j, m1, m2] is Cov[m1@j, m2@j].</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="numpy-models">
+<h2>NumPy Models<a class="headerlink" href="#numpy-models" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.models.numpy.randomforest">
+<span id="ax-models-numpy-randomforest-module"></span><h3>ax.models.numpy.randomforest module<a class="headerlink" href="#module-ax.models.numpy.randomforest" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.numpy.randomforest.RandomForest">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.numpy.randomforest.</code><code class="sig-name descname">RandomForest</code><span class="sig-paren">(</span><em class="sig-param">max_features: Optional[str] = 'sqrt'</em>, <em class="sig-param">num_trees: int = 500</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/models/numpy/randomforest.html#RandomForest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy.randomforest.RandomForest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.numpy_base.NumpyModel" title="ax.models.numpy_base.NumpyModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.numpy_base.NumpyModel</span></code></a></p>
+<p>A Random Forest model.</p>
+<p>Uses a parametric bootstrap to handle uncertainty in Y.</p>
+<p>Can be used to fit data, make predictions, and do cross validation; however
+gen is not implemented and so this model cannot generate new points.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>max_features</strong> – Maximum number of features at each split. With one-hot
+encoding, this should be set to None. Defaults to “sqrt”, which is
+Breiman’s version of Random Forest.</p></li>
+<li><p><strong>num_trees</strong> – Number of trees.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="method">
+<dt id="ax.models.numpy.randomforest.RandomForest.cross_validate">
+<code class="sig-name descname">cross_validate</code><span class="sig-paren">(</span><em class="sig-param">Xs_train: List[numpy.ndarray], Ys_train: List[numpy.ndarray], Yvars_train: List[numpy.ndarray], X_test: numpy.ndarray</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/numpy/randomforest.html#RandomForest.cross_validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy.randomforest.RandomForest.cross_validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do cross validation with the given training and test sets.</p>
+<p>Training set is given in the same format as to fit. Test set is given
+in the same format as to predict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs_train</strong> – A list of m (k_i x d) feature matrices X. Number of rows
+k_i can vary from i=1,…,m.</p></li>
+<li><p><strong>Ys_train</strong> – The corresponding list of m (k_i x 1) outcome arrays Y,
+for each outcome.</p></li>
+<li><p><strong>Yvars_train</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>X_test</strong> – (j x d) array of the j points at which to make predictions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) array of outcome predictions at X.</p></li>
+<li><p>(j x m x m) array of predictive covariances at X.
+cov[j, m1, m2] is Cov[m1@j, m2@j].</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.numpy.randomforest.RandomForest.fit">
+<code class="sig-name descname">fit</code><span class="sig-paren">(</span><em class="sig-param">Xs: List[numpy.ndarray], Ys: List[numpy.ndarray], Yvars: List[numpy.ndarray], bounds: List[Tuple[float, float]], task_features: List[int], feature_names: List[str], metric_names: List[str], fidelity_features: List[int], candidate_metadata: Optional[List[List[Optional[Dict[str, Any]]]]] = None</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/models/numpy/randomforest.html#RandomForest.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy.randomforest.RandomForest.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fit model to m outcomes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – A list of m (k_i x d) feature matrices X. Number of rows k_i
+can vary from i=1,…,m.</p></li>
+<li><p><strong>Ys</strong> – The corresponding list of m (k_i x 1) outcome arrays Y, for
+each outcome.</p></li>
+<li><p><strong>Yvars</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>bounds</strong> – A list of d (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>task_features</strong> – Columns of X that take integer values and should be
+treated as task parameters.</p></li>
+<li><p><strong>feature_names</strong> – Names of each column of X.</p></li>
+<li><p><strong>metric_names</strong> – Names of each outcome Y in Ys.</p></li>
+<li><p><strong>fidelity_features</strong> – Columns of X that should be treated as fidelity
+parameters.</p></li>
+<li><p><strong>candidate_metadata</strong> – Model-produced metadata for candidates, in
+the order corresponding to the Xs.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.numpy.randomforest.RandomForest.predict">
+<code class="sig-name descname">predict</code><span class="sig-paren">(</span><em class="sig-param">X: numpy.ndarray</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/numpy/randomforest.html#RandomForest.predict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.numpy.randomforest.RandomForest.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>X</strong> – (j x d) array of the j points at which to make predictions.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) array of outcome predictions at X.</p></li>
+<li><p>(j x m x m) array of predictive covariances at X.
+<cite>cov[j, m1, m2]</cite> is <cite>Cov[m1@j, m2@j]</cite>.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="random-models">
+<h2>Random Models<a class="headerlink" href="#random-models" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.models.random.base">
+<span id="ax-models-random-base-module"></span><h3>ax.models.random.base module<a class="headerlink" href="#module-ax.models.random.base" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.random.base.RandomModel">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.random.base.</code><code class="sig-name descname">RandomModel</code><span class="sig-paren">(</span><em class="sig-param">deduplicate: bool = True</em>, <em class="sig-param">seed: Optional[int] = None</em>, <em class="sig-param">generated_points: Optional[numpy.ndarray] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/models/random/base.html#RandomModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.random.base.RandomModel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.base.Model" title="ax.models.base.Model"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.base.Model</span></code></a></p>
+<p>This class specifies the basic skeleton for a random model.</p>
+<p>As random generators do not make use of models, they do not implement
+the fit or predict methods.</p>
+<p>These models do not need data, or optimization configs.</p>
+<p>To satisfy search space parameter constraints, these models can use
+rejection sampling. To enable rejection sampling for a subclass, only
+only <cite>_gen_samples</cite> needs to be implemented, or alternatively,
+<cite>_gen_unconstrained</cite>/<cite>gen</cite> can be directly implemented.</p>
+<dl class="attribute">
+<dt id="ax.models.random.base.RandomModel.deduplicate">
+<code class="sig-name descname">deduplicate</code><a class="headerlink" href="#ax.models.random.base.RandomModel.deduplicate" title="Permalink to this definition">¶</a></dt>
+<dd><p>If True (defaults to True), a single instantiation
+of the model will not return the same point twice. This flag
+is used in rejection sampling.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.models.random.base.RandomModel.scramble">
+<code class="sig-name descname">scramble</code><a class="headerlink" href="#ax.models.random.base.RandomModel.scramble" title="Permalink to this definition">¶</a></dt>
+<dd><p>If True, permutes the parameter values among
+the elements of the Sobol sequence. Default is True.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.models.random.base.RandomModel.seed">
+<code class="sig-name descname">seed</code><a class="headerlink" href="#ax.models.random.base.RandomModel.seed" title="Permalink to this definition">¶</a></dt>
+<dd><p>An optional seed value for scrambling.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.random.base.RandomModel.gen">
+<code class="sig-name descname">gen</code><span class="sig-paren">(</span><em class="sig-param">n: int, bounds: List[Tuple[float, float]], linear_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, fixed_features: Optional[Dict[int, float]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None, rounding_func: Optional[Callable[[numpy.ndarray], numpy.ndarray]] = None</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/random/base.html#RandomModel.gen"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.random.base.RandomModel.gen" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate new candidates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> – Number of candidates to generate.</p></li>
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.
+Defined on [0, 1]^d.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value during generation.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that is passed along to the
+model.</p></li>
+<li><p><strong>rounding_func</strong> – A function that rounds an optimization result
+appropriately (e.g., according to <cite>round-trip</cite> transformations).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(n x d) array of generated points.</p></li>
+<li><p>Uniform weights, an n-array of ones for each point.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.models.random.sobol">
+<span id="ax-models-random-sobol-module"></span><h3>ax.models.random.sobol module<a class="headerlink" href="#module-ax.models.random.sobol" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.random.sobol.SobolGenerator">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.random.sobol.</code><code class="sig-name descname">SobolGenerator</code><span class="sig-paren">(</span><em class="sig-param">seed: Optional[int] = None</em>, <em class="sig-param">deduplicate: bool = False</em>, <em class="sig-param">init_position: int = 0</em>, <em class="sig-param">scramble: bool = True</em>, <em class="sig-param">generated_points: Optional[numpy.ndarray] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/models/random/sobol.html#SobolGenerator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.random.sobol.SobolGenerator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.random.base.RandomModel" title="ax.models.random.base.RandomModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.random.base.RandomModel</span></code></a></p>
+<p>This class specifies the generation algorithm for a Sobol generator.</p>
+<p>As Sobol does not make use of a model, it does not implement
+the fit or predict methods.</p>
+<dl class="attribute">
+<dt id="ax.models.random.sobol.SobolGenerator.deduplicate">
+<code class="sig-name descname">deduplicate</code><a class="headerlink" href="#ax.models.random.sobol.SobolGenerator.deduplicate" title="Permalink to this definition">¶</a></dt>
+<dd><p>If true, a single instantiation of the generator will not
+return the same point twice.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.models.random.sobol.SobolGenerator.init_position">
+<code class="sig-name descname">init_position</code><a class="headerlink" href="#ax.models.random.sobol.SobolGenerator.init_position" title="Permalink to this definition">¶</a></dt>
+<dd><p>The initial state of the Sobol generator.
+Starts at 0 by default.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.models.random.sobol.SobolGenerator.scramble">
+<code class="sig-name descname">scramble</code><a class="headerlink" href="#ax.models.random.sobol.SobolGenerator.scramble" title="Permalink to this definition">¶</a></dt>
+<dd><p>If True, permutes the parameter values among
+the elements of the Sobol sequence. Default is True.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.models.random.sobol.SobolGenerator.seed">
+<code class="sig-name descname">seed</code><a class="headerlink" href="#ax.models.random.sobol.SobolGenerator.seed" title="Permalink to this definition">¶</a></dt>
+<dd><p>An optional seed value for scrambling.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.random.sobol.SobolGenerator.engine">
+<em class="property">property </em><code class="sig-name descname">engine</code><a class="headerlink" href="#ax.models.random.sobol.SobolGenerator.engine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a singleton SobolEngine.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.random.sobol.SobolGenerator.gen">
+<code class="sig-name descname">gen</code><span class="sig-paren">(</span><em class="sig-param">n: int, bounds: List[Tuple[float, float]], linear_constraints: Optional[Tuple[numpy.ndarray, numpy.ndarray]] = None, fixed_features: Optional[Dict[int, float]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None, rounding_func: Optional[Callable[[numpy.ndarray], numpy.ndarray]] = None</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/models/random/sobol.html#SobolGenerator.gen"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.random.sobol.SobolGenerator.gen" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate new candidates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> – Number of candidates to generate.</p></li>
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value during generation.</p></li>
+<li><p><strong>rounding_func</strong> – A function that rounds an optimization result
+appropriately (e.g., according to <cite>round-trip</cite> transformations)
+but <em>unused here</em>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(n x d) array of generated points.</p></li>
+<li><p>Uniform weights, an n-array of ones for each point.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.random.sobol.SobolGenerator.init_engine">
+<code class="sig-name descname">init_engine</code><span class="sig-paren">(</span><em class="sig-param">n_tunable_features: int</em><span class="sig-paren">)</span> → torch.quasirandom.SobolEngine<a class="reference internal" href="_modules/ax/models/random/sobol.html#SobolGenerator.init_engine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.random.sobol.SobolGenerator.init_engine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize singleton SobolEngine, only on gen.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>n_tunable_features</strong> – The number of features which can be
+searched over.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>SobolEngine, which can generate Sobol points.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.models.random.uniform">
+<span id="ax-models-random-uniform-module"></span><h3>ax.models.random.uniform module<a class="headerlink" href="#module-ax.models.random.uniform" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.random.uniform.UniformGenerator">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.random.uniform.</code><code class="sig-name descname">UniformGenerator</code><span class="sig-paren">(</span><em class="sig-param">deduplicate: bool = False</em>, <em class="sig-param">seed: Optional[int] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/models/random/uniform.html#UniformGenerator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.random.uniform.UniformGenerator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.random.base.RandomModel" title="ax.models.random.base.RandomModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.random.base.RandomModel</span></code></a></p>
+<p>This class specifies a uniform random generation algorithm.</p>
+<p>As a uniform generator does not make use of a model, it does not implement
+the fit or predict methods.</p>
+<dl class="attribute">
+<dt id="ax.models.random.uniform.UniformGenerator.seed">
+<code class="sig-name descname">seed</code><a class="headerlink" href="#ax.models.random.uniform.UniformGenerator.seed" title="Permalink to this definition">¶</a></dt>
+<dd><p>An optional seed value for the underlying PRNG.</p>
+</dd></dl>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="torch-models">
+<h2>Torch Models<a class="headerlink" href="#torch-models" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.models.torch.botorch">
+<span id="ax-models-torch-botorch-module"></span><h3>ax.models.torch.botorch module<a class="headerlink" href="#module-ax.models.torch.botorch" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.models.torch.botorch.BotorchModel">
+<em class="property">class </em><code class="sig-prename descclassname">ax.models.torch.botorch.</code><code class="sig-name descname">BotorchModel</code><span class="sig-paren">(</span><em class="sig-param">model_constructor: Callable[[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor], List[int], List[int], List[str], Optional[Dict[str, torch.Tensor]], Any], botorch.models.model.Model] = &lt;function get_and_fit_model&gt;, model_predictor: Callable[[botorch.models.model.Model, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]] = &lt;function predict_from_model&gt;, acqf_constructor: Callable[[botorch.models.model.Model, torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]], Optional[torch.Tensor], Optional[torch.Tensor], Any], botorch.acquisition.acquisition.AcquisitionFunction] = &lt;function get_NEI&gt;, acqf_optimizer: Callable[[botorch.acquisition.acquisition.AcquisitionFunction, torch.Tensor, int, Optional[List[Tuple[torch.Tensor, torch.Tensor, float]]], Optional[Dict[int, float]], Optional[Callable[[torch.Tensor], torch.Tensor]], Any], Tuple[torch.Tensor, torch.Tensor]] = &lt;function scipy_optimizer&gt;, best_point_recommender: Callable[[ax.models.torch_base.TorchModel, List[Tuple[float, float]], torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]], Optional[Tuple[torch.Tensor, torch.Tensor]], Optional[Dict[int, float]], Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]], Optional[Dict[int, float]]], Optional[torch.Tensor]] = &lt;function recommend_best_observed_point&gt;, refit_on_cv: bool = False, refit_on_update: bool = True, warm_start_refitting: bool = True, use_input_warping: bool = False, **kwargs: Any</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/models/torch/botorch.html#BotorchModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.models.torch_base.TorchModel" title="ax.models.torch_base.TorchModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.models.torch_base.TorchModel</span></code></a></p>
+<p>Customizable botorch model.</p>
+<p>By default, this uses a noisy Expected Improvement acquisition function on
+top of a model made up of separate GPs, one for each outcome. This behavior
+can be modified by providing custom implementations of the following
+components:</p>
+<ul class="simple">
+<li><p>a <cite>model_constructor</cite> that instantiates and fits a model on data</p></li>
+<li><p>a <cite>model_predictor</cite> that predicts outcomes using the fitted model</p></li>
+<li><p>a <cite>acqf_constructor</cite> that creates an acquisition function from a fitted model</p></li>
+<li><p>a <cite>acqf_optimizer</cite> that optimizes the acquisition function</p></li>
+<li><dl class="simple">
+<dt>a <cite>best_point_recommender</cite> that recommends a current “best” point (i.e.,</dt><dd><p>what the model recommends if the learning process ended now)</p>
+</dd>
+</dl>
+</li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_constructor</strong> – A callable that instantiates and fits a model on data,
+with signature as described below.</p></li>
+<li><p><strong>model_predictor</strong> – A callable that predicts using the fitted model, with
+signature as described below.</p></li>
+<li><p><strong>acqf_constructor</strong> – A callable that creates an acquisition function from a
+fitted model, with signature as described below.</p></li>
+<li><p><strong>acqf_optimizer</strong> – A callable that optimizes the acquisition function, with
+signature as described below.</p></li>
+<li><p><strong>best_point_recommender</strong> – A callable that recommends the best point, with
+signature as described below.</p></li>
+<li><p><strong>refit_on_cv</strong> – If True, refit the model for each fold when performing
+cross-validation.</p></li>
+<li><p><strong>refit_on_update</strong> – If True, refit the model after updating the training
+data using the <cite>update</cite> method.</p></li>
+<li><p><strong>warm_start_refitting</strong> – If True, start model refitting from previous
+model parameters in order to speed up the fitting process.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Call signatures:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model_constructor</span><span class="p">(</span>
+    <span class="n">Xs</span><span class="p">,</span>
+    <span class="n">Ys</span><span class="p">,</span>
+    <span class="n">Yvars</span><span class="p">,</span>
+    <span class="n">task_features</span><span class="p">,</span>
+    <span class="n">fidelity_features</span><span class="p">,</span>
+    <span class="n">metric_names</span><span class="p">,</span>
+    <span class="n">state_dict</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">model</span>
+</pre></div>
+</div>
+<p>Here <cite>Xs</cite>, <cite>Ys</cite>, <cite>Yvars</cite> are lists of tensors (one element per outcome),
+<cite>task_features</cite> identifies columns of Xs that should be modeled as a task,
+<cite>fidelity_features</cite> is a list of ints that specify the positions of fidelity
+parameters in ‘Xs’, <cite>metric_names</cite> provides the names of each <cite>Y</cite> in <cite>Ys</cite>,
+<cite>state_dict</cite> is a pytorch module state dict, and <cite>model</cite> is a BoTorch <cite>Model</cite>.
+Optional kwargs are being passed through from the <cite>BotorchModel</cite> constructor.
+This callable is assumed to return a fitted BoTorch model that has the same
+dtype and lives on the same device as the input tensors.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model_predictor</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="n">mean</span><span class="p">,</span> <span class="n">cov</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Here <cite>model</cite> is a fitted botorch model, <cite>X</cite> is a tensor of candidate points,
+and <cite>mean</cite> and <cite>cov</cite> are the posterior mean and covariance, respectively.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">acqf_constructor</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">objective_weights</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">,</span>
+    <span class="n">X_observed</span><span class="p">,</span>
+    <span class="n">X_pending</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">acq_function</span>
+</pre></div>
+</div>
+<p>Here <cite>model</cite> is a botorch <cite>Model</cite>, <cite>objective_weights</cite> is a tensor of weights
+for the model outputs, <cite>outcome_constraints</cite> is a tuple of tensors describing
+the (linear) outcome constraints, <cite>X_observed</cite> are previously observed points,
+and <cite>X_pending</cite> are points whose evaluation is pending. <cite>acq_function</cite> is a
+BoTorch acquisition function crafted from these inputs. For additional
+details on the arguments, see <cite>get_NEI</cite>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">acqf_optimizer</span><span class="p">(</span>
+    <span class="n">acq_function</span><span class="p">,</span>
+    <span class="n">bounds</span><span class="p">,</span>
+    <span class="n">n</span><span class="p">,</span>
+    <span class="n">inequality_constraints</span><span class="p">,</span>
+    <span class="n">fixed_features</span><span class="p">,</span>
+    <span class="n">rounding_func</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">candidates</span>
+</pre></div>
+</div>
+<p>Here <cite>acq_function</cite> is a BoTorch <cite>AcquisitionFunction</cite>, <cite>bounds</cite> is a tensor
+containing bounds on the parameters, <cite>n</cite> is the number of candidates to be
+generated, <cite>inequality_constraints</cite> are inequality constraints on parameter
+values, <cite>fixed_features</cite> specifies features that should be fixed during
+generation, and <cite>rounding_func</cite> is a callback that rounds an optimization
+result appropriately. <cite>candidates</cite> is a tensor of generated candidates.
+For additional details on the arguments, see <cite>scipy_optimizer</cite>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">best_point_recommender</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">bounds</span><span class="p">,</span>
+    <span class="n">objective_weights</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">,</span>
+    <span class="n">linear_constraints</span><span class="p">,</span>
+    <span class="n">fixed_features</span><span class="p">,</span>
+    <span class="n">model_gen_options</span><span class="p">,</span>
+    <span class="n">target_fidelities</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">candidates</span>
+</pre></div>
+</div>
+<p>Here <cite>model</cite> is a TorchModel, <cite>bounds</cite> is a list of tuples containing bounds
+on the parameters, <cite>objective_weights</cite> is a tensor of weights for the model outputs,
+<cite>outcome_constraints</cite> is a tuple of tensors describing the (linear) outcome
+constraints, <cite>linear_constraints</cite> is a tuple of tensors describing constraints
+on the design, <cite>fixed_features</cite> specifies features that should be fixed during
+generation, <cite>model_gen_options</cite> is a config dictionary that can contain
+model-specific options, and <cite>target_fidelities</cite> is a map from fidelity feature
+column indices to their respective target fidelities, used for multi-fidelity
+optimization problems. % TODO: refer to an example.</p>
+<dl class="attribute">
+<dt id="ax.models.torch.botorch.BotorchModel.Xs">
+<code class="sig-name descname">Xs</code><em class="property">: List[Tensor]</em><em class="property"> = None</em><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.Xs" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.models.torch.botorch.BotorchModel.Ys">
+<code class="sig-name descname">Ys</code><em class="property">: List[Tensor]</em><em class="property"> = None</em><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.Ys" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.models.torch.botorch.BotorchModel.Yvars">
+<code class="sig-name descname">Yvars</code><em class="property">: List[Tensor]</em><em class="property"> = None</em><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.Yvars" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.models.torch.botorch.BotorchModel.best_point">
+<code class="sig-name descname">best_point</code><span class="sig-paren">(</span><em class="sig-param">bounds: List[Tuple[float, float]], objective_weights: torch.Tensor, outcome_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, linear_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, fixed_features: Optional[Dict[int, float]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None, target_fidelities: Optional[Dict[int, float]] = None</em><span class="sig-paren">)</span> → Optional[torch.Tensor]<a class="reference internal" href="_modules/ax/models/torch/botorch.html#BotorchModel.best_point"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.best_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Identify the current best point, satisfying the constraints in the same
+format as to gen.</p>
+<p>Return None if no such point can be identified.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value in the best point.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+<li><p><strong>target_fidelities</strong> – A map {feature_index: value} of fidelity feature
+column indices to their respective target fidelities. Used for
+multi-fidelity optimization.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>d-tensor of the best point.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.torch.botorch.BotorchModel.cross_validate">
+<code class="sig-name descname">cross_validate</code><span class="sig-paren">(</span><em class="sig-param">Xs_train: List[torch.Tensor], Ys_train: List[torch.Tensor], Yvars_train: List[torch.Tensor], X_test: torch.Tensor</em><span class="sig-paren">)</span> → Tuple[torch.Tensor, torch.Tensor]<a class="reference internal" href="_modules/ax/models/torch/botorch.html#BotorchModel.cross_validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.cross_validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do cross validation with the given training and test sets.</p>
+<p>Training set is given in the same format as to fit. Test set is given
+in the same format as to predict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs_train</strong> – A list of m (k_i x d) feature tensors X. Number of rows
+k_i can vary from i=1,…,m.</p></li>
+<li><p><strong>Ys_train</strong> – The corresponding list of m (k_i x 1) outcome tensors Y,
+for each outcome.</p></li>
+<li><p><strong>Yvars_train</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>X_test</strong> – (j x d) tensor of the j points at which to make predictions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) tensor of outcome predictions at X.</p></li>
+<li><p>(j x m x m) tensor of predictive covariances at X.
+cov[j, m1, m2] is Cov[m1@j, m2@j].</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.models.torch.botorch.BotorchModel.device">
+<code class="sig-name descname">device</code><em class="property">: Optional[torch.device]</em><em class="property"> = None</em><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.device" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="attribute">
+<dt id="ax.models.torch.botorch.BotorchModel.dtype">
+<code class="sig-name descname">dtype</code><em class="property">: Optional[torch.dtype]</em><em class="property"> = None</em><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.dtype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.models.torch.botorch.BotorchModel.feature_importances">
+<code class="sig-name descname">feature_importances</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → numpy.ndarray<a class="reference internal" href="_modules/ax/models/torch/botorch.html#BotorchModel.feature_importances"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.feature_importances" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.models.torch.botorch.BotorchModel.fit">
+<code class="sig-name descname">fit</code><span class="sig-paren">(</span><em class="sig-param">Xs: List[torch.Tensor], Ys: List[torch.Tensor], Yvars: List[torch.Tensor], bounds: List[Tuple[float, float]], task_features: List[int], feature_names: List[str], metric_names: List[str], fidelity_features: List[int], candidate_metadata: Optional[List[List[Optional[Dict[str, Any]]]]] = None</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/models/torch/botorch.html#BotorchModel.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fit model to m outcomes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – A list of m (k_i x d) feature tensors X. Number of rows k_i can
+vary from i=1,…,m.</p></li>
+<li><p><strong>Ys</strong> – The corresponding list of m (k_i x 1) outcome tensors Y, for
+each outcome.</p></li>
+<li><p><strong>Yvars</strong> – The variances of each entry in Ys, same shape.</p></li>
+<li><p><strong>bounds</strong> – A list of d (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>task_features</strong> – Columns of X that take integer values and should be
+treated as task parameters.</p></li>
+<li><p><strong>feature_names</strong> – Names of each column of X.</p></li>
+<li><p><strong>metric_names</strong> – Names of each outcome Y in Ys.</p></li>
+<li><p><strong>fidelity_features</strong> – Columns of X that should be treated as fidelity
+parameters.</p></li>
+<li><p><strong>candidate_metadata</strong> – Model-produced metadata for candidates, in
+the order corresponding to the Xs.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.torch.botorch.BotorchModel.gen">
+<code class="sig-name descname">gen</code><span class="sig-paren">(</span><em class="sig-param">n: int, bounds: List[Tuple[float, float]], objective_weights: torch.Tensor, outcome_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, linear_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, fixed_features: Optional[Dict[int, float]] = None, pending_observations: Optional[List[torch.Tensor]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None, rounding_func: Optional[Callable[[torch.Tensor], torch.Tensor]] = None, target_fidelities: Optional[Dict[int, float]] = None</em><span class="sig-paren">)</span> → Tuple[torch.Tensor, torch.Tensor, Dict[str, Any], Optional[List[Optional[Dict[str, Any]]]]]<a class="reference internal" href="_modules/ax/models/torch/botorch.html#BotorchModel.gen"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.gen" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate new candidates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> – Number of candidates to generate.</p></li>
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value during generation.</p></li>
+<li><p><strong>pending_observations</strong> – A list of m (k_i x d) feature tensors X
+for m outcomes and k_i pending observations for outcome i.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+<li><p><strong>rounding_func</strong> – A function that rounds an optimization result
+appropriately (i.e., according to <cite>round-trip</cite> transformations).</p></li>
+<li><p><strong>target_fidelities</strong> – A map {feature_index: value} of fidelity feature
+column indices to their respective target fidelities. Used for
+multi-fidelity optimization.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>4-element tuple containing</p>
+<ul class="simple">
+<li><p>(n x d) tensor of generated points.</p></li>
+<li><p>n-tensor of weights for each point.</p></li>
+<li><p>Generation metadata</p></li>
+<li><dl class="simple">
+<dt>Dictionary of model-specific metadata for the given</dt><dd><p>generation candidates</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.torch.botorch.BotorchModel.predict">
+<code class="sig-name descname">predict</code><span class="sig-paren">(</span><em class="sig-param">X: torch.Tensor</em><span class="sig-paren">)</span> → Tuple[torch.Tensor, torch.Tensor]<a class="reference internal" href="_modules/ax/models/torch/botorch.html#BotorchModel.predict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>X</strong> – (j x d) tensor of the j points at which to make predictions.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>(j x m) tensor of outcome predictions at X.</p></li>
+<li><p>(j x m x m) tensor of predictive covariances at X.
+cov[j, m1, m2] is Cov[m1@j, m2@j].</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.models.torch.botorch.BotorchModel.update">
+<code class="sig-name descname">update</code><span class="sig-paren">(</span><em class="sig-param">Xs: List[torch.Tensor], Ys: List[torch.Tensor], Yvars: List[torch.Tensor], candidate_metadata: Optional[List[List[Optional[Dict[str, Any]]]]] = None</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/models/torch/botorch.html#BotorchModel.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch.BotorchModel.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the model.</p>
+<p>Updating the model requires both existing and additional data.
+The data passed into this method will become the new training data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – Existing + additional data for the model,
+in the same format as for <cite>fit</cite>.</p></li>
+<li><p><strong>Ys</strong> – Existing + additional data for the model,
+in the same format as for <cite>fit</cite>.</p></li>
+<li><p><strong>Yvars</strong> – Existing + additional data for the model,
+in the same format as for <cite>fit</cite>.</p></li>
+<li><p><strong>candidate_metadata</strong> – Model-produced metadata for candidates, in
+the order corresponding to the Xs.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.botorch.get_rounding_func">
+<code class="sig-prename descclassname">ax.models.torch.botorch.</code><code class="sig-name descname">get_rounding_func</code><span class="sig-paren">(</span><em class="sig-param">rounding_func: Optional[Callable[[torch.Tensor], torch.Tensor]]</em><span class="sig-paren">)</span> → Optional[Callable[[torch.Tensor], torch.Tensor]]<a class="reference internal" href="_modules/ax/models/torch/botorch.html#get_rounding_func"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch.get_rounding_func" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</div>
+<div class="section" id="module-ax.models.torch.botorch_defaults">
+<span id="ax-models-torch-botorch-defaults-module"></span><h3>ax.models.torch.botorch_defaults module<a class="headerlink" href="#module-ax.models.torch.botorch_defaults" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.models.torch.botorch_defaults.get_NEI">
+<code class="sig-prename descclassname">ax.models.torch.botorch_defaults.</code><code class="sig-name descname">get_NEI</code><span class="sig-paren">(</span><em class="sig-param">model: botorch.models.model.Model</em>, <em class="sig-param">objective_weights: torch.Tensor</em>, <em class="sig-param">outcome_constraints: Optional[Tuple[torch.Tensor</em>, <em class="sig-param">torch.Tensor]] = None</em>, <em class="sig-param">X_observed: Optional[torch.Tensor] = None</em>, <em class="sig-param">X_pending: Optional[torch.Tensor] = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> → botorch.acquisition.acquisition.AcquisitionFunction<a class="reference internal" href="_modules/ax/models/torch/botorch_defaults.html#get_NEI"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch_defaults.get_NEI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instantiates a qNoisyExpectedImprovement acquisition function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> – The underlying model which the acqusition function uses
+to estimate acquisition values of candidates.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b. (Not used by single task models)</p></li>
+<li><p><strong>X_observed</strong> – A tensor containing points observed for all objective
+outcomes and outcomes that appear in the outcome constraints (if
+there are any).</p></li>
+<li><p><strong>X_pending</strong> – A tensor containing points whose evaluation is pending (i.e.
+that have been submitted for evaluation) present for all objective
+outcomes and outcomes that appear in the outcome constraints (if
+there are any).</p></li>
+<li><p><strong>mc_samples</strong> – The number of MC samples to use (default: 512).</p></li>
+<li><p><strong>qmc</strong> – If True, use qMC instead of MC (default: True).</p></li>
+<li><p><strong>prune_baseline</strong> – If True, prune the baseline points for NEI (default: True).</p></li>
+<li><p><strong>chebyshev_scalarization</strong> – Use augmented Chebyshev scalarization.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The instantiated acquisition function.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>qNoisyExpectedImprovement</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.botorch_defaults.get_and_fit_model">
+<code class="sig-prename descclassname">ax.models.torch.botorch_defaults.</code><code class="sig-name descname">get_and_fit_model</code><span class="sig-paren">(</span><em class="sig-param">Xs: List[torch.Tensor], Ys: List[torch.Tensor], Yvars: List[torch.Tensor], task_features: List[int], fidelity_features: List[int], metric_names: List[str], state_dict: Optional[Dict[str, torch.Tensor]] = None, refit_model: bool = True, use_input_warping: bool = False, **kwargs: Any</em><span class="sig-paren">)</span> → botorch.models.gpytorch.GPyTorchModel<a class="reference internal" href="_modules/ax/models/torch/botorch_defaults.html#get_and_fit_model"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch_defaults.get_and_fit_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instantiates and fits a botorch GPyTorchModel using the given data.
+N.B. Currently, the logic for choosing ModelListGP vs other models is handled
+using if-else statements in lines 96-137. In the future, this logic should be
+taken care of by modular botorch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Xs</strong> – List of X data, one tensor per outcome.</p></li>
+<li><p><strong>Ys</strong> – List of Y data, one tensor per outcome.</p></li>
+<li><p><strong>Yvars</strong> – List of observed variance of Ys.</p></li>
+<li><p><strong>task_features</strong> – List of columns of X that are tasks.</p></li>
+<li><p><strong>fidelity_features</strong> – List of columns of X that are fidelity parameters.</p></li>
+<li><p><strong>metric_names</strong> – Names of each outcome Y in Ys.</p></li>
+<li><p><strong>state_dict</strong> – If provided, will set model parameters to this state
+dictionary. Otherwise, will fit the model.</p></li>
+<li><p><strong>refit_model</strong> – Flag for refitting model.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A fitted GPyTorchModel.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.botorch_defaults.get_warping_transform">
+<code class="sig-prename descclassname">ax.models.torch.botorch_defaults.</code><code class="sig-name descname">get_warping_transform</code><span class="sig-paren">(</span><em class="sig-param">d: int</em>, <em class="sig-param">task_feature: Optional[int] = None</em><span class="sig-paren">)</span> → botorch.models.transforms.input.Warp<a class="reference internal" href="_modules/ax/models/torch/botorch_defaults.html#get_warping_transform"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch_defaults.get_warping_transform" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct input warping transform.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>d</strong> – The dimension of the input, including task features</p></li>
+<li><p><strong>task_feature</strong> – the index of the task feature</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The input warping transform.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.botorch_defaults.recommend_best_observed_point">
+<code class="sig-prename descclassname">ax.models.torch.botorch_defaults.</code><code class="sig-name descname">recommend_best_observed_point</code><span class="sig-paren">(</span><em class="sig-param">model: ax.models.torch_base.TorchModel, bounds: List[Tuple[float, float]], objective_weights: torch.Tensor, outcome_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, linear_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, fixed_features: Optional[Dict[int, float]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None, target_fidelities: Optional[Dict[int, float]] = None</em><span class="sig-paren">)</span> → Optional[torch.Tensor]<a class="reference internal" href="_modules/ax/models/torch/botorch_defaults.html#recommend_best_observed_point"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch_defaults.recommend_best_observed_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>A wrapper around <cite>ax.models.model_utils.best_observed_point</cite> for TorchModel
+that recommends a best point from previously observed points using either a
+“max_utility” or “feasible_threshold” strategy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> – A TorchModel.</p></li>
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value in the best point.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+<li><p><strong>target_fidelities</strong> – A map {feature_index: value} of fidelity feature
+column indices to their respective target fidelities. Used for
+multi-fidelity optimization.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A d-array of the best point, or None if no feasible point was observed.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.botorch_defaults.recommend_best_out_of_sample_point">
+<code class="sig-prename descclassname">ax.models.torch.botorch_defaults.</code><code class="sig-name descname">recommend_best_out_of_sample_point</code><span class="sig-paren">(</span><em class="sig-param">model: ax.models.torch_base.TorchModel, bounds: List[Tuple[float, float]], objective_weights: torch.Tensor, outcome_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, linear_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, fixed_features: Optional[Dict[int, float]] = None, model_gen_options: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None, target_fidelities: Optional[Dict[int, float]] = None</em><span class="sig-paren">)</span> → Optional[torch.Tensor]<a class="reference internal" href="_modules/ax/models/torch/botorch_defaults.html#recommend_best_out_of_sample_point"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch_defaults.recommend_best_out_of_sample_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Identify the current best point by optimizing the posterior mean of the model.
+This is “out-of-sample” because it considers un-observed designs as well.</p>
+<p>Return None if no such point can be identified.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> – A TorchModel.</p></li>
+<li><p><strong>bounds</strong> – A list of (lower, upper) tuples for each column of X.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b.</p></li>
+<li><p><strong>linear_constraints</strong> – A tuple of (A, b). For k linear constraints on
+d-dimensional x, A is (k x d) and b is (k x 1) such that
+A x &lt;= b.</p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that
+should be fixed to a particular value in the best point.</p></li>
+<li><p><strong>model_gen_options</strong> – A config dictionary that can contain
+model-specific options.</p></li>
+<li><p><strong>target_fidelities</strong> – A map {feature_index: value} of fidelity feature
+column indices to their respective target fidelities. Used for
+multi-fidelity optimization.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A d-array of the best point, or None if no feasible point exists.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.botorch_defaults.scipy_optimizer">
+<code class="sig-prename descclassname">ax.models.torch.botorch_defaults.</code><code class="sig-name descname">scipy_optimizer</code><span class="sig-paren">(</span><em class="sig-param">acq_function: botorch.acquisition.acquisition.AcquisitionFunction, bounds: torch.Tensor, n: int, inequality_constraints: Optional[List[Tuple[torch.Tensor, torch.Tensor, float]]] = None, fixed_features: Optional[Dict[int, float]] = None, rounding_func: Optional[Callable[[torch.Tensor], torch.Tensor]] = None, **kwargs: Any</em><span class="sig-paren">)</span> → Tuple[torch.Tensor, torch.Tensor]<a class="reference internal" href="_modules/ax/models/torch/botorch_defaults.html#scipy_optimizer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.botorch_defaults.scipy_optimizer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Optimizer using scipy’s minimize module on a numpy-adpator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>acq_function</strong> – A botorch AcquisitionFunction.</p></li>
+<li><p><strong>bounds</strong> – A <cite>2 x d</cite>-dim tensor, where <cite>bounds[0]</cite> (<cite>bounds[1]</cite>) are the
+lower (upper) bounds of the feasible hyperrectangle.</p></li>
+<li><p><strong>n</strong> – The number of candidates to generate.</p></li>
+<li><p><strong>constraints</strong> (<em>inequality</em>) – A list of tuples (indices, coefficients, rhs),
+with each tuple encoding an inequality constraint of the form
+<cite>sum_i (X[indices[i]] * coefficients[i]) &gt;= rhs</cite></p></li>
+<li><p><strong>fixed_features</strong> – A map {feature_index: value} for features that should
+be fixed to a particular value during generation.</p></li>
+<li><p><strong>rounding_func</strong> – A function that rounds an optimization result
+appropriately (i.e., according to <cite>round-trip</cite> transformations).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>2-element tuple containing</p>
+<ul class="simple">
+<li><p>A <cite>n x d</cite>-dim tensor of generated candidates.</p></li>
+<li><p>In the case of joint optimization, a scalar tensor containing
+the joint acquisition value of the <cite>n</cite> points. In the case of
+sequential optimization, a <cite>n</cite>-dim tensor of conditional acquisition
+values, where <cite>i</cite>-th element is the expected acquisition value
+conditional on having observed candidates <cite>0,1,…,i-1</cite>.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.models.torch.utils">
+<span id="ax-models-torch-utils-module"></span><h3>ax.models.torch.utils module<a class="headerlink" href="#module-ax.models.torch.utils" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.models.torch.utils.get_botorch_objective">
+<code class="sig-prename descclassname">ax.models.torch.utils.</code><code class="sig-name descname">get_botorch_objective</code><span class="sig-paren">(</span><em class="sig-param">model: botorch.models.model.Model</em>, <em class="sig-param">objective_weights: torch.Tensor</em>, <em class="sig-param">use_scalarized_objective: bool = True</em>, <em class="sig-param">outcome_constraints: Optional[Tuple[torch.Tensor</em>, <em class="sig-param">torch.Tensor]] = None</em>, <em class="sig-param">X_observed: Optional[torch.Tensor] = None</em><span class="sig-paren">)</span> → botorch.acquisition.objective.AcquisitionObjective<a class="reference internal" href="_modules/ax/models/torch/utils.html#get_botorch_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.utils.get_botorch_objective" title="Permalink to this definition">¶</a></dt>
+<dd><p>Constructs a BoTorch <cite>AcquisitionObjective</cite> object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> – A BoTorch Model</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>use_scalarized_objective</strong> – A boolean parameter that defaults to True,
+specifying whether ScalarizedObjective should be used.
+NOTE: when using outcome_constraints, use_scalarized_objective
+will be ignored.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b. (Not used by single task models)</p></li>
+<li><p><strong>X_observed</strong> – Observed points that are feasible and appear in the
+objective or the constraints. None if there are no such points.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><cite>ScalarizedObjective</cite>, <cite>LinearMCOObjective</cite>, <cite>ConstrainedMCObjective</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>A BoTorch <cite>AcquisitionObjective</cite> object. It will be one of</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.utils.get_out_of_sample_best_point_acqf">
+<code class="sig-prename descclassname">ax.models.torch.utils.</code><code class="sig-name descname">get_out_of_sample_best_point_acqf</code><span class="sig-paren">(</span><em class="sig-param">model: botorch.models.model.Model, Xs: List[torch.Tensor], X_observed: torch.Tensor, objective_weights: torch.Tensor, mc_samples: int = 512, fixed_features: Optional[Dict[int, float]] = None, fidelity_features: Optional[List[int]] = None, target_fidelities: Optional[Dict[int, float]] = None, outcome_constraints: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, seed_inner: Optional[int] = None, qmc: bool = True, **kwargs: Any</em><span class="sig-paren">)</span> → Tuple[botorch.acquisition.acquisition.AcquisitionFunction, Optional[List[int]]]<a class="reference internal" href="_modules/ax/models/torch/utils.html#get_out_of_sample_best_point_acqf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.utils.get_out_of_sample_best_point_acqf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Picks an appropriate acquisition function to find the best
+out-of-sample (predicted by the given surrogate model) point
+and instantiates it.</p>
+<p>NOTE: Typically the appropriate function is the posterior mean,
+but can differ to account for fidelities etc.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.utils.is_noiseless">
+<code class="sig-prename descclassname">ax.models.torch.utils.</code><code class="sig-name descname">is_noiseless</code><span class="sig-paren">(</span><em class="sig-param">model: botorch.models.model.Model</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/models/torch/utils.html#is_noiseless"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.utils.is_noiseless" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if a given (single-task) botorch model is noiseless</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.utils.normalize_indices">
+<code class="sig-prename descclassname">ax.models.torch.utils.</code><code class="sig-name descname">normalize_indices</code><span class="sig-paren">(</span><em class="sig-param">indices: List[int], d: int</em><span class="sig-paren">)</span> → List[int]<a class="reference internal" href="_modules/ax/models/torch/utils.html#normalize_indices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.utils.normalize_indices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Normalize a list of indices to ensure that they are positive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>indices</strong> – A list of indices (may contain negative indices for indexing
+“from the back”).</p></li>
+<li><p><strong>d</strong> – The dimension of the tensor to index.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A normalized list of indices such that each index is between <cite>0</cite> and <cite>d-1</cite>.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.utils.pick_best_out_of_sample_point_acqf_class">
+<code class="sig-prename descclassname">ax.models.torch.utils.</code><code class="sig-name descname">pick_best_out_of_sample_point_acqf_class</code><span class="sig-paren">(</span><em class="sig-param">outcome_constraints: Optional[Tuple[torch.Tensor</em>, <em class="sig-param">torch.Tensor]] = None</em>, <em class="sig-param">mc_samples: int = 512</em>, <em class="sig-param">qmc: bool = True</em>, <em class="sig-param">seed_inner: Optional[int] = None</em><span class="sig-paren">)</span> → Tuple[Type[botorch.acquisition.acquisition.AcquisitionFunction], Dict[str, Any]]<a class="reference internal" href="_modules/ax/models/torch/utils.html#pick_best_out_of_sample_point_acqf_class"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.utils.pick_best_out_of_sample_point_acqf_class" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.utils.predict_from_model">
+<code class="sig-prename descclassname">ax.models.torch.utils.</code><code class="sig-name descname">predict_from_model</code><span class="sig-paren">(</span><em class="sig-param">model: botorch.models.model.Model</em>, <em class="sig-param">X: torch.Tensor</em><span class="sig-paren">)</span> → Tuple[torch.Tensor, torch.Tensor]<a class="reference internal" href="_modules/ax/models/torch/utils.html#predict_from_model"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.utils.predict_from_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predicts outcomes given a model and input tensor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> – A botorch Model.</p></li>
+<li><p><strong>X</strong> – A <cite>n x d</cite> tensor of input parameters.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The predicted posterior mean as an <cite>n x o</cite>-dim tensor.
+Tensor: The predicted posterior covariance as a <cite>n x o x o</cite>-dim tensor.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.utils.randomize_objective_weights">
+<code class="sig-prename descclassname">ax.models.torch.utils.</code><code class="sig-name descname">randomize_objective_weights</code><span class="sig-paren">(</span><em class="sig-param">objective_weights: torch.Tensor</em>, <em class="sig-param">**acquisition_function_kwargs: Any</em><span class="sig-paren">)</span> → torch.Tensor<a class="reference internal" href="_modules/ax/models/torch/utils.html#randomize_objective_weights"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.utils.randomize_objective_weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a random weighting based on acquisition function settings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>objective_weights</strong> – Base weights to multiply by random values..</p></li>
+<li><p><strong>**acquisition_function_kwargs</strong> – Kwargs containing weight generation algorithm
+options.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A normalized list of indices such that each index is between <cite>0</cite> and <cite>d-1</cite>.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.utils.subset_model">
+<code class="sig-prename descclassname">ax.models.torch.utils.</code><code class="sig-name descname">subset_model</code><span class="sig-paren">(</span><em class="sig-param">model: botorch.models.model.Model</em>, <em class="sig-param">objective_weights: torch.Tensor</em>, <em class="sig-param">outcome_constraints: Optional[Tuple[torch.Tensor</em>, <em class="sig-param">torch.Tensor]] = None</em>, <em class="sig-param">Ys: Optional[List[torch.Tensor]] = None</em><span class="sig-paren">)</span> → Tuple[botorch.models.model.Model, torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]], Optional[List[torch.Tensor]]]<a class="reference internal" href="_modules/ax/models/torch/utils.html#subset_model"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.utils.subset_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Subset a botorch model to the outputs used in the optimization.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> – A BoTorch Model. If the model does not implement the
+<cite>subset_outputs</cite> method, this function is a null-op and returns the
+input arguments.</p></li>
+<li><p><strong>objective_weights</strong> – The objective is to maximize a weighted sum of
+the columns of f(x). These are the weights.</p></li>
+<li><p><strong>outcome_constraints</strong> – A tuple of (A, b). For k outcome constraints
+and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+A f(x) &lt;= b. (Not used by single task models)</p></li>
+<li><p><strong>Ys</strong> – The corresponding list of m (k_i x 1) outcome tensors Y, for
+each outcome.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A three-tuple of model, objective_weights, and outcome_constraints, all
+subset to only those outputs that appear in either the objective weights
+or the outcome constraints.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.models.torch.utils.tensor_callable_to_array_callable">
+<code class="sig-prename descclassname">ax.models.torch.utils.</code><code class="sig-name descname">tensor_callable_to_array_callable</code><span class="sig-paren">(</span><em class="sig-param">tensor_func: Callable[[torch.Tensor], torch.Tensor], device: torch.device</em><span class="sig-paren">)</span> → Callable[[numpy.ndarray], numpy.ndarray]<a class="reference internal" href="_modules/ax/models/torch/utils.html#tensor_callable_to_array_callable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.models.torch.utils.tensor_callable_to_array_callable" title="Permalink to this definition">¶</a></dt>
+<dd><p>“transfer a tensor callable to an array callable</p>
+</dd></dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ax.models</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#base-models">Base Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#discrete-models">Discrete Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#numpy-models">NumPy Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#random-models">Random Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#torch-models">Torch Models</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+<li>Previous: <a href="modelbridge.html" title="previous chapter">ax.modelbridge</a></li>
+<li>Next: <a href="plot.html" title="next chapter">ax.plot</a></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.19/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

@@ -1,0 +1,461 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.5.1/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.5.1/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.5.1/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.5.1/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.5.1/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.5.1/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.5.1/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.5.1/css/main.css"/><script src="/versions/0.2.5.1/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.5.1/"><img class="logo" src="/versions/0.2.5.1/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.5.1/versions.html"><h3>0.2.5.1</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.5.1/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.5.1/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.5.1/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<div class="section" id="module-ax.benchmark">
+<span id="ax-benchmark"></span><h1>ax.benchmark<a class="headerlink" href="#module-ax.benchmark" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="benchmark">
+<h2>Benchmark<a class="headerlink" href="#benchmark" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.benchmark.benchmark_method">
+<span id="benchmark-method"></span><h3>Benchmark Method<a class="headerlink" href="#module-ax.benchmark.benchmark_method" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="ax.benchmark.benchmark_method.BenchmarkMethod">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.benchmark_method.</span></code><code class="sig-name descname"><span class="pre">BenchmarkMethod</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">generation_strategy</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="modelbridge.html#ax.modelbridge.generation_strategy.GenerationStrategy" title="ax.modelbridge.generation_strategy.GenerationStrategy"><span class="pre">ax.modelbridge.generation_strategy.GenerationStrategy</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheduler_options</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="service.html#ax.service.utils.scheduler_options.SchedulerOptions" title="ax.service.utils.scheduler_options.SchedulerOptions"><span class="pre">ax.service.utils.scheduler_options.SchedulerOptions</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_method.html#BenchmarkMethod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_method.BenchmarkMethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="utils.html#ax.utils.common.base.Base" title="ax.utils.common.base.Base"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.utils.common.base.Base</span></code></a></p>
+<p>Benchmark method, represented in terms of Ax generation strategy (which tells us
+which models to use when) and scheduler options (which tell us extra execution
+information like maximum parallelism, early stopping configuration, etc.)</p>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_method.BenchmarkMethod.generation_strategy">
+<code class="sig-name descname"><span class="pre">generation_strategy</span></code><em class="property"><span class="pre">:</span> <a class="reference internal" href="modelbridge.html#ax.modelbridge.generation_strategy.GenerationStrategy" title="ax.modelbridge.generation_strategy.GenerationStrategy"><span class="pre">ax.modelbridge.generation_strategy.GenerationStrategy</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_method.BenchmarkMethod.generation_strategy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_method.BenchmarkMethod.name">
+<code class="sig-name descname"><span class="pre">name</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_method.BenchmarkMethod.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_method.BenchmarkMethod.scheduler_options">
+<code class="sig-name descname"><span class="pre">scheduler_options</span></code><em class="property"><span class="pre">:</span> <a class="reference internal" href="service.html#ax.service.utils.scheduler_options.SchedulerOptions" title="ax.service.utils.scheduler_options.SchedulerOptions"><span class="pre">ax.service.utils.scheduler_options.SchedulerOptions</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_method.BenchmarkMethod.scheduler_options" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.benchmark.benchmark_problem">
+<span id="benchmark-problem"></span><h3>Benchmark Problem<a class="headerlink" href="#module-ax.benchmark.benchmark_problem" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.benchmark_problem.</span></code><code class="sig-name descname"><span class="pre">BenchmarkProblem</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_space</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">ax.core.search_space.SearchSpace</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.optimization_config.OptimizationConfig" title="ax.core.optimization_config.OptimizationConfig"><span class="pre">ax.core.optimization_config.OptimizationConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">runner</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><span class="pre">ax.core.runner.Runner</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_problem.html#BenchmarkProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="utils.html#ax.utils.common.base.Base" title="ax.utils.common.base.Base"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.utils.common.base.Base</span></code></a></p>
+<p>Benchmark problem, represented in terms of Ax search space, optimization
+config, and runner.</p>
+<dl class="py method">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem.from_botorch">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">from_botorch</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_problem</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">botorch.test_functions.base.BaseTestProblem</span></span></em><span class="sig-paren">)</span> → <a class="reference internal" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="ax.benchmark.benchmark_problem.BenchmarkProblem"><span class="pre">ax.benchmark.benchmark_problem.BenchmarkProblem</span></a><a class="reference internal" href="_modules/ax/benchmark/benchmark_problem.html#BenchmarkProblem.from_botorch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem.from_botorch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
+Metrics and Runners. The test problem’s result will be computed on the Runner
+and retrieved by the Metric.</p>
+</dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem.name">
+<code class="sig-name descname"><span class="pre">name</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem.optimization_config">
+<code class="sig-name descname"><span class="pre">optimization_config</span></code><em class="property"><span class="pre">:</span> <a class="reference internal" href="core.html#ax.core.optimization_config.OptimizationConfig" title="ax.core.optimization_config.OptimizationConfig"><span class="pre">ax.core.optimization_config.OptimizationConfig</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem.optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem.runner">
+<code class="sig-name descname"><span class="pre">runner</span></code><em class="property"><span class="pre">:</span> <a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><span class="pre">ax.core.runner.Runner</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem.runner" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_problem.BenchmarkProblem.search_space">
+<code class="sig-name descname"><span class="pre">search_space</span></code><em class="property"><span class="pre">:</span> <span class="pre">ax.core.search_space.SearchSpace</span></em><a class="headerlink" href="#ax.benchmark.benchmark_problem.BenchmarkProblem.search_space" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="py class">
+<dt id="ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.benchmark_problem.</span></code><code class="sig-name descname"><span class="pre">MultiObjectiveBenchmarkProblem</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_space</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">ax.core.search_space.SearchSpace</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.optimization_config.OptimizationConfig" title="ax.core.optimization_config.OptimizationConfig"><span class="pre">ax.core.optimization_config.OptimizationConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">runner</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><span class="pre">ax.core.runner.Runner</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">maximum_hypervolume</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_point</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_problem.html#MultiObjectiveBenchmarkProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="ax.benchmark.benchmark_problem.BenchmarkProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.benchmark.benchmark_problem.BenchmarkProblem</span></code></a></p>
+<p>A BenchmarkProblem support multiple objectives. Rather than knowing each
+objective’s optimal value we track a known maximum hypervolume computed from a
+given reference point.</p>
+<dl class="py method">
+<dt id="ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem.from_botorch_multi_objective">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">from_botorch_multi_objective</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_problem</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">botorch.test_functions.base.MultiObjectiveTestProblem</span></span></em><span class="sig-paren">)</span> → <a class="reference internal" href="#ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem" title="ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem"><span class="pre">ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem</span></a><a class="reference internal" href="_modules/ax/benchmark/benchmark_problem.html#MultiObjectiveBenchmarkProblem.from_botorch_multi_objective"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem.from_botorch_multi_objective" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
+Metrics and Runners. The test problem’s result will be computed on the Runner
+once per trial and each Metric will retrieve its own result by index.</p>
+</dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem.maximum_hypervolume">
+<code class="sig-name descname"><span class="pre">maximum_hypervolume</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem.maximum_hypervolume" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem.reference_point">
+<code class="sig-name descname"><span class="pre">reference_point</span></code><em class="property"><span class="pre">:</span> <span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#ax.benchmark.benchmark_problem.MultiObjectiveBenchmarkProblem.reference_point" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="py class">
+<dt id="ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.benchmark_problem.</span></code><code class="sig-name descname"><span class="pre">SingleObjectiveBenchmarkProblem</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_space</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">ax.core.search_space.SearchSpace</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.optimization_config.OptimizationConfig" title="ax.core.optimization_config.OptimizationConfig"><span class="pre">ax.core.optimization_config.OptimizationConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">runner</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><span class="pre">ax.core.runner.Runner</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimal_value</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_problem.html#SingleObjectiveBenchmarkProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="ax.benchmark.benchmark_problem.BenchmarkProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.benchmark.benchmark_problem.BenchmarkProblem</span></code></a></p>
+<p>The most basic BenchmarkProblem, with a single objective and a known optimal
+value.</p>
+<dl class="py method">
+<dt id="ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem.from_botorch_synthetic">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">from_botorch_synthetic</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_problem</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">botorch.test_functions.synthetic.SyntheticTestFunction</span></span></em><span class="sig-paren">)</span> → <a class="reference internal" href="#ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem" title="ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem"><span class="pre">ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem</span></a><a class="reference internal" href="_modules/ax/benchmark/benchmark_problem.html#SingleObjectiveBenchmarkProblem.from_botorch_synthetic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem.from_botorch_synthetic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
+Metrics and Runners. The test problem’s result will be computed on the Runner
+and retrieved by the Metric.</p>
+</dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem.optimal_value">
+<code class="sig-name descname"><span class="pre">optimal_value</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem.optimal_value" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.benchmark.benchmark_result">
+<span id="benchmark-result"></span><h3>Benchmark Result<a class="headerlink" href="#module-ax.benchmark.benchmark_result" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="ax.benchmark.benchmark_result.AggregatedBenchmarkResult">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.benchmark_result.</span></code><code class="sig-name descname"><span class="pre">AggregatedBenchmarkResult</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiments</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><span class="pre">ax.core.experiment.Experiment</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization_trace</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pandas.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_time</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gen_time</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_result.html#AggregatedBenchmarkResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="utils.html#ax.utils.common.base.Base" title="ax.utils.common.base.Base"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.utils.common.base.Base</span></code></a></p>
+<p>The result of a benchmark test, or series of replications. Scalar data present
+in the BenchmarkResult is here represented as (mean, sem) pairs. More information
+will be added to the AggregatedBenchmarkResult as the suite develops.</p>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.AggregatedBenchmarkResult.experiments">
+<code class="sig-name descname"><span class="pre">experiments</span></code><em class="property"><span class="pre">:</span> <span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><span class="pre">ax.core.experiment.Experiment</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult.experiments" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.AggregatedBenchmarkResult.fit_time">
+<code class="sig-name descname"><span class="pre">fit_time</span></code><em class="property"><span class="pre">:</span> <span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult.fit_time" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py method">
+<dt id="ax.benchmark.benchmark_result.AggregatedBenchmarkResult.from_benchmark_results">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">from_benchmark_results</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#ax.benchmark.benchmark_result.BenchmarkResult" title="ax.benchmark.benchmark_result.BenchmarkResult"><span class="pre">ax.benchmark.benchmark_result.BenchmarkResult</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> → <a class="reference internal" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult" title="ax.benchmark.benchmark_result.AggregatedBenchmarkResult"><span class="pre">ax.benchmark.benchmark_result.AggregatedBenchmarkResult</span></a><a class="reference internal" href="_modules/ax/benchmark/benchmark_result.html#AggregatedBenchmarkResult.from_benchmark_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult.from_benchmark_results" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.AggregatedBenchmarkResult.gen_time">
+<code class="sig-name descname"><span class="pre">gen_time</span></code><em class="property"><span class="pre">:</span> <span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult.gen_time" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.AggregatedBenchmarkResult.name">
+<code class="sig-name descname"><span class="pre">name</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.AggregatedBenchmarkResult.optimization_trace">
+<code class="sig-name descname"><span class="pre">optimization_trace</span></code><em class="property"><span class="pre">:</span> <span class="pre">pandas.DataFrame</span></em><a class="headerlink" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult.optimization_trace" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="py class">
+<dt id="ax.benchmark.benchmark_result.BenchmarkResult">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.benchmark_result.</span></code><code class="sig-name descname"><span class="pre">BenchmarkResult</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><span class="pre">ax.core.experiment.Experiment</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization_trace</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_time</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">gen_time</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_result.html#BenchmarkResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_result.BenchmarkResult" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="utils.html#ax.utils.common.base.Base" title="ax.utils.common.base.Base"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.utils.common.base.Base</span></code></a></p>
+<p>The result of a single optimization loop from one
+(BenchmarkProblem, BenchmarkMethod) pair. More information will be added to the
+BenchmarkResult as the suite develops.</p>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.BenchmarkResult.experiment">
+<code class="sig-name descname"><span class="pre">experiment</span></code><em class="property"><span class="pre">:</span> <a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><span class="pre">ax.core.experiment.Experiment</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_result.BenchmarkResult.experiment" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.BenchmarkResult.fit_time">
+<code class="sig-name descname"><span class="pre">fit_time</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_result.BenchmarkResult.fit_time" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.BenchmarkResult.gen_time">
+<code class="sig-name descname"><span class="pre">gen_time</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_result.BenchmarkResult.gen_time" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.BenchmarkResult.name">
+<code class="sig-name descname"><span class="pre">name</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_result.BenchmarkResult.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.BenchmarkResult.optimization_trace">
+<code class="sig-name descname"><span class="pre">optimization_trace</span></code><em class="property"><span class="pre">:</span> <span class="pre">numpy.ndarray</span></em><a class="headerlink" href="#ax.benchmark.benchmark_result.BenchmarkResult.optimization_trace" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="py class">
+<dt id="ax.benchmark.benchmark_result.ScoredBenchmarkResult">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.benchmark_result.</span></code><code class="sig-name descname"><span class="pre">ScoredBenchmarkResult</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiments</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.experiment.Experiment" title="ax.core.experiment.Experiment"><span class="pre">ax.core.experiment.Experiment</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization_trace</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pandas.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_time</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gen_time</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_result</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult" title="ax.benchmark.benchmark_result.AggregatedBenchmarkResult"><span class="pre">ax.benchmark.benchmark_result.AggregatedBenchmarkResult</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">score</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/benchmark_result.html#ScoredBenchmarkResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_result.ScoredBenchmarkResult" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult" title="ax.benchmark.benchmark_result.AggregatedBenchmarkResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.benchmark.benchmark_result.AggregatedBenchmarkResult</span></code></a></p>
+<p>An AggregatedBenchmarkResult normalized against some baseline method (for the
+same problem), typically Sobol. The score is calculated in such a way that 0
+corresponds to performance equivalent with the baseline and 100 indicates the true
+optimum was found.</p>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.ScoredBenchmarkResult.baseline_result">
+<code class="sig-name descname"><span class="pre">baseline_result</span></code><em class="property"><span class="pre">:</span> <a class="reference internal" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult" title="ax.benchmark.benchmark_result.AggregatedBenchmarkResult"><span class="pre">ax.benchmark.benchmark_result.AggregatedBenchmarkResult</span></a></em><a class="headerlink" href="#ax.benchmark.benchmark_result.ScoredBenchmarkResult.baseline_result" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py method">
+<dt id="ax.benchmark.benchmark_result.ScoredBenchmarkResult.from_result_and_baseline">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">from_result_and_baseline</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">aggregated_result</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult" title="ax.benchmark.benchmark_result.AggregatedBenchmarkResult"><span class="pre">ax.benchmark.benchmark_result.AggregatedBenchmarkResult</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_result</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult" title="ax.benchmark.benchmark_result.AggregatedBenchmarkResult"><span class="pre">ax.benchmark.benchmark_result.AggregatedBenchmarkResult</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimum</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> → <a class="reference internal" href="#ax.benchmark.benchmark_result.ScoredBenchmarkResult" title="ax.benchmark.benchmark_result.ScoredBenchmarkResult"><span class="pre">ax.benchmark.benchmark_result.ScoredBenchmarkResult</span></a><a class="reference internal" href="_modules/ax/benchmark/benchmark_result.html#ScoredBenchmarkResult.from_result_and_baseline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.benchmark_result.ScoredBenchmarkResult.from_result_and_baseline" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.benchmark_result.ScoredBenchmarkResult.score">
+<code class="sig-name descname"><span class="pre">score</span></code><em class="property"><span class="pre">:</span> <span class="pre">numpy.ndarray</span></em><a class="headerlink" href="#ax.benchmark.benchmark_result.ScoredBenchmarkResult.score" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="id1">
+<h3>Benchmark<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="benchmark-methods-modular-botorch">
+<h3>Benchmark Methods Modular BoTorch<a class="headerlink" href="#benchmark-methods-modular-botorch" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="benchmark-methods-saasbo">
+<h3>Benchmark Methods SAASBO<a class="headerlink" href="#benchmark-methods-saasbo" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="benchmark-methods-choose-generation-strategy">
+<h3>Benchmark Methods Choose Generation Strategy<a class="headerlink" href="#benchmark-methods-choose-generation-strategy" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="module-ax.benchmark.problems.registry">
+<span id="benchmark-problems-registry"></span><h3>Benchmark Problems Registry<a class="headerlink" href="#module-ax.benchmark.problems.registry" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="ax.benchmark.problems.registry.BenchmarkProblemRegistryEntry">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.problems.registry.</span></code><code class="sig-name descname"><span class="pre">BenchmarkProblemRegistryEntry</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">factory_fn</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">…</span></span><span class="p"><span class="pre">,</span> </span><a class="reference internal" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="ax.benchmark.benchmark_problem.BenchmarkProblem"><span class="pre">ax.benchmark.benchmark_problem.BenchmarkProblem</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">factory_kwargs</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline_results_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/problems/registry.html#BenchmarkProblemRegistryEntry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.registry.BenchmarkProblemRegistryEntry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.registry.BenchmarkProblemRegistryEntry.baseline_results_path">
+<code class="sig-name descname"><span class="pre">baseline_results_path</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></em><a class="headerlink" href="#ax.benchmark.problems.registry.BenchmarkProblemRegistryEntry.baseline_results_path" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.registry.BenchmarkProblemRegistryEntry.factory_fn">
+<code class="sig-name descname"><span class="pre">factory_fn</span></code><em class="property"><span class="pre">:</span> <span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">…</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span> </span><a class="reference internal" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="ax.benchmark.benchmark_problem.BenchmarkProblem"><span class="pre">ax.benchmark.benchmark_problem.BenchmarkProblem</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#ax.benchmark.problems.registry.BenchmarkProblemRegistryEntry.factory_fn" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.registry.BenchmarkProblemRegistryEntry.factory_kwargs">
+<code class="sig-name descname"><span class="pre">factory_kwargs</span></code><em class="property"><span class="pre">:</span> <span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#ax.benchmark.problems.registry.BenchmarkProblemRegistryEntry.factory_kwargs" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="py function">
+<dt id="ax.benchmark.problems.registry.get_problem_and_baseline">
+<code class="sig-prename descclassname"><span class="pre">ax.benchmark.problems.registry.</span></code><code class="sig-name descname"><span class="pre">get_problem_and_baseline</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> → <span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="ax.benchmark.benchmark_problem.BenchmarkProblem"><span class="pre">ax.benchmark.benchmark_problem.BenchmarkProblem</span></a><span class="p"><span class="pre">,</span> </span><a class="reference internal" href="#ax.benchmark.benchmark_result.AggregatedBenchmarkResult" title="ax.benchmark.benchmark_result.AggregatedBenchmarkResult"><span class="pre">ax.benchmark.benchmark_result.AggregatedBenchmarkResult</span></a><span class="p"><span class="pre">]</span></span><a class="reference internal" href="_modules/ax/benchmark/problems/registry.html#get_problem_and_baseline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.registry.get_problem_and_baseline" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</div>
+<div class="section" id="module-ax.benchmark.problems.hd_embedding">
+<span id="benchmark-problems-high-dimensional-embedding"></span><h3>Benchmark Problems High Dimensional Embedding<a class="headerlink" href="#module-ax.benchmark.problems.hd_embedding" title="Permalink to this headline">¶</a></h3>
+<dl class="py function">
+<dt id="ax.benchmark.problems.hd_embedding.embed_higher_dimension">
+<code class="sig-prename descclassname"><span class="pre">ax.benchmark.problems.hd_embedding.</span></code><code class="sig-name descname"><span class="pre">embed_higher_dimension</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="ax.benchmark.benchmark_problem.BenchmarkProblem"><span class="pre">ax.benchmark.benchmark_problem.BenchmarkProblem</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_dimensionality</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> → <a class="reference internal" href="#ax.benchmark.benchmark_problem.BenchmarkProblem" title="ax.benchmark.benchmark_problem.BenchmarkProblem"><span class="pre">ax.benchmark.benchmark_problem.BenchmarkProblem</span></a><a class="reference internal" href="_modules/ax/benchmark/problems/hd_embedding.html#embed_higher_dimension"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hd_embedding.embed_higher_dimension" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</div>
+<div class="section" id="module-ax.benchmark.problems.hpo.pytorch_cnn">
+<span id="benchmark-problems-pytorchcnn"></span><h3>Benchmark Problems PyTorchCNN<a class="headerlink" href="#module-ax.benchmark.problems.hpo.pytorch_cnn" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.problems.hpo.pytorch_cnn.</span></code><code class="sig-name descname"><span class="pre">PyTorchCNNBenchmarkProblem</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_space</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">ax.core.search_space.SearchSpace</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.optimization_config.OptimizationConfig" title="ax.core.optimization_config.OptimizationConfig"><span class="pre">ax.core.optimization_config.OptimizationConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">runner</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><span class="pre">ax.core.runner.Runner</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimal_value</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/pytorch_cnn.html#PyTorchCNNBenchmarkProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem" title="ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.benchmark.benchmark_problem.SingleObjectiveBenchmarkProblem</span></code></a></p>
+<dl class="py method">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.from_datasets">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">from_datasets</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_set</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">torch.utils.data.dataset.Dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_set</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">torch.utils.data.dataset.Dataset</span></span></em><span class="sig-paren">)</span> → <a class="reference internal" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem" title="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem"><span class="pre">ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem</span></a><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/pytorch_cnn.html#PyTorchCNNBenchmarkProblem.from_datasets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.from_datasets" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.name">
+<code class="sig-name descname"><span class="pre">name</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></em><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.optimal_value">
+<code class="sig-name descname"><span class="pre">optimal_value</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></em><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.optimal_value" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.optimization_config">
+<code class="sig-name descname"><span class="pre">optimization_config</span></code><em class="property"><span class="pre">:</span> <span class="pre">OptimizationConfig</span></em><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.runner">
+<code class="sig-name descname"><span class="pre">runner</span></code><em class="property"><span class="pre">:</span> <span class="pre">Runner</span></em><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.runner" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.search_space">
+<code class="sig-name descname"><span class="pre">search_space</span></code><em class="property"><span class="pre">:</span> <span class="pre">SearchSpace</span></em><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem.search_space" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="py class">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNMetric">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.problems.hpo.pytorch_cnn.</span></code><code class="sig-name descname"><span class="pre">PyTorchCNNMetric</span></code><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/pytorch_cnn.html#PyTorchCNNMetric"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNMetric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ax.core.metric.Metric</span></code></p>
+<dl class="py method">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNMetric.fetch_trial_data">
+<code class="sig-name descname"><span class="pre">fetch_trial_data</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">ax.core.base_trial.BaseTrial</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> → <span class="pre">ax.core.data.Data</span><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/pytorch_cnn.html#PyTorchCNNMetric.fetch_trial_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNMetric.fetch_trial_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch data for one trial.</p>
+</dd></dl>
+</dd></dl>
+<dl class="py class">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.problems.hpo.pytorch_cnn.</span></code><code class="sig-name descname"><span class="pre">PyTorchCNNRunner</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_set</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">torch.utils.data.dataset.Dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_set</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">torch.utils.data.dataset.Dataset</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/pytorch_cnn.html#PyTorchCNNRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.core.runner.Runner</span></code></a></p>
+<dl class="py class">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.CNN">
+<em class="property"><span class="pre">class</span> </em><code class="sig-name descname"><span class="pre">CNN</span></code><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/pytorch_cnn.html#PyTorchCNNRunner.CNN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.CNN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.CNN.forward">
+<code class="sig-name descname"><span class="pre">forward</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/pytorch_cnn.html#PyTorchCNNRunner.CNN.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.CNN.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.CNN.training">
+<code class="sig-name descname"><span class="pre">training</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><span class="pre">bool</span></a></em><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.CNN.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="py method">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.poll_trial_status">
+<code class="sig-name descname"><span class="pre">poll_trial_status</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trials</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">ax.core.base_trial.BaseTrial</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> → <span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.TrialStatus" title="ax.core.base_trial.TrialStatus"><span class="pre">ax.core.base_trial.TrialStatus</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">Set</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/pytorch_cnn.html#PyTorchCNNRunner.poll_trial_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.poll_trial_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks the status of any non-terminal trials and returns their
+indices as a mapping from TrialStatus to a list of indices. Required
+for runners used with Ax <code class="docutils literal notranslate"><span class="pre">Scheduler</span></code>.</p>
+<p>NOTE: Does not need to handle waiting between polling calls while trials
+are running; this function should just perform a single poll.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>trials</strong> – Trials to poll.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A dictionary mapping TrialStatus to a list of trial indices that have
+the respective status at the time of the polling. This does not need to
+include trials that at the time of polling already have a terminal
+(ABANDONED, FAILED, COMPLETED) status (but it may).</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.run">
+<code class="sig-name descname"><span class="pre">run</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">ax.core.base_trial.BaseTrial</span></a></span></em><span class="sig-paren">)</span> → <span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/pytorch_cnn.html#PyTorchCNNRunner.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deploys a trial based on custom runner subclass implementation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>trial</strong> – The trial to deploy.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Dict of run metadata from the deployment process.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt id="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.train_and_evaluate">
+<code class="sig-name descname"><span class="pre">train_and_evaluate</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lr</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">momentum</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_decay</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> → <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/pytorch_cnn.html#PyTorchCNNRunner.train_and_evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner.train_and_evaluate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="benchmark-problems-pytorchcnn-torchvision">
+<h3>Benchmark Problems PyTorchCNN TorchVision<a class="headerlink" href="#benchmark-problems-pytorchcnn-torchvision" title="Permalink to this headline">¶</a></h3>
+<span class="target" id="module-ax.benchmark.problems.hpo.torchvision"></span><dl class="py class">
+<dt id="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.problems.hpo.torchvision.</span></code><code class="sig-name descname"><span class="pre">PyTorchCNNTorchvisionBenchmarkProblem</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_space</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">ax.core.search_space.SearchSpace</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimization_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.optimization_config.OptimizationConfig" title="ax.core.optimization_config.OptimizationConfig"><span class="pre">ax.core.optimization_config.OptimizationConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">runner</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><span class="pre">ax.core.runner.Runner</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimal_value</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/torchvision.html#PyTorchCNNTorchvisionBenchmarkProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem" title="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNBenchmarkProblem</span></code></a></p>
+<dl class="py method">
+<dt id="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">from_dataset_name</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> → <a class="reference internal" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem" title="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem"><span class="pre">ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem</span></a><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/torchvision.html#PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.name">
+<code class="sig-name descname"><span class="pre">name</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></em><a class="headerlink" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.optimal_value">
+<code class="sig-name descname"><span class="pre">optimal_value</span></code><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></em><a class="headerlink" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.optimal_value" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.optimization_config">
+<code class="sig-name descname"><span class="pre">optimization_config</span></code><em class="property"><span class="pre">:</span> <span class="pre">OptimizationConfig</span></em><a class="headerlink" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.runner">
+<code class="sig-name descname"><span class="pre">runner</span></code><em class="property"><span class="pre">:</span> <span class="pre">Runner</span></em><a class="headerlink" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.runner" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="py attribute">
+<dt id="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.search_space">
+<code class="sig-name descname"><span class="pre">search_space</span></code><em class="property"><span class="pre">:</span> <span class="pre">SearchSpace</span></em><a class="headerlink" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionBenchmarkProblem.search_space" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="py class">
+<dt id="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionRunner">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">ax.benchmark.problems.hpo.torchvision.</span></code><code class="sig-name descname"><span class="pre">PyTorchCNNTorchvisionRunner</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_set</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">torch.utils.data.dataset.Dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_set</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">torch.utils.data.dataset.Dataset</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/torchvision.html#PyTorchCNNTorchvisionRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner" title="ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.benchmark.problems.hpo.pytorch_cnn.PyTorchCNNRunner</span></code></a></p>
+<p>A subclass to aid in serialization. This allows us to save only the name of the
+dataset and reload it from TorchVision at deserialization time.</p>
+<dl class="py method">
+<dt id="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionRunner.deserialize_init_args">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">deserialize_init_args</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> → <span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/torchvision.html#PyTorchCNNTorchvisionRunner.deserialize_init_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionRunner.deserialize_init_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a dictionary, deserialize the properties needed to initialize the runner.
+Used for storage.</p>
+</dd></dl>
+<dl class="py method">
+<dt id="ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionRunner.serialize_init_args">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">serialize_init_args</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runner</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><span class="pre">ax.core.runner.Runner</span></a></span></em><span class="sig-paren">)</span> → <span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><a class="reference internal" href="_modules/ax/benchmark/problems/hpo/torchvision.html#PyTorchCNNTorchvisionRunner.serialize_init_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.benchmark.problems.hpo.torchvision.PyTorchCNNTorchvisionRunner.serialize_init_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serialize the properties needed to initialize the runner.
+Used for storage.</p>
+</dd></dl>
+</dd></dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="ax.html">ax</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ax.benchmark</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#benchmark">Benchmark</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+<li>Previous: <a href="ax.html" title="previous chapter">ax</a></li>
+<li>Next: <a href="core.html" title="next chapter">ax.core</a></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.5.1/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

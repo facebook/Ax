@@ -1,0 +1,378 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.7.2/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.7.2/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.7.2/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.7.2/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.7.2/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.7.2/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.7.2/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.7.2/css/main.css"/><script src="/versions/0.2.7.2/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.7.2/"><img class="logo" src="/versions/0.2.7.2/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.7.2/versions.html"><h3>0.2.7.2</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.7.2/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.7.2/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.7.2/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.strategies.rembo</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.factory</span> <span class="kn">import</span> <span class="n">DEFAULT_TORCH_DEVICE</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStep</span><span class="p">,</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.random</span> <span class="kn">import</span> <span class="n">RandomModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.torch</span> <span class="kn">import</span> <span class="n">TorchModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.centered_unit_x</span> <span class="kn">import</span> <span class="n">CenteredUnitX</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.standardize_y</span> <span class="kn">import</span> <span class="n">StandardizeY</span>
+<span class="kn">from</span> <span class="nn">ax.models.random.rembo_initializer</span> <span class="kn">import</span> <span class="n">REMBOInitializer</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.rembo</span> <span class="kn">import</span> <span class="n">REMBO</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+
+
+<div class="viewcode-block" id="get_rembo_initializer"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.strategies.rembo.get_rembo_initializer">[docs]</a><span class="k">def</span> <span class="nf">get_rembo_initializer</span><span class="p">(</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">bounds_d</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RandomModelBridge</span><span class="p">:</span>
+    <span class="sd">"""Instantiates a uniform random generator.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        search_space: Search space.</span>
+<span class="sd">        A: Projection matrix.</span>
+<span class="sd">        bounds_d: Bounds in low-d space.</span>
+<span class="sd">        seed: seed.</span>
+<span class="sd">        kwargs: kwargs</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        RandomModelBridge, with REMBOInitializer as model.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">RandomModelBridge</span><span class="p">(</span>
+        <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">REMBOInitializer</span><span class="p">(</span><span class="n">A</span><span class="o">=</span><span class="n">A</span><span class="p">,</span> <span class="n">bounds_d</span><span class="o">=</span><span class="n">bounds_d</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">),</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="p">[</span><span class="n">CenteredUnitX</span><span class="p">],</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_REMBO"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.strategies.rembo.get_REMBO">[docs]</a><span class="k">def</span> <span class="nf">get_REMBO</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">initial_X_d</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">bounds_d</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SearchSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">double</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">DEFAULT_TORCH_DEVICE</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TorchModelBridge</span><span class="p">:</span>
+    <span class="sd">"""Instantiates a BotorchModel."""</span>
+    <span class="k">if</span> <span class="n">search_space</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">search_space</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"REMBO model requires non-empty data."</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">TorchModelBridge</span><span class="p">(</span>
+        <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">REMBO</span><span class="p">(</span><span class="n">A</span><span class="o">=</span><span class="n">A</span><span class="p">,</span> <span class="n">initial_X_d</span><span class="o">=</span><span class="n">initial_X_d</span><span class="p">,</span> <span class="n">bounds_d</span><span class="o">=</span><span class="n">bounds_d</span><span class="p">,</span> <span class="o">**</span><span class="n">model_kwargs</span><span class="p">),</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="p">[</span><span class="n">CenteredUnitX</span><span class="p">,</span> <span class="n">StandardizeY</span><span class="p">],</span>
+        <span class="n">torch_dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">torch_device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="REMBOStrategy"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.strategies.rembo.REMBOStrategy">[docs]</a><span class="k">class</span> <span class="nc">REMBOStrategy</span><span class="p">(</span><span class="n">GenerationStrategy</span><span class="p">):</span>
+    <span class="sd">"""Generation strategy for REMBO.</span>
+
+<span class="sd">    Both quasirandom initialization and BO are done with the same random</span>
+<span class="sd">    projection. As is done in the REMBO paper, k independent optimizations</span>
+<span class="sd">    are done, each with an independently generated projection.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        D: Dimensionality of high-dimensional space</span>
+<span class="sd">        d: Dimensionality of low-dimensional space</span>
+<span class="sd">        k: Number of random projections</span>
+<span class="sd">        init_per_proj: Number of arms to use for random initialization of each</span>
+<span class="sd">            of the k projections.</span>
+<span class="sd">        name: Name of strategy</span>
+<span class="sd">        dtype: torch dtype</span>
+<span class="sd">        device: torch device</span>
+<span class="sd">        gp_kwargs: kwargs sent along to the GP model</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">D</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">d</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">init_per_proj</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"REMBO"</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">double</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">DEFAULT_TORCH_DEVICE</span><span class="p">,</span>
+        <span class="n">gp_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">=</span> <span class="n">D</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d</span> <span class="o">=</span> <span class="n">d</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">=</span> <span class="n">k</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_per_proj</span> <span class="o">=</span> <span class="n">init_per_proj</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gp_kwargs</span> <span class="o">=</span> <span class="n">gp_kwargs</span> <span class="k">if</span> <span class="n">gp_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">projections</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">i</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_projection</span><span class="p">(</span>
+                <span class="n">D</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X_d_by_proj</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_iteration</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arms_by_proj</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="nb">set</span><span class="p">({})</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span><span class="p">)}</span>
+
+        <span class="c1"># The first GenerationStep, and super</span>
+        <span class="n">A</span><span class="p">,</span> <span class="n">bounds_d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">steps</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">GenerationStep</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">get_rembo_initializer</span><span class="p">,</span>
+                <span class="n">num_trials</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">model_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"A"</span><span class="p">:</span> <span class="n">A</span><span class="p">,</span> <span class="s2">"bounds_d"</span><span class="p">:</span> <span class="n">bounds_d</span><span class="p">},</span>
+            <span class="p">)</span>
+        <span class="p">]</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">steps</span><span class="o">=</span><span class="n">steps</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_transitions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">"""Generator changes every iteration with rotating strategy"""</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_iteration</span><span class="p">))</span>
+
+    <span class="c1"># pyre-fixme[14]: `gen` overrides method defined in `GenerationStrategy`</span>
+    <span class="c1">#  inconsistently.</span>
+<div class="viewcode-block" id="REMBOStrategy.gen"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.strategies.rembo.REMBOStrategy.gen">[docs]</a>    <span class="k">def</span> <span class="nf">gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Data</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeneratorRun</span><span class="p">:</span>
+        <span class="sd">"""Generate new points, rotating through projections each time."""</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span>
+        <span class="c1"># Get the next model in the rotation</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_iteration</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">k</span>
+        <span class="n">data_by_proj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filter_data_to_projection</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">arm_sigs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">arms_by_proj</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">lgr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_generator_run</span>
+        <span class="c1"># NOTE: May need to `model_class.deserialize_model_state` in the</span>
+        <span class="c1"># future if using non-readily serializable state.</span>
+        <span class="n">model_state</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">not_none</span><span class="p">(</span><span class="n">lgr</span><span class="o">.</span><span class="n">_model_state_after_gen</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">lgr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">lgr</span><span class="o">.</span><span class="n">_model_state_after_gen</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="p">{}</span>
+        <span class="p">)</span>
+
+        <span class="n">A</span><span class="p">,</span> <span class="n">bounds_d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projections</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">data_by_proj</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_by_proj</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_per_proj</span>
+        <span class="p">):</span>
+            <span class="c1"># Not enough data to switch to GP, use Sobol for initialization</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">get_rembo_initializer</span><span class="p">(</span>
+                <span class="n">search_space</span><span class="o">=</span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+                <span class="n">A</span><span class="o">=</span><span class="n">A</span><span class="o">.</span><span class="n">double</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>
+                <span class="n">bounds_d</span><span class="o">=</span><span class="n">bounds_d</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">model_state</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We have enough data to switch to GP.</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">get_REMBO</span><span class="p">(</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">data_by_proj</span><span class="p">,</span>
+                <span class="n">A</span><span class="o">=</span><span class="n">A</span><span class="p">,</span>
+                <span class="n">initial_X_d</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">X_d_by_proj</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
+                <span class="p">),</span>
+                <span class="n">bounds_d</span><span class="o">=</span><span class="n">bounds_d</span><span class="p">,</span>
+                <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">gp_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_iteration</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="c1"># Call gen</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X_d_by_proj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">X_d_gen</span><span class="p">)</span>  <span class="c1"># pyre-ignore[16]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arms_by_proj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">signature</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">gr</span><span class="o">.</span><span class="n">arms</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_generator_runs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">gr</span></div>
+
+<div class="viewcode-block" id="REMBOStrategy.clone_reset"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.strategies.rembo.REMBOStrategy.clone_reset">[docs]</a>    <span class="k">def</span> <span class="nf">clone_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"REMBOStrategy"</span><span class="p">:</span>
+        <span class="sd">"""Copy without state."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span>
+            <span class="n">D</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span>
+            <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+            <span class="n">k</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span><span class="p">,</span>
+            <span class="n">init_per_proj</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">init_per_proj</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">gp_kwargs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gp_kwargs</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_filter_data_to_projection</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span> <span class="n">arm_sigs</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Data</span><span class="p">]:</span>
+        <span class="sd">"""Extract the arms in data that are in arm_sigs.</span>
+
+<span class="sd">        Return None if none.</span>
+<span class="sd">        """</span>
+        <span class="n">arm_names</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">({})</span>
+        <span class="k">for</span> <span class="n">arm_name</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">arms_by_name</span><span class="p">[</span><span class="n">arm_name</span><span class="p">]</span><span class="o">.</span><span class="n">signature</span>
+            <span class="k">if</span> <span class="n">sig</span> <span class="ow">in</span> <span class="n">arm_sigs</span><span class="p">:</span>
+                <span class="n">arm_names</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">arm_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arm_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="c1"># Else,</span>
+        <span class="n">df_i</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">arm_names</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">Data</span><span class="p">(</span><span class="n">df_i</span><span class="p">)</span>
+
+<div class="viewcode-block" id="REMBOStrategy.get_projection"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.strategies.rembo.REMBOStrategy.get_projection">[docs]</a>    <span class="k">def</span> <span class="nf">get_projection</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">D</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]:</span>
+        <span class="sd">"""Generate the projection matrix A as a (D x d) tensor</span>
+
+<span class="sd">        Also return the box bounds for the low-d space.</span>
+<span class="sd">        """</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="n">D</span><span class="p">,</span> <span class="n">d</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">bounds_d</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">d</span><span class="p">)),</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">d</span><span class="p">))]</span> <span class="o">*</span> <span class="n">d</span>
+        <span class="k">return</span> <span class="n">A</span><span class="p">,</span> <span class="n">bounds_d</span></div></div>
+
+
+<div class="viewcode-block" id="HeSBOStrategy"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.strategies.rembo.HeSBOStrategy">[docs]</a><span class="k">class</span> <span class="nc">HeSBOStrategy</span><span class="p">(</span><span class="n">REMBOStrategy</span><span class="p">):</span>
+    <span class="sd">"""Generation strategy for HeSBO.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        D: Dimensionality of high-dimensional space</span>
+<span class="sd">        d: Dimensionality of low-dimensional space</span>
+<span class="sd">        k: Number of random projections</span>
+<span class="sd">        init_per_proj: Number of arms to use for random initialization of each</span>
+<span class="sd">            of the k projections.</span>
+<span class="sd">        name: Name of strategy</span>
+<span class="sd">        dtype: torch dtype</span>
+<span class="sd">        device: torch device</span>
+<span class="sd">        gp_kwargs: kwargs sent along to the GP model</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">D</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">d</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">init_per_proj</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"HeSBO"</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">double</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">DEFAULT_TORCH_DEVICE</span><span class="p">,</span>
+        <span class="n">gp_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">D</span><span class="o">=</span><span class="n">D</span><span class="p">,</span>
+            <span class="n">d</span><span class="o">=</span><span class="n">d</span><span class="p">,</span>
+            <span class="n">init_per_proj</span><span class="o">=</span><span class="n">init_per_proj</span><span class="p">,</span>
+            <span class="n">k</span><span class="o">=</span><span class="n">k</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">gp_kwargs</span><span class="o">=</span><span class="n">gp_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="HeSBOStrategy.get_projection"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.strategies.rembo.HeSBOStrategy.get_projection">[docs]</a>    <span class="k">def</span> <span class="nf">get_projection</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">D</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]:</span>
+        <span class="sd">"""Generate the projection matrix A as a (D x d) tensor</span>
+
+<span class="sd">        Also return the box bounds for the low-d space.</span>
+<span class="sd">        """</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">D</span><span class="p">,</span> <span class="n">d</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">D</span><span class="p">,))</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">D</span><span class="p">,))</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">D</span><span class="p">):</span>
+            <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">h</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="n">bounds_d</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)]</span> <span class="o">*</span> <span class="n">d</span>
+        <span class="k">return</span> <span class="n">A</span><span class="p">,</span> <span class="n">bounds_d</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.7.2/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

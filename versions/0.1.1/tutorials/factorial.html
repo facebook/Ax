@@ -1,0 +1,724 @@
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.1/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.1/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.1/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.1/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.1/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.1/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><link rel="stylesheet" href="/versions/0.1.1/css/main.css"/><script src="/versions/0.1.1/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.1/"><img class="logo" src="/versions/0.1.1/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.1/versions.html"><h3>0.1.1</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.1/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.1/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.1/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span></span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Tutorials</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.1/tutorials/">Overview</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">API Comparison</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.1/tutorials/gpei_hartmann_loop.html">Loop API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.1/tutorials/gpei_hartmann_service.html">Service API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.1/tutorials/gpei_hartmann_developer.html">Developer API</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Bayesian Optimization</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.1/tutorials/tune_cnn.html">Hyperparameter Optimization for PyTorch</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.1/tutorials/multi_task.html">Multi-Task Modeling</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.1/tutorials/benchmarking_suite_example.html">Benchmarking Suite</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Field Experiments</h3><ul class=""><li class="navListItem navListItemActive"><a class="navItem" href="/versions/0.1.1/tutorials/factorial.html">Bandit Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.1/tutorials/human_in_the_loop/human_in_the_loop.html">Human-in-the-Loop Optimization</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Deep Dives</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.1/tutorials/building_blocks.html">Building Blocks of Ax</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              const headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                if (event.target.tagName === 'A') {
+                  document.body.classList.remove('tocActive');
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="tutorialBody"><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script><div class="notebook">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Factorial-design-with-empirical-Bayes-and-Thompson-Sampling">Factorial design with empirical Bayes and Thompson Sampling<a class="anchor-link" href="#Factorial-design-with-empirical-Bayes-and-Thompson-Sampling">¶</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><markdowncell>
+This tutorial illustrates how to run a factorial experiment. In such an experiment, each parameter (factor) can be assigned one of multiple discrete values (levels). A full-factorial experiment design explores all possible combinations of factors and levels.</markdowncell></p>
+<p>For instance, consider a banner with a title and an image. We are considering two different titles and three different images. A full-factorial experiment will compare all 2*3=6 possible combinations of title and image, to see which version of the banner performs the best.</p>
+<p>In this example, we first run an exploratory batch to collect data on all possible combinations. Then we use empirical Bayes to model the data and shrink noisy estimates toward the mean. Next, we use Thompson Sampling to suggest a set of arms (combinations of factors and levels) on which to collect more data. We repeat the process until we have identified the best performing combination(s).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [102]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">sklearn</span> <span class="k">as</span> <span class="nn">skl</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">ax</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ChoiceParameter</span><span class="p">,</span>
+    <span class="n">Arm</span><span class="p">,</span>
+    <span class="n">ParameterType</span><span class="p">,</span>
+    <span class="n">SearchSpace</span><span class="p">,</span>
+    <span class="n">SimpleExperiment</span><span class="p">,</span>
+    <span class="n">modelbridge</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.plot.scatter</span> <span class="k">import</span> <span class="n">plot_fitted</span>
+<span class="kn">from</span> <span class="nn">ax.utils.notebook.plotting</span> <span class="k">import</span> <span class="n">render</span><span class="p">,</span> <span class="n">init_notebook_plotting</span>
+<span class="kn">from</span> <span class="nn">ax.utils.stats.statstools</span> <span class="k">import</span> <span class="n">agresti_coull_sem</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [103]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">init_notebook_plotting</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_html rendered_html output_subarea">
+<script type="text/javascript">requirejs.config({
+  paths: {
+    plotly: ['https://cdn.plot.ly/plotly-latest.min'],
+  },
+});
+if (!window.Plotly) {
+  require(['plotly'], function(plotly) {
+    window.Plotly = plotly;
+  });
+}
+// helper functions used across multiple plots
+function rgb(rgb_array) {
+  return 'rgb(' + rgb_array.join() + ')';
+}
+
+function copy_and_reverse(arr) {
+  const copy = arr.slice();
+  copy.reverse();
+  return copy;
+}
+
+function axis_range(grid, is_log) {
+  return is_log ?
+    [Math.log10(Math.min(...grid)), Math.log10(Math.max(...grid))]:
+    [Math.min(...grid), Math.max(...grid)];
+}
+
+function relativize_data(f, sd, rel, arm_data, metric) {
+  // if relative, extract status quo & compute ratio
+  const f_final = rel === true ? [] : f;
+  const sd_final = rel === true ? []: sd;
+
+  if (rel === true) {
+    const f_sq = (
+      arm_data['in_sample'][arm_data['status_quo_name']]['y'][metric]
+    );
+    const sd_sq = (
+      arm_data['in_sample'][arm_data['status_quo_name']]['se'][metric]
+    );
+
+    for (let i = 0; i < f.length; i++) {
+      res = relativize(f[i], sd[i], f_sq, sd_sq);
+      f_final.push(100 * res[0]);
+      sd_final.push(100 * res[1]);
+    }
+  }
+
+  return [f_final, sd_final];
+}
+
+function relativize(m_t, sem_t, m_c, sem_c) {
+  r_hat = (
+    (m_t - m_c) / Math.abs(m_c) -
+    Math.pow(sem_c, 2) * m_t / Math.pow(Math.abs(m_c), 3)
+  );
+  variance = (
+    (Math.pow(sem_t, 2) + Math.pow((m_t / m_c * sem_c), 2)) /
+    Math.pow(m_c, 2)
+   )
+   return [r_hat, Math.sqrt(variance)];
+}
+</script>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 04-24 08:33:16] ipy_plotting: Injecting Plotly library into cell. Do not overwrite or delete cell.
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="1.-Define-the-search-space">1. Define the search space<a class="anchor-link" href="#1.-Define-the-search-space">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><markdowncell>
+First, we define our search space. A factorial search space contains a ChoiceParameter for each factor, where the values of the parameter are its levels.</markdowncell></p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [104]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">search_space</span> <span class="o">=</span> <span class="n">SearchSpace</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">ChoiceParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"factor1"</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">STRING</span><span class="p">,</span>
+            <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="s2">"level11"</span><span class="p">,</span> <span class="s2">"level12"</span><span class="p">,</span> <span class="s2">"level13"</span><span class="p">],</span>
+        <span class="p">),</span>
+        <span class="n">ChoiceParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"factor2"</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">STRING</span><span class="p">,</span>
+            <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="s2">"level21"</span><span class="p">,</span> <span class="s2">"level22"</span><span class="p">],</span>
+        <span class="p">),</span>
+        <span class="n">ChoiceParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"factor3"</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">STRING</span><span class="p">,</span>
+            <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="s2">"level31"</span><span class="p">,</span> <span class="s2">"level32"</span><span class="p">,</span> <span class="s2">"level33"</span><span class="p">,</span> <span class="s2">"level34"</span><span class="p">],</span>
+        <span class="p">),</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2.-Define-the-evaluation-function">2. Define the evaluation function<a class="anchor-link" href="#2.-Define-the-evaluation-function">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><markdowncell>
+Second, we define an evaluation function, which is responsible for computing
+the mean and standard error of a given arm.</markdowncell></p>
+<p>In this example, each possible parameter value is given a coefficient. The higher the level, the higher the coefficient, and the higher the coefficients, the greater the mean.</p>
+<p>The standard error of each arm is determined by the weight passed into the evaluation function, which represents the size of the population on which this arm was evaluated. The higher the weight, the greater the sample size, and thus the lower the standard error.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [105]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">one_hot_encoder</span> <span class="o">=</span> <span class="n">skl</span><span class="o">.</span><span class="n">preprocessing</span><span class="o">.</span><span class="n">OneHotEncoder</span><span class="p">(</span>
+    <span class="n">categories</span><span class="o">=</span><span class="p">[</span><span class="n">par</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">par</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span> 
+<span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">factorial_evaluation_function</span><span class="p">(</span>
+    <span class="c1"># `parameterization` is a dict of parameter names to values of those parameters.</span>
+    <span class="n">parameterization</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]],</span>
+    <span class="c1"># `weight` is the weight of the parameterization, which is used to determine the variance of the estimate</span>
+    <span class="n">weight</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>  <span class="c1"># dict of metric names to tuple of mean and standard error.</span>
+    <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">10000</span>
+    <span class="n">noise_level</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">weight</span> <span class="o">=</span> <span class="n">weight</span> <span class="k">if</span> <span class="n">weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">1.0</span>
+    <span class="n">coefficients</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+        <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span>
+        <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.4</span>
+    <span class="p">])</span>
+    <span class="n">features</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">parameterization</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">encoded_features</span> <span class="o">=</span> <span class="n">one_hot_encoder</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">coefficients</span> <span class="o">@</span> <span class="n">encoded_features</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">noise_level</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">()</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span><span class="p">))</span>
+    <span class="n">plays</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">binomial</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span>
+    <span class="n">successes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">binomial</span><span class="p">(</span><span class="n">plays</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">successes</span><span class="p">)</span> <span class="o">/</span> <span class="n">plays</span>
+    <span class="n">sem</span> <span class="o">=</span> <span class="n">agresti_coull_sem</span><span class="p">(</span><span class="n">successes</span><span class="p">,</span> <span class="n">plays</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"success_metric"</span><span class="p">:</span> <span class="p">(</span><span class="n">mean</span><span class="p">,</span> <span class="n">sem</span><span class="p">)</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="3.-Define-the-experiment">3. Define the experiment<a class="anchor-link" href="#3.-Define-the-experiment">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><markdowncell>
+We now set up our experiment and define the status quo arm, in which each parameter is assigned to the lowest level.</markdowncell></p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [106]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">exp</span> <span class="o">=</span> <span class="n">SimpleExperiment</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"my_factorial_closed_loop_experiment"</span><span class="p">,</span>
+    <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+    <span class="n">evaluation_function</span><span class="o">=</span><span class="n">factorial_evaluation_function</span><span class="p">,</span>
+    <span class="n">objective_name</span><span class="o">=</span><span class="s2">"success_metric"</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">exp</span><span class="o">.</span><span class="n">status_quo</span> <span class="o">=</span> <span class="n">Arm</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s2">"factor1"</span><span class="p">:</span> <span class="s2">"level11"</span><span class="p">,</span> <span class="s2">"factor2"</span><span class="p">:</span> <span class="s2">"level21"</span><span class="p">,</span> <span class="s2">"factor3"</span><span class="p">:</span> <span class="s2">"level31"</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="4.-Run-an-exploratory-batch">4. Run an exploratory batch<a class="anchor-link" href="#4.-Run-an-exploratory-batch">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><markdowncell>
+We then generate an a set of arms that covers the full space of the factorial design, including the status quo. There are three parameters, with two, three, and four values, respectively, so there are 24 possible arms.</markdowncell></p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [107]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">factorial</span> <span class="o">=</span> <span class="n">modelbridge</span><span class="o">.</span><span class="n">get_factorial</span><span class="p">(</span><span class="n">search_space</span><span class="o">=</span><span class="n">exp</span><span class="o">.</span><span class="n">search_space</span><span class="p">)</span>
+<span class="n">factorial_run</span> <span class="o">=</span> <span class="n">factorial</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="n">n</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">factorial_run</span><span class="o">.</span><span class="n">arms</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>24
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Now we create a trial including all of these arms, so that we can collect data and evaluate the performance of each.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [108]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">trial</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">exp</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">()</span>
+    <span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span><span class="n">factorial_run</span><span class="p">,</span> <span class="n">multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>By default, the weight of each arm in <code>factorial_run</code> will be 1. However, to optimize for power on the contrasts of <code>k</code> groups against the status quo, the status quo should be <code>sqrt(k)</code> larger than any of the treatment groups. Since we have 24 different arms in our search space, the status quo should be roughly five times larger.</p>
+<p>Because the status quo is already present in <code>factorial_run</code> with a weight of 1, we need to add an additional weight of 4.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [109]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">trial</span><span class="o">.</span><span class="n">reweight_status_quo</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm_weights</span><span class="p">[</span><span class="n">trial</span><span class="o">.</span><span class="n">status_quo</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>5.0
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="5.-Iterate-using-Thompson-Sampling">5. Iterate using Thompson Sampling<a class="anchor-link" href="#5.-Iterate-using-Thompson-Sampling">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><markdowncell>
+Next, we run multiple trials (iterations of the experiment) to hone in on the optimal arm(s).</markdowncell></p>
+<p>In each iteration, we first collect data about all arms in that trial by calling <code>exp.eval_trial()</code>. Then we run Thompson Sampling, which assigns a weight to each arm that is proportional to the probability of that arm being the best. Arms whose weight exceed <code>min_weight</code> are added to the next trial, so that we can gather more data on their performance.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [110]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">models</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"Running iteration </span><span class="si">{}</span><span class="s2">..."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">exp</span><span class="o">.</span><span class="n">eval_trial</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span>
+    <span class="n">thompson</span> <span class="o">=</span> <span class="n">modelbridge</span><span class="o">.</span><span class="n">get_thompson</span><span class="p">(</span>
+        <span class="n">experiment</span><span class="o">=</span><span class="n">exp</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">min_weight</span><span class="o">=</span><span class="mf">0.01</span>
+    <span class="p">)</span>
+    <span class="n">models</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">thompson</span><span class="p">)</span>
+    <span class="n">thompson_run</span> <span class="o">=</span> <span class="n">thompson</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="n">n</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">trial</span> <span class="o">=</span> <span class="n">exp</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">()</span><span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span><span class="n">thompson_run</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Running iteration 0...
+Running iteration 1...
+Running iteration 2...
+Running iteration 3...
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Plot-1:-Predicted-outcomes-for-each-arm-in-initial-trial">Plot 1: Predicted outcomes for each arm in initial trial<a class="anchor-link" href="#Plot-1:-Predicted-outcomes-for-each-arm-in-initial-trial">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><markdowncell>
+The plot below shows the mean and standard error for each arm in the first trial. We can see that the standard error for the status quo is the smallest, since this arm was assigned 5x weight.</markdowncell></p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [111]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">render</span><span class="p">(</span><span class="n">plot_fitted</span><span class="p">(</span><span class="n">models</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">metric</span><span class="o">=</span><span class="s2">"success_metric"</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_html rendered_html output_subarea">
+<div class="plotly-graph-div" id="22813e2de4164b0797d32baa56b091d2" style="width: 100%;"></div><script type="text/javascript">require(['plotly'], function(Plotly) {
+  window.PLOTLYENV = window.PLOTLYENV || {};
+  window.PLOTLYENV.BASE_URL = 'https://plot.ly';
+  Plotly.newPlot(
+  "22813e2de4164b0797d32baa56b091d2",
+  [{"type": "scatter", "x": ["0_0", "0_1", "0_10", "0_11", "0_12", "0_13", "0_14", "0_15", "0_16", "0_17", "0_18", "0_19", "0_2", "0_20", "0_21", "0_22", "0_3", "0_4", "0_5", "0_6", "0_7", "0_8", "0_9", "status_quo"], "y": [0.649616368286445, 0.6142433234421365, 0.6346666666666667, 0.6428571428571429, 0.6441176470588236, 0.6627565982404692, 0.6631299734748011, 0.6005025125628141, 0.6374622356495468, 0.6462395543175488, 0.6826196473551638, 0.6457142857142857, 0.6317280453257791, 0.6465256797583081, 0.699468085106383, 0.6882716049382716, 0.583554376657825, 0.6090651558073654, 0.6501457725947521, 0.6908602150537635, 0.6211180124223602, 0.6075, 0.6137566137566137, 0.562396006655574], "marker": {"color": "rgba(128,177,211,1)"}, "mode": "markers", "name": "In-sample", "text": ["<b>Arm 0_0</b><br><br>success_metric: 0.65 [0.602, 0.697]<br><br><em>Parameterization:</em><br>factor1: level11<br>factor2: level21<br>factor3: level32", "<b>Arm 0_1</b><br><br>success_metric: 0.614 [0.562, 0.666]<br><br><em>Parameterization:</em><br>factor1: level11<br>factor2: level21<br>factor3: level33", "<b>Arm 0_10</b><br><br>success_metric: 0.635 [0.586, 0.683]<br><br><em>Parameterization:</em><br>factor1: level12<br>factor2: level21<br>factor3: level34", "<b>Arm 0_11</b><br><br>success_metric: 0.643 [0.595, 0.691]<br><br><em>Parameterization:</em><br>factor1: level12<br>factor2: level22<br>factor3: level31", "<b>Arm 0_12</b><br><br>success_metric: 0.644 [0.593, 0.695]<br><br><em>Parameterization:</em><br>factor1: level12<br>factor2: level22<br>factor3: level32", "<b>Arm 0_13</b><br><br>success_metric: 0.663 [0.613, 0.713]<br><br><em>Parameterization:</em><br>factor1: level12<br>factor2: level22<br>factor3: level33", "<b>Arm 0_14</b><br><br>success_metric: 0.663 [0.615, 0.711]<br><br><em>Parameterization:</em><br>factor1: level12<br>factor2: level22<br>factor3: level34", "<b>Arm 0_15</b><br><br>success_metric: 0.601 [0.552, 0.649]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level21<br>factor3: level31", "<b>Arm 0_16</b><br><br>success_metric: 0.637 [0.586, 0.689]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level21<br>factor3: level32", "<b>Arm 0_17</b><br><br>success_metric: 0.646 [0.597, 0.696]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level21<br>factor3: level33", "<b>Arm 0_18</b><br><br>success_metric: 0.683 [0.637, 0.728]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level21<br>factor3: level34", "<b>Arm 0_19</b><br><br>success_metric: 0.646 [0.596, 0.696]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level22<br>factor3: level31", "<b>Arm 0_2</b><br><br>success_metric: 0.632 [0.581, 0.682]<br><br><em>Parameterization:</em><br>factor1: level11<br>factor2: level21<br>factor3: level34", "<b>Arm 0_20</b><br><br>success_metric: 0.647 [0.595, 0.698]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level22<br>factor3: level32", "<b>Arm 0_21</b><br><br>success_metric: 0.699 [0.653, 0.746]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level22<br>factor3: level33", "<b>Arm 0_22</b><br><br>success_metric: 0.688 [0.638, 0.739]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level22<br>factor3: level34", "<b>Arm 0_3</b><br><br>success_metric: 0.584 [0.534, 0.633]<br><br><em>Parameterization:</em><br>factor1: level11<br>factor2: level22<br>factor3: level31", "<b>Arm 0_4</b><br><br>success_metric: 0.609 [0.558, 0.660]<br><br><em>Parameterization:</em><br>factor1: level11<br>factor2: level22<br>factor3: level32", "<b>Arm 0_5</b><br><br>success_metric: 0.65 [0.600, 0.701]<br><br><em>Parameterization:</em><br>factor1: level11<br>factor2: level22<br>factor3: level33", "<b>Arm 0_6</b><br><br>success_metric: 0.691 [0.644, 0.738]<br><br><em>Parameterization:</em><br>factor1: level11<br>factor2: level22<br>factor3: level34", "<b>Arm 0_7</b><br><br>success_metric: 0.621 [0.568, 0.674]<br><br><em>Parameterization:</em><br>factor1: level12<br>factor2: level21<br>factor3: level31", "<b>Arm 0_8</b><br><br>success_metric: 0.608 [0.560, 0.655]<br><br><em>Parameterization:</em><br>factor1: level12<br>factor2: level21<br>factor3: level32", "<b>Arm 0_9</b><br><br>success_metric: 0.614 [0.565, 0.663]<br><br><em>Parameterization:</em><br>factor1: level12<br>factor2: level21<br>factor3: level33", "<b>Arm status_quo</b><br><br>success_metric: 0.562 [0.539, 0.585]<br><br><em>Parameterization:</em><br>factor1: level11<br>factor2: level21<br>factor3: level31"], "hoverinfo": "text", "error_y": {"type": "data", "array": [0.047336700140663795, 0.05200520954080703, 0.04877690596348523, 0.04834929371296725, 0.050945621281369466, 0.050248157441072146, 0.04777003353018242, 0.04814042738140143, 0.051840237732993885, 0.049511377100288835, 0.045856695295996515, 0.05016161184112091, 0.050359188968678095, 0.051558185379683215, 0.04643553027939531, 0.05053817954161775, 0.049777773812547166, 0.050932428866662736, 0.050530164367270744, 0.04704782699489906, 0.053027000625284516, 0.047876932254415715, 0.04911177095414486, 0.02289998253700532], "color": "rgba(128,177,211,0.4)"}, "visible": true, "legendgroup": "In-sample", "showlegend": true}],
+  {"title": "Predicted Outcomes", "hovermode": "closest", "updatemenus": [{"x": 1.25, "y": 0.67, "buttons": [{"args": [{"xaxis.categoryorder": "array", "xaxis.categoryarray": ["status_quo", "0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "0_7", "0_8", "0_9", "0_10", "0_11", "0_12", "0_13", "0_14", "0_15", "0_16", "0_17", "0_18", "0_19", "0_20", "0_21", "0_22"]}], "label": "Name", "method": "relayout"}, {"args": [{"xaxis.categoryorder": "array", "xaxis.categoryarray": ["status_quo", "0_3", "0_15", "0_8", "0_4", "0_9", "0_1", "0_7", "0_2", "0_10", "0_16", "0_11", "0_12", "0_19", "0_17", "0_20", "0_0", "0_5", "0_13", "0_14", "0_18", "0_22", "0_6", "0_21"]}], "label": "Effect Size", "method": "relayout"}], "yanchor": "middle", "xanchor": "left"}], "yaxis": {"zerolinecolor": "red", "title": "success_metric"}, "xaxis": {"tickangle": 45, "categoryorder": "array", "categoryarray": ["status_quo", "0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "0_7", "0_8", "0_9", "0_10", "0_11", "0_12", "0_13", "0_14", "0_15", "0_16", "0_17", "0_18", "0_19", "0_20", "0_21", "0_22"]}, "annotations": [{"x": 1.18, "y": 0.72, "xref": "paper", "yref": "paper", "text": "Sort By", "showarrow": false, "yanchor": "middle"}], "font": {"size": 10}},
+  {"showLink": false}
+);
+});</script>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Plot-2:-Predicted-outcomes-for-arms-in-last-trial">Plot 2: Predicted outcomes for arms in last trial<a class="anchor-link" href="#Plot-2:-Predicted-outcomes-for-arms-in-last-trial">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The following plot below shows the mean and standard error for each arm that made it to the last trial (as well as the status quo, which appears throughout).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [112]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">render</span><span class="p">(</span><span class="n">plot_fitted</span><span class="p">(</span><span class="n">models</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">metric</span><span class="o">=</span><span class="s2">"success_metric"</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_html rendered_html output_subarea">
+<div class="plotly-graph-div" id="5b0d3b0bc4a34a688664cd98822b1852" style="width: 100%;"></div><script type="text/javascript">require(['plotly'], function(Plotly) {
+  window.PLOTLYENV = window.PLOTLYENV || {};
+  window.PLOTLYENV.BASE_URL = 'https://plot.ly';
+  Plotly.newPlot(
+  "5b0d3b0bc4a34a688664cd98822b1852",
+  [{"type": "scatter", "x": ["0_13", "0_18", "0_21", "0_22", "status_quo"], "y": [0.6736401673640168, 0.7230769230769231, 0.6888888888888889, 0.7210922262468654, 0.5867269984917044], "marker": {"color": "rgba(128,177,211,1)"}, "mode": "markers", "name": "In-sample", "text": ["<b>Arm 0_13</b><br><br>success_metric: 0.674 [0.614, 0.733]<br><br><em>Parameterization:</em><br>factor1: level12<br>factor2: level22<br>factor3: level33", "<b>Arm 0_18</b><br><br>success_metric: 0.723 [0.668, 0.778]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level21<br>factor3: level34", "<b>Arm 0_21</b><br><br>success_metric: 0.689 [0.674, 0.704]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level22<br>factor3: level33", "<b>Arm 0_22</b><br><br>success_metric: 0.721 [0.706, 0.736]<br><br><em>Parameterization:</em><br>factor1: level13<br>factor2: level22<br>factor3: level34", "<b>Arm status_quo</b><br><br>success_metric: 0.587 [0.565, 0.608]<br><br><em>Parameterization:</em><br>factor1: level11<br>factor2: level21<br>factor3: level31"], "hoverinfo": "text", "error_y": {"type": "data", "array": [0.05957851071960341, 0.054595661301599416, 0.014673988617594487, 0.01467616120752833, 0.021642241680292388], "color": "rgba(128,177,211,0.4)"}, "visible": true, "legendgroup": "In-sample", "showlegend": true}],
+  {"title": "Predicted Outcomes", "hovermode": "closest", "updatemenus": [{"x": 1.25, "y": 0.67, "buttons": [{"args": [{"xaxis.categoryorder": "array", "xaxis.categoryarray": ["status_quo", "0_13", "0_18", "0_21", "0_22"]}], "label": "Name", "method": "relayout"}, {"args": [{"xaxis.categoryorder": "array", "xaxis.categoryarray": ["status_quo", "0_13", "0_21", "0_22", "0_18"]}], "label": "Effect Size", "method": "relayout"}], "yanchor": "middle", "xanchor": "left"}], "yaxis": {"zerolinecolor": "red", "title": "success_metric"}, "xaxis": {"tickangle": 45, "categoryorder": "array", "categoryarray": ["status_quo", "0_13", "0_18", "0_21", "0_22"]}, "annotations": [{"x": 1.18, "y": 0.72, "xref": "paper", "yref": "paper", "text": "Sort By", "showarrow": false, "yanchor": "middle"}], "font": {"size": 10}},
+  {"showLink": false}
+);
+});</script>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><markdowncell>
+As expected given our evaluation function, arms with higher levels
+perform better and are given higher weight. Below we see the arms
+that made it to the final trial.</markdowncell></p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [113]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">[</span>
+        <span class="p">{</span><span class="s2">"values"</span><span class="p">:</span> <span class="s2">","</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="s2">"weight"</span><span class="p">:</span> <span class="n">weight</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">arm</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">normalized_arm_weights</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>                    values    weight
+0  level13,level21,level34  0.388241
+1  level13,level22,level34  0.334525
+2  level12,level22,level33  0.027233
+3  level11,level21,level31  0.250000
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Plot-3:-Rollout-Process">Plot 3: Rollout Process<a class="anchor-link" href="#Plot-3:-Rollout-Process">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can also visualize the progression of the experience in the following rollout chart. Each bar represents a trial, and the width of the bands within a bar are proportional to the weight of the arms in that trial.</p>
+<p>In the first trial, all arms appear with equal weight, except for the status quo. By the last trial, we have narrowed our focus to only four arms, with arm 0_22 (the arm with the highest levels) having the greatest weight.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [114]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.plot.bandit_rollout</span> <span class="k">import</span> <span class="n">plot_bandit_rollout</span>
+<span class="kn">from</span> <span class="nn">ax.utils.notebook.plotting</span> <span class="k">import</span> <span class="n">render</span>
+
+<span class="n">render</span><span class="p">(</span><span class="n">plot_bandit_rollout</span><span class="p">(</span><span class="n">exp</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_html rendered_html output_subarea">
+<div class="plotly-graph-div" id="cb645c4611d2408faafe81e52cfef8d7" style="width: 100%;"></div><script type="text/javascript">require(['plotly'], function(Plotly) {
+  window.PLOTLYENV = window.PLOTLYENV || {};
+  window.PLOTLYENV.BASE_URL = 'https://plot.ly';
+  const data = [{"index": 0, "name": "status_quo", "x": ["Round 0", "Round 1", "Round 2", "Round 3", "Round 4"], "y": [17.857142857142858, 12.5, 16.666666666666668, 20.0, 25.0], "text": ["17.86%", "12.50%", "16.67%", "20.00%", "25.00%"]}, {"index": 1, "name": "0_0", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 2, "name": "0_1", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 3, "name": "0_2", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 4, "name": "0_3", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 5, "name": "0_4", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 6, "name": "0_5", "x": ["Round 0", "Round 1", "Round 2"], "y": [3.5714285714285716, 1.1922995669166578, 5.743964252367616], "text": ["3.57%", "1.19%", "5.74%"]}, {"index": 7, "name": "0_6", "x": ["Round 0", "Round 1"], "y": [3.5714285714285716, 20.10272525615295], "text": ["3.57%", "20.10%"]}, {"index": 8, "name": "0_7", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 9, "name": "0_8", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 10, "name": "0_9", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 11, "name": "0_10", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 12, "name": "0_11", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 13, "name": "0_12", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 14, "name": "0_13", "x": ["Round 0", "Round 1", "Round 2", "Round 3", "Round 4"], "y": [3.5714285714285716, 3.207193408682793, 7.027811124449781, 2.7056233740244147, 2.7233169950985294], "text": ["3.57%", "3.21%", "7.03%", "2.71%", "2.72%"]}, {"index": 15, "name": "0_14", "x": ["Round 0", "Round 1"], "y": [3.5714285714285716, 2.8837012781240094], "text": ["3.57%", "2.88%"]}, {"index": 16, "name": "0_15", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 17, "name": "0_16", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 18, "name": "0_17", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 19, "name": "0_18", "x": ["Round 0", "Round 1", "Round 2", "Round 3", "Round 4"], "y": [3.5714285714285716, 11.266768775747334, 19.441109777244236, 2.753652191314789, 38.824147244173254], "text": ["3.57%", "11.27%", "19.44%", "2.75%", "38.82%"]}, {"index": 20, "name": "0_19", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 21, "name": "0_20", "x": ["Round 0"], "y": [3.5714285714285716], "text": ["3.57%"]}, {"index": 22, "name": "0_21", "x": ["Round 0", "Round 1", "Round 2", "Round 3"], "y": [3.5714285714285716, 31.11994295975494, 0.8503401360544219, 38.815289173504105], "text": ["3.57%", "31.12%", "0.85%", "38.82%"]}, {"index": 23, "name": "0_22", "x": ["Round 0", "Round 1", "Round 2", "Round 3", "Round 4"], "y": [3.5714285714285716, 17.727368754621317, 50.2701080432173, 35.7254352611567, 33.45253576072822], "text": ["3.57%", "17.73%", "50.27%", "35.73%", "33.45%"]}];
+const categories = ["Round 0", "Round 1", "Round 2", "Round 3", "Round 4"];
+const colors = ["rgba(2,63,165,1)", "rgba(125,135,185,1)", "rgba(190,193,212,1)", "rgba(214,188,192,1)", "rgba(187,119,132,1)", "rgba(142,6,59,1)", "rgba(74,111,227,1)", "rgba(133,149,225,1)", "rgba(181,187,227,1)", "rgba(230,175,185,1)", "rgba(224,123,145,1)", "rgba(211,63,106,1)", "rgba(17,198,56,1)", "rgba(141,213,147,1)", "rgba(198,222,199,1)", "rgba(234,211,198,1)", "rgba(240,185,141,1)", "rgba(239,151,8,1)", "rgba(15,207,192,1)", "rgba(156,222,214,1)", "rgba(213,234,231,1)", "rgba(243,225,235,1)", "rgba(246,196,225,1)", "rgba(247,156,212,1)"];
+
+layout = {
+    title: "Rollout Process<br>Bandit Weight Graph",
+    xaxis: {
+      title: "Rounds",
+      zeroline: false,
+      categoryorder: "array",
+      categoryarray: categories
+    },
+    yaxis: {
+      title: "Percent",
+      showline: false
+    },
+    barmode: "stack",
+    showlegend: false,
+    margin: {
+      r: 40
+    }
+}
+
+bandit_config = {
+    type: "bar",
+    hoverinfo: "name+text",
+    width: 0.5
+}
+
+bandits = [];
+data.map(d => {
+  bandits.push({
+    ...bandit_config,
+    ...d,
+    marker: {
+      color: colors[d.index % colors.length]
+    }
+  })
+});
+
+Plotly.newPlot("cb645c4611d2408faafe81e52cfef8d7", bandits, layout, {showLink: false});
+});</script>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Plot-4:-Marginal-Effects">Plot 4: Marginal Effects<a class="anchor-link" href="#Plot-4:-Marginal-Effects">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Finally, we can examine which parameter values had the greatest effect on the overall arm value. As we see in the diagram below, arms whose parameters were assigned the lower level values (such as <code>levell1</code>, <code>levell2</code>, <code>level31</code> and <code>level32</code>) performed worse than average, whereas arms with higher levels performed better than average.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [115]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.plot.marginal_effects</span> <span class="k">import</span> <span class="n">plot_marginal_effects</span>
+<span class="n">render</span><span class="p">(</span><span class="n">plot_marginal_effects</span><span class="p">(</span><span class="n">models</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">'success_metric'</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_html rendered_html output_subarea">
+<div class="plotly-graph-div" id="3d30e0d98498449093dd1649239ed3ff" style="width: 100%;"></div><script type="text/javascript">require(['plotly'], function(Plotly) {
+  window.PLOTLYENV = window.PLOTLYENV || {};
+  window.PLOTLYENV.BASE_URL = 'https://plot.ly';
+  Plotly.newPlot(
+  "3d30e0d98498449093dd1649239ed3ff",
+  [{"type": "bar", "x": ["level11", "level12", "level13"], "y": [-3.808736877589343, 1.0998128175207422, 4.369594359844274], "error_y": {"type": "data", "array": [1.1762177061722978, 1.416682866771819, 1.4077170349487353]}, "name": "factor1", "xaxis": "x1", "yaxis": "y1"}, {"type": "bar", "x": ["level21", "level22"], "y": [-2.902003051258524, 3.8020321935593717], "error_y": {"type": "data", "array": [1.010832542117102, 1.1570119771897904]}, "name": "factor2", "xaxis": "x2", "yaxis": "y1"}, {"type": "bar", "x": ["level31", "level32", "level33", "level34"], "y": [-6.052118841176419, 0.4468332340075569, 3.161277449601332, 5.810539272994009], "error_y": {"type": "data", "array": [1.2942628858219891, 1.6541335756698714, 1.6398069831636397, 1.5984996597225531]}, "name": "factor3", "xaxis": "x3", "yaxis": "y1"}],
+  {"xaxis1": {"domain": [0.0, 0.2888888888888889], "anchor": "y1"}, "yaxis1": {"domain": [0.0, 1.0], "anchor": "x1"}, "xaxis2": {"domain": [0.35555555555555557, 0.6444444444444445], "anchor": "free", "position": 0.0}, "xaxis3": {"domain": [0.7111111111111111, 1.0], "anchor": "free", "position": 0.0}, "annotations": [{"y": 1.0, "xref": "paper", "x": 0.14444444444444443, "yref": "paper", "text": "factor1", "showarrow": false, "font": {"size": 16}, "xanchor": "center", "yanchor": "bottom"}, {"y": 1.0, "xref": "paper", "x": 0.49999999999999994, "yref": "paper", "text": "factor2", "showarrow": false, "font": {"size": 16}, "xanchor": "center", "yanchor": "bottom"}, {"y": 1.0, "xref": "paper", "x": 0.8555555555555554, "yref": "paper", "text": "factor3", "showarrow": false, "font": {"size": 16}, "xanchor": "center", "yanchor": "bottom"}], "showlegend": false, "title": "Marginal Effects by Factor", "yaxis": {"title": "% better than experiment average", "hoverformat": ".3f"}},
+  {"showLink": false}
+);
+});</script>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.1.1/files/factorial.ipynb" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Jupyter Notebook</a></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.1.1/files//factorial.py" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Source Code</a></div></div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.1/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

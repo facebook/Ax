@@ -1,0 +1,516 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.9/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.9/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.9/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.9/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.9/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.9/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.9/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.9/css/main.css"/><script src="/versions/0.2.9/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.9/"><img class="logo" src="/versions/0.2.9/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.9/versions.html"><h3>0.2.9</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.9/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.9/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.9/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.models.torch.botorch_modular.acquisition</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">dataclasses</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span><span class="p">,</span> <span class="n">reduce</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">product</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpaceDigest</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">AxWarning</span><span class="p">,</span> <span class="n">SearchSpaceExhausted</span>
+<span class="kn">from</span> <span class="nn">ax.models.model_utils</span> <span class="kn">import</span> <span class="n">enumerate_discrete_combinations</span><span class="p">,</span> <span class="n">mk_discrete_choices</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.optimizer_argparse</span> <span class="kn">import</span> <span class="n">optimizer_argparse</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.surrogate</span> <span class="kn">import</span> <span class="n">Surrogate</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_moo_defaults</span> <span class="kn">import</span> <span class="n">infer_objective_thresholds</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_get_X_pending_and_observed</span><span class="p">,</span>
+    <span class="n">get_botorch_objective_and_transform</span><span class="p">,</span>
+    <span class="n">subset_model</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch_base</span> <span class="kn">import</span> <span class="n">TorchOptConfig</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.constants</span> <span class="kn">import</span> <span class="n">Keys</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.acquisition</span> <span class="kn">import</span> <span class="n">AcquisitionFunction</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.input_constructors</span> <span class="kn">import</span> <span class="n">get_acqf_input_constructor</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.knowledge_gradient</span> <span class="kn">import</span> <span class="n">qKnowledgeGradient</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.objective</span> <span class="kn">import</span> <span class="n">MCAcquisitionObjective</span><span class="p">,</span> <span class="n">PosteriorTransform</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.risk_measures</span> <span class="kn">import</span> <span class="n">RiskMeasureMCObjective</span>
+<span class="kn">from</span> <span class="nn">botorch.models.model</span> <span class="kn">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">botorch.optim.optimize</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">optimize_acqf</span><span class="p">,</span>
+    <span class="n">optimize_acqf_discrete</span><span class="p">,</span>
+    <span class="n">optimize_acqf_discrete_local_search</span><span class="p">,</span>
+    <span class="n">optimize_acqf_mixed</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+
+<span class="n">DUPLICATE_TOL</span> <span class="o">=</span> <span class="mf">1e-6</span>
+<span class="n">MAX_CHOICES_ENUMERATE</span> <span class="o">=</span> <span class="mi">100_000</span>
+
+
+<div class="viewcode-block" id="Acquisition"><a class="viewcode-back" href="../../../../../models.html#ax.models.torch.botorch_modular.acquisition.Acquisition">[docs]</a><span class="k">class</span> <span class="nc">Acquisition</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""</span>
+<span class="sd">    **All classes in 'botorch_modular' directory are under</span>
+<span class="sd">    construction, incomplete, and should be treated as alpha</span>
+<span class="sd">    versions only.**</span>
+
+<span class="sd">    Ax wrapper for BoTorch `AcquisitionFunction`, subcomponent</span>
+<span class="sd">    of `BoTorchModel` and is not meant to be used outside of it.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        surrogate: Surrogate model, with which this acquisition function</span>
+<span class="sd">            will be used.</span>
+<span class="sd">        search_space_digest: A SearchSpaceDigest object containing metadata</span>
+<span class="sd">            about the search space (e.g. bounds, parameter types).</span>
+<span class="sd">        torch_opt_config: A TorchOptConfig object containing optimization</span>
+<span class="sd">            arguments (e.g., objective weights, constraints).</span>
+<span class="sd">        botorch_acqf_class: Type of BoTorch `AcquistitionFunction` that</span>
+<span class="sd">            should be used. Subclasses of `Acquisition` often specify</span>
+<span class="sd">            these via `default_botorch_acqf_class` attribute, in which</span>
+<span class="sd">            case specifying one here is not required.</span>
+<span class="sd">        options: Optional mapping of kwargs to the underlying `Acquisition</span>
+<span class="sd">            Function` in BoTorch.</span>
+<span class="sd">    """</span>
+
+    <span class="n">surrogate</span><span class="p">:</span> <span class="n">Surrogate</span>
+    <span class="n">acqf</span><span class="p">:</span> <span class="n">AcquisitionFunction</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">surrogate</span><span class="p">:</span> <span class="n">Surrogate</span><span class="p">,</span>
+        <span class="n">search_space_digest</span><span class="p">:</span> <span class="n">SearchSpaceDigest</span><span class="p">,</span>
+        <span class="n">torch_opt_config</span><span class="p">:</span> <span class="n">TorchOptConfig</span><span class="p">,</span>
+        <span class="n">botorch_acqf_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">AcquisitionFunction</span><span class="p">],</span>
+        <span class="n">options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">surrogate</span> <span class="o">=</span> <span class="n">surrogate</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">X_pending</span><span class="p">,</span> <span class="n">X_observed</span> <span class="o">=</span> <span class="n">_get_X_pending_and_observed</span><span class="p">(</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">Xs</span><span class="p">,</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">search_space_digest</span><span class="o">.</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">pending_observations</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">pending_observations</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">linear_constraints</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">linear_constraints</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">fixed_features</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Store objective thresholds for all outcomes (including non-objectives).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+            <span class="n">Tensor</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_thresholds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_full_objective_weights</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_weights</span>
+        <span class="n">full_outcome_constraints</span> <span class="o">=</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">outcome_constraints</span>
+        <span class="c1"># Subset model only to the outcomes we need for the optimization.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">SUBSET_MODEL</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
+            <span class="n">subset_model_results</span> <span class="o">=</span> <span class="n">subset_model</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+                <span class="n">objective_weights</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_weights</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+                <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_thresholds</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">model</span>
+            <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">objective_weights</span>
+            <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">outcome_constraints</span>
+            <span class="n">objective_thresholds</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">objective_thresholds</span>
+            <span class="n">subset_idcs</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">indices</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">model</span>
+            <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_weights</span>
+            <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">outcome_constraints</span>
+            <span class="n">objective_thresholds</span> <span class="o">=</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_thresholds</span>
+            <span class="n">subset_idcs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># If objective weights suggest multiple objectives but objective</span>
+        <span class="c1"># thresholds are not specified, infer them using the model that</span>
+        <span class="c1"># has already been subset to avoid re-subsetting it within</span>
+        <span class="c1"># `inter_objective_thresholds`.</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">objective_weights</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_objective_thresholds</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">risk_measure</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># TODO[T131759263]: modify the heuristic to support risk measures.</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"Objective thresholds must be provided when using risk measures."</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_objective_thresholds</span> <span class="o">=</span> <span class="n">infer_objective_thresholds</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+                <span class="n">objective_weights</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_full_objective_weights</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">full_outcome_constraints</span><span class="p">,</span>
+                <span class="n">X_observed</span><span class="o">=</span><span class="n">X_observed</span><span class="p">,</span>
+                <span class="n">subset_idcs</span><span class="o">=</span><span class="n">subset_idcs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">objective_thresholds</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_objective_thresholds</span><span class="p">)[</span><span class="n">subset_idcs</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">subset_idcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_objective_thresholds</span>
+            <span class="p">)</span>
+        <span class="n">objective</span><span class="p">,</span> <span class="n">posterior_transform</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_botorch_objective_and_transform</span><span class="p">(</span>
+            <span class="n">botorch_acqf_class</span><span class="o">=</span><span class="n">botorch_acqf_class</span><span class="p">,</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">X_observed</span><span class="o">=</span><span class="n">X_observed</span><span class="p">,</span>
+            <span class="n">risk_measure</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">risk_measure</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">model_deps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_model_dependencies</span><span class="p">(</span>
+            <span class="n">surrogate</span><span class="o">=</span><span class="n">surrogate</span><span class="p">,</span>
+            <span class="n">search_space_digest</span><span class="o">=</span><span class="n">search_space_digest</span><span class="p">,</span>
+            <span class="n">torch_opt_config</span><span class="o">=</span><span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+                <span class="n">torch_opt_config</span><span class="p">,</span>
+                <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+                <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">options</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">input_constructor_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"X_baseline"</span><span class="p">:</span> <span class="n">X_observed</span><span class="p">,</span>
+            <span class="s2">"X_pending"</span><span class="p">:</span> <span class="n">X_pending</span><span class="p">,</span>
+            <span class="s2">"objective_thresholds"</span><span class="p">:</span> <span class="n">objective_thresholds</span><span class="p">,</span>
+            <span class="s2">"outcome_constraints"</span><span class="p">:</span> <span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="s2">"target_fidelities"</span><span class="p">:</span> <span class="n">search_space_digest</span><span class="o">.</span><span class="n">target_fidelities</span><span class="p">,</span>
+            <span class="s2">"bounds"</span><span class="p">:</span> <span class="n">search_space_digest</span><span class="o">.</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">model_deps</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">input_constructor</span> <span class="o">=</span> <span class="n">get_acqf_input_constructor</span><span class="p">(</span><span class="n">botorch_acqf_class</span><span class="p">)</span>
+        <span class="c1"># Handle multi-dataset surrogates - TODO: Improve this</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">training_data</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">training_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">training_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">training_data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                <span class="nb">zip</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">_outcomes</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">training_data</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">acqf_inputs</span> <span class="o">=</span> <span class="n">input_constructor</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">training_data</span><span class="o">=</span><span class="n">training_data</span><span class="p">,</span>
+            <span class="n">objective</span><span class="o">=</span><span class="n">objective</span><span class="p">,</span>
+            <span class="n">posterior_transform</span><span class="o">=</span><span class="n">posterior_transform</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">input_constructor_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acqf</span> <span class="o">=</span> <span class="n">botorch_acqf_class</span><span class="p">(</span><span class="o">**</span><span class="n">acqf_inputs</span><span class="p">)</span>  <span class="c1"># pyre-ignore [45]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X_pending</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="n">X_pending</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X_observed</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">X_observed</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">botorch_acqf_class</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">AcquisitionFunction</span><span class="p">]:</span>
+        <span class="sd">"""BoTorch ``AcquisitionFunction`` class underlying this ``Acquisition``."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">acqf</span><span class="o">.</span><span class="vm">__class__</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]:</span>
+        <span class="sd">"""Torch data type of the tensors in the training data used in the model,</span>
+<span class="sd">        of which this ``Acquisition`` is a subcomponent.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">dtype</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]:</span>
+        <span class="sd">"""Torch device type of the tensors in the training data used in the model,</span>
+<span class="sd">        of which this ``Acquisition`` is a subcomponent.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">device</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">objective_thresholds</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="sd">"""The objective thresholds for all outcomes.</span>
+
+<span class="sd">        For non-objective outcomes, the objective thresholds are nans.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_objective_thresholds</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">objective_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="sd">"""The objective weights for all outcomes."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_full_objective_weights</span>
+
+<div class="viewcode-block" id="Acquisition.optimize"><a class="viewcode-back" href="../../../../../models.html#ax.models.torch.botorch_modular.acquisition.Acquisition.optimize">[docs]</a>    <span class="k">def</span> <span class="nf">optimize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">search_space_digest</span><span class="p">:</span> <span class="n">SearchSpaceDigest</span><span class="p">,</span>
+        <span class="n">inequality_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rounding_func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimizer_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+        <span class="sd">"""Generate a set of candidates via multi-start optimization. Obtains</span>
+<span class="sd">        candidates and their associated acquisition function values.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n: The number of candidates to generate.</span>
+<span class="sd">            search_space_digest: A ``SearchSpaceDigest`` object containing search space</span>
+<span class="sd">                properties, e.g. ``bounds`` for optimization.</span>
+<span class="sd">            inequality_constraints: A list of tuples (indices, coefficients, rhs),</span>
+<span class="sd">                with each tuple encoding an inequality constraint of the form</span>
+<span class="sd">                ``sum_i (X[indices[i]] * coefficients[i]) &gt;= rhs``.</span>
+<span class="sd">            fixed_features: A map `{feature_index: value}` for features that</span>
+<span class="sd">                should be fixed to a particular value during generation.</span>
+<span class="sd">            rounding_func: A function that post-processes an optimization</span>
+<span class="sd">                result appropriately (i.e., according to `round-trip`</span>
+<span class="sd">                transformations).</span>
+<span class="sd">            optimizer_options: Options for the optimizer function, e.g. ``sequential``</span>
+<span class="sd">                or ``raw_samples``.</span>
+<span class="sd">        """</span>
+        <span class="c1"># NOTE: Could make use of `optimizer_class` when it's added to BoTorch</span>
+        <span class="c1"># instead of calling `optimizer_acqf` or `optimize_acqf_discrete` etc.</span>
+        <span class="n">_tensorize</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">ssd</span> <span class="o">=</span> <span class="n">search_space_digest</span>
+        <span class="n">bounds</span> <span class="o">=</span> <span class="n">_tensorize</span><span class="p">(</span><span class="n">ssd</span><span class="o">.</span><span class="n">bounds</span><span class="p">)</span><span class="o">.</span><span class="n">t</span><span class="p">()</span>
+
+        <span class="c1"># Prepare arguments for optimizer</span>
+        <span class="n">optimizer_options_with_defaults</span> <span class="o">=</span> <span class="n">optimizer_argparse</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">acqf</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">q</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+            <span class="n">optimizer_options</span><span class="o">=</span><span class="n">optimizer_options</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">discrete_features</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">ssd</span><span class="o">.</span><span class="n">ordinal_features</span> <span class="o">+</span> <span class="n">ssd</span><span class="o">.</span><span class="n">categorical_features</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fixed_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">fixed_features</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ssd</span><span class="o">.</span><span class="n">feature_names</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid fixed_feature index: </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="c1"># 1. Handle the fully continuous search space.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">discrete_features</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">optimize_acqf</span><span class="p">(</span>
+                <span class="n">acq_function</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">acqf</span><span class="p">,</span>
+                <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+                <span class="n">q</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+                <span class="n">inequality_constraints</span><span class="o">=</span><span class="n">inequality_constraints</span><span class="p">,</span>
+                <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">,</span>
+                <span class="n">post_processing_func</span><span class="o">=</span><span class="n">rounding_func</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">optimizer_options_with_defaults</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># 2. Handle search spaces with discrete features.</span>
+        <span class="n">discrete_choices</span> <span class="o">=</span> <span class="n">mk_discrete_choices</span><span class="p">(</span><span class="n">ssd</span><span class="o">=</span><span class="n">ssd</span><span class="p">,</span> <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">)</span>
+
+        <span class="c1"># 2a. Handle the fully discrete search space.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">discrete_choices</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">ssd</span><span class="o">.</span><span class="n">feature_names</span><span class="p">):</span>
+            <span class="n">X_observed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_observed</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_pending</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">X_observed</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">X_observed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_pending</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="c1"># Special handling for search spaces with a large number of choices</span>
+            <span class="n">total_choices</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span>
+                <span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">,</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">discrete_choices</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">total_choices</span> <span class="o">&gt;</span> <span class="n">MAX_CHOICES_ENUMERATE</span><span class="p">:</span>
+                <span class="n">discrete_choices</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">discrete_choices</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                <span class="p">]</span>
+                <span class="k">return</span> <span class="n">optimize_acqf_discrete_local_search</span><span class="p">(</span>
+                    <span class="n">acq_function</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">acqf</span><span class="p">,</span>
+                    <span class="n">q</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+                    <span class="n">discrete_choices</span><span class="o">=</span><span class="n">discrete_choices</span><span class="p">,</span>
+                    <span class="n">inequality_constraints</span><span class="o">=</span><span class="n">inequality_constraints</span><span class="p">,</span>
+                    <span class="n">X_avoid</span><span class="o">=</span><span class="n">X_observed</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">optimizer_options_with_defaults</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="c1"># Enumerate all possible choices</span>
+            <span class="n">all_choices</span> <span class="o">=</span> <span class="p">(</span><span class="n">discrete_choices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">discrete_choices</span><span class="p">)))</span>
+            <span class="n">all_choices</span> <span class="o">=</span> <span class="n">_tensorize</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">all_choices</span><span class="p">)))</span>
+
+            <span class="c1"># This can be vectorized, but using a for-loop to avoid memory issues</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">X_observed</span><span class="p">:</span>
+                <span class="n">all_choices</span> <span class="o">=</span> <span class="n">all_choices</span><span class="p">[</span>
+                    <span class="p">(</span><span class="n">all_choices</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">values</span> <span class="o">&gt;</span> <span class="n">DUPLICATE_TOL</span>
+                <span class="p">]</span>
+
+            <span class="c1"># Filter out candidates that violate the constraints</span>
+            <span class="c1"># TODO: It will be more memory-efficient to do this filtering before</span>
+            <span class="c1"># converting the generator into a tensor. However, if we run into memory</span>
+            <span class="c1"># issues we are likely better off being smarter in how we optimize the</span>
+            <span class="c1"># acquisition function.</span>
+            <span class="n">inequality_constraints</span> <span class="o">=</span> <span class="n">inequality_constraints</span> <span class="ow">or</span> <span class="p">[]</span>
+            <span class="n">is_feasible</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">all_choices</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">)</span>
+            <span class="k">for</span> <span class="p">(</span><span class="n">inds</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">bound</span><span class="p">)</span> <span class="ow">in</span> <span class="n">inequality_constraints</span><span class="p">:</span>
+                <span class="n">is_feasible</span> <span class="o">&amp;=</span> <span class="p">(</span><span class="n">all_choices</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">inds</span><span class="p">]</span> <span class="o">*</span> <span class="n">weights</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">bound</span>
+            <span class="n">all_choices</span> <span class="o">=</span> <span class="n">all_choices</span><span class="p">[</span><span class="n">is_feasible</span><span class="p">]</span>
+
+            <span class="n">num_choices</span> <span class="o">=</span> <span class="n">all_choices</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">num_choices</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SearchSpaceExhausted</span><span class="p">(</span>
+                    <span class="s2">"No more feasible choices in a fully discrete search space."</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">num_choices</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Requested n=</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> candidates from fully discrete search "</span>
+                        <span class="sa">f</span><span class="s2">"space, but only </span><span class="si">{</span><span class="n">num_choices</span><span class="si">}</span><span class="s2"> possible choices remain."</span>
+                    <span class="p">),</span>
+                    <span class="n">AxWarning</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">n</span> <span class="o">=</span> <span class="n">num_choices</span>
+
+            <span class="k">return</span> <span class="n">optimize_acqf_discrete</span><span class="p">(</span>
+                <span class="n">acq_function</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">acqf</span><span class="p">,</span>
+                <span class="n">q</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+                <span class="n">choices</span><span class="o">=</span><span class="n">all_choices</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">optimizer_options_with_defaults</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># 2b. Handle mixed search spaces that have discrete and continuous features.</span>
+        <span class="k">return</span> <span class="n">optimize_acqf_mixed</span><span class="p">(</span>
+            <span class="n">acq_function</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">acqf</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">q</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+            <span class="c1"># For now we just enumerate all possible discrete combinations. This is not</span>
+            <span class="c1"># scalable and and only works for a reasonably small number of choices. A</span>
+            <span class="c1"># slowdown warning is logged in `enumerate_discrete_combinations` if needed.</span>
+            <span class="n">fixed_features_list</span><span class="o">=</span><span class="n">enumerate_discrete_combinations</span><span class="p">(</span>
+                <span class="n">discrete_choices</span><span class="o">=</span><span class="n">discrete_choices</span>
+            <span class="p">),</span>
+            <span class="n">inequality_constraints</span><span class="o">=</span><span class="n">inequality_constraints</span><span class="p">,</span>
+            <span class="n">post_processing_func</span><span class="o">=</span><span class="n">rounding_func</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">optimizer_options_with_defaults</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Acquisition.evaluate"><a class="viewcode-back" href="../../../../../models.html#ax.models.torch.botorch_modular.acquisition.Acquisition.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="sd">"""Evaluate the acquisition function on the candidate set `X`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            X: A `batch_shape x q x d`-dim Tensor of t-batches with `q` `d`-dim design</span>
+<span class="sd">                points each.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A `batch_shape'`-dim Tensor of acquisition values at the given</span>
+<span class="sd">            design points `X`, where `batch_shape'` is the broadcasted batch shape of</span>
+<span class="sd">            model and input `X`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">acqf</span><span class="p">,</span> <span class="n">qKnowledgeGradient</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">acqf</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># NOTE: `AcquisitionFunction.__call__` calls `forward`,</span>
+            <span class="c1"># so below is equivalent to `self.acqf.forward(X=X)`.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">acqf</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Acquisition.compute_model_dependencies"><a class="viewcode-back" href="../../../../../models.html#ax.models.torch.botorch_modular.acquisition.Acquisition.compute_model_dependencies">[docs]</a>    <span class="k">def</span> <span class="nf">compute_model_dependencies</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">surrogate</span><span class="p">:</span> <span class="n">Surrogate</span><span class="p">,</span>
+        <span class="n">search_space_digest</span><span class="p">:</span> <span class="n">SearchSpaceDigest</span><span class="p">,</span>
+        <span class="n">torch_opt_config</span><span class="p">:</span> <span class="n">TorchOptConfig</span><span class="p">,</span>
+        <span class="n">options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Computes inputs to acquisition function class based on the given</span>
+<span class="sd">        surrogate model.</span>
+
+<span class="sd">        NOTE: When subclassing `Acquisition` from a superclass where this</span>
+<span class="sd">        method returns a non-empty dictionary of kwargs to `AcquisitionFunction`,</span>
+<span class="sd">        call `super().compute_model_dependencies` and then update that</span>
+<span class="sd">        dictionary of options with the options for the subclass you are creating</span>
+<span class="sd">        (unless the superclass' model dependencies should not be propagated to</span>
+<span class="sd">        the subclass). See `MultiFidelityKnowledgeGradient.compute_model_dependencies`</span>
+<span class="sd">        for an example.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            surrogate: The surrogate object containing the BoTorch `Model`,</span>
+<span class="sd">                with which this `Acquisition` is to be used.</span>
+<span class="sd">            search_space_digest: A SearchSpaceDigest object containing metadata</span>
+<span class="sd">                about the search space (e.g. bounds, parameter types).</span>
+<span class="sd">            torch_opt_config: A TorchOptConfig object containing optimization</span>
+<span class="sd">                arguments (e.g., objective weights, constraints).</span>
+<span class="sd">            options: The `options` kwarg dict, passed on initialization of</span>
+<span class="sd">                the `Acquisition` object.</span>
+
+<span class="sd">        Returns: A dictionary of surrogate model-dependent options, to be passed</span>
+<span class="sd">            as kwargs to BoTorch`AcquisitionFunction` constructor.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">{}</span></div>
+
+<div class="viewcode-block" id="Acquisition.get_botorch_objective_and_transform"><a class="viewcode-back" href="../../../../../models.html#ax.models.torch.botorch_modular.acquisition.Acquisition.get_botorch_objective_and_transform">[docs]</a>    <span class="k">def</span> <span class="nf">get_botorch_objective_and_transform</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">botorch_acqf_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">AcquisitionFunction</span><span class="p">],</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">X_observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">risk_measure</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RiskMeasureMCObjective</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">MCAcquisitionObjective</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PosteriorTransform</span><span class="p">]]:</span>
+        <span class="k">return</span> <span class="n">get_botorch_objective_and_transform</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+            <span class="n">X_observed</span><span class="o">=</span><span class="n">X_observed</span><span class="p">,</span>
+            <span class="n">risk_measure</span><span class="o">=</span><span class="n">risk_measure</span><span class="p">,</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.9/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

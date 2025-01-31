@@ -1,0 +1,859 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.9/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.9/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.9/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.9/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.9/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.9/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.9/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.9/css/main.css"/><script src="/versions/0.2.9/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.9/"><img class="logo" src="/versions/0.2.9/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.9/versions.html"><h3>0.2.9</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.9/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.9/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.9/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.base_trial</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span><span class="p">,</span> <span class="n">abstractproperty</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricFetchResult</span>
+<span class="kn">from</span> <span class="nn">ax.core.runner</span> <span class="kn">import</span> <span class="n">Runner</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TCandidateMetadata</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">SortableBase</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="c1"># import as module to make sphinx-autodoc-typehints happy</span>
+    <span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">core</span>  <span class="c1"># noqa F401  # pragma: no cover</span>
+
+
+<div class="viewcode-block" id="TrialStatus"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.TrialStatus">[docs]</a><span class="k">class</span> <span class="nc">TrialStatus</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">"""Enum of trial status.</span>
+
+<span class="sd">    General lifecycle of a trial is:::</span>
+
+<span class="sd">        CANDIDATE --&gt; STAGED --&gt; RUNNING --&gt; COMPLETED</span>
+<span class="sd">                  -------------&gt;         --&gt; FAILED (retryable)</span>
+<span class="sd">                                         --&gt; EARLY_STOPPED (deemed unpromising)</span>
+<span class="sd">                  -------------------------&gt; ABANDONED (non-retryable)</span>
+
+<span class="sd">    Trial is marked as a ``CANDIDATE`` immediately upon its creation.</span>
+
+<span class="sd">    Trials may be abandoned at any time prior to completion or failure.</span>
+<span class="sd">    The difference between abandonment and failure is that the ``FAILED`` state</span>
+<span class="sd">    is meant to express a possibly transient or retryable error, so trials in</span>
+<span class="sd">    that state may be re-run and arm(s) in them may be resuggested by Ax models</span>
+<span class="sd">    to be added to new trials.</span>
+
+<span class="sd">    ``ABANDONED`` trials on the other end, indicate</span>
+<span class="sd">    that the trial (and arms(s) in it) should not be rerun or added to new</span>
+<span class="sd">    trials. A trial might be marked ``ABANDONED`` as a result of human-initiated</span>
+<span class="sd">    action (if some trial in experiment is poorly-performing, deterministically</span>
+<span class="sd">    failing etc., and should not be run again in the experiment). It might also</span>
+<span class="sd">    be marked ``ABANDONED`` in an automated way if the trial's execution</span>
+<span class="sd">    encounters an error that indicates that the arm(s) in the trial should bot</span>
+<span class="sd">    be evaluated in the experiment again (e.g. the parameterization in a given</span>
+<span class="sd">    arm deterministically causes trial evaluation to fail). Note that it's also</span>
+<span class="sd">    possible to abandon a single arm in a `BatchTrial` via</span>
+<span class="sd">    ``batch.mark_arm_abandoned``.</span>
+
+<span class="sd">    Early-stopped refers to trials that were deemed</span>
+<span class="sd">    unpromising by an early-stopping strategy and therefore terminated.</span>
+
+<span class="sd">    Additionally, when trials are deployed, they may be in an intermediate</span>
+<span class="sd">    staged state (e.g. scheduled but waiting for resources) or immediately</span>
+<span class="sd">    transition to running. Note that ``STAGED`` trial status is not always</span>
+<span class="sd">    applicable and depends on the ``Runner`` trials are deployed with</span>
+<span class="sd">    (and whether a ``Runner`` is present at all; for example, in Ax Service</span>
+<span class="sd">    API, trials are marked as ``RUNNING`` immediately when generated from</span>
+<span class="sd">    ``get_next_trial``, skipping the ``STAGED`` status).</span>
+
+<span class="sd">    NOTE: Data for abandoned trials (or abandoned arms in batch trials) is</span>
+<span class="sd">    not passed to the model as part of training data, unless ``fit_abandoned``</span>
+<span class="sd">    option is specified to model bridge.</span>
+<span class="sd">    """</span>
+
+    <span class="n">CANDIDATE</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">STAGED</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">FAILED</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">COMPLETED</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">RUNNING</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">ABANDONED</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">DISPATCHED</span> <span class="o">=</span> <span class="mi">6</span>  <span class="c1"># Deprecated.</span>
+    <span class="n">EARLY_STOPPED</span> <span class="o">=</span> <span class="mi">7</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""True if trial is completed."""</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">ABANDONED</span>
+            <span class="ow">or</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span>
+            <span class="ow">or</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">FAILED</span>
+            <span class="ow">or</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">EARLY_STOPPED</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">expecting_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""True if trial is expecting data."""</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span>
+            <span class="ow">or</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span>
+            <span class="ow">or</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">EARLY_STOPPED</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_deployed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""True if trial has been deployed but not completed."""</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span> <span class="ow">or</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_failed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""True if this trial is a failed one."""</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">FAILED</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_abandoned</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""True if this trial is an abandoned one."""</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">ABANDONED</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_candidate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""True if this trial is a candidate."""</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">CANDIDATE</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""True if this trial is a successfully completed one."""</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_running</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""True if this trial is a running one."""</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_early_stopped</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""True if this trial is an early stopped one."""</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">EARLY_STOPPED</span>
+
+    <span class="k">def</span> <span class="fm">__format__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""Define `__format__` to avoid pulling the `__format__` from the `int`</span>
+<span class="sd">        mixin (since its better for statuses to show up as `RUNNING` than as</span>
+<span class="sd">        just an int that is difficult to interpret).</span>
+
+<span class="sd">        E.g. batch trial representation with the overridden method is:</span>
+<span class="sd">        "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)".</span>
+
+<span class="sd">        Docs on enum formatting: https://docs.python.org/3/library/enum.html#others.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="si">!s}</span><span class="s2">"</span></div>
+
+
+<span class="n">DEFAULT_STATUSES_TO_WARM_START</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TrialStatus</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">,</span>
+    <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">,</span>
+    <span class="n">TrialStatus</span><span class="o">.</span><span class="n">ABANDONED</span><span class="p">,</span>
+    <span class="n">TrialStatus</span><span class="o">.</span><span class="n">EARLY_STOPPED</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<span class="c1"># pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.</span>
+<div class="viewcode-block" id="immutable_once_run"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.immutable_once_run">[docs]</a><span class="k">def</span> <span class="nf">immutable_once_run</span><span class="p">(</span><span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+    <span class="sd">"""Decorator for methods that should throw Error when</span>
+<span class="sd">    trial is running or has ever run and immutable.</span>
+<span class="sd">    """</span>
+
+    <span class="c1"># no type annotation for now; breaks sphinx-autodoc-typehints</span>
+    <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+    <span class="c1"># pyre-fixme[2]: Parameter must be annotated.</span>
+    <span class="k">def</span> <span class="nf">_immutable_once_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">!=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">CANDIDATE</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Cannot modify a trial that is running or has ever run."</span><span class="p">,</span>
+                <span class="s2">"Create a new trial using `experiment.new_trial()` "</span>
+                <span class="s2">"or clone an existing trial using `trial.clone()`."</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_immutable_once_run</span></div>
+
+
+<div class="viewcode-block" id="BaseTrial"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial">[docs]</a><span class="k">class</span> <span class="nc">BaseTrial</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">SortableBase</span><span class="p">):</span>
+    <span class="sd">"""Base class for representing trials.</span>
+
+<span class="sd">    Trials are containers for arms that are deployed together. There are</span>
+<span class="sd">    two kinds of trials: regular Trial, which only contains a single arm,</span>
+<span class="sd">    and BatchTrial, which contains an arbitrary number of arms.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        experiment: Experiment, of which this trial is a part</span>
+<span class="sd">        trial_type: Type of this trial, if used in MultiTypeExperiment.</span>
+<span class="sd">        ttl_seconds: If specified, trials will be considered failed after</span>
+<span class="sd">            this many seconds since the time the trial was ran, unless the</span>
+<span class="sd">            trial is completed before then. Meant to be used to detect</span>
+<span class="sd">            'dead' trials, for which the evaluation process might have</span>
+<span class="sd">            crashed etc., and which should be considered failed after</span>
+<span class="sd">            their 'time to live' has passed.</span>
+<span class="sd">        index: If specified, the trial's index will be set accordingly.</span>
+<span class="sd">            This should generally not be specified, as in the index will be</span>
+<span class="sd">            automatically determined based on the number of existing trials.</span>
+<span class="sd">            This is only used for the purpose of loading from storage.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">trial_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">ttl_seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initialize trial.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            experiment: The experiment this trial belongs to.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span> <span class="o">=</span> <span class="n">experiment</span>
+        <span class="k">if</span> <span class="n">ttl_seconds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">ttl_seconds</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"TTL must be a positive integer (or None)."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ttl_seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">ttl_seconds</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="o">.</span><span class="n">_attach_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">trial_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="o">.</span><span class="n">supports_trial_type</span><span class="p">(</span><span class="n">trial_type</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Experiment does not support trial_type </span><span class="si">{</span><span class="n">trial_type</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">trial_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="o">.</span><span class="n">default_trial_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trial_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">trial_type</span>
+
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__status</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Uses `_status` setter, which updates trial statuses to trial indices</span>
+        <span class="c1"># mapping on the experiment, with which this trial is associated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">CANDIDATE</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_created</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+
+        <span class="c1"># Initialize fields to be used later in lifecycle</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_completed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_staged</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_run_started</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_abandoned_reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_run_metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Runner</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Counter to maintain how many arms have been named by this BatchTrial</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_arms_created</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># If generator run(s) in this trial were generated from a generation</span>
+        <span class="c1"># strategy, this property will be set to the generation step that produced</span>
+        <span class="c1"># the generator run(s).</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_properties</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">experiment</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">core</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">Experiment</span><span class="p">:</span>
+        <span class="sd">"""The experiment this trial belongs to."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""The index of this trial within the experiment's trial list."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrialStatus</span><span class="p">:</span>
+        <span class="sd">"""The status of the trial in the experimentation lifecycle."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mark_failed_if_past_TTL</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ttl_seconds</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">"""This trial's time-to-live once ran, in seconds. If not set, trial</span>
+<span class="sd">        will never be automatically considered failed (i.e. infinite TTL).</span>
+<span class="sd">        Reflects after how many seconds since the time the trial was run it</span>
+<span class="sd">        will be considered failed unless completed.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ttl_seconds</span>
+
+    <span class="nd">@ttl_seconds</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">ttl_seconds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Sets this trial's time-to-live once ran, in seconds. If None, trial</span>
+<span class="sd">        will never be automatically considered failed (i.e. infinite TTL).</span>
+<span class="sd">        Reflects after how many seconds since the time the trial was run it</span>
+<span class="sd">        will be considered failed unless completed.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">ttl_seconds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">ttl_seconds</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"TTL must be a positive integer (or None)."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ttl_seconds</span> <span class="o">=</span> <span class="n">ttl_seconds</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">completed_successfully</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Checks if trial status is `COMPLETED`."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">did_not_complete</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Checks if trial status is terminal, but not `COMPLETED`."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_terminal</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">completed_successfully</span>
+
+    <span class="nd">@status</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">:</span> <span class="n">TrialStatus</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Use `trial.mark_*` methods to set trial status."</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">runner</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Runner</span><span class="p">]:</span>
+        <span class="sd">"""The runner object defining how to deploy the trial."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span>
+
+    <span class="nd">@runner</span><span class="o">.</span><span class="n">setter</span>
+    <span class="nd">@immutable_once_run</span>
+    <span class="k">def</span> <span class="nf">runner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runner</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Runner</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span> <span class="o">=</span> <span class="n">runner</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">deployed_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Name of the experiment created in external framework.</span>
+
+<span class="sd">        This property is derived from the name field in run_metadata.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_metadata</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">run_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Dict containing metadata from the deployment process.</span>
+
+<span class="sd">        This is set implicitly during `trial.run()`.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_metadata</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">stop_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Dict containing metadata from the stopping process.</span>
+
+<span class="sd">        This is set implicitly during `trial.stop()`.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_metadata</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">trial_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""The type of the trial.</span>
+
+<span class="sd">        Relevant for experiments containing different kinds of trials</span>
+<span class="sd">        (e.g. different deployment types).</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_type</span>
+
+    <span class="nd">@trial_type</span><span class="o">.</span><span class="n">setter</span>
+    <span class="nd">@immutable_once_run</span>
+    <span class="k">def</span> <span class="nf">trial_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Identifier used to distinguish trial types in experiments</span>
+<span class="sd">        with multiple trial types.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="o">.</span><span class="n">supports_trial_type</span><span class="p">(</span><span class="n">trial_type</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">trial_type</span><span class="si">}</span><span class="s2"> is not supported by the experiment."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trial_type</span> <span class="o">=</span> <span class="n">trial_type</span>
+
+<div class="viewcode-block" id="BaseTrial.assign_runner"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.assign_runner">[docs]</a>    <span class="k">def</span> <span class="nf">assign_runner</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Assigns default experiment runner if trial doesn't already have one."""</span>
+        <span class="n">runner</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">runner_for_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">runner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.update_run_metadata"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.update_run_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">update_run_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Updates the run metadata dict stored on this trial and returns the</span>
+<span class="sd">        updated dict."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_run_metadata</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_metadata</span></div>
+
+<div class="viewcode-block" id="BaseTrial.update_stop_metadata"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.update_stop_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">update_stop_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Updates the stop metadata dict stored on this trial and returns the</span>
+<span class="sd">        updated dict."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_metadata</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_metadata</span></div>
+
+<div class="viewcode-block" id="BaseTrial.run"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Deploys the trial according to the behavior on the runner.</span>
+
+<span class="sd">        The runner returns a `run_metadata` dict containining metadata</span>
+<span class="sd">        of the deployment process. It also returns a `deployed_name` of the trial</span>
+<span class="sd">        within the system to which it was deployed. Both these fields are set on</span>
+<span class="sd">        the trial.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">!=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">CANDIDATE</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Can only run a candidate trial."</span><span class="p">)</span>
+
+        <span class="c1"># Default to experiment runner if trial doesn't have one</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign_runner</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No runner set on trial or experiment."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_run_metadata</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="p">)</span><span class="o">.</span><span class="n">staging_required</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mark_staged</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mark_running</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.stop"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.stop">[docs]</a>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_status</span><span class="p">:</span> <span class="n">TrialStatus</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Stops the trial according to the behavior on the runner.</span>
+
+<span class="sd">        The runner returns a `stop_metadata` dict containining metadata</span>
+<span class="sd">        of the stopping process.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            new_status: The new TrialStatus. Must be one of {TrialStatus.COMPLETED,</span>
+<span class="sd">                TrialStatus.ABANDONED, TrialStatus.EARLY_STOPPED}</span>
+<span class="sd">            reason: A message containing information why the trial is to be stopped.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span><span class="p">,</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Can only stop STAGED or RUNNING trials."</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">new_status</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span>
+            <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">,</span>
+            <span class="n">TrialStatus</span><span class="o">.</span><span class="n">ABANDONED</span><span class="p">,</span>
+            <span class="n">TrialStatus</span><span class="o">.</span><span class="n">EARLY_STOPPED</span><span class="p">,</span>
+        <span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"New status of a stopped trial must either be "</span>
+                <span class="s2">"COMPLETED, ABANDONED or EARLY_STOPPED."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Default to experiment runner if trial doesn't have one</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign_runner</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No runner set on trial or experiment."</span><span class="p">)</span>
+        <span class="n">runner</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_metadata</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mark_as</span><span class="p">(</span><span class="n">new_status</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.complete"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.complete">[docs]</a>    <span class="k">def</span> <span class="nf">complete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Stops the trial if functionality is defined on runner</span>
+<span class="sd">            and marks trial completed.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            reason: A message containing information why the trial is to be</span>
+<span class="sd">                completed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">!=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Can only stop a running trial."</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">(</span><span class="n">new_status</span><span class="o">=</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mark_completed</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.fetch_data"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.fetch_data">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">]:</span>
+        <span class="sd">"""Fetch data for this trial for all metrics on experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_index: The index of the trial to fetch data for.</span>
+<span class="sd">            metrics: If provided, fetch data for these metrics instead of the ones</span>
+<span class="sd">                defined on the experiment.</span>
+<span class="sd">            kwargs: keyword args to pass to underlying metrics' fetch data functions.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Data for this trial.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_fetch_trial_data</span><span class="p">(</span>
+            <span class="n">trial_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BaseTrial.lookup_data"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.lookup_data">[docs]</a>    <span class="k">def</span> <span class="nf">lookup_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="sd">"""Lookup cached data on experiment for this trial.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            If not merging across timestamps, the latest ``Data`` object</span>
+<span class="sd">            associated with the trial. If merging, all data for trial, merged.</span>
+
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">lookup_data_for_trial</span><span class="p">(</span>
+            <span class="n">trial_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_existing_and_name_arm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm</span><span class="p">:</span> <span class="n">Arm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Sets name for given arm; if this arm is already in the</span>
+<span class="sd">        experiment, uses the existing arm name.</span>
+<span class="sd">        """</span>
+        <span class="n">proposed_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_default_name</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_name_and_store_arm_if_not_exists</span><span class="p">(</span>
+            <span class="n">arm</span><span class="o">=</span><span class="n">arm</span><span class="p">,</span> <span class="n">proposed_name</span><span class="o">=</span><span class="n">proposed_name</span>
+        <span class="p">)</span>
+        <span class="c1"># If arm was named using given name, incremement the count</span>
+        <span class="k">if</span> <span class="n">arm</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">proposed_name</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_num_arms_created</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="nf">_get_default_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">arm_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">arm_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_arms_created</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">arm_index</span><span class="si">}</span><span class="s2">"</span>
+
+    <span class="k">def</span> <span class="nf">_set_generation_step_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">generation_step_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Sets the `generation_step_index` property of the trial, to reflect which</span>
+<span class="sd">        generation step of a given generation strategy (if any) produced the generator</span>
+<span class="sd">        run(s) attached to this trial.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">generation_step_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="o">!=</span> <span class="n">generation_step_index</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Cannot add generator runs from different generation steps to a "</span>
+                <span class="s2">"single trial."</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="o">=</span> <span class="n">generation_step_index</span>
+
+    <span class="nd">@abstractproperty</span>
+    <span class="k">def</span> <span class="nf">arms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Arm</span><span class="p">]:</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span>
+
+    <span class="nd">@abstractproperty</span>
+    <span class="k">def</span> <span class="nf">arms_by_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Arm</span><span class="p">]:</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span>
+
+    <span class="nd">@abstractproperty</span>
+    <span class="k">def</span> <span class="nf">abandoned_arms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Arm</span><span class="p">]:</span>
+        <span class="sd">"""All abandoned arms, associated with this trial."""</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span>
+
+    <span class="nd">@abstractproperty</span>
+    <span class="k">def</span> <span class="nf">generator_runs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">GeneratorRun</span><span class="p">]:</span>
+        <span class="sd">"""All generator runs associated with this trial."""</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_get_candidate_metadata_from_all_generator_runs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TCandidateMetadata</span><span class="p">]:</span>
+        <span class="sd">"""Retrieves combined candidate metadata from all generator runs associated</span>
+<span class="sd">        with this trial.</span>
+<span class="sd">        """</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_get_candidate_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TCandidateMetadata</span><span class="p">:</span>
+        <span class="sd">"""Retrieves candidate metadata for a specific arm."""</span>
+        <span class="o">...</span>
+
+    <span class="c1"># --- Trial lifecycle management functions ---</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">time_created</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="p">:</span>
+        <span class="sd">"""Creation time of the trial."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_created</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">time_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]:</span>
+        <span class="sd">"""Completion time of the trial."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_completed</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">time_staged</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]:</span>
+        <span class="sd">"""Staged time of the trial."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_staged</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">time_run_started</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]:</span>
+        <span class="sd">"""Time the trial was started running (i.e. collecting data)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_run_started</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_abandoned</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether this trial is abandoned."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">ABANDONED</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">abandoned_reason</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_abandoned_reason</span>
+
+<div class="viewcode-block" id="BaseTrial.mark_staged"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.mark_staged">[docs]</a>    <span class="k">def</span> <span class="nf">mark_staged</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unsafe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Mark the trial as being staged for running.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            unsafe: Ignore sanity checks on state transitions.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">unsafe</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">!=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">CANDIDATE</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Can only stage a candidate trial.  This trial is </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_status</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_staged</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.mark_running"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.mark_running">[docs]</a>    <span class="k">def</span> <span class="nf">mark_running</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">no_runner_required</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">unsafe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Mark trial has started running.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            no_runner_required: Whether to skip the check for presence of a ``Runner``</span>
+<span class="sd">            on experiment.</span>
+<span class="sd">            unsafe: Ignore sanity checks on state transitions.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">no_runner_required</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Cannot mark trial running without setting runner."</span><span class="p">)</span>
+
+        <span class="n">prev_step</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="o">.</span><span class="n">staging_required</span>
+            <span class="k">else</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">CANDIDATE</span>
+        <span class="p">)</span>
+        <span class="n">prev_step_str</span> <span class="o">=</span> <span class="s2">"staged"</span> <span class="k">if</span> <span class="n">prev_step</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span> <span class="k">else</span> <span class="s2">"candidate"</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">unsafe</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">!=</span> <span class="n">prev_step</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Can only mark this trial as running when </span><span class="si">{</span><span class="n">prev_step_str</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_run_started</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.mark_completed"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.mark_completed">[docs]</a>    <span class="k">def</span> <span class="nf">mark_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unsafe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Mark trial as completed.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            unsafe: Ignore sanity checks on state transitions.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">unsafe</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">!=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Can only complete trial that is currently running."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_completed</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.mark_abandoned"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.mark_abandoned">[docs]</a>    <span class="k">def</span> <span class="nf">mark_abandoned</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">unsafe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Mark trial as abandoned.</span>
+
+<span class="sd">        NOTE: Arms in abandoned trials are considered to be 'pending points'</span>
+<span class="sd">        in experiment after their abandonment to avoid Ax models suggesting</span>
+<span class="sd">        the same arm again as a new candidate. Arms in abandoned trials are</span>
+<span class="sd">        also excluded from model training data unless ``fit_abandoned`` option</span>
+<span class="sd">        is specified to model bridge.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            abandoned_reason: The reason the trial was abandoned.</span>
+<span class="sd">            unsafe: Ignore sanity checks on state transitions.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">unsafe</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span><span class="o">.</span><span class="n">is_terminal</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Cannot abandon a trial in a terminal state."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_abandoned_reason</span> <span class="o">=</span> <span class="n">reason</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">ABANDONED</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_completed</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.mark_failed"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.mark_failed">[docs]</a>    <span class="k">def</span> <span class="nf">mark_failed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unsafe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Mark trial as failed.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            unsafe: Ignore sanity checks on state transitions.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">unsafe</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">!=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Can only mark failed a trial that is currently running."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">FAILED</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_completed</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.mark_early_stopped"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.mark_early_stopped">[docs]</a>    <span class="k">def</span> <span class="nf">mark_early_stopped</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unsafe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Mark trial as early stopped.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            unsafe: Ignore sanity checks on state transitions.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">!=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Can only early stop trial that is currently running."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">EARLY_STOPPED</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_completed</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.mark_as"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.mark_as">[docs]</a>    <span class="k">def</span> <span class="nf">mark_as</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">:</span> <span class="n">TrialStatus</span><span class="p">,</span> <span class="n">unsafe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="sd">"""Mark trial with a new TrialStatus.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            status: The new status of the trial.</span>
+<span class="sd">            unsafe: Ignore sanity checks on state transitions.</span>
+<span class="sd">            kwargs: Additional keyword args, as can be ued in the respective `mark_`</span>
+<span class="sd">                methods associated with the trial status.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The trial instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mark_staged</span><span class="p">(</span><span class="n">unsafe</span><span class="o">=</span><span class="n">unsafe</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">:</span>
+            <span class="n">no_runner_required</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"no_runner_required"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mark_running</span><span class="p">(</span><span class="n">no_runner_required</span><span class="o">=</span><span class="n">no_runner_required</span><span class="p">,</span> <span class="n">unsafe</span><span class="o">=</span><span class="n">unsafe</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">ABANDONED</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mark_abandoned</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"reason"</span><span class="p">),</span> <span class="n">unsafe</span><span class="o">=</span><span class="n">unsafe</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">FAILED</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mark_failed</span><span class="p">(</span><span class="n">unsafe</span><span class="o">=</span><span class="n">unsafe</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mark_completed</span><span class="p">(</span><span class="n">unsafe</span><span class="o">=</span><span class="n">unsafe</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">EARLY_STOPPED</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mark_early_stopped</span><span class="p">(</span><span class="n">unsafe</span><span class="o">=</span><span class="n">unsafe</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Cannot mark trial as </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="BaseTrial.mark_arm_abandoned"><a class="viewcode-back" href="../../../core.html#ax.core.base_trial.BaseTrial.mark_arm_abandoned">[docs]</a>    <span class="k">def</span> <span class="nf">mark_arm_abandoned</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">arm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTrial</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"Abandoning arms is only supported for `BatchTrial`. "</span>
+            <span class="s2">"Use `trial.mark_abandoned` if applicable."</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_mark_failed_if_past_TTL</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""If trial has TTL set and is running, check if the TTL has elapsed</span>
+<span class="sd">        and mark the trial failed if so.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ttl_seconds</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span><span class="o">.</span><span class="n">is_running</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">time_run_started</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_run_started</span>
+        <span class="k">assert</span> <span class="n">time_run_started</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">time_run_started</span>
+        <span class="k">if</span> <span class="n">dt</span> <span class="o">&gt;</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ttl_seconds</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mark_failed</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrialStatus</span><span class="p">:</span>
+        <span class="sd">"""The status of the trial in the experimentation lifecycle. This private</span>
+<span class="sd">        property exists to allow for a corresponding setter, since its important</span>
+<span class="sd">        that the trial statuses mapping on the experiment is updated always when</span>
+<span class="sd">        a trial status is updated.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__status</span>
+
+    <span class="nd">@_status</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_status</span><span class="p">:</span> <span class="n">TrialStatus</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Setter for the `_status` attribute that also updates the experiment's</span>
+<span class="sd">        `_trial_indices_by_status mapping according to the newly set trial status.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="o">.</span><span class="n">_trial_indices_by_status</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_status</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="o">.</span><span class="n">_trial_indices_by_status</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_status</span><span class="p">]</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="o">.</span><span class="n">_trial_indices_by_status</span><span class="p">[</span><span class="n">trial_status</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__status</span> <span class="o">=</span> <span class="n">trial_status</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_unique_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">)</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.9/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

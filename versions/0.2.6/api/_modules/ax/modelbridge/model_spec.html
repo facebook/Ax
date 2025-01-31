@@ -1,0 +1,384 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.6/css/main.css"/><script src="/versions/0.2.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.6/"><img class="logo" src="/versions/0.2.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.6/versions.html"><h3>0.2.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.model_spec</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UserInputError</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.base</span> <span class="kn">import</span> <span class="n">ModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.cross_validation</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">compute_diagnostics</span><span class="p">,</span>
+    <span class="n">cross_validate</span><span class="p">,</span>
+    <span class="n">CVDiagnostics</span><span class="p">,</span>
+    <span class="n">CVResult</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="kn">import</span> <span class="n">ModelRegistryBase</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.kwargs</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">consolidate_kwargs</span><span class="p">,</span>
+    <span class="n">filter_kwargs</span><span class="p">,</span>
+    <span class="n">get_function_argument_names</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+
+
+<span class="n">TModelFactory</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">ModelBridge</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="ModelSpecJSONEncoder"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.model_spec.ModelSpecJSONEncoder">[docs]</a><span class="k">class</span> <span class="nc">ModelSpecJSONEncoder</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">JSONEncoder</span><span class="p">):</span>
+    <span class="sd">"""Generic encoder to avoid JSON errors in ModelSpec.__repr__"""</span>
+
+<div class="viewcode-block" id="ModelSpecJSONEncoder.default"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.model_spec.ModelSpecJSONEncoder.default">[docs]</a>    <span class="k">def</span> <span class="nf">default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="n">o</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="ModelSpec"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.model_spec.ModelSpec">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">ModelSpec</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="n">model_enum</span><span class="p">:</span> <span class="n">ModelRegistryBase</span>
+    <span class="c1"># Kwargs to pass into the `Model` + `ModelBridge` constructors in</span>
+    <span class="c1"># `ModelRegistryBase.__call__`.</span>
+    <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Kwargs to pass to `ModelBridge.gen`.</span>
+    <span class="n">model_gen_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Kwargs to pass to `cross_validate`.</span>
+    <span class="n">model_cv_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Fitted model, constructed using specified `model_kwargs` and `Data`</span>
+    <span class="c1"># on `ModelSpec.fit`</span>
+    <span class="n">_fitted_model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ModelBridge</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># stored cross validation results set in cross validate</span>
+    <span class="n">_cv_results</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">CVResult</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># stored cross validation diagnostics set in cross validate</span>
+    <span class="n">_diagnostics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CVDiagnostics</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_kwargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_cv_kwargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_cv_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">fitted_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelBridge</span><span class="p">:</span>
+        <span class="sd">"""Returns the fitted Ax model, asserting fit() was called"""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assert_fitted</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fitted_model</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">fixed_features</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Fixed generation features to pass into the Model's `.gen` function.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"fixed_features"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+
+    <span class="nd">@fixed_features</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">fixed_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Fixed generation features to pass into the Model's `.gen` function.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span><span class="p">[</span><span class="s2">"fixed_features"</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""Key string to identify the model used by this ``ModelSpec``."""</span>
+        <span class="c1"># NOTE: In the future, might need to add more to model key to make</span>
+        <span class="c1"># model specs with the same model (but different kwargs) easier to</span>
+        <span class="c1"># distinguish from their key. Could also add separate property, just</span>
+        <span class="c1"># `key` (for `ModelSpec.key`, which will be unique even between model</span>
+        <span class="c1"># specs with same model type).</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_enum</span><span class="o">.</span><span class="n">value</span>
+
+<div class="viewcode-block" id="ModelSpec.fit"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.model_spec.ModelSpec.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Fits the specified model on the given experiment + data using the</span>
+<span class="sd">        model kwargs set on the model spec, alongside any passed down as</span>
+<span class="sd">        kwargs to this function (local kwargs take precedent)</span>
+<span class="sd">        """</span>
+        <span class="c1"># unset any cross validation cache</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cv_results</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diagnostics</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="c1"># NOTE: It's important to copy `self.model_kwargs` here to avoid actually</span>
+        <span class="c1"># adding contents of `model_kwargs` passed to this method, to</span>
+        <span class="c1"># `self.model_kwargs`.</span>
+        <span class="n">combined_model_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_kwargs</span> <span class="ow">or</span> <span class="p">{}),</span> <span class="o">**</span><span class="n">model_kwargs</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fitted_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_enum</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">combined_model_kwargs</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ModelSpec.cross_validate"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.model_spec.ModelSpec.cross_validate">[docs]</a>    <span class="k">def</span> <span class="nf">cross_validate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">CVResult</span><span class="p">]],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CVDiagnostics</span><span class="p">]]:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Call cross_validate, compute_diagnostics and cache the results</span>
+<span class="sd">        If the model cannot be cross validated, warn and return None</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv_results</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diagnostics</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv_results</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diagnostics</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assert_fitted</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cv_results</span> <span class="o">=</span> <span class="n">cross_validate</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fitted_model</span><span class="p">,</span>
+                <span class="o">**</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_cv_kwargs</span> <span class="ow">or</span> <span class="p">{}),</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_enum</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> cannot be cross validated"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_diagnostics</span> <span class="o">=</span> <span class="n">compute_diagnostics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cv_results</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv_results</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diagnostics</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cv_results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">CVResult</span><span class="p">]]:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Cached CV results from `self.cross_validate()`</span>
+<span class="sd">        if it has been successfully called</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv_results</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">diagnostics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CVDiagnostics</span><span class="p">]:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Cached CV diagnostics from `self.cross_validate()`</span>
+<span class="sd">        if it has been successfully called</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diagnostics</span>
+
+<div class="viewcode-block" id="ModelSpec.update"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.model_spec.ModelSpec.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span> <span class="n">new_data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Updates the current fitted model on the given experiment + new data</span>
+
+<span class="sd">        Model must have been fit prior to calling update()</span>
+<span class="sd">        """</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"update() is not supported yet"</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ModelSpec.gen"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.model_spec.ModelSpec.gen">[docs]</a>    <span class="k">def</span> <span class="nf">gen</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">model_gen_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeneratorRun</span><span class="p">:</span>
+        <span class="sd">"""Generates candidates from the fitted model, using the model gen</span>
+<span class="sd">        kwargs set on the model spec, alongside any passed as kwargs</span>
+<span class="sd">        to this function (local kwargs take precedent)</span>
+
+<span class="sd">        NOTE: Model must have been fit prior to calling gen()</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n: Integer representing how many arms should be in the generator run</span>
+<span class="sd">                produced by this method. NOTE: Some underlying models may ignore</span>
+<span class="sd">                the ``n`` and produce a model-determined number of arms. In that</span>
+<span class="sd">                case this method will also output a generator run with number of</span>
+<span class="sd">                arms that can differ from ``n``.</span>
+<span class="sd">            pending_observations: A map from metric name to pending</span>
+<span class="sd">                observations for that metric, used by some models to avoid</span>
+<span class="sd">                resuggesting points that are currently being evaluated.</span>
+<span class="sd">        """</span>
+        <span class="n">fitted_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_model</span>
+        <span class="n">model_gen_kwargs</span> <span class="o">=</span> <span class="n">consolidate_kwargs</span><span class="p">(</span>
+            <span class="n">kwargs_iterable</span><span class="o">=</span><span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span><span class="p">,</span>
+                <span class="n">model_gen_kwargs</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">keywords</span><span class="o">=</span><span class="n">get_function_argument_names</span><span class="p">(</span><span class="n">fitted_model</span><span class="o">.</span><span class="n">gen</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">fitted_model</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="o">**</span><span class="n">model_gen_kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ModelSpec.copy"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.model_spec.ModelSpec.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelSpec</span><span class="p">:</span>
+        <span class="sd">"""`ModelSpec` is both a spec and an object that performs actions.</span>
+<span class="sd">        Copying is useful to avoid changes to a singleton model spec.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span>
+            <span class="n">model_enum</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_enum</span><span class="p">,</span>
+            <span class="n">model_kwargs</span><span class="o">=</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_kwargs</span><span class="p">),</span>
+            <span class="n">model_gen_kwargs</span><span class="o">=</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span><span class="p">),</span>
+            <span class="n">model_cv_kwargs</span><span class="o">=</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_cv_kwargs</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_assert_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Helper that verifies a model was fitted, raising an error if not"""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fitted_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span><span class="s2">"No fitted model found. Call fit() to generate one"</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">model_kwargs</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_kwargs</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">ModelSpecJSONEncoder</span>
+        <span class="p">)</span>
+        <span class="n">model_gen_kwargs</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">ModelSpecJSONEncoder</span>
+        <span class="p">)</span>
+        <span class="n">model_cv_kwargs</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_cv_kwargs</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">ModelSpecJSONEncoder</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="s2">"ModelSpec("</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">model_enum=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_enum</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">,</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">model_kwargs=</span><span class="si">{</span><span class="n">model_kwargs</span><span class="si">}</span><span class="s2">,</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">model_gen_kwargs=</span><span class="si">{</span><span class="n">model_gen_kwargs</span><span class="si">}</span><span class="s2">,</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">model_cv_kwargs=</span><span class="si">{</span><span class="n">model_cv_kwargs</span><span class="si">}</span><span class="s2">,</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">")"</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">ModelSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="nb">repr</span><span class="p">(</span><span class="n">other</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FactoryFunctionModelSpec"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.model_spec.FactoryFunctionModelSpec">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">FactoryFunctionModelSpec</span><span class="p">(</span><span class="n">ModelSpec</span><span class="p">):</span>
+    <span class="n">factory_function</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TModelFactory</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># pyre-ignore[15]: `ModelSpec` has this as non-optional</span>
+    <span class="n">model_enum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ModelRegistryBase</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_enum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"Use regular `ModelSpec` when it's possible to describe the "</span>
+                <span class="s2">"model as `ModelRegistryBase` subclass enum member."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">factory_function</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"Please specify a valid function returning a `ModelBridge` instance "</span>
+                <span class="s2">"as the required `factory_function` argument to "</span>
+                <span class="s2">"`FactoryFunctionModelSpec`."</span>
+            <span class="p">)</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">"Using a factory function to describe the model, so optimization state "</span>
+            <span class="s2">"cannot be stored and optimization is not resumable if interrupted."</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""Key string to identify the model used by this ``ModelSpec``."""</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># `model` is defined via a factory function.</span>
+            <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">factory_function</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>  <span class="c1"># pyre-ignore[16]</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">factory_function</span><span class="si">}</span><span class="s2"> is not a valid function, cannot extract name."</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="FactoryFunctionModelSpec.fit"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.model_spec.FactoryFunctionModelSpec.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SearchSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Fits the specified model on the given experiment + data using the</span>
+<span class="sd">        model kwargs set on the model spec, alongside any passed down as</span>
+<span class="sd">        kwargs to this function (local kwargs take precedent)</span>
+<span class="sd">        """</span>
+        <span class="n">factory_function</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">factory_function</span><span class="p">)</span>
+        <span class="n">all_kwargs</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">model_kwargs</span> <span class="ow">or</span> <span class="p">{}))</span>
+        <span class="n">all_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">model_kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fitted_model</span> <span class="o">=</span> <span class="n">factory_function</span><span class="p">(</span>
+            <span class="c1"># Factory functions do not have a unified signature; e.g. some factory</span>
+            <span class="c1"># functions (like `get_sobol`) require search space instead of experiment.</span>
+            <span class="c1"># Therefore, we filter kwargs to remove unnecessary ones and add additional</span>
+            <span class="c1"># arguments like `search_space` and `optimization_config`.</span>
+            <span class="o">**</span><span class="n">filter_kwargs</span><span class="p">(</span>
+                <span class="n">factory_function</span><span class="p">,</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+                <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span> <span class="ow">or</span> <span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+                <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span>
+                <span class="ow">or</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">all_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

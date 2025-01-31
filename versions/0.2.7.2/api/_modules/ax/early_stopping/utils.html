@@ -1,0 +1,184 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.7.2/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.7.2/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.7.2/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.7.2/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.7.2/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.7.2/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.7.2/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.7.2/css/main.css"/><script src="/versions/0.2.7.2/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.7.2/"><img class="logo" src="/versions/0.2.7.2/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.7.2/versions.html"><h3>0.2.7.2</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.7.2/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.7.2/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.7.2/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.early_stopping.utils</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+<span class="c1"># pyre-fixme[5]: Global expression must be annotated.</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="align_partial_results"><a class="viewcode-back" href="../../../early_stopping.html#ax.early_stopping.utils.align_partial_results">[docs]</a><span class="k">def</span> <span class="nf">align_partial_results</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">progr_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>  <span class="c1"># progression key</span>
+    <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">interpolation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"slinear"</span><span class="p">,</span>
+    <span class="n">do_forward_fill</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="c1"># TODO: Allow normalizing progr_key (e.g. subtract min time stamp)</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]]:</span>
+    <span class="sd">"""Helper function to align partial results with heterogeneous index</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df: The DataFrame containing the raw data (in long format).</span>
+<span class="sd">        progr_key: The key of the column indexing progression (such as</span>
+<span class="sd">            the number of training examples, timestamps, etc.).</span>
+<span class="sd">        metrics: The names of the metrics to consider.</span>
+<span class="sd">        interpolation: The interpolation method used to fill missing values</span>
+<span class="sd">            (if applicable). See `pandas.DataFrame.interpolate` for</span>
+<span class="sd">            available options. Limit area is `inside`.</span>
+<span class="sd">        forward_fill: If True, performs a forward fill after interpolation.</span>
+<span class="sd">            This is useful for scalarizing learning curves when some data</span>
+<span class="sd">            is missing. For instance, suppose we obtain a curve for task_1</span>
+<span class="sd">            for progression in [a, b] and task_2 for progression in [c, d]</span>
+<span class="sd">            where b &lt; c. Performing the forward fill on task_1 is a possible</span>
+<span class="sd">            solution.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A two-tuple containing a dict mapping the provided metric names to the</span>
+<span class="sd">        index-normalized and interpolated mean (sem).</span>
+<span class="sd">    """</span>
+    <span class="n">missing_metrics</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">metrics</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">missing_metrics</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Metrics </span><span class="si">{</span><span class="n">missing_metrics</span><span class="si">}</span><span class="s2"> not found in input dataframe"</span><span class="p">)</span>
+    <span class="c1"># select relevant metrics</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">metrics</span><span class="p">)]</span>
+    <span class="c1"># log some information about raw data</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+        <span class="n">df_m</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span> <span class="o">==</span> <span class="n">m</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_m</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Metric </span><span class="si">{</span><span class="n">m</span><span class="si">}</span><span class="s2"> raw data has observations from "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">df_m</span><span class="p">[</span><span class="n">progr_key</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">df_m</span><span class="p">[</span><span class="n">progr_key</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No data from metric </span><span class="si">{</span><span class="n">m</span><span class="si">}</span><span class="s2"> yet."</span><span class="p">)</span>
+    <span class="c1"># drop arm names (assumes 1:1 map between trial indices and arm names)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">"arm_name"</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># remove duplicates (same trial, metric, progr_key), which can happen</span>
+    <span class="c1"># if the same progression is erroneously reported more than once</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span>
+        <span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">"trial_index"</span><span class="p">,</span> <span class="s2">"metric_name"</span><span class="p">,</span> <span class="n">progr_key</span><span class="p">],</span> <span class="n">keep</span><span class="o">=</span><span class="s2">"first"</span>
+    <span class="p">)</span>
+    <span class="c1"># set multi-index over trial, metric, and progression key</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">([</span><span class="s2">"trial_index"</span><span class="p">,</span> <span class="s2">"metric_name"</span><span class="p">,</span> <span class="n">progr_key</span><span class="p">])</span>
+    <span class="c1"># sort index</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="p">[</span><span class="s2">"trial_index"</span><span class="p">,</span> <span class="n">progr_key</span><span class="p">])</span>
+    <span class="c1"># drop sem if all NaN (assumes presence of sem column)</span>
+    <span class="n">has_sem</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">df</span><span class="p">[</span><span class="s2">"sem"</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_sem</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">"sem"</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># create the common index that every map result will be re-indexed w.r.t.</span>
+    <span class="n">index_union</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+    <span class="c1"># loop through (trial, metric) combos and align data</span>
+    <span class="n">dfs_mean</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">dfs_sem</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">tidx</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>  <span class="c1"># this could be slow if there are many trials</span>
+        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="c1"># grab trial+metric sub-df and reindex to common index</span>
+            <span class="n">df_ridx</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">tidx</span><span class="p">,</span> <span class="n">metric</span><span class="p">)]</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">index_union</span><span class="p">)</span>
+            <span class="c1"># interpolate / fill missing results</span>
+            <span class="c1"># TODO: Allow passing of additional kwargs to `interpolate`</span>
+            <span class="c1"># TODO: Allow using an arbitrary prediction model for this instead</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">df_interp</span> <span class="o">=</span> <span class="n">df_ridx</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span>
+                    <span class="n">method</span><span class="o">=</span><span class="n">interpolation</span><span class="p">,</span> <span class="n">limit_area</span><span class="o">=</span><span class="s2">"inside"</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">do_forward_fill</span><span class="p">:</span>
+                    <span class="c1"># do forward fill (with valid observations) to handle instances</span>
+                    <span class="c1"># where one task only has data for early progressions</span>
+                    <span class="n">df_interp</span> <span class="o">=</span> <span class="n">df_interp</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s2">"pad"</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">df_interp</span> <span class="o">=</span> <span class="n">df_ridx</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Got exception `</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">` during interpolation. "</span>
+                    <span class="s2">"Using uninterpolated values instead."</span>
+                <span class="p">)</span>
+            <span class="c1"># renaming column to trial index, append results</span>
+            <span class="n">dfs_mean</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df_interp</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">tidx</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">has_sem</span><span class="p">:</span>
+                <span class="n">dfs_sem</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df_interp</span><span class="p">[</span><span class="s2">"sem"</span><span class="p">]</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">tidx</span><span class="p">))</span>
+
+    <span class="c1"># combine results into output dataframes</span>
+    <span class="n">dfs_mean</span> <span class="o">=</span> <span class="p">{</span><span class="n">metric</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dfs</span> <span class="ow">in</span> <span class="n">dfs_mean</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">dfs_sem</span> <span class="o">=</span> <span class="p">{</span><span class="n">metric</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dfs</span> <span class="ow">in</span> <span class="n">dfs_sem</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="k">return</span> <span class="n">dfs_mean</span><span class="p">,</span> <span class="n">dfs_sem</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.7.2/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

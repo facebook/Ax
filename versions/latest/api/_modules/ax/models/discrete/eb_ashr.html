@@ -1,0 +1,473 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/latest/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/latest/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/latest/img/ax.svg"/><link rel="shortcut icon" href="/versions/latest/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/latest/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/latest/js/mathjax.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/latest/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/latest/css/main.css"/><script src="/versions/latest/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/latest/"><img class="logo" src="/versions/latest/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/latest/versions.html"><h3>latest</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/latest/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/latest/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/latest/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.models.discrete.eb_ashr</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="c1"># pyre-strict</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ax.core.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">TGenMetadata</span><span class="p">,</span> <span class="n">TParamValue</span><span class="p">,</span> <span class="n">TParamValueList</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ax.models.discrete.ashr_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">Ashr</span><span class="p">,</span> <span class="n">GaussianMixture</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ax.models.discrete.thompson</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThompsonSampler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ax.models.discrete_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiscreteModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ax.models.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">TConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ax.utils.common.docutils</span><span class="w"> </span><span class="kn">import</span> <span class="n">copy_doc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyre_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">none_throws</span>
+
+
+<div class="viewcode-block" id="EBAshr">
+<a class="viewcode-back" href="../../../../models.html#ax.models.discrete.eb_ashr.EBAshr">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EBAshr</span><span class="p">(</span><span class="n">ThompsonSampler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Determines feasible arms and sorts them by the objective</span>
+<span class="sd">    improvements. Feasibile arms are required to have probability</span>
+<span class="sd">    of feasibility with respect to all metrics in objective and constraints</span>
+<span class="sd">    above 1-regression_prob_threshold, otherwise they are deemed infeasible.</span>
+<span class="sd">    These probabilities are computed via the discrete emprirical Bayes Ashr model.</span>
+<span class="sd">    Shrinkage: Ashr model provides shrinkage to metric outcomes across arms</span>
+<span class="sd">    with model fitted separately for each metric.</span>
+<span class="sd">    Prior: Ashr model uses a prior consisting of mixture of Gaussian</span>
+<span class="sd">    distributions, all of which are centered at zero. The number of Gaussians</span>
+<span class="sd">    in the prior and their variances are chosen based on observed data to cover</span>
+<span class="sd">    the whole data range. One of the variances is chosen to be zero so that</span>
+<span class="sd">    one of the Gaussians in the prior mixture is a point mass at zero.</span>
+<span class="sd">    The mixture proportions in the prior are learned based on observed outcome</span>
+<span class="sd">    data (Ys) and their standard errors (Yvars) via standard empirical Bayes</span>
+<span class="sd">    methodology. The method operates in the outcome space and it doesn't use</span>
+<span class="sd">    the space of features (Xs).</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">eb_penalty_param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">eb_nsteps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="n">eb_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10e-4</span><span class="p">,</span>
+        <span class="n">eb_grid_param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">min_variance_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10e-16</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">        Args:</span>
+<span class="sd">            eb_penalty_param: Penalty parameter, part of Ashr model log-likelihood,</span>
+<span class="sd">                represents the amount of shrinkage towards zero. Penalty parameter takes</span>
+<span class="sd">                real values no smaller than 1. The default 1 means there will be regular</span>
+<span class="sd">                shrinkage from the Bayes model and the prior but not additional</span>
+<span class="sd">                shrinkage. Parameter value above one encourages overestimation of the</span>
+<span class="sd">                null (zero) class so there is additional shrinkage. Recommended</span>
+<span class="sd">                parameter range is [1, 10].</span>
+<span class="sd">            eb_nsteps: The number of steps in Ashr fitting EM algorithm.</span>
+<span class="sd">            eb_threshold: The precision threshold in Ashr fitting EM algorithm.</span>
+<span class="sd">            eb_grid_param: The grid parameter affecting the number of Gaaussians in the</span>
+<span class="sd">                prior mixture for Ashr prior distribution.</span>
+<span class="sd">            min_variance_thresold: All observed test groups/arms with variance below</span>
+<span class="sd">                this threshold will be considered fixed variables with zero variance.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X_to_Ys_and_Yvars</span><span class="p">:</span> <span class="p">(</span>
+            <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">|</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># for each metric, posterior_feasibility gives</span>
+        <span class="c1"># posterior probabilities of feasibility across all arms</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">posterior_feasibility</span><span class="p">:</span> <span class="p">(</span>
+            <span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eb_penalty_param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">eb_penalty_param</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eb_nsteps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">eb_nsteps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eb_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">eb_threshold</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eb_grid_param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">eb_grid_param</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_variance_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">min_variance_threshold</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fit_Ys_and_Yvars</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Ys</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+        <span class="n">Yvars</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+        <span class="n">outcome_names</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">        Args:</span>
+<span class="sd">            Ys: List of length m of measured metrics across k arms. The outcomes</span>
+<span class="sd">                are assumed to be relativized with respect to status quo.</span>
+<span class="sd">            Yvars: List of length m of measured metrics variances across arms.</span>
+<span class="sd">            outcome_names: List of m metric names.</span>
+
+<span class="sd">        Returns: A tuple containing</span>
+<span class="sd">            - shrinken outcome estimates and</span>
+<span class="sd">            - their variances.</span>
+<span class="sd">        """</span>
+        <span class="n">newYs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">newYvars</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">posterior_feasibility</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Yvar</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">newY</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">newYvar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Yvar</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+            <span class="c1"># excluding arms with zero variance, e.g. status quo</span>
+            <span class="n">nonconstant_rvs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">newYvar</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_variance_threshold</span>
+            <span class="c1"># Case where the standard deviations are not infinitesimal, so we do</span>
+            <span class="c1"># shrinkage.</span>
+            <span class="k">if</span> <span class="n">nonconstant_rvs</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="c1"># Ashr model applied to arms with non-zero variance</span>
+                <span class="n">stats</span> <span class="o">=</span> <span class="n">newY</span><span class="p">[</span><span class="n">nonconstant_rvs</span><span class="p">]</span>
+                <span class="n">variances</span> <span class="o">=</span> <span class="n">newYvar</span><span class="p">[</span><span class="n">nonconstant_rvs</span><span class="p">]</span>
+
+                <span class="c1"># setting up the Ashr model</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="n">Ashr</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="n">stats</span><span class="p">,</span> <span class="n">Yvar</span><span class="o">=</span><span class="n">variances</span><span class="p">,</span> <span class="n">eb_grid_param</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eb_grid_param</span><span class="p">)</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">prior_vars</span><span class="p">)</span>
+                <span class="c1"># run Ashr fitting procedure</span>
+                <span class="n">model_fit</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                    <span class="n">lambdas</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">eb_penalty_param</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)),</span>
+                    <span class="n">nsteps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eb_nsteps</span><span class="p">,</span>
+                    <span class="n">threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eb_threshold</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Ashr model posterior</span>
+                <span class="n">posterior</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">posterior</span><span class="p">(</span><span class="n">model_fit</span><span class="p">[</span><span class="s2">"weights"</span><span class="p">])</span>
+                <span class="n">newY</span><span class="p">[</span><span class="n">nonconstant_rvs</span><span class="p">]</span> <span class="o">=</span> <span class="n">posterior</span><span class="o">.</span><span class="n">means</span>
+                <span class="n">newYvar</span><span class="p">[</span><span class="n">nonconstant_rvs</span><span class="p">]</span> <span class="o">=</span> <span class="n">posterior</span><span class="o">.</span><span class="n">vars</span>
+
+                <span class="n">f_posterior_feas</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span>
+                        <span class="n">posterior_feasibility_util</span><span class="p">,</span>
+                        <span class="n">posterior</span><span class="o">=</span><span class="n">posterior</span><span class="p">,</span>
+                        <span class="n">nonconstant_rvs</span><span class="o">=</span><span class="n">nonconstant_rvs</span><span class="p">,</span>
+                        <span class="n">Y</span><span class="o">=</span><span class="n">newY</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f_posterior_feas</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">no_model_feasibility_util</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="n">newY</span><span class="p">)</span>
+                <span class="p">)</span>
+
+            <span class="n">none_throws</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">posterior_feasibility</span><span class="p">)</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f_posterior_feas</span><span class="p">)</span>
+
+            <span class="n">newYs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">newY</span><span class="p">))</span>
+            <span class="n">newYvars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">newYvar</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">newYs</span><span class="p">,</span> <span class="n">newYvars</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_metric_direction</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">        Args:</span>
+<span class="sd">            objective_weights: A length m array corresponding to the metrics weights in</span>
+<span class="sd">                a maximization problem. A positive weight means the corresponding metric</span>
+<span class="sd">                succeeding in the positive direction. A negative weight means</span>
+<span class="sd">                the corresponding metric succeeding in the negative direction.</span>
+<span class="sd">                Outcomes that are modeled but not part of the objective get objective</span>
+<span class="sd">                weight 0.</span>
+<span class="sd">            outcome_constraints: A tuple of (A, b), where A is of size</span>
+<span class="sd">                (num of constraints x m), m is the number of outputs/metrics,</span>
+<span class="sd">                and b is of size (num of constraints x 1).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A boolean array of length m indicating the direction of success</span>
+<span class="sd">            for each metric.</span>
+<span class="sd">        """</span>
+        <span class="c1"># metrics in the objective</span>
+        <span class="n">upper_is_better</span> <span class="o">=</span> <span class="n">objective_weights</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+        <span class="c1"># constraints</span>
+        <span class="k">if</span> <span class="n">outcome_constraints</span><span class="p">:</span>
+            <span class="n">A</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">outcome_constraints</span>
+            <span class="n">upper_is_better_constraints</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">A</span>
+            <span class="p">)</span>  <span class="c1"># column-wise (arm-wise)</span>
+            <span class="n">objectives</span> <span class="o">=</span> <span class="n">objective_weights</span> <span class="o">!=</span> <span class="mi">0</span>
+            <span class="n">upper_is_better</span><span class="p">[</span><span class="o">~</span><span class="n">objectives</span><span class="p">]</span> <span class="o">=</span> <span class="n">upper_is_better_constraints</span><span class="p">[</span><span class="o">~</span><span class="n">objectives</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">upper_is_better</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_regression_indicator</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">regression_prob_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.90</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">        Args:</span>
+<span class="sd">            regression_prob_threshold: Arms having a regression probability with respect</span>
+<span class="sd">                to any metric (in either objective or constraints) above a given</span>
+<span class="sd">                threshold are marked as regressions.</span>
+
+<span class="sd">        Returns: A tuple containing:</span>
+<span class="sd">            - A length k array containing regression indicators for each of the k arms.</span>
+<span class="sd">            - (num of arms, num of metrics) matrix of arm, metric pairs, (i, j)-entry</span>
+<span class="sd">            corresponds to the probability of infeasibility or i-th arm and j-th metric.</span>
+<span class="sd">        """</span>
+        <span class="n">num_metrics</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">none_throws</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">))</span>
+        <span class="n">num_arms</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">none_throws</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">prob_infeasibility</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">num_arms</span><span class="p">,</span> <span class="n">num_metrics</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span>
+        <span class="p">)</span>  <span class="c1"># (num of arms) x (num of metrics)</span>
+
+        <span class="n">upper_is_better</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_metric_direction</span><span class="p">(</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span> <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">objective_weights</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">"In case of multi-objective adding metric values together might"</span>
+                <span class="s2">" not lead to a meaningful result."</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="c1"># compute probabilities of feasibility for metrics in the objective</span>
+        <span class="c1"># equals regression probabilities in this case</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_metrics</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">objective_weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">lb</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">upper_is_better</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">else</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+                <span class="n">ub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span> <span class="k">if</span> <span class="n">upper_is_better</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">else</span> <span class="mf">0.0</span>
+                <span class="n">prob_infeasibility</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">none_throws</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">posterior_feasibility</span>
+                <span class="p">)[</span><span class="n">i</span><span class="p">](</span><span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">)</span>  <span class="c1"># per i-th metric, across arms</span>
+
+        <span class="c1"># compute probabilities of feasibility for constraints</span>
+        <span class="k">if</span> <span class="n">outcome_constraints</span><span class="p">:</span>
+            <span class="n">A</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">outcome_constraints</span>
+
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">ord</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">A</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"Only one metric per constraint allowed. Scalarized "</span>
+                    <span class="s2">" OutcomeConstraint with multiple metrics per constraint not "</span>
+                    <span class="s2">"supported."</span>
+                <span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">A</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="nb">ord</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">upper</span> <span class="o">=</span> <span class="n">A</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="n">lower</span> <span class="o">=</span> <span class="n">A</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span>
+                <span class="n">ub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="n">upper</span><span class="p">]</span> <span class="o">/</span> <span class="n">A</span><span class="p">[</span><span class="n">upper</span><span class="p">,</span> <span class="n">i</span><span class="p">])</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">upper</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+                <span class="n">lb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="n">lower</span><span class="p">]</span> <span class="o">/</span> <span class="n">A</span><span class="p">[</span><span class="n">lower</span><span class="p">,</span> <span class="n">i</span><span class="p">])</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span> <span class="k">else</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+                <span class="n">prob_infeasibility</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">none_throws</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">posterior_feasibility</span>
+                <span class="p">)[</span><span class="n">i</span><span class="p">](</span>
+                    <span class="n">lb</span><span class="p">,</span> <span class="n">ub</span>
+                <span class="p">)</span>  <span class="c1"># per i-th metric, across arms; probability a metric strictly</span>
+                <span class="c1"># smaller than lb or strictly larger than ub</span>
+
+        <span class="c1"># for each arm check if it is infeasible with respect to any metric</span>
+        <span class="n">regressions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">prob_infeasibility</span> <span class="o">&gt;=</span> <span class="n">regression_prob_threshold</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">regressions</span><span class="p">,</span> <span class="n">prob_infeasibility</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_success_measurement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objective_weights</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            A length k array returning a measure of success for each of k arms.</span>
+<span class="sd">        """</span>
+
+        <span class="n">posterior_means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">none_throws</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">success</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">posterior_means</span><span class="p">,</span> <span class="n">objective_weights</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">success</span>
+
+<div class="viewcode-block" id="EBAshr.gen">
+<a class="viewcode-back" href="../../../../models.html#ax.models.discrete.eb_ashr.EBAshr.gen">[docs]</a>
+    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">DiscreteModel</span><span class="o">.</span><span class="n">gen</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">parameter_values</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]],</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">TParamValue</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pending_observations</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_gen_options</span><span class="p">:</span> <span class="n">TConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">TGenMetadata</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">objective_weights</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"EB Ashr model requires objective weights."</span><span class="p">)</span>
+
+        <span class="n">model_gen_options</span> <span class="o">=</span> <span class="n">model_gen_options</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">regression_prob_threshold</span> <span class="o">=</span> <span class="n">model_gen_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">"regression_prob_threshold"</span><span class="p">,</span> <span class="mf">0.90</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">regression_prob_threshold</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"`regression_prob_threshold` is required among `model_gen_kwargs` </span><span class="se">\</span>
+<span class="s2">                and must be set to a float."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># prob_infeasibility: matrix containing probabilities of infeasibilities</span>
+        <span class="c1"># for each arm, metric pair</span>
+        <span class="n">regression</span><span class="p">,</span> <span class="n">prob_infeasibility</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_regression_indicator</span><span class="p">(</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">regression_prob_threshold</span><span class="o">=</span><span class="n">regression_prob_threshold</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">success</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_success_measurement</span><span class="p">(</span><span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">)</span>
+
+        <span class="n">arms</span> <span class="o">=</span> <span class="n">none_throws</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">sorted_arms</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="nb">zip</span><span class="p">(</span><span class="n">arms</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">success</span><span class="p">),</span> <span class="nb">list</span><span class="p">(</span><span class="n">regression</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">arms</span><span class="p">))),</span>
+            <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">else</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span>
+            <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">top_arms</span> <span class="o">=</span> <span class="p">[</span><span class="n">sorted_arms</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">top_arms</span><span class="p">,</span>
+            <span class="p">[</span><span class="mf">1.0</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">top_arms</span><span class="p">),</span>  <span class="c1"># uniform weights</span>
+            <span class="p">{</span>
+                <span class="s2">"regression"</span><span class="p">:</span> <span class="n">regression</span><span class="p">,</span>
+                <span class="s2">"success"</span><span class="p">:</span> <span class="n">success</span><span class="p">,</span>
+                <span class="s2">"prob_infeasibility"</span><span class="p">:</span> <span class="n">prob_infeasibility</span><span class="p">,</span>
+                <span class="s2">"best_x"</span><span class="p">:</span> <span class="n">sorted_arms</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+            <span class="p">},</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="posterior_feasibility_util">
+<a class="viewcode-back" href="../../../../models.html#ax.models.discrete.eb_ashr.posterior_feasibility_util">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">posterior_feasibility_util</span><span class="p">(</span>
+    <span class="n">lb</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">ub</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">posterior</span><span class="p">:</span> <span class="n">GaussianMixture</span><span class="p">,</span>
+    <span class="n">nonconstant_rvs</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span>
+    <span class="n">Y</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">    Probabilities of a posterior rv being inside the given interval [lb, up]</span>
+<span class="sd">    with bounds included per single metric across arms.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        lb: Lower bound on the random variable.</span>
+<span class="sd">        ub: Upper bound on the random variable.</span>
+<span class="sd">        posterior: Posterior classs computing posterior distribution for all</span>
+<span class="sd">            non-degenerate (non-constant) arms.</span>
+<span class="sd">        nonconstant_rvs: Length k boolean vector indicating which variables</span>
+<span class="sd">            are constants.</span>
+<span class="sd">        Y: Length k outcome vector.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Length k array of probabilities of feasibility across k arms.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Pr(m&gt;ub)</span>
+    <span class="c1"># TODO: jmarkovic simplify this directly in Ashr</span>
+    <span class="n">upper_tail</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">posterior</span><span class="o">.</span><span class="n">tail_probabilities</span><span class="p">(</span><span class="n">left_tail</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="n">ub</span><span class="p">)</span>
+        <span class="o">+</span> <span class="n">posterior</span><span class="o">.</span><span class="n">weights</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ub</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ub</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="k">else</span> <span class="mi">0</span>
+    <span class="p">)</span>
+    <span class="c1"># Pr(m&lt;lb)</span>
+    <span class="n">lower_tail</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">posterior</span><span class="o">.</span><span class="n">tail_probabilities</span><span class="p">(</span><span class="n">left_tail</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="n">lb</span><span class="p">)</span>
+        <span class="o">+</span> <span class="n">posterior</span><span class="o">.</span><span class="n">weights</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">lb</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">lb</span> <span class="o">&gt;</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="k">else</span> <span class="mi">0</span>
+    <span class="p">)</span>
+
+    <span class="n">prob_feas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">nonconstant_rvs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="c1"># pyre-fixme[58]: `-` is not supported for operand types `float` and</span>
+    <span class="c1">#  `Union[np.ndarray[typing.Any, np.dtype[typing.Any]], int]`.</span>
+    <span class="n">prob_feas</span><span class="p">[</span><span class="n">nonconstant_rvs</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">upper_tail</span> <span class="o">-</span> <span class="n">lower_tail</span>
+    <span class="n">prob_feas</span><span class="p">[</span><span class="o">~</span><span class="n">nonconstant_rvs</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">Y</span><span class="p">[</span><span class="o">~</span><span class="n">nonconstant_rvs</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">lb</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span>
+        <span class="n">Y</span><span class="p">[</span><span class="o">~</span><span class="n">nonconstant_rvs</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">ub</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">prob_feas</span></div>
+
+
+
+<div class="viewcode-block" id="no_model_feasibility_util">
+<a class="viewcode-back" href="../../../../models.html#ax.models.discrete.eb_ashr.no_model_feasibility_util">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">no_model_feasibility_util</span><span class="p">(</span><span class="n">lb</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">ub</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Y</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">    Probabilities (0 or 1) of whether Y is inside [lb, ub].</span>
+
+<span class="sd">    This covers the degenerate case when all arms have zero variance, and</span>
+<span class="sd">    `posterior_feasibility_util` is not usable because there is no posterior.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">Y</span> <span class="o">&gt;=</span> <span class="n">lb</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">Y</span> <span class="o">&lt;=</span> <span class="n">ub</span><span class="p">)</span></div>
+
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="Main" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<search id="searchbox" role="search" style="display: none">
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" placeholder="Search" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../analysis.html">ax.analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../early_stopping.html">ax.early_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../global_stopping.html">ax.global_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../health_check.html">ax.health_check</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../preview.html">ax.preview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/latest/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2025 Meta Platforms, Inc.</section></footer></div></body></html>

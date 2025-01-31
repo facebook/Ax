@@ -1,0 +1,261 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.6/css/main.css"/><script src="/versions/0.2.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.6/"><img class="logo" src="/versions/0.2.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.6/versions.html"><h3>0.2.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.early_stopping.strategies.threshold</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.early_stopping.strategies.base</span> <span class="kn">import</span> <span class="n">BaseEarlyStoppingStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UnsupportedError</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ThresholdEarlyStoppingStrategy"><a class="viewcode-back" href="../../../../early_stopping.html#ax.early_stopping.strategies.threshold.ThresholdEarlyStoppingStrategy">[docs]</a><span class="k">class</span> <span class="nc">ThresholdEarlyStoppingStrategy</span><span class="p">(</span><span class="n">BaseEarlyStoppingStrategy</span><span class="p">):</span>
+    <span class="sd">"""Implements the strategy of stopping a trial if its performance</span>
+<span class="sd">    doesn't reach a pre-specified threshold by a certain progression."""</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">metric_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">seconds_between_polls</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
+        <span class="n">metric_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">min_progression</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="n">min_curves</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">trial_indices_to_ignore</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">true_objective_metric_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">normalize_progressions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Construct a ThresholdEarlyStoppingStrategy instance.</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            metric_names: A (length-one) list of name of the metric to observe. If</span>
+<span class="sd">                None will default to the objective metric on the Experiment's</span>
+<span class="sd">                OptimizationConfig.</span>
+<span class="sd">            seconds_between_polls: How often to poll the early stopping metric to</span>
+<span class="sd">                evaluate whether or not the trial should be early stopped.</span>
+<span class="sd">            metric_threshold: The metric threshold that a trial needs to reach by</span>
+<span class="sd">                min_progression in order not to be stopped.</span>
+<span class="sd">            min_progression: Only stop trials if the latest progression value</span>
+<span class="sd">                (e.g. timestamp, epochs, training data used) is greater than this</span>
+<span class="sd">                threshold. Prevents stopping prematurely before enough data is gathered</span>
+<span class="sd">                to make a decision.</span>
+<span class="sd">            min_curves: There must be `min_curves` number of completed trials and</span>
+<span class="sd">                `min_curves` number of trials with curve data to make a stopping</span>
+<span class="sd">                decision (i.e., even if there are enough completed trials but not all</span>
+<span class="sd">                of them are correctly returning data, then do not apply early stopping).</span>
+<span class="sd">            trial_indices_to_ignore: Trial indices that should not be early stopped.</span>
+<span class="sd">            true_objective_metric_name: The actual objective to be optimized; used in</span>
+<span class="sd">                situations where early stopping uses a proxy objective (such as training</span>
+<span class="sd">                loss instead of eval loss) for stopping decisions.</span>
+<span class="sd">            normalize_progressions: Normalizes the progression column of the MapData df</span>
+<span class="sd">                by dividing by the max. If the values were originally in [0, `prog_max`]</span>
+<span class="sd">                (as we would expect), the transformed values will be in [0, 1]. Useful</span>
+<span class="sd">                for inferring the max progression and allows `min_progression` to be</span>
+<span class="sd">                specified in the transformed space. IMPORTANT: Typically, `min_curves`</span>
+<span class="sd">                should be &gt; 0 to ensure that at least one trial has completed and that</span>
+<span class="sd">                we have a reliable approximation for `prog_max`.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">metric_names</span><span class="o">=</span><span class="n">metric_names</span><span class="p">,</span>
+            <span class="n">seconds_between_polls</span><span class="o">=</span><span class="n">seconds_between_polls</span><span class="p">,</span>
+            <span class="n">true_objective_metric_name</span><span class="o">=</span><span class="n">true_objective_metric_name</span><span class="p">,</span>
+            <span class="n">min_progression</span><span class="o">=</span><span class="n">min_progression</span><span class="p">,</span>
+            <span class="n">min_curves</span><span class="o">=</span><span class="n">min_curves</span><span class="p">,</span>
+            <span class="n">trial_indices_to_ignore</span><span class="o">=</span><span class="n">trial_indices_to_ignore</span><span class="p">,</span>
+            <span class="n">normalize_progressions</span><span class="o">=</span><span class="n">normalize_progressions</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_threshold</span> <span class="o">=</span> <span class="n">metric_threshold</span>
+
+        <span class="k">if</span> <span class="n">metric_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">metric_names</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+                <span class="s2">"ThresholdEarlyStoppingStrategy only supports a single metric. Use "</span>
+                <span class="s2">"LogicalEarlyStoppingStrategy to compose early stopping strategies "</span>
+                <span class="s2">"with multiple metrics."</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="ThresholdEarlyStoppingStrategy.should_stop_trials_early"><a class="viewcode-back" href="../../../../early_stopping.html#ax.early_stopping.strategies.threshold.ThresholdEarlyStoppingStrategy.should_stop_trials_early">[docs]</a>    <span class="k">def</span> <span class="nf">should_stop_trials_early</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">trial_indices</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+        <span class="sd">"""Stop a trial if its performance doesn't reach a pre-specified threshold</span>
+<span class="sd">        by `min_progression`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_indices: Indices of candidate trials to consider for early stopping.</span>
+<span class="sd">            experiment: Experiment that contains the trials and other contextual data.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dictionary mapping trial indices that should be early stopped to</span>
+<span class="sd">            (optional) messages with the associated reason. An empty dictionary</span>
+<span class="sd">            means no suggested updates to any trial's status.</span>
+<span class="sd">        """</span>
+        <span class="n">metric_name</span><span class="p">,</span> <span class="n">minimize</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_objective_and_direction</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span>
+        <span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_validity_and_get_data</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">metric_names</span><span class="o">=</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># don't stop any trials if we don't get data back</span>
+            <span class="k">return</span> <span class="p">{}</span>
+
+        <span class="n">map_key</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">map_keys</span><span class="p">))</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">map_df</span>
+
+        <span class="c1"># default checks on `min_progression` and `min_curves`; if not met, don't do</span>
+        <span class="c1"># early stopping at all and return {}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_eligible_any</span><span class="p">(</span>
+            <span class="n">trial_indices</span><span class="o">=</span><span class="n">trial_indices</span><span class="p">,</span> <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">map_key</span><span class="o">=</span><span class="n">map_key</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="p">{}</span>
+
+        <span class="n">df_objective</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span> <span class="o">==</span> <span class="n">metric_name</span><span class="p">]</span>
+        <span class="n">decisions</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">trial_index</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop_trial_early</span><span class="p">(</span>
+                <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+                <span class="n">df</span><span class="o">=</span><span class="n">df_objective</span><span class="p">,</span>
+                <span class="n">map_key</span><span class="o">=</span><span class="n">map_key</span><span class="p">,</span>
+                <span class="n">minimize</span><span class="o">=</span><span class="n">minimize</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">trial_indices</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">trial_index</span><span class="p">:</span> <span class="n">reason</span>
+            <span class="k">for</span> <span class="n">trial_index</span><span class="p">,</span> <span class="p">(</span><span class="n">should_stop</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span> <span class="ow">in</span> <span class="n">decisions</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">should_stop</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="ThresholdEarlyStoppingStrategy.should_stop_trial_early"><a class="viewcode-back" href="../../../../early_stopping.html#ax.early_stopping.strategies.threshold.ThresholdEarlyStoppingStrategy.should_stop_trial_early">[docs]</a>    <span class="k">def</span> <span class="nf">should_stop_trial_early</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">map_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">minimize</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+        <span class="sd">"""Stop a trial if its performance doesn't reach a pre-specified threshold</span>
+<span class="sd">        by `min_progression`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_index: Indices of candidate trial to stop early.</span>
+<span class="sd">            experiment: Experiment that contains the trials and other contextual data.</span>
+<span class="sd">            df: Dataframe of partial results for the objective metric.</span>
+<span class="sd">            map_key: Name of the column of the dataset that indicates progression.</span>
+<span class="sd">            minimize: Whether objective value is being minimized.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A tuple `(should_stop, reason)`, where `should_stop` is `True` iff the</span>
+<span class="sd">            trial should be stopped, and `reason` is an (optional) string providing</span>
+<span class="sd">            information on why the trial should or should not be stopped.</span>
+<span class="sd">        """</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Considering trial </span><span class="si">{</span><span class="n">trial_index</span><span class="si">}</span><span class="s2"> for early stopping."</span><span class="p">)</span>
+
+        <span class="n">stopping_eligible</span><span class="p">,</span> <span class="n">reason</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_eligible</span><span class="p">(</span>
+            <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span> <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">map_key</span><span class="o">=</span><span class="n">map_key</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">stopping_eligible</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">reason</span>
+
+        <span class="c1"># threshold early stopping logic</span>
+        <span class="n">df_trial</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"trial_index"</span><span class="p">]</span> <span class="o">==</span> <span class="n">trial_index</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">])</span>
+        <span class="n">trial_last_prog</span> <span class="o">=</span> <span class="n">df_trial</span><span class="p">[</span><span class="n">map_key</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="n">data_last_prog</span> <span class="o">=</span> <span class="n">df_trial</span><span class="p">[</span><span class="n">df_trial</span><span class="p">[</span><span class="n">map_key</span><span class="p">]</span> <span class="o">==</span> <span class="n">trial_last_prog</span><span class="p">][</span><span class="s2">"mean"</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"Early stopping objective at last progression is:</span><span class="se">\n</span><span class="s2">"</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">data_last_prog</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+        <span class="n">should_early_stop</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">data_last_prog</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_threshold</span>
+            <span class="k">if</span> <span class="n">minimize</span>
+            <span class="k">else</span> <span class="n">data_last_prog</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_threshold</span>
+        <span class="p">)</span>
+        <span class="n">comp</span> <span class="o">=</span> <span class="s2">"worse"</span> <span class="k">if</span> <span class="n">should_early_stop</span> <span class="k">else</span> <span class="s2">"better"</span>
+        <span class="n">reason</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Trial objective value </span><span class="si">{</span><span class="n">data_last_prog</span><span class="si">}</span><span class="s2"> is </span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2"> than "</span>
+            <span class="sa">f</span><span class="s2">"the metric threshold </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_threshold</span><span class="si">:}</span><span class="s2">."</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Early stopping decision for </span><span class="si">{</span><span class="n">trial_index</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">should_early_stop</span><span class="si">}</span><span class="s2">. "</span>
+            <span class="sa">f</span><span class="s2">"Reason: </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">should_early_stop</span><span class="p">,</span> <span class="n">reason</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

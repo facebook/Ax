@@ -1,0 +1,544 @@
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.3.5/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.3.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.3.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.3.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.3.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.3.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.3.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.3.5/css/main.css"/><script src="/versions/0.3.5/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.3.5/"><img class="logo" src="/versions/0.3.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.3.5/versions.html"><h3>0.3.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.3.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.3.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.3.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span></span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Tutorials</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/">Overview</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">API Comparison</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gpei_hartmann_loop.html">Loop API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gpei_hartmann_service.html">Service API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gpei_hartmann_developer.html">Developer API</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Deep Dives</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/visualizations.html">Visualizations</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/generation_strategy.html">Generation Strategy</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/scheduler.html">Scheduler</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/modular_botax.html">Modular `BoTorchModel`</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Bayesian Optimization</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/tune_cnn_service.html">Hyperparameter Optimization for PyTorch</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/raytune_pytorch_cnn.html">Hyperparameter Optimization via Raytune</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/multi_task.html">Multi-Task Modeling</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/multiobjective_optimization.html">Multi-Objective Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/saasbo.html">High-Dimensional Bayesian Optimization with Sparse Axis-Aligned Subspaces (SAASBO)</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/saasbo_nehvi.html">Fully Bayesian, High-Dimensional, Multi-Objective Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/sebo.html">Sparsity Exploration Bayesian Optimization (SEBO)</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/early_stopping/early_stopping.html">Trial-Level Early Stopping</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gss.html">Global Stopping (Experiment-Level Early Stopping)</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Field Experiments</h3><ul class=""><li class="navListItem navListItemActive"><a class="navItem" href="/versions/0.3.5/tutorials/factorial.html">Bandit Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/human_in_the_loop/human_in_the_loop.html">Human-in-the-Loop Optimization</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="tutorialBody">
+<script>
+const requirejs = Object();
+requirejs.config = function() { };
+
+const dependencyMap = {
+    'plotly': Plotly,
+}
+
+function require(deps, fxn) {
+    return fxn(...deps.map(dep => dependencyMap[dep]));
+};
+</script>
+<div class="notebook">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Factorial-design-with-empirical-Bayes-and-Thompson-Sampling">Factorial design with empirical Bayes and Thompson Sampling<a class="anchor-link" href="#Factorial-design-with-empirical-Bayes-and-Thompson-Sampling">¶</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<markdowncell>
+This tutorial illustrates how to run a factorial experiment. In such an experiment, each parameter (factor) can be assigned one of multiple discrete values (levels). A full-factorial experiment design explores all possible combinations of factors and levels.
+
+<p>For instance, consider a banner with a title and an image. We are considering two different titles and three different images. A full-factorial experiment will compare all 2*3=6 possible combinations of title and image, to see which version of the banner performs the best.</p>
+<p>In this example, we first run an exploratory batch to collect data on all possible combinations. Then we use empirical Bayes to model the data and shrink noisy estimates toward the mean. Next, we use Thompson Sampling to suggest a set of arms (combinations of factors and levels) on which to collect more data. We repeat the process until we have identified the best performing combination(s).</p>
+</markdowncell></div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">sklearn</span> <span class="k">as</span> <span class="nn">skl</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Arm</span><span class="p">,</span>
+    <span class="n">ChoiceParameter</span><span class="p">,</span>
+    <span class="n">Models</span><span class="p">,</span>
+    <span class="n">ParameterType</span><span class="p">,</span>
+    <span class="n">SearchSpace</span><span class="p">,</span>
+    <span class="n">Experiment</span><span class="p">,</span>
+    <span class="n">OptimizationConfig</span><span class="p">,</span>
+    <span class="n">Objective</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.plot.scatter</span> <span class="kn">import</span> <span class="n">plot_fitted</span>
+<span class="kn">from</span> <span class="nn">ax.utils.notebook.plotting</span> <span class="kn">import</span> <span class="n">render</span><span class="p">,</span> <span class="n">init_notebook_plotting</span>
+<span class="kn">from</span> <span class="nn">ax.utils.stats.statstools</span> <span class="kn">import</span> <span class="n">agresti_coull_sem</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">init_notebook_plotting</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="1.-Define-the-search-space">1. Define the search space<a class="anchor-link" href="#1.-Define-the-search-space">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<markdowncell>
+First, we define our search space. A factorial search space contains a ChoiceParameter for each factor, where the values of the parameter are its levels.
+
+
+</markdowncell></div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">search_space</span> <span class="o">=</span> <span class="n">SearchSpace</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">ChoiceParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"factor1"</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">STRING</span><span class="p">,</span>
+            <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="s2">"level11"</span><span class="p">,</span> <span class="s2">"level12"</span><span class="p">,</span> <span class="s2">"level13"</span><span class="p">],</span>
+        <span class="p">),</span>
+        <span class="n">ChoiceParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"factor2"</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">STRING</span><span class="p">,</span>
+            <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="s2">"level21"</span><span class="p">,</span> <span class="s2">"level22"</span><span class="p">],</span>
+        <span class="p">),</span>
+        <span class="n">ChoiceParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"factor3"</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">STRING</span><span class="p">,</span>
+            <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="s2">"level31"</span><span class="p">,</span> <span class="s2">"level32"</span><span class="p">,</span> <span class="s2">"level33"</span><span class="p">,</span> <span class="s2">"level34"</span><span class="p">],</span>
+        <span class="p">),</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2.-Define-a-custom-metric">2. Define a custom metric<a class="anchor-link" href="#2.-Define-a-custom-metric">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Second, we define a custom metric, which is responsible for computing
+the mean and standard error of a given arm.</p>
+<p>In this example, each possible parameter value is given a coefficient. The higher the level, the higher the coefficient, and the higher the coefficients, the greater the mean.</p>
+<p>The standard error of each arm is determined by the weight passed into the evaluation function, which represents the size of the population on which this arm was evaluated. The higher the weight, the greater the sample size, and thus the lower the standard error.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">Data</span><span class="p">,</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.result</span> <span class="kn">import</span> <span class="n">Ok</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">random</span> <span class="kn">import</span> <span class="n">random</span>
+
+
+<span class="n">one_hot_encoder</span> <span class="o">=</span> <span class="n">skl</span><span class="o">.</span><span class="n">preprocessing</span><span class="o">.</span><span class="n">OneHotEncoder</span><span class="p">(</span>
+    <span class="n">categories</span><span class="o">=</span><span class="p">[</span><span class="n">par</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">par</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">FactorialMetric</span><span class="p">(</span><span class="n">Metric</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">fetch_trial_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">):</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">arm_name</span><span class="p">,</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms_by_name</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="n">arm</span><span class="o">.</span><span class="n">parameters</span>
+            <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">10000</span>
+            <span class="n">noise_level</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">normalized_arm_weights</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">arm</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="n">coefficients</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">])</span>
+            <span class="n">features</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">encoded_features</span> <span class="o">=</span> <span class="n">one_hot_encoder</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">coefficients</span> <span class="o">@</span> <span class="n">encoded_features</span><span class="o">.</span><span class="n">T</span>
+                <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">noise_level</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span><span class="p">))</span>
+            <span class="n">plays</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">binomial</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span>
+            <span class="n">successes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">binomial</span><span class="p">(</span><span class="n">plays</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+            <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"arm_name"</span><span class="p">:</span> <span class="n">arm_name</span><span class="p">,</span>
+                    <span class="s2">"metric_name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="s2">"trial_index"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+                    <span class="s2">"mean"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">successes</span><span class="p">)</span> <span class="o">/</span> <span class="n">plays</span><span class="p">,</span>
+                    <span class="s2">"sem"</span><span class="p">:</span> <span class="n">agresti_coull_sem</span><span class="p">(</span><span class="n">successes</span><span class="p">,</span> <span class="n">plays</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Ok</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">Data</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_records</span><span class="p">(</span><span class="n">records</span><span class="p">)))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="3.-Define-the-experiment">3. Define the experiment<a class="anchor-link" href="#3.-Define-the-experiment">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<markdowncell>
+We now set up our experiment and define the status quo arm, in which each parameter is assigned to the lowest level.
+
+
+</markdowncell></div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">Runner</span>
+
+
+<span class="k">class</span> <span class="nc">MyRunner</span><span class="p">(</span><span class="n">Runner</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">):</span>
+        <span class="n">trial_metadata</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">)}</span>
+        <span class="k">return</span> <span class="n">trial_metadata</span>
+
+
+<span class="n">exp</span> <span class="o">=</span> <span class="n">Experiment</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"my_factorial_closed_loop_experiment"</span><span class="p">,</span>
+    <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">(</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">FactorialMetric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"success_metric"</span><span class="p">))</span>
+    <span class="p">),</span>
+    <span class="n">runner</span><span class="o">=</span><span class="n">MyRunner</span><span class="p">(),</span>
+<span class="p">)</span>
+<span class="n">exp</span><span class="o">.</span><span class="n">status_quo</span> <span class="o">=</span> <span class="n">Arm</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s2">"factor1"</span><span class="p">:</span> <span class="s2">"level11"</span><span class="p">,</span> <span class="s2">"factor2"</span><span class="p">:</span> <span class="s2">"level21"</span><span class="p">,</span> <span class="s2">"factor3"</span><span class="p">:</span> <span class="s2">"level31"</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="4.-Run-an-exploratory-batch">4. Run an exploratory batch<a class="anchor-link" href="#4.-Run-an-exploratory-batch">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<markdowncell>
+We then generate an a set of arms that covers the full space of the factorial design, including the status quo. There are three parameters, with two, three, and four values, respectively, so there are 24 possible arms.
+
+
+</markdowncell></div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">factorial</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">FACTORIAL</span><span class="p">(</span><span class="n">search_space</span><span class="o">=</span><span class="n">exp</span><span class="o">.</span><span class="n">search_space</span><span class="p">)</span>
+<span class="n">factorial_run</span> <span class="o">=</span> <span class="n">factorial</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+    <span class="n">n</span><span class="o">=-</span><span class="mi">1</span>
+<span class="p">)</span>  <span class="c1"># Number of arms to generate is derived from the search space.</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">factorial_run</span><span class="o">.</span><span class="n">arms</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Now we create a trial including all of these arms, so that we can collect data and evaluate the performance of each.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">trial</span> <span class="o">=</span> <span class="n">exp</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">optimize_for_power</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span>
+    <span class="n">factorial_run</span><span class="p">,</span> <span class="n">multiplier</span><span class="o">=</span><span class="mi">1</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>By default, the weight of each arm in <code>factorial_run</code> will be 1. However, to optimize for power on the contrasts of <code>k</code> groups against the status quo, the status quo should be <code>sqrt(k)</code> larger than any of the treatment groups. Since we have 24 different arms in our search space, the status quo should be roughly five times larger. That larger weight is automatically set by Ax under the hood if <code>optimize_for_power</code> kwarg is set to True on new batched trial creation.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">trial</span><span class="o">.</span><span class="n">_status_quo_weight_override</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="5.-Iterate-using-Thompson-Sampling">5. Iterate using Thompson Sampling<a class="anchor-link" href="#5.-Iterate-using-Thompson-Sampling">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<markdowncell>
+Next, we run multiple trials (iterations of the experiment) to hone in on the optimal arm(s). 
+
+<p>In each iteration, we first collect data about all arms in that trial by calling <code>trial.run()</code> and <code>trial.mark_complete()</code>. Then we run Thompson Sampling, which assigns a weight to each arm that is proportional to the probability of that arm being the best. Arms whose weight exceed <code>min_weight</code> are added to the next trial, so that we can gather more data on their performance.</p>
+</markdowncell></div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">models</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Running trial </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">mark_completed</span><span class="p">()</span>
+    <span class="n">thompson</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">THOMPSON</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="n">exp</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">trial</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">(),</span> <span class="n">min_weight</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+    <span class="n">models</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">thompson</span><span class="p">)</span>
+    <span class="n">thompson_run</span> <span class="o">=</span> <span class="n">thompson</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="n">n</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">trial</span> <span class="o">=</span> <span class="n">exp</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">optimize_for_power</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span><span class="n">thompson_run</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Plot-1:-Predicted-outcomes-for-each-arm-in-initial-trial">Plot 1: Predicted outcomes for each arm in initial trial<a class="anchor-link" href="#Plot-1:-Predicted-outcomes-for-each-arm-in-initial-trial">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<markdowncell>
+The plot below shows the mean and standard error for each arm in the first trial. We can see that the standard error for the status quo is the smallest, since this arm was assigned 5x weight.
+
+
+</markdowncell></div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">render</span><span class="p">(</span><span class="n">plot_fitted</span><span class="p">(</span><span class="n">models</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">metric</span><span class="o">=</span><span class="s2">"success_metric"</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Plot-2:-Predicted-outcomes-for-arms-in-last-trial">Plot 2: Predicted outcomes for arms in last trial<a class="anchor-link" href="#Plot-2:-Predicted-outcomes-for-arms-in-last-trial">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The following plot below shows the mean and standard error for each arm that made it to the last trial (as well as the status quo, which appears throughout).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">render</span><span class="p">(</span><span class="n">plot_fitted</span><span class="p">(</span><span class="n">models</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">metric</span><span class="o">=</span><span class="s2">"success_metric"</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<markdowncell>
+As expected given our evaluation function, arms with higher levels
+perform better and are given higher weight. Below we see the arms
+that made it to the final trial.
+
+
+</markdowncell></div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">[</span>
+        <span class="p">{</span><span class="s2">"values"</span><span class="p">:</span> <span class="s2">","</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="s2">"weight"</span><span class="p">:</span> <span class="n">weight</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">arm</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">normalized_arm_weights</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Plot-3:-Rollout-Process">Plot 3: Rollout Process<a class="anchor-link" href="#Plot-3:-Rollout-Process">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can also visualize the progression of the experience in the following rollout chart. Each bar represents a trial, and the width of the bands within a bar are proportional to the weight of the arms in that trial.</p>
+<p>In the first trial, all arms appear with equal weight, except for the status quo. By the last trial, we have narrowed our focus to only four arms, with arm 0_22 (the arm with the highest levels) having the greatest weight.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.plot.bandit_rollout</span> <span class="kn">import</span> <span class="n">plot_bandit_rollout</span>
+<span class="kn">from</span> <span class="nn">ax.utils.notebook.plotting</span> <span class="kn">import</span> <span class="n">render</span>
+
+<span class="n">render</span><span class="p">(</span><span class="n">plot_bandit_rollout</span><span class="p">(</span><span class="n">exp</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Plot-4:-Marginal-Effects">Plot 4: Marginal Effects<a class="anchor-link" href="#Plot-4:-Marginal-Effects">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Finally, we can examine which parameter values had the greatest effect on the overall arm value. As we see in the diagram below, arms whose parameters were assigned the lower level values (such as <code>levell1</code>, <code>levell2</code>, <code>level31</code> and <code>level32</code>) performed worse than average, whereas arms with higher levels performed better than average.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.plot.marginal_effects</span> <span class="kn">import</span> <span class="n">plot_marginal_effects</span>
+
+<span class="n">render</span><span class="p">(</span><span class="n">plot_marginal_effects</span><span class="p">(</span><span class="n">models</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">"success_metric"</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.3.5/files/factorial.ipynb" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Jupyter Notebook</a></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.3.5/files//factorial.py" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Source Code</a></div><div class="tutorialRuntime"><p>Total runtime of script: 10.04 seconds.</p></div></div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.3.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2023 Meta Platforms, Inc.</section></footer></div></body></html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.5.1/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.5.1/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.5.1/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.5.1/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.5.1/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.5.1/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.5.1/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.5.1/css/main.css"/><script src="/versions/0.2.5.1/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.5.1/"><img class="logo" src="/versions/0.2.5.1/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.5.1/versions.html"><h3>0.2.5.1</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.5.1/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.5.1/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.5.1/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.map_data</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Generic</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">TypeVar</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TMapTrialEvaluation</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UnsupportedError</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">SortableBase</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.equality</span> <span class="kn">import</span> <span class="n">dataframe_equals</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">"T"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MapKeyInfo"><a class="viewcode-back" href="../../../core.html#ax.core.map_data.MapKeyInfo">[docs]</a><span class="k">class</span> <span class="nc">MapKeyInfo</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">SortableBase</span><span class="p">):</span>
+    <span class="sd">"""Helper class storing map keys and auxilary info for use in MapData"""</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">default_value</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_value</span> <span class="o">=</span> <span class="n">default_value</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"MapKeyInfo(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">default_value</span><span class="si">}</span><span class="s2">)"</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_value</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_unique_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="fm">__hash__</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default_value</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">value_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_default_value</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MapData"><a class="viewcode-back" href="../../../core.html#ax.core.map_data.MapData">[docs]</a><span class="k">class</span> <span class="nc">MapData</span><span class="p">(</span><span class="n">Data</span><span class="p">):</span>
+    <span class="sd">"""Class storing mapping-like results for an experiment.</span>
+
+<span class="sd">    Data is stored in a dataframe, and axilary information ((key name,</span>
+<span class="sd">    default value) pairs) are stored in a collection of MapKeyInfo objects.</span>
+
+<span class="sd">    Mapping-like results occur whenever a metric is reported as a collection</span>
+<span class="sd">    of results, each element corresponding to a tuple of values.</span>
+
+<span class="sd">    The simplest case is a sequence. For instance a time series is</span>
+<span class="sd">    a mapping from the 1-tuple `(timestamp)` to (mean, sem) results.</span>
+
+<span class="sd">    Another example: MultiFidelity results. This is a mapping from</span>
+<span class="sd">    `(fidelity_feature_1, ..., fidelity_feature_n)` to (mean, sem) results.</span>
+
+<span class="sd">    The dataframe is retrieved via the `map_df` property. The data can be stored</span>
+<span class="sd">    to an external store for future use by attaching it to an experiment using</span>
+<span class="sd">    `experiment.attach_data()` (this requires a description to be set.)</span>
+<span class="sd">    """</span>
+
+    <span class="n">DEDUPLICATE_BY_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"arm_name"</span><span class="p">,</span> <span class="s2">"metric_name"</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">df</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">map_key_infos</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">MapKeyInfo</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">map_key_infos</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"map_key_infos may be `None` iff `df` is None."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_infos</span> <span class="o">=</span> <span class="n">map_key_infos</span> <span class="ow">or</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="n">df</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># If df is None create an empty dataframe with appropriate cols</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_map_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="n">columns</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">required_columns</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">map_keys</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+            <span class="n">missing_columns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">required_columns</span><span class="p">()</span> <span class="o">-</span> <span class="n">columns</span>
+            <span class="k">if</span> <span class="n">missing_columns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Dataframe must contain required columns </span><span class="si">{</span><span class="n">missing_columns</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+            <span class="n">extra_columns</span> <span class="o">=</span> <span class="n">columns</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">supported_columns</span><span class="p">(</span>
+                <span class="n">extra_column_names</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">map_keys</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">extra_columns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Columns </span><span class="si">{</span><span class="p">[</span><span class="n">mki</span><span class="o">.</span><span class="n">key</span> <span class="k">for</span> <span class="n">mki</span> <span class="ow">in</span> <span class="n">extra_columns</span><span class="p">]</span><span class="si">}</span><span class="s2"> are not supported."</span>
+                <span class="p">)</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">"all"</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_safecast_df</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">extra_column_types</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">map_key_to_type</span><span class="p">)</span>
+
+            <span class="n">col_order</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">c</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_data_types</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">map_key_to_type</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span>
+            <span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_map_df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">col_order</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_memo_df</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">MapData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">mkis_match</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">map_key_infos</span><span class="p">)</span> <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">map_key_infos</span><span class="p">)</span>
+        <span class="n">dfs_match</span> <span class="o">=</span> <span class="n">dataframe_equals</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">map_df</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">map_df</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">mkis_match</span> <span class="ow">and</span> <span class="n">dfs_match</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">true_df</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_df</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">map_key_infos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">MapKeyInfo</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_infos</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">map_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">mki</span><span class="o">.</span><span class="n">key</span> <span class="k">for</span> <span class="n">mki</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_key_infos</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">map_key_to_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">mki</span><span class="o">.</span><span class="n">key</span><span class="p">:</span> <span class="n">mki</span><span class="o">.</span><span class="n">value_type</span> <span class="k">for</span> <span class="n">mki</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_key_infos</span><span class="p">}</span>
+
+<div class="viewcode-block" id="MapData.from_multiple_map_data"><a class="viewcode-back" href="../../../core.html#ax.core.map_data.MapData.from_multiple_map_data">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_multiple_map_data</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">MapData</span><span class="p">],</span>
+        <span class="n">subset_metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MapData</span><span class="p">:</span>
+        <span class="n">unique_map_key_infos</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">mki</span> <span class="ow">in</span> <span class="p">(</span><span class="n">mki</span> <span class="k">for</span> <span class="n">datum</span> <span class="ow">in</span> <span class="n">data</span> <span class="k">for</span> <span class="n">mki</span> <span class="ow">in</span> <span class="n">datum</span><span class="o">.</span><span class="n">map_key_infos</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+                <span class="n">mki</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="n">unique</span><span class="o">.</span><span class="n">key</span> <span class="ow">and</span> <span class="n">mki</span><span class="o">.</span><span class="n">default_value</span> <span class="o">!=</span> <span class="n">unique</span><span class="o">.</span><span class="n">default_value</span>
+                <span class="k">for</span> <span class="n">unique</span> <span class="ow">in</span> <span class="n">unique_map_key_infos</span>
+            <span class="p">):</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"MapKeyInfo conflict for </span><span class="si">{</span><span class="n">mki</span><span class="o">.</span><span class="n">key</span><span class="si">}</span><span class="s2">, eliding </span><span class="si">{</span><span class="n">mki</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">mki</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="n">unique</span><span class="o">.</span><span class="n">key</span> <span class="k">for</span> <span class="n">unique</span> <span class="ow">in</span> <span class="n">unique_map_key_infos</span><span class="p">):</span>
+                    <span class="c1"># If there is a key conflict but the mkis are equal, silently do</span>
+                    <span class="c1"># not add the duplicate.</span>
+                    <span class="n">unique_map_key_infos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mki</span><span class="p">)</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">mki</span><span class="o">.</span><span class="n">key</span> <span class="k">for</span> <span class="n">mki</span> <span class="ow">in</span> <span class="n">unique_map_key_infos</span><span class="p">])]</span>
+            <span class="o">+</span> <span class="p">[</span><span class="n">datum</span><span class="o">.</span><span class="n">map_df</span> <span class="k">for</span> <span class="n">datum</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="p">{</span><span class="n">mki</span><span class="o">.</span><span class="n">key</span><span class="p">:</span> <span class="n">mki</span><span class="o">.</span><span class="n">default_value</span> <span class="k">for</span> <span class="n">mki</span> <span class="ow">in</span> <span class="n">unique_map_key_infos</span><span class="p">})</span>
+
+        <span class="n">subset_metrics_mask</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+            <span class="n">subset_metrics</span> <span class="k">if</span> <span class="n">subset_metrics</span> <span class="k">else</span> <span class="n">df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">MapData</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="n">subset_metrics_mask</span><span class="p">],</span> <span class="n">map_key_infos</span><span class="o">=</span><span class="n">unique_map_key_infos</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MapData.from_map_evaluations"><a class="viewcode-back" href="../../../core.html#ax.core.map_data.MapData.from_map_evaluations">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_map_evaluations</span><span class="p">(</span>
+        <span class="n">evaluations</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TMapTrialEvaluation</span><span class="p">],</span>
+        <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">map_key_infos</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">MapKeyInfo</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MapData</span><span class="p">:</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">"arm_name"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+                <span class="s2">"metric_name"</span><span class="p">:</span> <span class="n">metric_name</span><span class="p">,</span>
+                <span class="s2">"mean"</span><span class="p">:</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">value</span><span class="p">,</span>
+                <span class="s2">"sem"</span><span class="p">:</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">"trial_index"</span><span class="p">:</span> <span class="n">trial_index</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">map_dict</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">map_dict_and_metrics_list</span> <span class="ow">in</span> <span class="n">evaluations</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">map_dict</span><span class="p">,</span> <span class="n">evaluation</span> <span class="ow">in</span> <span class="n">map_dict_and_metrics_list</span>
+            <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">evaluation</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">]</span>
+        <span class="n">map_keys</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">key</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">map_dict_and_metrics_list</span> <span class="ow">in</span> <span class="n">evaluations</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">map_dict</span><span class="p">,</span> <span class="n">evaluation</span> <span class="ow">in</span> <span class="n">map_dict_and_metrics_list</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">map_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="n">map_key_infos</span> <span class="o">=</span> <span class="n">map_key_infos</span> <span class="ow">or</span> <span class="p">[</span>
+            <span class="n">MapKeyInfo</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">map_keys</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="p">{</span><span class="n">mki</span><span class="o">.</span><span class="n">key</span> <span class="k">for</span> <span class="n">mki</span> <span class="ow">in</span> <span class="n">map_key_infos</span><span class="p">}</span> <span class="o">!=</span> <span class="n">map_keys</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Inconsistent map_key sets in evaluations."</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">MapData</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">records</span><span class="p">),</span> <span class="n">map_key_infos</span><span class="o">=</span><span class="n">map_key_infos</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">map_df</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_df</span>
+
+    <span class="nd">@map_df</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">map_df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+            <span class="s2">"MapData's underlying DataFrame is immutable; create a new"</span>
+            <span class="o">+</span> <span class="s2">" MapData via `__init__` or `from_multiple_data`."</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="MapData.from_multiple_data"><a class="viewcode-back" href="../../../core.html#ax.core.map_data.MapData.from_multiple_data">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_multiple_data</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Data</span><span class="p">],</span>
+        <span class="n">subset_metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MapData</span><span class="p">:</span>
+        <span class="sd">"""Downcast instances of Data into instances of MapData with empty</span>
+<span class="sd">        map_key_infos if necessary then combine as usual (filling in empty cells with</span>
+<span class="sd">        default values).</span>
+<span class="sd">        """</span>
+        <span class="n">map_datas</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">MapData</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">datum</span><span class="o">.</span><span class="n">df</span><span class="p">,</span> <span class="n">map_key_infos</span><span class="o">=</span><span class="p">[])</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">datum</span><span class="p">,</span> <span class="n">MapData</span><span class="p">)</span>
+            <span class="k">else</span> <span class="n">datum</span>
+            <span class="k">for</span> <span class="n">datum</span> <span class="ow">in</span> <span class="n">data</span>
+        <span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">MapData</span><span class="o">.</span><span class="n">from_multiple_map_data</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">map_datas</span><span class="p">,</span> <span class="n">subset_metrics</span><span class="o">=</span><span class="n">subset_metrics</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">df</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="sd">"""Returns a Data shaped DataFrame"""</span>
+
+        <span class="c1"># If map_keys is empty just return the df</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_memo_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_memo_df</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="kc">True</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_keys</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_df</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_memo_df</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">map_df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">map_keys</span><span class="p">))</span>
+            <span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">MapData</span><span class="o">.</span><span class="n">DEDUPLICATE_BY_COLUMNS</span><span class="p">,</span> <span class="n">keep</span><span class="o">=</span><span class="s2">"last"</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="o">~</span><span class="bp">self</span><span class="o">.</span><span class="n">map_df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">map_keys</span><span class="p">)]</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_memo_df</span>
+
+<div class="viewcode-block" id="MapData.deserialize_init_args"><a class="viewcode-back" href="../../../core.html#ax.core.map_data.MapData.deserialize_init_args">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">deserialize_init_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Given a dictionary, extract the properties needed to initialize the metric.</span>
+<span class="sd">        Used for storage.</span>
+<span class="sd">        """</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"map_key_infos"</span><span class="p">:</span> <span class="p">[</span>
+                <span class="n">MapKeyInfo</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">"key"</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">"default_value"</span><span class="p">])</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="s2">"map_key_infos"</span><span class="p">]</span>
+            <span class="p">]</span>
+        <span class="p">}</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.5.1/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

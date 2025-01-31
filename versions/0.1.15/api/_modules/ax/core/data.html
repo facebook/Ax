@@ -1,0 +1,369 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.15/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.15/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.15/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.15/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.15/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.15/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.15/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.15/css/main.css"/><script src="/versions/0.1.15/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.15/"><img class="logo" src="/versions/0.1.15/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.15/versions.html"><h3>0.1.15</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.15/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.15/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.15/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.data</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">hashlib</span> <span class="kn">import</span> <span class="n">md5</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TFidelityTrialEvaluation</span><span class="p">,</span> <span class="n">TTrialEvaluation</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.equality</span> <span class="kn">import</span> <span class="n">Base</span>
+
+
+<span class="n">TPdTimestamp</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span>
+
+<span class="n">COLUMN_DATA_TYPES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"arm_name"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"metric_name"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"mean"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+    <span class="s2">"sem"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+    <span class="s2">"trial_index"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+    <span class="s2">"start_time"</span><span class="p">:</span> <span class="n">TPdTimestamp</span><span class="p">,</span>
+    <span class="s2">"end_time"</span><span class="p">:</span> <span class="n">TPdTimestamp</span><span class="p">,</span>
+    <span class="s2">"n"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+    <span class="s2">"frac_nonnull"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+    <span class="s2">"random_split"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+    <span class="s2">"fidelities"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>  <span class="c1"># Dictionary stored as json</span>
+<span class="p">}</span>
+<span class="c1"># Note: Although the SEM (standard error of the mean) is a required column in data,</span>
+<span class="c1"># downstream models can infer missing SEMs. Simply specify NaN as the SEM value,</span>
+<span class="c1"># either in your Metric class or in Data explicitly.</span>
+<span class="n">REQUIRED_COLUMNS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"arm_name"</span><span class="p">,</span> <span class="s2">"metric_name"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">,</span> <span class="s2">"sem"</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="Data"><a class="viewcode-back" href="../../../core.html#ax.Data">[docs]</a><span class="k">class</span> <span class="nc">Data</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""Class storing data for an experiment.</span>
+
+<span class="sd">    The dataframe is retrieved via the `df` property. The data can be stored</span>
+<span class="sd">    to an external store for future use by attaching it to an experiment using</span>
+<span class="sd">    `experiment.attach_data()` (this requires a description to be set.)</span>
+
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        df: DataFrame with underlying data, and required columns.</span>
+<span class="sd">        description: Human-readable description of data.</span>
+
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Init Data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            df: DataFrame with underlying data, and required columns.</span>
+<span class="sd">            description: Human-readable description of data.</span>
+
+<span class="sd">        """</span>
+        <span class="c1"># Initialize with barebones DF.</span>
+        <span class="k">if</span> <span class="n">df</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">required_columns</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+            <span class="n">missing_columns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">required_columns</span><span class="p">()</span> <span class="o">-</span> <span class="n">columns</span>
+            <span class="k">if</span> <span class="n">missing_columns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Dataframe must contain required columns </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">missing_columns</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+            <span class="n">extra_columns</span> <span class="o">=</span> <span class="n">columns</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">column_data_types</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">extra_columns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Columns </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">extra_columns</span><span class="p">)</span><span class="si">}</span><span class="s2"> are not supported."</span><span class="p">)</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">"all"</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_safecast_df</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">)</span>
+
+            <span class="c1"># Reorder the columns for easier viewing</span>
+            <span class="n">col_order</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_data_types</span><span class="p">()</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">col_order</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_safecast_df</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="sd">"""Function for safely casting df to standard data types.</span>
+
+<span class="sd">        Needed because numpy does not support NaNs in integer arrays.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            df: DataFrame to safe-cast.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            safe_df: DataFrame cast to standard dtypes.</span>
+
+<span class="sd">        """</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="c1"># Pandas timestamp handlng is weird</span>
+            <span class="n">col</span><span class="p">:</span> <span class="s2">"datetime64[ns]"</span> <span class="k">if</span> <span class="n">coltype</span> <span class="ow">is</span> <span class="n">TPdTimestamp</span> <span class="k">else</span> <span class="n">coltype</span>
+            <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">coltype</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">column_data_types</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">values</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">column_data_types</span><span class="p">()[</span><span class="n">col</span><span class="p">]</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+                <span class="ow">and</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Data.required_columns"><a class="viewcode-back" href="../../../core.html#ax.Data.required_columns">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">required_columns</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Names of required columns."""</span>
+        <span class="k">return</span> <span class="n">REQUIRED_COLUMNS</span></div>
+
+<div class="viewcode-block" id="Data.column_data_types"><a class="viewcode-back" href="../../../core.html#ax.Data.column_data_types">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">column_data_types</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">]:</span>
+        <span class="sd">"""Type specification for all supported columns."""</span>
+        <span class="k">return</span> <span class="n">COLUMN_DATA_TYPES</span></div>
+
+<div class="viewcode-block" id="Data.from_multiple_data"><a class="viewcode-back" href="../../../core.html#ax.Data.from_multiple_data">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_multiple_data</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Data</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="n">dfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">datum</span><span class="o">.</span><span class="n">df</span> <span class="k">for</span> <span class="n">datum</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dfs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Data</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">Data</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Data.from_evaluations"><a class="viewcode-back" href="../../../core.html#ax.Data.from_evaluations">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_evaluations</span><span class="p">(</span>
+        <span class="n">evaluations</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TTrialEvaluation</span><span class="p">],</span>
+        <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">sample_sizes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">start_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">end_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Convert dict of evaluations to Ax data object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            evaluations: Map from arm name to metric outcomes (itself a mapping</span>
+<span class="sd">                of metric names to tuples of mean and optionally a SEM).</span>
+<span class="sd">            trial_index: Trial index to which this data belongs.</span>
+<span class="sd">            sample_sizes: Number of samples collected for each arm.</span>
+<span class="sd">            start_time: Optional start time of run of the trial that produced this</span>
+<span class="sd">                data, in milliseconds.</span>
+<span class="sd">            end_time: Optional end time of run of the trial that produced this</span>
+<span class="sd">                data, in milliseconds.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Ax Data object.</span>
+<span class="sd">        """</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">"arm_name"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+                <span class="s2">"metric_name"</span><span class="p">:</span> <span class="n">metric_name</span><span class="p">,</span>
+                <span class="s2">"mean"</span><span class="p">:</span> <span class="n">evaluation</span><span class="p">[</span><span class="n">metric_name</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                <span class="s2">"sem"</span><span class="p">:</span> <span class="n">evaluation</span><span class="p">[</span><span class="n">metric_name</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+                <span class="s2">"trial_index"</span><span class="p">:</span> <span class="n">trial_index</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">evaluation</span> <span class="ow">in</span> <span class="n">evaluations</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">evaluation</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">start_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">end_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
+                <span class="n">record</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">"start_time"</span><span class="p">:</span> <span class="n">start_time</span><span class="p">,</span> <span class="s2">"end_time"</span><span class="p">:</span> <span class="n">end_time</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">sample_sizes</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
+                <span class="n">record</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span> <span class="o">=</span> <span class="n">sample_sizes</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">record</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">])]</span>
+        <span class="k">return</span> <span class="n">Data</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">records</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Data.from_fidelity_evaluations"><a class="viewcode-back" href="../../../core.html#ax.Data.from_fidelity_evaluations">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_fidelity_evaluations</span><span class="p">(</span>
+        <span class="n">evaluations</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TFidelityTrialEvaluation</span><span class="p">],</span>
+        <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">sample_sizes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">start_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">end_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Convert dict of fidelity evaluations to Ax data object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            evaluations: Map from arm name to list of (fidelity, metric outcomes)</span>
+<span class="sd">                (where metric outcomes is itself a mapping of metric names to</span>
+<span class="sd">                tuples of mean and SEM).</span>
+<span class="sd">            trial_index: Trial index to which this data belongs.</span>
+<span class="sd">            sample_sizes: Number of samples collected for each arm.</span>
+<span class="sd">            start_time: Optional start time of run of the trial that produced this</span>
+<span class="sd">                data, in milliseconds.</span>
+<span class="sd">            end_time: Optional end time of run of the trial that produced this</span>
+<span class="sd">                data, in milliseconds.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Ax Data object.</span>
+<span class="sd">        """</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">"arm_name"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+                <span class="s2">"metric_name"</span><span class="p">:</span> <span class="n">metric_name</span><span class="p">,</span>
+                <span class="s2">"mean"</span><span class="p">:</span> <span class="n">evaluation</span><span class="p">[</span><span class="n">metric_name</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                <span class="s2">"sem"</span><span class="p">:</span> <span class="n">evaluation</span><span class="p">[</span><span class="n">metric_name</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+                <span class="s2">"trial_index"</span><span class="p">:</span> <span class="n">trial_index</span><span class="p">,</span>
+                <span class="s2">"fidelities"</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">fidelity</span><span class="p">),</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">fidelity_and_metrics_list</span> <span class="ow">in</span> <span class="n">evaluations</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">fidelity</span><span class="p">,</span> <span class="n">evaluation</span> <span class="ow">in</span> <span class="n">fidelity_and_metrics_list</span>
+            <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">evaluation</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">start_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">end_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
+                <span class="n">record</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">"start_time"</span><span class="p">:</span> <span class="n">start_time</span><span class="p">,</span> <span class="s2">"end_time"</span><span class="p">:</span> <span class="n">end_time</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">sample_sizes</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
+                <span class="n">record</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span> <span class="o">=</span> <span class="n">sample_sizes</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">record</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">])]</span>
+        <span class="k">return</span> <span class="n">Data</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">records</span><span class="p">))</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">df</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_df</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">df_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""Compute hash of pandas DataFrame.</span>
+
+<span class="sd">        This first serializes the DataFrame and computes the md5 hash on the</span>
+<span class="sd">        resulting string. Note that this may cause performance issue for very large</span>
+<span class="sd">        DataFrames.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            df: The DataFrame for which to compute the hash.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            str: The hash of the DataFrame.</span>
+
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">md5</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>  <span class="c1"># pyre-ignore</span></div>
+
+
+<div class="viewcode-block" id="set_single_trial"><a class="viewcode-back" href="../../../core.html#ax.set_single_trial">[docs]</a><span class="k">def</span> <span class="nf">set_single_trial</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+    <span class="sd">"""Returns a new Data object where we set all rows to have the same</span>
+<span class="sd">    trial index (i.e. 0). This is meant to be used with our IVW transform,</span>
+<span class="sd">    which will combine multiple observations of the same metric.</span>
+<span class="sd">    """</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="s2">"trial_index"</span> <span class="ow">in</span> <span class="n">df</span><span class="p">:</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">"trial_index"</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">Data</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="clone_without_metrics"><a class="viewcode-back" href="../../../core.html#ax.clone_without_metrics">[docs]</a><span class="k">def</span> <span class="nf">clone_without_metrics</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span> <span class="n">excluded_metric_names</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+    <span class="sd">"""Returns a new data object where rows containing the metrics specified by</span>
+<span class="sd">    `metric_names` are filtered out. Used to sanitize data before using it as</span>
+<span class="sd">    training data for a model that requires data rectangularity.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        data: Original data to clone.</span>
+<span class="sd">        excluded_metric_names: Metrics to avoid copying</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        new version of the original data without specified metrics.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">Data</span><span class="p">(</span>
+        <span class="n">df</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">excluded_metric_names</span><span class="p">)</span>
+        <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="custom_data_class"><a class="viewcode-back" href="../../../core.html#ax.custom_data_class">[docs]</a><span class="k">def</span> <span class="nf">custom_data_class</span><span class="p">(</span>
+    <span class="n">column_data_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">required_columns</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">time_columns</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Data</span><span class="p">]:</span>
+    <span class="sd">"""Creates a custom data class with additional columns.</span>
+
+<span class="sd">    All columns and their designations on the base data class are preserved,</span>
+<span class="sd">    the inputs here are appended to the definitions on the base class.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        column_data_types: Dict from column name to column type.</span>
+<span class="sd">        required_columns: Set of additional columns required for this data object.</span>
+<span class="sd">        time_columns: Set of additional columns to cast to timestamp.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        New data subclass with amended column definitions.</span>
+<span class="sd">    """</span>
+
+    <span class="k">class</span> <span class="nc">CustomData</span><span class="p">(</span><span class="n">Data</span><span class="p">):</span>
+        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">required_columns</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">required_columns</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">())</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">REQUIRED_COLUMNS</span><span class="p">)</span>
+
+        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">column_data_types</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="p">(</span><span class="n">column_data_types</span> <span class="ow">or</span> <span class="p">{}),</span> <span class="o">**</span><span class="n">COLUMN_DATA_TYPES</span><span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">CustomData</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.15/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

@@ -1,0 +1,680 @@
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.5/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.5/css/main.css"/><script src="/versions/0.2.5/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.5/"><img class="logo" src="/versions/0.2.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.5/versions.html"><h3>0.2.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span></span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Tutorials</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/">Overview</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">API Comparison</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/gpei_hartmann_loop.html">Loop API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/gpei_hartmann_service.html">Service API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/gpei_hartmann_developer.html">Developer API</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Deep Dives</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/visualizations.html">Visualizations</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/versions/0.2.5/tutorials/generation_strategy.html">Generation Strategy</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/scheduler.html">Scheduler</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/modular_botax.html">Modular `BoTorchModel`</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Bayesian Optimization</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/tune_cnn.html">Hyperparameter Optimization for PyTorch</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/raytune_pytorch_cnn.html">Hyperparameter Optimization via Raytune</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/multi_task.html">Multi-Task Modeling</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/multiobjective_optimization.html">Multi-Objective Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/saasbo.html">High-Dimensional Bayesian Optimization with Sparse Axis-Aligned Subspaces (SAASBO)</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/saasbo_nehvi.html">Fully Bayesian, High-Dimensional, Multi-Objective Optimization</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Field Experiments</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/factorial.html">Bandit Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/tutorials/human_in_the_loop/human_in_the_loop.html">Human-in-the-Loop Optimization</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="tutorialBody">
+<script>
+const requirejs = Object();
+requirejs.config = function() { };
+
+const dependencyMap = {
+    'plotly': Plotly,
+}
+
+function require(deps, fxn) {
+    return fxn(...deps.map(dep => dependencyMap[dep]));
+};
+</script>
+<div class="notebook">
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [1]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStrategy</span><span class="p">,</span> <span class="n">GenerationStep</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="kn">import</span> <span class="n">Models</span><span class="p">,</span> <span class="n">ModelRegistryBase</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.dispatch_utils</span> <span class="kn">import</span> <span class="n">choose_generation_strategy</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.modelbridge_utils</span> <span class="kn">import</span> <span class="n">get_pending_observation_features</span>
+
+<span class="kn">from</span> <span class="nn">ax.utils.testing.core_stubs</span> <span class="kn">import</span> <span class="n">get_branin_search_space</span><span class="p">,</span> <span class="n">get_branin_experiment</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Generation-Strategy-(GS)-Tutorial">Generation Strategy (GS) Tutorial<a class="anchor-link" href="#Generation-Strategy-(GS)-Tutorial">¶</a></h1><p><code>GenerationStrategy</code> (<a href="https://ax.dev/api/modelbridge.html#ax.modelbridge.generation_strategy.GenerationStrategy">API reference</a>) is a key abstraction in Ax:</p>
+<ul>
+<li>It allows for specifying multiple optimization algorithms to chain one after another in the course of the optimization. </li>
+<li>Many higher-level APIs in Ax use generation strategies: Service and Loop APIs, <code>Scheduler</code> etc. (tutorials for all those higher-level APIs are here: <a href="https://ax.dev/tutorials/">https://ax.dev/tutorials/</a>).</li>
+<li>Generation strategy allows for storage and resumption of modeling setups, making optimization resumable from SQL or JSON snapshots.</li>
+</ul>
+<p>This tutorial walks through a few examples of generation strategies and discusses its important settings. Before reading it, we recommend familiarizing yourself with how <code>Model</code> and <code>ModelBridge</code> work in Ax: <a href="https://ax.dev/docs/models.html#deeper-dive-organization-of-the-modeling-stack">https://ax.dev/docs/models.html#deeper-dive-organization-of-the-modeling-stack</a>.</p>
+<p><strong>Contents:</strong></p>
+<ol>
+<li>Quick-start examples<ol>
+<li>Manually configured GS</li>
+<li>Auto-selected GS</li>
+<li>Candidate generation from a GS</li>
+</ol>
+</li>
+<li>Deep dive: <code>GenerationStep</code> a building block of the generation strategy<ol>
+<li>Describing a model</li>
+<li>Other <code>GenerationStep</code> settings</li>
+<li>Chaining <code>GenerationStep</code>-s together</li>
+<li><code>max_parallelism</code> enforcement and handling the <code>MaxParallelismReachedException</code></li>
+</ol>
+</li>
+<li><code>GenerationStrategy</code> storage<ol>
+<li>JSON storage</li>
+<li>SQL storage</li>
+</ol>
+</li>
+<li>Advanced considerations / "gotchas"<ol>
+<li>Generation strategy produces <code>GeneratorRun</code>-s, not <code>Trial</code>-s</li>
+<li><code>model_kwargs</code> elements that don't have associated serialization logic in Ax</li>
+<li>Why prefer <code>Models</code> registry enum entries over a factory function?</li>
+<li>How to request more modeling setups in <code>Models</code>?</li>
+</ol>
+</li>
+</ol>
+<hr/>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="1.-Quick-start-examples">1. Quick-start examples<a class="anchor-link" href="#1.-Quick-start-examples">¶</a></h2><h3 id="1A.-Manually-configured-generation-strategy">1A. Manually configured generation strategy<a class="anchor-link" href="#1A.-Manually-configured-generation-strategy">¶</a></h3><p>Below is a typical generation strategy used for most single-objective optimization cases in Ax:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [2]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">gs</span> <span class="o">=</span> <span class="n">GenerationStrategy</span><span class="p">(</span>
+    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+        <span class="c1"># 1. Initialization step (does not require pre-existing data and is well-suited for </span>
+        <span class="c1"># initial sampling of the search space)</span>
+        <span class="n">GenerationStep</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span>
+            <span class="n">num_trials</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>  <span class="c1"># How many trials should be produced from this generation step</span>
+            <span class="n">min_trials_observed</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="c1"># How many trials need to be completed to move to next model</span>
+            <span class="n">max_parallelism</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>  <span class="c1"># Max parallelism for this step</span>
+            <span class="n">model_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"seed"</span><span class="p">:</span> <span class="mi">999</span><span class="p">},</span>  <span class="c1"># Any kwargs you want passed into the model</span>
+            <span class="n">model_gen_kwargs</span><span class="o">=</span><span class="p">{},</span>  <span class="c1"># Any kwargs you want passed to `modelbridge.gen`</span>
+        <span class="p">),</span>
+        <span class="c1"># 2. Bayesian optimization step (requires data obtained from previous phase and learns</span>
+        <span class="c1"># from all data available at the time of each new candidate generation call)</span>
+        <span class="n">GenerationStep</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">GPEI</span><span class="p">,</span>
+            <span class="n">num_trials</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># No limitation on how many trials should be produced from this step</span>
+            <span class="n">max_parallelism</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>  <span class="c1"># Parallelism limit for this step, often lower than for Sobol</span>
+            <span class="c1"># More on parallelism vs. required samples in BayesOpt:</span>
+            <span class="c1"># https://ax.dev/docs/bayesopt.html#tradeoff-between-parallelism-and-total-number-of-trials</span>
+        <span class="p">),</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="1B.-Auto-selected-generation-strategy">1B. Auto-selected generation strategy<a class="anchor-link" href="#1B.-Auto-selected-generation-strategy">¶</a></h3><p>Ax provides a <a href="https://github.com/facebook/Ax/blob/main/ax/modelbridge/dispatch_utils.py#L115"><code>choose_generation_strategy</code></a> utility, which can auto-select a suitable generation strategy given a search space and an array of other optional settings. The utility is fairly simple at the moment, but additional development (support for multi-objective optimization, multi-fidelity optimization, Bayesian optimization with categorical kernels etc.) is coming soon.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [3]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">gs</span> <span class="o">=</span> <span class="n">choose_generation_strategy</span><span class="p">(</span>
+    <span class="c1"># Required arguments:</span>
+    <span class="n">search_space</span><span class="o">=</span><span class="n">get_branin_search_space</span><span class="p">(),</span>  <span class="c1"># Ax `SearchSpace`</span>
+    
+    <span class="c1"># Some optional arguments (shown with their defaults), see API docs for more settings:</span>
+    <span class="c1"># https://ax.dev/api/modelbridge.html#module-ax.modelbridge.dispatch_utils</span>
+    <span class="n">use_batch_trials</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Whether this GS will be used to generate 1-arm `Trial`-s or `BatchTrials`</span>
+    <span class="n">no_bayesian_optimization</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Use quasi-random candidate generation without BayesOpt</span>
+    <span class="n">max_parallelism_override</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># Integer, to which to set the `max_parallelism` setting of all steps in this GS   </span>
+<span class="p">)</span>
+<span class="n">gs</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 04-25 21:28:51] ax.modelbridge.dispatch_utils: Using Bayesian optimization since there are more ordered parameters than there are categories for the unordered categorical parameters.
+[INFO 04-25 21:28:51] ax.modelbridge.dispatch_utils: Using Bayesian Optimization generation strategy: GenerationStrategy(name='Sobol+GPEI', steps=[Sobol for 5 trials, GPEI for subsequent trials]). Iterations after 5 will take longer to generate due to  model-fitting.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt output_prompt">Out[3]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>GenerationStrategy(name='Sobol+GPEI', steps=[Sobol for 5 trials, GPEI for subsequent trials])</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="1C.-Candidate-generation-from-a-generation-strategy">1C. Candidate generation from a generation strategy<a class="anchor-link" href="#1C.-Candidate-generation-from-a-generation-strategy">¶</a></h3><p>While often used through Service or Loop API or other higher-order abstractions like the Ax <code>Scheduler</code> (where the generation strategy is used to fit models and produce candidates from them under-the-hood), it's also possible to use the GS directly, in place of a <code>ModelBridge</code> instance. The interface of <code>GenerationStrategy.gen</code> is the same as <code>ModelBridge.gen</code>.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [4]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span> <span class="o">=</span> <span class="n">get_branin_experiment</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 04-25 21:28:51] ax.core.experiment: The is_test flag has been set to True. This flag is meant purely for development and integration testing purposes. If you are running a live experiment, please set this flag to False
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Note that it's important to <strong>specify pending observations</strong> to the call to <code>gen</code> to avoid getting the same points re-suggested. Without <code>pending_observations</code> argument, Ax models are not aware of points that should be excluded from generation. Points are considered "pending" when they belong to <code>STAGED</code>, <code>RUNNING</code>, or <code>ABANDONED</code> trials (with the latter included so model does not re-suggest points that are considered "bad" and should not be re-suggested).</p>
+<p>If the call to <code>get_pending_obervation_features</code> becomes slow in your setup (since it performs data-fetching etc.), you can opt for <code>get_pending_observation_features_based_on_trial_status</code> (also from <code>ax.modelbridge.modelbridge_utils</code>), but note the limitations of that utility (detailed in its docstring).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [5]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">generator_run</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="c1"># Ax `Experiment`, for which to generate new candidates</span>
+    <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="c1"># Ax `Data` to use for model training, optional.</span>
+    <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="c1"># Number of candidate arms to produce</span>
+    <span class="n">pending_observations</span><span class="o">=</span><span class="n">get_pending_observation_features</span><span class="p">(</span><span class="n">experiment</span><span class="p">),</span>  <span class="c1"># Points that should not be re-generated</span>
+    <span class="c1"># Any other kwargs specified will be passed through to `ModelBridge.gen` along with `GenerationStep.model_gen_kwargs`</span>
+<span class="p">)</span>
+<span class="n">generator_run</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[5]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>GeneratorRun(1 arms, total weight 1.0)</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Then we can add the newly produced <a href="https://ax.dev/docs/glossary.html#generator-run"><code>GeneratorRun</code></a> to the experiment as a <a href="https://ax.dev/docs/glossary.html#trial"><code>Trial</code> (or <code>BatchTrial</code> if <code>n</code> &gt; 1)</a>:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [6]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">trial</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">new_trial</span><span class="p">(</span><span class="n">generator_run</span><span class="p">)</span>
+<span class="n">trial</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[6]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>Trial(experiment_name='branin_test_experiment', index=0, status=TrialStatus.CANDIDATE, arm=Arm(name='0_0', parameters={'x1': 2.359345406293869, 'x2': 2.756389304995537}))</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Important notes on <code>GenerationStrategy.gen</code>:</strong></p>
+<ul>
+<li>if <code>data</code> argument above is not specified, GS will pull experiment data from cache via <code>experiment.lookup_data</code>,</li>
+<li>without specifying <code>pending_observations</code>, the GS (and any model in Ax) could produce the same candidate over and over, as without that argument the model is not 'aware' that the candidate is part of a <code>RUNNING</code> or <code>ABANDONED</code> trial and should not be re-suggested again.</li>
+</ul>
+<p>In cases where <code>get_pending_observation_features</code> is too slow and the experiment consists of 1-arm <code>Trial</code>-s only, it's possible to use <code>get_pending_observation_features_based_on_trial_status</code> instead (found in the same file).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Note that when using the Ax Service API, one of the arguments to <code>AxClient</code> is <code>choose_generation_strategy_kwargs</code>; specifying that argument is a convenient way to influence the choice of generation strategy in <code>AxClient</code> without manually specifying a full <code>GenerationStrategy</code>.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2.-GenerationStep-as-a-building-block-of-generation-strategy">2. <code>GenerationStep</code> as a building block of generation strategy<a class="anchor-link" href="#2.-GenerationStep-as-a-building-block-of-generation-strategy">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="2A.-Describing-a-model-to-use-in-a-given-GenerationStep">2A. Describing a model to use in a given <code>GenerationStep</code><a class="anchor-link" href="#2A.-Describing-a-model-to-use-in-a-given-GenerationStep">¶</a></h3><p>There are two ways of specifying a model for a generation step: via an entry in a <code>Models</code> enum or via a 'factory function' –– a callable model constructor (e.g. <a href="https://github.com/facebook/Ax/blob/0e454b71d5e07b183c0866855555b6a21ddd5da1/ax/modelbridge/factory.py#L154"><code>get_GPEI</code></a> and other factory functions in the same file). Note that using the latter path, a factory function, will prohibit <code>GenerationStrategy</code> storage and is generally discouraged.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="2B.-Other-GenerationStep-settings">2B. Other <code>GenerationStep</code> settings<a class="anchor-link" href="#2B.-Other-GenerationStep-settings">¶</a></h3><p>All of the available settings are described in the documentation:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [7]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">GenerationStep</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>One step in the generation strategy, corresponds to a single model.
+    Describes the model, how many trials will be generated with this model, what
+    minimum number of observations is required to proceed to the next model, etc.
+
+    NOTE: Model can be specified either from the model registry
+    (`ax.modelbridge.registry.Models` or using a callable model constructor. Only
+    models from the registry can be saved, and thus optimization can only be
+    resumed if interrupted when using models from the registry.
+
+    Args:
+        model: A member of `Models` enum or a callable returning an instance of
+            `ModelBridge` with an instantiated underlying `Model`. Refer to
+            `ax/modelbridge/factory.py` for examples of such callables.
+        num_trials: How many trials to generate with the model from this step.
+            If set to -1, trials will continue to be generated from this model
+            as long as `generation_strategy.gen` is called (available only for
+            the last of the generation steps).
+        min_trials_observed: How many trials must be completed before the
+            generation strategy can proceed to the next step. Defaults to 0.
+            If `num_trials` of a given step have been generated but `min_trials_
+            observed` have not been completed, a call to `generation_strategy.gen`
+            will fail with a `DataRequiredError`.
+        max_parallelism: How many trials generated in the course of this step are
+            allowed to be run (i.e. have `trial.status` of `RUNNING`) simultaneously.
+            If `max_parallelism` trials from this step are already running, a call
+            to `generation_strategy.gen` will fail with a `MaxParallelismReached
+            Exception`, indicating that more trials need to be completed before
+            generating and running next trials.
+        use_update: Whether to use `model_bridge.update` instead or reinstantiating
+            model + bridge on every call to `gen` within a single generation step.
+            NOTE: use of `update` on stateful models that do not implement `_get_state`
+            may result in inability to correctly resume a generation strategy from
+            a serialized state.
+        enforce_num_trials: Whether to enforce that only `num_trials` are generated
+            from the given step. If False and `num_trials` have been generated, but
+            `min_trials_observed` have not been completed, `generation_strategy.gen`
+            will continue generating trials from the current step, exceeding `num_
+            trials` for it. Allows to avoid `DataRequiredError`, but delays
+            proceeding to next generation step.
+        model_kwargs: Dictionary of kwargs to pass into the model constructor on
+            instantiation. E.g. if `model` is `Models.SOBOL`, kwargs will be applied
+            as `Models.SOBOL(**model_kwargs)`; if `model` is `get_sobol`, `get_sobol(
+            **model_kwargs)`. NOTE: if generation strategy is interrupted and
+            resumed from a stored snapshot and its last used model has state saved on
+            its generator runs, `model_kwargs` is updated with the state dict of the
+            model, retrieved from the last generator run of this generation strategy.
+        model_gen_kwargs: Each call to `generation_strategy.gen` performs a call to the
+            step's model's `gen` under the hood; `model_gen_kwargs` will be passed to
+            the model's `gen` like so: `model.gen(**model_gen_kwargs)`.
+        index: Index of this generation step, for use internally in `Generation
+            Strategy`. Do not assign as it will be reassigned when instantiating
+            `GenerationStrategy` with a list of its steps.
+        should_deduplicate: Whether to deduplicate the parameters of proposed arms
+            against those of previous arms via rejection sampling. If this is True,
+            the generation strategy will discard generator runs produced from the
+            generation step that has `should_deduplicate=True` if they contain arms
+            already present on the experiment and replace them with new generator runs.
+            If no generator run with entirely unique arms could be produced in 5
+            attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we
+            assume that the optimization converged when the model can no longer suggest
+            unique arms.
+    
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2C.-Chaining-GenerationStep-s-together">2C. Chaining <code>GenerationStep</code>-s together<a class="anchor-link" href="#2C.-Chaining-GenerationStep-s-together">¶</a></h2><p>A <code>GenerationStrategy</code> moves from one step to another when:</p>
+<ol>
+<li><code>N=num_trials</code> generator runs were produced and attached as trials to the experiment AND </li>
+<li><code>M=min_trials_observed</code> have been completed and have data.</li>
+</ol>
+<p><strong>Caveat: <code>enforce_num_trials</code> setting</strong>:</p>
+<ol>
+<li>If <code>enforce_num_trials=True</code> for a given generation step, if 1) is reached but 2) is not yet reached, the generation strategy will raise a <code>DataRequiredError</code>, indicating that more trials need to be completed before the next step.</li>
+<li>If <code>enforce_num_trials=False</code>, the GS will continue producing generator runs from the current step until 2) is reached.</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2D.-max_parallelism-enforcement">2D. <code>max_parallelism</code> enforcement<a class="anchor-link" href="#2D.-max_parallelism-enforcement">¶</a></h2><p>Generation strategy can restrict the number of trials that can be ran simultaneously (to encourage sequential optimization, which benefits Bayesian optimization performance). When the parallelism limit is reached, a call to <code>GenerationStrategy.gen</code> will result in a <code>MaxParallelismReachedException</code>.</p>
+<p>The correct way to handle this exception:</p>
+<ol>
+<li>Make sure that <code>GenerationStep.max_parallelism</code> is configured correctly for all steps in your generation strategy (to disable it completely, configure <code>GenerationStep.max_parallelism=None</code>),</li>
+<li>When encountering the exception, wait to produce more generator runs until more trial evluations complete and log the trial completion via <code>trial.mark_completed</code>.</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+<h2 id="3.-SQL-and-JSON-storage-of-a-generation-strategy">3. SQL and JSON storage of a generation strategy<a class="anchor-link" href="#3.-SQL-and-JSON-storage-of-a-generation-strategy">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>When used through Service API or <code>Scheduler</code>, generation strategy will be automatically stored to SQL or JSON via specifying <code>DBSettings</code> to either <code>AxClient</code> or <code>Scheduler</code> (details in respective tutorials in the <a href="https://ax.dev/tutorials/">"Tutorials" page</a>). Generation strategy can also be stored to SQL or JSON individually, as shown below.</p>
+<p>More detail on SQL and JSON storage in Ax generally can be <a href="https://ax.dev/tutorials/building_blocks.html#9.-Save-to-JSON-or-SQL">found in "Building Blocks of Ax" tutorial</a>.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3A.-SQL-storage">3A. SQL storage<a class="anchor-link" href="#3A.-SQL-storage">¶</a></h3><p>For SQL storage setup in Ax, read through the <a href="https://ax.dev/docs/storage.html">"Storage" documentation page</a>.</p>
+<p>Note that unlike an Ax experiment, a generation strategy does not have a name or another unique identifier. Therefore, a generation strategy is stored in association with experiment and can be retrieved by the associated experiment's name.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [8]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.storage.sqa_store.save</span> <span class="kn">import</span> <span class="n">save_generation_strategy</span><span class="p">,</span> <span class="n">save_experiment</span>
+<span class="kn">from</span> <span class="nn">ax.storage.sqa_store.load</span> <span class="kn">import</span> <span class="n">load_experiment</span><span class="p">,</span> <span class="n">load_generation_strategy_by_experiment_name</span>
+
+<span class="kn">from</span> <span class="nn">ax.storage.sqa_store.db</span> <span class="kn">import</span> <span class="n">init_engine_and_session_factory</span><span class="p">,</span><span class="n">get_engine</span><span class="p">,</span> <span class="n">create_all_tables</span>
+<span class="kn">from</span> <span class="nn">ax.storage.sqa_store.load</span> <span class="kn">import</span> <span class="n">load_experiment</span>
+<span class="kn">from</span> <span class="nn">ax.storage.sqa_store.save</span> <span class="kn">import</span> <span class="n">save_experiment</span>
+
+<span class="n">init_engine_and_session_factory</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s1">'sqlite:///foo2.db'</span><span class="p">)</span>
+
+<span class="n">engine</span> <span class="o">=</span> <span class="n">get_engine</span><span class="p">()</span>
+<span class="n">create_all_tables</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+
+<span class="n">save_experiment</span><span class="p">(</span><span class="n">experiment</span><span class="p">)</span>
+<span class="n">save_generation_strategy</span><span class="p">(</span><span class="n">gs</span><span class="p">)</span>
+
+<span class="n">experiment</span> <span class="o">=</span> <span class="n">load_experiment</span><span class="p">(</span><span class="n">experiment_name</span><span class="o">=</span><span class="n">experiment</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="n">gs</span> <span class="o">=</span> <span class="n">load_generation_strategy_by_experiment_name</span><span class="p">(</span>
+    <span class="n">experiment_name</span><span class="o">=</span><span class="n">experiment</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> 
+    <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>  <span class="c1"># Can optionally specify experiment object to avoid loading it from database twice</span>
+<span class="p">)</span>
+<span class="n">gs</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 04-25 21:28:51] ax.core.experiment: The is_test flag has been set to True. This flag is meant purely for development and integration testing purposes. If you are running a live experiment, please set this flag to False
+/home/runner/work/Ax/Ax/ax/storage/sqa_store/load.py:231: SAWarning: TypeDecorator JSONEncodedText() will not produce a cache key because the ``cache_ok`` attribute is not set to True.  This can have significant performance implications including some performance degradations in comparison to prior SQLAlchemy versions.  Set this attribute to True if this type object's state is safe to use in a cache key, or False to disable this warning. (Background on this error at: https://sqlalche.me/e/14/cprf)
+  .filter_by(name=experiment_name)
+[INFO 04-25 21:28:52] ax.core.experiment: The is_test flag has been set to True. This flag is meant purely for development and integration testing purposes. If you are running a live experiment, please set this flag to False
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt output_prompt">Out[8]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>GenerationStrategy(name='Sobol+GPEI', steps=[Sobol for 5 trials, GPEI for subsequent trials])</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3B.-JSON-storage">3B. JSON storage<a class="anchor-link" href="#3B.-JSON-storage">¶</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [9]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.storage.json_store.encoder</span> <span class="kn">import</span> <span class="n">object_to_json</span>
+<span class="kn">from</span> <span class="nn">ax.storage.json_store.decoder</span> <span class="kn">import</span> <span class="n">object_from_json</span>
+
+<span class="n">gs_json</span> <span class="o">=</span> <span class="n">object_to_json</span><span class="p">(</span><span class="n">gs</span><span class="p">)</span>  <span class="c1"># Can be written to a file or string via `json.dump` etc.</span>
+<span class="n">gs</span> <span class="o">=</span> <span class="n">object_from_json</span><span class="p">(</span><span class="n">gs_json</span><span class="p">)</span>  <span class="c1"># Decoded back from JSON (can be loaded from file, string via `json.load` etc.)</span>
+<span class="n">gs</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 04-25 21:28:52] ax.core.experiment: The is_test flag has been set to True. This flag is meant purely for development and integration testing purposes. If you are running a live experiment, please set this flag to False
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt output_prompt">Out[9]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>GenerationStrategy(name='Sobol+GPEI', steps=[Sobol for 5 trials, GPEI for subsequent trials])</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="3.-Advanced-considerations">3. Advanced considerations<a class="anchor-link" href="#3.-Advanced-considerations">¶</a></h2><p>Below is a list of important "gotchas" of using generation strategy (especially outside of the higher-level APIs like the Service API or the <code>Scheduler</code>):</p>
+<h3 id="3A.-GenerationStrategy.gen-produces-GeneratorRun-s,-not-trials">3A. <code>GenerationStrategy.gen</code> produces <code>GeneratorRun</code>-s, not trials<a class="anchor-link" href="#3A.-GenerationStrategy.gen-produces-GeneratorRun-s,-not-trials">¶</a></h3><p>Since <code>GenerationStrategy.gen</code> mimics <code>ModelBridge.gen</code> and allows for human-in-the-loop usage mode, a call to <code>gen</code> produces a <code>GeneratorRun</code>, which can then be added (or altered before addition or not added at all) to a <code>Trial</code> or <code>BatchTrial</code> on a given experiment. So it's important to add the generator run to a trial, since otherwise it will not be attached to the experiment on its own.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [10]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">generator_run</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">pending_observations</span><span class="o">=</span><span class="n">get_pending_observation_features</span><span class="p">(</span><span class="n">experiment</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">experiment</span><span class="o">.</span><span class="n">new_trial</span><span class="p">(</span><span class="n">generator_run</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[10]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>Trial(experiment_name='branin_test_experiment', index=1, status=TrialStatus.CANDIDATE, arm=Arm(name='1_0', parameters={'x1': 9.789730375632644, 'x2': 3.671116358600557}))</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3B.-model_kwargs-elements-that-do-not-define-serialization-logic-in-Ax">3B. <code>model_kwargs</code> elements that do not define serialization logic in Ax<a class="anchor-link" href="#3B.-model_kwargs-elements-that-do-not-define-serialization-logic-in-Ax">¶</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Note that passing objects that are not yet serializable in Ax (e.g. a BoTorch <code>Prior</code> object) as part of <code>GenerationStep.model_kwargs</code> or <code>GenerationStep.model_gen_kwargs</code> will prevent correct generation strategy storage. If this becomes a problem, feel free to open an issue on our Github: <a href="https://github.com/facebook/Ax/issues">https://github.com/facebook/Ax/issues</a> to get help with adding storage support for a given object.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3C.-Why-prefer-Models-enum-entries-over-a-factory-function?">3C. Why prefer <code>Models</code> enum entries over a factory function?<a class="anchor-link" href="#3C.-Why-prefer-Models-enum-entries-over-a-factory-function?">¶</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ol>
+<li><strong>Storage potential:</strong> a call to, for example, <code>Models.GPEI</code> captures all arguments to the model and model bridge and stores them on a generator runs, subsequently produced by the model. Since the capturing logic is part of <code>Models.__call__</code> function, it is not present in a factory function. Furthermore, there is no safe and flexible way to serialize callables in Python.</li>
+<li><strong>Standardization:</strong> While a 'factory function' is by default more flexible (accepts any specified inputs and produces a <code>ModelBridge</code> with an underlying <code>Model</code> instance based on them), it is not standard in terms of its inputs. <code>Models</code> introduces a standardized interface, making it easy to adapt any example to one's specific case.</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3D.-How-can-I-request-more-modeling-setups-added-to-Models-and-natively-supported-in-Ax?">3D. How can I request more modeling setups added to <code>Models</code> and natively supported in Ax?<a class="anchor-link" href="#3D.-How-can-I-request-more-modeling-setups-added-to-Models-and-natively-supported-in-Ax?">¶</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Please open a <a href="https://github.com/facebook/Ax/issues">Github issue</a> to request a new modeling setup in Ax (or for any other questions or requests).</p>
+</div>
+</div>
+</div>
+</div></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.2.5/files/generation_strategy.ipynb" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Jupyter Notebook</a></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.2.5/files//generation_strategy.py" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Source Code</a></div><div class="tutorialRuntime"><p>Total runtime of script: 3.5 seconds.</p></div></div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>
