@@ -307,44 +307,6 @@ def get_best_parameters_from_model_predictions_with_trial_index(
     return None
 
 
-def get_best_parameters_from_model_predictions(
-    experiment: Experiment,
-    models_enum: type[ModelRegistryBase],
-    trial_indices: Iterable[int] | None = None,
-) -> tuple[TParameterization, TModelPredictArm | None] | None:
-    """Given an experiment, returns the best predicted parameterization and
-    corresponding prediction based on the most recent Trial with predictions. If no
-    trials have predictions returns None.
-
-    Only some models return predictions. For instance GPEI does while Sobol does not.
-
-    TModelPredictArm is of the form:
-        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
-
-    Args:
-        experiment: Experiment, on which to identify best raw objective arm.
-        models_enum: Registry of all models that may be in the experiment's
-            generation strategy.
-        optimization_config: Optimization config to use in place of the one stored
-            on the experiment.
-        trial_indices: Indices of trials for which to retrieve data. If None will
-            retrieve data from all available trials.
-
-    Returns:
-        Tuple of parameterization and model predictions for it.
-    """
-    res = get_best_parameters_from_model_predictions_with_trial_index(
-        experiment=experiment, models_enum=models_enum, trial_indices=trial_indices
-    )
-
-    if res is None:
-        return None
-
-    _, parameterization, vals = res
-
-    return parameterization, vals
-
-
 def get_best_by_raw_objective_with_trial_index(
     experiment: Experiment,
     optimization_config: OptimizationConfig | None = None,
