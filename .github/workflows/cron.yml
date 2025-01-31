@@ -40,6 +40,8 @@ jobs:
     name: Publish latest website
     uses: ./.github/workflows/publish_website.yml
     secrets: inherit
+    with:
+      run_tutorials: true
 
   deploy-test-pypi:
 

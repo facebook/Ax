@@ -58,6 +58,7 @@ jobs:
     uses: ./.github/workflows/publish_website.yml
     with:
       new_version: ${{ github.event.release.tag_name }}
+      run_tutorials: true
     secrets: inherit
 
   deploy:
