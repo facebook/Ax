@@ -9,7 +9,7 @@ on:
       run_tutorials:
         required: false
         type: boolean
-        default: false
+        default: true
   workflow_dispatch:
 
 
