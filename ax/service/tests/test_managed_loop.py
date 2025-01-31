@@ -271,9 +271,10 @@ class TestManagedLoop(TestCase):
         self.assertIn("objective", vals[1]["objective"])
 
     @patch(
-        "ax.service.managed_loop.get_best_parameters_from_model_predictions",
+        "ax.service.managed_loop."
+        "get_best_parameters_from_model_predictions_with_trial_index",
         autospec=True,
-        return_value=({"x1": 2.0, "x2": 3.0}, ({"a": 9.0}, {"a": {"a": 3.0}})),
+        return_value=(0, {"x1": 2.0, "x2": 3.0}, ({"a": 9.0}, {"a": {"a": 3.0}})),
     )
     @mock_botorch_optimize
     def test_optimize_with_predictions(self, _) -> None:

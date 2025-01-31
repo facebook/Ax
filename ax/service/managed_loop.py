@@ -32,7 +32,7 @@ from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.service.utils.best_point import (
-    get_best_parameters_from_model_predictions,
+    get_best_parameters_from_model_predictions_with_trial_index,
     get_best_raw_objective_point,
 )
 from ax.service.utils.instantiation import (
@@ -250,11 +250,12 @@ class OptimizationLoop:
         """Obtains the best point encountered in the course
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
-        model_predictions = get_best_parameters_from_model_predictions(
+        best_point = get_best_parameters_from_model_predictions_with_trial_index(
             experiment=self.experiment, models_enum=Models
         )
-        if model_predictions is not None:
-            return model_predictions
+        if best_point is not None:
+            _, parameterizations, predictions = best_point
+            return parameterizations, predictions
 
         # Could not find through model, default to using raw objective.
         parameterization, values = get_best_raw_objective_point(
