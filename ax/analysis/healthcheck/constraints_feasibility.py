@@ -117,7 +117,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             raise UserInputError(
                 "ConstraintsFeasibility requires a GenerationStrategy which is "
                 "in a state where the current model supports prediction. "
-                "The current model is {model._model_key} and does not support "
+                f"The current model is {model._model_key} and does not support "
                 "prediction."
             )
         optimization_config = assert_is_instance(
