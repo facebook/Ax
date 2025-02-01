@@ -428,9 +428,11 @@ class TestCase(fake_filesystem_unittest.TestCase):
             else first != second
         ):
             raise self.failureException(
-                "Encountered unequal objects. "
-                "Attempting in-depth comparison; note that this recurs through the"
-                " attributes of the objects being compared multiple times!\n\n"
+                "Encountered unequal objects. This Ax utility will now attempt an "
+                "in-depth comparison of the objects to print out the actually "
+                "unequal fields within them. Note that the resulting printout is "
+                "a nested comparison, and you'll find the actual unequal fields at "
+                "the very bottom. Don't be scared of the long printout : )\n\n"
                 + _build_comparison_str(
                     first=first, second=second, skip_db_id_check=skip_db_id_check
                 ),
