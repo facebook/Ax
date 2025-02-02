@@ -515,16 +515,20 @@ class Metric(SortableBase, SerializationMixin):
             result for result in results.values() if isinstance(result, Ok)
         ]
         if len(oks) < len(results):
-            # If no critical_metric_names supplied all metrics to be treated as
+            # If critical_metric_names are not supplied all metrics to be treated as
             # critical
-            critical_metric_names = critical_metric_names or list(results.keys())
+            critical_metric_names = (
+                list(results.keys())
+                if critical_metric_names is None
+                else critical_metric_names
+            )
 
             # Noncritical Errs should be brought to the user's attention via warnings
             # but not raise an Exception
             noncritical_errs: list[Err[Data, MetricFetchE]] = [
                 result
                 for metric_name, result in results.items()
-                if isinstance(result, Err) and metric_name in critical_metric_names
+                if isinstance(result, Err) and metric_name not in critical_metric_names
             ]
 
             for err in noncritical_errs:

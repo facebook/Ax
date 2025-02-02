@@ -500,7 +500,12 @@ class BaseTrial(ABC, SortableBase):
             trial_index=self.index, metrics=metrics, **kwargs
         )
 
-    def fetch_data(self, metrics: list[Metric] | None = None, **kwargs: Any) -> Data:
+    def fetch_data(
+        self,
+        metrics: list[Metric] | None = None,
+        critical_metric_names: list[str] | None = None,
+        **kwargs: Any,
+    ) -> Data:
         """Fetch data for this trial for all metrics on experiment.
 
         # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
@@ -520,7 +525,8 @@ class BaseTrial(ABC, SortableBase):
         )
 
         return base_metric_cls._unwrap_trial_data_multi(
-            results=self.fetch_data_results(metrics=metrics, **kwargs)
+            results=self.fetch_data_results(metrics=metrics, **kwargs),
+            critical_metric_names=critical_metric_names,
         )
 
     def lookup_data(self) -> Data:
