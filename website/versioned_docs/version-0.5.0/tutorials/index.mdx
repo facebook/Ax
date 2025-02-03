@@ -1,0 +1,40 @@
+---
+title: Welcome to Ax Tutorials
+sidebar_label: Overview
+---
+
+Here you can learn about the structure and applications of Ax from examples.
+
+**Our 3 API tutorials:** [Loop](/docs/tutorials/gpei_hartmann_loop), [Service](/docs/tutorials/gpei_hartmann_service), and [Developer](/docs/tutorials/gpei_hartmann_developer) — are a good place to start. Each tutorial showcases optimization on a constrained Hartmann6 problem, with the Loop API being the simplest to use and the Developer API being the most customizable.
+
+**NOTE: We recommend the [Service API](/docs/tutorials/gpei_hartmann_service) for the vast majority of use cases.** This API provides an ideal balance of flexibility and simplicity for most users, and we are in the process of consolidating Ax usage around it more formally.
+
+**Further, we explore the different components available in Ax in more detail.** {' '} The components explored below serve to set up an experiment, visualize its results, configure an optimization algorithm, run an entire experiment in a managed closed loop, and combine BoTorch components in Ax in a modular way.
+
+*   [Visualizations](/docs/tutorials/visualizations) illustrates the different plots available to view and understand your results.
+
+*   [GenerationStrategy](/docs/tutorials/generation_strategy) steps through setting up a way to specify the optimization algorithm (or multiple). A `GenerationStrategy` is an important component of Service API and the `Scheduler`.
+
+*   [Scheduler](/docs/tutorials/scheduler) demonstrates an example of a managed and configurable closed-loop optimization, conducted in an asyncronous fashion. `Scheduler` is a manager abstraction in Ax that deploys trials, polls them, and uses their results to produce more trials.
+
+*   [Modular `BoTorchModel`](/docs/tutorials/modular_botax) walks though a new beta-feature — an improved interface between Ax and{' '} [BoTorch](https://botorch.org/) — which allows for combining arbitrary BoTorch components like `AcquisitionFunction`, `Model`, `AcquisitionObjective` etc. into a single{' '} `Model` in Ax.
+
+**Our other Bayesian Optimization tutorials include:**
+
+*   [Hyperparameter Optimization for PyTorch](/docs/tutorials/tune_cnn_service) provides an example of hyperparameter optimization with Ax and integration with an external ML library.
+
+*   [Hyperparameter Optimization on SLURM via SubmitIt](/docs/tutorials/submitit) shows how to use the AxClient to schedule jobs and tune hyperparameters on a Slurm cluster.
+
+*   [Multi-Task Modeling](/docs/tutorials/multi_task) illustrates multi-task Bayesian Optimization on a constrained synthetic Hartmann6 problem.
+
+*   [Multi-Objective Optimization](/docs/tutorials/multiobjective_optimization) demonstrates Multi-Objective Bayesian Optimization on a synthetic Branin-Currin test function.
+
+*   [Trial-Level Early Stopping](/docs/tutorials/early_stopping) shows how to use trial-level early stopping on an ML training job to save resources and iterate faster.
+
+{/* *   [Benchmarking Suite](/docs/tutorials/benchmarking_suite_example) demonstrates how to use the Ax benchmarking suite to compare Bayesian Optimization algorithm performances and generate a comparative report with visualizations. */}
+
+For experiments done in a real-life setting, refer to our field experiments tutorials:
+
+*   [Bandit Optimization](/docs/tutorials/factorial) shows how Thompson Sampling can be used to intelligently reallocate resources to well-performing configurations in real-time.
+
+*   [Human-in-the-Loop Optimization](/docs/tutorials/human_in_the_loop) walks through manually influencing the course of optimization in real-time.

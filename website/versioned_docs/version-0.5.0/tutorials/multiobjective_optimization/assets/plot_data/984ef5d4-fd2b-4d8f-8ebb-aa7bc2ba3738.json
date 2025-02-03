@@ -1,0 +1,910 @@
+{
+  "config": {
+    "linkText": "Export to plot.ly",
+    "plotlyServerURL": "https://plot.ly",
+    "showLink": false
+  },
+  "data": [
+    {
+      "error_x": {
+        "array": {
+          "bdata": "0lSGRy3xrz/SVIZHLfGvP9JUhkct8a8/0lSGRy3xrz/SVIZHLfGvP9JUhkct8a8/0lSGRy3xrz/SVIZHLfGvP9JUhkct8a8/0lSGRy3xrz/SVIZHLfGvP9JUhkct8a8/olV+Ry3xrz+iVX5HLfGvPysroLhTsq8/KWkTwX8E3j+9sVGd6e7wPyAgBbgrC/s/MZK1+NZcAkAzcH4HC6AcQA==",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "thickness": 2,
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "XEA1CwUmcT9cQDULBSZxP1xANQsFJnE/XEA1CwUmcT9cQDULBSZxP1xANQsFJnE/XEA1CwUmcT9cQDULBSZxP1xANQsFJnE/XEA1CwUmcT9cQDULBSZxP1xANQsFJnE/XEA1CwUmcT9cQDULBSZxP3qJ6HewYXE/2e4VOuWsoD/eSc5/7MayP45ViNEJ6b0/ml0/2GRBxD/9JC/r0DnVPw==",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "thickness": 2,
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "legendgroup": "mean",
+      "marker": {
+        "color": "rgba(128,177,211,1)"
+      },
+      "mode": "markers",
+      "name": "mean",
+      "text": [
+        "<b>Parameterization 0</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 1</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 2</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 3</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 4</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 5</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 6</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 7</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 8</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 9</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 10</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 11</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 12</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 13</b><br>a: -17.506 [-17.569, -17.444]<br>b: -1.181 [-1.185, -1.177]<br><br><em>Parameterization:</em><br>x1: 0.0<br>x2: 1.0",
+        "<b>Parameterization 14</b><br>a: -12.451 [-12.513, -12.389]<br>b: -1.872 [-1.876, -1.867]<br><br><em>Parameterization:</em><br>x1: 0.016972578051066854<br>x2: 1.0",
+        "<b>Parameterization 15</b><br>a: -8.705 [-9.174, -8.236]<br>b: -2.505 [-2.538, -2.473]<br><br><em>Parameterization:</em><br>x1: 0.0327289295030021<br>x2: 1.0",
+        "<b>Parameterization 16</b><br>a: -6.326 [-7.385, -5.268]<br>b: -3.028 [-3.101, -2.955]<br><br><em>Parameterization:</em><br>x1: 0.046203628369669195<br>x2: 1.0",
+        "<b>Parameterization 17</b><br>a: -4.955 [-6.645, -3.265]<br>b: -3.449 [-3.566, -3.332]<br><br><em>Parameterization:</em><br>x1: 0.05763338896447364<br>x2: 1.0",
+        "<b>Parameterization 18</b><br>a: -4.28 [-6.575, -1.984]<br>b: -3.787 [-3.945, -3.628]<br><br><em>Parameterization:</em><br>x1: 0.06733501692258792<br>x2: 1.0",
+        "<b>Parameterization 19</b><br>a: -0.51 [-7.666, 6.647]<br>b: -9.507 [-9.838, -9.175]<br><br><em>Parameterization:</em><br>x1: 0.9598580694440328<br>x2: 0.19753801245617147"
+      ],
+      "type": "scatter",
+      "x": [
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -17.50633277672459,
+        -12.45086866283382,
+        -8.705146781569539,
+        -6.326249545760845,
+        -4.954950958321071,
+        -4.279669859552705,
+        -0.5096403316085016
+      ],
+      "y": [
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.1812154213724844,
+        -1.871620669131465,
+        -2.5053532831375898,
+        -3.027987658581726,
+        -3.449268287090475,
+        -3.7865737522211926,
+        -9.506647388472427
+      ]
+    }
+  ],
+  "layout": {
+    "height": 500,
+    "hovermode": "closest",
+    "legend": {
+      "orientation": "h"
+    },
+    "margin": {
+      "b": 75,
+      "l": 225,
+      "pad": 4,
+      "t": 75
+    },
+    "template": {
+      "data": {
+        "bar": [
+          {
+            "error_x": {
+              "color": "#2a3f5f"
+            },
+            "error_y": {
+              "color": "#2a3f5f"
+            },
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "bar"
+          }
+        ],
+        "barpolar": [
+          {
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "barpolar"
+          }
+        ],
+        "carpet": [
+          {
+            "aaxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "baxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "type": "carpet"
+          }
+        ],
+        "choropleth": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "choropleth"
+          }
+        ],
+        "contour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "contour"
+          }
+        ],
+        "contourcarpet": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "contourcarpet"
+          }
+        ],
+        "heatmap": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "heatmap"
+          }
+        ],
+        "histogram": [
+          {
+            "marker": {
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "histogram"
+          }
+        ],
+        "histogram2d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2d"
+          }
+        ],
+        "histogram2dcontour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2dcontour"
+          }
+        ],
+        "mesh3d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "mesh3d"
+          }
+        ],
+        "parcoords": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "parcoords"
+          }
+        ],
+        "pie": [
+          {
+            "automargin": true,
+            "type": "pie"
+          }
+        ],
+        "scatter": [
+          {
+            "fillpattern": {
+              "fillmode": "overlay",
+              "size": 10,
+              "solidity": 0.2
+            },
+            "type": "scatter"
+          }
+        ],
+        "scatter3d": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatter3d"
+          }
+        ],
+        "scattercarpet": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattercarpet"
+          }
+        ],
+        "scattergeo": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergeo"
+          }
+        ],
+        "scattergl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergl"
+          }
+        ],
+        "scattermap": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermap"
+          }
+        ],
+        "scattermapbox": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermapbox"
+          }
+        ],
+        "scatterpolar": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolar"
+          }
+        ],
+        "scatterpolargl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolargl"
+          }
+        ],
+        "scatterternary": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterternary"
+          }
+        ],
+        "surface": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "surface"
+          }
+        ],
+        "table": [
+          {
+            "cells": {
+              "fill": {
+                "color": "#EBF0F8"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "header": {
+              "fill": {
+                "color": "#C8D4E3"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "type": "table"
+          }
+        ]
+      },
+      "layout": {
+        "annotationdefaults": {
+          "arrowcolor": "#2a3f5f",
+          "arrowhead": 0,
+          "arrowwidth": 1
+        },
+        "autotypenumbers": "strict",
+        "coloraxis": {
+          "colorbar": {
+            "outlinewidth": 0,
+            "ticks": ""
+          }
+        },
+        "colorscale": {
+          "diverging": [
+            [
+              0,
+              "#8e0152"
+            ],
+            [
+              0.1,
+              "#c51b7d"
+            ],
+            [
+              0.2,
+              "#de77ae"
+            ],
+            [
+              0.3,
+              "#f1b6da"
+            ],
+            [
+              0.4,
+              "#fde0ef"
+            ],
+            [
+              0.5,
+              "#f7f7f7"
+            ],
+            [
+              0.6,
+              "#e6f5d0"
+            ],
+            [
+              0.7,
+              "#b8e186"
+            ],
+            [
+              0.8,
+              "#7fbc41"
+            ],
+            [
+              0.9,
+              "#4d9221"
+            ],
+            [
+              1,
+              "#276419"
+            ]
+          ],
+          "sequential": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ],
+          "sequentialminus": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ]
+        },
+        "colorway": [
+          "#636efa",
+          "#EF553B",
+          "#00cc96",
+          "#ab63fa",
+          "#FFA15A",
+          "#19d3f3",
+          "#FF6692",
+          "#B6E880",
+          "#FF97FF",
+          "#FECB52"
+        ],
+        "font": {
+          "color": "#2a3f5f"
+        },
+        "geo": {
+          "bgcolor": "white",
+          "lakecolor": "white",
+          "landcolor": "#E5ECF6",
+          "showlakes": true,
+          "showland": true,
+          "subunitcolor": "white"
+        },
+        "hoverlabel": {
+          "align": "left"
+        },
+        "hovermode": "closest",
+        "mapbox": {
+          "style": "light"
+        },
+        "paper_bgcolor": "white",
+        "plot_bgcolor": "#E5ECF6",
+        "polar": {
+          "angularaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "radialaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "scene": {
+          "xaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "yaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "zaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          }
+        },
+        "shapedefaults": {
+          "line": {
+            "color": "#2a3f5f"
+          }
+        },
+        "ternary": {
+          "aaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "baxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "caxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "title": {
+          "x": 0.05
+        },
+        "xaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        },
+        "yaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        }
+      }
+    },
+    "title": {
+      "text": "Pareto Frontier"
+    },
+    "width": 750,
+    "xaxis": {
+      "ticksuffix": "",
+      "title": {
+        "text": "a"
+      },
+      "zeroline": true
+    },
+    "yaxis": {
+      "ticksuffix": "",
+      "title": {
+        "text": "b"
+      },
+      "zeroline": true
+    }
+  }
+}

@@ -1,0 +1,1381 @@
+{
+  "config": {
+    "linkText": "Export to plot.ly",
+    "plotlyServerURL": "https://plot.ly",
+    "showLink": false
+  },
+  "data": [
+    {
+      "hoverinfo": "none",
+      "line": {
+        "color": "black",
+        "dash": "dot",
+        "width": 2
+      },
+      "mode": "lines",
+      "showlegend": false,
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        433.38800648056167,
+        606.5388846970454
+      ],
+      "xaxis": "x",
+      "y": [
+        433.38800648056167,
+        606.5388846970454
+      ],
+      "yaxis": "y"
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "N/akV3yCAECMxCDJgT0TQAw6P/28jRRAgKWFsW6OFkAyMwS689cWQFTcodf0SRZAZqQpvVnbFkDywtl/eYIWQN4Ivx6vIhZAKbV1bpKaFkBfEA7D/DQVQOjCGqXseBRAA26Id+RoGEDCsUDDx0oWQPXJEOVWVRZArJ2DkxDsFkCBdvwkS7IVQDoE3ciaYhhAWYBvSUAnF0CY8O4feNUWQIrO8YDnwBNAu/Ykgv5kF0Cy2NdpanYXQLJY4iW87xdAFVXjiIZqFUADyg1nIYwXQLS5RD+gZBdAPBRftAoyF0DKlpyDPVoVQNLnj9TrLhVAORM61RDKF0Df2n9GlRMWQOpESnRBtBJAKvd4Whh1GECrtHxCgogYQOrrzMBTFBdA6xBFH2WXF0C5oV4nK4sXQNMWuDSuixdAvpyxJdkcF0AvQe7rODYXQNPM+kWJ8xRAISfc/xSsFUC6rinPiRsWQMgPuxBALhZAh4DpdYLDGEDfpbLJi0wWQDPC6BJhXxVA+f6r14doFkDYTrj0ghQWQHqR7rRvMBdA4/PY8RZPF0C3enVQGtMVQOWWlmQrFxdABNLGdlevFkAeSLlFhP4VQFCr2r3UeBZAH8zQovJzF0ApGB+GPk0VQPX37hU0mhZAaObxHan0F0CNtOzkjFMYQGjxx3bhVBlAUD//xn9DFEBjFENVMKsUQA==",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "yKIaN5IsQUCtPZttsgoyQKyHKtJ41CZAgXWbHmxVJUAW2u7KRIoqQDzz1JqYOSpABDkGp27WLUCuslr5EC4zQMTKzelq0TlAWk+a3kKiMEADcroiFuwlQIXYCOz+TShAZduLoKWMI0Dxk7Kgl9EnQExbqqxoViNATGA1Bgy9JUCdanBufxI2QGSw29FKpSJAPiUeHjOvKkCpYmPb5xczQEktnbitNzxApXLUgfZcJECiWhYdwTwjQPLMEWLQYy5AczkQQV7bMUDquKL7Q+UrQFGiy4PpZCRA8cCqZhbzL0Ae1Y5NPdEzQBDjTWZHzC1AT7akc1fiN0AJnqeGDvEmQLridGklEzpA/MqlDpPcNECw/88VGXIsQPR5lDFW1DhAW8g8t9BOJkDhYlgMV3coQAZ20mfmk0JA/OVHfqAXMED+cuWsQw0wQNttrvOZBSdAIYK6FW38J0AF0wyswcgqQOHS1POVIiZAnbb4vqTdM0CMzvKBrp80QM821PbiGCxARF/PCiSpN0BAdsNq1bkoQI9lkIyZ9S1A4d3Z8U8hKkA8Ph3pAygpQLQbnjHyxTJAnBXT7tXMKEDTxrj9uZ82QA+CZQMqHDBAHXKfVVOtIUAYcEwlcm4uQJ9Jzf+IGCtAmYn1fsZDMUCfy82ggdAoQD8rIeaBAjRABKf7MfsWOkCuSPgII+QyQA==",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(128,177,211,1)"
+      },
+      "mode": "markers",
+      "name": "In-sample",
+      "showlegend": true,
+      "text": [
+        "<b>Arm status_quo</b><br><br>Actual: 560.647 [558.584, 562.711]<br>Predicted: 545.005 [510.657, 579.353]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_0</b><br><br>Actual: 464.447 [459.637, 469.257]<br>Predicted: 473.912 [455.870, 491.954]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_1</b><br><br>Actual: 495.763 [490.625, 500.901]<br>Predicted: 514.787 [503.372, 526.202]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_2</b><br><br>Actual: 542.303 [536.664, 547.942]<br>Predicted: 542.204 [531.537, 552.871]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_3</b><br><br>Actual: 548.235 [542.524, 553.945]<br>Predicted: 547.803 [534.533, 561.073]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_4</b><br><br>Actual: 544.43 [538.857, 550.002]<br>Predicted: 543.982 [530.870, 557.095]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_5</b><br><br>Actual: 549.051 [543.337, 554.765]<br>Predicted: 545.967 [531.048, 560.886]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_6</b><br><br>Actual: 540.741 [535.114, 546.369]<br>Predicted: 539.02 [519.840, 558.200]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_7</b><br><br>Actual: 537.722 [532.188, 543.256]<br>Predicted: 536.268 [510.450, 562.086]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_8</b><br><br>Actual: 546.857 [541.206, 552.508]<br>Predicted: 538.456 [521.822, 555.089]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_9</b><br><br>Actual: 515.907 [510.606, 521.209]<br>Predicted: 511.434 [500.473, 522.395]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_10</b><br><br>Actual: 496.954 [491.835, 502.072]<br>Predicted: 502.093 [489.941, 514.245]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_11</b><br><br>Actual: 577.68 [571.578, 583.783]<br>Predicted: 571.794 [562.020, 581.569]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_12</b><br><br>Actual: 543.44 [537.867, 549.013]<br>Predicted: 523.975 [512.065, 535.884]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_13</b><br><br>Actual: 544.589 [539.006, 550.172]<br>Predicted: 552.062 [542.393, 561.731]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_14</b><br><br>Actual: 556.068 [550.338, 561.799]<br>Predicted: 558.832 [547.963, 569.702]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_15</b><br><br>Actual: 517.029 [511.605, 522.453]<br>Predicted: 555.583 [533.511, 577.656]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_16</b><br><br>Actual: 574.527 [568.431, 580.624]<br>Predicted: 581.188 [571.865, 590.511]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_17</b><br><br>Actual: 553.942 [548.153, 559.730]<br>Predicted: 557.154 [543.811, 570.496]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_18</b><br><br>Actual: 553.026 [547.317, 558.734]<br>Predicted: 545.39 [526.297, 564.484]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_19</b><br><br>Actual: 477.576 [472.637, 482.514]<br>Predicted: 472.6 [444.382, 500.817]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_20</b><br><br>Actual: 561.147 [555.298, 566.995]<br>Predicted: 555.977 [545.795, 566.158]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_21</b><br><br>Actual: 563.654 [557.788, 569.520]<br>Predicted: 557.885 [548.266, 567.503]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_22</b><br><br>Actual: 570.823 [564.839, 576.807]<br>Predicted: 563.91 [548.715, 579.105]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_23</b><br><br>Actual: 524.368 [519.014, 529.722]<br>Predicted: 527.078 [509.221, 544.934]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_24</b><br><br>Actual: 565.626 [559.740, 571.513]<br>Predicted: 566.248 [552.301, 580.196]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_25</b><br><br>Actual: 564.735 [558.886, 570.583]<br>Predicted: 561.728 [551.530, 571.925]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_26</b><br><br>Actual: 562.617 [556.819, 568.416]<br>Predicted: 565.643 [549.669, 581.618]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_27</b><br><br>Actual: 521.489 [516.150, 526.827]<br>Predicted: 517.003 [497.185, 536.820]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_28</b><br><br>Actual: 518.569 [513.273, 523.865]<br>Predicted: 524.826 [509.927, 539.725]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_29</b><br><br>Actual: 569.49 [563.542, 575.437]<br>Predicted: 560.525 [536.641, 584.409]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_30</b><br><br>Actual: 534.884 [529.365, 540.403]<br>Predicted: 528.59 [517.119, 540.061]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_31</b><br><br>Actual: 453.066 [448.390, 457.742]<br>Predicted: 459.463 [433.388, 485.538]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_32</b><br><br>Actual: 579.876 [573.761, 585.990]<br>Predicted: 571.524 [550.662, 592.385]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_33</b><br><br>Actual: 579.549 [573.416, 585.682]<br>Predicted: 574.142 [559.919, 588.365]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_34</b><br><br>Actual: 538.84 [533.071, 544.610]<br>Predicted: 561.419 [536.590, 586.249]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_35</b><br><br>Actual: 564.092 [558.194, 569.989]<br>Predicted: 567.065 [555.911, 578.219]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_36</b><br><br>Actual: 563.958 [558.072, 569.843]<br>Predicted: 566.467 [554.234, 578.700]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_37</b><br><br>Actual: 565.501 [559.615, 571.388]<br>Predicted: 536.853 [499.698, 574.008]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_38</b><br><br>Actual: 553.54 [547.762, 559.318]<br>Predicted: 560.921 [544.829, 577.014]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_39</b><br><br>Actual: 559.704 [553.901, 565.507]<br>Predicted: 560.269 [544.217, 576.321]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_40</b><br><br>Actual: 512.301 [507.063, 517.538]<br>Predicted: 497.919 [486.408, 509.430]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_41</b><br><br>Actual: 531.739 [526.321, 537.157]<br>Predicted: 533.18 [521.187, 545.173]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_42</b><br><br>Actual: 533.3 [527.773, 538.826]<br>Predicted: 533.193 [519.801, 546.586]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_43</b><br><br>Actual: 540.156 [534.611, 545.701]<br>Predicted: 542.457 [531.390, 553.525]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_44</b><br><br>Actual: 585.784 [579.593, 591.975]<br>Predicted: 586.673 [566.807, 606.539]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_45</b><br><br>Actual: 543.492 [537.917, 549.066]<br>Predicted: 552.048 [531.424, 572.671]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_46</b><br><br>Actual: 521.844 [516.500, 527.187]<br>Predicted: 511.313 [497.264, 525.361]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_47</b><br><br>Actual: 541.149 [535.547, 546.751]<br>Predicted: 548.419 [524.759, 572.080]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_48</b><br><br>Actual: 535.163 [529.643, 540.683]<br>Predicted: 534.062 [521.699, 546.425]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_49</b><br><br>Actual: 558.937 [553.140, 564.735]<br>Predicted: 560.715 [545.736, 575.695]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_50</b><br><br>Actual: 562.709 [556.882, 568.536]<br>Predicted: 556.638 [543.573, 569.704]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_51</b><br><br>Actual: 534.877 [529.421, 540.333]<br>Predicted: 544.124 [531.546, 556.702]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_52</b><br><br>Actual: 556.643 [550.870, 562.416]<br>Predicted: 542.665 [523.892, 561.438]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_53</b><br><br>Actual: 548.388 [542.716, 554.059]<br>Predicted: 554.599 [542.199, 566.999]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_54</b><br><br>Actual: 540.355 [534.856, 545.853]<br>Predicted: 539.466 [516.842, 562.090]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_55</b><br><br>Actual: 543.351 [537.733, 548.969]<br>Predicted: 547.11 [531.000, 563.220]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_56</b><br><br>Actual: 561.015 [555.152, 566.879]<br>Predicted: 566.019 [557.180, 574.857]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_57</b><br><br>Actual: 515.547 [510.222, 520.872]<br>Predicted: 526.225 [511.009, 541.441]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_58</b><br><br>Actual: 547.101 [541.451, 552.752]<br>Predicted: 542.983 [529.435, 556.531]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_59</b><br><br>Actual: 572.732 [566.743, 578.721]<br>Predicted: 565.312 [548.047, 582.576]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_60</b><br><br>Actual: 577.466 [571.384, 583.548]<br>Predicted: 573.667 [561.260, 586.074]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_61</b><br><br>Actual: 591.711 [585.378, 598.044]<br>Predicted: 577.015 [557.005, 597.025]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_62</b><br><br>Actual: 486.998 [481.932, 492.064]<br>Predicted: 499.541 [473.451, 525.630]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_63</b><br><br>Actual: 506.364 [501.196, 511.531]<br>Predicted: 516.112 [497.221, 535.003]<br>Parameterization has too many items to render on hover (15)."
+      ],
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        560.6473614869,
+        464.4467049594,
+        495.7630483864,
+        542.3029350722,
+        548.2345843739,
+        544.4295676658,
+        549.0511518835,
+        540.7413033532,
+        537.7218273947,
+        546.8571018679,
+        515.9073035981,
+        496.9535891264,
+        577.6802807769,
+        543.4399676676,
+        544.5891065864,
+        556.068091252,
+        517.0287055503,
+        574.5273877209,
+        553.9417568228,
+        553.0256150304,
+        477.5755207251,
+        561.14681338,
+        563.6541000894,
+        570.8228707945,
+        524.3677121973,
+        565.6264647098,
+        564.7346483405,
+        562.6174250382,
+        521.4885673544,
+        518.5691087639,
+        569.4895133769,
+        534.8840893416,
+        453.0657960088,
+        579.8755075795,
+        579.5490838314,
+        538.8404308226,
+        564.0915622365,
+        563.9575508896,
+        565.5011648274,
+        553.5400395602,
+        559.7036228384,
+        512.3005012676,
+        531.7389392235,
+        533.2995099946,
+        540.1556866168,
+        585.7843090537,
+        543.4917462892,
+        521.8436058271,
+        541.1493906184,
+        535.162617066,
+        558.9373312742,
+        562.7090597954,
+        534.8772454669,
+        556.6430987863,
+        548.3876911099,
+        540.354941559,
+        543.3509256103,
+        561.0153373251,
+        515.5469981054,
+        547.1011628546,
+        572.7317928028,
+        577.466025923,
+        591.7112903438,
+        486.9978083981,
+        506.3635257112
+      ],
+      "xaxis": "x",
+      "y": [
+        545.0048674783006,
+        473.91214434678886,
+        514.786993929017,
+        542.204194153521,
+        547.8031892621946,
+        543.9824985308749,
+        545.967045877248,
+        539.0195820293876,
+        536.2675779764273,
+        538.4556278393126,
+        511.4336971325903,
+        502.0928569302762,
+        571.7943682212937,
+        523.9747530488376,
+        552.0621607828152,
+        558.8324583740058,
+        555.5833322719984,
+        581.1882986050559,
+        557.1536310447262,
+        545.3903956388508,
+        472.59969154291235,
+        555.976534068832,
+        557.8848040812744,
+        563.9101005813661,
+        527.0775758981945,
+        566.2483082877934,
+        561.7275931904294,
+        565.6433202258606,
+        517.0027439668734,
+        524.8264443426489,
+        560.524976155676,
+        528.5901983943666,
+        459.46279609145927,
+        571.5235028282985,
+        574.1423044406408,
+        561.4192852598734,
+        567.0648951340174,
+        566.4670973510044,
+        536.853019068129,
+        560.9212720720076,
+        560.2690036999339,
+        497.9193816201706,
+        533.1804680569961,
+        533.19342807231,
+        542.4574113856728,
+        586.6730896228486,
+        552.047620355626,
+        511.3125201500422,
+        548.4192103811027,
+        534.0618861121727,
+        560.7154092900827,
+        556.6384453817594,
+        544.1241294739397,
+        542.665240595581,
+        554.5993834153996,
+        539.4660936399605,
+        547.1103988873214,
+        566.0188775509878,
+        526.2249005998356,
+        542.9830207018169,
+        565.3116462921575,
+        573.6671390261552,
+        577.0151076602069,
+        499.5406179083791,
+        516.1122133933201
+      ],
+      "yaxis": "y"
+    },
+    {
+      "hoverinfo": "none",
+      "line": {
+        "color": "black",
+        "dash": "dot",
+        "width": 2
+      },
+      "mode": "lines",
+      "showlegend": false,
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        20.108338814829224,
+        24.136214740024
+      ],
+      "xaxis": "x2",
+      "y": [
+        20.108338814829224,
+        24.136214740024
+      ],
+      "yaxis": "y2"
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "H8W3wlrrqD+zbx4cx2zBP+BTAJawWsE/1pg9j4KWwT+SkfJwxpvBPyXVRw/YX8E/qFwamKKFwT+ZrFpA8FrBPzw/dc2ylcE/TE2ZDE51wT/gqLRm0knBPx5k3HykncE/Qn6SPbkdwj8pRXV3A9nBP9DI3RVEkME/wSH1h+xswT9NgsShTjTBP2gJ4kSeUcI/1tc/useSwT8xosQZiXHBPyWK0SOzX8E/gnqCakRnwT9y/HjGocvBP8SzNuhRpcE/Ml7U5i9YwT9Q5HIxkcXBP2omKTPCksE/aPeWfPe3wT9io/gxjYTBP+89Rg5IccE/Ct1zXKLcwj9OM1Yh6oXBPwyD45jkLcE/YxkdqEjpwT9UVieWJjLCPwGM3B/vqcE/B+tsCNZVwT9mtAwk7ObBP/OvjU65ocI/w196XES3wT8Vu8HvR3jBP7OpWXEOScE/r7He8HQlwT+ktzIwiNXBP5neoUxda8E/v0pZz2qIwz9fJUIm+5fBPzRFsFjCeME/NYe453SYwj9TaMLyDyjBP8UwUvUJz8E/c5IyJFH+wT+kTmYAfPDBPzUIR4tPsME/Tz37iwKMwT8EhANJxkjBP0WeeSI6nME/Azy1Q94Gwj9IUS3RL27BP08TzRssu8E/1AGWCc/KwT9r4zpIWfTBP6ZNeKXlfsQ/KSZ9+9qSwT9RzRB3tG3BPw==",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "ak/Tyg/Q7T9p1rGbfwjSP7chkiTZ78w/OnGu4hRlyz8XpszcAJzQPwshH5QyK9E/p+lm/s5b0z/gbpjT9KvTP+/L1nqS4dM/f7Y8l+AKzj8K+/DcR9HOP8AOkzEcfc0/ig4+ZVoHzj93+LWQPtLNP7jEU4obZMM/6TCkIqM7xz/oztElDaLVPwIKkXoH380/JhAqCt3ByT9w0yQIh8PUP7/IrJlNe9w/wXc/sQQTyj8eUKnimmfDP5+Kxkqblco/MJcvQojB2T/7eCW6oUTRP3ZqBKCxNc4/ckggjSmn0T8xv4rw0n/eP0c2Jp0JbdM/2zHQHg3l4j+nyIRx/u7KPxFyeIMK3N0/dRpoPaRS0T8pG8eIb4PQPxV1SdUEw9Q/722Dr8T4xz8i8tTqqFrKP9xZXE4+k+M/Q3NMbau8zj8zTZ5qHMbQP534CjL6Dcs/zuzJfw4gzj+H/rHDJP/RPy51EKlIe8k/BEgHnF674D/vH8ne/WXbP0XuL5C1Pso/zYDgJEKQ5j+vDJ71dm3KP0GBscWi28w/7k0NPtls1T/o79YmbrnKP9vQLcCSDdc/SRyFQA1r0D9Db4KYpTPVP4F/jm4wSc8/LusHMmMIyT80HOT1sfzRP6IB3lJN6c0/nY9DSwGX0T/Jb04qKXjNP5GOiv+iluQ/O/ffZpwz2z+Wkfj9w9bUPw==",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(128,177,211,1)"
+      },
+      "mode": "markers",
+      "name": "In-sample",
+      "showlegend": true,
+      "text": [
+        "<b>Arm status_quo</b><br><br>Actual: 21.637 [21.589, 21.686]<br>Predicted: 22.307 [21.375, 23.239]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_0</b><br><br>Actual: 20.394 [20.258, 20.530]<br>Predicted: 20.646 [20.364, 20.927]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_1</b><br><br>Actual: 20.867 [20.731, 21.002]<br>Predicted: 20.99 [20.764, 21.216]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_2</b><br><br>Actual: 21.419 [21.282, 21.557]<br>Predicted: 21.391 [21.177, 21.605]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_3</b><br><br>Actual: 21.546 [21.409, 21.684]<br>Predicted: 21.432 [21.172, 21.691]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_4</b><br><br>Actual: 21.303 [21.168, 21.439]<br>Predicted: 21.257 [20.989, 21.525]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_5</b><br><br>Actual: 21.473 [21.336, 21.610]<br>Predicted: 21.578 [21.276, 21.881]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_6</b><br><br>Actual: 21.351 [21.216, 21.487]<br>Predicted: 21.19 [20.883, 21.498]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_7</b><br><br>Actual: 21.296 [21.159, 21.434]<br>Predicted: 21.353 [21.042, 21.663]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_8</b><br><br>Actual: 21.166 [21.029, 21.302]<br>Predicted: 21.249 [21.014, 21.484]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_9</b><br><br>Actual: 21.034 [20.899, 21.169]<br>Predicted: 20.889 [20.648, 21.130]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_10</b><br><br>Actual: 20.856 [20.719, 20.994]<br>Predicted: 21.018 [20.787, 21.248]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_11</b><br><br>Actual: 22.181 [22.040, 22.323]<br>Predicted: 22.153 [21.919, 22.388]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_12</b><br><br>Actual: 21.508 [21.369, 21.648]<br>Predicted: 21.383 [21.150, 21.616]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_13</b><br><br>Actual: 21.418 [21.281, 21.556]<br>Predicted: 21.408 [21.257, 21.560]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_14</b><br><br>Actual: 21.46 [21.324, 21.596]<br>Predicted: 21.553 [21.372, 21.735]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_15</b><br><br>Actual: 21.116 [20.982, 21.251]<br>Predicted: 21.681 [21.343, 22.019]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_16</b><br><br>Actual: 22.191 [22.048, 22.334]<br>Predicted: 22.429 [22.196, 22.663]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_17</b><br><br>Actual: 21.713 [21.575, 21.850]<br>Predicted: 21.697 [21.496, 21.898]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_18</b><br><br>Actual: 21.354 [21.217, 21.490]<br>Predicted: 21.331 [21.007, 21.656]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_19</b><br><br>Actual: 20.915 [20.779, 21.051]<br>Predicted: 20.64 [20.195, 21.085]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_20</b><br><br>Actual: 21.622 [21.486, 21.758]<br>Predicted: 21.619 [21.415, 21.822]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_21</b><br><br>Actual: 21.66 [21.521, 21.799]<br>Predicted: 21.579 [21.428, 21.731]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_22</b><br><br>Actual: 21.622 [21.484, 21.760]<br>Predicted: 21.847 [21.639, 22.055]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_23</b><br><br>Actual: 20.947 [20.812, 21.083]<br>Predicted: 21.2 [20.797, 21.602]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_24</b><br><br>Actual: 22.061 [21.923, 22.200]<br>Predicted: 21.972 [21.702, 22.242]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_25</b><br><br>Actual: 21.64 [21.503, 21.777]<br>Predicted: 21.679 [21.443, 21.915]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_26</b><br><br>Actual: 21.88 [21.741, 22.018]<br>Predicted: 21.616 [21.341, 21.892]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_27</b><br><br>Actual: 21.77 [21.634, 21.907]<br>Predicted: 21.663 [21.186, 22.140]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_28</b><br><br>Actual: 21.085 [20.949, 21.222]<br>Predicted: 21.179 [20.875, 21.482]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_29</b><br><br>Actual: 22.928 [22.781, 23.075]<br>Predicted: 22.659 [22.069, 23.250]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_30</b><br><br>Actual: 21.047 [20.910, 21.184]<br>Predicted: 21.018 [20.808, 21.228]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_31</b><br><br>Actual: 20.369 [20.235, 20.504]<br>Predicted: 20.575 [20.108, 21.041]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_32</b><br><br>Actual: 22.329 [22.189, 22.469]<br>Predicted: 22.24 [21.969, 22.511]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_33</b><br><br>Actual: 22.492 [22.350, 22.634]<br>Predicted: 22.235 [21.977, 22.493]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_34</b><br><br>Actual: 22.082 [21.944, 22.220]<br>Predicted: 22.182 [21.858, 22.506]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_35</b><br><br>Actual: 21.779 [21.643, 21.914]<br>Predicted: 21.659 [21.472, 21.847]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_36</b><br><br>Actual: 21.916 [21.776, 22.056]<br>Predicted: 22.154 [21.948, 22.360]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_37</b><br><br>Actual: 22.637 [22.492, 22.783]<br>Predicted: 22.669 [22.057, 23.280]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_38</b><br><br>Actual: 21.472 [21.334, 21.611]<br>Predicted: 21.609 [21.368, 21.849]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_39</b><br><br>Actual: 21.664 [21.528, 21.800]<br>Predicted: 21.618 [21.356, 21.881]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_40</b><br><br>Actual: 20.931 [20.796, 21.066]<br>Predicted: 20.867 [20.655, 21.078]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_41</b><br><br>Actual: 21.26 [21.127, 21.394]<br>Predicted: 21.223 [20.988, 21.459]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_42</b><br><br>Actual: 21.394 [21.254, 21.533]<br>Predicted: 21.493 [21.212, 21.775]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_43</b><br><br>Actual: 21.338 [21.202, 21.475]<br>Predicted: 21.372 [21.173, 21.571]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_44</b><br><br>Actual: 23.293 [23.140, 23.446]<br>Predicted: 23.383 [22.860, 23.906]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_45</b><br><br>Actual: 21.161 [21.023, 21.298]<br>Predicted: 21.317 [20.889, 21.745]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_46</b><br><br>Actual: 20.975 [20.838, 21.111]<br>Predicted: 20.787 [20.582, 20.992]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_47</b><br><br>Actual: 22.506 [22.360, 22.651]<br>Predicted: 22.377 [21.671, 23.082]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_48</b><br><br>Actual: 21.384 [21.250, 21.518]<br>Predicted: 21.356 [21.149, 21.562]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_49</b><br><br>Actual: 21.8 [21.661, 21.939]<br>Predicted: 21.796 [21.570, 22.021]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_50</b><br><br>Actual: 22.12 [21.979, 22.261]<br>Predicted: 21.847 [21.512, 22.182]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_51</b><br><br>Actual: 21.341 [21.200, 21.481]<br>Predicted: 21.379 [21.170, 21.588]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_52</b><br><br>Actual: 21.832 [21.693, 21.970]<br>Predicted: 21.517 [21.157, 21.877]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_53</b><br><br>Actual: 21.437 [21.300, 21.575]<br>Predicted: 21.508 [21.252, 21.765]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_54</b><br><br>Actual: 21.363 [21.228, 21.498]<br>Predicted: 21.398 [21.066, 21.729]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_55</b><br><br>Actual: 21.409 [21.271, 21.546]<br>Predicted: 21.362 [21.117, 21.606]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_56</b><br><br>Actual: 21.876 [21.735, 22.017]<br>Predicted: 21.866 [21.671, 22.062]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_57</b><br><br>Actual: 20.938 [20.802, 21.074]<br>Predicted: 20.979 [20.698, 21.260]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_58</b><br><br>Actual: 21.321 [21.183, 21.460]<br>Predicted: 21.328 [21.094, 21.562]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_59</b><br><br>Actual: 21.852 [21.713, 21.991]<br>Predicted: 21.749 [21.474, 22.024]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_60</b><br><br>Actual: 22.243 [22.103, 22.383]<br>Predicted: 22.204 [21.974, 22.434]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_61</b><br><br>Actual: 23.976 [23.816, 24.136]<br>Predicted: 22.898 [22.255, 23.541]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_62</b><br><br>Actual: 20.807 [20.669, 20.944]<br>Predicted: 20.984 [20.559, 21.409]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_63</b><br><br>Actual: 21.039 [20.903, 21.175]<br>Predicted: 20.956 [20.630, 21.281]<br>Parameterization has too many items to render on hover (15)."
+      ],
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        21.6372636518,
+        20.3938551623,
+        20.8668886394,
+        21.4194272163,
+        21.5463005234,
+        21.3033959051,
+        21.4727492046,
+        21.3514435661,
+        21.2963493601,
+        21.1658724048,
+        21.0336997163,
+        20.8561277107,
+        22.1811563552,
+        21.5082145841,
+        21.4183918127,
+        21.4602436992,
+        21.1164428415,
+        22.1907197586,
+        21.7126315645,
+        21.3535329606,
+        20.9149831146,
+        21.6224324583,
+        21.6598472233,
+        21.6216898678,
+        20.9474084514,
+        22.061401753,
+        21.6400346563,
+        21.8797036224,
+        21.7704708828,
+        21.0854461784,
+        22.9278848853,
+        21.0473200141,
+        20.3694726715,
+        22.3289678016,
+        22.4920081911,
+        22.0823489199,
+        21.7785559743,
+        21.9157166512,
+        22.6371209753,
+        21.4723590682,
+        21.6640149689,
+        20.9308294427,
+        21.2604964675,
+        21.3937173897,
+        21.338490998,
+        23.2929146801,
+        21.1609294892,
+        20.9745011961,
+        22.5055156411,
+        21.3843847146,
+        21.8001539366,
+        22.1199857861,
+        21.3405492897,
+        21.8315714862,
+        21.4374334625,
+        21.3634470762,
+        21.4088999606,
+        21.8761495501,
+        20.9381701672,
+        21.3210724987,
+        21.8518919135,
+        22.2431650654,
+        23.9760921492,
+        20.8066326138,
+        21.038950512
+      ],
+      "xaxis": "x2",
+      "y": [
+        22.30699857150688,
+        20.64554169740615,
+        20.990241752076237,
+        21.3908760213208,
+        21.431933135621346,
+        21.257102138945573,
+        21.578304385628474,
+        21.190188967870565,
+        21.3526345526916,
+        21.248950734200907,
+        20.888767273881577,
+        21.017738039193883,
+        22.15345827462671,
+        21.3833945541226,
+        21.40823092951448,
+        21.553161312813494,
+        21.680619077271796,
+        22.429392348485354,
+        21.696958912617138,
+        21.331192310628616,
+        20.640256834203967,
+        21.618551672267703,
+        21.579493025194786,
+        21.846845524816995,
+        21.199914152570134,
+        21.97219398331842,
+        21.678681928433164,
+        21.616387825409948,
+        21.66304987388616,
+        21.17888443570067,
+        22.659202757907906,
+        21.018081067607753,
+        20.57489405583145,
+        22.24004277844504,
+        22.234949615478,
+        22.182082099386115,
+        21.65940468470264,
+        22.15373079391026,
+        22.668530116631167,
+        21.60856763207336,
+        21.618447092714725,
+        20.866609481871095,
+        21.223403011961885,
+        21.493330917888294,
+        21.37231344546756,
+        23.382686920945247,
+        21.31700482136362,
+        20.78677598107932,
+        22.37655547341394,
+        21.35558235149129,
+        21.79557065564051,
+        21.847209374105777,
+        21.37927238598825,
+        21.51696377839091,
+        21.50817872277989,
+        21.397568287415737,
+        21.361651195132087,
+        21.866460238468136,
+        20.979211248811833,
+        21.328021079109007,
+        21.749323033500257,
+        22.204153446387842,
+        22.898107087046004,
+        20.983649869950685,
+        20.955639154265093
+      ],
+      "yaxis": "y2"
+    }
+  ],
+  "layout": {
+    "annotations": [
+      {
+        "font": {
+          "size": 12
+        },
+        "showarrow": false,
+        "text": "metric_1",
+        "x": 0.2125,
+        "xanchor": "center",
+        "xref": "paper",
+        "y": 1.0,
+        "yanchor": "bottom",
+        "yref": "paper"
+      },
+      {
+        "font": {
+          "size": 12
+        },
+        "showarrow": false,
+        "text": "metric_2",
+        "x": 0.7875,
+        "xanchor": "center",
+        "xref": "paper",
+        "y": 1.0,
+        "yanchor": "bottom",
+        "yref": "paper"
+      }
+    ],
+    "font": {
+      "size": 10
+    },
+    "height": 400,
+    "hovermode": "closest",
+    "showlegend": false,
+    "template": {
+      "data": {
+        "bar": [
+          {
+            "error_x": {
+              "color": "#2a3f5f"
+            },
+            "error_y": {
+              "color": "#2a3f5f"
+            },
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "bar"
+          }
+        ],
+        "barpolar": [
+          {
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "barpolar"
+          }
+        ],
+        "carpet": [
+          {
+            "aaxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "baxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "type": "carpet"
+          }
+        ],
+        "choropleth": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "choropleth"
+          }
+        ],
+        "contour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "contour"
+          }
+        ],
+        "contourcarpet": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "contourcarpet"
+          }
+        ],
+        "heatmap": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "heatmap"
+          }
+        ],
+        "histogram": [
+          {
+            "marker": {
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "histogram"
+          }
+        ],
+        "histogram2d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2d"
+          }
+        ],
+        "histogram2dcontour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2dcontour"
+          }
+        ],
+        "mesh3d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "mesh3d"
+          }
+        ],
+        "parcoords": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "parcoords"
+          }
+        ],
+        "pie": [
+          {
+            "automargin": true,
+            "type": "pie"
+          }
+        ],
+        "scatter": [
+          {
+            "fillpattern": {
+              "fillmode": "overlay",
+              "size": 10,
+              "solidity": 0.2
+            },
+            "type": "scatter"
+          }
+        ],
+        "scatter3d": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatter3d"
+          }
+        ],
+        "scattercarpet": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattercarpet"
+          }
+        ],
+        "scattergeo": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergeo"
+          }
+        ],
+        "scattergl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergl"
+          }
+        ],
+        "scattermap": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermap"
+          }
+        ],
+        "scattermapbox": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermapbox"
+          }
+        ],
+        "scatterpolar": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolar"
+          }
+        ],
+        "scatterpolargl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolargl"
+          }
+        ],
+        "scatterternary": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterternary"
+          }
+        ],
+        "surface": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "surface"
+          }
+        ],
+        "table": [
+          {
+            "cells": {
+              "fill": {
+                "color": "#EBF0F8"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "header": {
+              "fill": {
+                "color": "#C8D4E3"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "type": "table"
+          }
+        ]
+      },
+      "layout": {
+        "annotationdefaults": {
+          "arrowcolor": "#2a3f5f",
+          "arrowhead": 0,
+          "arrowwidth": 1
+        },
+        "autotypenumbers": "strict",
+        "coloraxis": {
+          "colorbar": {
+            "outlinewidth": 0,
+            "ticks": ""
+          }
+        },
+        "colorscale": {
+          "diverging": [
+            [
+              0,
+              "#8e0152"
+            ],
+            [
+              0.1,
+              "#c51b7d"
+            ],
+            [
+              0.2,
+              "#de77ae"
+            ],
+            [
+              0.3,
+              "#f1b6da"
+            ],
+            [
+              0.4,
+              "#fde0ef"
+            ],
+            [
+              0.5,
+              "#f7f7f7"
+            ],
+            [
+              0.6,
+              "#e6f5d0"
+            ],
+            [
+              0.7,
+              "#b8e186"
+            ],
+            [
+              0.8,
+              "#7fbc41"
+            ],
+            [
+              0.9,
+              "#4d9221"
+            ],
+            [
+              1,
+              "#276419"
+            ]
+          ],
+          "sequential": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ],
+          "sequentialminus": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ]
+        },
+        "colorway": [
+          "#636efa",
+          "#EF553B",
+          "#00cc96",
+          "#ab63fa",
+          "#FFA15A",
+          "#19d3f3",
+          "#FF6692",
+          "#B6E880",
+          "#FF97FF",
+          "#FECB52"
+        ],
+        "font": {
+          "color": "#2a3f5f"
+        },
+        "geo": {
+          "bgcolor": "white",
+          "lakecolor": "white",
+          "landcolor": "#E5ECF6",
+          "showlakes": true,
+          "showland": true,
+          "subunitcolor": "white"
+        },
+        "hoverlabel": {
+          "align": "left"
+        },
+        "hovermode": "closest",
+        "mapbox": {
+          "style": "light"
+        },
+        "paper_bgcolor": "white",
+        "plot_bgcolor": "#E5ECF6",
+        "polar": {
+          "angularaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "radialaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "scene": {
+          "xaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "yaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "zaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          }
+        },
+        "shapedefaults": {
+          "line": {
+            "color": "#2a3f5f"
+          }
+        },
+        "ternary": {
+          "aaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "baxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "caxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "title": {
+          "x": 0.05
+        },
+        "xaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        },
+        "yaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        }
+      }
+    },
+    "title": {
+      "text": "Cross-Validation"
+    },
+    "width": 800,
+    "xaxis": {
+      "anchor": "y",
+      "domain": [
+        0.0,
+        0.425
+      ],
+      "linecolor": "black",
+      "linewidth": 0.5,
+      "mirror": true,
+      "title": {
+        "text": "Actual Outcome"
+      }
+    },
+    "xaxis2": {
+      "anchor": "y2",
+      "domain": [
+        0.575,
+        1.0
+      ],
+      "linecolor": "black",
+      "linewidth": 0.5,
+      "mirror": true,
+      "title": {
+        "text": "Actual Outcome"
+      }
+    },
+    "yaxis": {
+      "anchor": "x",
+      "domain": [
+        0.0,
+        1.0
+      ],
+      "linecolor": "black",
+      "linewidth": 0.5,
+      "mirror": true,
+      "title": {
+        "text": "Predicted Outcome"
+      }
+    },
+    "yaxis2": {
+      "anchor": "x2",
+      "domain": [
+        0.0,
+        1.0
+      ],
+      "linecolor": "black",
+      "linewidth": 0.5,
+      "mirror": true,
+      "title": {
+        "text": "Predicted Outcome"
+      }
+    }
+  }
+}

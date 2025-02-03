@@ -1,0 +1,1145 @@
+{
+  "config": {
+    "linkText": "Export to plot.ly",
+    "plotlyServerURL": "https://plot.ly",
+    "showLink": false
+  },
+  "data": [
+    {
+      "hoverinfo": "none",
+      "line": {
+        "color": "black",
+        "dash": "dot",
+        "width": 2
+      },
+      "mode": "lines",
+      "showlegend": false,
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        0.527102155906688,
+        2.3564180866289166
+      ],
+      "y": [
+        0.527102155906688,
+        2.3564180866289166
+      ]
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "hE/eIbYTyz9B1DOMoHTQP/qgF/lHfNc/z9fVB7bi3j8Jahm6il7ZP5Id3Q7kAcg/3Tu97tQl0z+HxQ5wfy3TP2lR53PX2Ns/ehulmxJU0D+0h6dVbt/RP938j0bJYM4/NN2UCKzIwD89YMaEstrEP8s8HnXaX7U/QBWr4zUNvz/ufbUzKn7CP4YEMccDPMQ/EX0jOqpaxD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(128,177,211,1)"
+      },
+      "mode": "markers",
+      "name": "In-sample",
+      "showlegend": true,
+      "text": [
+        "<b>Arm 0_0</b><br><br>Actual Outcome: 1.398 [1.202, 1.594]<br>Predicted Outcome: 1.55 [1.338, 1.761]<br><br><em>Parameterization:</em><br>x1: 0.7573971152305603<br>x2: 0.4827263653278351<br>x3: 0.28598251938819885<br>x4: 0.22525331377983093<br>x5: 0.850582480430603<br>x6: 0.7040469646453857",
+        "<b>Arm 1_0</b><br><br>Actual Outcome: 0.988 [0.792, 1.184]<br>Predicted Outcome: 1.203 [0.946, 1.460]<br><br><em>Parameterization:</em><br>x1: 0.1020884495228529<br>x2: 0.6496718404814601<br>x3: 0.6053469115868211<br>x4: 0.6771486103534698<br>x5: 0.03439343813806772<br>x6: 0.2799998000264168",
+        "<b>Arm 2_0</b><br><br>Actual Outcome: 0.806 [0.610, 1.002]<br>Predicted Outcome: 1.182 [0.815, 1.549]<br><br><em>Parameterization:</em><br>x1: 0.32610650546848774<br>x2: 0.1466615702956915<br>x3: 0.14243642427027225<br>x4: 0.467142416164279<br>x5: 0.34715247992426157<br>x6: 0.00852571427822113",
+        "<b>Arm 3_0</b><br><br>Actual Outcome: 2.077 [1.881, 2.273]<br>Predicted Outcome: 1.616 [1.133, 2.099]<br><br><em>Parameterization:</em><br>x1: 0.5341343767940998<br>x2: 0.9698570128530264<br>x3: 0.967660179361701<br>x4: 0.8882605312392116<br>x5: 0.53783009480685<br>x6: 0.9442867804318666",
+        "<b>Arm 4_0</b><br><br>Actual Outcome: 1.578 [1.382, 1.774]<br>Predicted Outcome: 1.336 [0.939, 1.732]<br><br><em>Parameterization:</em><br>x1: 0.7093596113845706<br>x2: 0.07476736139506102<br>x3: 0.6957248467952013<br>x4: 0.8246086947619915<br>x5: 0.6459791958332062<br>x6: 0.5278271529823542",
+        "<b>Arm 5_0</b><br><br>Actual Outcome: 1.31 [1.114, 1.506]<br>Predicted Outcome: 1.315 [1.127, 1.503]<br><br><em>Parameterization:</em><br>x1: 0.4311242075636983<br>x2: 0.8081190837547183<br>x3: 0.3821584861725569<br>x4: 0.28091631922870874<br>x5: 0.4538442511111498<br>x6: 0.45528916269540787",
+        "<b>Arm 6_0</b><br><br>Actual Outcome: 1.14 [0.944, 1.336]<br>Predicted Outcome: 1.022 [0.722, 1.321]<br><br><em>Parameterization:</em><br>x1: 0.15246434602886438<br>x2: 0.3016908448189497<br>x3: 0.8724912526085973<br>x4: 0.6138472845777869<br>x5: 0.141599478200078<br>x6: 0.19161178171634674",
+        "<b>Arm 7_0</b><br><br>Actual Outcome: 1.603 [1.407, 1.799]<br>Predicted Outcome: 1.438 [1.138, 1.738]<br><br><em>Parameterization:</em><br>x1: 0.9873251831158996<br>x2: 0.5662925373762846<br>x3: 0.04915924463421106<br>x4: 0.03843257017433643<br>x5: 0.9582230150699615<br>x6: 0.7602388132363558",
+        "<b>Arm 8_0</b><br><br>Actual Outcome: 1.605 [1.409, 1.801]<br>Predicted Outcome: 1.61 [1.175, 2.045]<br><br><em>Parameterization:</em><br>x1: 0.9267596136778593<br>x2: 0.2388819046318531<br>x3: 0.8069260409101844<br>x4: 0.35559686832129955<br>x5: 0.06363807525485754<br>x6: 0.9042881662026048",
+        "<b>Arm 9_0</b><br><br>Actual Outcome: 1.361 [1.165, 1.557]<br>Predicted Outcome: 1.377 [1.122, 1.632]<br><br><em>Parameterization:</em><br>x1: 0.2129925861954689<br>x2: 0.878483597189188<br>x3: 0.11469370406121016<br>x4: 0.8124357787892222<br>x5: 0.7548114182427526<br>x6: 0.08174272906035185",
+        "<b>Arm 10_0</b><br><br>Actual Outcome: 0.996 [0.800, 1.192]<br>Predicted Outcome: 1.182 [0.903, 1.461]<br><br><em>Parameterization:</em><br>x1: 0.4995030201971531<br>x2: 0.38768321368843317<br>x3: 0.6399252563714981<br>x4: 0.08283920306712389<br>x5: 0.5670726420357823<br>x6: 0.3180806366726756",
+        "<b>Arm 11_0</b><br><br>Actual Outcome: 1.521 [1.325, 1.717]<br>Predicted Outcome: 1.434 [1.197, 1.672]<br><br><em>Parameterization:</em><br>x1: 0.6410197336226702<br>x2: 0.7460349360480905<br>x3: 0.43792731687426567<br>x4: 0.5069482773542404<br>x5: 0.251379712484777<br>x6: 0.6367149958387017",
+        "<b>Arm 12_0</b><br><br>Actual Outcome: 1.276 [1.080, 1.472]<br>Predicted Outcome: 1.196 [1.065, 1.327]<br><br><em>Parameterization:</em><br>x1: 0.22580835142391753<br>x2: 0.7581483504188125<br>x3: 0.2956365633688613<br>x4: 0.31298003653006323<br>x5: 0.6571567921037126<br>x6: 0.07713221204244342",
+        "<b>Arm 13_0</b><br><br>Actual Outcome: 1.212 [1.016, 1.408]<br>Predicted Outcome: 1.223 [1.060, 1.385]<br><br><em>Parameterization:</em><br>x1: 0.07325946896556368<br>x2: 0.6669636631605884<br>x3: 0.35611928587739056<br>x4: 0.46447205266582053<br>x5: 0.7937768264191875<br>x6: 0.12212716920081962",
+        "<b>Arm 14_0</b><br><br>Actual Outcome: 1.097 [0.901, 1.293]<br>Predicted Outcome: 1.175 [1.091, 1.258]<br><br><em>Parameterization:</em><br>x1: 0.31298086259010005<br>x2: 0.6780240006415419<br>x3: 0.34116274466233354<br>x4: 0.4009718898736746<br>x5: 0.6422641601139853<br>x6: 0.13974288297481416",
+        "<b>Arm 15_0</b><br><br>Actual Outcome: 1.273 [1.077, 1.469]<br>Predicted Outcome: 1.189 [1.067, 1.310]<br><br><em>Parameterization:</em><br>x1: 0.33747842149631396<br>x2: 0.6261584691605098<br>x3: 0.24615257768520768<br>x4: 0.5148756714360152<br>x5: 0.7313359942245656<br>x6: 0.16637384960830626",
+        "<b>Arm 16_0</b><br><br>Actual Outcome: 1.322 [1.126, 1.518]<br>Predicted Outcome: 1.202 [1.057, 1.346]<br><br><em>Parameterization:</em><br>x1: 0.38112263416614506<br>x2: 0.7550857328293064<br>x3: 0.15989040241875668<br>x4: 0.35683841254605086<br>x5: 0.5874163795227875<br>x6: 0.13388071720328304",
+        "<b>Arm 17_0</b><br><br>Actual Outcome: 1.173 [0.977, 1.369]<br>Predicted Outcome: 1.19 [1.032, 1.348]<br><br><em>Parameterization:</em><br>x1: 0.38978265365691744<br>x2: 0.7565839473910463<br>x3: 0.5021795673723769<br>x4: 0.3378965104531966<br>x5: 0.6350859273747218<br>x6: 0.14512227515687443",
+        "<b>Arm 18_0</b><br><br>Actual Outcome: 1.106 [0.910, 1.302]<br>Predicted Outcome: 1.173 [1.014, 1.332]<br><br><em>Parameterization:</em><br>x1: 0.3740832729700913<br>x2: 0.7215904647114325<br>x3: 0.20770386227339024<br>x4: 0.6580757198466808<br>x5: 0.43015796050377864<br>x6: 0.1371611195964222"
+      ],
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        1.3983882008966046,
+        0.9880234468873765,
+        0.8062528800304256,
+        2.0772673625051787,
+        1.5782073236385035,
+        1.309778598379544,
+        1.1395369559910857,
+        1.6028942419048797,
+        1.6054114146432343,
+        1.3612726746613018,
+        0.9964963816893743,
+        1.5213129433228854,
+        1.2755914138074416,
+        1.2117952772452985,
+        1.0968395683291743,
+        1.2727541882499347,
+        1.321677147152582,
+        1.172777989018162,
+        1.105773593169911
+      ],
+      "y": [
+        1.5499447683816325,
+        1.2028799412093085,
+        1.1822290499830364,
+        1.615961181674294,
+        1.3357930773569582,
+        1.3149813297970898,
+        1.02150024368961,
+        1.4380989004573643,
+        1.610072877934933,
+        1.3768861604611402,
+        1.1817956557965565,
+        1.4344751842355372,
+        1.1962163916789774,
+        1.222529985287344,
+        1.174813879219241,
+        1.1885244208617811,
+        1.2018981322356561,
+        1.1899277141726299,
+        1.1732293452950162
+      ]
+    },
+    {
+      "hoverinfo": "none",
+      "line": {
+        "color": "black",
+        "dash": "dot",
+        "width": 2
+      },
+      "mode": "lines",
+      "showlegend": false,
+      "type": "scatter",
+      "visible": false,
+      "x": [
+        -2.703663248226265,
+        1.3343894236965668
+      ],
+      "y": [
+        -2.703663248226265,
+        1.3343894236965668
+      ]
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT9KDAIrhxbJP0oMAiuHFsk/SgwCK4cWyT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "ERu+LCz87j9+8E4PZrDxP0F3TGh0P/I/y+69j7hI9T8ejPLimmT1P21d+CG4fe0/lvKrvG9p8D+F85ZfkSjwPxv8Lt38r/U/yeO6LIgZ8D+kcj/bvBvyP9d8LrBMqfE/Hw/a9Fwq2T9xQylHowXlPzXtp0EDack/maaqC74O3D8GWBWHMizRPwYwQXiF19M/DDaO9q4d6D8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(128,177,211,1)"
+      },
+      "mode": "markers",
+      "name": "In-sample",
+      "showlegend": true,
+      "text": [
+        "<b>Arm 0_0</b><br><br>Actual Outcome: 0.072 [-0.124, 0.268]<br>Predicted Outcome: -0.03 [-0.998, 0.939]<br><br><em>Parameterization:</em><br>x1: 0.7573971152305603<br>x2: 0.4827263653278351<br>x3: 0.28598251938819885<br>x4: 0.22525331377983093<br>x5: 0.850582480430603<br>x6: 0.7040469646453857",
+        "<b>Arm 1_0</b><br><br>Actual Outcome: -0.321 [-0.517, -0.125]<br>Predicted Outcome: -0.618 [-1.724, 0.487]<br><br><em>Parameterization:</em><br>x1: 0.1020884495228529<br>x2: 0.6496718404814601<br>x3: 0.6053469115868211<br>x4: 0.6771486103534698<br>x5: 0.03439343813806772<br>x6: 0.2799998000264168",
+        "<b>Arm 2_0</b><br><br>Actual Outcome: -0.044 [-0.240, 0.152]<br>Predicted Outcome: -0.318 [-1.458, 0.823]<br><br><em>Parameterization:</em><br>x1: 0.32610650546848774<br>x2: 0.1466615702956915<br>x3: 0.14243642427027225<br>x4: 0.467142416164279<br>x5: 0.34715247992426157<br>x6: 0.00852571427822113",
+        "<b>Arm 3_0</b><br><br>Actual Outcome: 0.156 [-0.040, 0.352]<br>Predicted Outcome: -0.191 [-1.521, 1.140]<br><br><em>Parameterization:</em><br>x1: 0.5341343767940998<br>x2: 0.9698570128530264<br>x3: 0.967660179361701<br>x4: 0.8882605312392116<br>x5: 0.53783009480685<br>x6: 0.9442867804318666",
+        "<b>Arm 4_0</b><br><br>Actual Outcome: 0.083 [-0.113, 0.279]<br>Predicted Outcome: -0.24 [-1.577, 1.097]<br><br><em>Parameterization:</em><br>x1: 0.7093596113845706<br>x2: 0.07476736139506102<br>x3: 0.6957248467952013<br>x4: 0.8246086947619915<br>x5: 0.6459791958332062<br>x6: 0.5278271529823542",
+        "<b>Arm 5_0</b><br><br>Actual Outcome: -0.482 [-0.678, -0.286]<br>Predicted Outcome: -0.763 [-1.684, 0.159]<br><br><em>Parameterization:</em><br>x1: 0.4311242075636983<br>x2: 0.8081190837547183<br>x3: 0.3821584861725569<br>x4: 0.28091631922870874<br>x5: 0.4538442511111498<br>x6: 0.45528916269540787",
+        "<b>Arm 6_0</b><br><br>Actual Outcome: -0.013 [-0.209, 0.183]<br>Predicted Outcome: -0.229 [-1.254, 0.797]<br><br><em>Parameterization:</em><br>x1: 0.15246434602886438<br>x2: 0.3016908448189497<br>x3: 0.8724912526085973<br>x4: 0.6138472845777869<br>x5: 0.141599478200078<br>x6: 0.19161178171634674",
+        "<b>Arm 7_0</b><br><br>Actual Outcome: -0.028 [-0.224, 0.168]<br>Predicted Outcome: -0.049 [-1.059, 0.960]<br><br><em>Parameterization:</em><br>x1: 0.9873251831158996<br>x2: 0.5662925373762846<br>x3: 0.04915924463421106<br>x4: 0.03843257017433643<br>x5: 0.9582230150699615<br>x6: 0.7602388132363558",
+        "<b>Arm 8_0</b><br><br>Actual Outcome: -0.994 [-1.190, -0.798]<br>Predicted Outcome: -0.205 [-1.560, 1.151]<br><br><em>Parameterization:</em><br>x1: 0.9267596136778593<br>x2: 0.2388819046318531<br>x3: 0.8069260409101844<br>x4: 0.35559686832129955<br>x5: 0.06363807525485754<br>x6: 0.9042881662026048",
+        "<b>Arm 9_0</b><br><br>Actual Outcome: -0.991 [-1.187, -0.795]<br>Predicted Outcome: -1.045 [-2.051, -0.039]<br><br><em>Parameterization:</em><br>x1: 0.2129925861954689<br>x2: 0.878483597189188<br>x3: 0.11469370406121016<br>x4: 0.8124357787892222<br>x5: 0.7548114182427526<br>x6: 0.08174272906035185",
+        "<b>Arm 10_0</b><br><br>Actual Outcome: -0.291 [-0.487, -0.095]<br>Predicted Outcome: -0.432 [-1.564, 0.699]<br><br><em>Parameterization:</em><br>x1: 0.4995030201971531<br>x2: 0.38768321368843317<br>x3: 0.6399252563714981<br>x4: 0.08283920306712389<br>x5: 0.5670726420357823<br>x6: 0.3180806366726756",
+        "<b>Arm 11_0</b><br><br>Actual Outcome: -0.303 [-0.499, -0.107]<br>Predicted Outcome: -0.259 [-1.363, 0.845]<br><br><em>Parameterization:</em><br>x1: 0.6410197336226702<br>x2: 0.7460349360480905<br>x3: 0.43792731687426567<br>x4: 0.5069482773542404<br>x5: 0.251379712484777<br>x6: 0.6367149958387017",
+        "<b>Arm 12_0</b><br><br>Actual Outcome: -0.957 [-1.153, -0.761]<br>Predicted Outcome: -1.003 [-1.396, -0.610]<br><br><em>Parameterization:</em><br>x1: 0.22580835142391753<br>x2: 0.7581483504188125<br>x3: 0.2956365633688613<br>x4: 0.31298003653006323<br>x5: 0.6571567921037126<br>x6: 0.07713221204244342",
+        "<b>Arm 13_0</b><br><br>Actual Outcome: -0.394 [-0.590, -0.198]<br>Predicted Outcome: -0.654 [-1.311, 0.003]<br><br><em>Parameterization:</em><br>x1: 0.07325946896556368<br>x2: 0.6669636631605884<br>x3: 0.35611928587739056<br>x4: 0.46447205266582053<br>x5: 0.7937768264191875<br>x6: 0.12212716920081962",
+        "<b>Arm 14_0</b><br><br>Actual Outcome: -1.469 [-1.665, -1.273]<br>Predicted Outcome: -1.386 [-1.584, -1.187]<br><br><em>Parameterization:</em><br>x1: 0.31298086259010005<br>x2: 0.6780240006415419<br>x3: 0.34116274466233354<br>x4: 0.4009718898736746<br>x5: 0.6422641601139853<br>x6: 0.13974288297481416",
+        "<b>Arm 15_0</b><br><br>Actual Outcome: -1.368 [-1.564, -1.172]<br>Predicted Outcome: -1.345 [-1.784, -0.907]<br><br><em>Parameterization:</em><br>x1: 0.33747842149631396<br>x2: 0.6261584691605098<br>x3: 0.24615257768520768<br>x4: 0.5148756714360152<br>x5: 0.7313359942245656<br>x6: 0.16637384960830626",
+        "<b>Arm 16_0</b><br><br>Actual Outcome: -1.488 [-1.684, -1.292]<br>Predicted Outcome: -1.539 [-1.807, -1.271]<br><br><em>Parameterization:</em><br>x1: 0.38112263416614506<br>x2: 0.7550857328293064<br>x3: 0.15989040241875668<br>x4: 0.35683841254605086<br>x5: 0.5874163795227875<br>x6: 0.13388071720328304",
+        "<b>Arm 17_0</b><br><br>Actual Outcome: -1.315 [-1.511, -1.119]<br>Predicted Outcome: -1.342 [-1.652, -1.031]<br><br><em>Parameterization:</em><br>x1: 0.38978265365691744<br>x2: 0.7565839473910463<br>x3: 0.5021795673723769<br>x4: 0.3378965104531966<br>x5: 0.6350859273747218<br>x6: 0.14512227515687443",
+        "<b>Arm 18_0</b><br><br>Actual Outcome: -2.324 [-2.520, -2.128]<br>Predicted Outcome: -1.465 [-2.219, -0.711]<br><br><em>Parameterization:</em><br>x1: 0.3740832729700913<br>x2: 0.7215904647114325<br>x3: 0.20770386227339024<br>x4: 0.6580757198466808<br>x5: 0.43015796050377864<br>x6: 0.1371611195964222"
+      ],
+      "type": "scatter",
+      "visible": false,
+      "x": [
+        0.0718098356931138,
+        -0.3213698446325116,
+        -0.04422589899342975,
+        0.15582553701566276,
+        0.08268611029665587,
+        -0.4819292254652295,
+        -0.012937757518825144,
+        -0.02837267954498705,
+        -0.9944198331886651,
+        -0.991187976842123,
+        -0.2911560669856192,
+        -0.3030884761218499,
+        -0.9571761258415346,
+        -0.39355656319869897,
+        -1.469443244779889,
+        -1.368029676288345,
+        -1.488342576887839,
+        -1.3154500097090684,
+        -2.3241153995025
+      ],
+      "y": [
+        -0.029524154597905583,
+        -0.6184260312920484,
+        -0.31760720611152077,
+        -0.19058508086479625,
+        -0.23998417303536473,
+        -0.7626153563461402,
+        -0.2285547401355098,
+        -0.04945178713884224,
+        -0.20462418430280727,
+        -1.044754266948972,
+        -0.43229743882987115,
+        -0.2591773683526323,
+        -1.0028043753908629,
+        -0.6544110641333314,
+        -1.3857045132851935,
+        -1.3454317530537914,
+        -1.538943879346609,
+        -1.3415180598487195,
+        -1.4649147698662666
+      ]
+    }
+  ],
+  "layout": {
+    "annotations": [
+      {
+        "showarrow": false,
+        "text": "Show CI",
+        "x": 1.125,
+        "xanchor": "left",
+        "xref": "paper",
+        "y": 0.9,
+        "yanchor": "middle",
+        "yref": "paper"
+      }
+    ],
+    "height": 500,
+    "hovermode": "closest",
+    "margin": {
+      "b": 90
+    },
+    "showlegend": false,
+    "template": {
+      "data": {
+        "bar": [
+          {
+            "error_x": {
+              "color": "#2a3f5f"
+            },
+            "error_y": {
+              "color": "#2a3f5f"
+            },
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "bar"
+          }
+        ],
+        "barpolar": [
+          {
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "barpolar"
+          }
+        ],
+        "carpet": [
+          {
+            "aaxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "baxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "type": "carpet"
+          }
+        ],
+        "choropleth": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "choropleth"
+          }
+        ],
+        "contour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "contour"
+          }
+        ],
+        "contourcarpet": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "contourcarpet"
+          }
+        ],
+        "heatmap": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "heatmap"
+          }
+        ],
+        "histogram": [
+          {
+            "marker": {
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "histogram"
+          }
+        ],
+        "histogram2d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2d"
+          }
+        ],
+        "histogram2dcontour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2dcontour"
+          }
+        ],
+        "mesh3d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "mesh3d"
+          }
+        ],
+        "parcoords": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "parcoords"
+          }
+        ],
+        "pie": [
+          {
+            "automargin": true,
+            "type": "pie"
+          }
+        ],
+        "scatter": [
+          {
+            "fillpattern": {
+              "fillmode": "overlay",
+              "size": 10,
+              "solidity": 0.2
+            },
+            "type": "scatter"
+          }
+        ],
+        "scatter3d": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatter3d"
+          }
+        ],
+        "scattercarpet": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattercarpet"
+          }
+        ],
+        "scattergeo": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergeo"
+          }
+        ],
+        "scattergl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergl"
+          }
+        ],
+        "scattermap": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermap"
+          }
+        ],
+        "scattermapbox": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermapbox"
+          }
+        ],
+        "scatterpolar": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolar"
+          }
+        ],
+        "scatterpolargl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolargl"
+          }
+        ],
+        "scatterternary": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterternary"
+          }
+        ],
+        "surface": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "surface"
+          }
+        ],
+        "table": [
+          {
+            "cells": {
+              "fill": {
+                "color": "#EBF0F8"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "header": {
+              "fill": {
+                "color": "#C8D4E3"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "type": "table"
+          }
+        ]
+      },
+      "layout": {
+        "annotationdefaults": {
+          "arrowcolor": "#2a3f5f",
+          "arrowhead": 0,
+          "arrowwidth": 1
+        },
+        "autotypenumbers": "strict",
+        "coloraxis": {
+          "colorbar": {
+            "outlinewidth": 0,
+            "ticks": ""
+          }
+        },
+        "colorscale": {
+          "diverging": [
+            [
+              0,
+              "#8e0152"
+            ],
+            [
+              0.1,
+              "#c51b7d"
+            ],
+            [
+              0.2,
+              "#de77ae"
+            ],
+            [
+              0.3,
+              "#f1b6da"
+            ],
+            [
+              0.4,
+              "#fde0ef"
+            ],
+            [
+              0.5,
+              "#f7f7f7"
+            ],
+            [
+              0.6,
+              "#e6f5d0"
+            ],
+            [
+              0.7,
+              "#b8e186"
+            ],
+            [
+              0.8,
+              "#7fbc41"
+            ],
+            [
+              0.9,
+              "#4d9221"
+            ],
+            [
+              1,
+              "#276419"
+            ]
+          ],
+          "sequential": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ],
+          "sequentialminus": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ]
+        },
+        "colorway": [
+          "#636efa",
+          "#EF553B",
+          "#00cc96",
+          "#ab63fa",
+          "#FFA15A",
+          "#19d3f3",
+          "#FF6692",
+          "#B6E880",
+          "#FF97FF",
+          "#FECB52"
+        ],
+        "font": {
+          "color": "#2a3f5f"
+        },
+        "geo": {
+          "bgcolor": "white",
+          "lakecolor": "white",
+          "landcolor": "#E5ECF6",
+          "showlakes": true,
+          "showland": true,
+          "subunitcolor": "white"
+        },
+        "hoverlabel": {
+          "align": "left"
+        },
+        "hovermode": "closest",
+        "mapbox": {
+          "style": "light"
+        },
+        "paper_bgcolor": "white",
+        "plot_bgcolor": "#E5ECF6",
+        "polar": {
+          "angularaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "radialaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "scene": {
+          "xaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "yaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "zaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          }
+        },
+        "shapedefaults": {
+          "line": {
+            "color": "#2a3f5f"
+          }
+        },
+        "ternary": {
+          "aaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "baxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "caxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "title": {
+          "x": 0.05
+        },
+        "xaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        },
+        "yaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        }
+      }
+    },
+    "title": {
+      "text": "Cross-validation"
+    },
+    "updatemenus": [
+      {
+        "buttons": [
+          {
+            "args": [
+              {
+                "visible": [
+                  true,
+                  true,
+                  false,
+                  false
+                ]
+              },
+              {
+                "xaxis.range": [
+                  0.527102155906688,
+                  2.3564180866289166
+                ],
+                "yaxis.range": [
+                  0.527102155906688,
+                  2.3564180866289166
+                ]
+              }
+            ],
+            "label": "l2norm",
+            "method": "update"
+          },
+          {
+            "args": [
+              {
+                "visible": [
+                  false,
+                  false,
+                  true,
+                  true
+                ]
+              },
+              {
+                "xaxis.range": [
+                  -2.703663248226265,
+                  1.3343894236965668
+                ],
+                "yaxis.range": [
+                  -2.703663248226265,
+                  1.3343894236965668
+                ]
+              }
+            ],
+            "label": "hartmann6",
+            "method": "update"
+          }
+        ],
+        "x": 0,
+        "xanchor": "left",
+        "y": 1.125,
+        "yanchor": "top"
+      },
+      {
+        "buttons": [
+          {
+            "args": [
+              {
+                "error_x.thickness": 2,
+                "error_x.width": 4,
+                "error_y.thickness": 2,
+                "error_y.width": 4
+              }
+            ],
+            "label": "Yes",
+            "method": "restyle"
+          },
+          {
+            "args": [
+              {
+                "error_x.thickness": 0,
+                "error_x.width": 0,
+                "error_y.thickness": 0,
+                "error_y.width": 0
+              }
+            ],
+            "label": "No",
+            "method": "restyle"
+          }
+        ],
+        "x": 1.125,
+        "xanchor": "left",
+        "y": 0.8,
+        "yanchor": "middle"
+      }
+    ],
+    "width": 530,
+    "xaxis": {
+      "linecolor": "black",
+      "linewidth": 0.5,
+      "mirror": true,
+      "range": [
+        0.527102155906688,
+        2.3564180866289166
+      ],
+      "title": {
+        "text": "Actual Outcome"
+      },
+      "zeroline": false
+    },
+    "yaxis": {
+      "linecolor": "black",
+      "linewidth": 0.5,
+      "mirror": true,
+      "range": [
+        0.527102155906688,
+        2.3564180866289166
+      ],
+      "title": {
+        "text": "Predicted Outcome"
+      },
+      "zeroline": false
+    }
+  }
+}

@@ -1,0 +1,619 @@
+---
+title: Visualizations
+sidebar_label: Visualizations
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/0.5.0/tutorials/visualizations/visualizations.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/0.5.0/tutorials/visualizations/visualizations.ipynb"
+/>
+
+# Visualizations
+
+This tutorial illustrates the core visualization utilities available in Ax.
+
+```python
+import sys
+in_colab = 'google.colab' in sys.modules
+if in_colab:
+    %pip install ax-platform
+```
+
+```python
+import numpy as np
+
+from ax.modelbridge.cross_validation import cross_validate
+from ax.plot.contour import interact_contour
+from ax.plot.diagnostic import interact_cross_validation
+from ax.plot.scatter import interact_fitted, plot_objective_vs_constraints, tile_fitted
+from ax.plot.slice import plot_slice
+from ax.service.ax_client import AxClient, ObjectiveProperties
+from ax.utils.measurement.synthetic_functions import hartmann6
+from ax.utils.notebook.plotting import init_notebook_plotting, render
+import plotly.io as pio
+
+init_notebook_plotting()
+if in_colab:
+    pio.renderers.default = "colab"
+```
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:27] ax.utils.notebook.plotting: Injecting Plotly library into cell. Do not overwrite or delete cell.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:27] ax.utils.notebook.plotting: Please see
+    (https://ax.dev/tutorials/visualizations.html#Fix-for-plots-that-are-not-rendering)
+    if visualizations are not rendering.`
+}
+</CellOutput>
+
+## 1. Create experiment and run optimization
+
+The vizualizations require an experiment object and a model fit on the evaluated data.
+The routine below is a copy of the Service API tutorial, so the explanation here is
+omitted. Retrieving the experiment and model objects for each API paradigm is shown in
+the respective tutorials
+
+#### 1a. Define search space and evaluation function
+
+```python
+noise_sd = 0.1
+param_names = [f"x{i+1}" for i in range(6)]  # x1, x2, ..., x6
+
+
+def noisy_hartmann_evaluation_function(parameterization):
+    x = np.array([parameterization.get(p_name) for p_name in param_names])
+    noise1, noise2 = np.random.normal(0, noise_sd, 2)
+
+    return {
+        "hartmann6": (hartmann6(x) + noise1, noise_sd),
+        "l2norm": (np.sqrt((x**2).sum()) + noise2, noise_sd),
+    }
+```
+
+#### 1b. Create Experiment
+
+```python
+ax_client = AxClient()
+ax_client.create_experiment(
+    name="test_visualizations",
+    parameters=[
+        {
+            "name": p_name,
+            "type": "range",
+            "bounds": [0.0, 1.0],
+        }
+        for p_name in param_names
+    ],
+    objectives={"hartmann6": ObjectiveProperties(minimize=True)},
+    outcome_constraints=["l2norm <= 1.25"],
+)
+```
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Starting optimization with verbose logging. To disable logging, set the verbose_logging argument to False. Note that float values in the logs are rounded to 6 decimal points.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.utils.instantiation: Inferred value type of ParameterType.FLOAT for parameter x1. If that is not the expected value type, you can explicitly specify 'value_type' ('int', 'float', 'bool' or 'str') in parameter dict.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.utils.instantiation: Inferred value type of ParameterType.FLOAT for parameter x2. If that is not the expected value type, you can explicitly specify 'value_type' ('int', 'float', 'bool' or 'str') in parameter dict.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.utils.instantiation: Inferred value type of ParameterType.FLOAT for parameter x3. If that is not the expected value type, you can explicitly specify 'value_type' ('int', 'float', 'bool' or 'str') in parameter dict.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.utils.instantiation: Inferred value type of ParameterType.FLOAT for parameter x4. If that is not the expected value type, you can explicitly specify 'value_type' ('int', 'float', 'bool' or 'str') in parameter dict.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.utils.instantiation: Inferred value type of ParameterType.FLOAT for parameter x5. If that is not the expected value type, you can explicitly specify 'value_type' ('int', 'float', 'bool' or 'str') in parameter dict.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.utils.instantiation: Inferred value type of ParameterType.FLOAT for parameter x6. If that is not the expected value type, you can explicitly specify 'value_type' ('int', 'float', 'bool' or 'str') in parameter dict.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.utils.instantiation: Created search space: SearchSpace(parameters=[RangeParameter(name='x1', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x2', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x3', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x4', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x5', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x6', parameter_type=FLOAT, range=[0.0, 1.0])], parameter_constraints=[]).`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.modelbridge.dispatch_utils: Using Models.BOTORCH_MODULAR since there is at least one ordered parameter and there are no unordered categorical parameters.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.modelbridge.dispatch_utils: Calculating the number of remaining initialization trials based on num_initialization_trials=None max_initialization_trials=None num_tunable_parameters=6 num_trials=None use_batch_trials=False`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.modelbridge.dispatch_utils: calculated num_initialization_trials=12`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.modelbridge.dispatch_utils: num_completed_initialization_trials=0 num_remaining_initialization_trials=12`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.modelbridge.dispatch_utils: verbose, disable_progbar, and jit_compile are not yet supported when using choose_generation_strategy with ModularBoTorchModel, dropping these arguments.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.modelbridge.dispatch_utils: Using Bayesian Optimization generation strategy: GenerationStrategy(name='Sobol+BoTorch', steps=[Sobol for 12 trials, BoTorch for subsequent trials]). Iterations after 12 will take longer to generate due to model-fitting.`
+}
+</CellOutput>
+
+#### 1c. Run the optimization and fit a GP on all data
+
+```python
+for i in range(20):
+    parameters, trial_index = ax_client.get_next_trial()
+    # Local evaluation here can be replaced with deployment to external system.
+    ax_client.complete_trial(
+        trial_index=trial_index, raw_data=noisy_hartmann_evaluation_function(parameters)
+    )
+```
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 0 with parameters {'x1': 0.757397, 'x2': 0.482726, 'x3': 0.285983, 'x4': 0.225253, 'x5': 0.850582, 'x6': 0.704047} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 0 with data: {'hartmann6': (0.07181, 0.1), 'l2norm': (1.398388, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 1 with parameters {'x1': 0.102088, 'x2': 0.649672, 'x3': 0.605347, 'x4': 0.677149, 'x5': 0.034393, 'x6': 0.28} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 1 with data: {'hartmann6': (-0.32137, 0.1), 'l2norm': (0.988023, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 2 with parameters {'x1': 0.326107, 'x2': 0.146662, 'x3': 0.142436, 'x4': 0.467142, 'x5': 0.347152, 'x6': 0.008526} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 2 with data: {'hartmann6': (-0.044226, 0.1), 'l2norm': (0.806253, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 3 with parameters {'x1': 0.534134, 'x2': 0.969857, 'x3': 0.96766, 'x4': 0.888261, 'x5': 0.53783, 'x6': 0.944287} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 3 with data: {'hartmann6': (0.155826, 0.1), 'l2norm': (2.077267, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 4 with parameters {'x1': 0.70936, 'x2': 0.074767, 'x3': 0.695725, 'x4': 0.824609, 'x5': 0.645979, 'x6': 0.527827} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 4 with data: {'hartmann6': (0.082686, 0.1), 'l2norm': (1.578207, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 5 with parameters {'x1': 0.431124, 'x2': 0.808119, 'x3': 0.382158, 'x4': 0.280916, 'x5': 0.453844, 'x6': 0.455289} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 5 with data: {'hartmann6': (-0.481929, 0.1), 'l2norm': (1.309779, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 6 with parameters {'x1': 0.152464, 'x2': 0.301691, 'x3': 0.872491, 'x4': 0.613847, 'x5': 0.141599, 'x6': 0.191612} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 6 with data: {'hartmann6': (-0.012938, 0.1), 'l2norm': (1.139537, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 7 with parameters {'x1': 0.987325, 'x2': 0.566293, 'x3': 0.049159, 'x4': 0.038433, 'x5': 0.958223, 'x6': 0.760239} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 7 with data: {'hartmann6': (-0.028373, 0.1), 'l2norm': (1.602894, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 8 with parameters {'x1': 0.92676, 'x2': 0.238882, 'x3': 0.806926, 'x4': 0.355597, 'x5': 0.063638, 'x6': 0.904288} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 8 with data: {'hartmann6': (-0.99442, 0.1), 'l2norm': (1.605411, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 9 with parameters {'x1': 0.212993, 'x2': 0.878484, 'x3': 0.114694, 'x4': 0.812436, 'x5': 0.754811, 'x6': 0.081743} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 9 with data: {'hartmann6': (-0.991188, 0.1), 'l2norm': (1.361273, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 10 with parameters {'x1': 0.499503, 'x2': 0.387683, 'x3': 0.639925, 'x4': 0.082839, 'x5': 0.567073, 'x6': 0.318081} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 10 with data: {'hartmann6': (-0.291156, 0.1), 'l2norm': (0.996496, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `/home/runner/work/Ax/Ax/ax/modelbridge/cross_validation.py:439: UserWarning:
+Encountered exception in computing model fit quality: RandomModelBridge does not support prediction.
+[INFO 02-03 18:37:28] ax.service.ax_client: Generated new trial 11 with parameters {'x1': 0.64102, 'x2': 0.746035, 'x3': 0.437927, 'x4': 0.506948, 'x5': 0.25138, 'x6': 0.636715} using model Sobol.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:28] ax.service.ax_client: Completed trial 11 with data: {'hartmann6': (-0.303088, 0.1), 'l2norm': (1.521313, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:35] ax.service.ax_client: Generated new trial 12 with parameters {'x1': 0.225808, 'x2': 0.758148, 'x3': 0.295637, 'x4': 0.31298, 'x5': 0.657157, 'x6': 0.077132} using model BoTorch.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:35] ax.service.ax_client: Completed trial 12 with data: {'hartmann6': (-0.957176, 0.1), 'l2norm': (1.275591, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:45] ax.service.ax_client: Generated new trial 13 with parameters {'x1': 0.073259, 'x2': 0.666964, 'x3': 0.356119, 'x4': 0.464472, 'x5': 0.793777, 'x6': 0.122127} using model BoTorch.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:45] ax.service.ax_client: Completed trial 13 with data: {'hartmann6': (-0.393557, 0.1), 'l2norm': (1.211795, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:58] ax.service.ax_client: Generated new trial 14 with parameters {'x1': 0.312981, 'x2': 0.678024, 'x3': 0.341163, 'x4': 0.400972, 'x5': 0.642264, 'x6': 0.139743} using model BoTorch.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:37:58] ax.service.ax_client: Completed trial 14 with data: {'hartmann6': (-1.469443, 0.1), 'l2norm': (1.09684, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:11] ax.service.ax_client: Generated new trial 15 with parameters {'x1': 0.337478, 'x2': 0.626158, 'x3': 0.246153, 'x4': 0.514876, 'x5': 0.731336, 'x6': 0.166374} using model BoTorch.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:11] ax.service.ax_client: Completed trial 15 with data: {'hartmann6': (-1.36803, 0.1), 'l2norm': (1.272754, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:20] ax.service.ax_client: Generated new trial 16 with parameters {'x1': 0.381123, 'x2': 0.755086, 'x3': 0.15989, 'x4': 0.356838, 'x5': 0.587416, 'x6': 0.133881} using model BoTorch.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:20] ax.service.ax_client: Completed trial 16 with data: {'hartmann6': (-1.488343, 0.1), 'l2norm': (1.321677, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:30] ax.service.ax_client: Generated new trial 17 with parameters {'x1': 0.389783, 'x2': 0.756584, 'x3': 0.50218, 'x4': 0.337897, 'x5': 0.635086, 'x6': 0.145122} using model BoTorch.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:30] ax.service.ax_client: Completed trial 17 with data: {'hartmann6': (-1.31545, 0.1), 'l2norm': (1.172778, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:39] ax.service.ax_client: Generated new trial 18 with parameters {'x1': 0.374083, 'x2': 0.72159, 'x3': 0.207704, 'x4': 0.658076, 'x5': 0.430158, 'x6': 0.137161} using model BoTorch.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:39] ax.service.ax_client: Completed trial 18 with data: {'hartmann6': (-2.324115, 0.1), 'l2norm': (1.105774, 0.1)}.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:45] ax.service.ax_client: Generated new trial 19 with parameters {'x1': 0.435664, 'x2': 0.689788, 'x3': 0.378589, 'x4': 0.722158, 'x5': 0.45028, 'x6': 0.063605} using model BoTorch.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:45] ax.service.ax_client: Completed trial 19 with data: {'hartmann6': (-1.924556, 0.1), 'l2norm': (1.250835, 0.1)}.`
+}
+</CellOutput>
+
+## 2. Contour plots
+
+The plot below shows the response surface for `hartmann6` metric as a function of the
+`x1`, `x2` parameters.
+
+The other parameters are fixed in the middle of their respective ranges, which in this
+example is 0.5 for all of them.
+
+```python
+# this could alternately be done with `ax.plot.contour.plot_contour`
+render(ax_client.get_contour_plot(param_x="x1", param_y="x2", metric_name="hartmann6"))
+```
+
+<CellOutput>
+{
+  `[INFO 02-03 18:38:45] ax.service.ax_client: Retrieving contour plot with parameter 'x1' on X-axis and 'x2' on Y-axis, for metric 'hartmann6'. Remaining parameters are affixed to the middle of their range.`
+}
+</CellOutput>
+
+
+<PlotlyFigure data={require('./assets/plot_data/ca24e196-188c-46f4-86ac-8aa138d88127.json')} />
+
+#### 2a. Interactive contour plot
+
+The plot below allows toggling between different pairs of parameters to view the
+contours.
+
+```python
+model = ax_client.generation_strategy.model
+render(interact_contour(model=model, metric_name="hartmann6"))
+```
+
+<PlotlyFigure data={require('./assets/plot_data/e3b6bd6b-6d83-488a-be76-38681a680803.json')} />
+
+## 3. Tradeoff plots
+
+This plot illustrates the tradeoffs achievable for 2 different metrics. The plot takes
+the x-axis metric as input (usually the objective) and allows toggling among all other
+metrics for the y-axis.
+
+This is useful to get a sense of the pareto frontier (i.e. what is the best objective
+value achievable for different bounds on the constraint)
+
+```python
+render(plot_objective_vs_constraints(model, "hartmann6", rel=False))
+```
+
+<PlotlyFigure data={require('./assets/plot_data/3e9805f1-7c6f-4665-849a-f6d210dadb66.json')} />
+
+## 4. Cross-validation plots
+
+CV plots are useful to check how well the model predictions calibrate against the actual
+measurements. If all points are close to the dashed line, then the model is a good
+predictor of the real data.
+
+```python
+cv_results = cross_validate(model)
+render(interact_cross_validation(cv_results))
+```
+
+<PlotlyFigure data={require('./assets/plot_data/63885cda-8d7c-4e11-952c-adda06e1788f.json')} />
+
+## 5. Slice plots
+
+Slice plots show the metric outcome as a function of one parameter while fixing the
+others. They serve a similar function as contour plots.
+
+```python
+render(plot_slice(model, "x2", "hartmann6"))
+```
+
+<PlotlyFigure data={require('./assets/plot_data/b1671af6-5281-4132-a31f-eba22e27583c.json')} />
+
+## 6. Tile plots
+
+Tile plots are useful for viewing the effect of each arm.
+
+```python
+render(interact_fitted(model, rel=False))
+```
+
+<PlotlyFigure data={require('./assets/plot_data/37803b9d-2648-4eb4-bcdd-df0f9786f9db.json')} />
+
+## Fix for plots that are not rendering
+
+In certain environments like Google Colab or remote setups, plots may not render. If
+this is the case, we recommend using the below workaround which overrides the default
+renderer in plotly. The below cell changes the renderer to "jupyterlab" for this
+tutorial, but you can find the right renderer for your use case by calling
+`pio.renderers`
+
+```python
+import plotly.io as pio
+pio.renderers.default = "jupyterlab"
+
+render(ax_client.get_contour_plot(param_x="x1", param_y="x2", metric_name="hartmann6"))
+```
+
+<CellOutput>
+{
+  `[INFO 02-03 18:39:10] ax.service.ax_client: Retrieving contour plot with parameter 'x1' on X-axis and 'x2' on Y-axis, for metric 'hartmann6'. Remaining parameters are affixed to the middle of their range.`
+}
+</CellOutput>
+
+
+<PlotlyFigure data={require('./assets/plot_data/c8b849ed-4118-4d27-b117-e94a235f56d7.json')} />
+

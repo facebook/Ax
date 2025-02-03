@@ -1,0 +1,564 @@
+---
+title: Human-in-the-Loop Optimization
+sidebar_label: Human-in-the-Loop Optimization
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/0.5.0/tutorials/human_in_the_loop/human_in_the_loop.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/0.5.0/tutorials/human_in_the_loop/human_in_the_loop.ipynb"
+/>
+
+# Using Ax for Human-in-the-loop Experimentation¶
+
+While Ax can be used in as a fully automated service, generating and deploying
+candidates Ax can be also used in a trial-by-trial fashion, allowing for human
+oversight.
+
+Typically, human intervention in Ax is necessary when there are clear tradeoffs between
+multiple metrics of interest. Condensing multiple outcomes of interest into a single
+scalar quantity can be really challenging. Instead, it can be useful to specify an
+objective and constraints, and tweak these based on the information from the experiment.
+
+To facilitate this, Ax provides the following key features:
+
+1. Constrained optimization
+1. Interfaces for easily modifying optimization goals
+1. Utilities for visualizing and deploying new trials composed of multiple
+   optimizations.
+
+In this tutorial, we'll demonstrate how Ax enables users to explore these tradeoffs.
+With an understanding of the tradeoffs present in our data, we'll then make use of the
+constrained optimization utilities to generate candidates from multiple different
+optimization objectives, and create a conglomerate batch, with all of these candidates
+in together in one trial.
+
+## Experiment Setup
+
+For this tutorial, we will assume our experiment has already been created.
+
+```python
+import sys
+in_colab = 'google.colab' in sys.modules
+if in_colab:
+    %pip install ax-platform
+```
+
+```python
+import os
+
+from ax import (
+    Data,
+    Metric,
+    OptimizationConfig,
+    Objective,
+    OutcomeConstraint,
+    ComparisonOp,
+    json_load,
+)
+from ax.modelbridge.cross_validation import cross_validate
+from ax.modelbridge.registry import Models
+from ax.plot.diagnostic import tile_cross_validation
+from ax.plot.scatter import plot_multiple_metrics, tile_fitted
+from ax.utils.notebook.plotting import render, init_notebook_plotting
+
+import pandas as pd
+import plotly.io as pio
+
+init_notebook_plotting()
+if in_colab:
+    pio.renderers.default = "colab"
+```
+
+<CellOutput>
+{
+  `[INFO 02-03 20:33:40] ax.utils.notebook.plotting: Injecting Plotly library into cell. Do not overwrite or delete cell.`
+}
+</CellOutput>
+
+
+<CellOutput>
+{
+  `[INFO 02-03 20:33:40] ax.utils.notebook.plotting: Please see
+    (https://ax.dev/tutorials/visualizations.html#Fix-for-plots-that-are-not-rendering)
+    if visualizations are not rendering.`
+}
+</CellOutput>
+
+NOTE: The path below assumes the tutorial is being run either from the root directory of
+the Ax package or from the `human_in_the_loop` directory that this tutorial lives in.
+This is needed since the jupyter notebooks may change active directory during runtime,
+making it tricky to find the file in a consistent way.
+
+```python
+curr_dir = os.getcwd()
+if "human_in_the_loop" not in curr_dir:
+    curr_dir = os.path.join(curr_dir, "tutorials", "human_in_the_loop")
+experiment = json_load.load_experiment(os.path.join(curr_dir, "hitl_exp.json"))
+```
+
+### Initial Sobol Trial
+
+Bayesian Optimization experiments almost always begin with a set of random points. In
+this experiment, these points were chosen via a Sobol sequence, accessible via the
+`ModelBridge` factory.
+
+A collection of points run and analyzed together form a `BatchTrial`. A `Trial` object
+provides metadata pertaining to the deployment of these points, including details such
+as when they were deployed, and the current status of their experiment.
+
+Here, we see an initial experiment has finished running (COMPLETED status).
+
+```python
+experiment.trials[0]
+```
+
+<CellOutput>
+{
+  `BatchTrial(experiment_name='human_in_the_loop_tutorial', index=0, status=TrialStatus.COMPLETED)`
+}
+</CellOutput>
+
+```python
+experiment.trials[0].time_created
+```
+
+<CellOutput>
+{
+  `datetime.datetime(2019, 3, 29, 18, 10, 6)`
+}
+</CellOutput>
+
+```python
+# Number of arms in first experiment, including status_quo
+len(experiment.trials[0].arms)
+```
+
+<CellOutput>
+{
+  `65`
+}
+</CellOutput>
+
+```python
+# Sample arm configuration
+experiment.trials[0].arms[0]
+```
+
+<CellOutput>
+{
+  `Arm(name='0_0', parameters={'x_excellent': 0.9715802669525146, 'x_good': 0.8615524768829346, 'x_moderate': 0.7668091654777527, 'x_poor': 0.34871453046798706, 'x_unknown': 0.7675797343254089, 'y_excellent': 2.900710028409958, 'y_good': 1.5137152910232545, 'y_moderate': 0.6775947093963622, 'y_poor': 0.4974367544054985, 'y_unknown': 1.0852564811706542, 'z_excellent': 517803.49761247635, 'z_good': 607874.5171427727, 'z_moderate': 1151881.2023103237, 'z_poor': 2927449.2621421814, 'z_unknown': 2068407.6935052872})`
+}
+</CellOutput>
+
+## Experiment Analysis
+
+**Optimization Config**
+
+An important construct for analyzing an experiment is an OptimizationConfig. An
+OptimizationConfig contains an objective, and outcome constraints. Experiment's can have
+a default OptimizationConfig, but models can also take an OptimizationConfig as input
+independent of the default.
+
+**Objective:** A metric to optimize, along with a direction to optimize (default:
+maximize)
+
+**Outcome Constraint:** A metric to constrain, along with a constraint direction (\<= or
+\>=), as well as a bound.
+
+Let's start with a simple OptimizationConfig. By default, our objective metric will be
+maximized, but can be minimized by setting the `minimize` flag. Our outcome constraint
+will, by default, be evaluated as a relative percentage change. This percentage change
+is computed relative to the experiment's status quo arm.
+
+```python
+experiment.status_quo
+```
+
+<CellOutput>
+{
+  `Arm(name='status_quo', parameters={'x_excellent': 0, 'x_good': 0, 'x_moderate': 0, 'x_poor': 0, 'x_unknown': 0, 'y_excellent': 1, 'y_good': 1, 'y_moderate': 1, 'y_poor': 1, 'y_unknown': 1, 'z_excellent': 1000000, 'z_good': 1000000, 'z_moderate': 1000000, 'z_poor': 1000000, 'z_unknown': 1000000})`
+}
+</CellOutput>
+
+```python
+objective_metric = Metric(name="metric_1")
+constraint_metric = Metric(name="metric_2")
+
+experiment.optimization_config = OptimizationConfig(
+    objective=Objective(objective_metric, minimize=False),
+    outcome_constraints=[
+        OutcomeConstraint(metric=constraint_metric, op=ComparisonOp.LEQ, bound=5),
+    ],
+)
+```
+
+**Data**
+
+Another critical piece of analysis is data itself! Ax data follows a standard format,
+shown below. This format is imposed upon the underlying data structure, which is a
+Pandas DataFrame.
+
+A key set of fields are required for all data, for use with Ax models.
+
+It's a good idea to double check our data before fitting models -- let's make sure all
+of our expected metrics and arms are present.
+
+```python
+data = Data(pd.read_json(os.path.join(curr_dir, "hitl_data.json")))
+data.df.head()
+```
+
+
+|    |   arm_name | metric_name   |     mean |      sem |   trial_index | start_time   | end_time   |       n |
+|---:|-----------:|:--------------|---------:|---------:|--------------:|:-------------|:-----------|--------:|
+|  0 |        0_1 | metric_1      | 495.763  | 2.62164  |             0 | 2019-03-30   | 2019-04-03 | 1599994 |
+|  1 |       0_23 | metric_1      | 524.368  | 2.73165  |             0 | 2019-03-30   | 2019-04-03 | 1596356 |
+|  2 |       0_14 | metric_2      |  21.4602 | 0.069457 |             0 | 2019-03-30   | 2019-04-03 | 1600182 |
+|  3 |       0_53 | metric_2      |  21.4374 | 0.069941 |             0 | 2019-03-30   | 2019-04-03 | 1601081 |
+|  4 |       0_53 | metric_1      | 548.388  | 2.89349  |             0 | 2019-03-30   | 2019-04-03 | 1601081 |
+
+```python
+data.df["arm_name"].unique()
+```
+
+<CellOutput>
+{
+  `array(['0_1', '0_23', '0_14', '0_53', '0_0', '0_54', '0_55', '0_56',
+       '0_27', '0_57', '0_58', '0_13', '0_59', '0_6', '0_60', '0_61',
+       '0_62', '0_63', '0_7', '0_28', '0_15', '0_16', '0_17', '0_18',
+       '0_19', '0_29', '0_2', '0_20', '0_21', '0_22', '0_3', '0_30',
+       '0_8', '0_10', '0_31', '0_24', '0_32', '0_33', '0_34', '0_35',
+       '0_36', '0_37', '0_38', '0_9', '0_39', '0_4', '0_25', '0_11',
+       '0_40', '0_41', '0_42', '0_43', '0_44', '0_45', 'status_quo',
+       '0_46', '0_47', '0_48', '0_26', '0_49', '0_12', '0_5', '0_50',
+       '0_51', '0_52'], dtype=object)`
+}
+</CellOutput>
+
+```python
+data.df["metric_name"].unique()
+```
+
+<CellOutput>
+{
+  `array(['metric_1', 'metric_2'], dtype=object)`
+}
+</CellOutput>
+
+**Search Space**
+
+The final component necessary for human-in-the-loop optimization is a SearchSpace. A
+SearchSpace defines the feasible region for our parameters, as well as their types.
+
+Here, we have both parameters and a set of constraints on those parameters.
+
+Without a SearchSpace, our models are unable to generate new candidates. By default, the
+models will read the search space off of the experiment, when they are told to generate
+candidates. SearchSpaces can also be specified by the user at this time. Sometimes, the
+first round of an experiment is too restrictive--perhaps the experimenter was too
+cautious when defining their initial ranges for exploration! In this case, it can be
+useful to generate candidates from new, expanded search spaces, beyond that specified in
+the experiment.
+
+```python
+experiment.search_space.parameters
+```
+
+<CellOutput>
+{
+  `{'x_excellent': RangeParameter(name='x_excellent', parameter_type=FLOAT, range=[0.0, 1.0]),
+ 'x_good': RangeParameter(name='x_good', parameter_type=FLOAT, range=[0.0, 1.0]),
+ 'x_moderate': RangeParameter(name='x_moderate', parameter_type=FLOAT, range=[0.0, 1.0]),
+ 'x_poor': RangeParameter(name='x_poor', parameter_type=FLOAT, range=[0.0, 1.0]),
+ 'x_unknown': RangeParameter(name='x_unknown', parameter_type=FLOAT, range=[0.0, 1.0]),
+ 'y_excellent': RangeParameter(name='y_excellent', parameter_type=FLOAT, range=[0.1, 3.0]),
+ 'y_good': RangeParameter(name='y_good', parameter_type=FLOAT, range=[0.1, 3.0]),
+ 'y_moderate': RangeParameter(name='y_moderate', parameter_type=FLOAT, range=[0.1, 3.0]),
+ 'y_poor': RangeParameter(name='y_poor', parameter_type=FLOAT, range=[0.1, 3.0]),
+ 'y_unknown': RangeParameter(name='y_unknown', parameter_type=FLOAT, range=[0.1, 3.0]),
+ 'z_excellent': RangeParameter(name='z_excellent', parameter_type=FLOAT, range=[50000.0, 5000000.0]),
+ 'z_good': RangeParameter(name='z_good', parameter_type=FLOAT, range=[50000.0, 5000000.0]),
+ 'z_moderate': RangeParameter(name='z_moderate', parameter_type=FLOAT, range=[50000.0, 5000000.0]),
+ 'z_poor': RangeParameter(name='z_poor', parameter_type=FLOAT, range=[50000.0, 5000000.0]),
+ 'z_unknown': RangeParameter(name='z_unknown', parameter_type=FLOAT, range=[50000.0, 5000000.0])}`
+}
+</CellOutput>
+
+```python
+experiment.search_space.parameter_constraints
+```
+
+<CellOutput>
+{
+  `[OrderConstraint(x_poor <= x_moderate),
+ OrderConstraint(x_moderate <= x_good),
+ OrderConstraint(x_good <= x_excellent),
+ OrderConstraint(y_poor <= y_moderate),
+ OrderConstraint(y_moderate <= y_good),
+ OrderConstraint(y_good <= y_excellent)]`
+}
+</CellOutput>
+
+### Model Fit
+
+Fitting a Modular BoTorch Model will allow us to predict new candidates based on our
+first Sobol batch. Here, we make use of the default settings for `BOTORCH_MODULAR`
+defined in the ModelBridge registry (uses BoTorch's `SingleTaskGP` and
+`qLogNoisyExpectedImprovement` by default for single objective optimization).
+
+```python
+gp = Models.BOTORCH_MODULAR(
+    search_space=experiment.search_space,
+    experiment=experiment,
+    data=data,
+)
+```
+
+We can validate the model fits using cross validation, shown below for each metric of
+interest. Here, our model fits leave something to be desired--the tail ends of each
+metric are hard to model. In this situation, there are three potential actions to take:
+
+1. Increase the amount of traffic in this experiment, to reduce the measurement noise.
+1. Increase the number of points run in the random batch, to assist the GP in covering
+   the space.
+1. Reduce the number of parameters tuned at one time.
+
+However, away from the tail effects, the fits do show a strong correlations, so we will
+proceed with candidate generation.
+
+```python
+cv_result = cross_validate(gp)
+render(tile_cross_validation(cv_result))
+```
+
+<PlotlyFigure data={require('./assets/plot_data/512d280d-335b-4d1c-8b53-b0a4a26cd614.json')} />
+
+The parameters from the initial batch have a wide range of effects on the metrics of
+interest, as shown from the outcomes from our fitted GP model.
+
+```python
+render(tile_fitted(gp, rel=True))
+```
+
+<PlotlyFigure data={require('./assets/plot_data/c84aadc5-d804-4e39-ad59-e514bd86db44.json')} />
+
+```python
+METRIC_X_AXIS = "metric_1"
+METRIC_Y_AXIS = "metric_2"
+
+render(
+    plot_multiple_metrics(
+        gp,
+        metric_x=METRIC_X_AXIS,
+        metric_y=METRIC_Y_AXIS,
+    )
+)
+```
+
+<PlotlyFigure data={require('./assets/plot_data/bae0d06b-83a8-4804-bc8f-4cc77eec3f5b.json')} />
+
+### Candidate Generation
+
+With our fitted GPEI model, we can optimize EI (Expected Improvement) based on any
+optimization config. We can start with our initial optimization config, and aim to
+simply maximize the playback smoothness, without worrying about the constraint on
+quality.
+
+```python
+unconstrained = gp.gen(
+    n=3,
+    optimization_config=OptimizationConfig(
+        objective=Objective(objective_metric, minimize=False),
+    ),
+)
+```
+
+Let's plot the tradeoffs again, but with our new arms.
+
+```python
+render(
+    plot_multiple_metrics(
+        gp,
+        metric_x=METRIC_X_AXIS,
+        metric_y=METRIC_Y_AXIS,
+        generator_runs_dict={
+            "unconstrained": unconstrained,
+        },
+    )
+)
+```
+
+<PlotlyFigure data={require('./assets/plot_data/9997c8b1-d0f8-4262-8f39-34c5e467153f.json')} />
+
+### Change Objectives
+
+With our unconstrained optimization, we generate some candidates which are pretty
+promising with respect to our objective! However, there is a clear regression in our
+constraint metric, above our initial 5% desired constraint. Let's add that constraint
+back in.
+
+```python
+constraint_5 = OutcomeConstraint(metric=constraint_metric, op=ComparisonOp.LEQ, bound=5)
+constraint_5_results = gp.gen(
+    n=3,
+    optimization_config=OptimizationConfig(
+        objective=Objective(objective_metric, minimize=False), outcome_constraints=[constraint_5]
+    ),
+)
+```
+
+This yields a *GeneratorRun*, which contains points according to our specified
+optimization config, along with metadata about how the points were generated. Let's plot
+the tradeoffs in these new points.
+
+```python
+from ax.plot.scatter import plot_multiple_metrics
+
+render(
+    plot_multiple_metrics(
+        gp,
+        metric_x=METRIC_X_AXIS,
+        metric_y=METRIC_Y_AXIS,
+        generator_runs_dict={"constraint_5": constraint_5_results},
+    )
+)
+```
+
+<PlotlyFigure data={require('./assets/plot_data/c6edc0da-afba-4fcc-9e24-f0cf8d06a095.json')} />
+
+It is important to note that the treatment of constraints in GP EI is probabilistic. The
+acquisition function weights our objective by the probability that each constraint is
+feasible. Thus, we may allow points with a very small probability of violating the
+constraint to be generated, as long as the chance of the points increasing our objective
+is high enough.
+
+You can see above that the point estimate for each point is significantly below a 5%
+increase in the constraint metric, but that there is uncertainty in our prediction, and
+the tail probabilities do include probabilities of small regressions beyond 5%.
+
+```python
+constraint_1 = OutcomeConstraint(metric=constraint_metric, op=ComparisonOp.LEQ, bound=1)
+constraint_1_results = gp.gen(
+    n=3,
+    optimization_config=OptimizationConfig(
+        objective=Objective(objective_metric, minimize=False),
+        outcome_constraints=[constraint_1],
+    ),
+)
+```
+
+```python
+render(
+    plot_multiple_metrics(
+        gp,
+        metric_x=METRIC_X_AXIS,
+        metric_y=METRIC_Y_AXIS,
+        generator_runs_dict={
+            "constraint_1": constraint_1_results,
+        },
+    )
+)
+```
+
+<PlotlyFigure data={require('./assets/plot_data/b0ea2462-77f3-4c5c-b0b7-400119d93fa2.json')} />
+
+Finally, let's view all three sets of candidates together.
+
+```python
+render(
+    plot_multiple_metrics(
+        gp,
+        metric_x=METRIC_X_AXIS,
+        metric_y=METRIC_Y_AXIS,
+        generator_runs_dict={
+            "unconstrained": unconstrained,
+            "loose_constraint": constraint_5_results,
+            "tight_constraint": constraint_1_results,
+        },
+    )
+)
+```
+
+<PlotlyFigure data={require('./assets/plot_data/bb8d5e6c-0097-4942-b774-c006110a4458.json')} />
+
+## Creating a New Trial
+
+Having done the analysis and candidate generation for three different optimization
+configs, we can easily create a new `BatchTrial` which combines the candidates from
+these three different optimizations. Each set of candidates looks promising -- the point
+estimates are higher along both metric values than in the previous batch. However, there
+is still a good bit of uncertainty in our predictions. It is hard to choose between the
+different constraint settings without reducing this noise, so we choose to run a new
+trial with all three constraint settings. However, we're generally convinced that the
+tight constraint is too conservative. We'd still like to reduce our uncertainty in that
+region, but we'll only take one arm from that set.
+
+```python
+# We can add entire generator runs, when constructing a new trial.
+trial = (
+    experiment.new_batch_trial()
+    .add_generator_run(unconstrained)
+    .add_generator_run(constraint_5_results)
+)
+
+# Or, we can hand-pick arms.
+trial.add_arm(constraint_1_results.arms[0])
+```
+
+<CellOutput>
+{
+  `BatchTrial(experiment_name='human_in_the_loop_tutorial', index=1, status=TrialStatus.CANDIDATE)`
+}
+</CellOutput>
+
+The arms are combined into a single trial, along with the `status_quo` arm. Their
+generator can be accessed from the trial as well.
+
+```python
+experiment.trials[1].arms
+```
+
+<CellOutput>
+{
+  `[Arm(name='1_0', parameters={'x_excellent': 0.4892278099367938, 'x_good': 1.0694650210341845e-15, 'x_moderate': 2.312145174698043e-16, 'x_poor': 1.0732469741890073e-16, 'x_unknown': 0.5743883945986398, 'y_excellent': 3.0, 'y_good': 1.3596334902451217, 'y_moderate': 1.3596334902451221, 'y_poor': 0.4636128806764108, 'y_unknown': 2.999999999999998, 'z_excellent': 4989310.290559263, 'z_good': 3974474.13057063, 'z_moderate': 1023125.9347140244, 'z_poor': 3488341.278812907, 'z_unknown': 2123093.369492879}),
+ Arm(name='1_1', parameters={'x_excellent': 0.29234703641035575, 'x_good': 0.0, 'x_moderate': 0.0, 'x_poor': 0.0, 'x_unknown': 0.3380168201955211, 'y_excellent': 3.0, 'y_good': 1.1495241224850463, 'y_moderate': 1.1495241224850459, 'y_poor': 0.5363735835523019, 'y_unknown': 2.999999999999241, 'z_excellent': 4956697.69837037, 'z_good': 3434586.8285549055, 'z_moderate': 1545526.797054054, 'z_poor': 250647.97842148566, 'z_unknown': 2255888.8374967086}),
+ Arm(name='1_2', parameters={'x_excellent': 0.015070612892535964, 'x_good': 0.0, 'x_moderate': 1.375202268485517e-17, 'x_poor': 4.638049860324399e-19, 'x_unknown': 0.9999999999999998, 'y_excellent': 2.9999999999999996, 'y_good': 2.2549673799496044, 'y_moderate': 2.2549673799496026, 'y_poor': 0.4899969696113382, 'y_unknown': 2.9999999999999996, 'z_excellent': 4427568.675084151, 'z_good': 4453928.157811758, 'z_moderate': 1830750.6525465832, 'z_poor': 2490822.5847513285, 'z_unknown': 4918315.071192338}),
+ Arm(name='1_3', parameters={'x_excellent': 5.154844196113434e-09, 'x_good': 2.7985157514873668e-11, 'x_moderate': 0.0, 'x_poor': 0.0, 'x_unknown': 0.21140103237540558, 'y_excellent': 1.261548153616889, 'y_good': 0.1, 'y_moderate': 0.1, 'y_poor': 0.1000000068848255, 'y_unknown': 1.0064696559297703, 'z_excellent': 2590385.0186339617, 'z_good': 1830656.684243111, 'z_moderate': 4600896.033594635, 'z_poor': 4387214.407214952, 'z_unknown': 2392208.1022402495}),
+ Arm(name='1_4', parameters={'x_excellent': 0.47202226916342377, 'x_good': 0.47202226916342127, 'x_moderate': 0.12051036756803807, 'x_poor': 1.9515995992253547e-14, 'x_unknown': 0.9999999999999857, 'y_excellent': 3.0, 'y_good': 1.3333957883230223, 'y_moderate': 1.2401552238284026, 'y_poor': 0.49923342029368967, 'y_unknown': 2.9999999999999845, 'z_excellent': 4844802.491145926, 'z_good': 3259558.7119872863, 'z_moderate': 1089000.888984671, 'z_poor': 4208756.599954411, 'z_unknown': 4392415.603094952}),
+ Arm(name='1_5', parameters={'x_excellent': 0.43252137062209733, 'x_good': 0.4325213706221496, 'x_moderate': 0.4325213706220987, 'x_poor': 0.43252137062211743, 'x_unknown': 0.0, 'y_excellent': 3.0, 'y_good': 1.7171783906147873, 'y_moderate': 1.7171783906150273, 'y_poor': 0.9112792499784322, 'y_unknown': 2.999999999999957, 'z_excellent': 4853416.321845961, 'z_good': 4780434.404624374, 'z_moderate': 1985692.897940706, 'z_poor': 2941051.389364976, 'z_unknown': 4556639.196108901}),
+ Arm(name='1_6', parameters={'x_excellent': 0.6266291631298634, 'x_good': 0.5986508026814302, 'x_moderate': 0.598650802681449, 'x_poor': 1.834912565142588e-14, 'x_unknown': 1.0, 'y_excellent': 3.0, 'y_good': 0.7714496428504246, 'y_moderate': 0.7714496428503349, 'y_poor': 0.7714496428505403, 'y_unknown': 3.0, 'z_excellent': 4791784.807291799, 'z_good': 3695332.295263476, 'z_moderate': 4880704.960858879, 'z_poor': 4471751.198114191, 'z_unknown': 273230.0519895557})]`
+}
+</CellOutput>
+
+The original `GeneratorRuns` can be accessed from within the trial as well. This is
+useful for later analyses, allowing introspection of the `OptimizationConfig` used for
+generation (as well as other information, e.g. `SearchSpace` used for generation).
+
+```python
+experiment.trials[1]._generator_run_structs
+```
+
+<CellOutput>
+{
+  `[GeneratorRunStruct(generator_run=GeneratorRun(3 arms, total weight 3.0), weight=1.0),
+ GeneratorRunStruct(generator_run=GeneratorRun(3 arms, total weight 3.0), weight=1.0),
+ GeneratorRunStruct(generator_run=GeneratorRun(1 arms, total weight 1.0), weight=1.0)]`
+}
+</CellOutput>
+
+Here, we can see the unconstrained set-up used for our first set of candidates.
+
+```python
+experiment.trials[1]._generator_run_structs[0].generator_run.optimization_config
+```
+
+<CellOutput>
+{
+  `OptimizationConfig(objective=Objective(metric_name="metric_1", minimize=False), outcome_constraints=[])`
+}
+</CellOutput>
+

@@ -1,0 +1,1363 @@
+{
+  "config": {
+    "linkText": "Export to plot.ly",
+    "plotlyServerURL": "https://plot.ly",
+    "showLink": false
+  },
+  "data": [
+    {
+      "hoverinfo": "none",
+      "line": {
+        "color": "black",
+        "dash": "dot",
+        "width": 2
+      },
+      "mode": "lines",
+      "showlegend": false,
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        -3.7540888834971953,
+        0.7364021750494406
+      ],
+      "xaxis": "x",
+      "y": [
+        -3.7540888834971953,
+        0.7364021750494406
+      ],
+      "yaxis": "y"
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "AsyCxPYp2z8XquEpMXDVPzDMG+HiZtI/yOTl18Pk1j8NyxxgqMTGPw+1lO2VX9E/bxaWj/5W4T+0vuMKpwbkP8GMpbXBJ8o/vfBrAi2FxT8xSGiO+BLRP4+0J24t+OU/6ho9Wax64T8og5dkpnvbP/5q2SxRXtk/LrT3HE+c0D8CHRw93ZnXP6eAPEwf7NE/qspXQ4SU2T97WU00K7XTP+wHc+pPwNs/2T4qSCHg3D9lnNvx7/PhP4cR2wIiq+0/X0PFx7KC6z/vkR52XUfsPxqMIuuTStg//AllL1n43z/Q2PHlRgTlP3kq+5cqHu4/vk9qY3X34D85CbqbZ2DlP9j/QKag5eI/tMqIwcjo5j+7Q3HsiQriP4YQ8IPG/t8/aaQSm4nU6D9fMiH6qEblP+3P8Fnjm+E/JkZuXp7c6T9LqHAhIaiqP3RKZa6fito/3UcfgfOsiT96YZC/gLTZP+e72azJpeo/mCZFL9/qjD95fhecEIawP2KVy2TVKbI/Rsi5uEFFzj+RQ8+l+CqzP5bp9yG0vZQ/3hX0m2Wshz/cX8m/ebvfP1BBkG1xbd8/TO4tbiF1gj8yQkScYRCSP9H8nTAKe3k/dSK50FbscT8i9VIH7daRP0DTcX6A99M/z+sGbWZ86T9FpoptJOviPw==",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(128,177,211,1)"
+      },
+      "mode": "markers",
+      "name": "In-sample",
+      "showlegend": true,
+      "text": [
+        "<b>Arm 0_0</b><br><br>Actual: -1.166 [-1.166, -1.166]<br>Predicted: -0.777 [-1.201, -0.353]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_1</b><br><br>Actual: -1.484 [-1.484, -1.484]<br>Predicted: -1.8 [-2.135, -1.465]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_2</b><br><br>Actual: -1.238 [-1.238, -1.238]<br>Predicted: -1.242 [-1.530, -0.955]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_3</b><br><br>Actual: -0.65 [-0.650, -0.650]<br>Predicted: -0.804 [-1.162, -0.446]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_4</b><br><br>Actual: -0.194 [-0.194, -0.194]<br>Predicted: -0.185 [-0.363, -0.007]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_5</b><br><br>Actual: -1.392 [-1.392, -1.392]<br>Predicted: -1.396 [-1.668, -1.125]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_6</b><br><br>Actual: -2.073 [-2.073, -2.073]<br>Predicted: -1.959 [-2.501, -1.417]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_7</b><br><br>Actual: -1.098 [-1.098, -1.098]<br>Predicted: -1.103 [-1.729, -0.477]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_8</b><br><br>Actual: -0.687 [-0.687, -0.687]<br>Predicted: -0.578 [-0.782, -0.374]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_9</b><br><br>Actual: -1.518 [-1.518, -1.518]<br>Predicted: -1.404 [-1.572, -1.236]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_10</b><br><br>Actual: -1.335 [-1.335, -1.335]<br>Predicted: -1.563 [-1.830, -1.296]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_11</b><br><br>Actual: -0.002 [-0.002, -0.002]<br>Predicted: -0.379 [-1.065, 0.308]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_12</b><br><br>Actual: -0.484 [-0.484, -0.484]<br>Predicted: -0.934 [-1.481, -0.388]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_13</b><br><br>Actual: -1.59 [-1.590, -1.590]<br>Predicted: -1.343 [-1.773, -0.914]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_14</b><br><br>Actual: -1.748 [-1.748, -1.748]<br>Predicted: -1.481 [-1.877, -1.084]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_15</b><br><br>Actual: -1.005 [-1.005, -1.005]<br>Predicted: -1.096 [-1.355, -0.836]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_16</b><br><br>Actual: -1.114 [-1.114, -1.114]<br>Predicted: -1.276 [-1.645, -0.908]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_17</b><br><br>Actual: -1.665 [-1.665, -1.665]<br>Predicted: -1.575 [-1.855, -1.295]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_18</b><br><br>Actual: -1.416 [-1.416, -1.416]<br>Predicted: -1.456 [-1.855, -1.056]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_19</b><br><br>Actual: -0.355 [-0.355, -0.355]<br>Predicted: -0.257 [-0.565, 0.051]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_20</b><br><br>Actual: -0.11 [-0.110, -0.110]<br>Predicted: 0.008 [-0.426, 0.442]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_21</b><br><br>Actual: -1.885 [-1.885, -1.885]<br>Predicted: -1.692 [-2.143, -1.241]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 1_0</b><br><br>Actual: -2.928 [-2.928, -2.928]<br>Predicted: -2.687 [-3.248, -2.126]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 1_1</b><br><br>Actual: -2.778 [-2.778, -2.778]<br>Predicted: -2.144 [-3.071, -1.217]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 1_2</b><br><br>Actual: -0.0 [-0.000, 0.000]<br>Predicted: -0.455 [-1.314, 0.405]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 1_3</b><br><br>Actual: -3.25 [-3.250, -3.250]<br>Predicted: -2.105 [-2.989, -1.222]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 2_0</b><br><br>Actual: -0.0 [-0.000, 0.000]<br>Predicted: -0.192 [-0.572, 0.187]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 2_1</b><br><br>Actual: -3.068 [-3.068, -3.068]<br>Predicted: -3.051 [-3.551, -2.551]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 2_2</b><br><br>Actual: -2.647 [-2.647, -2.647]<br>Predicted: -2.784 [-3.441, -2.127]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 2_3</b><br><br>Actual: -2.895 [-2.895, -2.895]<br>Predicted: -2.742 [-3.684, -1.801]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 3_0</b><br><br>Actual: -1.962 [-1.962, -1.962]<br>Predicted: -1.635 [-2.165, -1.105]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 3_1</b><br><br>Actual: -0.992 [-0.992, -0.992]<br>Predicted: -0.961 [-1.629, -0.293]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 3_2</b><br><br>Actual: -2.395 [-2.395, -2.395]<br>Predicted: -2.543 [-3.134, -1.953]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 3_3</b><br><br>Actual: -2.996 [-2.996, -2.996]<br>Predicted: -2.376 [-3.092, -1.660]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 4_0</b><br><br>Actual: -2.373 [-2.373, -2.373]<br>Predicted: -2.358 [-2.921, -1.794]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 4_1</b><br><br>Actual: -0.0 [-0.000, 0.000]<br>Predicted: -0.222 [-0.722, 0.278]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 4_2</b><br><br>Actual: -2.761 [-2.761, -2.761]<br>Predicted: -2.978 [-3.754, -2.202]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 4_3</b><br><br>Actual: -2.114 [-2.114, -2.114]<br>Predicted: -1.931 [-2.596, -1.266]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 5_0</b><br><br>Actual: -2.623 [-2.623, -2.623]<br>Predicted: -2.555 [-3.105, -2.004]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 5_1</b><br><br>Actual: -0.413 [-0.413, -0.413]<br>Predicted: -0.939 [-1.747, -0.131]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 5_2</b><br><br>Actual: -1.057 [-1.057, -1.057]<br>Predicted: -1.073 [-1.126, -1.021]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 5_3</b><br><br>Actual: -0.519 [-0.519, -0.519]<br>Predicted: -0.474 [-0.889, -0.060]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 6_0</b><br><br>Actual: -0.861 [-0.861, -0.861]<br>Predicted: -0.859 [-0.871, -0.846]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 6_1</b><br><br>Actual: -1.806 [-1.806, -1.806]<br>Predicted: -1.552 [-1.954, -1.151]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 6_2</b><br><br>Actual: -0.0 [-0.000, 0.000]<br>Predicted: -0.364 [-1.197, 0.468]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 6_3</b><br><br>Actual: -0.731 [-0.731, -0.731]<br>Predicted: -0.735 [-0.749, -0.721]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 7_0</b><br><br>Actual: -0.665 [-0.665, -0.665]<br>Predicted: -0.699 [-0.763, -0.634]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 7_1</b><br><br>Actual: -1.163 [-1.163, -1.163]<br>Predicted: -1.107 [-1.178, -1.036]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 7_2</b><br><br>Actual: -0.768 [-0.768, -0.768]<br>Predicted: -0.604 [-0.840, -0.367]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 7_3</b><br><br>Actual: -1.206 [-1.206, -1.206]<br>Predicted: -1.249 [-1.324, -1.174]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 8_0</b><br><br>Actual: -0.549 [-0.549, -0.549]<br>Predicted: -0.533 [-0.553, -0.513]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 8_1</b><br><br>Actual: -0.934 [-0.934, -0.934]<br>Predicted: -0.929 [-0.941, -0.918]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 8_2</b><br><br>Actual: -0.55 [-0.550, -0.550]<br>Predicted: -0.579 [-1.075, -0.084]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 8_3</b><br><br>Actual: -2.306 [-2.306, -2.306]<br>Predicted: -2.284 [-2.775, -1.793]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 9_0</b><br><br>Actual: -0.437 [-0.437, -0.437]<br>Predicted: -0.429 [-0.438, -0.420]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 9_1</b><br><br>Actual: -0.995 [-0.995, -0.995]<br>Predicted: -1.014 [-1.031, -0.996]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 9_2</b><br><br>Actual: -0.793 [-0.793, -0.793]<br>Predicted: -0.787 [-0.794, -0.781]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 9_3</b><br><br>Actual: -0.656 [-0.656, -0.656]<br>Predicted: -0.661 [-0.665, -0.656]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 10_0</b><br><br>Actual: -0.333 [-0.333, -0.333]<br>Predicted: -0.346 [-0.363, -0.328]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 10_1</b><br><br>Actual: -1.931 [-1.931, -1.931]<br>Predicted: -1.881 [-2.193, -1.569]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 10_2</b><br><br>Actual: -0.0 [-0.000, 0.000]<br>Predicted: -0.06 [-0.856, 0.736]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 10_3</b><br><br>Actual: -3.039 [-3.039, -3.039]<br>Predicted: -3.144 [-3.735, -2.552]<br>Parameterization has too many items to render on hover (10)."
+      ],
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        -1.166349159926709,
+        -1.4844284223826707,
+        -1.2378674979206383,
+        -0.6504930832710848,
+        -0.19416940069034663,
+        -1.3921630112584282,
+        -2.073306728826391,
+        -1.098155067950276,
+        -0.6874502260693028,
+        -1.5180375308982736,
+        -1.3350786558393948,
+        -0.0017986146663863049,
+        -0.48418177447197563,
+        -1.5901476249983812,
+        -1.7480425756437399,
+        -1.0047053130972217,
+        -1.1135813009907993,
+        -1.6646745986510858,
+        -1.4163370017820858,
+        -0.35491515131337226,
+        -0.11008263119776998,
+        -1.8849815698807797,
+        -2.928258679643527,
+        -2.7778279261267707,
+        -0.0,
+        -3.25,
+        -0.0,
+        -3.068051805522697,
+        -2.646854523305734,
+        -2.8949675370340806,
+        -1.9620274104297593,
+        -0.9915219946329423,
+        -2.3953881008567457,
+        -2.995827555333039,
+        -2.3733846052868124,
+        -0.0,
+        -2.760585609411343,
+        -2.113712456368345,
+        -2.6227157697365477,
+        -0.4132195132027552,
+        -1.0565484779909486,
+        -0.5191165505105249,
+        -0.8610993353612525,
+        -1.805749231340983,
+        -0.0,
+        -0.730705223568186,
+        -0.665383114544236,
+        -1.1626313159479205,
+        -0.768138502469334,
+        -1.206074096125114,
+        -0.5493718416017925,
+        -0.9338318952512498,
+        -0.550455667017769,
+        -2.3063190908749984,
+        -0.43726558892645995,
+        -0.9951229193789927,
+        -0.7930421667699945,
+        -0.6563662118291926,
+        -0.3332326226772498,
+        -1.9308458919394225,
+        -0.0,
+        -3.038789042672854
+      ],
+      "xaxis": "x",
+      "y": [
+        -0.7769802352667122,
+        -1.7995894417631575,
+        -1.242098968956428,
+        -0.8039476033669288,
+        -0.18523833440995618,
+        -1.396236256918154,
+        -1.9593140176271209,
+        -1.1033114733843896,
+        -0.5779794168119669,
+        -1.4037240917856364,
+        -1.562997041487149,
+        -0.3786024221211278,
+        -0.9343494177493673,
+        -1.3431891176942155,
+        -1.4805873438327506,
+        -1.095843699585024,
+        -1.2764716431092895,
+        -1.5750289375903868,
+        -1.4555319489432479,
+        -0.2574155089572159,
+        0.008025548662068394,
+        -1.6921852638014456,
+        -2.6873919644764293,
+        -2.1437343945614127,
+        -0.4547428622324241,
+        -2.1054031518040657,
+        -0.19229856958151537,
+        -3.0509680244871076,
+        -2.7837889541696903,
+        -2.742384393344383,
+        -1.6348043688521106,
+        -0.9614707445076449,
+        -2.5430314634328157,
+        -2.375780553935052,
+        -2.3575162584121463,
+        -0.22160759635853666,
+        -2.9781443617108834,
+        -1.9309593375487033,
+        -2.5547158348297616,
+        -0.9389080992395372,
+        -1.0734365854099557,
+        -0.4744853240220077,
+        -0.8586843651012247,
+        -1.5522967885480208,
+        -0.3644175057522435,
+        -0.7346602262732014,
+        -0.6986344838530198,
+        -1.1070846145614364,
+        -0.6035779329439769,
+        -1.24883931636544,
+        -0.5330089513666624,
+        -0.9292685428051555,
+        -0.5793249358023614,
+        -2.2841145671037415,
+        -0.4294621515284085,
+        -1.0137609934023366,
+        -0.7873665067477837,
+        -0.6607646227273096,
+        -0.34556129151804493,
+        -1.8811562539815498,
+        -0.060033384169375203,
+        -3.1436921100714104
+      ],
+      "yaxis": "y"
+    },
+    {
+      "hoverinfo": "none",
+      "line": {
+        "color": "black",
+        "dash": "dot",
+        "width": 2
+      },
+      "mode": "lines",
+      "showlegend": false,
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        -3.802633965664282,
+        0.8044171265882704
+      ],
+      "xaxis": "x2",
+      "y": [
+        -3.802633965664282,
+        0.8044171265882704
+      ],
+      "yaxis": "y2"
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "tkEFTPUJ1z/eyOUjlHHTP+THwEgpBNA/0woVGM3F1z95GOcY1gPIP8tlZKL1Fsc/VSYA+yJh3j8vryig73neP/dI0r5rg8g/1CUr3W8GzD8BI/Ln6ePIP0pByEAHsuY/Y9nDWrmf3D80tv8fHcXUP5yGnWRDLNY/yCQPp6U30D8wTqltzzPTP7uErJBvBtE/YI76gsLa5j+8P/SsEtjQPxMXCCGzuN4/mP/rCXIf2j+FnwNX2jHePycheOxLbOY/CxJaeuET7D81Ii8oCJfqP1n7IP2CYuU/5KAFZUDN3T+MSUlCvsLhPwYBpj47Peo/XqO28wiU2D8344A7+vviP9c7N2CTcuQ/eBNW8Aya5j+5KoGFXingP3NrKlTrIdI/xIyrDxAs6j9E5QX0slbhP5WQFPJSSdo/AM3xNhTu5j/nu8CcvQywP/jiPGfhSNw/RTBdclt0lD/wKSNkBAbYP2qS9lVEAes/EkqlllSdlT+Ne+oKbo27P1AGlF0oLLk/8srG5NGj1T8rHJtpbRu5P0F4YFJx1pE/sjUm0KKMgz8P303lxMjhPwP/ULjlhuA/U6rZaTlNfz8/Cfb75BqSP9uZFFysiXg/rykEe7DDcD8ZSn970pONPwM/jYplu98/yPvnJUPj4z+rrAagHLLoPw==",
+          "dtype": "f8"
+        },
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(128,177,211,1)"
+      },
+      "mode": "markers",
+      "name": "In-sample",
+      "showlegend": true,
+      "text": [
+        "<b>Arm 0_0</b><br><br>Actual: -1.41 [-1.410, -1.410]<br>Predicted: -1.512 [-1.872, -1.152]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_1</b><br><br>Actual: -0.593 [-0.593, -0.593]<br>Predicted: -0.626 [-0.930, -0.322]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_2</b><br><br>Actual: -1.071 [-1.071, -1.071]<br>Predicted: -0.967 [-1.217, -0.717]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_3</b><br><br>Actual: -1.773 [-1.773, -1.773]<br>Predicted: -1.868 [-2.239, -1.496]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_4</b><br><br>Actual: -1.443 [-1.443, -1.443]<br>Predicted: -1.606 [-1.793, -1.418]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_5</b><br><br>Actual: -0.843 [-0.843, -0.843]<br>Predicted: -0.728 [-0.908, -0.548]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_6</b><br><br>Actual: -0.222 [-0.222, -0.222]<br>Predicted: -0.381 [-0.856, 0.094]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_7</b><br><br>Actual: -1.732 [-1.732, -1.732]<br>Predicted: -1.8 [-2.277, -1.324]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_8</b><br><br>Actual: -1.409 [-1.409, -1.409]<br>Predicted: -1.276 [-1.468, -1.085]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_9</b><br><br>Actual: -0.042 [-0.042, -0.042]<br>Predicted: -0.12 [-0.339, 0.099]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_10</b><br><br>Actual: -0.686 [-0.686, -0.686]<br>Predicted: -0.727 [-0.922, -0.533]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_11</b><br><br>Actual: -1.968 [-1.968, -1.968]<br>Predicted: -2.355 [-3.065, -1.646]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_12</b><br><br>Actual: -1.723 [-1.723, -1.723]<br>Predicted: -1.643 [-2.091, -1.196]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_13</b><br><br>Actual: -1.088 [-1.088, -1.088]<br>Predicted: -1.0 [-1.325, -0.675]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_14</b><br><br>Actual: -0.438 [-0.438, -0.438]<br>Predicted: -0.645 [-0.992, -0.299]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_15</b><br><br>Actual: -1.4 [-1.400, -1.400]<br>Predicted: -1.449 [-1.703, -1.196]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_16</b><br><br>Actual: -1.426 [-1.426, -1.426]<br>Predicted: -1.366 [-1.667, -1.066]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_17</b><br><br>Actual: -0.346 [-0.346, -0.346]<br>Predicted: -0.406 [-0.672, -0.140]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_18</b><br><br>Actual: -1.06 [-1.060, -1.060]<br>Predicted: -1.064 [-1.778, -0.350]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_19</b><br><br>Actual: -1.504 [-1.504, -1.504]<br>Predicted: -1.526 [-1.789, -1.262]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_20</b><br><br>Actual: -1.935 [-1.935, -1.935]<br>Predicted: -1.85 [-2.330, -1.370]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 0_21</b><br><br>Actual: -0.838 [-0.838, -0.838]<br>Predicted: -0.853 [-1.261, -0.445]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 1_0</b><br><br>Actual: -0.958 [-0.958, -0.958]<br>Predicted: -1.043 [-1.515, -0.571]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 1_1</b><br><br>Actual: -1.629 [-1.629, -1.629]<br>Predicted: -1.125 [-1.825, -0.424]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 1_2</b><br><br>Actual: -3.25 [-3.250, -3.250]<br>Predicted: -2.889 [-3.767, -2.012]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 1_3</b><br><br>Actual: -0.0 [-0.000, -0.000]<br>Predicted: -0.027 [-0.857, 0.804]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 2_0</b><br><br>Actual: -2.632 [-2.632, -2.632]<br>Predicted: -1.991 [-2.659, -1.322]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 2_1</b><br><br>Actual: -0.0 [-0.000, -0.000]<br>Predicted: -0.056 [-0.522, 0.410]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 2_2</b><br><br>Actual: -0.0 [-0.000, -0.000]<br>Predicted: -0.002 [-0.557, 0.553]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 2_3</b><br><br>Actual: -0.0 [-0.000, -0.000]<br>Predicted: -0.449 [-1.269, 0.371]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 3_0</b><br><br>Actual: -0.587 [-0.587, -0.587]<br>Predicted: -0.302 [-0.686, 0.082]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 3_1</b><br><br>Actual: -2.292 [-2.292, -2.292]<br>Predicted: -1.456 [-2.050, -0.863]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 3_2</b><br><br>Actual: -0.0 [-0.000, -0.000]<br>Predicted: -0.151 [-0.790, 0.488]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 3_3</b><br><br>Actual: -0.228 [-0.228, -0.228]<br>Predicted: -0.215 [-0.922, 0.491]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 4_0</b><br><br>Actual: -0.0 [-0.000, -0.000]<br>Predicted: -0.218 [-0.723, 0.287]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 4_1</b><br><br>Actual: -1.961 [-1.961, -1.961]<br>Predicted: -1.782 [-2.065, -1.499]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 4_2</b><br><br>Actual: -0.091 [-0.091, -0.091]<br>Predicted: -0.337 [-1.155, 0.481]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 4_3</b><br><br>Actual: -0.984 [-0.984, -0.984]<br>Predicted: -0.744 [-1.286, -0.202]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 5_0</b><br><br>Actual: -0.0 [-0.000, -0.000]<br>Predicted: -0.312 [-0.723, 0.099]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 5_1</b><br><br>Actual: -2.612 [-2.612, -2.612]<br>Predicted: -2.268 [-2.984, -1.551]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 5_2</b><br><br>Actual: -0.606 [-0.606, -0.606]<br>Predicted: -0.541 [-0.604, -0.479]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 5_3</b><br><br>Actual: -2.044 [-2.044, -2.044]<br>Predicted: -1.903 [-2.345, -1.461]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 6_0</b><br><br>Actual: -0.712 [-0.712, -0.712]<br>Predicted: -0.722 [-0.742, -0.702]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 6_1</b><br><br>Actual: -0.957 [-0.957, -0.957]<br>Predicted: -0.621 [-0.997, -0.246]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 6_2</b><br><br>Actual: -3.25 [-3.250, -3.250]<br>Predicted: -2.959 [-3.803, -2.115]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 6_3</b><br><br>Actual: -0.821 [-0.821, -0.821]<br>Predicted: -0.814 [-0.835, -0.793]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 7_0</b><br><br>Actual: -1.137 [-1.137, -1.137]<br>Predicted: -1.09 [-1.197, -0.982]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 7_1</b><br><br>Actual: -0.977 [-0.977, -0.977]<br>Predicted: -1.014 [-1.112, -0.916]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 7_2</b><br><br>Actual: -2.047 [-2.047, -2.047]<br>Predicted: -1.911 [-2.250, -1.573]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 7_3</b><br><br>Actual: -0.633 [-0.633, -0.633]<br>Predicted: -0.641 [-0.739, -0.543]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 8_0</b><br><br>Actual: -0.904 [-0.904, -0.904]<br>Predicted: -0.904 [-0.921, -0.886]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 8_1</b><br><br>Actual: -0.592 [-0.592, -0.592]<br>Predicted: -0.592 [-0.601, -0.582]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 8_2</b><br><br>Actual: -1.548 [-1.548, -1.548]<br>Predicted: -1.693 [-2.249, -1.137]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 8_3</b><br><br>Actual: -0.0 [-0.000, -0.000]<br>Predicted: -0.105 [-0.622, 0.411]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 9_0</b><br><br>Actual: -0.97 [-0.970, -0.970]<br>Predicted: -0.967 [-0.975, -0.960]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 9_1</b><br><br>Actual: -0.491 [-0.491, -0.491]<br>Predicted: -0.488 [-0.505, -0.470]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 9_2</b><br><br>Actual: -0.747 [-0.747, -0.747]<br>Predicted: -0.748 [-0.754, -0.742]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 9_3</b><br><br>Actual: -0.855 [-0.855, -0.855]<br>Predicted: -0.855 [-0.859, -0.851]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 10_0</b><br><br>Actual: -0.994 [-0.994, -0.994]<br>Predicted: -1.001 [-1.016, -0.987]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 10_1</b><br><br>Actual: -0.0 [-0.000, -0.000]<br>Predicted: -0.052 [-0.548, 0.444]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 10_2</b><br><br>Actual: -2.387 [-2.387, -2.387]<br>Predicted: -2.492 [-3.114, -1.871]<br>Parameterization has too many items to render on hover (10).",
+        "<b>Arm 10_3</b><br><br>Actual: -0.0 [-0.000, -0.000]<br>Predicted: -0.13 [-0.901, 0.642]<br>Parameterization has too many items to render on hover (10)."
+      ],
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        -1.4103711370258483,
+        -0.5927219467018792,
+        -1.070784224453355,
+        -1.7733230459946503,
+        -1.442941930380656,
+        -0.842888087613032,
+        -0.22237742027314253,
+        -1.7315444437802079,
+        -1.4093425525547425,
+        -0.04205308099881875,
+        -0.6856899240022275,
+        -1.9676276790746794,
+        -1.722895354583011,
+        -1.0884633096457872,
+        -0.4380079662961062,
+        -1.3997472013339038,
+        -1.4255689030601342,
+        -0.3460186084315411,
+        -1.0600570593094283,
+        -1.5042313723341658,
+        -1.934932457343231,
+        -0.8384929611795184,
+        -0.9583106452590753,
+        -1.6289261059518914,
+        -3.25,
+        -1.9900510486144489e-16,
+        -2.632266929871739,
+        -1.8786399116258145e-16,
+        -1.6207309598875303e-16,
+        -1.772656363932142e-16,
+        -0.586656682777607,
+        -2.2921893236055637,
+        -1.4667521852149354e-16,
+        -0.2277927877047273,
+        -1.4532789300050495e-16,
+        -1.9612079791689996,
+        -0.09149225079369666,
+        -0.9842898990269937,
+        -1.605950236240575e-16,
+        -2.6121606532512054,
+        -0.6056410927215923,
+        -2.044411731826354,
+        -0.7122285450067768,
+        -0.9574306960567271,
+        -3.25,
+        -0.8211672281028253,
+        -1.1365251389884508,
+        -0.9772695840004135,
+        -2.0467164163334366,
+        -0.6326169421622712,
+        -0.9041862394440943,
+        -0.5921059479751072,
+        -1.5483584887951205,
+        -1.4122131462262503e-16,
+        -0.9696230797488247,
+        -0.4910776725623402,
+        -0.7466192776719827,
+        -0.8545706284171147,
+        -0.9943141115071861,
+        -1.182302120605215e-16,
+        -2.386977989248661,
+        -1.8607216371966802e-16
+      ],
+      "xaxis": "x2",
+      "y": [
+        -1.5118160502886122,
+        -0.6262843491833059,
+        -0.9669897570486998,
+        -1.8678373093435896,
+        -1.605676586690343,
+        -0.727912805473427,
+        -0.38095105383007,
+        -1.8003379286944519,
+        -1.2761153009852209,
+        -0.12011857336447473,
+        -0.7272943720296998,
+        -2.3552973929363388,
+        -1.6432584655628908,
+        -1.0000227271566386,
+        -0.6450938922798999,
+        -1.4493524012590902,
+        -1.3664913024842253,
+        -0.40571734821614713,
+        -1.0641980598138645,
+        -1.5256498668738847,
+        -1.8497422183941818,
+        -0.853110223038787,
+        -1.0430228630609013,
+        -1.124759156802228,
+        -2.8892787869261523,
+        -0.026519380145243465,
+        -1.9906625996017397,
+        -0.0561263527895689,
+        -0.0020909543557481314,
+        -0.4490331917436521,
+        -0.3015803594605637,
+        -1.4563884190566907,
+        -0.15100227606874117,
+        -0.21548199598085016,
+        -0.21797911926032554,
+        -1.7819614036332334,
+        -0.33708231102838904,
+        -0.7439012758791229,
+        -0.311811523592217,
+        -2.267875519479251,
+        -0.5414346209663589,
+        -1.903424305838406,
+        -0.7215851223755572,
+        -0.6214026906114514,
+        -2.95872931030614,
+        -0.8142864194508684,
+        -1.089716290424703,
+        -1.0140199642418057,
+        -1.911420113419483,
+        -0.6410489465478308,
+        -0.9037909714865509,
+        -0.5918252508315544,
+        -1.6927476831418604,
+        -0.10535742196468012,
+        -0.9672233783868491,
+        -0.4877509666270624,
+        -0.7478560532749049,
+        -0.854634683000813,
+        -1.0011179600095592,
+        -0.052226285088093904,
+        -2.492406837742939,
+        -0.129712899379129
+      ],
+      "yaxis": "y2"
+    }
+  ],
+  "layout": {
+    "annotations": [
+      {
+        "font": {
+          "size": 12
+        },
+        "showarrow": false,
+        "text": "b",
+        "x": 0.2125,
+        "xanchor": "center",
+        "xref": "paper",
+        "y": 1.0,
+        "yanchor": "bottom",
+        "yref": "paper"
+      },
+      {
+        "font": {
+          "size": 12
+        },
+        "showarrow": false,
+        "text": "a",
+        "x": 0.7875,
+        "xanchor": "center",
+        "xref": "paper",
+        "y": 1.0,
+        "yanchor": "bottom",
+        "yref": "paper"
+      }
+    ],
+    "font": {
+      "size": 10
+    },
+    "height": 400,
+    "hovermode": "closest",
+    "showlegend": false,
+    "template": {
+      "data": {
+        "bar": [
+          {
+            "error_x": {
+              "color": "#2a3f5f"
+            },
+            "error_y": {
+              "color": "#2a3f5f"
+            },
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "bar"
+          }
+        ],
+        "barpolar": [
+          {
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "barpolar"
+          }
+        ],
+        "carpet": [
+          {
+            "aaxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "baxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "type": "carpet"
+          }
+        ],
+        "choropleth": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "choropleth"
+          }
+        ],
+        "contour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "contour"
+          }
+        ],
+        "contourcarpet": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "contourcarpet"
+          }
+        ],
+        "heatmap": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "heatmap"
+          }
+        ],
+        "histogram": [
+          {
+            "marker": {
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "histogram"
+          }
+        ],
+        "histogram2d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2d"
+          }
+        ],
+        "histogram2dcontour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2dcontour"
+          }
+        ],
+        "mesh3d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "mesh3d"
+          }
+        ],
+        "parcoords": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "parcoords"
+          }
+        ],
+        "pie": [
+          {
+            "automargin": true,
+            "type": "pie"
+          }
+        ],
+        "scatter": [
+          {
+            "fillpattern": {
+              "fillmode": "overlay",
+              "size": 10,
+              "solidity": 0.2
+            },
+            "type": "scatter"
+          }
+        ],
+        "scatter3d": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatter3d"
+          }
+        ],
+        "scattercarpet": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattercarpet"
+          }
+        ],
+        "scattergeo": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergeo"
+          }
+        ],
+        "scattergl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergl"
+          }
+        ],
+        "scattermap": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermap"
+          }
+        ],
+        "scattermapbox": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermapbox"
+          }
+        ],
+        "scatterpolar": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolar"
+          }
+        ],
+        "scatterpolargl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolargl"
+          }
+        ],
+        "scatterternary": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterternary"
+          }
+        ],
+        "surface": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "surface"
+          }
+        ],
+        "table": [
+          {
+            "cells": {
+              "fill": {
+                "color": "#EBF0F8"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "header": {
+              "fill": {
+                "color": "#C8D4E3"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "type": "table"
+          }
+        ]
+      },
+      "layout": {
+        "annotationdefaults": {
+          "arrowcolor": "#2a3f5f",
+          "arrowhead": 0,
+          "arrowwidth": 1
+        },
+        "autotypenumbers": "strict",
+        "coloraxis": {
+          "colorbar": {
+            "outlinewidth": 0,
+            "ticks": ""
+          }
+        },
+        "colorscale": {
+          "diverging": [
+            [
+              0,
+              "#8e0152"
+            ],
+            [
+              0.1,
+              "#c51b7d"
+            ],
+            [
+              0.2,
+              "#de77ae"
+            ],
+            [
+              0.3,
+              "#f1b6da"
+            ],
+            [
+              0.4,
+              "#fde0ef"
+            ],
+            [
+              0.5,
+              "#f7f7f7"
+            ],
+            [
+              0.6,
+              "#e6f5d0"
+            ],
+            [
+              0.7,
+              "#b8e186"
+            ],
+            [
+              0.8,
+              "#7fbc41"
+            ],
+            [
+              0.9,
+              "#4d9221"
+            ],
+            [
+              1,
+              "#276419"
+            ]
+          ],
+          "sequential": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ],
+          "sequentialminus": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ]
+        },
+        "colorway": [
+          "#636efa",
+          "#EF553B",
+          "#00cc96",
+          "#ab63fa",
+          "#FFA15A",
+          "#19d3f3",
+          "#FF6692",
+          "#B6E880",
+          "#FF97FF",
+          "#FECB52"
+        ],
+        "font": {
+          "color": "#2a3f5f"
+        },
+        "geo": {
+          "bgcolor": "white",
+          "lakecolor": "white",
+          "landcolor": "#E5ECF6",
+          "showlakes": true,
+          "showland": true,
+          "subunitcolor": "white"
+        },
+        "hoverlabel": {
+          "align": "left"
+        },
+        "hovermode": "closest",
+        "mapbox": {
+          "style": "light"
+        },
+        "paper_bgcolor": "white",
+        "plot_bgcolor": "#E5ECF6",
+        "polar": {
+          "angularaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "radialaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "scene": {
+          "xaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "yaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "zaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          }
+        },
+        "shapedefaults": {
+          "line": {
+            "color": "#2a3f5f"
+          }
+        },
+        "ternary": {
+          "aaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "baxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "caxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "title": {
+          "x": 0.05
+        },
+        "xaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        },
+        "yaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        }
+      }
+    },
+    "title": {
+      "text": "Cross-Validation"
+    },
+    "width": 800,
+    "xaxis": {
+      "anchor": "y",
+      "domain": [
+        0.0,
+        0.425
+      ],
+      "linecolor": "black",
+      "linewidth": 0.5,
+      "mirror": true,
+      "title": {
+        "text": "Actual Outcome"
+      }
+    },
+    "xaxis2": {
+      "anchor": "y2",
+      "domain": [
+        0.575,
+        1.0
+      ],
+      "linecolor": "black",
+      "linewidth": 0.5,
+      "mirror": true,
+      "title": {
+        "text": "Actual Outcome"
+      }
+    },
+    "yaxis": {
+      "anchor": "x",
+      "domain": [
+        0.0,
+        1.0
+      ],
+      "linecolor": "black",
+      "linewidth": 0.5,
+      "mirror": true,
+      "title": {
+        "text": "Predicted Outcome"
+      }
+    },
+    "yaxis2": {
+      "anchor": "x2",
+      "domain": [
+        0.0,
+        1.0
+      ],
+      "linecolor": "black",
+      "linewidth": 0.5,
+      "mirror": true,
+      "title": {
+        "text": "Predicted Outcome"
+      }
+    }
+  }
+}
