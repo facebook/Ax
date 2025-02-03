@@ -40,7 +40,7 @@ jobs:
       run: |
         python3 scripts/convert_ipynb_to_mdx.py --clean
     - name: Upload tutorials as artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: tutorials
         path: docs/tutorials/
