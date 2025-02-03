@@ -45,4 +45,5 @@ jobs:
         name: tutorials
         path: docs/tutorials/
     - name: Build website
+      run: |
         bash scripts/make_docs.sh -b
