@@ -157,7 +157,7 @@ experiment.new_batch_trial().add_arms_and_weights(arms=[Arm(...), Arm(...)])
 experiment.new_batch_trial().add_generator_run(generator_run=GeneratorRun(...))
 ```
 
-A trial goes through multiple phases during the experimentation cycle, tracked by its [`TrialStatus`](../api/core.html#ax.core.base_trial.TrialStatus) field. These stages are:
+A trial goes through multiple phases during the experimentation cycle, tracked by its [`TrialStatus`](https://ax.readthedocs.io/en/latest/core.html#ax.core.base_trial.TrialStatus) field. These stages are:
 
 -   `CANDIDATE` - Trial has just been created and can still be modified before deployment.
 -   `STAGED` - Relevant for external systems, where the trial configuration has been deployed but not begun the evaluation stage.

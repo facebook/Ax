@@ -6,9 +6,9 @@ title: Data
 
 [Metrics](glossary.md#metric) provide an interface for fetching data for an experiment or trial. Experiment objectives and outcome constraints are special types of metrics, and you can also attach additional metrics for tracking purposes.
 
-Each metric is responsible for fetching its own data. Thus, all metric classes must implement the method `fetch_trial_data`, which accepts a [`Trial`](../api/core.html#ax.core.trial.Trial) and returns an instance of [`Data`](../api/core.html#ax.core.data.Data), a wrapper around a Pandas DataFrame.
+Each metric is responsible for fetching its own data. Thus, all metric classes must implement the method `fetch_trial_data`, which accepts a [`Trial`](https://ax.readthedocs.io/en/latest/core.html#ax.core.trial.Trial) and returns an instance of [`Data`](https://ax.readthedocs.io/en/latest/core.html#ax.core.data.Data), a wrapper around a Pandas DataFrame.
 
-To fetch data for an experiment or trial, use `exp.fetch_data` or `trial.fetch_data`. These methods fetch data for all metrics on the experiment and then combine the results into a new aggregate [`Data`](../api/core.html#ax.core.data.Data) instance.
+To fetch data for an experiment or trial, use `exp.fetch_data` or `trial.fetch_data`. These methods fetch data for all metrics on the experiment and then combine the results into a new aggregate [`Data`](https://ax.readthedocs.io/en/latest/core.html#ax.core.data.Data) instance.
 
 Each row of the final DataFrame represents the evaluation of an arm on a metric. As such, the required columns are: `arm_name`, `metric_name`, `mean`, and `sem`. Additional optional columns are also supported: `trial_index`, `start_time`, and `end_time`.
 
