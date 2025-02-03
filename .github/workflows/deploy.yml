@@ -59,6 +59,7 @@ jobs:
     with:
       new_version: ${{ github.event.release.tag_name }}
       run_tutorials: true
+      pinned_botorch: true
     permissions:
       pages: write
       id-token: write

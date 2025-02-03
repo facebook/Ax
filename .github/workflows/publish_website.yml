@@ -10,8 +10,16 @@ on:
         required: false
         type: boolean
         default: true
+      pinned_botorch:
+        required: true
+        type: boolean
   workflow_dispatch:
-
+      run_tutorials:
+        required: true
+        type: boolean
+      pinned_botorch:
+        required: true
+        type: boolean
 
 jobs:
 
@@ -39,9 +47,22 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: "3.12"
-    - name: Install dependencies
+
+    - if: ${{ inputs.pinned_botorch }}
+      name: Install dependencies with pinned BoTorch
       run: |
         uv pip install -e ".[tutorial]"
+    - if: ${{ !inputs.pinned_botorch }}
+      name: Install dependencies with latest BoTorch
+      env:
+        ALLOW_BOTORCH_LATEST: true
+        ALLOW_LATEST_GPYTORCH_LINOP: true
+      run: |
+        uv pip install git+https://github.com/cornellius-gp/linear_operator.git
+        uv pip install git+https://github.com/cornellius-gp/gpytorch.git
+        uv pip install git+https://github.com/pytorch/botorch.git
+        uv pip install -e ".[tutorial]"
+
     - if: ${{ inputs.run_tutorials }}
       name: Run Tutorials
       run: |
