@@ -1,0 +1,48 @@
+name: Publish Website
+
+on:
+  pull_request:
+    branches: [ main ]
+
+
+
+jobs:
+
+  build-website:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: 'docusaurus-versions' # release branch
+        fetch-depth: 0
+    - name: Sync release branch with main
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git merge origin/main
+        # To avoid a large number of commits we don't push this sync commit to github until a new release.
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install dependencies
+      run: |
+        pip install -e ".[tutorial]"
+    - if: ${{ inputs.run_tutorials }}
+      name: Run Tutorials
+      run: |
+        python scripts/run_tutorials.py -w $(pwd)
+    - name: Build tutorials
+      # the converted tutorials are failing to build in CI but not locally,
+      # here we upload the converted tutorials to see what's going on.
+      run: |
+        python3 scripts/convert_ipynb_to_mdx.py --clean
+    - name: Upload tutorials as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: tutorials
+        path: docs/tutorials/
+    - name: Build website
+        bash scripts/make_docs.sh -b
