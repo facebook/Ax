@@ -49,11 +49,15 @@ jobs:
   deploy-test-pypi:
 
     runs-on: ubuntu-latest
-
+    env:
+      # `uv pip ...` requires venv by default. This skips that requirement.
+      UV_SYSTEM_PYTHON: 1
     steps:
     - uses: actions/checkout@v4
     - name: Fetch all history for all tags and branches
       run: git fetch --prune --unshallow
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -64,10 +68,10 @@ jobs:
         ALLOW_LATEST_GPYTORCH_LINOP: true
       run: |
         # use latest BoTorch
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
-        pip install git+https://github.com/pytorch/botorch.git
-        pip install -e ".[dev,mysql,notebook]"
-        pip install --upgrade build setuptools setuptools_scm wheel
+        uv pip install git+https://github.com/cornellius-gp/gpytorch.git
+        uv pip install git+https://github.com/pytorch/botorch.git
+        uv pip install -e ".[dev,mysql,notebook]"
+        uv pip install --upgrade build setuptools setuptools_scm wheel
     - name: Build wheel
       run: |
         python -m build --sdist --wheel
