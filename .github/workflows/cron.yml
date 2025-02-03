@@ -39,7 +39,10 @@ jobs:
   publish-latest-website:
     name: Publish latest website
     uses: ./.github/workflows/publish_website.yml
-    secrets: inherit
+    permissions:
+      pages: write
+      id-token: write
+      contents: write
     with:
       run_tutorials: true
 

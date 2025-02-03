@@ -59,7 +59,10 @@ jobs:
     with:
       new_version: ${{ github.event.release.tag_name }}
       run_tutorials: true
-    secrets: inherit
+    permissions:
+      pages: write
+      id-token: write
+      contents: write
 
   deploy:
     needs: tests-and-coverage-pinned # only run if test step succeeds
