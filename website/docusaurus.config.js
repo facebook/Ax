@@ -21,8 +21,8 @@ module.exports={
     "users": [],
     "wrapPagesHTML": true
   },
-  "onBrokenLinks": "log",
-  "onBrokenMarkdownLinks": "log",
+  "onBrokenLinks": "throw",
+  "onBrokenMarkdownLinks": "warn",
   "future": {
     "experimental_faster": true,
   },
