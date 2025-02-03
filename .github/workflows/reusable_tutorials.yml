@@ -23,8 +23,13 @@ jobs:
   build-tutorials:
     name: Tutorials
     runs-on: ubuntu-latest
+    env:
+      # `uv pip ...` requires venv by default. This skips that requirement.
+      UV_SYSTEM_PYTHON: 1
     steps:
     - uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -33,7 +38,7 @@ jobs:
     - if: ${{ inputs.pinned_botorch }}
       name: Install dependencies with pinned BoTorch
       run: |
-        pip install -e ".[tutorial]"
+        uv pip install -e ".[tutorial]"
 
     - if: ${{ !inputs.pinned_botorch }}
       name: Install dependencies with latest BoTorch
@@ -41,9 +46,9 @@ jobs:
         ALLOW_BOTORCH_LATEST: true
         ALLOW_LATEST_GPYTORCH_LINOP: true
       run: |
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
-        pip install git+https://github.com/pytorch/botorch.git
-        pip install -e ".[tutorial]"
+        uv pip install git+https://github.com/cornellius-gp/gpytorch.git
+        uv pip install git+https://github.com/pytorch/botorch.git
+        uv pip install -e ".[tutorial]"
 
     - if: ${{ inputs.smoke_test }}
       name: Run tutorials with smoke test
