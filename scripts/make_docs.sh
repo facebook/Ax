@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # Exit if any error occurs
-set -e
+# set -e
 
 usage() {
   echo "Usage: $0 [-b] [-o] [-r] [-t]"
