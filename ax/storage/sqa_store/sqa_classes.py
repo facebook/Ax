@@ -371,7 +371,7 @@ class SQAExperiment(Base):
     # pyre-fixme[8]: Incompatible attribute type [8]: Attribute
     # `auxiliary_experiments_by_purpose` declared in class `SQAExperiment` has
     # type `Optional[Dict[str, List[str]]]` but is used as type `Column[typing.Any]`
-    auxiliary_experiments_by_purpose: dict[str, List[str]] | None = Column(
+    auxiliary_experiments_by_purpose: dict[str, List[dict[str, Any]]] | None = Column(
         JSONEncodedTextDict, nullable=True, default={}
     )
 
