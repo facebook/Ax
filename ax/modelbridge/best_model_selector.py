@@ -17,7 +17,7 @@ from typing import Any, Union
 import numpy as np
 import numpy.typing as npt
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.model_spec import ModelSpec
+from ax.modelbridge.model_spec import GeneratorSpec
 from ax.utils.common.base import Base
 from pyre_extensions import none_throws
 
@@ -27,12 +27,12 @@ ARRAYLIKE = Union[np.ndarray, list[float], list[np.ndarray]]
 
 class BestModelSelector(ABC, Base):
     @abstractmethod
-    def best_model(self, model_specs: list[ModelSpec]) -> ModelSpec:
-        """Return the best ``ModelSpec`` based on some criteria.
+    def best_model(self, model_specs: list[GeneratorSpec]) -> GeneratorSpec:
+        """Return the best ``GeneratorSpec`` based on some criteria.
 
-        NOTE: The returned ``ModelSpec`` may be a different object than
+        NOTE: The returned ``GeneratorSpec`` may be a different object than
         what was provided in the original list. It may be possible to
-        clone and modify the original ``ModelSpec`` to produce one that
+        clone and modify the original ``GeneratorSpec`` to produce one that
         performs better.
         """
 
@@ -59,7 +59,7 @@ class ReductionCriterion(Enum):
 class SingleDiagnosticBestModelSelector(BestModelSelector):
     """Choose the best model using a single cross-validation diagnostic.
 
-    The input is a list of ``ModelSpec``, each corresponding to one model.
+    The input is a list of ``GeneratorSpec``, each corresponding to one model.
     The specified diagnostic is extracted from each of the models,
     its values (each of which corresponds to a separate metric) are
     aggregated with the aggregation function, the best one is determined
@@ -109,14 +109,14 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
         self.criterion = criterion
         self.model_cv_kwargs = model_cv_kwargs
 
-    def best_model(self, model_specs: list[ModelSpec]) -> ModelSpec:
-        """Return the best ``ModelSpec`` based on the specified diagnostic.
+    def best_model(self, model_specs: list[GeneratorSpec]) -> GeneratorSpec:
+        """Return the best ``GeneratorSpec`` based on the specified diagnostic.
 
         Args:
-            model_specs: List of ``ModelSpec`` to choose from.
+            model_specs: List of ``GeneratorSpec`` to choose from.
 
         Returns:
-            The best ``ModelSpec`` based on the specified diagnostic.
+            The best ``GeneratorSpec`` based on the specified diagnostic.
         """
         for model_spec in model_specs:
             model_spec.cross_validate(model_cv_kwargs=self.model_cv_kwargs)

@@ -22,7 +22,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import AxWarning, UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.cross_validation import (
     compute_diagnostics,
     cross_validate,
@@ -41,11 +41,11 @@ from ax.utils.common.serialization import SerializationMixin
 from pyre_extensions import none_throws
 
 
-TModelFactory = Callable[..., ModelBridge]
+TModelFactory = Callable[..., Adapter]
 
 
-class ModelSpecJSONEncoder(json.JSONEncoder):
-    """Generic encoder to avoid JSON errors in ModelSpec.__repr__"""
+class GeneratorSpecJSONEncoder(json.JSONEncoder):
+    """Generic encoder to avoid JSON errors in GeneratorSpec.__repr__"""
 
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def default(self, o: Any) -> str:
@@ -53,22 +53,22 @@ class ModelSpecJSONEncoder(json.JSONEncoder):
 
 
 @dataclass
-class ModelSpec(SortableBase, SerializationMixin):
+class GeneratorSpec(SortableBase, SerializationMixin):
     model_enum: ModelRegistryBase
-    # Kwargs to pass into the `Model` + `ModelBridge` constructors in
+    # Kwargs to pass into the `Model` + `Adapter` constructors in
     # `ModelRegistryBase.__call__`.
     model_kwargs: dict[str, Any] = field(default_factory=dict)
-    # Kwargs to pass to `ModelBridge.gen`.
+    # Kwargs to pass to `Adapter.gen`.
     model_gen_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `cross_validate`.
     model_cv_kwargs: dict[str, Any] = field(default_factory=dict)
-    # An optional override for the model key. Each `ModelSpec` in a
+    # An optional override for the model key. Each `GeneratorSpec` in a
     # `GenerationNode` must have a unique key to ensure identifiability.
     model_key_override: str | None = None
 
     # Fitted model, constructed using specified `model_kwargs` and `Data`
-    # on `ModelSpec.fit`
-    _fitted_model: ModelBridge | None = None
+    # on `GeneratorSpec.fit`
+    _fitted_model: Adapter | None = None
 
     # Stored cross validation results set in cross validate.
     _cv_results: list[CVResult] | None = None
@@ -88,7 +88,7 @@ class ModelSpec(SortableBase, SerializationMixin):
         self.model_cv_kwargs = self.model_cv_kwargs or {}
 
     @property
-    def fitted_model(self) -> ModelBridge:
+    def fitted_model(self) -> Adapter:
         """Returns the fitted Ax model, asserting fit() was called"""
         self._assert_fitted()
         return none_throws(self._fitted_model)
@@ -109,7 +109,7 @@ class ModelSpec(SortableBase, SerializationMixin):
 
     @property
     def model_key(self) -> str:
-        """Key string to identify the model used by this ``ModelSpec``."""
+        """Key string to identify the model used by this ``GeneratorSpec``."""
         if self.model_key_override is not None:
             return self.model_key_override
         else:
@@ -249,8 +249,8 @@ class ModelSpec(SortableBase, SerializationMixin):
         )
         return generator_run
 
-    def copy(self) -> ModelSpec:
-        """`ModelSpec` is both a spec and an object that performs actions.
+    def copy(self) -> GeneratorSpec:
+        """`GeneratorSpec` is both a spec and an object that performs actions.
         Copying is useful to avoid changes to a singleton model spec.
         """
         return self.__class__(
@@ -270,7 +270,7 @@ class ModelSpec(SortableBase, SerializationMixin):
 
         This is a cheap way of checking that we're attempting to re-fit the same
         model for the same experiment, which is a very reasonable expectation
-        since this all happens on the same `ModelSpec` instance.
+        since this all happens on the same `GeneratorSpec` instance.
         """
         if self.model_key == "TRBO":
             # Temporary hack to unblock TRBO.
@@ -298,16 +298,16 @@ class ModelSpec(SortableBase, SerializationMixin):
 
     def __repr__(self) -> str:
         model_kwargs = json.dumps(
-            self.model_kwargs, sort_keys=True, cls=ModelSpecJSONEncoder
+            self.model_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
         )
         model_gen_kwargs = json.dumps(
-            self.model_gen_kwargs, sort_keys=True, cls=ModelSpecJSONEncoder
+            self.model_gen_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
         )
         model_cv_kwargs = json.dumps(
-            self.model_cv_kwargs, sort_keys=True, cls=ModelSpecJSONEncoder
+            self.model_cv_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
         )
         return (
-            "ModelSpec("
+            "GeneratorSpec("
             f"\tmodel_enum={self.model_enum.value}, "
             f"\tmodel_kwargs={model_kwargs}, "
             f"\tmodel_gen_kwargs={model_gen_kwargs}, "
@@ -319,7 +319,7 @@ class ModelSpec(SortableBase, SerializationMixin):
     def __hash__(self) -> int:
         return hash(repr(self))
 
-    def __eq__(self, other: ModelSpec) -> bool:
+    def __eq__(self, other: GeneratorSpec) -> bool:
         return repr(self) == repr(other)
 
     @property
@@ -330,23 +330,23 @@ class ModelSpec(SortableBase, SerializationMixin):
 
 
 @dataclass
-class FactoryFunctionModelSpec(ModelSpec):
+class FactoryFunctionGeneratorSpec(GeneratorSpec):
     factory_function: TModelFactory | None = None
-    # pyre-ignore[15]: `ModelSpec` has this as non-optional
+    # pyre-ignore[15]: `GeneratorSpec` has this as non-optional
     model_enum: ModelRegistryBase | None = None
 
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.model_enum is not None:
             raise UserInputError(
-                "Use regular `ModelSpec` when it's possible to describe the "
+                "Use regular `GeneratorSpec` when it's possible to describe the "
                 "model as `ModelRegistryBase` subclass enum member."
             )
         if self.factory_function is None:
             raise UserInputError(
-                "Please specify a valid function returning a `ModelBridge` instance "
+                "Please specify a valid function returning a `Adapter` instance "
                 "as the required `factory_function` argument to "
-                "`FactoryFunctionModelSpec`."
+                "`FactoryFunctionGeneratorSpec`."
             )
         if self.model_key_override is None:
             try:

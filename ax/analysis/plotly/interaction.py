@@ -27,8 +27,8 @@ from ax.analysis.plotly.utils import select_metric
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.registry import Models
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.registry import Generators
+from ax.modelbridge.torch import TorchAdapter
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.logger import get_logger
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
@@ -261,9 +261,7 @@ class InteractionPlot(PlotlyAnalysis):
             fig=fig,
         )
 
-    def _get_oak_model(
-        self, experiment: Experiment, metric_name: str
-    ) -> TorchModelBridge:
+    def _get_oak_model(self, experiment: Experiment, metric_name: str) -> TorchAdapter:
         """
         Retrieves the modelbridge used for the analysis. The model uses an OAK
         (Orthogonal Additive Kernel) with a sparsity-inducing prior,
@@ -275,7 +273,7 @@ class InteractionPlot(PlotlyAnalysis):
         lengthscales being fit.
         """
         data = experiment.lookup_data().filter(metric_names=[metric_name])
-        model_bridge = Models.BOTORCH_MODULAR(
+        model_bridge = Generators.BOTORCH_MODULAR(
             search_space=experiment.search_space,
             experiment=experiment,
             data=data,
@@ -304,12 +302,12 @@ class InteractionPlot(PlotlyAnalysis):
             ),
         )
 
-        return assert_is_instance(model_bridge, TorchModelBridge)
+        return assert_is_instance(model_bridge, TorchAdapter)
 
 
 def _prepare_surface_plot(
     experiment: Experiment,
-    model: TorchModelBridge,
+    model: TorchAdapter,
     feature_name: str,
     metric_name: str,
 ) -> go.Figure:

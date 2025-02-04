@@ -62,7 +62,7 @@ class ModelConfig:
         model_options: Dictionary of options / kwargs for the BoTorch
             ``Model`` constructed during ``Surrogate.fit``.
             Note that the corresponding attribute will later be updated to include any
-            additional kwargs passed into ``BoTorchModel.fit``.
+            additional kwargs passed into ``BoTorchGenerator.fit``.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
         mll_options: Dictionary of options / kwargs for the MLL.
         outcome_transform_classes: List of BoTorch outcome transforms classes. Passed

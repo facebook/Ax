@@ -16,7 +16,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import DataRequiredError
 from ax.models.torch.botorch import (
-    BotorchModel,
+    BotorchGenerator,
     get_feature_importances_from_botorch_model,
     get_rounding_func,
 )
@@ -56,9 +56,9 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
     return X
 
 
-class BotorchModelTest(TestCase):
+class BotorchGeneratorTest(TestCase):
     @mock_botorch_optimize
-    def test_fixed_rank_BotorchModel(
+    def test_fixed_rank_BotorchGenerator(
         self, dtype: torch.dtype = torch.float, cuda: bool = False
     ) -> None:
         Xs1, Ys1, Yvars1, bounds, _, feature_names, __ = get_torch_test_data(
@@ -67,7 +67,7 @@ class BotorchModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
-        model = BotorchModel(multitask_gp_ranks={"y": 2, "w": 1})
+        model = BotorchGenerator(multitask_gp_ranks={"y": 2, "w": 1})
         datasets = [
             SupervisedDataset(
                 X=Xs1[0],
@@ -114,7 +114,7 @@ class BotorchModelTest(TestCase):
         self.assertEqual(model_list[1]._rank, 1)
 
     @mock_botorch_optimize
-    def test_fixed_prior_BotorchModel(
+    def test_fixed_prior_BotorchGenerator(
         self, dtype: torch.dtype = torch.float, cuda: bool = False
     ) -> None:
         Xs1, Ys1, Yvars1, bounds, _, feature_names, metric_names = get_torch_test_data(
@@ -134,7 +134,7 @@ class BotorchModelTest(TestCase):
                 "eta": 0.6,
             }
         }
-        model = BotorchModel(**kwargs)
+        model = BotorchGenerator(**kwargs)
         datasets = [
             SupervisedDataset(
                 X=Xs1[0],
@@ -194,7 +194,7 @@ class BotorchModelTest(TestCase):
             )
 
     @mock_botorch_optimize
-    def test_BotorchModel(
+    def test_BotorchGenerator(
         self, dtype: torch.dtype = torch.float, cuda: bool = False
     ) -> None:
         (
@@ -211,7 +211,7 @@ class BotorchModelTest(TestCase):
         )
         for use_input_warping in (True, False):
             for use_loocv_pseudo_likelihood in (True, False):
-                model = BotorchModel(
+                model = BotorchGenerator(
                     use_input_warping=use_input_warping,
                     use_loocv_pseudo_likelihood=use_loocv_pseudo_likelihood,
                 )
@@ -576,7 +576,7 @@ class BotorchModelTest(TestCase):
             self.assertEqual(importances.shape, torch.Size([2, 1, 3]))
 
             # test unfit model CV and feature_importances
-            unfit_model = BotorchModel()
+            unfit_model = BotorchGenerator()
             with self.assertRaisesRegex(
                 RuntimeError, r"Cannot cross-validate model that has not been fitted"
             ):
@@ -633,18 +633,18 @@ class BotorchModelTest(TestCase):
                 )
             )
 
-    def test_BotorchModel_cuda(self) -> None:
+    def test_BotorchGenerator_cuda(self) -> None:
         if torch.cuda.is_available():
-            self.test_BotorchModel(cuda=True)
+            self.test_BotorchGenerator(cuda=True)
 
-    def test_BotorchModel_double(self) -> None:
-        self.test_BotorchModel(dtype=torch.double)
+    def test_BotorchGenerator_double(self) -> None:
+        self.test_BotorchGenerator(dtype=torch.double)
 
-    def test_BotorchModel_double_cuda(self) -> None:
+    def test_BotorchGenerator_double_cuda(self) -> None:
         if torch.cuda.is_available():
-            self.test_BotorchModel(dtype=torch.double, cuda=True)
+            self.test_BotorchGenerator(dtype=torch.double, cuda=True)
 
-    def test_BotorchModelOneOutcome(self) -> None:
+    def test_BotorchGeneratorOneOutcome(self) -> None:
         (
             Xs1,
             Ys1,
@@ -657,7 +657,7 @@ class BotorchModelTest(TestCase):
         for use_input_warping, use_loocv_pseudo_likelihood in product(
             (True, False), (True, False)
         ):
-            model = BotorchModel(
+            model = BotorchGenerator(
                 use_input_warping=use_input_warping,
                 use_loocv_pseudo_likelihood=use_loocv_pseudo_likelihood,
             )
@@ -697,7 +697,7 @@ class BotorchModelTest(TestCase):
             else:
                 self.assertFalse(hasattr(model.model, "input_transform"))
 
-    def test_BotorchModelConstraints(self) -> None:
+    def test_BotorchGeneratorConstraints(self) -> None:
         (
             Xs1,
             Ys1,
@@ -716,7 +716,7 @@ class BotorchModelTest(TestCase):
             [-1.0, 1.0], dtype=torch.float, device=torch.device("cpu")
         )
         n = 3
-        model = BotorchModel()
+        model = BotorchGenerator()
         search_space_digest = SearchSpaceDigest(
             feature_names=feature_names,
             bounds=bounds,
@@ -761,9 +761,9 @@ class BotorchModelTest(TestCase):
             bounds=bounds,
             task_features=tfs,
         )
-        model = BotorchModel()
+        model = BotorchGenerator()
         with self.assertRaisesRegex(
-            DataRequiredError, "BotorchModel.fit requires non-empty data sets."
+            DataRequiredError, "BotorchGenerator.fit requires non-empty data sets."
         ):
             model.fit(
                 datasets=[],

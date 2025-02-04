@@ -23,7 +23,7 @@ from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.derelativize import Derelativize
 from pyre_extensions import assert_is_instance, none_throws
@@ -155,7 +155,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
 
 def constraints_feasibility(
     optimization_config: OptimizationConfig,
-    model: ModelBridge,
+    model: Adapter,
     prob_threshold: float = 0.99,
 ) -> Tuple[bool, pd.DataFrame]:
     r"""

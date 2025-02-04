@@ -49,8 +49,8 @@ from ax.core.search_space import SearchSpace
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import Models
+from ax.modelbridge.model_spec import GeneratorSpec
+from ax.modelbridge.registry import Generators
 from ax.service.utils.scheduler_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
@@ -769,7 +769,9 @@ class TestBenchmark(TestCase):
                     GenerationNode(
                         node_name="Sobol",
                         model_specs=[
-                            ModelSpec(Models.SOBOL, model_kwargs={"deduplicate": True})
+                            GeneratorSpec(
+                                Generators.SOBOL, model_kwargs={"deduplicate": True}
+                            )
                         ],
                     )
                 ]

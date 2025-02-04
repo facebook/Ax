@@ -55,9 +55,9 @@ from ax.modelbridge.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.registry import Cont_X_trans, Models
+from ax.modelbridge.model_spec import GeneratorSpec
+from ax.modelbridge.random import RandomAdapter
+from ax.modelbridge.registry import Cont_X_trans, Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
@@ -217,9 +217,9 @@ def get_client_with_simple_discrete_moo_problem(
 ) -> AxClient:
     gs = GenerationStrategy(
         steps=[
-            GenerationStep(model=Models.SOBOL, num_trials=3),
+            GenerationStep(model=Generators.SOBOL, num_trials=3),
             GenerationStep(
-                model=Models.BOTORCH_MODULAR,
+                model=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs={
                     # To avoid search space exhausted errors.
@@ -484,17 +484,17 @@ class TestAxClient(TestCase):
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge.get_training_data",
+        "ax.modelbridge.random.RandomAdapter.get_training_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge._predict",
+        "ax.modelbridge.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge.feature_importances",
+        "ax.modelbridge.random.RandomAdapter.feature_importances",
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
@@ -506,7 +506,7 @@ class TestAxClient(TestCase):
         ax_client = get_branin_optimization()
         self.assertEqual(
             [s.model for s in none_throws(ax_client.generation_strategy)._steps],
-            [Models.SOBOL, Models.BOTORCH_MODULAR],
+            [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
             ax_client.get_optimization_trace(objective_optimum=branin.fmin)
@@ -605,7 +605,7 @@ class TestAxClient(TestCase):
     def test_sobol_generation_strategy_completion(self) -> None:
         ax_client = get_branin_optimization(
             generation_strategy=GenerationStrategy(
-                [GenerationStep(Models.SOBOL, num_trials=3)]
+                [GenerationStep(Generators.SOBOL, num_trials=3)]
             )
         )
         # All Sobol trials should be able to be generated at once and optimization
@@ -625,7 +625,7 @@ class TestAxClient(TestCase):
         decoder = Decoder(config=config)
         db_settings = DBSettings(encoder=encoder, decoder=decoder)
         generation_strategy = GenerationStrategy(
-            [GenerationStep(Models.SOBOL, num_trials=3)]
+            [GenerationStep(Generators.SOBOL, num_trials=3)]
         )
         ax_client = AxClient(
             db_settings=db_settings, generation_strategy=generation_strategy
@@ -692,17 +692,17 @@ class TestAxClient(TestCase):
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge.get_training_data",
+        "ax.modelbridge.random.RandomAdapter.get_training_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge._predict",
+        "ax.modelbridge.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge.feature_importances",
+        "ax.modelbridge.random.RandomAdapter.feature_importances",
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
@@ -724,7 +724,7 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(
             [s.model for s in none_throws(ax_client.generation_strategy)._steps],
-            [Models.SOBOL, Models.BOTORCH_MODULAR],
+            [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
             ax_client.get_optimization_trace(objective_optimum=branin.fmin)
@@ -789,7 +789,7 @@ class TestAxClient(TestCase):
         """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -929,7 +929,7 @@ class TestAxClient(TestCase):
         """
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
             )
         )
         ax_client.create_experiment(
@@ -1026,7 +1026,7 @@ class TestAxClient(TestCase):
     def test_create_single_objective_experiment_with_objectives_dict(self) -> None:
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -1354,7 +1354,7 @@ class TestAxClient(TestCase):
         """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -1518,7 +1518,7 @@ class TestAxClient(TestCase):
         """Check that we do not allow constraints on the objective metric."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaises(ValueError):
@@ -1775,7 +1775,7 @@ class TestAxClient(TestCase):
             },
         )
         with patch.object(
-            RandomModelBridge, "_fit", autospec=True, side_effect=RandomModelBridge._fit
+            RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
         ) as mock_fit:
             ax_client.get_next_trial()
             mock_fit.assert_called_once()
@@ -1797,7 +1797,7 @@ class TestAxClient(TestCase):
             },
         )
         with patch.object(
-            RandomModelBridge, "_fit", autospec=True, side_effect=RandomModelBridge._fit
+            RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
         ) as mock_fit:
             ax_client.get_next_trial()
             mock_fit.assert_called_once()
@@ -2283,7 +2283,7 @@ class TestAxClient(TestCase):
         self.assertIsNone(ax_client.experiment._name)
 
     @patch(
-        "ax.modelbridge.random.RandomModelBridge._predict",
+        "ax.modelbridge.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
@@ -2804,7 +2804,7 @@ class TestAxClient(TestCase):
         )
 
         # Cannot get predicted hypervolume with sobol model
-        with self.assertRaisesRegex(ValueError, "is not of type TorchModelBridge"):
+        with self.assertRaisesRegex(ValueError, "is not of type TorchAdapter"):
             ax_client.get_hypervolume(use_model_predictions=True)
 
         # Run one more trial and check predicted hypervolume gets returned
@@ -2979,7 +2979,7 @@ class TestAxClient(TestCase):
         with self.assertWarnsRegex(RuntimeWarning, "a `torch_device` were specified."):
             AxClient(
                 generation_strategy=GenerationStrategy(
-                    [GenerationStep(Models.SOBOL, num_trials=3)]
+                    [GenerationStep(Generators.SOBOL, num_trials=3)]
                 ),
                 torch_device=device,
             )
@@ -3080,7 +3080,7 @@ class TestAxClient(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="Sobol",
-                    model_specs=[ModelSpec(model_enum=Models.SOBOL)],
+                    model_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
                 )
             ],
         )

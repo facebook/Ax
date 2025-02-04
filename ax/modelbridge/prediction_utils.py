@@ -12,11 +12,11 @@ from typing import Any
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
-from ax.modelbridge import ModelBridge
+from ax.modelbridge import Adapter
 
 
 def predict_at_point(
-    model: ModelBridge,
+    model: Adapter,
     obsf: ObservationFeatures,
     metric_names: set[str],
     scalarized_metric_config: list[dict[str, Any]] | None = None,
@@ -26,7 +26,7 @@ def predict_at_point(
     Returns mean and standard deviation in format expected by plotting.
 
     Args:
-        model: ModelBridge
+        model: Adapter
         obsf: ObservationFeatures for which to predict
         metric_names: Limit predictions to these metrics.
         scalarized_metric_config: An optional list of dicts specifying how to aggregate
@@ -71,7 +71,7 @@ def predict_at_point(
 
 
 def predict_by_features(
-    model: ModelBridge,
+    model: Adapter,
     label_to_feature_dict: dict[int, ObservationFeatures],
     metric_names: set[str],
 ) -> dict[int, dict[str, tuple[float, float]]]:

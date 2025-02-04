@@ -18,7 +18,7 @@ from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acqui
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
 from ax.core.experiment import Experiment
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point import (
     get_best_by_raw_objective_with_trial_index,
@@ -50,7 +50,7 @@ class TestMethods(TestCase):
         self.assertEqual(method.name, expected_name)
         gs = method.generation_strategy
         sobol, kg = gs._steps
-        self.assertEqual(kg.model, Models.BOTORCH_MODULAR)
+        self.assertEqual(kg.model, Generators.BOTORCH_MODULAR)
         model_kwargs = none_throws(kg.model_kwargs)
         self.assertEqual(model_kwargs["botorch_acqf_class"], qKnowledgeGradient)
         surrogate_spec = model_kwargs["surrogate_spec"]
@@ -114,7 +114,7 @@ class TestMethods(TestCase):
         self.assertEqual(method.name, "Sobol")
         gs = method.generation_strategy
         self.assertEqual(len(gs._steps), 1)
-        self.assertEqual(gs._steps[0].model, Models.SOBOL)
+        self.assertEqual(gs._steps[0].model, Generators.SOBOL)
         problem = get_problem(problem_key="ackley4", num_trials=3)
         result = benchmark_replication(problem=problem, method=method, seed=0)
         self.assertTrue(np.isfinite(result.score_trace).all())

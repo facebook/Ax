@@ -18,8 +18,8 @@ from ax.core.observation import (
     ObservationFeatures,
     recombine_observations,
 )
-from ax.modelbridge.map_torch import MapTorchModelBridge
-from ax.models.torch_base import TorchGenResults, TorchModel
+from ax.modelbridge.map_torch import MapTorchAdapter
+from ax.models.torch_base import TorchGenerator, TorchGenResults
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -28,8 +28,8 @@ from ax.utils.testing.core_stubs import (
 )
 
 
-class MapTorchModelBridgeTest(TestCase):
-    def test_TorchModelBridge(self) -> None:
+class MapTorchAdapterTest(TestCase):
+    def test_TorchAdapter(self) -> None:
         experiment = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(3):
             trial = experiment.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
@@ -43,8 +43,8 @@ class MapTorchModelBridgeTest(TestCase):
             experiment.trials[i].mark_as(status=TrialStatus.COMPLETED)
 
         experiment.attach_data(data=experiment.fetch_data())
-        model = mock.MagicMock(TorchModel, autospec=True, instance=True)
-        modelbridge = MapTorchModelBridge(
+        model = mock.MagicMock(TorchGenerator, autospec=True, instance=True)
+        modelbridge = MapTorchAdapter(
             experiment=experiment,
             search_space=experiment.search_space,
             data=experiment.lookup_data(),
@@ -69,7 +69,7 @@ class MapTorchModelBridgeTest(TestCase):
         self.assertEqual(len(modelbridge.get_training_data()), len(objective_df))
 
         # Test _gen
-        model = mock.MagicMock(TorchModel, autospec=True, instance=True)
+        model = mock.MagicMock(TorchGenerator, autospec=True, instance=True)
         model.gen.return_value = TorchGenResults(
             points=torch.tensor([[0.0, 0.0, 0.0]]),
             weights=torch.tensor([1.0]),
@@ -99,7 +99,7 @@ class MapTorchModelBridgeTest(TestCase):
         )
 
         # Test _predict
-        model = mock.MagicMock(TorchModel, autospec=True, instance=True)
+        model = mock.MagicMock(TorchGenerator, autospec=True, instance=True)
         model.predict.return_value = (
             torch.tensor([[0.0, 0.0]]),
             torch.tensor([[[1.0, 0.0], [0.0, 1.0]]]),
@@ -154,7 +154,7 @@ class MapTorchModelBridgeTest(TestCase):
         ]
         cv_training_data = recombine_observations(features, data)
         with mock.patch(
-            "ax.modelbridge.torch.TorchModelBridge._cross_validate",
+            "ax.modelbridge.torch.TorchAdapter._cross_validate",
             return_value=test_data,
         ):
             cv_obs_data = modelbridge._cross_validate(

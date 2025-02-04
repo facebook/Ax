@@ -9,7 +9,7 @@
 from unittest.mock import patch
 
 import torch
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.modelbridge.transforms.choice_encode import OrderedChoiceToIntegerRange
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -42,7 +42,7 @@ class TestMock(TestCase):
         experiment = get_branin_experiment(with_completed_batch=True)
         with patch("botorch.fit.MCMC", wraps=MCMC) as mock_mcmc:
             with mock_botorch_optimize_context_manager():
-                Models.SAASBO(experiment=experiment, data=experiment.lookup_data())
+                Generators.SAASBO(experiment=experiment, data=experiment.lookup_data())
         mock_mcmc.assert_called_once()
         kwargs = mock_mcmc.call_args.kwargs
         self.assertEqual(kwargs["num_samples"], 16)
@@ -57,7 +57,7 @@ class TestMock(TestCase):
             wraps=generate_starting_points,
         ) as mock_gen:
             with mock_botorch_optimize_context_manager():
-                Models.BOTORCH_MODULAR(
+                Generators.BOTORCH_MODULAR(
                     experiment=experiment,
                     data=experiment.lookup_data(),
                     transforms=[OrderedChoiceToIntegerRange],

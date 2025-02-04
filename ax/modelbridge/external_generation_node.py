@@ -181,8 +181,9 @@ class ExternalGenerationNode(GenerationNode, ABC):
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some methods to avoid
                 re-suggesting candidates that are currently being evaluated.
-            model_gen_kwargs: Keyword arguments, passed through to ``ModelSpec.gen``;
-                these override any pre-specified in ``ModelSpec.model_gen_kwargs``.
+            model_gen_kwargs: Keyword arguments, passed through to
+                ``GeneratorSpec.gen``; these override any pre-specified in
+                ``GeneratorSpec.model_gen_kwargs``.
 
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
@@ -207,7 +208,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
             gen_time=time.monotonic() - t_gen_start,
             model_key=self.node_name,
         )
-        # TODO: This shares the same bug as ModelBridge.gen. In both cases, after
+        # TODO: This shares the same bug as Adapter.gen. In both cases, after
         # deduplication, the generator run will record fit_time as 0.
         self.fit_time_since_gen = 0
         return generator_run

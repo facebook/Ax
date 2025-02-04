@@ -47,11 +47,11 @@ from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingS
 from ax.modelbridge.best_model_selector import BestModelSelector
 from ax.modelbridge.generation_node import GenerationNode
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
+from ax.modelbridge.model_spec import FactoryFunctionGeneratorSpec, GeneratorSpec
 from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transition_criterion import TransitionCriterion
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
@@ -490,12 +490,12 @@ def transition_criterion_to_dict(criterion: TransitionCriterion) -> dict[str, An
     return properties
 
 
-def model_spec_to_dict(model_spec: ModelSpec) -> dict[str, Any]:
+def model_spec_to_dict(model_spec: GeneratorSpec) -> dict[str, Any]:
     """Convert Ax model spec to a dictionary."""
-    if isinstance(model_spec, FactoryFunctionModelSpec):
+    if isinstance(model_spec, FactoryFunctionGeneratorSpec):
         raise NotImplementedError(
             f"JSON serialization not yet implemented for model spec: {model_spec}"
-            " because it leverages a factory function instead of `Models` registry."
+            " because it leverages a factory function instead of `Generators` registry."
         )
     return {
         "__type": model_spec.__class__.__name__,
@@ -528,7 +528,7 @@ def observation_features_to_dict(obs_features: ObservationFeatures) -> dict[str,
     }
 
 
-def botorch_model_to_dict(model: BoTorchModel) -> dict[str, Any]:
+def botorch_model_to_dict(model: BoTorchGenerator) -> dict[str, Any]:
     """Convert Ax model to a dictionary."""
     return {
         "__type": model.__class__.__name__,

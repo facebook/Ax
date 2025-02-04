@@ -15,7 +15,7 @@ import pandas as pd
 import plotly.graph_objs as go
 from ax.core.parameter import ChoiceParameter
 from ax.exceptions.core import NoDataError
-from ax.modelbridge import ModelBridge
+from ax.modelbridge import Adapter
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.helper import compose_annotation
 from ax.utils.common.logger import get_logger
@@ -61,7 +61,7 @@ def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
     )
 
 
-def plot_feature_importance_by_metric_plotly(model: ModelBridge) -> go.Figure:
+def plot_feature_importance_by_metric_plotly(model: Adapter) -> go.Figure:
     """One plot per feature, showing importances by metric."""
     importances = []
     for metric_name in sorted(model.metric_names):
@@ -90,7 +90,7 @@ def plot_feature_importance_by_metric_plotly(model: ModelBridge) -> go.Figure:
     return plot_fi
 
 
-def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
+def plot_feature_importance_by_metric(model: Adapter) -> AxPlotConfig:
     """Wrapper method to convert plot_feature_importance_by_metric_plotly to
     AxPlotConfig"""
     return AxPlotConfig(
@@ -102,7 +102,7 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
 
 
 def plot_feature_importance_by_feature_plotly(
-    model: ModelBridge | None = None,
+    model: Adapter | None = None,
     sensitivity_values: dict[str, dict[str, float | npt.NDArray]] | None = None,
     relative: bool = False,
     caption: str = "",
@@ -277,7 +277,7 @@ def plot_feature_importance_by_feature_plotly(
 
 
 def plot_feature_importance_by_feature(
-    model: ModelBridge | None = None,
+    model: Adapter | None = None,
     sensitivity_values: dict[str, dict[str, float | npt.NDArray]] | None = None,
     relative: bool = False,
     caption: str = "",
@@ -301,7 +301,7 @@ def plot_feature_importance_by_feature(
     )
 
 
-def plot_relative_feature_importance_plotly(model: ModelBridge) -> go.Figure:
+def plot_relative_feature_importance_plotly(model: Adapter) -> go.Figure:
     """Create a stacked bar chart of feature importances per metric"""
     importances = []
     for metric_name in sorted(model.metric_names):
@@ -331,7 +331,7 @@ def plot_relative_feature_importance_plotly(model: ModelBridge) -> go.Figure:
     return go.Figure(data=data, layout=layout)
 
 
-def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
+def plot_relative_feature_importance(model: Adapter) -> AxPlotConfig:
     """Wrapper method to convert plot_relative_feature_importance_plotly to
     AxPlotConfig"""
     return AxPlotConfig(

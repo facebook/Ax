@@ -17,7 +17,7 @@ from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.prediction_utils import predict_at_point
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -315,7 +315,7 @@ class TestPredictedEffectsPlot(TestCase):
             experiment=experiment,
         )
         # AND GIVEN we generate all Sobol trials and one GPEI trial
-        sobol_key = Models.SOBOL.value
+        sobol_key = Generators.SOBOL.value
         last_model_key = sobol_key
         while last_model_key == sobol_key:
             trial = experiment.new_trial(

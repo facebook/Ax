@@ -24,7 +24,7 @@ from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.service.scheduler import Scheduler
 from ax.service.utils.report_utils import (
     _format_comparison_string,
@@ -380,7 +380,7 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment(with_batch=True, minimize=True)
         exp.trials[0].run()
         exp.trials[0].mark_completed()
-        model = Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
+        model = Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
         for gsa, true_objective_metric_name in itertools.product(
             [False, True], ["branin", None]
         ):
@@ -440,7 +440,7 @@ class ReportUtilsTest(TestCase):
         with self.assertLogs(logger="ax", level=INFO) as log:
             plots = get_standard_plots(
                 experiment=exp,
-                model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
+                model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
             )
             self.assertEqual(len(log.output), 3)
             self.assertIn(
@@ -479,7 +479,7 @@ class ReportUtilsTest(TestCase):
             ot.relative = False
         plots = get_standard_plots(
             experiment=exp,
-            model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
+            model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
         )
         self.assertEqual(len(plots), 8)
 
@@ -491,7 +491,7 @@ class ReportUtilsTest(TestCase):
         exp.trials[0].run()
         plots = get_standard_plots(
             experiment=exp,
-            model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
+            model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
         )
         self.assertEqual(len(plots), 8)
 
@@ -501,14 +501,14 @@ class ReportUtilsTest(TestCase):
         exp.new_trial().add_arm(exp.status_quo)
         exp.trials[0].run()
         exp.new_trial(
-            generator_run=Models.SOBOL(search_space=exp.search_space).gen(n=1)
+            generator_run=Generators.SOBOL(search_space=exp.search_space).gen(n=1)
         )
         exp.trials[1].run()
         for t in exp.trials.values():
             t.mark_completed()
         plots = get_standard_plots(
             experiment=exp,
-            model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
+            model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
             true_objective_metric_name="branin",
         )
 
@@ -524,7 +524,7 @@ class ReportUtilsTest(TestCase):
         ):
             plots = get_standard_plots(
                 experiment=exp,
-                model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
+                model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
                 true_objective_metric_name="not_present",
             )
 
@@ -532,10 +532,10 @@ class ReportUtilsTest(TestCase):
     def test_skip_contour_high_dimensional(self) -> None:
         exp = get_high_dimensional_branin_experiment()
         # Initial Sobol points
-        sobol = Models.SOBOL(search_space=exp.search_space)
+        sobol = Generators.SOBOL(search_space=exp.search_space)
         for _ in range(1):
             exp.new_trial(sobol.gen(1)).run()
-        model = Models.BOTORCH_MODULAR(
+        model = Generators.BOTORCH_MODULAR(
             experiment=exp,
             data=exp.fetch_data(),
         )
@@ -1241,13 +1241,13 @@ class ReportUtilsTest(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=3,
                     min_trials_observed=3,
                     max_parallelism=3,
                 ),
                 GenerationStep(
-                    model=Models.BOTORCH_MODULAR, num_trials=-1, max_parallelism=3
+                    model=Generators.BOTORCH_MODULAR, num_trials=-1, max_parallelism=3
                 ),
             ]
         )

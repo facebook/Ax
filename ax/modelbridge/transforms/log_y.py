@@ -51,7 +51,7 @@ class LogY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: base_modelbridge.ModelBridge | None = None,
+        modelbridge: base_modelbridge.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         if config is None:
@@ -83,7 +83,7 @@ class LogY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: base_modelbridge.ModelBridge | None = None,
+        modelbridge: base_modelbridge.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:

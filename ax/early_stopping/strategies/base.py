@@ -22,7 +22,7 @@ from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 
 from ax.early_stopping.utils import estimate_early_stopping_savings
-from ax.modelbridge.map_torch import MapTorchModelBridge
+from ax.modelbridge.map_torch import MapTorchAdapter
 from ax.modelbridge.modelbridge_utils import (
     _unpack_observations,
     observation_data_to_array,
@@ -32,7 +32,7 @@ from ax.modelbridge.registry import Cont_X_trans, Y_trans
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.map_unit_x import MapUnitX
 
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenerator
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
@@ -568,9 +568,9 @@ def get_transform_helper_model(
     experiment: Experiment,
     data: Data,
     transforms: list[type[Transform]] | None = None,
-) -> MapTorchModelBridge:
+) -> MapTorchAdapter:
     """
-    Constructs a TorchModelBridge, to be used as a helper for transforming parameters.
+    Constructs a TorchAdapter, to be used as a helper for transforming parameters.
     We perform the default `Cont_X_trans` for parameters but do not perform any
     transforms on the observations.
 
@@ -582,11 +582,11 @@ def get_transform_helper_model(
     """
     if transforms is None:
         transforms = Cont_X_trans + [MapUnitX] + Y_trans
-    return MapTorchModelBridge(
+    return MapTorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
         data=data,
-        model=TorchModel(),
+        model=TorchGenerator(),
         transforms=transforms,
         fit_out_of_design=True,
     )

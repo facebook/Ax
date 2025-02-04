@@ -19,7 +19,7 @@ from ax.modelbridge.dispatch_utils import (
     choose_generation_strategy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
-from ax.modelbridge.registry import MBM_X_trans, Mixed_transforms, Models, Y_trans
+from ax.modelbridge.registry import Generators, MBM_X_trans, Mixed_transforms, Y_trans
 from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.winsorization_config import WinsorizationConfig
@@ -52,9 +52,9 @@ class TestDispatchUtils(TestCase):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space()
             )
-            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].model, Generators.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
             expected_model_kwargs: dict[str, Any] = {
                 "torch_device": None,
                 "transforms": expected_transforms,
@@ -78,35 +78,35 @@ class TestDispatchUtils(TestCase):
                 search_space=get_branin_search_space(),
                 max_initialization_trials=2,
             )
-            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].model, Generators.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 2)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("min sobol trials"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),
                 min_sobol_trials_observed=1,
             )
-            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].model, Generators.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].min_trials_observed, 1)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("num_initialization_trials > max_initialization_trials"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),
                 max_initialization_trials=2,
                 num_initialization_trials=3,
             )
-            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].model, Generators.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("num_initialization_trials > max_initialization_trials"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),
                 max_initialization_trials=2,
                 num_initialization_trials=3,
             )
-            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].model, Generators.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("MOO"):
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(objectives=[])
@@ -115,9 +115,9 @@ class TestDispatchUtils(TestCase):
                 search_space=get_branin_search_space(),
                 optimization_config=optimization_config,
             )
-            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].model, Generators.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
             model_kwargs = none_throws(sobol_gpei._steps[1].model_kwargs)
             self.assertEqual(
                 set(model_kwargs.keys()),
@@ -133,13 +133,13 @@ class TestDispatchUtils(TestCase):
             sobol = choose_generation_strategy(
                 search_space=get_factorial_search_space(), num_trials=1000
             )
-            self.assertEqual(sobol._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol._steps[0].model, Generators.SOBOL)
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("Sobol (because of too many categories)"):
             sobol_large = choose_generation_strategy(
                 search_space=get_large_factorial_search_space(), verbose=True
             )
-            self.assertEqual(sobol_large._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_large._steps[0].model, Generators.SOBOL)
             self.assertEqual(len(sobol_large._steps), 1)
         with self.subTest("Sobol (because of too many categories) with saasbo"):
             with self.assertLogs(
@@ -157,7 +157,7 @@ class TestDispatchUtils(TestCase):
                     ),
                     logger.output,
                 )
-            self.assertEqual(sobol_large._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_large._steps[0].model, Generators.SOBOL)
             self.assertEqual(len(sobol_large._steps), 1)
         with self.subTest("SOBOL due to too many unordered choices"):
             # Search space with more unordered choices than ordered parameters.
@@ -167,7 +167,7 @@ class TestDispatchUtils(TestCase):
                     num_unordered_choices=100,
                 )
             )
-            self.assertEqual(sobol._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol._steps[0].model, Generators.SOBOL)
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("GPEI with more unordered choices than ordered parameters"):
             # Search space with more unordered choices than ordered parameters.
@@ -177,15 +177,15 @@ class TestDispatchUtils(TestCase):
                     num_unordered_choices=10,
                 )
             )
-            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("GPEI despite many unordered 2-value parameters"):
             gs = choose_generation_strategy(
                 search_space=get_large_factorial_search_space(
                     num_levels=2, num_parameters=10
                 ),
             )
-            self.assertEqual(gs._steps[0].model, Models.SOBOL)
-            self.assertEqual(gs._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(gs._steps[0].model, Generators.SOBOL)
+            self.assertEqual(gs._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("GPEI-Batched"):
             sobol_gpei_batched = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -196,9 +196,9 @@ class TestDispatchUtils(TestCase):
             bo_mixed = choose_generation_strategy(
                 search_space=get_factorial_search_space()
             )
-            self.assertEqual(bo_mixed._steps[0].model, Models.SOBOL)
+            self.assertEqual(bo_mixed._steps[0].model, Generators.SOBOL)
             self.assertEqual(bo_mixed._steps[0].num_trials, 6)
-            self.assertEqual(bo_mixed._steps[1].model, Models.BO_MIXED)
+            self.assertEqual(bo_mixed._steps[1].model, Generators.BO_MIXED)
             expected_model_kwargs = {
                 "torch_device": None,
                 "transforms": [Winsorize] + Mixed_transforms + Y_trans,
@@ -211,9 +211,9 @@ class TestDispatchUtils(TestCase):
             # pyre-fixme[16]: `Parameter` has no attribute `_is_ordered`.
             ss.parameters["x2"]._is_ordered = False
             bo_mixed_2 = choose_generation_strategy(search_space=ss)
-            self.assertEqual(bo_mixed_2._steps[0].model, Models.SOBOL)
+            self.assertEqual(bo_mixed_2._steps[0].model, Generators.SOBOL)
             self.assertEqual(bo_mixed_2._steps[0].num_trials, 5)
-            self.assertEqual(bo_mixed_2._steps[1].model, Models.BO_MIXED)
+            self.assertEqual(bo_mixed_2._steps[1].model, Generators.BO_MIXED)
             expected_model_kwargs = {
                 "torch_device": None,
                 "transforms": [Winsorize] + Mixed_transforms + Y_trans,
@@ -230,9 +230,9 @@ class TestDispatchUtils(TestCase):
             moo_mixed = choose_generation_strategy(
                 search_space=search_space, optimization_config=optimization_config
             )
-            self.assertEqual(moo_mixed._steps[0].model, Models.SOBOL)
+            self.assertEqual(moo_mixed._steps[0].model, Generators.SOBOL)
             self.assertEqual(moo_mixed._steps[0].num_trials, 5)
-            self.assertEqual(moo_mixed._steps[1].model, Models.BO_MIXED)
+            self.assertEqual(moo_mixed._steps[1].model, Generators.BO_MIXED)
             model_kwargs = none_throws(moo_mixed._steps[1].model_kwargs)
             self.assertEqual(
                 set(model_kwargs.keys()),
@@ -251,9 +251,9 @@ class TestDispatchUtils(TestCase):
                 num_initialization_trials=3,
                 use_saasbo=True,
             )
-            self.assertEqual(sobol_fullybayesian._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_fullybayesian._steps[0].model, Generators.SOBOL)
             self.assertEqual(sobol_fullybayesian._steps[0].num_trials, 3)
-            self.assertEqual(sobol_fullybayesian._steps[1].model, Models.SAASBO)
+            self.assertEqual(sobol_fullybayesian._steps[1].model, Generators.SAASBO)
         with self.subTest("SAASBO MOO"):
             sobol_fullybayesianmoo = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -264,11 +264,11 @@ class TestDispatchUtils(TestCase):
                     objective=MultiObjective(objectives=[])
                 ),
             )
-            self.assertEqual(sobol_fullybayesianmoo._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_fullybayesianmoo._steps[0].model, Generators.SOBOL)
             self.assertEqual(sobol_fullybayesianmoo._steps[0].num_trials, 3)
             self.assertEqual(
                 sobol_fullybayesianmoo._steps[1].model,
-                Models.SAASBO,
+                Generators.SAASBO,
             )
         with self.subTest("SAASBO"):
             sobol_fullybayesian_large = choose_generation_strategy(
@@ -277,11 +277,13 @@ class TestDispatchUtils(TestCase):
                 ),
                 use_saasbo=True,
             )
-            self.assertEqual(sobol_fullybayesian_large._steps[0].model, Models.SOBOL)
+            self.assertEqual(
+                sobol_fullybayesian_large._steps[0].model, Generators.SOBOL
+            )
             self.assertEqual(sobol_fullybayesian_large._steps[0].num_trials, 30)
             self.assertEqual(
                 sobol_fullybayesian_large._steps[1].model,
-                Models.SAASBO,
+                Generators.SAASBO,
             )
         with self.subTest("num_initialization_trials"):
             ss = get_large_factorial_search_space()
@@ -291,32 +293,38 @@ class TestDispatchUtils(TestCase):
             gs_12_init_trials = choose_generation_strategy(
                 search_space=ss, num_trials=100
             )
-            self.assertEqual(gs_12_init_trials._steps[0].model, Models.SOBOL)
+            self.assertEqual(gs_12_init_trials._steps[0].model, Generators.SOBOL)
             self.assertEqual(gs_12_init_trials._steps[0].num_trials, 12)
-            self.assertEqual(gs_12_init_trials._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(
+                gs_12_init_trials._steps[1].model, Generators.BOTORCH_MODULAR
+            )
             # at least 5 initialization trials are performed
             gs_5_init_trials = choose_generation_strategy(search_space=ss, num_trials=0)
-            self.assertEqual(gs_5_init_trials._steps[0].model, Models.SOBOL)
+            self.assertEqual(gs_5_init_trials._steps[0].model, Generators.SOBOL)
             self.assertEqual(gs_5_init_trials._steps[0].num_trials, 5)
-            self.assertEqual(gs_5_init_trials._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(
+                gs_5_init_trials._steps[1].model, Generators.BOTORCH_MODULAR
+            )
             # avoid spending >20% of budget on initialization trials if there are
             # more than 5 initialization trials
             gs_6_init_trials = choose_generation_strategy(
                 search_space=ss, num_trials=30
             )
-            self.assertEqual(gs_6_init_trials._steps[0].model, Models.SOBOL)
+            self.assertEqual(gs_6_init_trials._steps[0].model, Generators.SOBOL)
             self.assertEqual(gs_6_init_trials._steps[0].num_trials, 6)
-            self.assertEqual(gs_6_init_trials._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(
+                gs_6_init_trials._steps[1].model, Generators.BOTORCH_MODULAR
+            )
         with self.subTest("suggested_model_override"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space()
             )
-            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
+            self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
             sobol_saasbo = choose_generation_strategy(
                 search_space=get_branin_search_space(),
-                suggested_model_override=Models.SAASBO,
+                suggested_model_override=Generators.SAASBO,
             )
-            self.assertEqual(sobol_saasbo._steps[1].model, Models.SAASBO)
+            self.assertEqual(sobol_saasbo._steps[1].model, Generators.SAASBO)
 
     def test_make_botorch_step_extra(self) -> None:
         # Test parts of _make_botorch_step that are not directly exposed in
@@ -347,12 +355,12 @@ class TestDispatchUtils(TestCase):
                     disable_progbar=disable_progbar,
                     use_saasbo=True,
                 )
-                self.assertEqual(sobol_saasbo._steps[0].model, Models.SOBOL)
+                self.assertEqual(sobol_saasbo._steps[0].model, Generators.SOBOL)
                 self.assertNotIn(
                     "disable_progbar",
                     none_throws(sobol_saasbo._steps[0].model_kwargs),
                 )
-                self.assertEqual(sobol_saasbo._steps[1].model, Models.SAASBO)
+                self.assertEqual(sobol_saasbo._steps[1].model, Generators.SAASBO)
                 self.assertNotIn(
                     "disable_progbar",
                     none_throws(sobol_saasbo._steps[0].model_kwargs),
@@ -378,12 +386,12 @@ class TestDispatchUtils(TestCase):
                     use_saasbo=False,
                 )
                 self.assertEqual(len(gp_saasbo._steps), 2)
-                self.assertEqual(gp_saasbo._steps[0].model, Models.SOBOL)
+                self.assertEqual(gp_saasbo._steps[0].model, Generators.SOBOL)
                 self.assertNotIn(
                     "disable_progbar",
                     none_throws(gp_saasbo._steps[0].model_kwargs),
                 )
-                self.assertEqual(gp_saasbo._steps[1].model, Models.BOTORCH_MODULAR)
+                self.assertEqual(gp_saasbo._steps[1].model, Generators.BOTORCH_MODULAR)
                 self.assertNotIn(
                     "disable_progbar",
                     none_throws(gp_saasbo._steps[1].model_kwargs),
@@ -547,11 +555,11 @@ class TestDispatchUtils(TestCase):
             "with budget that is lower than exhaustive, BayesOpt is used"
         ):
             sobol_gpei = choose_generation_strategy(search_space=ss, num_trials=23)
-            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.BO_MIXED)
+            self.assertEqual(sobol_gpei._steps[0].model, Generators.SOBOL)
+            self.assertEqual(sobol_gpei._steps[1].model, Generators.BO_MIXED)
         with self.subTest("with budget that is exhaustive, Sobol is used"):
             sobol = choose_generation_strategy(search_space=ss, num_trials=36)
-            self.assertEqual(sobol._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol._steps[0].model, Generators.SOBOL)
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("with budget that is exhaustive and use_saasbo, it warns"):
             with self.assertLogs(
@@ -569,7 +577,7 @@ class TestDispatchUtils(TestCase):
                     ),
                     logger.output,
                 )
-            self.assertEqual(sobol._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol._steps[0].model, Generators.SOBOL)
             self.assertEqual(len(sobol._steps), 1)
 
     def test_use_batch_trials(self) -> None:
@@ -731,12 +739,12 @@ class TestDispatchUtils(TestCase):
                     jit_compile=jit_compile,
                     use_saasbo=True,
                 )
-                self.assertEqual(sobol_saasbo._steps[0].model, Models.SOBOL)
+                self.assertEqual(sobol_saasbo._steps[0].model, Generators.SOBOL)
                 self.assertNotIn(
                     "jit_compile",
                     none_throws(sobol_saasbo._steps[0].model_kwargs),
                 )
-                self.assertEqual(sobol_saasbo._steps[1].model, Models.SAASBO)
+                self.assertEqual(sobol_saasbo._steps[1].model, Generators.SAASBO)
                 self.assertNotIn(
                     "jit_compile",
                     none_throws(sobol_saasbo._steps[0].model_kwargs),
@@ -762,12 +770,12 @@ class TestDispatchUtils(TestCase):
                     use_saasbo=False,
                 )
                 self.assertEqual(len(gp_saasbo._steps), 2)
-                self.assertEqual(gp_saasbo._steps[0].model, Models.SOBOL)
+                self.assertEqual(gp_saasbo._steps[0].model, Generators.SOBOL)
                 self.assertNotIn(
                     "jit_compile",
                     none_throws(gp_saasbo._steps[0].model_kwargs),
                 )
-                self.assertEqual(gp_saasbo._steps[1].model, Models.BOTORCH_MODULAR)
+                self.assertEqual(gp_saasbo._steps[1].model, Generators.BOTORCH_MODULAR)
                 self.assertNotIn(
                     "jit_compile",
                     none_throws(gp_saasbo._steps[1].model_kwargs),

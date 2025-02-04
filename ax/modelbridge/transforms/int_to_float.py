@@ -51,7 +51,7 @@ class IntToFloat(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         self.search_space: SearchSpace = none_throws(
@@ -200,7 +200,7 @@ class LogIntToFloat(IntToFloat):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         if config is not None and "min_choices" in config:

@@ -12,13 +12,13 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from ax.models.model_utils import tunable_feature_indices
-from ax.models.random.base import RandomModel
+from ax.models.random.base import RandomGenerator
 from ax.models.types import TConfig
 from pyre_extensions import none_throws
 from torch.quasirandom import SobolEngine
 
 
-class SobolGenerator(RandomModel):
+class SobolGenerator(RandomGenerator):
     """This class specifies the generation algorithm for a Sobol generator.
 
     As Sobol does not make use of a model, it does not implement
@@ -27,7 +27,7 @@ class SobolGenerator(RandomModel):
     Attributes:
         scramble: If True, permutes the parameter values among
             the elements of the Sobol sequence. Default is True.
-        See base `RandomModel` for a description of remaining attributes.
+        See base `RandomGenerator` for a description of remaining attributes.
     """
 
     def __init__(

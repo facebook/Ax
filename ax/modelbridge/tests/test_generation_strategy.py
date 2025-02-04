@@ -30,7 +30,7 @@ from ax.exceptions.generation_strategy import (
     MaxParallelismReachedException,
 )
 from ax.modelbridge.best_model_selector import SingleDiagnosticBestModelSelector
-from ax.modelbridge.discrete import DiscreteModelBridge
+from ax.modelbridge.discrete import DiscreteAdapter
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import GenerationNode
 from ax.modelbridge.generation_node_input_constructors import (
@@ -38,16 +38,16 @@ from ax.modelbridge.generation_node_input_constructors import (
     NodeInputConstructors,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.random import RandomModelBridge
+from ax.modelbridge.model_spec import GeneratorSpec
+from ax.modelbridge.random import RandomAdapter
 from ax.modelbridge.registry import (
     _extract_model_state_after_gen,
     Cont_X_trans,
+    Generators,
     MBM_MTGP_trans,
     MODEL_KEY_TO_MODEL_SETUP,
-    Models,
 )
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
     MaxGenerationParallelism,
@@ -70,7 +70,7 @@ from ax.utils.testing.mock import mock_botorch_optimize
 from pyre_extensions import assert_is_instance, none_throws
 
 
-class TestGenerationStrategyWithoutModelBridgeMocks(TestCase):
+class TestGenerationStrategyWithoutAdapterMocks(TestCase):
     """The test class above heavily mocks the modelbridge. This makes it
     difficult to test certain aspects of the GS. This is an alternative
     test class that makes use of mocking rather sparingly.
@@ -93,7 +93,7 @@ class TestGenerationStrategyWithoutModelBridgeMocks(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="Sobol",
-                    model_specs=[ModelSpec(model_enum=Models.SOBOL)],
+                    model_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
                     transition_criteria=[
                         MinTrials(threshold=2, transition_to="MBM/BO_MIXED")
                     ],
@@ -101,8 +101,8 @@ class TestGenerationStrategyWithoutModelBridgeMocks(TestCase):
                 GenerationNode(
                     node_name="MBM/BO_MIXED",
                     model_specs=[
-                        ModelSpec(model_enum=Models.BOTORCH_MODULAR),
-                        ModelSpec(model_enum=Models.BO_MIXED),
+                        GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR),
+                        GeneratorSpec(model_enum=Generators.BO_MIXED),
                     ],
                     best_model_selector=best_model_selector,
                 ),
@@ -150,7 +150,7 @@ class TestGenerationStrategy(TestCase):
 
         # Mock out slow model fitting.
         self.torch_model_bridge_patcher = patch(
-            f"{TorchModelBridge.__module__}.TorchModelBridge", spec=True
+            f"{TorchAdapter.__module__}.TorchAdapter", spec=True
         )
         self.mock_torch_model_bridge = self.torch_model_bridge_patcher.start()
         mock_mb = self.mock_torch_model_bridge.return_value
@@ -159,14 +159,14 @@ class TestGenerationStrategy(TestCase):
 
         # Mock out slow TS.
         self.discrete_model_bridge_patcher = patch(
-            f"{DiscreteModelBridge.__module__}.DiscreteModelBridge", spec=True
+            f"{DiscreteAdapter.__module__}.DiscreteAdapter", spec=True
         )
         self.mock_discrete_model_bridge = self.discrete_model_bridge_patcher.start()
         self.mock_discrete_model_bridge.return_value.gen.return_value = self.gr
 
-        # Mock in `Models` registry.
+        # Mock in `Generators` registry.
         self.registry_setup_dict_patcher = patch.dict(
-            f"{Models.__module__}.MODEL_KEY_TO_MODEL_SETUP",
+            f"{Generators.__module__}.MODEL_KEY_TO_MODEL_SETUP",
             {
                 "Factorial": MODEL_KEY_TO_MODEL_SETUP["Factorial"]._replace(
                     bridge_class=self.mock_discrete_model_bridge
@@ -191,7 +191,7 @@ class TestGenerationStrategy(TestCase):
         self.sobol_GS = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    Models.SOBOL,
+                    Generators.SOBOL,
                     num_trials=-1,
                     should_deduplicate=True,
                 )
@@ -228,13 +228,13 @@ class TestGenerationStrategy(TestCase):
                 only_in_statuses=[TrialStatus.RUNNING],
             )
         ]
-        self.sobol_model_spec = ModelSpec(
-            model_enum=Models.SOBOL,
+        self.sobol_model_spec = GeneratorSpec(
+            model_enum=Generators.SOBOL,
             model_kwargs=self.step_model_kwargs,
             model_gen_kwargs={},
         )
-        self.mbm_model_spec = ModelSpec(
-            model_enum=Models.BOTORCH_MODULAR,
+        self.mbm_model_spec = GeneratorSpec(
+            model_enum=Generators.BOTORCH_MODULAR,
             model_kwargs=self.step_model_kwargs,
             model_gen_kwargs={},
         )
@@ -355,12 +355,12 @@ class TestGenerationStrategy(TestCase):
             name="Sobol+MBM",
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=num_sobol_trials,
                     model_kwargs=self.step_model_kwargs,
                 ),
                 GenerationStep(
-                    model=Models.BOTORCH_MODULAR,
+                    model=Generators.BOTORCH_MODULAR,
                     num_trials=num_mbm_trials,
                     model_kwargs=self.step_model_kwargs,
                     enforce_num_trials=True,
@@ -391,8 +391,8 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaises(UserInputError):
             GenerationStrategy(
                 steps=[
-                    GenerationStep(model=Models.SOBOL, num_trials=5),
-                    GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-10),
+                    GenerationStep(model=Generators.SOBOL, num_trials=5),
+                    GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=-10),
                 ]
             )
 
@@ -400,8 +400,8 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaises(UserInputError):
             GenerationStrategy(
                 steps=[
-                    GenerationStep(model=Models.SOBOL, num_trials=-1),
-                    GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=10),
+                    GenerationStep(model=Generators.SOBOL, num_trials=-1),
+                    GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=10),
                 ]
             )
 
@@ -410,8 +410,8 @@ class TestGenerationStrategy(TestCase):
         )
         factorial_thompson_generation_strategy = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.FACTORIAL, num_trials=1),
-                GenerationStep(model=Models.THOMPSON, num_trials=2),
+                GenerationStep(model=Generators.FACTORIAL, num_trials=1),
+                GenerationStep(model=Generators.THOMPSON, num_trials=2),
             ]
         )
         self.assertTrue(factorial_thompson_generation_strategy._uses_registered_models)
@@ -425,9 +425,9 @@ class TestGenerationStrategy(TestCase):
             GenerationStrategy(
                 steps=[
                     GenerationStep(
-                        model=Models.SOBOL, num_trials=5, max_parallelism=-1
+                        model=Generators.SOBOL, num_trials=5, max_parallelism=-1
                     ),
-                    GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1),
+                    GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=-1),
                 ]
             )
 
@@ -451,7 +451,7 @@ class TestGenerationStrategy(TestCase):
             ),
         )
         gs2 = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
+            steps=[GenerationStep(model=Generators.SOBOL, num_trials=-1)]
         )
         self.assertEqual(
             str(gs2), "GenerationStrategy(name='Sobol', steps=[Sobol for all trials])"
@@ -462,8 +462,8 @@ class TestGenerationStrategy(TestCase):
                 GenerationNode(
                     node_name="test",
                     model_specs=[
-                        ModelSpec(
-                            model_enum=Models.SOBOL,
+                        GeneratorSpec(
+                            model_enum=Generators.SOBOL,
                             model_kwargs={},
                             model_gen_kwargs={},
                         ),
@@ -474,7 +474,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             str(gs3),
             "GenerationStrategy(name='test', nodes=[GenerationNode("
-            "model_specs=[ModelSpec(model_enum=Sobol, "
+            "model_specs=[GeneratorSpec(model_enum=Sobol, "
             "model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
             " model_key_override=None)], node_name=test, "
             "transition_criteria=[])])",
@@ -496,8 +496,10 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment(get_branin_experiment())
         gs = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
-                GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=1),
+                GenerationStep(
+                    model=Generators.SOBOL, num_trials=5, min_trials_observed=5
+                ),
+                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=1),
             ]
         )
         self.assertFalse(gs.uses_non_registered_models)
@@ -514,18 +516,18 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=1,
                     min_trials_observed=5,
                     enforce_num_trials=False,
                 ),
-                GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=1),
+                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=1),
             ]
         )
         for _ in range(2):
             gs.gen(exp)
         # Make sure Sobol is used to generate the 6th point.
-        self.assertIsInstance(gs._model, RandomModelBridge)
+        self.assertIsInstance(gs._model, RandomAdapter)
 
     def test_sobol_MBM_strategy(self) -> None:
         exp = get_branin_experiment()
@@ -597,14 +599,14 @@ class TestGenerationStrategy(TestCase):
             g = self.sobol_MBM_step_GS.gen(exp)
             exp.new_trial(generator_run=g).run()
             if i > 4:
-                self.assertIsInstance(self.sobol_MBM_step_GS.model, TorchModelBridge)
+                self.assertIsInstance(self.sobol_MBM_step_GS.model, TorchAdapter)
 
     def test_sobol_strategy(self) -> None:
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=5,
                     max_parallelism=10,
                     enforce_num_trials=False,
@@ -623,12 +625,12 @@ class TestGenerationStrategy(TestCase):
         factorial_thompson_gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.FACTORIAL,
+                    model=Generators.FACTORIAL,
                     num_trials=1,
                     model_kwargs=self.step_model_kwargs,
                 ),
                 GenerationStep(
-                    model=Models.THOMPSON,
+                    model=Generators.THOMPSON,
                     num_trials=-1,
                     model_kwargs=self.step_model_kwargs,
                 ),
@@ -658,8 +660,8 @@ class TestGenerationStrategy(TestCase):
     def test_clone_reset(self) -> None:
         ftgs = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.FACTORIAL, num_trials=1),
-                GenerationStep(model=Models.THOMPSON, num_trials=2),
+                GenerationStep(model=Generators.FACTORIAL, num_trials=1),
+                GenerationStep(model=Generators.THOMPSON, num_trials=2),
             ]
         )
         ftgs._curr = ftgs._steps[1]
@@ -670,7 +672,9 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL, num_trials=1, model_kwargs={"scramble": False}
+                    model=Generators.SOBOL,
+                    num_trials=1,
+                    model_kwargs={"scramble": False},
                 )
             ]
         )
@@ -703,14 +707,14 @@ class TestGenerationStrategy(TestCase):
             else:
                 grs_2 = sobol_MBM_generation_strategy._gen_with_multiple_nodes(exp, n=2)
             exp.new_batch_trial(generator_runs=grs_2).run()
-        self.assertIsInstance(sobol_MBM_generation_strategy.model, TorchModelBridge)
+        self.assertIsInstance(sobol_MBM_generation_strategy.model, TorchAdapter)
 
     def test_with_factory_function(self) -> None:
         """Checks that generation strategy works with custom factory functions.
         No information about the model should be saved on generator run."""
 
-        def get_sobol(search_space: SearchSpace) -> RandomModelBridge:
-            return RandomModelBridge(
+        def get_sobol(search_space: SearchSpace) -> RandomAdapter:
+            return RandomAdapter(
                 search_space=search_space,
                 model=SobolGenerator(),
                 transforms=Cont_X_trans,
@@ -721,7 +725,7 @@ class TestGenerationStrategy(TestCase):
             steps=[GenerationStep(model=get_sobol, num_trials=5)]
         )
         g = sobol_generation_strategy.gen(exp)
-        self.assertIsInstance(sobol_generation_strategy.model, RandomModelBridge)
+        self.assertIsInstance(sobol_generation_strategy.model, RandomAdapter)
         self.assertIsNone(g._model_key)
         self.assertIsNone(g._model_kwargs)
         self.assertIsNone(g._bridge_kwargs)
@@ -729,7 +733,7 @@ class TestGenerationStrategy(TestCase):
     def test_store_experiment(self) -> None:
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_trials=5)]
+            steps=[GenerationStep(model=Generators.SOBOL, num_trials=5)]
         )
         self.assertIsNone(sobol_generation_strategy._experiment)
         sobol_generation_strategy.gen(exp)
@@ -739,8 +743,8 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
             steps=[
-                GenerationStep(model=Models.SOBOL, num_trials=2),
-                GenerationStep(model=Models.SOBOL, num_trials=3),
+                GenerationStep(model=Generators.SOBOL, num_trials=2),
+                GenerationStep(model=Generators.SOBOL, num_trials=3),
             ]
         )
         # No experiment attached to the GS, should be None.
@@ -755,7 +759,9 @@ class TestGenerationStrategy(TestCase):
     def test_max_parallelism_reached(self) -> None:
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_trials=5, max_parallelism=1)]
+            steps=[
+                GenerationStep(model=Generators.SOBOL, num_trials=5, max_parallelism=1)
+            ]
         )
         exp.new_trial(
             generator_run=sobol_generation_strategy.gen(experiment=exp)
@@ -784,7 +790,7 @@ class TestGenerationStrategy(TestCase):
             name="Sobol",
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=-1,
                     # Disable model-level deduplication.
                     model_kwargs={"deduplicate": False},
@@ -815,12 +821,12 @@ class TestGenerationStrategy(TestCase):
         sobol_gs_with_parallelism_limits = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=NUM_INIT_TRIALS,
                     min_trials_observed=3,
                 ),
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=(NUM_ROUNDS - 1) * SECOND_STEP_PARALLELISM,
                     max_parallelism=SECOND_STEP_PARALLELISM,
                 ),
@@ -858,12 +864,12 @@ class TestGenerationStrategy(TestCase):
         sobol_gs_with_parallelism_limits = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=NUM_INIT_TRIALS,
                     min_trials_observed=3,
                 ),
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=-1,
                     max_parallelism=SECOND_STEP_PARALLELISM,
                 ),
@@ -891,9 +897,9 @@ class TestGenerationStrategy(TestCase):
         for _ in range(10):
             # During each iteration, check that all transformed observation features
             # contain all parameters of the flat search space.
-            with patch.object(
-                RandomModelBridge, "_fit"
-            ) as mock_model_fit, patch.object(RandomModelBridge, "gen"):
+            with patch.object(RandomAdapter, "_fit") as mock_model_fit, patch.object(
+                RandomAdapter, "gen"
+            ):
                 self.sobol_GS.gen(experiment=experiment)
                 mock_model_fit.assert_called_once()
                 observations = mock_model_fit.call_args[1].get("observations")
@@ -933,11 +939,11 @@ class TestGenerationStrategy(TestCase):
         sobol_MBM_gs = self.sobol_MBM_step_GS
 
         with mock_patch_method_original(
-            mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
-            original_method=ModelSpec.gen,
+            mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
+            original_method=GeneratorSpec.gen,
         ) as model_spec_gen_mock, mock_patch_method_original(
-            mock_path=f"{ModelSpec.__module__}.ModelSpec.fit",
-            original_method=ModelSpec.fit,
+            mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.fit",
+            original_method=GeneratorSpec.fit,
         ) as model_spec_fit_mock:
             # Generate first four Sobol GRs (one more to gen after that if
             # first four become trials.
@@ -1018,8 +1024,8 @@ class TestGenerationStrategy(TestCase):
         sobol_MBM_gs = self.sobol_MBM_step_GS
         sobol_MBM_gs.experiment = exp
         with mock_patch_method_original(
-            mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
-            original_method=ModelSpec.gen,
+            mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
+            original_method=GeneratorSpec.gen,
         ) as model_spec_gen_mock:
             # Generate first four Sobol GRs (one more to gen after that if
             # first four become trials.
@@ -1091,17 +1097,17 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=1,
                     model_kwargs=self.step_model_kwargs,
                 ),
                 GenerationStep(
-                    model=Models.BO_MIXED,
+                    model=Generators.BO_MIXED,
                     num_trials=1,
                     model_kwargs=self.step_model_kwargs,
                 ),
                 GenerationStep(
-                    model=Models.BOTORCH_MODULAR,
+                    model=Generators.BOTORCH_MODULAR,
                     model_kwargs={
                         # this will cause an error if the model
                         # doesn't get fixed features
@@ -1196,12 +1202,12 @@ class TestGenerationStrategy(TestCase):
                 ],
                 steps=[
                     GenerationStep(
-                        model=Models.SOBOL,
+                        model=Generators.SOBOL,
                         num_trials=5,
                         model_kwargs=self.step_model_kwargs,
                     ),
                     GenerationStep(
-                        model=Models.BOTORCH_MODULAR,
+                        model=Generators.BOTORCH_MODULAR,
                         num_trials=-1,
                         model_kwargs=self.step_model_kwargs,
                     ),
@@ -1254,7 +1260,7 @@ class TestGenerationStrategy(TestCase):
                 nodes=[
                     node_1,
                     GenerationStep(
-                        model=Models.SOBOL,
+                        model=Generators.SOBOL,
                         num_trials=5,
                         model_kwargs=self.step_model_kwargs,
                     ),
@@ -1376,8 +1382,8 @@ class TestGenerationStrategy(TestCase):
             "sobol_3": 3,
         }
         with mock_patch_method_original(
-            mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
-            original_method=ModelSpec.gen,
+            mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
+            original_method=GeneratorSpec.gen,
         ) as model_spec_gen_mock:
             # Generate a trial that should be composed of arms from 3 nodes
             grs = gs._gen_with_multiple_nodes(
@@ -1880,8 +1886,8 @@ class TestGenerationStrategy(TestCase):
         trial0.run()  # necessary for transition criterion to be met
         with self.subTest("no passed fixed features gen_with_multiple_nodes"):
             with mock_patch_method_original(
-                mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
-                original_method=ModelSpec.gen,
+                mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
+                original_method=GeneratorSpec.gen,
             ) as model_spec_gen_mock:
                 exp.new_batch_trial(
                     generator_runs=gs._gen_with_multiple_nodes(exp, n=9)
@@ -1897,8 +1903,8 @@ class TestGenerationStrategy(TestCase):
 
         with self.subTest("passed fixed features gen_with_multiple_nodes"):
             with mock_patch_method_original(
-                mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
-                original_method=ModelSpec.gen,
+                mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
+                original_method=GeneratorSpec.gen,
             ) as model_spec_gen_mock:
                 passed_fixed_features = ObservationFeatures(
                     parameters={}, trial_index=4
@@ -1921,8 +1927,8 @@ class TestGenerationStrategy(TestCase):
             "no passed fixed features gen_for_multiple_trials_with_multiple_nodes"
         ):
             with mock_patch_method_original(
-                mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
-                original_method=ModelSpec.gen,
+                mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
+                original_method=GeneratorSpec.gen,
             ) as model_spec_gen_mock:
                 exp.new_batch_trial(
                     generator_runs=gs.gen_for_multiple_trials_with_multiple_models(
@@ -1942,8 +1948,8 @@ class TestGenerationStrategy(TestCase):
             "passed fixed features gen_for_multiple_trials_with_multiple_nodes"
         ):
             with mock_patch_method_original(
-                mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
-                original_method=ModelSpec.gen,
+                mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
+                original_method=GeneratorSpec.gen,
             ) as model_spec_gen_mock:
                 passed_fixed_features = ObservationFeatures(
                     parameters={}, trial_index=4

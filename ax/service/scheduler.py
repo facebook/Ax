@@ -48,7 +48,7 @@ from ax.exceptions.generation_strategy import (
     MaxParallelismReachedException,
     OptimizationConfigRequired,
 )
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.service.utils.analysis_base import AnalysisBase
@@ -2142,10 +2142,8 @@ class Scheduler(AnalysisBase, BestPointMixin):
         )
 
 
-def get_fitted_model_bridge(
-    scheduler: Scheduler, force_refit: bool = False
-) -> ModelBridge:
-    """Returns a fitted ModelBridge object. If the model is fit already, directly
+def get_fitted_model_bridge(scheduler: Scheduler, force_refit: bool = False) -> Adapter:
+    """Returns a fitted Adapter object. If the model is fit already, directly
     returns the already fitted model. Otherwise, fits and returns a new one.
 
     Args:
@@ -2153,11 +2151,11 @@ def get_fitted_model_bridge(
         force_refit: If True, will force a data lookup and a refit of the model.
 
     Returns:
-        A ModelBridge object fitted to the observations of the scheduler's experiment.
+        A Adapter object fitted to the observations of the scheduler's experiment.
     """
     gs = scheduler.standard_generation_strategy
-    model_bridge = gs.model  # Optional[ModelBridge]
+    model_bridge = gs.model  # Optional[Adapter]
     if model_bridge is None or force_refit:  # Need to re-fit the model.
         gs._fit_current_model(data=None)  # Will lookup_data if none is provided.
-        model_bridge = cast(ModelBridge, gs.model)
+        model_bridge = cast(Adapter, gs.model)
     return model_bridge

@@ -41,7 +41,7 @@ class StandardizeY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
+        modelbridge: Optional["base_modelbridge.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         if observations is None or len(observations) == 0:
@@ -68,7 +68,7 @@ class StandardizeY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
+        modelbridge: Optional["base_modelbridge.Adapter"] = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:

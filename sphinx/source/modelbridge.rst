@@ -58,7 +58,7 @@ Factory
     :undoc-members:
     :show-inheritance:
 
-ModelSpec
+GeneratorSpec
 ~~~~~~~~~
 .. automodule:: ax.modelbridge.model_spec
     :members:

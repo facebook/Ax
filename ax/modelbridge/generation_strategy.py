@@ -28,10 +28,10 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
 )
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
 from ax.modelbridge.generation_node_input_constructors import InputConstructorPurpose
-from ax.modelbridge.model_spec import FactoryFunctionModelSpec
+from ax.modelbridge.model_spec import FactoryFunctionGeneratorSpec
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_list
@@ -93,7 +93,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     _nodes: list[GenerationNode]
     _curr: GenerationNode  # Current node in the strategy.
-    # Whether all models in this GS are in Models registry enum.
+    # Whether all models in this GS are in Generators registry enum.
     _uses_registered_models: bool
     # All generator runs created through this generation strategy, in chronological
     # order.
@@ -101,7 +101,7 @@ class GenerationStrategy(GenerationStrategyInterface):
     # Experiment, for which this generation strategy has generated trials, if
     # it exists.
     _experiment: Experiment | None = None
-    _model: ModelBridge | None = None  # Current model.
+    _model: Adapter | None = None  # Current model.
 
     def __init__(
         self,
@@ -135,7 +135,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
         # Log warning if the GS uses a non-registered (factory function) model.
         self._uses_registered_models = not any(
-            isinstance(ms, FactoryFunctionModelSpec)
+            isinstance(ms, FactoryFunctionGeneratorSpec)
             for node in self._nodes
             for ms in node.model_specs
         )
@@ -228,7 +228,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         return node_names_for_all_steps.index(self._curr.node_name)
 
     @property
-    def model(self) -> ModelBridge | None:
+    def model(self) -> Adapter | None:
         """Current model in this strategy. Returns None if no model has been set
         yet (i.e., if no generator runs have been produced from this GS).
         """
@@ -856,7 +856,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 resuggesting points that are currently being evaluated.
             model_gen_kwargs: Keyword arguments that are passed through to
                 ``GenerationNode.gen``, which will pass them through to
-                ``ModelSpec.gen``, which will pass them to ``ModelBridge.gen``.
+                ``GeneratorSpec.gen``, which will pass them to ``Adapter.gen``.
             status_quo_features: An ``ObservationFeature`` of the status quo arm,
                 needed by some models during fit to accomadate relative constraints.
                 Includes the status quo parameterization and target trial index.

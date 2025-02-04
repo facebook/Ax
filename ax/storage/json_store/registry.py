@@ -80,14 +80,14 @@ from ax.modelbridge.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
-from ax.modelbridge.factory import Models
+from ax.modelbridge.factory import Generators
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
 from ax.modelbridge.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
+from ax.modelbridge.model_spec import GeneratorSpec
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transition_criterion import (
@@ -102,7 +102,7 @@ from ax.modelbridge.transition_criterion import (
     TransitionCriterion,
 )
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.models.winsorization_config import WinsorizationConfig
@@ -199,7 +199,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     BenchmarkMapMetric: metric_to_dict,
     BenchmarkTimeVaryingMetric: metric_to_dict,
     BenchmarkMapUnavailableWhileRunningMetric: metric_to_dict,
-    BoTorchModel: botorch_model_to_dict,
+    BoTorchGenerator: botorch_model_to_dict,
     BraninMetric: metric_to_dict,
     BraninTimestampMapMetric: metric_to_dict,
     ChainedInputTransform: botorch_component_to_dict,
@@ -229,7 +229,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     MinimumTrialsInStatus: transition_criterion_to_dict,
     MinimumPreferenceOccurances: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
-    ModelSpec: model_spec_to_dict,
+    GeneratorSpec: model_spec_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,
@@ -297,6 +297,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
     "AutoTransitionAfterGen": AutoTransitionAfterGen,
     "AuxiliaryExperiment": AuxiliaryExperiment,
+    "AuxiliaryExperimentCheck": AuxiliaryExperimentCheck,
     "AuxiliaryExperimentPurpose": AuxiliaryExperimentPurpose,
     "Arm": Arm,
     "AggregatedBenchmarkResult": AggregatedBenchmarkResult,
@@ -312,7 +313,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     ),
     "BenchmarkResult": BenchmarkResult,
     "BenchmarkTrialMetadata": BenchmarkTrialMetadata,
-    "BoTorchModel": BoTorchModel,
+    "BoTorchGenerator": BoTorchGenerator,
+    "BoTorchModel": BoTorchGenerator,
     "BraninMetric": BraninMetric,
     "BraninTimestampMapMetric": BraninTimestampMapMetric,
     "ChainedInputTransform": ChainedInputTransform,
@@ -332,6 +334,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "GenerationStep": GenerationStep,
     "GeneratorRun": GeneratorRun,
     "GeneratorRunStruct": GeneratorRunStruct,
+    "Generators": Generators,
+    "GeneratorSpec": GeneratorSpec,
     "Hartmann6Metric": Hartmann6Metric,
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
@@ -352,11 +356,10 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MinTrials": MinTrials,
     "MinimumTrialsInStatus": MinimumTrialsInStatus,
     "MinimumPreferenceOccurances": MinimumPreferenceOccurances,
-    "AuxiliaryExperimentCheck": AuxiliaryExperimentCheck,
-    "Models": Models,
     "ModelRegistryBase": ModelRegistryBase,
     "ModelConfig": ModelConfig,
-    "ModelSpec": ModelSpec,
+    "Models": Generators,
+    "ModelSpec": GeneratorSpec,
     "MultiObjective": MultiObjective,
     "MultiObjectiveOptimizationConfig": MultiObjectiveOptimizationConfig,
     "MultiTypeExperiment": MultiTypeExperiment,

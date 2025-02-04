@@ -16,14 +16,14 @@ import numpy.typing as npt
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
 from ax.exceptions.constants import TS_MIN_WEIGHT_ERROR, TS_NO_FEASIBLE_ARMS_ERROR
 from ax.exceptions.model import ModelError
-from ax.models.discrete_base import DiscreteModel
+from ax.models.discrete_base import DiscreteGenerator
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 
 from pyre_extensions import assert_is_instance, none_throws
 
 
-class ThompsonSampler(DiscreteModel):
+class ThompsonSampler(DiscreteGenerator):
     """Generator for Thompson sampling.
 
     The generator performs Thompson sampling on the data passed in via `fit`.
@@ -57,7 +57,7 @@ class ThompsonSampler(DiscreteModel):
             list[dict[TParamValueList, tuple[float, float]]] | None
         ) = None
 
-    @copy_doc(DiscreteModel.fit)
+    @copy_doc(DiscreteGenerator.fit)
     def fit(
         self,
         Xs: Sequence[Sequence[Sequence[TParamValue]]],
@@ -76,7 +76,7 @@ class ThompsonSampler(DiscreteModel):
             Yvars=none_throws(self.Yvars),
         )
 
-    @copy_doc(DiscreteModel.gen)
+    @copy_doc(DiscreteGenerator.gen)
     def gen(
         self,
         n: int,
@@ -140,7 +140,7 @@ class ThompsonSampler(DiscreteModel):
             },
         )
 
-    @copy_doc(DiscreteModel.predict)
+    @copy_doc(DiscreteGenerator.predict)
     def predict(
         self, X: Sequence[Sequence[TParamValue]]
     ) -> tuple[npt.NDArray, npt.NDArray]:

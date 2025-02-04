@@ -14,7 +14,7 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from ax.exceptions.core import SearchSpaceExhausted
-from ax.models.base import Model
+from ax.models.base import Generator
 from ax.models.model_utils import (
     add_fixed_features,
     rejection_sample,
@@ -33,7 +33,7 @@ from torch import Tensor
 logger: Logger = get_logger(__name__)
 
 
-class RandomModel(Model):
+class RandomGenerator(Generator):
     """This class specifies the basic skeleton for a random model.
 
     As random generators do not make use of models, they do not implement
@@ -186,7 +186,7 @@ class RandomModel(Model):
                 self.generated_points = np.vstack([self.generated_points, points])
         return points, np.ones(len(points))
 
-    @copy_doc(Model._get_state)
+    @copy_doc(Generator._get_state)
     def _get_state(self) -> dict[str, Any]:
         state = super()._get_state()
         state.update(
@@ -237,7 +237,7 @@ class RandomModel(Model):
             (n x d) array of generated points.
 
         """
-        raise NotImplementedError("Base RandomModel can't generate samples.")
+        raise NotImplementedError("Base RandomGenerator can't generate samples.")
 
     def _convert_inequality_constraints(
         self,

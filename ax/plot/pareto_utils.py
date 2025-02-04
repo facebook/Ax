@@ -34,11 +34,11 @@ from ax.modelbridge.modelbridge_utils import (
     get_pareto_frontier_and_configs,
     observed_pareto_frontier,
 )
-from ax.modelbridge.registry import Models
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.registry import Generators
+from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.derelativize import derelativize_bound
 from ax.modelbridge.transforms.search_space_to_float import SearchSpaceToFloat
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenerator
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
 from botorch.acquisition.monte_carlo import qSimpleRegret
@@ -313,7 +313,7 @@ def to_nonrobust_search_space(search_space: SearchSpace) -> SearchSpace:
         return search_space
 
 
-def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchModelBridge:
+def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchAdapter:
     """
     Constructs a minimal model for converting things to tensors.
 
@@ -331,11 +331,11 @@ def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchModel
     """
     # Transforms is the minimal set that will work for converting any search
     # space to tensors.
-    return TorchModelBridge(
+    return TorchAdapter(
         experiment=experiment,
         search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
-        model=TorchModel(),
+        model=TorchGenerator(),
         transforms=[SearchSpaceToFloat],
         fit_out_of_design=True,
     )
@@ -422,7 +422,7 @@ def compute_posterior_pareto_frontier(
         secondary_objective=secondary_objective,
         outcome_constraints=outcome_constraints,
     )
-    model = Models.BOTORCH_MODULAR(
+    model = Generators.BOTORCH_MODULAR(
         experiment=experiment,
         data=data,
         optimization_config=oc,

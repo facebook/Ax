@@ -8,7 +8,7 @@
 from ax.analysis.analysis import AnalysisCardLevel
 from ax.analysis.plotly.scatter import _prepare_data, ScatterPlot
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_multi_objective,
@@ -85,7 +85,7 @@ class TestScatterPlot(TestCase):
     def test_it_only_has_observations_with_data_for_both_metrics(self) -> None:
         # GIVEN an experiment with multiple trials and metrics
         experiment = get_branin_experiment_with_multi_objective()
-        sobol = Models.SOBOL(search_space=experiment.search_space)
+        sobol = Generators.SOBOL(search_space=experiment.search_space)
 
         t0 = experiment.new_batch_trial(generator_run=sobol.gen(3)).mark_completed(
             unsafe=True
@@ -125,7 +125,7 @@ class TestScatterPlot(TestCase):
     def test_it_must_have_some_observations_with_data_for_both_metrics(self) -> None:
         # GIVEN an experiment with multiple trials and metrics
         experiment = get_branin_experiment_with_multi_objective()
-        sobol = Models.SOBOL(search_space=experiment.search_space)
+        sobol = Generators.SOBOL(search_space=experiment.search_space)
 
         t0 = experiment.new_batch_trial(generator_run=sobol.gen(3)).mark_completed(
             unsafe=True

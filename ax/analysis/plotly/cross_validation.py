@@ -58,7 +58,7 @@ class CrossValidationPlot(PlotlyAnalysis):
             folds: Number of subsamples to partition observations into. Use -1 for
                 leave-one-out cross validation.
             untransform: Whether to untransform the model predictions before cross
-                validating. Models are trained on transformed data, and candidate
+                validating. Generators are trained on transformed data, and candidate
                 generation is performed in the transformed space. Computing the model
                 quality metric based on the cross-validation results in the
                 untransformed space may not be representative of the model that

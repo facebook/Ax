@@ -8,7 +8,7 @@ ax.models
 .. currentmodule:: ax.models
 
 
-Base Models & Utilities
+Base Generators & Utilities
 -----------------------
 
 ax.models.base
@@ -60,7 +60,7 @@ ax.models.winsorization\_config module
     :show-inheritance:
 
 
-Discrete Models
+Discrete Generators
 ---------------
 
 ax.models.discrete.eb\_thompson module
@@ -104,7 +104,7 @@ ax.models.discrete.ashr\_utils module
     :show-inheritance:
 
 
-Random Models
+Random Generators
 -------------
 
 ax.models.random.base module
@@ -131,7 +131,7 @@ ax.models.random.sobol module
     :undoc-members:
     :show-inheritance:
 
-Torch Models & Utilities
+Torch Generators & Utilities
 ------------------------
 
 ax.models.torch.botorch module

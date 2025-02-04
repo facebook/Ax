@@ -39,7 +39,7 @@ from ax.models.torch.utils import (
     get_outcome_constraint_transforms,
     subset_model,
 )
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenerator
 from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.logei import (
@@ -70,7 +70,7 @@ DEFAULT_EHVI_MC_SAMPLES = 128
 # along with their covariances and their index in the input observations.
 TFrontierEvaluator = Callable[
     [
-        TorchModel,
+        TorchGenerator,
         Tensor,
         Optional[Tensor],
         Optional[Tensor],
@@ -550,7 +550,7 @@ def scipy_optimizer_list(
 
 
 def pareto_frontier_evaluator(
-    model: TorchModel | None,
+    model: TorchGenerator | None,
     objective_weights: Tensor,
     objective_thresholds: Tensor | None = None,
     X: Tensor | None = None,

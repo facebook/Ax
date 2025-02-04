@@ -18,7 +18,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch_defaults import get_qLogNEI
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.models.torch.botorch_moo import MultiObjectiveBotorchGenerator
 from ax.models.torch.botorch_moo_defaults import (
     get_EHVI,
     get_NEHVI,
@@ -180,7 +180,7 @@ class BotorchMOOModelTest(TestCase):
             bounds=bounds,
             task_features=tfs,
         )
-        model = MultiObjectiveBotorchModel(acqf_constructor=get_qLogNEI)
+        model = MultiObjectiveBotorchGenerator(acqf_constructor=get_qLogNEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
@@ -234,7 +234,7 @@ class BotorchMOOModelTest(TestCase):
 
         # test input warping
         self.assertFalse(model.use_input_warping)
-        model = MultiObjectiveBotorchModel(
+        model = MultiObjectiveBotorchGenerator(
             acqf_constructor=get_qLogNEI,
             use_input_warping=True,
         )
@@ -252,7 +252,7 @@ class BotorchMOOModelTest(TestCase):
 
         # test loocv pseudo likelihood
         self.assertFalse(model.use_loocv_pseudo_likelihood)
-        model = MultiObjectiveBotorchModel(
+        model = MultiObjectiveBotorchGenerator(
             acqf_constructor=get_qLogNEI,
             use_loocv_pseudo_likelihood=True,
         )
@@ -310,7 +310,7 @@ class BotorchMOOModelTest(TestCase):
             bounds=bounds,
             task_features=tfs,
         )
-        model = MultiObjectiveBotorchModel(acqf_constructor=get_qLogNEI)
+        model = MultiObjectiveBotorchGenerator(acqf_constructor=get_qLogNEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
@@ -421,7 +421,7 @@ class BotorchMOOModelTest(TestCase):
         objective_weights = torch.tensor([1.0, 1.0, 0.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0, float("nan")], **tkwargs)
         # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
-        model = MultiObjectiveBotorchModel(acqf_constructor=acqf_constructor)
+        model = MultiObjectiveBotorchGenerator(acqf_constructor=acqf_constructor)
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
         acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
@@ -723,7 +723,7 @@ class BotorchMOOModelTest(TestCase):
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
-        model = MultiObjectiveBotorchModel(acqf_constructor=get_qLogNEI)
+        model = MultiObjectiveBotorchGenerator(acqf_constructor=get_qLogNEI)
 
         search_space_digest = SearchSpaceDigest(
             feature_names=feature_names,
@@ -801,7 +801,7 @@ class BotorchMOOModelTest(TestCase):
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
-        model = MultiObjectiveBotorchModel(acqf_constructor=get_qLogNEI)
+        model = MultiObjectiveBotorchGenerator(acqf_constructor=get_qLogNEI)
 
         search_space_digest = SearchSpaceDigest(
             feature_names=feature_names,
@@ -905,7 +905,7 @@ class BotorchMOOModelTest(TestCase):
         objective_weights = torch.tensor([1.0, 1.0, 0.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
         # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
-        model = MultiObjectiveBotorchModel(acqf_constructor=acqf_constructor)
+        model = MultiObjectiveBotorchGenerator(acqf_constructor=acqf_constructor)
 
         search_space_digest = SearchSpaceDigest(
             feature_names=feature_names,

@@ -9,16 +9,16 @@
 
 import numpy as np
 import numpy.typing as npt
-from ax.models.random.base import RandomModel
+from ax.models.random.base import RandomGenerator
 
 
-class UniformGenerator(RandomModel):
+class UniformGenerator(RandomGenerator):
     """This class specifies a uniform random generation algorithm.
 
     As a uniform generator does not make use of a model, it does not implement
     the fit or predict methods.
 
-    See base `RandomModel` for a description of model attributes.
+    See base `RandomGenerator` for a description of model attributes.
     """
 
     def __init__(

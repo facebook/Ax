@@ -23,7 +23,7 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.derelativize import Derelativize
 from pyre_extensions import assert_is_instance, none_throws
@@ -149,7 +149,7 @@ class PredictedEffectsPlot(PlotlyAnalysis):
 
 
 def _prepare_data(
-    model: ModelBridge,
+    model: Adapter,
     metric_name: str,
     candidate_trial: BaseTrial,
     outcome_constraints: list[OutcomeConstraint],
@@ -167,7 +167,7 @@ def _prepare_data(
     candidate trial.
 
     Args:
-        model: ModelBridge being used for prediction
+        model: Adapter being used for prediction
         metric_name: Name of metric to plot
         candidate_trial: Trial to plot candidates for by generator run
     """

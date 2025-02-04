@@ -81,8 +81,8 @@ class TestPredictionUtils(TestCase):
         )
         self.assertEqual(len(predictions_map), 3)
 
-    @mock.patch("ax.modelbridge.random.RandomModelBridge.predict")
-    @mock.patch("ax.modelbridge.random.RandomModelBridge")
+    @mock.patch("ax.modelbridge.random.RandomAdapter.predict")
+    @mock.patch("ax.modelbridge.random.RandomAdapter")
     # pyre-fixme[3]: Return type must be annotated.
     def test_predict_by_features_with_non_predicting_model(
         self,

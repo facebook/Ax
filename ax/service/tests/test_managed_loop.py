@@ -13,7 +13,7 @@ import numpy.typing as npt
 from ax.exceptions.core import UserInputError
 from ax.metrics.branin import branin
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.service.managed_loop import OptimizationLoop, optimize
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -373,7 +373,7 @@ class TestManagedLoop(TestCase):
     def test_custom_gs(self) -> None:
         """Managed loop with custom generation strategy"""
         strategy0 = GenerationStrategy(
-            name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
+            name="Sobol", steps=[GenerationStep(model=Generators.SOBOL, num_trials=-1)]
         )
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[
@@ -414,7 +414,8 @@ class TestManagedLoop(TestCase):
             minimize=True,
             total_trials=6,
             generation_strategy=GenerationStrategy(
-                name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=3)]
+                name="Sobol",
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=3)],
             ),
         )
         self.assertEqual(len(exp.trials), 3)  # Check that we stopped at 3 trials.
@@ -436,7 +437,7 @@ class TestManagedLoop(TestCase):
     # pyre-fixme[3]: Return type must be annotated.
     def test_annotate_exception(self, _):
         strategy0 = GenerationStrategy(
-            name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
+            name="Sobol", steps=[GenerationStep(model=Generators.SOBOL, num_trials=-1)]
         )
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[

@@ -18,7 +18,7 @@ from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValueList
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import GenResults, ModelBridge
+from ax.modelbridge.base import Adapter, GenResults
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
     get_fixed_features,
@@ -28,21 +28,21 @@ from ax.modelbridge.torch import (
     extract_outcome_constraints,
     validate_optimization_config,
 )
-from ax.models.discrete_base import DiscreteModel
+from ax.models.discrete_base import DiscreteGenerator
 from ax.models.types import TConfig
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
 
-class DiscreteModelBridge(ModelBridge):
+class DiscreteAdapter(Adapter):
     """A model bridge for using models based on discrete parameters.
 
     Requires that all parameters have been transformed to ChoiceParameters.
     """
 
     # pyre-fixme[13]: Attribute `model` is never initialized.
-    model: DiscreteModel
+    model: DiscreteGenerator
     # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: list[str]
     # pyre-fixme[13]: Attribute `parameters` is never initialized.
@@ -52,7 +52,7 @@ class DiscreteModelBridge(ModelBridge):
 
     def _fit(
         self,
-        model: DiscreteModel,
+        model: DiscreteGenerator,
         search_space: SearchSpace,
         observations: list[Observation],
     ) -> None:
@@ -102,7 +102,7 @@ class DiscreteModelBridge(ModelBridge):
         fixed_features: ObservationFeatures | None = None,
         model_gen_options: TConfig | None = None,
     ) -> None:
-        """Validate inputs to `ModelBridge.gen`.
+        """Validate inputs to `Adapter.gen`.
 
         Currently, this is only used to ensure that `n` is a positive integer or -1.
         """

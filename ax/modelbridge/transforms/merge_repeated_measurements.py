@@ -15,7 +15,7 @@ import numpy as np
 from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationData, separate_observations
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 
@@ -36,7 +36,7 @@ class MergeRepeatedMeasurements(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: ModelBridge | None = None,
+        modelbridge: Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         if observations is None:
