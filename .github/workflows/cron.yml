@@ -29,13 +29,6 @@ jobs:
       minimal_dependencies: false
     secrets: inherit
 
-  build-tutorials:
-    name: Build tutorials with latest BoTorch
-    uses: ./.github/workflows/reusable_tutorials.yml
-    with:
-      smoke_test: false
-      pinned_botorch: false
-
   publish-latest-website:
     name: Publish latest website
     uses: ./.github/workflows/publish_website.yml
