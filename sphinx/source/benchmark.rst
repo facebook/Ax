@@ -106,6 +106,14 @@ Benchmark Problems Registry
     :undoc-members:
     :show-inheritance:
 
+Benchmark Problems: Data Loading Utilities
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.data
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Problems: Bandit
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -154,6 +162,38 @@ Benchmark Problems PyTorchCNN TorchVision
     :undoc-members:
     :show-inheritance:
 
+Benchmark Problems: LCBench - Benchmark Data Loading Utilities
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.surrogate.lcbench.data
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Problems: LCBench - Transfer Learning Surrogates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.surrogate.lcbench.transfer_learning
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Benchmark Problems: LCBench - Early-Stopping and Full Learning Curve Surrogates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.surrogate.lcbench.early_stopping
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Problems: LCBench - Problem Definition and Helper Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.surrogate.lcbench.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Benchmark Problems Runtime Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
