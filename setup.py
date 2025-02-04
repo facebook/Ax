@@ -62,6 +62,9 @@ UNITTEST_MINIMAL_REQUIRES = [
     "tensorboard",  # For tensorboard unit tests.
     "torchvision",  # For torchvision unit tests.
     "torchx",  # For torchx unit tests.
+    # Required for building RayTune tutorial notebook and
+    # deserializing data for benchmark suites.
+    "pyarrow",
 ]
 
 UNITTEST_REQUIRES = (
@@ -71,7 +74,6 @@ UNITTEST_REQUIRES = (
 TUTORIAL_REQUIRES = UNITTEST_REQUIRES + [
     "ray",  # Required for building RayTune tutorial notebook.
     "tabulate",  # Required for building RayTune tutorial notebook.
-    "pyarrow",  # Required for building RayTune tutorial notebook.
     "tensorboardX",  # Required for building RayTune tutorial notebook.
     "matplotlib",  # Required for building Multi-objective tutorial notebook.
     "pyro-ppl",  # Required for to call run_inference.
