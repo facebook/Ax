@@ -38,16 +38,16 @@ from botorch.utils.datasets import ContextualDataset, SupervisedDataset
 from pyre_extensions import none_throws
 
 
-class TestModelBridgeUtils(TestCase):
+class TestAdapterUtils(TestCase):
     def test__array_to_tensor(self) -> None:
-        from ax.modelbridge import ModelBridge
+        from ax.modelbridge import Adapter
 
         @dataclass
-        class MockModelbridge(ModelBridge):
+        class MockAdapter(Adapter):
             def _array_to_tensor(self, array: npt.NDArray | list[float]):
                 return _array_to_tensor(array=array)
 
-        mock_modelbridge = MockModelbridge()
+        mock_modelbridge = MockAdapter()
         arr = [0.0]
         res = _array_to_tensor(array=arr)
         self.assertEqual(len(res.size()), 1)
@@ -351,7 +351,7 @@ class TestModelBridgeUtils(TestCase):
             self.assertIsInstance(d, ContextualDataset)
 
     def test_extract_search_space_digest(self) -> None:
-        # This is also tested as part of broader TorchModelBridge tests.
+        # This is also tested as part of broader TorchAdapter tests.
         # Test log & logit scale parameters.
         for log_scale, logit_scale in [(True, False), (False, True)]:
             ss = SearchSpace(

@@ -158,7 +158,7 @@ exp = Experiment(
     runner=MockRunner(),
 )
 
-sobol = Models.SOBOL(exp.search_space)
+sobol = Generators.SOBOL(exp.search_space)
 for i in range(5):
     trial = exp.new_trial(generator_run=sobol.gen(1))
     trial.run()
@@ -166,7 +166,7 @@ for i in range(5):
 
 best_arm = None
 for i in range(15):
-    gpei = Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
+    gpei = Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
     generator_run = gpei.gen(1)
     best_arm, _ = generator_run.best_arm_predictions
     trial = exp.new_trial(generator_run=generator_run)

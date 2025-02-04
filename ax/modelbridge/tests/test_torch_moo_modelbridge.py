@@ -30,9 +30,9 @@ from ax.modelbridge.modelbridge_utils import (
     predicted_pareto_frontier,
 )
 from ax.modelbridge.registry import Cont_X_trans, ST_MTGP_trans, Y_trans
-from ax.modelbridge.torch import TorchModelBridge
-from ax.models.torch.botorch_modular.model import BoTorchModel
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.modelbridge.torch import TorchAdapter
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
+from ax.models.torch.botorch_moo import MultiObjectiveBotorchGenerator
 from ax.models.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
     pareto_frontier_evaluator,
@@ -58,7 +58,7 @@ PARETO_FRONTIER_EVALUATOR_PATH = (
 STUBS_PATH: str = get_branin_experiment_with_multi_objective.__module__
 
 
-class MultiObjectiveTorchModelBridgeTest(TestCase):
+class MultiObjectiveTorchAdapterTest(TestCase):
     @patch(
         # Mocking `BraninMetric` as not available while running, so it will
         # be grabbed from cache during `fetch_data`.
@@ -104,9 +104,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 trial_indices=exp.trials.keys(), num_objectives=n_outcomes
             ),
         )
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveBotorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=[transform_1, transform_2],
             experiment=exp,
@@ -276,11 +276,11 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 trial_indices=exp.trials.keys(), num_objectives=2
             ),
         )
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             experiment=exp,
             search_space=exp.search_space,
             data=exp.fetch_data(),
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveBotorchGenerator(),
             transforms=[],
         )
         observation_features = [
@@ -357,9 +357,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                     trial_indices=exp.trials.keys(), num_objectives=num_objectives
                 )
             )
-            modelbridge = TorchModelBridge(
+            modelbridge = TorchAdapter(
                 search_space=exp.search_space,
-                model=MultiObjectiveBotorchModel(),
+                model=MultiObjectiveBotorchGenerator(),
                 optimization_config=optimization_config,
                 transforms=[],
                 experiment=exp,
@@ -443,9 +443,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             get_branin_data_multi_objective(trial_indices=exp.trials.keys())
         )
         data = exp.fetch_data()
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveBotorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
@@ -573,9 +573,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         trial.mark_running(no_runner_required=True).mark_completed()
         data = exp.fetch_data()
         set_rng_seed(0)  # make model fitting deterministic
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveBotorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=ST_MTGP_trans,
             experiment=exp,
@@ -635,9 +635,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         # Update trials to match the search space.
         exp._search_space = hss
         exp._trials = get_hss_trials_with_fixed_parameter(exp=exp)
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=hss,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveBotorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
@@ -682,9 +682,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             get_branin_data_multi_objective(trial_indices=exp.trials.keys())
         )
         data = exp.fetch_data()
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=BoTorchModel(),
+            model=BoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
@@ -719,9 +719,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         # create data where metrics vary in start and end times
         data = get_non_monolithic_branin_moo_data()
 
-        bridge = TorchModelBridge(
+        bridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveBotorchGenerator(),
             optimization_config=exp.optimization_config,
             experiment=exp,
             data=data,
@@ -739,9 +739,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         exp.attach_data(
             get_branin_data_multi_objective(trial_indices=exp.trials.keys())
         )
-        bridge = TorchModelBridge(
+        bridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveBotorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=[],
             experiment=exp,

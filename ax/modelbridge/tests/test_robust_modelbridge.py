@@ -18,7 +18,7 @@ from ax.core.risk_measures import RiskMeasure
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_robust_branin_experiment
@@ -44,7 +44,7 @@ class TestRobust(TestCase):
         )
 
         for _ in range(5):
-            modelbridge = Models.BOTORCH_MODULAR(
+            modelbridge = Generators.BOTORCH_MODULAR(
                 experiment=exp,
                 data=exp.fetch_data(),
                 surrogate=Surrogate(botorch_model_class=SingleTaskGP),
@@ -129,7 +129,7 @@ class TestRobust(TestCase):
     def test_unsupported_model(self) -> None:
         exp = get_robust_branin_experiment()
         with self.assertRaisesRegex(UnsupportedError, "support robust"):
-            Models.LEGACY_BOTORCH(
+            Generators.LEGACY_BOTORCH(
                 experiment=exp,
                 data=exp.fetch_data(),
             ).gen(n=1)

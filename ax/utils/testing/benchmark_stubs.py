@@ -40,8 +40,8 @@ from ax.core.types import TParameterization, TParamValue
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.torch import TorchModelBridge
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.modelbridge.torch import TorchAdapter
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -92,10 +92,10 @@ def get_multi_objective_benchmark_problem(
 
 def get_soo_surrogate_test_function(lazy: bool = True) -> SurrogateTestFunction:
     experiment = get_branin_experiment(with_completed_trial=True)
-    surrogate = TorchModelBridge(
+    surrogate = TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
-        model=BoTorchModel(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
+        model=BoTorchGenerator(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
         data=experiment.lookup_data(),
         transforms=[],
     )
@@ -134,10 +134,10 @@ def get_soo_surrogate() -> BenchmarkProblem:
 
 def get_moo_surrogate() -> BenchmarkProblem:
     experiment = get_branin_experiment_with_multi_objective(with_completed_trial=True)
-    surrogate = TorchModelBridge(
+    surrogate = TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
-        model=BoTorchModel(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
+        model=BoTorchGenerator(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
         data=experiment.lookup_data(),
         transforms=[],
     )

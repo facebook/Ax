@@ -26,8 +26,8 @@ from ax.exceptions.core import UserInputError
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import GenerationNode
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import Models
+from ax.modelbridge.model_spec import GeneratorSpec
+from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -96,8 +96,8 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
                 GenerationNode(
                     node_name="gn",
                     model_specs=[
-                        ModelSpec(
-                            model_enum=Models.BOTORCH_MODULAR,
+                        GeneratorSpec(
+                            model_enum=Generators.BOTORCH_MODULAR,
                         )
                     ],
                 )

@@ -10,8 +10,8 @@ import torch
 from ax.core.base_trial import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import Models
+from ax.modelbridge.model_spec import GeneratorSpec
+from ax.modelbridge.registry import Generators
 from ax.modelbridge.transition_criterion import MinTrials
 from ax.models.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.preview.api.configs import GenerationMethod, GenerationStrategyConfig
@@ -72,8 +72,8 @@ def _get_sobol_node(
     return GenerationNode(
         node_name="Sobol",
         model_specs=[
-            ModelSpec(
-                model_enum=Models.SOBOL,
+            GeneratorSpec(
+                model_enum=Generators.SOBOL,
                 model_kwargs={"seed": gs_config.initialization_random_seed},
             )
         ],
@@ -113,8 +113,8 @@ def _get_mbm_node(
     return GenerationNode(
         node_name="MBM",
         model_specs=[
-            ModelSpec(
-                model_enum=Models.BOTORCH_MODULAR,
+            GeneratorSpec(
+                model_enum=Generators.BOTORCH_MODULAR,
                 model_kwargs={
                     "surrogate_spec": SurrogateSpec(model_configs=model_configs),
                     "torch_device": torch_device,
@@ -149,8 +149,8 @@ def choose_generation_strategy(
                 GenerationNode(
                     node_name="Sobol",
                     model_specs=[
-                        ModelSpec(
-                            model_enum=Models.SOBOL,
+                        GeneratorSpec(
+                            model_enum=Generators.SOBOL,
                             model_kwargs={"seed": gs_config.initialization_random_seed},
                         )
                     ],

@@ -37,7 +37,7 @@ class TransformToNewSQ(BaseRelativize):
     """Map relative values of one batch to SQ of another.
 
     Will compute the relative metrics for each arm in each batch, and will then turn
-    those back into raw metrics but using the status quo values set on the Modelbridge.
+    those back into raw metrics but using the status quo values set on the Adapter.
 
     This is useful if batches are comparable on a relative scale, but
     have offset in their status quo. This is often approximately true for online
@@ -50,7 +50,7 @@ class TransformToNewSQ(BaseRelativize):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
@@ -98,7 +98,7 @@ class TransformToNewSQ(BaseRelativize):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         return optimization_config

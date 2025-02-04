@@ -32,9 +32,9 @@ from ax.modelbridge.modelbridge_utils import (
     observation_features_to_array,
     parse_observation_features,
 )
-from ax.modelbridge.torch import FIT_MODEL_ERROR, TorchModelBridge
+from ax.modelbridge.torch import FIT_MODEL_ERROR, TorchAdapter
 from ax.modelbridge.transforms.base import Transform
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenerator
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from pyre_extensions import none_throws
@@ -46,9 +46,9 @@ from pyre_extensions import none_throws
 DEFAULT_TARGET_MAP_VALUES = {"steps": 1.0}
 
 
-class MapTorchModelBridge(TorchModelBridge):
+class MapTorchAdapter(TorchAdapter):
     """A model bridge for using torch-based models that fit on MapData. Most
-    of the `TorchModelBridge` functionality is retained, except that this
+    of the `TorchAdapter` functionality is retained, except that this
     class should be used in the case where `model` makes use of map_key values.
     For example, the use case of fitting a joint surrogate model on
     `(parameters, map_key)`, while candidate generation is only for `parameters`.
@@ -59,7 +59,7 @@ class MapTorchModelBridge(TorchModelBridge):
         experiment: Experiment,
         search_space: SearchSpace,
         data: Data,
-        model: TorchModel,
+        model: TorchGenerator,
         transforms: list[type[Transform]],
         transform_configs: dict[str, TConfig] | None = None,
         torch_dtype: torch.dtype | None = None,
@@ -117,12 +117,10 @@ class MapTorchModelBridge(TorchModelBridge):
         """
 
         if not isinstance(data, MapData):
-            raise ValueError(
-                "`MapTorchModelBridge expects `MapData` instead of `Data`."
-            )
+            raise ValueError("`MapTorchAdapter expects `MapData` instead of `Data`.")
 
         if any(isinstance(t, BatchTrial) for t in experiment.trials.values()):
-            raise ValueError("MapTorchModelBridge does not support batch trials.")
+            raise ValueError("MapTorchAdapter does not support batch trials.")
         # pyre-fixme[4]: Attribute must be annotated.
         self._map_key_features = data.map_keys
         self._map_data_limit_rows_per_metric = map_data_limit_rows_per_metric
@@ -163,7 +161,7 @@ class MapTorchModelBridge(TorchModelBridge):
     def _predict(
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationData]:
-        """This method is updated from `TorchModelBridge._predict(...) in that it
+        """This method is updated from `TorchAdapter._predict(...) in that it
         will accept observation features with or without map_keys. If observation
         features do not contain map_keys, it will insert them based on
         `target_map_values`.
@@ -192,13 +190,13 @@ class MapTorchModelBridge(TorchModelBridge):
 
     def _fit(
         self,
-        model: TorchModel,
+        model: TorchGenerator,
         search_space: SearchSpace,
         observations: list[Observation],
         parameters: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
-        """The difference from `TorchModelBridge._fit(...)` is that we use
+        """The difference from `TorchAdapter._fit(...)` is that we use
         `self.parameters_with_map_keys` instead of `self.parameters`.
         """
         self.parameters = list(search_space.parameters.keys())
@@ -221,7 +219,7 @@ class MapTorchModelBridge(TorchModelBridge):
         model_gen_options: TConfig | None = None,
         optimization_config: OptimizationConfig | None = None,
     ) -> GenResults:
-        """An updated version of `TorchModelBridge._gen(...) that first injects
+        """An updated version of `TorchAdapter._gen(...) that first injects
         `map_dim_to_target` (e.g., `{-1: 1.0}`) into `model_gen_options` so that
         the target values of the map_keys are known during candidate generation.
         """
@@ -241,7 +239,7 @@ class MapTorchModelBridge(TorchModelBridge):
         candidate_metadata: Sequence[TCandidateMetadata] | None,
     ) -> list[ObservationFeatures]:
         """The difference b/t this method and
-        TorchModelBridge._array_to_observation_features(...) is
+        TorchAdapter._array_to_observation_features(...) is
         that this one makes use of `self.parameters_with_map_keys`.
         """
         return parse_observation_features(
@@ -253,7 +251,7 @@ class MapTorchModelBridge(TorchModelBridge):
     def _prepare_observations(
         self, experiment: Experiment | None, data: Data | None
     ) -> list[Observation]:
-        """The difference b/t this method and ModelBridge._prepare_observations(...)
+        """The difference b/t this method and Adapter._prepare_observations(...)
         is that this one uses `observations_from_map_data`.
         """
         if experiment is None or data is None:
@@ -271,7 +269,7 @@ class MapTorchModelBridge(TorchModelBridge):
     def _compute_in_design(
         self, search_space: SearchSpace, observations: list[Observation]
     ) -> list[bool]:
-        """The difference b/t this method and ModelBridge._compute_in_design(...)
+        """The difference b/t this method and Adapter._compute_in_design(...)
         is that this one correctly excludes map_keys when checking membership in
         search space (as map_keys are not explicitly in the search space).
         """
@@ -297,7 +295,7 @@ class MapTorchModelBridge(TorchModelBridge):
         **kwargs: Any,
     ) -> list[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
-        and obs_data. The difference from `TorchModelBridge._cross_validate`
+        and obs_data. The difference from `TorchAdapter._cross_validate`
         is that here we do cross validation on the parameters + map_keys. There
         is some extra logic to filter out out-of-design points in the map_key
         dimension.

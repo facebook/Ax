@@ -30,7 +30,7 @@ from ax.core.outcome_constraint import (
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.winsorize import (
     _get_auto_winsorization_cutoffs_outcome_constraint,
     _get_auto_winsorization_cutoffs_single_objective,
@@ -572,7 +572,7 @@ class WinsorizeTransformTest(TestCase):
         self,
         mock_observations_from_data: mock.Mock,
     ) -> None:
-        # ModelBridge with in-design status quo
+        # Adapter with in-design status quo
         search_space = SearchSpace(
             parameters=[
                 RangeParameter("x", ParameterType.FLOAT, 0, 20),
@@ -600,7 +600,7 @@ class WinsorizeTransformTest(TestCase):
                 ),
             ],
         )
-        modelbridge = ModelBridge(
+        modelbridge = Adapter(
             search_space=search_space,
             model=None,
             transforms=[],
@@ -618,7 +618,7 @@ class WinsorizeTransformTest(TestCase):
                 config={"derelativize_with_raw_status_quo": True},
             )
 
-        modelbridge = ModelBridge(
+        modelbridge = Adapter(
             search_space=search_space,
             model=None,
             transforms=[],
@@ -706,8 +706,8 @@ def get_default_transform_cutoffs(
 
 def _wrap_optimization_config_in_modelbridge(
     optimization_config: OptimizationConfig,
-) -> ModelBridge:
-    return ModelBridge(
+) -> Adapter:
+    return Adapter(
         search_space=SearchSpace(parameters=[]),
         model=1,
         optimization_config=optimization_config,

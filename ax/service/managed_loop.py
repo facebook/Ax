@@ -27,10 +27,10 @@ from ax.core.types import (
 from ax.core.utils import get_pending_observation_features
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted, UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
     get_best_raw_objective_point,
@@ -251,7 +251,7 @@ class OptimizationLoop:
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
         best_point = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=self.experiment, models_enum=Models
+            experiment=self.experiment, models_enum=Generators
         )
         if best_point is not None:
             _, parameterizations, predictions = best_point
@@ -270,7 +270,7 @@ class OptimizationLoop:
             ),
         )
 
-    def get_current_model(self) -> ModelBridge | None:
+    def get_current_model(self) -> Adapter | None:
         """Obtain the most recently used model in optimization."""
         return self.generation_strategy.model
 
@@ -287,7 +287,7 @@ def optimize(
     arms_per_trial: int = 1,
     random_seed: int | None = None,
     generation_strategy: GenerationStrategy | None = None,
-) -> tuple[TParameterization, TModelPredictArm | None, Experiment, ModelBridge | None]:
+) -> tuple[TParameterization, TModelPredictArm | None, Experiment, Adapter | None]:
     """Construct and run a full optimization loop."""
     loop = OptimizationLoop.with_evaluation_function(
         parameters=parameters,

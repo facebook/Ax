@@ -22,7 +22,7 @@ from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import none_throws
@@ -113,7 +113,7 @@ class ContourPlot(PlotlyAnalysis):
 
 def _prepare_data(
     experiment: Experiment,
-    model: ModelBridge,
+    model: Adapter,
     x_parameter_name: str,
     y_parameter_name: str,
     metric_name: str,

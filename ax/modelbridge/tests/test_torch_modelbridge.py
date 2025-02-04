@@ -29,14 +29,14 @@ from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.registry import MBM_X_trans
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.modelbridge.transforms.unit_x import UnitX
-from ax.models.torch.botorch_modular.model import BoTorchModel
-from ax.models.torch_base import TorchGenResults, TorchModel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
+from ax.models.torch_base import TorchGenerator, TorchGenResults
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -63,21 +63,21 @@ def _get_modelbridge_from_experiment(
     transforms: list[type[Transform]] | None = None,
     device: torch.device | None = None,
     fit_on_init: bool = True,
-) -> TorchModelBridge:
-    return TorchModelBridge(
+) -> TorchAdapter:
+    return TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
         data=experiment.lookup_data(),
-        model=BoTorchModel(),
+        model=BoTorchGenerator(),
         transforms=transforms or [],
         torch_device=device,
         fit_on_init=fit_on_init,
     )
 
 
-class TorchModelBridgeTest(TestCase):
+class TorchAdapterTest(TestCase):
     @mock_botorch_optimize
-    def test_TorchModelBridge(self, device: torch.device | None = None) -> None:
+    def test_TorchAdapter(self, device: torch.device | None = None) -> None:
         feature_names = ["x1", "x2", "x3"]
         search_space = get_search_space_for_range_values(
             min=0.0, max=5.0, parameter_names=feature_names
@@ -130,7 +130,7 @@ class TorchModelBridgeTest(TestCase):
         ]
         observations = recombine_observations(observation_features, observation_data)
 
-        model = BoTorchModel()
+        model = BoTorchGenerator()
         with mock.patch.object(model, "fit", wraps=model.fit) as mock_fit:
             model_bridge._fit(
                 model=model, search_space=search_space, observations=observations
@@ -145,7 +145,7 @@ class TorchModelBridgeTest(TestCase):
         self.assertIsNone(model_fit_args["candidate_metadata"])
         self.assertEqual(model_bridge._last_observations, observations)
 
-        with mock.patch(f"{TorchModelBridge.__module__}.logger.debug") as mock_logger:
+        with mock.patch(f"{TorchAdapter.__module__}.logger.debug") as mock_logger:
             model_bridge._fit(
                 model=model,
                 search_space=search_space,
@@ -201,14 +201,14 @@ class TorchModelBridgeTest(TestCase):
             )
             es.enter_context(
                 mock.patch(
-                    f"{TorchModelBridge.__module__}.TorchModelBridge."
+                    f"{TorchAdapter.__module__}.TorchAdapter."
                     "_array_callable_to_tensor_callable",
                     return_value=torch.round,
                 )
             )
             es.enter_context(
                 # silence a warning about inability to generate unique candidates
-                mock.patch(f"{ModelBridge.__module__}.logger.warning")
+                mock.patch(f"{Adapter.__module__}.logger.warning")
             )
             gen_run = model_bridge.gen(
                 n=3,
@@ -285,19 +285,19 @@ class TorchModelBridgeTest(TestCase):
         X = model_bridge._transform_observation_features(observation_features=obsf)
         self.assertTrue(torch.equal(X, torch.tensor([[1.0, 2.0]], **tkwargs)))
 
-    def _test_TorchModelBridge_torch_dtype_deprecated(
+    def _test_TorchAdapter_torch_dtype_deprecated(
         self, torch_dtype: torch.dtype
     ) -> None:
         search_space = get_search_space_for_range_values(
             min=0.0, max=5.0, parameter_names=["x1", "x2", "x3"]
         )
-        model = mock.MagicMock(TorchModel, autospec=True, instance=True)
+        model = mock.MagicMock(TorchGenerator, autospec=True, instance=True)
         experiment = Experiment(search_space=search_space, name="test")
         with self.assertWarnsRegex(
             DeprecationWarning,
-            "The `torch_dtype` argument to `TorchModelBridge` is deprecated",
+            "The `torch_dtype` argument to `TorchAdapter` is deprecated",
         ):
-            TorchModelBridge(
+            TorchAdapter(
                 experiment=experiment,
                 search_space=search_space,
                 data=experiment.lookup_data(),
@@ -307,15 +307,15 @@ class TorchModelBridgeTest(TestCase):
                 torch_dtype=torch_dtype,
             )
 
-    def test_TorchModelBridge_float(self) -> None:
-        self._test_TorchModelBridge_torch_dtype_deprecated(torch_dtype=torch.float32)
+    def test_TorchAdapter_float(self) -> None:
+        self._test_TorchAdapter_torch_dtype_deprecated(torch_dtype=torch.float32)
 
-    def test_TorchModelBridge_float64(self) -> None:
-        self._test_TorchModelBridge_torch_dtype_deprecated(torch_dtype=torch.float64)
+    def test_TorchAdapter_float64(self) -> None:
+        self._test_TorchAdapter_torch_dtype_deprecated(torch_dtype=torch.float64)
 
-    def test_TorchModelBridge_cuda(self) -> None:
+    def test_TorchAdapter_cuda(self) -> None:
         if torch.cuda.is_available():
-            self.test_TorchModelBridge(device=torch.device("cuda"))
+            self.test_TorchAdapter(device=torch.device("cuda"))
 
     @mock_botorch_optimize
     def test_evaluate_acquisition_function(self) -> None:
@@ -406,9 +406,9 @@ class TorchModelBridgeTest(TestCase):
             objective=Objective(metric=Metric("a"), minimize=False),
             outcome_constraints=[],
         )
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=search_space,
-            model=TorchModel(),
+            model=TorchGenerator(),
             transforms=[transform_1, transform_2],
             experiment=exp,
             data=Data(),
@@ -432,7 +432,7 @@ class TorchModelBridgeTest(TestCase):
             points=torch.tensor([[1.0]]), weights=torch.tensor([1.0])
         )
         with mock.patch(
-            f"{TorchModel.__module__}.TorchModel.best_point",
+            f"{TorchGenerator.__module__}.TorchGenerator.best_point",
             return_value=torch.tensor([best_point_value]),
             autospec=True,
         ), mock.patch.object(modelbridge, "predict", return_value=predict_return_value):
@@ -474,7 +474,7 @@ class TorchModelBridgeTest(TestCase):
             )
 
         with mock.patch(
-            f"{TorchModel.__module__}.TorchModel.best_point",
+            f"{TorchGenerator.__module__}.TorchGenerator.best_point",
             side_effect=NotImplementedError,
             autospec=True,
         ):
@@ -506,9 +506,9 @@ class TorchModelBridgeTest(TestCase):
                 "preexisting_batch_cand_metadata": "some_value"
             }
         }
-        model = TorchModel()
+        model = TorchGenerator()
         with mock.patch.object(model, "fit", wraps=model.fit) as mock_model_fit:
-            modelbridge = TorchModelBridge(
+            modelbridge = TorchAdapter(
                 experiment=exp,
                 search_space=exp.search_space,
                 model=model,
@@ -562,13 +562,12 @@ class TorchModelBridgeTest(TestCase):
         # Check that no candidate metadata is handled correctly.
         exp = get_branin_experiment(with_status_quo=True)
 
-        model = TorchModel()
+        model = TorchGenerator()
         with mock.patch(
-            f"{TorchModelBridge.__module__}."
-            "TorchModelBridge._validate_observation_data",
+            f"{TorchAdapter.__module__}." "TorchAdapter._validate_observation_data",
             autospec=True,
         ), mock.patch.object(model, "fit", wraps=model.fit) as mock_model_fit:
-            modelbridge = TorchModelBridge(
+            modelbridge = TorchAdapter(
                 search_space=exp.search_space,
                 experiment=exp,
                 model=model,
@@ -591,9 +590,9 @@ class TorchModelBridgeTest(TestCase):
             with_tracking_metrics=True,
         )
         for fit_tracking_metrics in (True, False):
-            model = TorchModel()
+            model = TorchGenerator()
             with mock.patch.object(model, "fit", wraps=model.fit) as mock_model_fit:
-                modelbridge = TorchModelBridge(
+                modelbridge = TorchAdapter(
                     experiment=exp,
                     search_space=exp.search_space,
                     data=exp.lookup_data(),
@@ -807,8 +806,8 @@ class TorchModelBridgeTest(TestCase):
         experiment = get_experiment_with_observations(
             observations=[[0.0, 1.0], [2.0, 3.0]]
         )
-        model = BoTorchModel()
-        mb = TorchModelBridge(
+        model = BoTorchGenerator()
+        mb = TorchAdapter(
             experiment=experiment,
             search_space=experiment.search_space,
             data=experiment.lookup_data(),

@@ -26,10 +26,10 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.best_model_selector import BestModelSelector
 
-from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
+from ax.modelbridge.model_spec import FactoryFunctionGeneratorSpec, GeneratorSpec
 from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
@@ -47,11 +47,11 @@ from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
-TModelFactory = Callable[..., ModelBridge]
+TModelFactory = Callable[..., Adapter]
 MISSING_MODEL_SELECTOR_MESSAGE = (
     "A `BestModelSelector` must be provided when using multiple "
-    "`ModelSpec`s in a `GenerationNode`. After fitting all `ModelSpec`s, "
-    "the `BestModelSelector` will be used to select the `ModelSpec` to "
+    "`GeneratorSpec`s in a `GenerationNode`. After fitting all `GeneratorSpec`s, "
+    "the `BestModelSelector` will be used to select the `GeneratorSpec` to "
     "use for candidate generation."
 )
 MAX_GEN_DRAWS = 5
@@ -68,10 +68,11 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     Args:
         node_name: A unique name for the GenerationNode. Used for storage purposes.
-        model_specs: A list of ModelSpecs to be selected from for generation in this
+        model_specs: A list of GeneratorSpecs to be selected from for generation in this
             GenerationNode.
-        best_model_selector: A ``BestModelSelector`` used to select the ``ModelSpec``
-            to generate from in ``GenerationNode`` with multiple ``ModelSpec``s.
+        best_model_selector: A ``BestModelSelector`` used to select the
+            ``GeneratorSpec`` to generate from in ``GenerationNode`` with
+            multiple ``GeneratorSpec``s.
         should_deduplicate: Whether to deduplicate the parameters of proposed arms
             against those of previous arms via rejection sampling. If this is True,
             the GenerationStrategy will discard generator runs produced from the
@@ -99,19 +100,19 @@ class GenerationNode(SerializationMixin, SortableBase):
         should_skip: Whether to skip this node during generation time. Defaults to
             False, and can only currently be set to True via ``NodeInputConstructors``
 
-    Note for developers: by "model" here we really mean an Ax ModelBridge object, which
+    Note for developers: by "model" here we really mean an Ax Adapter object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
     on explaining the logic of GenerationStep and GenerationStrategy.
     """
 
     # Required options:
-    model_specs: list[ModelSpec]
-    # TODO: Move `should_deduplicate` to `ModelSpec` if possible, and make optional
+    model_specs: list[GeneratorSpec]
+    # TODO: Move `should_deduplicate` to `GeneratorSpec` if possible, and make optional
     should_deduplicate: bool
     _node_name: str
 
     # Optional specifications
-    _model_spec_to_gen_from: ModelSpec | None = None
+    _model_spec_to_gen_from: GeneratorSpec | None = None
     # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
     _transition_criteria: Sequence[TransitionCriterion]
     _input_constructors: dict[
@@ -131,7 +132,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     def __init__(
         self,
         node_name: str,
-        model_specs: list[ModelSpec],
+        model_specs: list[GeneratorSpec],
         best_model_selector: BestModelSelector | None = None,
         should_deduplicate: bool = False,
         transition_criteria: Sequence[TransitionCriterion] | None = None,
@@ -181,7 +182,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         return self._node_name
 
     @property
-    def model_spec_to_gen_from(self) -> ModelSpec:
+    def model_spec_to_gen_from(self) -> GeneratorSpec:
         """Returns the cached `_model_spec_to_gen_from` or gets it from
         `_pick_fitted_model_to_gen_from` and then caches and returns it
         """
@@ -268,7 +269,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         return self.node_name
 
     @property
-    def _fitted_model(self) -> ModelBridge | None:
+    def _fitted_model(self) -> Adapter | None:
         """Private property to return optional fitted_model from
         self.model_spec_to_gen_from for convenience. If no model is fit,
         will return None. If using the non-private `fitted_model` property,
@@ -296,7 +297,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 optimization config.
             kwargs: Additional keyword arguments to pass to the model's
                 ``fit`` method. NOTE: Local kwargs take precedence over the ones
-                stored in ``ModelSpec.model_kwargs``.
+                stored in ``GeneratorSpec.model_kwargs``.
         """
         if not data.df.empty:
             trial_indices_in_data = sorted(data.df["trial_index"].unique())
@@ -322,11 +323,11 @@ class GenerationNode(SerializationMixin, SortableBase):
             )
 
     def _get_model_state_from_last_generator_run(
-        self, model_spec: ModelSpec
+        self, model_spec: GeneratorSpec
     ) -> dict[str, Any]:
         """Get the fit args from the last generator run for the model being fit.
 
-        NOTE: This only works for the base ModelSpec class. Factory functions
+        NOTE: This only works for the base GeneratorSpec class. Factory functions
         are not supported and will return an empty dict.
 
         Args:
@@ -337,7 +338,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             that was generated by the model being fit.
         """
         if (
-            isinstance(model_spec, FactoryFunctionModelSpec)
+            isinstance(model_spec, FactoryFunctionGeneratorSpec)
             or self._generation_strategy is None
         ):
             # We cannot extract the args for factory functions (which are to be
@@ -375,7 +376,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         """This method generates candidates using `self._gen` and handles deduplication
         of generated candidates if `self.should_deduplicate=True`.
 
-        NOTE: Models must have been fit prior to calling ``gen``.
+        NOTE: Generators must have been fit prior to calling ``gen``.
         NOTE: Some underlying models may ignore the ``n`` argument and produce a
             model-determined number of arms. In that case this method will also output
             a generator run with number of arms that may differ from ``n``.
@@ -383,7 +384,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         Args:
             n: Optional integer representing how many arms should be in the generator
                 run produced by this method. When this is ``None``, ``n`` will be
-                determined by the ``ModelSpec`` that we are generating from.
+                determined by the ``GeneratorSpec`` that we are generating from.
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
@@ -393,8 +394,9 @@ class GenerationNode(SerializationMixin, SortableBase):
                 exception will be raised.
             arms_by_signature_for_deduplication: A dictionary mapping arm signatures to
                 the arms, to be used for deduplicating newly generated arms.
-            model_gen_kwargs: Keyword arguments, passed through to ``ModelSpec.gen``;
-                these override any pre-specified in ``ModelSpec.model_gen_kwargs``.
+            model_gen_kwargs: Keyword arguments, passed through to
+                ``GeneratorSpec.gen``; these override any pre-specified in
+                ``GeneratorSpec.model_gen_kwargs``.
 
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
@@ -454,19 +456,20 @@ class GenerationNode(SerializationMixin, SortableBase):
     ) -> GeneratorRun:
         """Picks a fitted model, from which to generate candidates (via
         ``self._pick_fitted_model_to_gen_from``) and generates candidates
-        from it. Uses the ``model_gen_kwargs`` set on the selected ``ModelSpec``
+        from it. Uses the ``model_gen_kwargs`` set on the selected ``GeneratorSpec``
         alongside any kwargs passed in to this function (with local kwargs)
         taking precedent.
 
         Args:
             n: Optional integer representing how many arms should be in the generator
                 run produced by this method. When this is ``None``, ``n`` will be
-                determined by the ``ModelSpec`` that we are generating from.
+                determined by the ``GeneratorSpec`` that we are generating from.
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
-            model_gen_kwargs: Keyword arguments, passed through to ``ModelSpec.gen``;
-                these override any pre-specified in ``ModelSpec.model_gen_kwargs``.
+            model_gen_kwargs: Keyword arguments, passed through to
+                ``GeneratorSpec.gen``;these override any pre-specified in
+                ``GeneratorSpec.model_gen_kwargs``.
 
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
@@ -487,7 +490,7 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     # ------------------------- Model selection logic helpers. -------------------------
 
-    def _pick_fitted_model_to_gen_from(self) -> ModelSpec:
+    def _pick_fitted_model_to_gen_from(self) -> GeneratorSpec:
         """Select one model to generate from among the fitted models on this
         generation node.
 
@@ -496,7 +499,7 @@ class GenerationNode(SerializationMixin, SortableBase):
              use it to select one model to generate from among the fitted models
              on this generation node.
           2. otherwise, ensure that this ``GenerationNode`` only contains one
-             `ModelSpec` and select it.
+             `GeneratorSpec` and select it.
         """
         if self.best_model_selector is None:
             if len(self.model_specs) != 1:  # pragma: no cover -- raised in __init__.
@@ -687,13 +690,13 @@ class GenerationStep(GenerationNode, SortableBase):
     minimum number of observations is required to proceed to the next model, etc.
 
     NOTE: Model can be specified either from the model registry
-    (`ax.modelbridge.registry.Models` or using a callable model constructor. Only
+    (`ax.modelbridge.registry.Generators` or using a callable model constructor. Only
     models from the registry can be saved, and thus optimization can only be
     resumed if interrupted when using models from the registry.
 
     Args:
-        model: A member of `Models` enum or a callable returning an instance of
-            `ModelBridge` with an instantiated underlying `Model`. Refer to
+        model: A member of `Generators` enum or a callable returning an instance of
+            `Adapter` with an instantiated underlying `Model`. Refer to
             `ax/modelbridge/factory.py` for examples of such callables.
         num_trials: How many trials to generate with the model from this step.
             If set to -1, trials will continue to be generated from this model
@@ -718,12 +721,13 @@ class GenerationStep(GenerationNode, SortableBase):
             trials` for it. Allows to avoid `DataRequiredError`, but delays
             proceeding to next generation step.
         model_kwargs: Dictionary of kwargs to pass into the model constructor on
-            instantiation. E.g. if `model` is `Models.SOBOL`, kwargs will be applied
-            as `Models.SOBOL(**model_kwargs)`; if `model` is `get_sobol`, `get_sobol(
-            **model_kwargs)`. NOTE: if generation strategy is interrupted and
-            resumed from a stored snapshot and its last used model has state saved on
-            its generator runs, `model_kwargs` is updated with the state dict of the
-            model, retrieved from the last generator run of this generation strategy.
+            instantiation. E.g. if `model` is `Generators.SOBOL`, kwargs will be applied
+            as `Generators.SOBOL(**model_kwargs)`; if `model` is `get_sobol`,
+            `get_sobol(**model_kwargs)`. NOTE: if generation strategy is
+            interrupted and resumed from a stored snapshot and its last used
+            model has state saved on its generator runs, `model_kwargs` is
+            updated with the state dict of the model, retrieved from the last
+            generator run of this generation strategy.
         model_gen_kwargs: Each call to `generation_strategy.gen` performs a call to the
             step's model's `gen` under the hood; `model_gen_kwargs` will be passed to
             the model's `gen` like so: `model.gen(**model_gen_kwargs)`.
@@ -744,14 +748,14 @@ class GenerationStep(GenerationNode, SortableBase):
         model_name: Optional name of the model. If not specified, defaults to the
             model key of the model spec.
 
-    Note for developers: by "model" here we really mean an Ax ModelBridge object, which
+    Note for developers: by "model" here we really mean an Ax Adapter object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
     on explaining the logic of GenerationStep and GenerationStrategy.
     """
 
     def __init__(
         self,
-        model: ModelRegistryBase | Callable[..., ModelBridge],
+        model: ModelRegistryBase | Callable[..., Adapter],
         num_trials: int,
         model_kwargs: dict[str, Any] | None = None,
         model_gen_kwargs: dict[str, Any] | None = None,
@@ -806,7 +810,7 @@ class GenerationStep(GenerationNode, SortableBase):
                     "enum subclass entry or a callable factory function returning a "
                     "model bridge instance."
                 )
-            model_spec = FactoryFunctionModelSpec(
+            model_spec = FactoryFunctionGeneratorSpec(
                 factory_function=self.model,
                 # Only pass down the model name if it is not empty.
                 model_key_override=model_name if model_name else None,
@@ -814,7 +818,7 @@ class GenerationStep(GenerationNode, SortableBase):
                 model_gen_kwargs=model_gen_kwargs,
             )
         else:
-            model_spec = ModelSpec(
+            model_spec = GeneratorSpec(
                 model_enum=self.model,
                 model_kwargs=model_kwargs,
                 model_gen_kwargs=model_gen_kwargs,
@@ -873,16 +877,16 @@ class GenerationStep(GenerationNode, SortableBase):
 
     @property
     def model_kwargs(self) -> dict[str, Any]:
-        """Returns the model kwargs of the underlying ``ModelSpec``."""
+        """Returns the model kwargs of the underlying ``GeneratorSpec``."""
         return self.model_spec.model_kwargs
 
     @property
     def model_gen_kwargs(self) -> dict[str, Any]:
-        """Returns the model gen kwargs of the underlying ``ModelSpec``."""
+        """Returns the model gen kwargs of the underlying ``GeneratorSpec``."""
         return self.model_spec.model_gen_kwargs
 
     @property
-    def model_spec(self) -> ModelSpec:
+    def model_spec(self) -> GeneratorSpec:
         """Returns the first model_spec from the model_specs attribute."""
         return self.model_specs[0]
 

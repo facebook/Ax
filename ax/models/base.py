@@ -9,7 +9,7 @@
 from typing import Any
 
 
-class Model:
+class Generator:
     """Base class for an Ax model.
 
     Note: the core methods each model has: `fit`, `predict`, `gen`,

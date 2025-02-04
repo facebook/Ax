@@ -49,7 +49,7 @@ from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import MBM_MTGP_trans, Models
+from ax.modelbridge.registry import Generators, MBM_MTGP_trans
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
@@ -360,17 +360,21 @@ class AxSchedulerTestCase(TestCase):
         self.two_sobol_steps_GS = GenerationStrategy(  # Contrived GS to ensure
             steps=[  # that `DataRequiredError` is property handled in scheduler.
                 GenerationStep(  # This error is raised when not enough trials
-                    model=Models.SOBOL,  # have been observed to proceed to next
+                    model=Generators.SOBOL,  # have been observed to proceed to next
                     num_trials=5,  # geneneration step.
                     min_trials_observed=3,
                     max_parallelism=2,
                 ),
-                GenerationStep(model=Models.SOBOL, num_trials=-1, max_parallelism=3),
+                GenerationStep(
+                    model=Generators.SOBOL, num_trials=-1, max_parallelism=3
+                ),
             ]
         )
         # GS to force the scheduler to poll completed trials after each ran trial.
         self.sobol_GS_no_parallelism = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_trials=-1, max_parallelism=1)]
+            steps=[
+                GenerationStep(model=Generators.SOBOL, num_trials=-1, max_parallelism=1)
+            ]
         )
         self.scheduler_options_kwargs = {}
 
@@ -2167,9 +2171,11 @@ class AxSchedulerTestCase(TestCase):
         generation_strategy = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL, num_trials=NUM_SOBOL, max_parallelism=NUM_SOBOL
+                    model=Generators.SOBOL,
+                    num_trials=NUM_SOBOL,
+                    max_parallelism=NUM_SOBOL,
                 ),
-                GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1),
+                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=-1),
             ]
         )
         gs = self._get_generation_strategy_strategy_for_test(
@@ -2184,7 +2190,7 @@ class AxSchedulerTestCase(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        # need to run some trials to initialize the ModelBridge
+        # need to run some trials to initialize the Adapter
         scheduler.run_n_trials(max_trials=NUM_SOBOL + 1)
         self._helper_path_that_refits_the_model_if_it_is_not_already_initialized(
             scheduler=scheduler,
@@ -2475,15 +2481,15 @@ class AxSchedulerTestCase(TestCase):
             generation_strategy=GenerationStrategy(
                 steps=[
                     GenerationStep(
-                        model=Models.SOBOL,
+                        model=Generators.SOBOL,
                         num_trials=1,
                     ),
                     GenerationStep(
-                        model=Models.BOTORCH_MODULAR,
+                        model=Generators.BOTORCH_MODULAR,
                         num_trials=1,
                     ),
                     GenerationStep(
-                        model=Models.BOTORCH_MODULAR,
+                        model=Generators.BOTORCH_MODULAR,
                         model_kwargs={
                             # this will cause and error if the model
                             # doesn't get fixed features
@@ -2589,7 +2595,7 @@ class AxSchedulerTestCase(TestCase):
         self.assertEqual(len(candidate_trial.generator_runs), 1)
         self.assertEqual(
             candidate_trial.generator_runs[0]._model_key,
-            Models.SOBOL.value,
+            Generators.SOBOL.value,
         )
         self.assertEqual(
             len(candidate_trial.arms),
@@ -2823,7 +2829,7 @@ class AxSchedulerTestCase(TestCase):
         self.assertEqual(len(candidate_trial.generator_runs), 1)
         self.assertEqual(
             candidate_trial.generator_runs[0]._model_key,
-            Models.BOTORCH_MODULAR.value,
+            Generators.BOTORCH_MODULAR.value,
         )
         # MBM may generate less than the requested batch size.
         self.assertLessEqual(

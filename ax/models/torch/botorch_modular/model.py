@@ -30,7 +30,7 @@ from ax.models.torch.botorch_modular.utils import (
     ModelConfig,
 )
 from ax.models.torch.utils import _to_inequality_constraints
-from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
+from ax.models.torch_base import TorchGenerator, TorchGenResults, TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
@@ -41,7 +41,7 @@ from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
-class BoTorchModel(TorchModel, Base):
+class BoTorchGenerator(TorchGenerator, Base):
     """**All classes in 'botorch_modular' directory are under
     construction, incomplete, and should be treated as alpha
     versions only.**
@@ -171,7 +171,7 @@ class BoTorchModel(TorchModel, Base):
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
             state_dict: An optional model statedict for the underlying ``Surrogate``.
-                Primarily used in ``BoTorchModel.cross_validate``.
+                Primarily used in ``BoTorchGenerator.cross_validate``.
             refit: Whether to re-optimize model parameters.
             additional_model_inputs: Additional kwargs to pass to the
                 model input constructor in ``Surrogate.fit``.
@@ -228,7 +228,7 @@ class BoTorchModel(TorchModel, Base):
             X=X, use_posterior_predictive=use_posterior_predictive
         )
 
-    @copy_doc(TorchModel.gen)
+    @copy_doc(TorchGenerator.gen)
     def gen(
         self,
         n: int,
@@ -306,7 +306,7 @@ class BoTorchModel(TorchModel, Base):
                 gen_metadata["outcome_model_fixed_draw_weights"] = outcome_model.w
         return gen_metadata
 
-    @copy_doc(TorchModel.best_point)
+    @copy_doc(TorchGenerator.best_point)
     def best_point(
         self,
         search_space_digest: SearchSpaceDigest,
@@ -320,7 +320,7 @@ class BoTorchModel(TorchModel, Base):
         except ValueError:
             return None
 
-    @copy_doc(TorchModel.evaluate_acquisition_function)
+    @copy_doc(TorchGenerator.evaluate_acquisition_function)
     def evaluate_acquisition_function(
         self,
         X: Tensor,
@@ -335,7 +335,7 @@ class BoTorchModel(TorchModel, Base):
         )
         return acqf.evaluate(X=X)
 
-    @copy_doc(TorchModel.cross_validate)
+    @copy_doc(TorchGenerator.cross_validate)
     def cross_validate(
         self,
         datasets: Sequence[SupervisedDataset],

@@ -17,10 +17,16 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, ModelRegistryBase, Models
+from ax.modelbridge.registry import (
+    Generators,
+    MODEL_KEY_TO_MODEL_SETUP,
+    ModelRegistryBase,
+)
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.winsorize import Winsorize
-from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
+from ax.models.torch.botorch_modular.model import (
+    BoTorchGenerator as ModularBoTorchGenerator,
+)
 from ax.models.types import TConfig
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.deprecation import _validate_force_random_search
@@ -55,7 +61,7 @@ def _make_sobol_step(
 ) -> GenerationStep:
     """Shortcut for creating a Sobol generation step."""
     return GenerationStep(
-        model=Models.SOBOL,
+        model=Generators.SOBOL,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
@@ -71,7 +77,7 @@ def _make_botorch_step(
     min_trials_observed: int | None = None,
     enforce_num_trials: bool = True,
     max_parallelism: int | None = None,
-    model: ModelRegistryBase = Models.BOTORCH_MODULAR,
+    model: ModelRegistryBase = Generators.BOTORCH_MODULAR,
     model_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
@@ -111,7 +117,7 @@ def _make_botorch_step(
                 winsorization_transform_config
             )
 
-    if MODEL_KEY_TO_MODEL_SETUP[model.value].model_class != ModularBoTorchModel:
+    if MODEL_KEY_TO_MODEL_SETUP[model.value].model_class != ModularBoTorchGenerator:
         if verbose is not None:
             model_kwargs.update({"verbose": verbose})
         if disable_progbar is not None:
@@ -122,7 +128,7 @@ def _make_botorch_step(
         # TODO[T164389105] Rewrite choose_generation_strategy to be MBM first
         logger.info(
             "`verbose`, `disable_progbar`, and `jit_compile` are not yet supported "
-            "when using `choose_generation_strategy` with ModularBoTorchModel, "
+            "when using `choose_generation_strategy` with ModularBoTorchGenerator, "
             "dropping these arguments."
         )
     return GenerationStep(
@@ -226,7 +232,7 @@ def _suggest_gp_model(
         )
         if use_saasbo:
             logger.warning(SAASBO_INCOMPATIBLE_MESSAGE.format("`BO_MIXED`"))
-        return Models.BO_MIXED
+        return Generators.BO_MIXED
 
     if num_ordered_parameters >= num_unordered_choices or (
         num_unordered_choices < MAX_ONE_HOT_ENCODINGS_CONTINUOUS_OPTIMIZATION
@@ -235,7 +241,7 @@ def _suggest_gp_model(
         # These use one-hot encoding for unordered choice parameters, resulting in a
         # total of num_unordered_choices OHE parameters.
         # So, we do not want to use them when there are too many unordered choices.
-        method = Models.SAASBO if use_saasbo else Models.BOTORCH_MODULAR
+        method = Generators.SAASBO if use_saasbo else Generators.BOTORCH_MODULAR
         reason = (
             (
                 "there are more ordered parameters than there are categories for the "
@@ -493,7 +499,7 @@ def choose_generation_strategy(
         )
         steps = []
         # `verbose` and `disable_progbar` defaults and overrides
-        model_is_saasbo = suggested_model is Models.SAASBO
+        model_is_saasbo = suggested_model is Generators.SAASBO
         if verbose is None and model_is_saasbo:
             verbose = True
         elif verbose is not None and not model_is_saasbo:

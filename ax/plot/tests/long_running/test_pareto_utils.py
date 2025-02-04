@@ -8,7 +8,7 @@
 
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.plot.pareto_utils import compute_posterior_pareto_frontier
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -26,7 +26,7 @@ class ComputePosteriorParetoFrontierTest(TestCase):
         experiment.add_tracking_metric(
             BraninMetric(name="m2", param_names=["x1", "x2"])
         )
-        sobol = Models.SOBOL(experiment.search_space)
+        sobol = Generators.SOBOL(experiment.search_space)
         a = sobol.gen(5)
         experiment.new_batch_trial(generator_run=a).run()
         self.experiment = experiment

@@ -42,7 +42,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
-from ax.modelbridge.base import gen_arms, GenResults, ModelBridge
+from ax.modelbridge.base import Adapter, gen_arms, GenResults
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
     extract_objective_thresholds,
@@ -63,10 +63,10 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
-from ax.models.torch.botorch_modular.model import BoTorchModel
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
+from ax.models.torch.botorch_moo import MultiObjectiveBotorchGenerator
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
-from ax.models.torch_base import TorchModel, TorchOptConfig
+from ax.models.torch_base import TorchGenerator, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
@@ -78,11 +78,11 @@ logger: Logger = get_logger(__name__)
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
 
-class TorchModelBridge(ModelBridge):
+class TorchAdapter(Adapter):
     """A model bridge for using torch-based models.
 
-    Specifies an interface that is implemented by TorchModel. In particular,
-    model should have methods fit, predict, and gen. See TorchModel for the
+    Specifies an interface that is implemented by TorchGenerator. In particular,
+    model should have methods fit, predict, and gen. See TorchGenerator for the
     API for each of these methods.
 
     Requires that all parameters have been transformed to RangeParameters
@@ -92,7 +92,7 @@ class TorchModelBridge(ModelBridge):
     them to the model.
     """
 
-    model: TorchModel | None = None
+    model: TorchGenerator | None = None
     # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: list[str]  # pyre-ignore[13]: These are initialized in _fit.
     # pyre-fixme[13]: Attribute `parameters` is never initialized.
@@ -105,7 +105,7 @@ class TorchModelBridge(ModelBridge):
         experiment: Experiment,
         search_space: SearchSpace,
         data: Data,
-        model: TorchModel,
+        model: TorchGenerator,
         transforms: list[type[Transform]],
         transform_configs: dict[str, TConfig] | None = None,
         torch_dtype: torch.dtype | None = None,
@@ -123,10 +123,10 @@ class TorchModelBridge(ModelBridge):
         # This warning is being added while we are on 0.4.3, so it will be
         # released in 0.4.4 or 0.5.0. The `torch_dtype` argument can be removed
         # in the subsequent minor version. It should also be removed from
-        # `TorchModelBridge` subclasses.
+        # `TorchAdapter` subclasses.
         if torch_dtype is not None:
             warn(
-                "The `torch_dtype` argument to `TorchModelBridge` is deprecated"
+                "The `torch_dtype` argument to `TorchAdapter` is deprecated"
                 " and will be ignored; data will be in double precision.",
                 DeprecationWarning,
             )
@@ -135,7 +135,7 @@ class TorchModelBridge(ModelBridge):
         self.dtype: torch.dtype = torch.double
         self.device = torch_device
         # pyre-ignore [4]: Attribute `_default_model_gen_options` of class
-        # `TorchModelBridge` must have a type that does not contain `Any`.
+        # `TorchAdapter` must have a type that does not contain `Any`.
         self._default_model_gen_options = default_model_gen_options or {}
 
         # Handle init for multi-objective optimization.
@@ -198,7 +198,7 @@ class TorchModelBridge(ModelBridge):
             optimization_config=optimization_config,
             fixed_features=fixed_features,
         )
-        # Get transformed args from TorchModelbridge.
+        # Get transformed args from TorchAdapter.
         search_space_digest, torch_opt_config = self._get_transformed_model_gen_args(
             search_space=base_gen_args.search_space,
             fixed_features=base_gen_args.fixed_features,
@@ -210,16 +210,16 @@ class TorchModelBridge(ModelBridge):
                 "`infer_objective_thresholds` does not support risk measures."
             )
         # Infer objective thresholds.
-        if isinstance(self.model, MultiObjectiveBotorchModel):
+        if isinstance(self.model, MultiObjectiveBotorchGenerator):
             model = self.model.model
             Xs = self.model.Xs
-        elif isinstance(self.model, BoTorchModel):
+        elif isinstance(self.model, BoTorchGenerator):
             model = self.model.surrogate.model
             Xs = self.model.surrogate.Xs
         else:
             raise UnsupportedError(
-                "Model must be a MultiObjectiveBotorchModel or an appropriate Modular "
-                "Botorch Model to infer_objective_thresholds. Found "
+                "Model must be a MultiObjectiveBotorchGenerator or an appropriate "
+                "Modular Botorch Model to infer_objective_thresholds. Found "
                 f"{type(self.model)}."
             )
 
@@ -526,7 +526,7 @@ class TorchModelBridge(ModelBridge):
         if optimization_config is None:
             raise ValueError(
                 "The `optimization_config` must be specified either while initializing "
-                "the ModelBridge or to the `evaluate_acquisition_function` call."
+                "the Adapter or to the `evaluate_acquisition_function` call."
             )
         # pyre-ignore Incompatible parameter type [9]
         obs_feats: list[list[ObservationFeatures]] = deepcopy(observation_features)
@@ -624,7 +624,7 @@ class TorchModelBridge(ModelBridge):
         observation_features, observation_data = separate_observations(observations)
         # Only update outcomes if fitting a model on tracking metrics. Otherwise,
         # we will only fit models to the outcomes that are extracted from optimization
-        # config in ModelBridge.__init__.
+        # config in Adapter.__init__.
         if update_outcomes_and_parameters and self._fit_tracking_metrics:
             for od in observation_data:
                 all_metric_names.update(od.metric_names)
@@ -651,7 +651,7 @@ class TorchModelBridge(ModelBridge):
 
     def _fit(
         self,
-        model: TorchModel,
+        model: TorchGenerator,
         search_space: SearchSpace,
         observations: list[Observation],
         parameters: list[str] | None = None,
@@ -777,7 +777,7 @@ class TorchModelBridge(ModelBridge):
                 f"predictions of shape {f.shape} for inputs of shape {X.shape}. "
                 "This was likely due to the use of one-to-many input transforms -- "
                 "typically used for robust optimization -- which are not supported in"
-                "TorchModelBridge.predict."
+                "TorchAdapter.predict."
             )
         # Convert resulting arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)

@@ -45,7 +45,7 @@ Algorithm that can be used to generate new points in a [search space](glossary.m
 
 ### Model bridge
 
-Adapter for interactions with a [model](glossary.md#model) within the Ax ecosystem. [`[ModelBridge]`](https://ax.readthedocs.io/en/latest/modelbridge.html)
+Adapter for interactions with a [model](glossary.md#model) within the Ax ecosystem. [`[Adapter]`](https://ax.readthedocs.io/en/latest/modelbridge.html)
 
 ### Objective
 

@@ -23,12 +23,12 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.discrete import _get_parameter_values, DiscreteModelBridge
-from ax.models.discrete_base import DiscreteModel
+from ax.modelbridge.discrete import _get_parameter_values, DiscreteAdapter
+from ax.models.discrete_base import DiscreteGenerator
 from ax.utils.common.testutils import TestCase
 
 
-class DiscreteModelBridgeTest(TestCase):
+class DiscreteAdapterTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.parameters = [
@@ -73,14 +73,12 @@ class DiscreteModelBridgeTest(TestCase):
         }
         self.model_gen_options = {"option": "yes"}
 
-    @mock.patch(
-        "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.discrete.DiscreteAdapter.__init__", return_value=None)
     def test_fit(self, mock_init: Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
-        ma = DiscreteModelBridge()
+        ma = DiscreteAdapter()
         ma._training_data = self.observations
-        model = mock.create_autospec(DiscreteModel, instance=True)
+        model = mock.create_autospec(DiscreteGenerator, instance=True)
         ma._fit(model, self.search_space, self.observations)
         self.assertEqual(ma.parameters, ["x", "y", "z"])
         self.assertEqual(sorted(ma.outcomes), ["a", "b"])
@@ -106,13 +104,11 @@ class DiscreteModelBridgeTest(TestCase):
         with self.assertRaises(ValueError):
             ma._fit(model, self.search_space, self.observations + [sq_obs])
 
-    @mock.patch(
-        "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.discrete.DiscreteAdapter.__init__", return_value=None)
     def test_predict(self, mock_init: Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
-        ma = DiscreteModelBridge()
-        model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
+        ma = DiscreteAdapter()
+        model = mock.MagicMock(DiscreteGenerator, autospec=True, instance=True)
         model.predict.return_value = (
             np.array([[1.0, -1], [2.0, -2]]),
             np.stack(
@@ -128,9 +124,7 @@ class DiscreteModelBridgeTest(TestCase):
         for i, od in enumerate(observation_data):
             self.assertEqual(od, self.observation_data[i])
 
-    @mock.patch(
-        "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.discrete.DiscreteAdapter.__init__", return_value=None)
     def test_gen(self, mock_init: Mock) -> None:
         # Test with constraints
         optimization_config = OptimizationConfig(
@@ -140,13 +134,13 @@ class DiscreteModelBridgeTest(TestCase):
             ],
         )
         # pyre-fixme[20]: Argument `model` expected.
-        ma = DiscreteModelBridge()
+        ma = DiscreteAdapter()
         # Test validation.
         with self.assertRaisesRegex(UserInputError, "positive integer or -1."):
             ma._validate_gen_inputs(n=0)
         ma._validate_gen_inputs(n=-1)
         # Test rest of gen.
-        model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
+        model = mock.MagicMock(DiscreteGenerator, autospec=True, instance=True)
         best_x = [0.0, 2.0, 1.0]
         model.gen.return_value = (
             [[0.0, 2.0, 3.0], [1.0, 1.0, 3.0]],
@@ -232,13 +226,11 @@ class DiscreteModelBridgeTest(TestCase):
                 model_gen_options={},
             )
 
-    @mock.patch(
-        "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
-    )
+    @mock.patch("ax.modelbridge.discrete.DiscreteAdapter.__init__", return_value=None)
     def test_cross_validate(self, mock_init: Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
-        ma = DiscreteModelBridge()
-        model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
+        ma = DiscreteAdapter()
+        model = mock.MagicMock(DiscreteGenerator, autospec=True, instance=True)
         model.cross_validate.return_value = (
             np.array([[1.0, -1], [2.0, -2]]),
             np.stack(

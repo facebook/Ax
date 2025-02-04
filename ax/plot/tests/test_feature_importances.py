@@ -9,8 +9,8 @@
 import json
 
 import torch
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.registry import Models
+from ax.modelbridge.base import Adapter
+from ax.modelbridge.registry import Generators
 from ax.plot.base import AxPlotConfig
 from ax.plot.feature_importances import (
     plot_feature_importance_by_feature,
@@ -28,10 +28,10 @@ from plotly import graph_objects as go
 DUMMY_CAPTION = "test_caption"
 
 
-def get_modelbridge() -> ModelBridge:
+def get_modelbridge() -> Adapter:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
-    return Models.LEGACY_BOTORCH(
+    return Generators.LEGACY_BOTORCH(
         # Model bridge kwargs
         experiment=exp,
         data=exp.fetch_data(),
@@ -40,7 +40,7 @@ def get_modelbridge() -> ModelBridge:
 
 # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
 #  to avoid runtime subscripting errors.
-def get_sensitivity_values(ax_model: ModelBridge) -> dict:
+def get_sensitivity_values(ax_model: Adapter) -> dict:
     """
     Compute lengscale sensitivity value for on an ax model.
 
@@ -58,7 +58,7 @@ def get_sensitivity_values(ax_model: ModelBridge) -> dict:
     res = {}
     for metric_name in ax_model.outcomes:
         importances_arr = importances_dict[metric_name].numpy()
-        # pyre-fixme[16]: `ModelBridge` has no attribute `parameters`.
+        # pyre-fixme[16]: `Adapter` has no attribute `parameters`.
         res[metric_name] = dict(zip(ax_model.parameters, importances_arr))
     return res
 

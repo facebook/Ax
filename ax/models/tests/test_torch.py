@@ -8,12 +8,12 @@
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.models.torch_base import TorchModel, TorchOptConfig
+from ax.models.torch_base import TorchGenerator, TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from botorch.utils.datasets import SupervisedDataset
 
 
-class TorchModelTest(TestCase):
+class TorchGeneratorTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.dataset = SupervisedDataset(
@@ -30,7 +30,7 @@ class TorchModelTest(TestCase):
         self.torch_opt_config = TorchOptConfig(objective_weights=torch.ones(1))
 
     def test_TorchModelFit(self) -> None:
-        torch_model = TorchModel()
+        torch_model = TorchGenerator()
         torch_model.fit(
             datasets=[self.dataset],
             search_space_digest=SearchSpaceDigest(
@@ -40,12 +40,12 @@ class TorchModelTest(TestCase):
         )
 
     def test_TorchModelPredict(self) -> None:
-        torch_model = TorchModel()
+        torch_model = TorchGenerator()
         with self.assertRaises(NotImplementedError):
             torch_model.predict(torch.zeros(1))
 
     def test_TorchModelGen(self) -> None:
-        torch_model = TorchModel()
+        torch_model = TorchGenerator()
         with self.assertRaises(NotImplementedError):
             torch_model.gen(
                 n=1,
@@ -54,7 +54,7 @@ class TorchModelTest(TestCase):
             )
 
     def test_NumpyTorchBestPoint(self) -> None:
-        torch_model = TorchModel()
+        torch_model = TorchGenerator()
         x = torch_model.best_point(
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
@@ -62,7 +62,7 @@ class TorchModelTest(TestCase):
         self.assertIsNone(x)
 
     def test_TorchModelCrossValidate(self) -> None:
-        torch_model = TorchModel()
+        torch_model = TorchGenerator()
         with self.assertRaises(NotImplementedError):
             torch_model.cross_validate(
                 datasets=[self.dataset],

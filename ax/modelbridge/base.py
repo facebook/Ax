@@ -42,7 +42,7 @@ from ax.core.types import (
     TParameterization,
 )
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.exceptions.model import ModelBridgeMethodNotImplementedError
+from ax.exceptions.model import AdapterMethodNotImplementedError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
@@ -70,10 +70,10 @@ class GenResults:
     gen_metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract methods.
+class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
     """The main object for using models in Ax.
 
-    ModelBridge specifies 3 methods for using models:
+    Adapter specifies 3 methods for using models:
 
     - predict: Make model predictions. This method is not optimized for
       speed and so should be used primarily for plotting or similar tasks
@@ -81,7 +81,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
     - gen: Use the model to generate new candidates.
     - cross_validate: Do cross validation to assess model predictions.
 
-    ModelBridge converts Ax types like Data and Arm to types that are
+    Adapter converts Ax types like Data and Arm to types that are
     meant to be consumed by the models. The data sent to the model will depend
     on the implementation of the subclass, which will specify the actual API
     for external model.
@@ -262,7 +262,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             increment = time.monotonic() - t_fit_start + time_so_far
             self.fit_time += increment
             self.fit_time_since_gen += increment
-        except ModelBridgeMethodNotImplementedError:
+        except AdapterMethodNotImplementedError:
             pass
 
     def _process_and_transform_data(
@@ -584,7 +584,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         observations: list[Observation],
     ) -> None:
         """Apply terminal transform and fit model."""
-        raise ModelBridgeMethodNotImplementedError(
+        raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement `_fit`."
         )
 
@@ -714,7 +714,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         """Apply terminal transform, predict, and reverse terminal transform on
         output.
         """
-        raise ModelBridgeMethodNotImplementedError(
+        raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement `_predict`."
         )
 
@@ -731,7 +731,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
                 `update`.
             experiment: Experiment, in which this data was obtained.
         """
-        raise DeprecationWarning("ModelBridge.update is deprecated. Use `fit` instead.")
+        raise DeprecationWarning("Adapter.update is deprecated. Use `fit` instead.")
 
     def _get_transformed_gen_args(
         self,
@@ -758,7 +758,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
                     raise UnsupportedError(
                         "When fit_tracking_metrics is False, the optimization config "
                         "can only include metrics that were included in the "
-                        "optimization config used while initializing the ModelBridge. "
+                        "optimization config used while initializing the Adapter. "
                         f"Metrics {outcomes} is not a subset of {self.outcomes}."
                     )
             optimization_config = optimization_config.clone()
@@ -800,7 +800,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         fixed_features: ObservationFeatures | None = None,
         model_gen_options: TConfig | None = None,
     ) -> None:
-        """Validate inputs to `ModelBridge.gen`.
+        """Validate inputs to `Adapter.gen`.
 
         Currently, this is only used to ensure that `n` is a positive integer.
         """
@@ -956,7 +956,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         """Apply terminal transform, gen, and reverse terminal transform on
         output.
         """
-        raise ModelBridgeMethodNotImplementedError(
+        raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement `_gen`."
         )
 
@@ -1019,7 +1019,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         """Apply the terminal transform, make predictions on the test points,
         and reverse terminal transform on the results.
         """
-        raise ModelBridgeMethodNotImplementedError(
+        raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement `_cross_validate`."
         )
 
@@ -1096,7 +1096,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             importances.
 
         """
-        raise ModelBridgeMethodNotImplementedError(
+        raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement `feature_importances`."
         )
 
@@ -1110,7 +1110,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
 
         Returns:
             Transformed values. This could be e.g. a torch Tensor, depending
-            on the ModelBridge subclass.
+            on the Adapter subclass.
         """
         observations = deepcopy(observations)
         for t in self.transforms.values():
@@ -1121,7 +1121,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
     # pyre-fixme[3]: Return annotation cannot be `Any`.
     def _transform_observations(self, observations: list[Observation]) -> Any:
         """Apply terminal transform to given observations and return result."""
-        raise ModelBridgeMethodNotImplementedError(
+        raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement `_transform_observations`."
         )
 
@@ -1137,7 +1137,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
 
         Returns:
             Transformed values. This could be e.g. a torch Tensor, depending
-            on the ModelBridge subclass.
+            on the Adapter subclass.
         """
         obsf = deepcopy(observation_features)
         for t in self.transforms.values():
@@ -1150,7 +1150,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         self, observation_features: list[ObservationFeatures]
     ) -> Any:
         """Apply terminal transform to given observation features and return result."""
-        raise ModelBridgeMethodNotImplementedError(
+        raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement "
             "`_transform_observation_features`."
         )

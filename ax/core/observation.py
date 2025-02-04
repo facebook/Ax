@@ -424,7 +424,7 @@ def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
     """
     feature_cols = OBS_COLS.intersection(data.df.columns)
     # note we use this check, rather than isinstance, since
-    # only some Modelbridges (e.g. MapTorchModelBridge)
+    # only some Adapters (e.g. MapTorchAdapter)
     # use observations_from_map_data, which is required
     # to properly handle MapData features (e.g. fidelity).
     if is_map_data:
@@ -441,7 +441,7 @@ def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
             feature_cols.discard(column)
     # NOTE: This ensures the order of feature_cols is deterministic so that the order
     # of lists of observations are deterministic, to avoid nondeterministic tests.
-    # Necessary for test_TorchModelBridge.
+    # Necessary for test_TorchAdapter.
     return sorted(feature_cols)
 
 

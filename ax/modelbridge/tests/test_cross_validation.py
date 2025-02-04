@@ -30,7 +30,7 @@ from ax.modelbridge.cross_validation import (
     CVResult,
     has_good_opt_config_model_fit,
 )
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -105,22 +105,22 @@ class CrossValidationTest(TestCase):
         # Prepare input and output data
         ma = mock.MagicMock()
         ma.get_training_data = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge.get_training_data",
+            "ax.modelbridge.base.Adapter.get_training_data",
             autospec=True,
             return_value=self.training_data,
         )
         ma.cross_validate = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge.cross_validate",
+            "ax.modelbridge.base.Adapter.cross_validate",
             autospec=True,
             return_value=self.observation_data,
         )
         ma._transform_inputs_for_cv = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge._transform_inputs_for_cv",
+            "ax.modelbridge.base.Adapter._transform_inputs_for_cv",
             autospec=True,
             return_value=list(self.transformed_cv_input_dict.values()),
         )
         ma._cross_validate = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge._cross_validate",
+            "ax.modelbridge.base.Adapter._cross_validate",
             autospec=True,
             return_value=self.observation_data_transformed_result,
         )
@@ -132,7 +132,7 @@ class CrossValidationTest(TestCase):
         # First 2-fold
         result = cross_validate(model=ma, folds=2)
         self.assertEqual(len(result), 4)
-        # Check that ModelBridge.cross_validate was called correctly.
+        # Check that Adapter.cross_validate was called correctly.
         z = ma.cross_validate.mock_calls
         self.assertEqual(len(z), 2)
         train = [
@@ -175,7 +175,7 @@ class CrossValidationTest(TestCase):
         self.assertEqual(
             result_predicted_obs_data, self.observation_data_transformed_result
         )
-        # Check that ModelBridge._transform_inputs_for_cv was called correctly.
+        # Check that Adapter._transform_inputs_for_cv was called correctly.
         z = ma._transform_inputs_for_cv.mock_calls
         self.assertEqual(len(z), 3)
         train = [
@@ -192,7 +192,7 @@ class CrossValidationTest(TestCase):
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
         )
-        # Test ModelBridge._cross_validate was called correctly.
+        # Test Adapter._cross_validate was called correctly.
         z = ma._cross_validate.mock_calls
         self.assertEqual(len(z), 3)
         ma._cross_validate.assert_called_with(
@@ -232,7 +232,7 @@ class CrossValidationTest(TestCase):
         # With only 1 trial
         ma = mock.MagicMock()
         ma.get_training_data = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge.get_training_data",
+            "ax.modelbridge.base.Adapter.get_training_data",
             autospec=True,
             return_value=self.training_data[1:3],
         )
@@ -241,12 +241,12 @@ class CrossValidationTest(TestCase):
         # Prepare input and output data
         ma = mock.MagicMock()
         ma.get_training_data = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge.get_training_data",
+            "ax.modelbridge.base.Adapter.get_training_data",
             autospec=True,
             return_value=self.training_data,
         )
         ma.cross_validate = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge.cross_validate",
+            "ax.modelbridge.base.Adapter.cross_validate",
             autospec=True,
             return_value=self.observation_data,
         )
@@ -258,7 +258,7 @@ class CrossValidationTest(TestCase):
         result = cross_validate_by_trial(model=ma)
         self.assertEqual(len(result), 1)
 
-        # Check that ModelBridge.cross_validate was called correctly.
+        # Check that Adapter.cross_validate was called correctly.
         z = ma.cross_validate.mock_calls
         self.assertEqual(len(z), 1)
         train_trials = [obs.features.trial_index for obs in z[0][2]["cv_training_data"]]
@@ -281,14 +281,14 @@ class CrossValidationTest(TestCase):
 
     def test_cross_validate_gives_a_useful_error_for_model_with_no_data(self) -> None:
         exp = get_branin_experiment()
-        sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space)
+        sobol = Generators.SOBOL(experiment=exp, search_space=exp.search_space)
         with self.assertRaisesRegex(ValueError, "no training data"):
             cross_validate(model=sobol)
 
     @mock_botorch_optimize
     def test_cross_validate_catches_warnings(self) -> None:
         exp = get_branin_experiment(with_batch=True, with_completed_batch=True)
-        model = Models.BOTORCH_MODULAR(
+        model = Generators.BOTORCH_MODULAR(
             experiment=exp, search_space=exp.search_space, data=exp.fetch_data()
         )
         for untransform in [False, True]:
@@ -301,7 +301,7 @@ class CrossValidationTest(TestCase):
     ) -> None:
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run().complete()
-        sobol = Models.SOBOL(
+        sobol = Generators.SOBOL(
             experiment=exp, search_space=exp.search_space, data=exp.fetch_data()
         )
         with self.assertRaises(NotImplementedError):

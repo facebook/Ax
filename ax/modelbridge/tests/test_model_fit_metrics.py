@@ -22,7 +22,7 @@ from ax.modelbridge.cross_validation import (
     get_fit_and_std_quality_and_generalization_dict,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import get_fitted_model_bridge, Scheduler, SchedulerOptions
 from ax.utils.common.constants import Keys
@@ -33,7 +33,7 @@ from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_search
 NUM_SOBOL = 5
 
 
-class TestModelBridgeFitMetrics(TestCase):
+class TestAdapterFitMetrics(TestCase):
     def setUp(self) -> None:
         super().setUp()
         # setting up experiment and generation strategy
@@ -56,9 +56,11 @@ class TestModelBridgeFitMetrics(TestCase):
         self.generation_strategy = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL, num_trials=NUM_SOBOL, max_parallelism=NUM_SOBOL
+                    model=Generators.SOBOL,
+                    num_trials=NUM_SOBOL,
+                    max_parallelism=NUM_SOBOL,
                 ),
-                GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1),
+                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=-1),
             ]
         )
 
@@ -68,7 +70,7 @@ class TestModelBridgeFitMetrics(TestCase):
             generation_strategy=self.generation_strategy,
             options=SchedulerOptions(),
         )
-        # need to run some trials to initialize the ModelBridge
+        # need to run some trials to initialize the Adapter
         scheduler.run_n_trials(max_trials=NUM_SOBOL + 1)
 
         model_bridge = get_fitted_model_bridge(scheduler)
@@ -148,7 +150,7 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.experiment = get_branin_experiment()
-        self.sobol = Models.SOBOL(search_space=self.experiment.search_space)
+        self.sobol = Generators.SOBOL(search_space=self.experiment.search_space)
 
     def test_it_returns_empty_data_for_sobol(self) -> None:
         results = get_fit_and_std_quality_and_generalization_dict(
@@ -169,7 +171,7 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
             sobol_run
         ).run().mark_completed()
         data = self.experiment.fetch_data()
-        botorch_modelbridge = Models.BOTORCH_MODULAR(
+        botorch_modelbridge = Generators.BOTORCH_MODULAR(
             experiment=self.experiment, data=data
         )
 

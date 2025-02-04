@@ -22,8 +22,8 @@ from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.registry import Cont_X_trans, Models, Y_trans
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.registry import Cont_X_trans, Generators, Y_trans
+from ax.modelbridge.torch import TorchAdapter
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.testing.mock import skip_fit_gpytorch_mll_context_manager
@@ -173,7 +173,7 @@ def get_lcbench_benchmark_problem(
         use_map_metric=False,
     )
 
-    def get_surrogate() -> TorchModelBridge:
+    def get_surrogate() -> TorchAdapter:
         """Construct a modelbridge with the LCBench surrogate and datasets.
 
         Returns:
@@ -181,7 +181,7 @@ def get_lcbench_benchmark_problem(
         """
         # We load the model hyperparameters from the saved state dict.
         with skip_fit_gpytorch_mll_context_manager():
-            mb = Models.BOTORCH_MODULAR(
+            mb = Generators.BOTORCH_MODULAR(
                 surrogate=get_lcbench_surrogate(),
                 experiment=obj["experiment"],
                 search_space=obj["experiment"].search_space,
@@ -189,7 +189,7 @@ def get_lcbench_benchmark_problem(
                 transforms=Cont_X_trans + Y_trans,
             )
         mb.model.surrogate.model.load_state_dict(obj["state_dict"])
-        return assert_is_instance(mb, TorchModelBridge)
+        return assert_is_instance(mb, TorchAdapter)
 
     name = f"LCBench_Surrogate_{dataset_name}:v1"
 

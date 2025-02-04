@@ -22,15 +22,15 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import SearchSpaceExhausted
-from ax.modelbridge.random import RandomModelBridge
+from ax.modelbridge.random import RandomAdapter
 from ax.modelbridge.registry import Cont_X_trans
-from ax.models.random.base import RandomModel
+from ax.models.random.base import RandomGenerator
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_data, get_small_discrete_search_space
 
 
-class RandomModelBridgeTest(TestCase):
+class RandomAdapterTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
@@ -44,41 +44,41 @@ class RandomModelBridgeTest(TestCase):
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
         self.model_gen_options = {"option": "yes"}
 
-    @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
+    @mock.patch("ax.modelbridge.random.RandomAdapter.__init__", return_value=None)
     def test_Fit(self, mock_init: mock.Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
-        modelbridge = RandomModelBridge()
-        model = mock.create_autospec(RandomModel, instance=True)
+        modelbridge = RandomAdapter()
+        model = mock.create_autospec(RandomGenerator, instance=True)
         modelbridge._fit(model, self.search_space, None)
         self.assertEqual(modelbridge.parameters, ["x", "y", "z"])
-        self.assertTrue(isinstance(modelbridge.model, RandomModel))
+        self.assertTrue(isinstance(modelbridge.model, RandomGenerator))
 
-    @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
+    @mock.patch("ax.modelbridge.random.RandomAdapter.__init__", return_value=None)
     def test_Predict(self, mock_init: mock.Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
-        modelbridge = RandomModelBridge()
+        modelbridge = RandomAdapter()
         modelbridge.transforms = OrderedDict()
         modelbridge.parameters = ["x", "y", "z"]
         with self.assertRaises(NotImplementedError):
             modelbridge._predict([])
 
-    @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
+    @mock.patch("ax.modelbridge.random.RandomAdapter.__init__", return_value=None)
     def test_CrossValidate(self, mock_init: mock.Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
-        modelbridge = RandomModelBridge()
+        modelbridge = RandomAdapter()
         modelbridge.transforms = OrderedDict()
         modelbridge.parameters = ["x", "y", "z"]
         with self.assertRaises(NotImplementedError):
             modelbridge._cross_validate(self.search_space, [], [])
 
-    @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
+    @mock.patch("ax.modelbridge.random.RandomAdapter.__init__", return_value=None)
     def test_Gen(self, mock_init: mock.Mock) -> None:
         # Test with constraints
         # pyre-fixme[20]: Argument `model` expected.
-        modelbridge = RandomModelBridge(model=RandomModel())
+        modelbridge = RandomAdapter(model=RandomGenerator())
         modelbridge.parameters = ["x", "y", "z"]
         modelbridge.transforms = OrderedDict()
-        modelbridge.model = RandomModel()
+        modelbridge.model = RandomGenerator()
         with mock.patch.object(
             modelbridge.model,
             "gen",
@@ -144,7 +144,7 @@ class RandomModelBridgeTest(TestCase):
         self.assertIsNone(gen_args["fixed_features"])
 
     def test_deduplicate(self) -> None:
-        sobol = RandomModelBridge(
+        sobol = RandomAdapter(
             search_space=get_small_discrete_search_space(),
             model=SobolGenerator(deduplicate=True),
             transforms=Cont_X_trans,
@@ -166,7 +166,7 @@ class RandomModelBridgeTest(TestCase):
         trial.mark_running(no_runner_required=True)
         trial.mark_completed()
         experiment.add_tracking_metric(metric=Metric("ax_test_metric"))
-        sobol = RandomModelBridge(
+        sobol = RandomAdapter(
             search_space=self.search_space,
             model=SobolGenerator(),
             experiment=experiment,

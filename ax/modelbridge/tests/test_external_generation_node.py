@@ -16,7 +16,7 @@ from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.random import RandomModelBridge
+from ax.modelbridge.random import RandomAdapter
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data,
@@ -31,7 +31,7 @@ class DummyNode(ExternalGenerationNode):
         super().__init__(node_name="dummy")
         self.update_count = 0
         self.gen_count = 0
-        self.generator: RandomModelBridge | None = None
+        self.generator: RandomAdapter | None = None
         self.last_pending: list[TParameterization] = []
 
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:

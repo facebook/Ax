@@ -32,7 +32,7 @@ from ax.core import (
     SumConstraint,
     Trial,
 )
-from ax.modelbridge import Models
+from ax.modelbridge import Generators
 from ax.service import OptimizationLoop, optimize
 from ax.storage import json_load, json_save
 
@@ -52,7 +52,7 @@ __all__ = [
     "FixedParameter",
     "GeneratorRun",
     "Metric",
-    "Models",
+    "Generators",
     "MultiObjective",
     "MultiObjectiveOptimizationConfig",
     "Objective",

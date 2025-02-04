@@ -15,7 +15,7 @@ from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.base import GenResults, ModelBridge
+from ax.modelbridge.base import Adapter, GenResults
 from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,
     extract_search_space_digest,
@@ -24,21 +24,21 @@ from ax.modelbridge.modelbridge_utils import (
     transform_callback,
 )
 from ax.modelbridge.transforms.base import Transform
-from ax.models.random.base import RandomModel
+from ax.models.random.base import RandomGenerator
 from ax.models.types import TConfig
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
 
-class RandomModelBridge(ModelBridge):
+class RandomAdapter(Adapter):
     """A model bridge for using purely random 'models'.
     Data and optimization configs are not required.
 
-    This model bridge interfaces with RandomModel.
+    This model bridge interfaces with RandomGenerator.
 
     Attributes:
-        model: A RandomModel used to generate candidates
+        model: A RandomGenerator used to generate candidates
             (note: this an awkward use of the word 'model').
         parameters: Params found in search space on modelbridge init.
 
@@ -81,7 +81,7 @@ class RandomModelBridge(ModelBridge):
     """
 
     # pyre-fixme[13]: Attribute `model` is never initialized.
-    model: RandomModel
+    model: RandomGenerator
     # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: list[str]
 
@@ -121,7 +121,7 @@ class RandomModelBridge(ModelBridge):
 
     def _fit(
         self,
-        model: RandomModel,
+        model: RandomGenerator,
         search_space: SearchSpace,
         observations: list[Observation] | None = None,
     ) -> None:
@@ -168,7 +168,7 @@ class RandomModelBridge(ModelBridge):
         """Apply terminal transform, predict, and reverse terminal transform on
         output.
         """
-        raise NotImplementedError("RandomModelBridge does not support prediction.")
+        raise NotImplementedError("RandomAdapter does not support prediction.")
 
     def _cross_validate(
         self,

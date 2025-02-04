@@ -14,7 +14,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.models.torch.utils import _datasets_to_legacy_inputs
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenerator
 from ax.utils.common.docutils import copy_doc
 from botorch.utils.datasets import SupervisedDataset
 from sklearn.ensemble import RandomForestRegressor
@@ -22,7 +22,7 @@ from sklearn.tree import DecisionTreeRegressor
 from torch import Tensor
 
 
-class RandomForest(TorchModel):
+class RandomForest(TorchGenerator):
     """A Random Forest model.
 
     Uses a parametric bootstrap to handle uncertainty in Y.
@@ -42,7 +42,7 @@ class RandomForest(TorchModel):
         self.num_trees = num_trees
         self.models: list[RandomForestRegressor] = []
 
-    @copy_doc(TorchModel.fit)
+    @copy_doc(TorchGenerator.fit)
     def fit(
         self,
         datasets: list[SupervisedDataset],
@@ -61,11 +61,11 @@ class RandomForest(TorchModel):
                 )
             )
 
-    @copy_doc(TorchModel.predict)
+    @copy_doc(TorchGenerator.predict)
     def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
         return _rf_predict(self.models, X)
 
-    @copy_doc(TorchModel.cross_validate)
+    @copy_doc(TorchGenerator.cross_validate)
     def cross_validate(  # pyre-ignore [14]: not using metric_names or ssd
         self,
         datasets: list[SupervisedDataset],

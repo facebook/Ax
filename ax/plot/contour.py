@@ -14,7 +14,7 @@ import numpy as np
 import numpy.typing as npt
 import plotly.graph_objs as go
 from ax.core.observation import ObservationFeatures
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
 from ax.plot.color import BLUE_SCALE, GREEN_PINK_SCALE, GREEN_SCALE
 from ax.plot.helper import (
@@ -54,7 +54,7 @@ def short_name(param_name: str) -> str:
 
 
 def _get_contour_predictions(
-    model: ModelBridge,
+    model: Adapter,
     x_param_name: str,
     y_param_name: str,
     metric: str,
@@ -109,7 +109,7 @@ def _get_contour_predictions(
 
 
 def plot_contour_plotly(
-    model: ModelBridge,
+    model: Adapter,
     param_x: str,
     param_y: str,
     metric_name: str,
@@ -124,7 +124,7 @@ def plot_contour_plotly(
     """Plot predictions for a 2-d slice of the parameter space.
 
     Args:
-        model: ModelBridge that contains model for predictions
+        model: Adapter that contains model for predictions
         param_x: Name of parameter that will be sliced on x-axis
         param_y: Name of parameter that will be sliced on y-axis
         metric_name: Name of metric to plot
@@ -282,7 +282,7 @@ def plot_contour_plotly(
 
 
 def plot_contour(
-    model: ModelBridge,
+    model: Adapter,
     param_x: str,
     param_y: str,
     metric_name: str,
@@ -297,7 +297,7 @@ def plot_contour(
     """Plot predictions for a 2-d slice of the parameter space.
 
     Args:
-        model: ModelBridge that contains model for predictions
+        model: Adapter that contains model for predictions
         param_x: Name of parameter that will be sliced on x-axis
         param_y: Name of parameter that will be sliced on y-axis
         metric_name: Name of metric to plot
@@ -338,7 +338,7 @@ def plot_contour(
 
 
 def interact_contour_plotly(
-    model: ModelBridge,
+    model: Adapter,
     metric_name: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
@@ -353,7 +353,7 @@ def interact_contour_plotly(
     space.
 
     Args:
-        model: ModelBridge that contains model for predictions
+        model: Adapter that contains model for predictions
         metric_name: Name of metric to plot
         generator_runs_dict: A dictionary {name: generator run} of generator runs
             whose arms will be plotted, if they lie in the slice.
@@ -912,7 +912,7 @@ def interact_contour_plotly(
 
 
 def interact_contour(
-    model: ModelBridge,
+    model: Adapter,
     metric_name: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
@@ -927,7 +927,7 @@ def interact_contour(
     space.
 
     Args:
-        model: ModelBridge that contains model for predictions
+        model: Adapter that contains model for predictions
         metric_name: Name of metric to plot
         generator_runs_dict: A dictionary {name: generator run} of generator runs
             whose arms will be plotted, if they lie in the slice.

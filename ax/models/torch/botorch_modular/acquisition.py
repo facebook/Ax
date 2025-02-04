@@ -71,7 +71,7 @@ class Acquisition(Base):
     versions only.**
 
     Ax wrapper for BoTorch `AcquisitionFunction`, subcomponent
-    of `BoTorchModel` and is not meant to be used outside of it.
+    of `BoTorchGenerator` and is not meant to be used outside of it.
 
     Args:
         surrogate: The Surrogate model, with which this acquisition
@@ -275,7 +275,7 @@ class Acquisition(Base):
                 should be fixed to a particular value during generation.
             rounding_func: A function that post-processes an optimization
                 result appropriately. This is typically passed down from
-                `ModelBridge` to ensure compatibility of the candidates with
+                `Adapter` to ensure compatibility of the candidates with
                 with Ax transforms. For additional post processing, use
                 `post_processing_func` option in `optimizer_options`.
             optimizer_options: Options for the optimizer function, e.g. ``sequential``

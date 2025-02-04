@@ -39,7 +39,7 @@ from ax.modelbridge.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.model_spec import ModelSpec
+from ax.modelbridge.model_spec import GeneratorSpec
 from ax.modelbridge.registry import _decode_callables_from_references, ModelRegistryBase
 from ax.modelbridge.transition_criterion import (
     AuxiliaryExperimentCheck,
@@ -183,7 +183,7 @@ def object_from_json(
             return generation_node_from_json(
                 generation_node_json=object_json, **vars(registry_kwargs)
             )
-        elif _class == ModelSpec:
+        elif _class == GeneratorSpec:
             return model_spec_from_json(
                 model_spec_json=object_json, **vars(registry_kwargs)
             )
@@ -696,7 +696,7 @@ def _extract_surrogate_spec_from_surrogate_specs(
     key with the value of that element.
 
     This helper will keep deserialization of MBM models backwards compatible
-    even after we remove the ``surrogate_specs`` argument from ``BoTorchModel``.
+    even after we remove the ``surrogate_specs`` argument from ``BoTorchGenerator``.
 
     Args:
         model_kwargs: A dictionary of model kwargs to update.
@@ -783,14 +783,14 @@ def model_spec_from_json(
     model_spec_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> ModelSpec:
-    """Load ModelSpec from JSON."""
+) -> GeneratorSpec:
+    """Load GeneratorSpec from JSON."""
     kwargs = model_spec_json.pop("model_kwargs", None)
     kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
     if kwargs is not None:
         kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
     gen_kwargs = model_spec_json.pop("model_gen_kwargs", None)
-    return ModelSpec(
+    return GeneratorSpec(
         model_enum=object_from_json(
             model_spec_json.pop("model_enum"),
             decoder_registry=decoder_registry,
@@ -1086,15 +1086,15 @@ def _update_deprecated_model_registry(name: str) -> str:
     will error out while looking it up in the corresponding enum.
 
     Args:
-        name: The name of the ``Models`` enum.
+        name: The name of the ``Generators`` enum.
 
     Returns:
-        Either the given name or the name of a replacement ``Models`` enum.
+        Either the given name or the name of a replacement ``Generators`` enum.
     """
     if name in _DEPRECATED_MODEL_TO_REPLACEMENT:
         new_name = _DEPRECATED_MODEL_TO_REPLACEMENT[name]
         logger.exception(
-            f"{name} model is deprecated and replaced by Models.{new_name}. "
+            f"{name} model is deprecated and replaced by Generators.{new_name}. "
             f"Please use {new_name} in the future. Note that this warning only "
             "enables deserialization of experiments with deprecated models. "
             "Model fitting with the loaded experiment may still fail. "

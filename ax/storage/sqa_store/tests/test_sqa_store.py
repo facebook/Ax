@@ -35,7 +35,7 @@ from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY, register_metrics
@@ -216,7 +216,7 @@ class SQAStoreTest(TestCase):
         experiment = get_branin_experiment(
             with_batch=True, num_batch_trial=1, with_completed_batch=True
         )
-        model = Models.BOTORCH_MODULAR(
+        model = Generators.BOTORCH_MODULAR(
             experiment=experiment,
             data=experiment.lookup_data(),
             surrogate=Surrogate(surrogate_spec=SurrogateSpec()),
@@ -499,7 +499,7 @@ class SQAStoreTest(TestCase):
 
             # 3. Try case with model state and search space + opt.config on a
             # generator run in the experiment.
-            gr = Models.SOBOL(experiment=exp).gen(1)
+            gr = Generators.SOBOL(experiment=exp).gen(1)
             # Expecting model kwargs to have 6 fields (seed, deduplicate, init_position,
             # scramble, generated_points, fallback_to_sample_polytope)
             # and the rest of model-state info on generator run to have values too.
@@ -564,7 +564,7 @@ class SQAStoreTest(TestCase):
 
     def test_ExperimentSaveAndLoadGRWithOptConfig(self) -> None:
         exp = get_experiment_with_batch_trial(constrain_search_space=False)
-        gr = Models.SOBOL(experiment=exp).gen(
+        gr = Generators.SOBOL(experiment=exp).gen(
             n=1, optimization_config=exp.optimization_config
         )
         exp.new_trial(generator_run=gr)
@@ -715,7 +715,7 @@ class SQAStoreTest(TestCase):
 
         exp = get_branin_experiment_with_timestamp_map_metric()
         save_experiment(exp)
-        generator_run = Models.SOBOL(search_space=exp.search_space).gen(n=1)
+        generator_run = Generators.SOBOL(search_space=exp.search_space).gen(n=1)
         trial = exp.new_trial(generator_run=generator_run)
         exp.attach_data(trial.run().fetch_data())
         save_or_update_trials(
@@ -1568,7 +1568,7 @@ class SQAStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
             none_throws(new_generation_strategy._experiment)._name, experiment._name
@@ -1626,7 +1626,8 @@ class SQAStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(
-            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum, Models
+            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum,
+            Generators,
         )
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
@@ -1683,7 +1684,8 @@ class SQAStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(
-            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum, Models
+            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum,
+            Generators,
         )
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
@@ -1731,7 +1733,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
             none_throws(new_generation_strategy._experiment)._name, experiment._name
@@ -1791,7 +1793,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
             none_throws(new_generation_strategy._experiment)._name, experiment._name

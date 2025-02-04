@@ -47,7 +47,7 @@ class Derelativize(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         use_raw_sq = self.config.get("use_raw_status_quo", False)
@@ -59,7 +59,7 @@ class Derelativize(Transform):
         # Else, we have at least one relative constraint.
         # Estimate the value at the status quo.
         if modelbridge is None:
-            raise ValueError("ModelBridge not supplied to transform.")
+            raise ValueError("Adapter not supplied to transform.")
         # Unobserved status quo corresponds to a modelbridge.status_quo of None.
         if modelbridge.status_quo is None:
             raise DataRequiredError(

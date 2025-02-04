@@ -22,8 +22,8 @@ from ax.modelbridge.generation_node_input_constructors import (
     NodeInputConstructors,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import Models
+from ax.modelbridge.model_spec import GeneratorSpec
+from ax.modelbridge.registry import Generators
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -55,8 +55,8 @@ EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS = [
 class TestGenerationNodeInputConstructors(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.sobol_model_spec = ModelSpec(
-            model_enum=Models.SOBOL,
+        self.sobol_model_spec = GeneratorSpec(
+            model_enum=Generators.SOBOL,
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )

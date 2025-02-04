@@ -21,7 +21,7 @@ from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
@@ -162,10 +162,10 @@ TEST_CASES = [
         get_benchmark_map_unavailable_while_running_metric,
     ),
     ("BenchmarkResult", get_benchmark_result),
-    ("BoTorchModel", get_botorch_model),
-    ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
-    ("BoTorchModel", get_botorch_model_with_surrogate_spec),
-    ("BoTorchModel", get_botorch_model_with_surrogate_specs),
+    ("BoTorchGenerator", get_botorch_model),
+    ("BoTorchGenerator", get_botorch_model_with_default_acquisition_class),
+    ("BoTorchGenerator", get_botorch_model_with_surrogate_spec),
+    ("BoTorchGenerator", get_botorch_model_with_surrogate_specs),
     ("BraninMetric", get_branin_metric),
     ("ChainedInputTransform", get_chained_input_transform),
     ("ChoiceParameter", get_choice_parameter),
@@ -523,7 +523,7 @@ class JSONStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertGreater(len(new_generation_strategy._steps), 0)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
         # Model has not yet been initialized on this GS since it hasn't generated
         # anything yet.
         self.assertIsNone(new_generation_strategy.model)
@@ -549,7 +549,7 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
 
         # Check that we can encode and decode the generation strategy after
         # it has generated some trials and been updated with some data.
@@ -572,7 +572,7 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
 
     def test_EncodeDecodeNumpy(self) -> None:
         arr = np.array([[1, 2, 3], [4, 5, 6]])
@@ -747,7 +747,7 @@ class JSONStoreTest(TestCase):
             class_from_json({"index": 0, "class": "unknown_path"})
 
     def test_unregistered_model_not_supported_in_nodes(self) -> None:
-        """Support for callables within model kwargs on ModelSpecs stored on
+        """Support for callables within model kwargs on GeneratorSpecs stored on
         GenerationNodes is currently not supported. This is supported for
         GenerationSteps due to legacy compatibility.
         """
@@ -797,7 +797,7 @@ class JSONStoreTest(TestCase):
         # Test that we can load a generation step with fit_on_update.
         json = {
             "__type": "GenerationStep",
-            "model": {"__type": "Models", "name": "BOTORCH_MODULAR"},
+            "model": {"__type": "Generators", "name": "BOTORCH_MODULAR"},
             "num_trials": 5,
             "min_trials_observed": 0,
             "completion_criteria": [],
@@ -970,11 +970,11 @@ class JSONStoreTest(TestCase):
         # Check for models with listed replacements.
         for name, replacement in _DEPRECATED_MODEL_TO_REPLACEMENT.items():
             with self.assertLogs(logger="ax", level="ERROR"):
-                from_json = object_from_json({"__type": "Models", "name": name})
-            self.assertEqual(from_json, Models[replacement])
+                from_json = object_from_json({"__type": "Generators", "name": name})
+            self.assertEqual(from_json, Generators[replacement])
         # Check for non-deprecated models.
         from_json = object_from_json({"__type": "Models", "name": "BO_MIXED"})
-        self.assertEqual(from_json, Models.BO_MIXED)
+        self.assertEqual(from_json, Generators.BO_MIXED)
         # Check for models with no replacement.
         with self.assertRaisesRegex(KeyError, "nonexistent"):
             object_from_json({"__type": "Models", "name": "nonexistent_model"})

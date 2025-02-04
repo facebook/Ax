@@ -35,14 +35,14 @@ from ax.core.parameter import Parameter
 from ax.core.trial import BaseTrial
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.modelbridge import ModelBridge
+from ax.modelbridge import Adapter
 from ax.modelbridge.cross_validation import (
     compute_model_fit_metrics_from_modelbridge,
     cross_validate,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.random import RandomAdapter
+from ax.modelbridge.torch import TorchAdapter
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
 from ax.plot.feature_importances import plot_feature_importance_by_feature_plotly
@@ -91,7 +91,7 @@ UNPREDICTABLE_METRICS_MESSAGE = (
 )
 
 
-def _get_cross_validation_plots(model: ModelBridge) -> list[go.Figure]:
+def _get_cross_validation_plots(model: Adapter) -> list[go.Figure]:
     cv = cross_validate(model=model)
     return [
         interact_cross_validation_plotly(
@@ -149,7 +149,7 @@ def _get_objective_trace_plot(
 
 def _get_objective_v_param_plots(
     experiment: Experiment,
-    model: ModelBridge,
+    model: Adapter,
     importance: None
     | (dict[str, dict[str, npt.NDArray]] | dict[str, dict[str, float]]) = None,
     # Chosen to take ~1min on local benchmarks.
@@ -316,7 +316,7 @@ def _get_shortest_unique_suffix_dict(
 
 def get_standard_plots(
     experiment: Experiment,
-    model: ModelBridge | None,
+    model: Adapter | None,
     data: Data | None = None,
     true_objective_metric_name: str | None = None,
     early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
@@ -325,14 +325,14 @@ def get_standard_plots(
 ) -> list[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
-    Extracts a list of plots from an ``Experiment`` and ``ModelBridge`` of general
+    Extracts a list of plots from an ``Experiment`` and ``Adapter`` of general
     interest to an Ax user. Currently not supported are
     - TODO: multi-objective optimization
     - TODO: ChoiceParameter plots
 
     Args:
         - experiment: The ``Experiment`` from which to obtain standard plots.
-        - model: The ``ModelBridge`` used to suggest trial parameters.
+        - model: The ``Adapter`` used to suggest trial parameters.
         - true_objective_metric_name: Name of the metric to use as the true objective.
         - early_stopping_strategy: Early stopping strategy used throughout the
             experiment; used for visualizing when curves are stopped.
@@ -394,8 +394,8 @@ def get_standard_plots(
     # Objective vs. parameter plot requires a `Model`, so add it only if model
     # is alrady available. In cases where initially custom trials are attached,
     # model might not yet be set on the generation strategy. Additionally, if
-    # the model is a RandomModelBridge, skip plots that require predictions.
-    if model is not None and not isinstance(model, RandomModelBridge):
+    # the model is a RandomAdapter, skip plots that require predictions.
+    if model is not None and not isinstance(model, RandomAdapter):
         try:
             if true_objective_metric_name is not None:
                 logger.debug("Starting objective vs. true objective scatter plot.")
@@ -414,7 +414,7 @@ def get_standard_plots(
         # features to plot.
         sens = None
         importance_measure = ""
-        if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
+        if global_sensitivity_analysis and isinstance(model, TorchAdapter):
             try:
                 logger.debug("Starting global sensitivity analysis.")
                 sens = ax_parameter_sens(model, order="total")
@@ -1163,7 +1163,7 @@ def pareto_frontier_scatter_2d_plotly(
 
 
 def _objective_vs_true_objective_scatter(
-    model: ModelBridge,
+    model: Adapter,
     objective_metric_name: str,
     true_objective_metric_name: str,
 ) -> go.Figure:
@@ -1502,13 +1502,13 @@ def warn_if_unpredictable_metrics(
         A string warning the user about unpredictable metrics, if applicable.
     """
     # Get fit quality dict.
-    model_bridge = generation_strategy.model  # Optional[ModelBridge]
+    model_bridge = generation_strategy.model  # Optional[Adapter]
     if model_bridge is None:  # Need to re-fit the model.
         generation_strategy._fit_current_model(data=None)
-        model_bridge = cast(ModelBridge, generation_strategy.model)
-    if isinstance(model_bridge, RandomModelBridge):
+        model_bridge = cast(Adapter, generation_strategy.model)
+    if isinstance(model_bridge, RandomAdapter):
         logger.debug(
-            "Current modelbridge on GenerationStrategy is RandomModelBridge. "
+            "Current modelbridge on GenerationStrategy is RandomAdapter. "
             "Not checking metric predictability."
         )
         return None

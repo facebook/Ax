@@ -13,20 +13,20 @@ from unittest.mock import MagicMock, Mock, patch
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
+from ax.modelbridge.model_spec import FactoryFunctionGeneratorSpec, GeneratorSpec
 from ax.modelbridge.modelbridge_utils import extract_search_space_digest
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
 from pyre_extensions import none_throws
 
 
-class BaseModelSpecTest(TestCase):
+class BaseGeneratorSpecTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.experiment = get_branin_experiment()
-        sobol = Models.SOBOL(search_space=self.experiment.search_space)
+        sobol = Generators.SOBOL(search_space=self.experiment.search_space)
         sobol_run = sobol.gen(n=20)
         self.experiment.new_batch_trial().add_generator_run(
             sobol_run
@@ -34,10 +34,10 @@ class BaseModelSpecTest(TestCase):
         self.data = self.experiment.fetch_data()
 
 
-class ModelSpecTest(BaseModelSpecTest):
+class GeneratorSpecTest(BaseGeneratorSpecTest):
     @mock_botorch_optimize
     def test_construct(self) -> None:
-        ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
+        ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
         with self.assertRaises(UserInputError):
             ms.gen(n=1)
         ms.fit(experiment=self.experiment, data=self.data)
@@ -45,13 +45,13 @@ class ModelSpecTest(BaseModelSpecTest):
 
     @mock_botorch_optimize
     # We can use `extract_search_space_digest` as a surrogate for executing
-    # the full TorchModelBridge._fit.
+    # the full TorchAdapter._fit.
     @mock.patch(
         "ax.modelbridge.torch.extract_search_space_digest",
         wraps=extract_search_space_digest,
     )
     def test_fit(self, wrapped_extract_ssd: Mock) -> None:
-        ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
+        ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
         # This should fit the model as usual.
         ms.fit(experiment=self.experiment, data=self.data)
         wrapped_extract_ssd.assert_called_once()
@@ -67,15 +67,18 @@ class ModelSpecTest(BaseModelSpecTest):
         wrapped_extract_ssd.assert_called_once()
 
     def test_model_key(self) -> None:
-        ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
+        ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
         self.assertEqual(ms.model_key, "BoTorch")
-        ms = ModelSpec(
-            model_enum=Models.BOTORCH_MODULAR, model_key_override="MBM with defaults"
+        ms = GeneratorSpec(
+            model_enum=Generators.BOTORCH_MODULAR,
+            model_key_override="MBM with defaults",
         )
         self.assertEqual(ms.model_key, "MBM with defaults")
 
-    @patch(f"{ModelSpec.__module__}.compute_diagnostics")
-    @patch(f"{ModelSpec.__module__}.cross_validate", return_value=["fake-cv-result"])
+    @patch(f"{GeneratorSpec.__module__}.compute_diagnostics")
+    @patch(
+        f"{GeneratorSpec.__module__}.cross_validate", return_value=["fake-cv-result"]
+    )
     def test_cross_validate_with_GP_model(
         self, mock_cv: Mock, mock_diagnostics: Mock
     ) -> None:
@@ -83,7 +86,9 @@ class ModelSpecTest(BaseModelSpecTest):
         fake_mb = MagicMock()
         fake_mb._process_and_transform_data = MagicMock(return_value=(None, None))
         mock_enum.return_value = fake_mb
-        ms = ModelSpec(model_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"})
+        ms = GeneratorSpec(
+            model_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
+        )
         ms.fit(
             experiment=self.experiment,
             data=self.experiment.trials[0].fetch_data(),
@@ -135,14 +140,18 @@ class ModelSpecTest(BaseModelSpecTest):
             mock_cv.assert_called_with(model=fake_mb, test_key="test-value", test=1)
             self.assertEqual(ms._last_cv_kwargs, {"test": 1, "test_key": "test-value"})
 
-    @patch(f"{ModelSpec.__module__}.compute_diagnostics")
-    @patch(f"{ModelSpec.__module__}.cross_validate", side_effect=NotImplementedError)
+    @patch(f"{GeneratorSpec.__module__}.compute_diagnostics")
+    @patch(
+        f"{GeneratorSpec.__module__}.cross_validate", side_effect=NotImplementedError
+    )
     def test_cross_validate_with_non_GP_model(
         self, mock_cv: Mock, mock_diagnostics: Mock
     ) -> None:
         mock_enum = Mock()
         mock_enum.return_value = "fake-modelbridge"
-        ms = ModelSpec(model_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"})
+        ms = GeneratorSpec(
+            model_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
+        )
         ms.fit(
             experiment=self.experiment,
             data=self.experiment.trials[0].fetch_data(),
@@ -159,7 +168,7 @@ class ModelSpecTest(BaseModelSpecTest):
         mock_diagnostics.assert_not_called()
 
     def test_fixed_features(self) -> None:
-        ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
+        ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
         self.assertIsNone(ms.fixed_features)
         new_features = ObservationFeatures(parameters={"a": 1.0})
         ms.fixed_features = new_features
@@ -167,7 +176,7 @@ class ModelSpecTest(BaseModelSpecTest):
         self.assertEqual(ms.model_gen_kwargs["fixed_features"], new_features)
 
     def test_gen_attaches_empty_model_fit_metadata_if_fit_not_applicable(self) -> None:
-        ms = ModelSpec(model_enum=Models.SOBOL)
+        ms = GeneratorSpec(model_enum=Generators.SOBOL)
         ms.fit(experiment=self.experiment, data=self.data)
         gr = ms.gen(n=1)
         gen_metadata = none_throws(gr.gen_metadata)
@@ -177,7 +186,7 @@ class ModelSpecTest(BaseModelSpecTest):
         self.assertEqual(gen_metadata["model_std_generalization"], None)
 
     def test_gen_attaches_model_fit_metadata_if_applicable(self) -> None:
-        ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
+        ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
         ms.fit(experiment=self.experiment, data=self.data)
         gr = ms.gen(n=1)
         gen_metadata = none_throws(gr.gen_metadata)
@@ -187,8 +196,8 @@ class ModelSpecTest(BaseModelSpecTest):
         self.assertIsInstance(gen_metadata["model_std_generalization"], float)
 
     def test_spec_string_representation(self) -> None:
-        ms = ModelSpec(
-            model_enum=Models.BOTORCH_MODULAR,
+        ms = GeneratorSpec(
+            model_enum=Generators.BOTORCH_MODULAR,
             model_kwargs={"test_model_kwargs": 1},
             model_gen_kwargs={"test_gen_kwargs": 1},
             model_cv_kwargs={"test_cv_kwargs": 1},
@@ -204,21 +213,21 @@ class ModelSpecTest(BaseModelSpecTest):
         self.assertIn("test_model_key_override", repr_str)
 
 
-class FactoryFunctionModelSpecTest(BaseModelSpecTest):
+class FactoryFunctionGeneratorSpecTest(BaseGeneratorSpecTest):
     def test_construct(self) -> None:
-        ms = FactoryFunctionModelSpec(factory_function=get_sobol)
+        ms = FactoryFunctionGeneratorSpec(factory_function=get_sobol)
         with self.assertRaises(UserInputError):
             ms.gen(n=1)
         ms.fit(experiment=self.experiment, data=self.data)
         ms.gen(n=1)
 
     def test_model_key(self) -> None:
-        ms = FactoryFunctionModelSpec(factory_function=get_sobol)
+        ms = FactoryFunctionGeneratorSpec(factory_function=get_sobol)
         self.assertEqual(ms.model_key, "get_sobol")
         with self.assertRaisesRegex(TypeError, "cannot extract name"):
             # pyre-ignore[6] - Invalid factory function for testing.
-            FactoryFunctionModelSpec(factory_function="test")
-        ms = FactoryFunctionModelSpec(
+            FactoryFunctionGeneratorSpec(factory_function="test")
+        ms = FactoryFunctionGeneratorSpec(
             factory_function=get_sobol, model_key_override="fancy sobol"
         )
         self.assertEqual(ms.model_key, "fancy sobol")

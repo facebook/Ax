@@ -214,7 +214,7 @@ def object_attribute_dicts_find_unequal_fields(
         elif field == "_db_id":
             equal = skip_db_id_check or one_val == other_val
         elif field == "_model":
-            # TODO[T52643706]: replace with per-`ModelBridge` method like
+            # TODO[T52643706]: replace with per-`Adapter` method like
             # `equivalent_models`, to compare models more meaningfully.
             if not hasattr(one_val, "model") or not hasattr(other_val, "model"):
                 equal = not hasattr(other_val, "model") and not hasattr(

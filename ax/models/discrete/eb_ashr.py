@@ -15,7 +15,7 @@ import numpy.typing as npt
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
 from ax.models.discrete.ashr_utils import Ashr, GaussianMixture
 from ax.models.discrete.thompson import ThompsonSampler
-from ax.models.discrete_base import DiscreteModel
+from ax.models.discrete_base import DiscreteGenerator
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from pyre_extensions import none_throws
@@ -272,7 +272,7 @@ class EBAshr(ThompsonSampler):
         success = np.dot(posterior_means, objective_weights)
         return success
 
-    @copy_doc(DiscreteModel.gen)
+    @copy_doc(DiscreteGenerator.gen)
     def gen(
         self,
         n: int,

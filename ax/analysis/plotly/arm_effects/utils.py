@@ -19,7 +19,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.prediction_utils import predict_at_point
 from plotly import express as px, graph_objects as go
 from pyre_extensions import none_throws
@@ -203,7 +203,7 @@ def _add_style_to_effects_by_arm_plot(
     )
 
 
-def _get_trial_index_for_predictions(model: ModelBridge) -> int | None:
+def _get_trial_index_for_predictions(model: Adapter) -> int | None:
     """Returns status quo features index if defined on the model.  Otherwise, returns
     the max observed trial index to appease multitask models for prediction
     by giving fixed features. The max index is not necessarily accurate and should
@@ -224,7 +224,7 @@ def _get_trial_index_for_predictions(model: ModelBridge) -> int | None:
 
 
 def get_predictions_by_arm(
-    model: ModelBridge,
+    model: Adapter,
     metric_name: str,
     outcome_constraints: list[OutcomeConstraint],
     gr: GeneratorRun | None = None,

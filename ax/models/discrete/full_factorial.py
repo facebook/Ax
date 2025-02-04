@@ -14,7 +14,7 @@ from operator import mul
 
 import numpy.typing as npt
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
-from ax.models.discrete_base import DiscreteModel
+from ax.models.discrete_base import DiscreteGenerator
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
@@ -23,7 +23,7 @@ from ax.utils.common.logger import get_logger
 logger: logging.Logger = get_logger(__name__)
 
 
-class FullFactorialGenerator(DiscreteModel):
+class FullFactorialGenerator(DiscreteGenerator):
     """Generator for full factorial designs.
 
     Generates arms for all possible combinations of parameter values,
@@ -48,7 +48,7 @@ class FullFactorialGenerator(DiscreteModel):
         self.max_cardinality = max_cardinality
         self.check_cardinality = check_cardinality
 
-    @copy_doc(DiscreteModel.gen)
+    @copy_doc(DiscreteGenerator.gen)
     # pyre-fixme[15]: Inconsistent override in return
     def gen(
         self,
