@@ -33,19 +33,21 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError, STORAGE_DOCS_SUFFIX
-from ax.modelbridge.generation_node_input_constructors import InputConstructorPurpose
-from ax.modelbridge.generation_strategy import (
+from ax.generation_strategy.generation_node_input_constructors import (
+    InputConstructorPurpose,
+)
+from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.model_spec import GeneratorSpec
-from ax.modelbridge.registry import _decode_callables_from_references, ModelRegistryBase
-from ax.modelbridge.transition_criterion import (
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
     AuxiliaryExperimentCheck,
     TransitionCriterion,
     TrialBasedCriterion,
 )
+from ax.modelbridge.registry import _decode_callables_from_references, ModelRegistryBase
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoders import (

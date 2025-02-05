@@ -47,9 +47,12 @@ from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
-from ax.modelbridge.external_generation_node import ExternalGenerationNode
-from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
-from ax.modelbridge.model_spec import GeneratorSpec
+from ax.generation_strategy.external_generation_node import ExternalGenerationNode
+from ax.generation_strategy.generation_strategy import (
+    GenerationNode,
+    GenerationStrategy,
+)
+from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.modelbridge.registry import Generators
 from ax.service.utils.scheduler_options import TrialType
 from ax.storage.json_store.load import load_experiment

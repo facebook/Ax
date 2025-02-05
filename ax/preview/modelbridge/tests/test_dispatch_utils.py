@@ -8,8 +8,8 @@
 import torch
 from ax.core.base_trial import TrialStatus
 from ax.core.trial import Trial
+from ax.generation_strategy.transition_criterion import MinTrials
 from ax.modelbridge.registry import Generators
-from ax.modelbridge.transition_criterion import MinTrials
 from ax.models.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.preview.api.configs import GenerationMethod, GenerationStrategyConfig
 from ax.preview.modelbridge.dispatch_utils import choose_generation_strategy

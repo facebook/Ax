@@ -184,7 +184,7 @@ best_parameters = best_arm.parameters
 ```py
 
 from ax import *
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service import Scheduler
 
 # Full `Experiment` and `GenerationStrategy` instantiation

@@ -33,8 +33,8 @@ from ax.core.runner import Runner
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.runners.synthetic import SyntheticRunner

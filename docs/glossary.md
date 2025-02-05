@@ -29,7 +29,7 @@ Object that keeps track of the whole optimization process. Contains a [search sp
 
 ### Generation strategy
 
-Abstraction that allows to declaratively specify one or multiple models to use in the course of the optimization and automate transition between them (relevant [tutorial](/docs/tutorials/scheduler)). [`[GenerationStrategy]`](https://ax.readthedocs.io/en/latest/modelbridge.html#module-ax.modelbridge.generation_strategy)
+Abstraction that allows to declaratively specify one or multiple models to use in the course of the optimization and automate transition between them (relevant [tutorial](/docs/tutorials/scheduler)). [`[GenerationStrategy]`](https://ax.readthedocs.io/en/latest/modelbridge.html#module-ax.generation_strategy.generation_strategy)
 
 ### Generator run
 

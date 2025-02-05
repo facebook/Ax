@@ -22,8 +22,8 @@ from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import none_throws
 

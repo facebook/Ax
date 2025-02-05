@@ -56,10 +56,10 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import constraint_satisfaction
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.prediction_utils import predict_by_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour

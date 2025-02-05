@@ -34,7 +34,7 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
 )
 from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.preview.api.configs import (
     ExperimentConfig,
     GenerationStrategyConfig,

@@ -67,30 +67,18 @@ from ax.early_stopping.strategies.logical import (
     AndEarlyStoppingStrategy,
     OrEarlyStoppingStrategy,
 )
-from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.metrics.branin import BraninMetric, NegativeBraninMetric
-from ax.metrics.branin_map import BraninTimestampMapMetric
-from ax.metrics.chemistry import ChemistryMetric, ChemistryProblemType
-from ax.metrics.factorial import FactorialMetric
-from ax.metrics.hartmann6 import Hartmann6Metric
-from ax.metrics.l2norm import L2NormMetric
-from ax.metrics.noisy_function import NoisyFunctionMetric
-from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
-from ax.modelbridge.best_model_selector import (
+from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
-from ax.modelbridge.factory import Generators
-from ax.modelbridge.generation_node import GenerationNode, GenerationStep
-from ax.modelbridge.generation_node_input_constructors import (
+from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
+from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import GeneratorSpec
-from ax.modelbridge.registry import ModelRegistryBase
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transition_criterion import (
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
     IsSingleObjective,
@@ -101,6 +89,18 @@ from ax.modelbridge.transition_criterion import (
     MinTrials,
     TransitionCriterion,
 )
+from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
+from ax.metrics.branin import BraninMetric, NegativeBraninMetric
+from ax.metrics.branin_map import BraninTimestampMapMetric
+from ax.metrics.chemistry import ChemistryMetric, ChemistryProblemType
+from ax.metrics.factorial import FactorialMetric
+from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.metrics.l2norm import L2NormMetric
+from ax.metrics.noisy_function import NoisyFunctionMetric
+from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
+from ax.modelbridge.factory import Generators
+from ax.modelbridge.registry import ModelRegistryBase
+from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec

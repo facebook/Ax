@@ -23,8 +23,8 @@ from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.derelativize import Derelativize
 from pyre_extensions import assert_is_instance, none_throws
 

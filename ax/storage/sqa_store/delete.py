@@ -8,7 +8,7 @@
 from logging import Logger
 
 from ax.core.experiment import Experiment
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.sqa_classes import SQAExperiment
