@@ -85,10 +85,10 @@ class TestBestModelSelector(TestCase):
         for ms in self.model_specs:
             ms._fitted_model = Mock()
         with patch(
-            "ax.modelbridge.model_spec.cross_validate",
+            "ax.generation_strategy.model_spec.cross_validate",
             return_value=Mock(),
         ) as mock_cv, patch(
-            "ax.modelbridge.model_spec.compute_diagnostics",
+            "ax.generation_strategy.model_spec.compute_diagnostics",
             side_effect=self.diagnostics,
         ):
             # Max/mean picks index 2 since it has the largest mean (0.55 vs 0.1 & 0.2).
