@@ -188,7 +188,13 @@ class Encoder:
             aux_exps,
         ) in experiment.auxiliary_experiments_by_purpose.items():
             aux_exp_type = aux_exp_type_enum.value
-            aux_exp_jsons = [aux_exp.experiment.name for aux_exp in aux_exps]
+            aux_exp_jsons = [
+                {
+                    "__type": aux_exp.__class__.__name__,
+                    "experiment_name": aux_exp.experiment.name,
+                }
+                for aux_exp in aux_exps
+            ]
             auxiliary_experiments_by_purpose[aux_exp_type] = aux_exp_jsons
 
         properties = experiment._properties
