@@ -22,8 +22,8 @@ from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Generators
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.utils.common.logger import get_logger

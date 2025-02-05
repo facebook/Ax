@@ -16,7 +16,10 @@ from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
 from ax.modelbridge.registry import (
     Generators,
     MODEL_KEY_TO_MODEL_SETUP,

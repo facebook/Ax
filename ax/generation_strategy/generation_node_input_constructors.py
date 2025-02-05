@@ -14,7 +14,7 @@ from ax.core.experiment import Experiment
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.generation_strategy import AxGenerationException
 
-from ax.modelbridge.generation_node import GenerationNode
+from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.constants import Keys
 from ax.utils.common.func_enum import FuncEnum
 

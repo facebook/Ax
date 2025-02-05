@@ -14,8 +14,8 @@ from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
-from ax.modelbridge.external_generation_node import ExternalGenerationNode
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.external_generation_node import ExternalGenerationNode
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.random import RandomAdapter
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (

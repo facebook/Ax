@@ -48,8 +48,8 @@ from ax.exceptions.generation_strategy import (
     MaxParallelismReachedException,
     OptimizationConfigRequired,
 )
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin

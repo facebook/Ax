@@ -17,7 +17,7 @@ from typing import Any, Union
 import numpy as np
 import numpy.typing as npt
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.model_spec import GeneratorSpec
+from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.utils.common.base import Base
 from pyre_extensions import none_throws
 

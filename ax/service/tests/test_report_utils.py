@@ -22,8 +22,8 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
-from ax.modelbridge.generation_node import GenerationStep
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_node import GenerationStep
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Generators
 from ax.service.scheduler import Scheduler
 from ax.service.utils.report_utils import (

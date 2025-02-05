@@ -13,9 +13,6 @@ from collections.abc import Callable, Sequence
 from logging import Logger
 from typing import Any
 
-# Module-level import to avoid circular dependency b/w this file and
-# generation_strategy.py
-from ax import modelbridge
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
@@ -26,18 +23,28 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.best_model_selector import BestModelSelector
 
-from ax.modelbridge.model_spec import FactoryFunctionGeneratorSpec, GeneratorSpec
-from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
-from ax.modelbridge.transition_criterion import (
+# Module-level import to avoid circular dependency b/w this file and
+# generation_strategy.py
+from ax.generation_strategy import (
+    generation_node_input_constructors,
+    generation_strategy as gs,
+)
+from ax.generation_strategy.best_model_selector import BestModelSelector
+
+from ax.generation_strategy.model_spec import (
+    FactoryFunctionGeneratorSpec,
+    GeneratorSpec,
+)
+from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     MaxGenerationParallelism,
     MinTrials,
     TransitionCriterion,
     TrialBasedCriterion,
 )
+from ax.modelbridge.base import Adapter
+from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -60,6 +67,9 @@ MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
     "generate a unique parameterization. This indicates that the search space has "
     "likely been fully explored, or that the sweep has converged."
 )
+
+InputConstructorPurpose = generation_node_input_constructors.InputConstructorPurpose
+NodeInputConstructors = generation_node_input_constructors.NodeInputConstructors
 
 
 class GenerationNode(SerializationMixin, SortableBase):
@@ -116,8 +126,8 @@ class GenerationNode(SerializationMixin, SortableBase):
     # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
     _transition_criteria: Sequence[TransitionCriterion]
     _input_constructors: dict[
-        modelbridge.generation_node_input_constructors.InputConstructorPurpose,
-        modelbridge.generation_node_input_constructors.NodeInputConstructors,
+        InputConstructorPurpose,
+        NodeInputConstructors,
     ]
     _previous_node_name: str | None = None
     _trial_type: str | None = None
@@ -125,9 +135,7 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
-    _generation_strategy: None | (
-        modelbridge.generation_strategy.GenerationStrategy
-    ) = None
+    _generation_strategy: None | (gs.GenerationStrategy) = None
 
     def __init__(
         self,
@@ -139,8 +147,8 @@ class GenerationNode(SerializationMixin, SortableBase):
         input_constructors: None
         | (
             dict[
-                modelbridge.generation_node_input_constructors.InputConstructorPurpose,
-                modelbridge.generation_node_input_constructors.NodeInputConstructors,
+                InputConstructorPurpose,
+                NodeInputConstructors,
             ]
         ) = None,
         previous_node_name: str | None = None,
@@ -203,7 +211,9 @@ class GenerationNode(SerializationMixin, SortableBase):
             return None
 
     @property
-    def generation_strategy(self) -> modelbridge.generation_strategy.GenerationStrategy:
+    def generation_strategy(
+        self,
+    ) -> gs.GenerationStrategy:
         """Returns a backpointer to the GenerationStrategy, useful for obtaining the
         experiment associated with this GenerationStrategy"""
         # TODO: @mgarrard remove this property once we make experiment a required
@@ -225,8 +235,8 @@ class GenerationNode(SerializationMixin, SortableBase):
     def input_constructors(
         self,
     ) -> dict[
-        modelbridge.generation_node_input_constructors.InputConstructorPurpose,
-        modelbridge.generation_node_input_constructors.NodeInputConstructors,
+        InputConstructorPurpose,
+        NodeInputConstructors,
     ]:
         """Returns the input constructors that will be used to determine any dynamic
         inputs to this ``GenerationNode``.
@@ -830,7 +840,7 @@ class GenerationStep(GenerationNode, SortableBase):
         # Create transition criteria for this step. If num_trials is provided to
         # this `GenerationStep`, then we create a `MinTrials` criterion which ensures
         # at least that many trials in good status are generated. `MinTrials` can also
-        # enforce the min_trials_observed requirement. The `transition_to` arguement
+        # enforce the min_trials_observed requirement. The `transition_to` argument
         # is set in `GenerationStrategy` constructor, because only then is the order
         # of the generation steps actually known.
         transition_criteria = []

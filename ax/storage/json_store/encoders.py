@@ -43,14 +43,20 @@ from ax.early_stopping.strategies import (
 )
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONEncodeError, STORAGE_DOCS_SUFFIX
+from ax.generation_strategy.best_model_selector import BestModelSelector
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.generation_strategy.model_spec import (
+    FactoryFunctionGeneratorSpec,
+    GeneratorSpec,
+)
+from ax.generation_strategy.transition_criterion import TransitionCriterion
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.modelbridge.best_model_selector import BestModelSelector
-from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.model_spec import FactoryFunctionGeneratorSpec, GeneratorSpec
 from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transition_criterion import TransitionCriterion
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig

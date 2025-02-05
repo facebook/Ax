@@ -35,12 +35,12 @@ from ax.core.parameter import Parameter
 from ax.core.trial import BaseTrial
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge import Adapter
 from ax.modelbridge.cross_validation import (
     compute_model_fit_metrics_from_modelbridge,
     cross_validate,
 )
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.random import RandomAdapter
 from ax.modelbridge.torch import TorchAdapter
 from ax.plot.contour import interact_contour_plotly

@@ -38,8 +38,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import TParameterization, TParamValue
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
-from ax.modelbridge.external_generation_node import ExternalGenerationNode
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.external_generation_node import ExternalGenerationNode
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.torch import TorchAdapter
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate

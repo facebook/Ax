@@ -28,11 +28,13 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
 )
+from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
+from ax.generation_strategy.generation_node_input_constructors import (
+    InputConstructorPurpose,
+)
+from ax.generation_strategy.model_spec import FactoryFunctionGeneratorSpec
+from ax.generation_strategy.transition_criterion import TrialBasedCriterion
 from ax.modelbridge.base import Adapter
-from ax.modelbridge.generation_node import GenerationNode, GenerationStep
-from ax.modelbridge.generation_node_input_constructors import InputConstructorPurpose
-from ax.modelbridge.model_spec import FactoryFunctionGeneratorSpec
-from ax.modelbridge.transition_criterion import TrialBasedCriterion
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import none_throws

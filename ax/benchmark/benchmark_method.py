@@ -15,7 +15,7 @@ from ax.core.optimization_config import (
 from ax.core.types import TParameterization
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.base import Base
 from pyre_extensions import none_throws

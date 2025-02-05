@@ -47,7 +47,7 @@ from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (

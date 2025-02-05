@@ -14,7 +14,7 @@ import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UnsupportedError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws
 from torch import Tensor
 

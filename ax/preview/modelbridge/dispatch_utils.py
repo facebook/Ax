@@ -9,10 +9,13 @@
 import torch
 from ax.core.base_trial import TrialStatus
 from ax.exceptions.core import UnsupportedError
-from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
-from ax.modelbridge.model_spec import GeneratorSpec
+from ax.generation_strategy.generation_strategy import (
+    GenerationNode,
+    GenerationStrategy,
+)
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import MinTrials
 from ax.modelbridge.registry import Generators
-from ax.modelbridge.transition_criterion import MinTrials
 from ax.models.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.preview.api.configs import GenerationMethod, GenerationStrategyConfig
 from botorch.models.transforms.input import Normalize, Warp

@@ -8,8 +8,11 @@
 
 import numpy as np
 import torch
-from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
-from ax.modelbridge.model_spec import GeneratorSpec
+from ax.generation_strategy.generation_strategy import (
+    GenerationNode,
+    GenerationStrategy,
+)
+from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations

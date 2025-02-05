@@ -13,7 +13,7 @@ from typing import Any
 import torch
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.modelbridge.dispatch_utils import (
+from ax.generation_strategy.dispatch_utils import (
     _make_botorch_step,
     calculate_num_initialization_trials,
     choose_generation_strategy,

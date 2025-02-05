@@ -13,33 +13,33 @@ Generation Strategy, Registry, and Factory
 
 Generation Strategy
 ~~~~~~~~~~~~~~~~~~~
-.. automodule:: ax.modelbridge.generation_strategy
+.. automodule:: ax.generation_strategy.generation_strategy
     :members:
     :undoc-members:
     :show-inheritance:
 
 Generation Node
 ~~~~~~~~~~~~~~~
-.. automodule:: ax.modelbridge.generation_node
+.. automodule:: ax.generation_strategy.generation_node
     :members:
     :undoc-members:
     :show-inheritance:
 
 External Generation Node
 ~~~~~~~~~~~~~~~
-.. automodule:: ax.modelbridge.external_generation_node
+.. automodule:: ax.generation_strategy.external_generation_node
     :members:
     :undoc-members:
     :show-inheritance:
 
 Transition Criterion
-.. automodule:: ax.modelbridge.transition_criterion
+.. automodule:: ax.generation_strategy.transition_criterion
     :members:
     :undoc-members:
     :show-inheritance:
 
 Generation Node Input Constructors
-.. automodule:: ax.modelbridge.generation_node_input_constructors
+.. automodule:: ax.generation_strategy.generation_node_input_constructors
     :members:
     :undoc-members:
     :show-inheritance:
@@ -60,7 +60,7 @@ Factory
 
 GeneratorSpec
 ~~~~~~~~~
-.. automodule:: ax.modelbridge.model_spec
+.. automodule:: ax.generation_strategy.model_spec
     :members:
     :undoc-members:
     :show-inheritance:
@@ -143,7 +143,7 @@ Cross Validation
 
 Model Selection
 ~~~~~~~~~~~~~~~~
-.. automodule:: ax.modelbridge.best_model_selector
+.. automodule:: ax.generation_strategy.best_model_selector
     :members:
     :undoc-members:
     :show-inheritance:
@@ -151,7 +151,7 @@ Model Selection
 Dispatch Utilities
 ~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.modelbridge.dispatch_utils
+.. automodule:: ax.generation_strategy.dispatch_utils
     :members:
     :undoc-members:
     :show-inheritance:

@@ -21,8 +21,8 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
-from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.transition_criterion import TransitionCriterion
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.transition_criterion import TransitionCriterion
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)

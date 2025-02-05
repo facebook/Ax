@@ -17,33 +17,36 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.best_model_selector import (
+from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
-from ax.modelbridge.cross_validation import FISHER_EXACT_TEST_P
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.generation_node import GenerationNode
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.generation_node import GenerationNode
 
-from ax.modelbridge.generation_node_input_constructors import (
+from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.model_spec import GeneratorSpec
-from ax.modelbridge.registry import Generators
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.int_to_float import IntToFloat
-from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
-from ax.modelbridge.transition_criterion import (
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     IsSingleObjective,
     MaxGenerationParallelism,
     MinimumPreferenceOccurances,
     MinTrials,
 )
+from ax.modelbridge.base import Adapter
+from ax.modelbridge.cross_validation import FISHER_EXACT_TEST_P
+from ax.modelbridge.factory import get_sobol
+from ax.modelbridge.registry import Generators
+from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger

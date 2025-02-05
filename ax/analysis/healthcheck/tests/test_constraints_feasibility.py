@@ -23,10 +23,10 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import GeneratorSpec
 from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
