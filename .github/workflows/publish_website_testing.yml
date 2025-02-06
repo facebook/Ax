@@ -45,3 +45,8 @@ jobs:
       with:
         name: tutorials
         path: docs/tutorials/
+    - name: Upload website as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: website
+        path: website/
