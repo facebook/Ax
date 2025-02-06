@@ -28,26 +28,27 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
+# type hints are stored as str when using from __future__ import annotations
 EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS = [
     inspect.Parameter(
         name="previous_node",
         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        annotation=GenerationNode | None,
+        annotation="GenerationNode | None",
     ),
     inspect.Parameter(
         name="next_node",
         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        annotation=GenerationNode,
+        annotation="GenerationNode",
     ),
     inspect.Parameter(
         name="gs_gen_call_kwargs",
         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        annotation=dict[str, Any],
+        annotation="dict[str, Any]",
     ),
     inspect.Parameter(
         name="experiment",
         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        annotation=Experiment,
+        annotation="Experiment",
     ),
 ]
 
@@ -80,18 +81,19 @@ class TestGenerationNodeInputConstructors(TestCase):
             for p in InputConstructorPurpose
         }
 
+        # type hints are stored as str when using from __future__ import annotations
         self.all_purposes_expected_signatures = {
             InputConstructorPurpose.N: inspect.Signature(
                 parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
-                return_annotation=int,
+                return_annotation="int",
             ),
             InputConstructorPurpose.FIXED_FEATURES: inspect.Signature(
                 parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
-                return_annotation=ObservationFeatures | None,
+                return_annotation="ObservationFeatures | None",
             ),
             InputConstructorPurpose.STATUS_QUO_FEATURES: inspect.Signature(
                 parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
-                return_annotation=ObservationFeatures | None,
+                return_annotation="ObservationFeatures | None",
             ),
         }
 

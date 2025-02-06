@@ -78,7 +78,7 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
 
     @mock_botorch_optimize
     @patch(
-        "ax.modelbridge.generation_node._extract_model_state_after_gen",
+        "ax.generation_strategy.generation_node._extract_model_state_after_gen",
         wraps=_extract_model_state_after_gen,
     )
     def test_with_model_selection(self, mock_model_state: Mock) -> None:
@@ -806,7 +806,9 @@ class TestGenerationStrategy(TestCase):
 
         with self.assertRaisesRegex(
             GenerationStrategyRepeatedPoints, "exceeded `MAX_GEN_DRAWS`"
-        ), mock.patch("ax.modelbridge.generation_node.logger.info") as mock_logger:
+        ), mock.patch(
+            "ax.generation_strategy.generation_node.logger.info"
+        ) as mock_logger:
             g = sobol.gen(exp)
         self.assertEqual(mock_logger.call_count, 5)
         self.assertIn(
