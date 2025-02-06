@@ -43,7 +43,7 @@ const tutorials = () => {
 
 export default {
   docs: {
-    "Introduction": ["why-ax"],
+    "Introduction": ["why-ax", "intro-to-ae"],
   },
   tutorials: tutorials(),
 };
