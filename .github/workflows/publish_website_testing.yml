@@ -35,7 +35,6 @@ jobs:
       run: |
         python scripts/run_tutorials.py -w $(pwd)
     - name: Build website
-      continue-on-error: true
       run: |
         bash scripts/make_docs.sh -b
     - name: Setup tmate session

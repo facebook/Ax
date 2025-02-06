@@ -30,16 +30,6 @@ module.exports={
   },
   "onBrokenLinks": "throw",
   "onBrokenMarkdownLinks": "warn",
-  future: {
-    experimental_faster: {
-      swcJsLoader: false,
-      swcJsMinimizer: true,
-      swcHtmlMinimizer: true,
-      lightningCssMinimizer: true,
-      rspackBundler: true,
-      mdxCrossCompilerCache: true,
-    },
-  },
   "presets": [
     [
       "@docusaurus/preset-classic",
