@@ -44,9 +44,6 @@ const tutorials = () => {
 export default {
   docs: {
     "Introduction": ["why-ax"],
-    "Getting Started": ["installation", "api", "glossary"],
-    "Algorithms": ["bayesopt", "banditopt"],
-    "Components": ["core", "trial-evaluation", "data", "models", "storage"],
   },
   tutorials: tutorials(),
 };
