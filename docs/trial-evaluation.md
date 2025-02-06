@@ -114,14 +114,14 @@ and `mark_complete` methods.
 
 ```python
 ...
-sobol = Models.SOBOL(exp.search_space)
+sobol = Generators.SOBOL(exp.search_space)
 for i in range(5):
     trial = exp.new_trial(generator_run=sobol.gen(1))
     trial.run()
     trial.mark_completed()
 
 for i in range(15):
-    gpei = Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
+    gpei = Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
     generator_run = gpei.gen(1)
     trial = exp.new_trial(generator_run=generator_run)
     trial.run()

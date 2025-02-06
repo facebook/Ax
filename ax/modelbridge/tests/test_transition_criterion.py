@@ -20,8 +20,8 @@ from ax.modelbridge.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import Models
+from ax.modelbridge.model_spec import GeneratorSpec
+from ax.modelbridge.registry import Generators
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
@@ -51,8 +51,8 @@ class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
 class TestTransitionCriterion(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.sobol_model_spec = ModelSpec(
-            model_enum=Models.SOBOL,
+        self.sobol_model_spec = GeneratorSpec(
+            model_enum=Generators.SOBOL,
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
@@ -66,12 +66,12 @@ class TestTransitionCriterion(TestCase):
             name="SOBOL::default",
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=-1,
                     completion_criteria=[criterion],
                 ),
                 GenerationStep(
-                    model=Models.BOTORCH_MODULAR,
+                    model=Generators.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -106,7 +106,7 @@ class TestTransitionCriterion(TestCase):
             )
             self.assertEqual(
                 generation_strategy._curr.model_spec_to_gen_from.model_enum,
-                Models.BOTORCH_MODULAR,
+                Generators.BOTORCH_MODULAR,
             )
 
     def test_aux_experiment_check(self) -> None:
@@ -197,18 +197,18 @@ class TestTransitionCriterion(TestCase):
             name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=3,
                 ),
                 GenerationStep(
-                    model=Models.BOTORCH_MODULAR,
+                    model=Generators.BOTORCH_MODULAR,
                     num_trials=4,
                     max_parallelism=1,
                     min_trials_observed=2,
                     enforce_num_trials=False,
                 ),
                 GenerationStep(
-                    model=Models.BOTORCH_MODULAR,
+                    model=Generators.BOTORCH_MODULAR,
                     num_trials=-1,
                 ),
             ],
@@ -262,13 +262,13 @@ class TestTransitionCriterion(TestCase):
             name="SOBOL::default",
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=4,
                     min_trials_observed=2,
                     enforce_num_trials=True,
                 ),
                 GenerationStep(
-                    Models.SOBOL,
+                    Generators.SOBOL,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -426,19 +426,19 @@ class TestTransitionCriterion(TestCase):
             name="SOBOL::default",
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=4,
                     min_trials_observed=0,
                     enforce_num_trials=True,
                 ),
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=4,
                     min_trials_observed=0,
                     enforce_num_trials=False,
                 ),
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -513,7 +513,7 @@ class TestTransitionCriterion(TestCase):
             name="SOBOL::default",
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=4,
                     min_trials_observed=2,
                     enforce_num_trials=True,

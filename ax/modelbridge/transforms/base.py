@@ -34,7 +34,7 @@ class Transform:
 
     Transforms are used to adapt the search space and data into the types
     and structures expected by the model. When Transforms are used (for
-    instance, in ModelBridge), it is always assumed that they may potentially
+    instance, in Adapter), it is always assumed that they may potentially
     mutate the transformed object in-place.
 
     Forward transforms are defined for all four of those quantities. Reverse
@@ -53,13 +53,13 @@ class Transform:
     """
 
     config: TConfig
-    modelbridge: modelbridge_module.base.ModelBridge | None
+    modelbridge: modelbridge_module.base.Adapter | None
 
     def __init__(
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         """Do any initial computations for preparing the transform.
@@ -69,7 +69,7 @@ class Transform:
         Args:
             search_space: The search space
             observations: Observations
-            modelbridge: ModelBridge for referencing experiment, status quo, etc...
+            modelbridge: Adapter for referencing experiment, status quo, etc...
             config: A dictionary of options specific to each transform
         """
         if config is None:
@@ -109,7 +109,7 @@ class Transform:
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         """Transform optimization config.

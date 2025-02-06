@@ -8,7 +8,7 @@
 import torch
 from ax.core.base_trial import TrialStatus
 from ax.core.trial import Trial
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.modelbridge.transition_criterion import MinTrials
 from ax.models.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.preview.api.configs import GenerationMethod, GenerationStrategyConfig
@@ -35,7 +35,7 @@ class TestDispatchUtils(TestCase):
         sobol_node = gs._nodes[0]
         self.assertEqual(len(sobol_node.model_specs), 1)
         sobol_spec = sobol_node.model_specs[0]
-        self.assertEqual(sobol_spec.model_enum, Models.SOBOL)
+        self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
         self.assertEqual(sobol_spec.model_kwargs, {"seed": None})
         self.assertEqual(sobol_node._transition_criteria, [])
         # Make sure it generates.
@@ -59,7 +59,7 @@ class TestDispatchUtils(TestCase):
         self.assertTrue(sobol_node.should_deduplicate)
         self.assertEqual(len(sobol_node.model_specs), 1)
         sobol_spec = sobol_node.model_specs[0]
-        self.assertEqual(sobol_spec.model_enum, Models.SOBOL)
+        self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
         self.assertEqual(sobol_spec.model_kwargs, {"seed": 0})
         expected_tc = [
             MinTrials(
@@ -85,7 +85,7 @@ class TestDispatchUtils(TestCase):
         self.assertTrue(mbm_node.should_deduplicate)
         self.assertEqual(len(mbm_node.model_specs), 1)
         mbm_spec = mbm_node.model_specs[0]
-        self.assertEqual(mbm_spec.model_enum, Models.BOTORCH_MODULAR)
+        self.assertEqual(mbm_spec.model_enum, Generators.BOTORCH_MODULAR)
         expected_ss = SurrogateSpec(model_configs=[ModelConfig(name="MBM defaults")])
         self.assertEqual(
             mbm_spec.model_kwargs,
@@ -122,7 +122,7 @@ class TestDispatchUtils(TestCase):
         self.assertTrue(sobol_node.should_deduplicate)
         self.assertEqual(len(sobol_node.model_specs), 1)
         sobol_spec = sobol_node.model_specs[0]
-        self.assertEqual(sobol_spec.model_enum, Models.SOBOL)
+        self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
         self.assertEqual(sobol_spec.model_kwargs, {"seed": None})
         expected_tc = [
             MinTrials(
@@ -148,7 +148,7 @@ class TestDispatchUtils(TestCase):
         self.assertTrue(mbm_node.should_deduplicate)
         self.assertEqual(len(mbm_node.model_specs), 1)
         mbm_spec = mbm_node.model_specs[0]
-        self.assertEqual(mbm_spec.model_enum, Models.BOTORCH_MODULAR)
+        self.assertEqual(mbm_spec.model_enum, Generators.BOTORCH_MODULAR)
         expected_ss = SurrogateSpec(
             model_configs=[
                 ModelConfig(name="MBM defaults"),

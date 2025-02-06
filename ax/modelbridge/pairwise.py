@@ -13,7 +13,7 @@ import torch
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.torch import TorchAdapter
 from ax.utils.common.constants import Keys
 from botorch.models.utils.assorted import consolidate_duplicates
 from botorch.utils.containers import DenseContainer, SliceContainer
@@ -21,7 +21,7 @@ from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from torch import Tensor
 
 
-class PairwiseModelBridge(TorchModelBridge):
+class PairwiseAdapter(TorchAdapter):
     def _convert_observations(
         self,
         observation_data: list[ObservationData],

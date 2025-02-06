@@ -33,7 +33,7 @@ from ax.modelbridge.modelbridge_utils import (
     validate_and_apply_final_transform,
 )
 from ax.modelbridge.registry import ModelRegistryBase
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.models.torch.botorch_moo_defaults import (
     get_outcome_constraint_transforms,
@@ -273,8 +273,8 @@ class BestPointMixin(metaclass=ABCMeta):
         # calculation of best parameters.
         if use_model_predictions:
             current_model = generation_strategy._curr.model_spec_to_gen_from.model_enum
-            # Cover for the case where source of `self._curr.model` was not a `Models`
-            # enum but a factory function, in which case we cannot do
+            # Cover for the case where source of `self._curr.model` was not a
+            # `Generators` enum but a factory function, in which case we cannot do
             # `get_model_from_generator_run` (since we don't have model type and inputs
             # recorded on the generator run.
             models_enum = (
@@ -391,9 +391,9 @@ class BestPointMixin(metaclass=ABCMeta):
             # this should be a no-op.
             generation_strategy._fit_current_model(data=None)
             model = generation_strategy.model
-            if not isinstance(model, TorchModelBridge):
+            if not isinstance(model, TorchAdapter):
                 raise ValueError(
-                    f"Model {model} is not of type TorchModelBridge, cannot "
+                    f"Model {model} is not of type TorchAdapter, cannot "
                     "calculate predicted hypervolume."
                 )
             return predicted_hypervolume(

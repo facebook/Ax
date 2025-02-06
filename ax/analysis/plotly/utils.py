@@ -11,7 +11,7 @@ from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from numpy.typing import NDArray
 
@@ -126,7 +126,7 @@ def format_constraint_violated_probabilities(
     return constraints_violated_str
 
 
-def is_predictive(model: ModelBridge) -> bool:
+def is_predictive(model: Adapter) -> bool:
     """Check if a model is predictive.  Basically, we're checking if
     predict() is implemented.
 

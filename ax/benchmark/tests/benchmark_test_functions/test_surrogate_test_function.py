@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import torch
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.torch import TorchAdapter
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import get_soo_surrogate_test_function
 
@@ -38,8 +38,8 @@ class TestSurrogateTestFunction(TestCase):
         self.assertIsNone(test_function._surrogate)
 
         # Accessing `surrogate` sets datasets and surrogate
-        self.assertIsInstance(test_function.surrogate, TorchModelBridge)
-        self.assertIsInstance(test_function._surrogate, TorchModelBridge)
+        self.assertIsInstance(test_function.surrogate, TorchAdapter)
+        self.assertIsInstance(test_function._surrogate, TorchAdapter)
 
         with patch.object(
             test_function,

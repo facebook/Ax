@@ -13,8 +13,8 @@ from ax.modelbridge.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import Models
+from ax.modelbridge.model_spec import GeneratorSpec
+from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 
 
@@ -30,7 +30,7 @@ class TestBestModelSelector(TestCase):
             {"Fisher exact test p": {"y_a": 0.5, "y_b": 0.6}},
         ]
         for diagnostics in self.diagnostics:
-            ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
+            ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
             ms._cv_results = Mock()
             ms._diagnostics = diagnostics
             ms._last_cv_kwargs = {}
@@ -85,10 +85,10 @@ class TestBestModelSelector(TestCase):
         for ms in self.model_specs:
             ms._fitted_model = Mock()
         with patch(
-            "ax.modelbridge.model_spec.cross_validate",
+            "ax.generation_strategy.model_spec.cross_validate",
             return_value=Mock(),
         ) as mock_cv, patch(
-            "ax.modelbridge.model_spec.compute_diagnostics",
+            "ax.generation_strategy.model_spec.compute_diagnostics",
             side_effect=self.diagnostics,
         ):
             # Max/mean picks index 2 since it has the largest mean (0.55 vs 0.1 & 0.2).

@@ -11,7 +11,7 @@ import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.modelbridge.transition_criterion import MinimumPreferenceOccurances, MinTrials
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment
@@ -34,10 +34,12 @@ class TestAEPsychCriterion(TestCase):
             name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL, num_trials=-1, completion_criteria=[criterion]
+                    model=Generators.SOBOL,
+                    num_trials=-1,
+                    completion_criteria=[criterion],
                 ),
                 GenerationStep(
-                    model=Models.BOTORCH_MODULAR,
+                    model=Generators.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -78,7 +80,7 @@ class TestAEPsychCriterion(TestCase):
 
             self.assertEqual(
                 generation_strategy._curr.model_spec_to_gen_from.model_enum,
-                Models.BOTORCH_MODULAR,
+                Generators.BOTORCH_MODULAR,
             )
 
     def test_many_criteria(self) -> None:
@@ -93,10 +95,10 @@ class TestAEPsychCriterion(TestCase):
             name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL, num_trials=-1, completion_criteria=criteria
+                    model=Generators.SOBOL, num_trials=-1, completion_criteria=criteria
                 ),
                 GenerationStep(
-                    model=Models.BOTORCH_MODULAR,
+                    model=Generators.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -155,5 +157,5 @@ class TestAEPsychCriterion(TestCase):
 
             self.assertEqual(
                 generation_strategy._curr.model_spec_to_gen_from.model_enum,
-                Models.BOTORCH_MODULAR,
+                Generators.BOTORCH_MODULAR,
             )

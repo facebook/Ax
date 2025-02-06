@@ -10,24 +10,25 @@ from collections import OrderedDict
 
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.modelbridge.discrete import DiscreteModelBridge
-from ax.modelbridge.random import RandomModelBridge
+from ax.modelbridge.discrete import DiscreteAdapter
+from ax.modelbridge.random import RandomAdapter
 from ax.modelbridge.registry import (
     _extract_model_state_after_gen,
     Cont_X_trans,
+    Generators,
     get_model_from_generator_run,
     MODEL_KEY_TO_MODEL_SETUP,
     Models,
     Y_trans,
 )
-from ax.modelbridge.torch import TorchModelBridge
-from ax.models.base import Model
+from ax.modelbridge.torch import TorchAdapter
+from ax.models.base import Generator
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
@@ -62,7 +63,7 @@ class ModelRegistryTest(TestCase):
     def test_botorch_modular(self) -> None:
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
-        gpei = Models.BOTORCH_MODULAR(
+        gpei = Generators.BOTORCH_MODULAR(
             # Model kwargs
             acquisition_class=Acquisition,
             botorch_acqf_class=qExpectedImprovement,
@@ -71,8 +72,8 @@ class ModelRegistryTest(TestCase):
             experiment=exp,
             data=exp.fetch_data(),
         )
-        self.assertIsInstance(gpei, TorchModelBridge)
-        self.assertIsInstance(gpei.model, BoTorchModel)
+        self.assertIsInstance(gpei, TorchAdapter)
+        self.assertIsInstance(gpei.model, BoTorchGenerator)
         self.assertEqual(gpei.model.botorch_acqf_class, qExpectedImprovement)
         self.assertEqual(gpei.model.acquisition_class, Acquisition)
         self.assertEqual(gpei.model.acquisition_options, {"best_f": 0.0})
@@ -86,16 +87,16 @@ class ModelRegistryTest(TestCase):
     @mock_botorch_optimize
     def test_SAASBO(self) -> None:
         exp = get_branin_experiment()
-        sobol = Models.SOBOL(search_space=exp.search_space)
-        self.assertIsInstance(sobol, RandomModelBridge)
+        sobol = Generators.SOBOL(search_space=exp.search_space)
+        self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
             sobol_run = sobol.gen(n=1)
             self.assertEqual(sobol_run._model_key, "Sobol")
             exp.new_batch_trial().add_generator_run(sobol_run).run()
-        saasbo = Models.SAASBO(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(saasbo, TorchModelBridge)
+        saasbo = Generators.SAASBO(experiment=exp, data=exp.fetch_data())
+        self.assertIsInstance(saasbo, TorchAdapter)
         self.assertEqual(saasbo._model_key, "SAASBO")
-        self.assertIsInstance(saasbo.model, BoTorchModel)
+        self.assertIsInstance(saasbo.model, BoTorchGenerator)
         surrogate_spec = saasbo.model.surrogate_spec
         self.assertEqual(
             surrogate_spec,
@@ -108,19 +109,19 @@ class ModelRegistryTest(TestCase):
 
     @mock_botorch_optimize
     def test_enum_sobol_legacy_GPEI(self) -> None:
-        """Tests Sobol and Legacy GPEI instantiation through the Models enum."""
+        """Tests Sobol and Legacy GPEI instantiation through the Generators enum."""
         exp = get_branin_experiment()
         # Check that factory generates a valid sobol modelbridge.
-        sobol = Models.SOBOL(search_space=exp.search_space)
-        self.assertIsInstance(sobol, RandomModelBridge)
+        sobol = Generators.SOBOL(search_space=exp.search_space)
+        self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
             sobol_run = sobol.gen(n=1)
             self.assertEqual(sobol_run._model_key, "Sobol")
             exp.new_batch_trial().add_generator_run(sobol_run).run()
         # Check that factory generates a valid GP+EI modelbridge.
         exp.optimization_config = get_branin_optimization_config()
-        gpei = Models.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(gpei, TorchModelBridge)
+        gpei = Generators.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
+        self.assertIsInstance(gpei, TorchAdapter)
         self.assertEqual(gpei._model_key, "Legacy_GPEI")
         botorch_defaults = "ax.models.torch.botorch_defaults"
         # Check that the callable kwargs and the torch kwargs were recorded.
@@ -173,13 +174,13 @@ class ModelRegistryTest(TestCase):
             },
         )
         prior_kwargs = {"lengthscale_prior": GammaPrior(6.0, 6.0)}
-        gpei = Models.LEGACY_BOTORCH(
+        gpei = Generators.LEGACY_BOTORCH(
             experiment=exp,
             data=exp.fetch_data(),
             search_space=exp.search_space,
             prior=prior_kwargs,
         )
-        self.assertIsInstance(gpei, TorchModelBridge)
+        self.assertIsInstance(gpei, TorchAdapter)
         self.assertEqual(
             gpei._model_kwargs["prior"],  # pyre-ignore
             prior_kwargs,
@@ -187,56 +188,56 @@ class ModelRegistryTest(TestCase):
 
     def test_enum_model_kwargs(self) -> None:
         """Tests that kwargs are passed correctly when instantiating through the
-        Models enum."""
+        Generators enum."""
         exp = get_branin_experiment()
-        sobol = Models.SOBOL(
+        sobol = Generators.SOBOL(
             search_space=exp.search_space, init_position=2, scramble=False, seed=239
         )
-        self.assertIsInstance(sobol, RandomModelBridge)
+        self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
             sobol_run = sobol.gen(1)
             exp.new_batch_trial().add_generator_run(sobol_run).run()
 
     def test_enum_factorial(self) -> None:
-        """Tests factorial instantiation through the Models enum."""
+        """Tests factorial instantiation through the Generators enum."""
         exp = get_factorial_experiment()
-        factorial = Models.FACTORIAL(exp.search_space)
-        self.assertIsInstance(factorial, DiscreteModelBridge)
+        factorial = Generators.FACTORIAL(exp.search_space)
+        self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         self.assertEqual(len(factorial_run.arms), 24)
 
     def test_enum_empirical_bayes_thompson(self) -> None:
-        """Tests EB/TS instantiation through the Models enum."""
+        """Tests EB/TS instantiation through the Generators enum."""
         exp = get_factorial_experiment()
-        factorial = Models.FACTORIAL(exp.search_space)
-        self.assertIsInstance(factorial, DiscreteModelBridge)
+        factorial = Generators.FACTORIAL(exp.search_space)
+        self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
         data = exp.fetch_data()
-        eb_thompson = Models.EMPIRICAL_BAYES_THOMPSON(
+        eb_thompson = Generators.EMPIRICAL_BAYES_THOMPSON(
             experiment=exp, data=data, min_weight=0.0
         )
-        self.assertIsInstance(eb_thompson, DiscreteModelBridge)
+        self.assertIsInstance(eb_thompson, DiscreteAdapter)
         self.assertIsInstance(eb_thompson.model, EmpiricalBayesThompsonSampler)
         thompson_run = eb_thompson.gen(n=5)
         self.assertEqual(len(thompson_run.arms), 5)
 
     def test_enum_thompson(self) -> None:
-        """Tests TS instantiation through the Models enum."""
+        """Tests TS instantiation through the Generators enum."""
         exp = get_factorial_experiment()
-        factorial = Models.FACTORIAL(exp.search_space)
-        self.assertIsInstance(factorial, DiscreteModelBridge)
+        factorial = Generators.FACTORIAL(exp.search_space)
+        self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
         data = exp.fetch_data()
-        thompson = Models.THOMPSON(experiment=exp, data=data)
+        thompson = Generators.THOMPSON(experiment=exp, data=data)
         self.assertIsInstance(thompson.model, ThompsonSampler)
 
     def test_enum_uniform(self) -> None:
-        """Tests uniform random instantiation through the Models enum."""
+        """Tests uniform random instantiation through the Generators enum."""
         exp = get_branin_experiment()
-        uniform = Models.UNIFORM(exp.search_space)
-        self.assertIsInstance(uniform, RandomModelBridge)
+        uniform = Generators.UNIFORM(exp.search_space)
+        self.assertIsInstance(uniform, RandomAdapter)
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)
 
@@ -244,7 +245,7 @@ class ModelRegistryTest(TestCase):
         """Checks that kwargs are correctly constructed from default kwargs +
         standard kwargs."""
         self.assertEqual(
-            Models.SOBOL.view_defaults(),
+            Generators.SOBOL.view_defaults(),
             (
                 {
                     "seed": None,
@@ -269,11 +270,11 @@ class ModelRegistryTest(TestCase):
         )
         self.assertTrue(
             all(
-                kw in Models.SOBOL.view_kwargs()[0]
+                kw in Generators.SOBOL.view_kwargs()[0]
                 for kw in ["seed", "deduplicate", "init_position", "scramble"]
             ),
             all(
-                kw in Models.SOBOL.view_kwargs()[1]
+                kw in Generators.SOBOL.view_kwargs()[1]
                 for kw in [
                     "search_space",
                     "model",
@@ -295,17 +296,17 @@ class ModelRegistryTest(TestCase):
     @mock_botorch_optimize
     def test_get_model_from_generator_run(self) -> None:
         """Tests that it is possible to restore a model from a generator run it
-        produced, if `Models` registry was used.
+        produced, if `Generators` registry was used.
         """
         exp = get_branin_experiment()
-        initial_sobol = Models.SOBOL(experiment=exp, seed=239)
+        initial_sobol = Generators.SOBOL(experiment=exp, seed=239)
         gr = initial_sobol.gen(n=1)
         # Restore the model as it was before generation.
         sobol = get_model_from_generator_run(
             generator_run=gr,
             experiment=exp,
             data=exp.fetch_data(),
-            models_enum=Models,
+            models_enum=Generators,
             after_gen=False,
         )
         self.assertEqual(sobol.model.init_position, 0)
@@ -315,14 +316,14 @@ class ModelRegistryTest(TestCase):
             generator_run=gr,
             experiment=exp,
             data=exp.fetch_data(),
-            models_enum=Models,
+            models_enum=Generators,
         )
         self.assertEqual(sobol_after_gen.model.init_position, 1)
         self.assertEqual(sobol_after_gen.model.seed, 239)
         self.assertEqual(initial_sobol.gen(n=1).arms, sobol_after_gen.gen(n=1).arms)
         exp.new_trial(generator_run=gr)
         # Check restoration of GPEI, to ensure proper restoration of callable kwargs
-        gpei = Models.LEGACY_BOTORCH(experiment=exp, data=get_branin_data())
+        gpei = Generators.LEGACY_BOTORCH(experiment=exp, data=get_branin_data())
         # Punch GPEI model + bridge kwargs into the Sobol generator run, to avoid
         # a slow call to `gpei.gen`, and remove Sobol's model state.
         gr._model_key = "Legacy_GPEI"
@@ -330,7 +331,7 @@ class ModelRegistryTest(TestCase):
         gr._bridge_kwargs = gpei._bridge_kwargs
         gr._model_state_after_gen = {}
         gpei_restored = get_model_from_generator_run(
-            gr, experiment=exp, data=get_branin_data(), models_enum=Models
+            gr, experiment=exp, data=get_branin_data(), models_enum=Generators
         )
         for key in gpei.__dict__:
             self.assertIn(key, gpei_restored.__dict__)
@@ -340,7 +341,7 @@ class ModelRegistryTest(TestCase):
                 continue  # Fit times are set in instantiation so won't be same.
             if isinstance(original, OrderedDict) and isinstance(restored, OrderedDict):
                 original, restored = list(original.keys()), list(restored.keys())
-            if isinstance(original, Model) and isinstance(restored, Model):
+            if isinstance(original, Generator) and isinstance(restored, Generator):
                 continue  # Model equality is tough to compare.
                 self.assertEqual(original, restored)
 
@@ -401,15 +402,15 @@ class ModelRegistryTest(TestCase):
             )
 
             for surrogate, default_model in zip(surrogates, (False, True)):
-                constructor = Models.SAAS_MTGP if use_saas else Models.ST_MTGP
+                constructor = Generators.SAAS_MTGP if use_saas else Generators.ST_MTGP
                 mtgp = constructor(
                     experiment=exp,
                     data=exp.fetch_data(),
                     status_quo_features=status_quo_features,
                     surrogate=surrogate,
                 )
-                self.assertIsInstance(mtgp, TorchModelBridge)
-                self.assertIsInstance(mtgp.model, BoTorchModel)
+                self.assertIsInstance(mtgp, TorchAdapter)
+                self.assertIsInstance(mtgp.model, BoTorchGenerator)
                 self.assertEqual(mtgp.model.acquisition_class, Acquisition)
                 is_moo = isinstance(
                     exp.optimization_config, MultiObjectiveOptimizationConfig
@@ -451,7 +452,7 @@ class ModelRegistryTest(TestCase):
     def test_extract_model_state_after_gen(self) -> None:
         # Test with actual state.
         exp = get_branin_experiment()
-        sobol = Models.SOBOL(search_space=exp.search_space)
+        sobol = Generators.SOBOL(search_space=exp.search_space)
         gr = sobol.gen(n=1)
         expected_state = sobol.model._get_state()
         self.assertEqual(gr._model_state_after_gen, expected_state)
@@ -465,3 +466,12 @@ class ModelRegistryTest(TestCase):
             generator_run=gr, model_class=SobolGenerator
         )
         self.assertEqual(extracted, {})
+
+    def test_deprecation_warning(self) -> None:
+        """Tests deprecation warning"""
+        with self.assertRaisesRegex(
+            DeprecationWarning,
+            r"Models is deprecated, use \`ax.modelbridge.registry.Generators\`"
+            r" instead.",
+        ):
+            Models.BOTORCH_MODULAR

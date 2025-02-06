@@ -55,7 +55,7 @@ class ChoiceToNumericChoice(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "ChoiceToNumericChoice requires search space"
@@ -152,7 +152,7 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
         self,
         search_space: SearchSpace,
         observations: list[Observation],
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         # Identify parameters that should be transformed

@@ -23,7 +23,7 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.utils.common.testutils import TestCase
 
@@ -31,7 +31,7 @@ from ax.utils.common.testutils import TestCase
 class DerelativizeTransformTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        m = mock.patch.object(ModelBridge, "__abstractmethods__", frozenset())
+        m = mock.patch.object(Adapter, "__abstractmethods__", frozenset())
         self.addCleanup(m.stop)
         m.start()
 
@@ -84,13 +84,13 @@ class DerelativizeTransformTest(TestCase):
             with ExitStack() as es:
                 mock_predict = es.enter_context(
                     mock.patch(
-                        "ax.modelbridge.base.ModelBridge._predict",
+                        "ax.modelbridge.base.Adapter._predict",
                         autospec=True,
                         return_value=predict_return_value,
                     )
                 )
                 mock_fit = es.enter_context(
-                    mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+                    mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
                 )
                 mock_observations_from_data = es.enter_context(
                     mock.patch(
@@ -117,14 +117,14 @@ class DerelativizeTransformTest(TestCase):
     ) -> None:
         t = Derelativize(search_space=None, observations=[])
 
-        # ModelBridge with in-design status quo
+        # Adapter with in-design status quo
         search_space = SearchSpace(
             parameters=[
                 RangeParameter("x", ParameterType.FLOAT, 0, 20),
                 RangeParameter("y", ParameterType.FLOAT, 0, 20),
             ]
         )
-        g = ModelBridge(
+        g = Adapter(
             search_space=search_space,
             model=None,
             transforms=[],
@@ -207,7 +207,7 @@ class DerelativizeTransformTest(TestCase):
 
         # Test with relative constraint, out-of-design status quo
         mock_predict.side_effect = RuntimeError()
-        g = ModelBridge(
+        g = Adapter(
             search_space=search_space,
             model=None,
             transforms=[],
@@ -257,7 +257,7 @@ class DerelativizeTransformTest(TestCase):
         self.assertEqual(mock_predict.call_count, 1)
 
         # Raises error if predict fails with in-design status quo
-        g = ModelBridge(
+        g = Adapter(
             search_space=search_space,
             model=None,
             transforms=[],
@@ -317,7 +317,7 @@ class DerelativizeTransformTest(TestCase):
             t2.transform_optimization_config(deepcopy(oc_scalarized_only), g, None)
 
         # Raises error with relative constraint, no status quo.
-        g = ModelBridge(
+        g = Adapter(
             search_space=search_space,
             model=None,
             transforms=[],
@@ -345,7 +345,7 @@ class DerelativizeTransformTest(TestCase):
         search_space = SearchSpace(
             parameters=[RangeParameter("x", ParameterType.FLOAT, 0, 20)]
         )
-        g = ModelBridge(search_space, None, [])
+        g = Adapter(search_space, None, [])
         with self.assertRaises(ValueError):
             t.transform_optimization_config(oc, None, None)
         with self.assertRaises(DataRequiredError):

@@ -17,7 +17,7 @@ import torch
 from ax.core.metric import Metric
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.models.base import Model as BaseModel
+from ax.models.base import Generator as BaseGenerator
 from ax.models.types import TConfig
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.utils.datasets import SupervisedDataset
@@ -110,7 +110,7 @@ class TorchGenResults:
     candidate_metadata: Sequence[TCandidateMetadata] | None = None
 
 
-class TorchModel(BaseModel):
+class TorchGenerator(BaseGenerator):
     """This class specifies the interface for a torch-based model.
 
     These methods should be implemented to have access to all of the features

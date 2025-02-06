@@ -21,7 +21,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.plot.pareto_frontier import (
     interact_multiple_pareto_frontier,
     interact_pareto_frontier,
@@ -51,7 +51,7 @@ class ParetoUtilsTest(TestCase):
         experiment.add_tracking_metric(
             BraninMetric(name="m2", param_names=["x1", "x2"])
         )
-        sobol = Models.SOBOL(experiment.search_space)
+        sobol = Generators.SOBOL(experiment.search_space)
         a = sobol.gen(5)
         experiment.new_batch_trial(generator_run=a).run()
         self.experiment = experiment
@@ -179,7 +179,7 @@ class ParetoUtilsTest(TestCase):
         experiment = get_branin_experiment_with_multi_objective(
             has_objective_thresholds=True,
         )
-        sobol = Models.SOBOL(experiment.search_space)
+        sobol = Generators.SOBOL(experiment.search_space)
         a = sobol.gen(5)
         experiment.new_batch_trial(generator_run=a).run()
         experiment.fetch_data()

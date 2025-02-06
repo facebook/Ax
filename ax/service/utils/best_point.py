@@ -30,7 +30,7 @@ from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.cross_validation import (
     assess_model_fit,
     compute_diagnostics,
@@ -42,11 +42,11 @@ from ax.modelbridge.modelbridge_utils import (
     predicted_pareto_frontier as predicted_pareto,
 )
 from ax.modelbridge.registry import (
+    Generators,
     get_model_from_generator_run,
     ModelRegistryBase,
-    Models,
 )
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
 )
@@ -257,9 +257,9 @@ def get_best_parameters_from_model_predictions_with_trial_index(
             except ValueError:
                 return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
-            # If model is not TorchModelBridge, just use the best arm from the
+            # If model is not TorchAdapter, just use the best arm from the
             # last good generator run
-            if not isinstance(model, TorchModelBridge):
+            if not isinstance(model, TorchAdapter):
                 return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
             # Check to see if the model is worth using
@@ -543,16 +543,16 @@ def get_pareto_optimal_parameters(
     modelbridge = generation_strategy.model
     is_moo_modelbridge = (
         modelbridge
-        and isinstance(modelbridge, TorchModelBridge)
+        and isinstance(modelbridge, TorchAdapter)
         and assert_is_instance(
             modelbridge,
-            TorchModelBridge,
+            TorchAdapter,
         ).is_moo_problem
     )
     if is_moo_modelbridge:
         generation_strategy._fit_current_model(data=None)
     else:
-        modelbridge = Models.BOTORCH_MODULAR(
+        modelbridge = Generators.BOTORCH_MODULAR(
             experiment=experiment,
             data=assert_is_instance(
                 experiment.lookup_data(trial_indices=trial_indices),
@@ -561,7 +561,7 @@ def get_pareto_optimal_parameters(
         )
     modelbridge = assert_is_instance(
         modelbridge,
-        TorchModelBridge,
+        TorchAdapter,
     )
 
     # If objective thresholds are not specified in optimization config, extract
@@ -739,7 +739,7 @@ def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:
 
 def _derel_opt_config_wrapper(
     optimization_config: OptimizationConfig,
-    modelbridge: ModelBridge | None = None,
+    modelbridge: Adapter | None = None,
     experiment: Experiment | None = None,
     observations: list[Observation] | None = None,
 ) -> OptimizationConfig:
@@ -751,7 +751,7 @@ def _derel_opt_config_wrapper(
 
     if modelbridge is None and experiment is None:
         raise ValueError(
-            "Must specify ModelBridge or Experiment when calling "
+            "Must specify Adapter or Experiment when calling "
             "`_derel_opt_config_wrapper`."
         )
     elif not modelbridge:
@@ -761,7 +761,7 @@ def _derel_opt_config_wrapper(
         )
     else:  # Both modelbridge and experiment specified.
         logger.warning(
-            "ModelBridge and Experiment provided to `_derel_opt_config_wrapper`. "
+            "Adapter and Experiment provided to `_derel_opt_config_wrapper`. "
             "Ignoring the latter."
         )
     if not modelbridge.status_quo:

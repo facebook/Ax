@@ -20,7 +20,7 @@ import numpy as np
 import numpy.typing as npt
 from ax.core.observation import Observation, ObservationData, recombine_observations
 from ax.core.optimization_config import OptimizationConfig
-from ax.modelbridge.base import ModelBridge, unwrap_observation_data
+from ax.modelbridge.base import Adapter, unwrap_observation_data
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.model_fit_stats import (
     coefficient_of_determination,
@@ -53,7 +53,7 @@ class AssessModelFitResult(NamedTuple):
 
 
 def cross_validate(
-    model: ModelBridge,
+    model: Adapter,
     folds: int = -1,
     test_selector: Callable | None = None,
     untransform: bool = True,
@@ -76,13 +76,13 @@ def cross_validate(
     If not provided, all observations will be available for the test set.
 
     Args:
-        model: Fitted model (ModelBridge) to cross validate.
+        model: Fitted model (Adapter) to cross validate.
         folds: Number of folds. Use -1 for leave-one-out, otherwise will be
             k-fold.
         test_selector: Function for selecting observations for the test set.
         untransform: Whether to untransform the model predictions before
             cross validating.
-            Models are trained on transformed data, and candidate generation
+            Generators are trained on transformed data, and candidate generation
             is performed in the transformed space. Computing the model
             quality metric based on the cross-validation results in the
             untransformed space may not be representative of the model that
@@ -187,7 +187,7 @@ def cross_validate(
 
 
 def cross_validate_by_trial(
-    model: ModelBridge, trial: int = -1, use_posterior_predictive: bool = False
+    model: Adapter, trial: int = -1, use_posterior_predictive: bool = False
 ) -> list[CVResult]:
     """Cross validation for model predictions on a particular trial.
 
@@ -195,7 +195,7 @@ def cross_validate_by_trial(
     arms that was launched in that trial. Defaults to the last trial.
 
     Args:
-        model: Fitted model (ModelBridge) to cross validate.
+        model: Fitted model (Adapter) to cross validate.
         trial: Trial for which predictions are evaluated.
         use_posterior_predictive: A boolean indicating if the predictions
             should be from the posterior predictive (i.e. including
@@ -407,10 +407,10 @@ def _gen_train_test_split(
 
 
 def get_fit_and_std_quality_and_generalization_dict(
-    fitted_model_bridge: ModelBridge,
+    fitted_model_bridge: Adapter,
 ) -> dict[str, float | None]:
     """
-    Get stats and gen from a fitted ModelBridge for analytics purposes.
+    Get stats and gen from a fitted Adapter for analytics purposes.
     """
     try:
         model_fit_dict = compute_model_fit_metrics_from_modelbridge(
@@ -446,17 +446,17 @@ def get_fit_and_std_quality_and_generalization_dict(
 
 
 def compute_model_fit_metrics_from_modelbridge(
-    model_bridge: ModelBridge,
+    model_bridge: Adapter,
     fit_metrics_dict: dict[str, ModelFitMetricProtocol] | None = None,
     generalization: bool = False,
     untransform: bool = False,
 ) -> dict[str, dict[str, float]]:
-    """Computes the model fit metrics given a ModelBridge and an Experiment.
+    """Computes the model fit metrics given a Adapter and an Experiment.
 
     Args:
-        model_bridge: The ModelBridge for which to compute the model fit metrics.
+        model_bridge: The Adapter for which to compute the model fit metrics.
         experiment: The experiment with whose data to compute the metrics if
-            generalization == False. Otherwise, the data is taken from the ModelBridge.
+            generalization == False. Otherwise, the data is taken from the Adapter.
         fit_metrics_dict: An optional dictionary with model fit metric functions,
             i.e. a ModelFitMetricProtocol, as values and their names as keys.
         generalization: Boolean indicating whether to compute the generalization
@@ -536,21 +536,21 @@ def _model_std_quality(std: npt.NDArray) -> float:
 
 
 def _predict_on_training_data(
-    model_bridge: ModelBridge,
+    model_bridge: Adapter,
     untransform: bool = False,
 ) -> tuple[
     dict[str, npt.NDArray],
     dict[str, npt.NDArray],
     dict[str, npt.NDArray],
 ]:
-    """Makes predictions on the training data of a given experiment using a ModelBridge
+    """Makes predictions on the training data of a given experiment using a Adapter
     and returning the observed values, and the corresponding predictive means and
     predictive standard deviations of the model, in transformed space.
 
     NOTE: This is a helper function for `compute_model_fit_metrics_from_modelbridge`.
 
     Args:
-        model_bridge: A ModelBridge object with which to make predictions.
+        model_bridge: A Adapter object with which to make predictions.
         untransform: Boolean indicating whether to untransform model predictions.
 
     Returns:
@@ -600,7 +600,7 @@ def _predict_on_training_data(
 
 
 def _predict_on_cross_validation_data(
-    model_bridge: ModelBridge,
+    model_bridge: Adapter,
     untransform: bool = False,
 ) -> tuple[
     dict[str, npt.NDArray],
@@ -608,14 +608,14 @@ def _predict_on_cross_validation_data(
     dict[str, npt.NDArray],
 ]:
     """Makes leave-one-out cross-validation predictions on the training data of the
-    ModelBridge and returns the observed values, and the corresponding predictive means
+    Adapter and returns the observed values, and the corresponding predictive means
     and predictive standard deviations of the model as numpy arrays,
     in transformed space.
 
     NOTE: This is a helper function for `compute_model_fit_metrics_from_modelbridge`.
 
     Args:
-        model_bridge: A ModelBridge object with which to make predictions.
+        model_bridge: A Adapter object with which to make predictions.
         untransform: Boolean indicating whether to untransform model predictions
             before cross validating. False by default.
 

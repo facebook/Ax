@@ -12,7 +12,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.service.tests.scheduler_test_utils import (
     AxSchedulerTestCase,
     BrokenRunnerRuntimeError,
@@ -106,17 +106,21 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
         self.two_sobol_steps_GS = GenerationStrategy(  # Contrived GS to ensure
             steps=[  # that `DataRequiredError` is property handled in scheduler.
                 GenerationStep(  # This error is raised when not enough trials
-                    model=Models.SOBOL,  # have been observed to proceed to next
+                    model=Generators.SOBOL,  # have been observed to proceed to next
                     num_trials=5,  # geneneration step.
                     min_trials_observed=3,
                     max_parallelism=2,
                 ),
-                GenerationStep(model=Models.SOBOL, num_trials=-1, max_parallelism=3),
+                GenerationStep(
+                    model=Generators.SOBOL, num_trials=-1, max_parallelism=3
+                ),
             ]
         )
         # GS to force the scheduler to poll completed trials after each ran trial.
         self.sobol_GS_no_parallelism = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_trials=-1, max_parallelism=1)]
+            steps=[
+                GenerationStep(model=Generators.SOBOL, num_trials=-1, max_parallelism=1)
+            ]
         )
         self.scheduler_options_kwargs: dict[str, str | None] = {
             "mt_experiment_trial_type": "type1"

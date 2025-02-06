@@ -23,10 +23,10 @@ class CVNotSupportedError(AxError):
     pass
 
 
-class ModelBridgeMethodNotImplementedError(AxError, NotImplementedError):
-    """Raised when a ``ModelBridge`` method is not implemented by subclasses.
+class AdapterMethodNotImplementedError(AxError, NotImplementedError):
+    """Raised when a ``Adapter`` method is not implemented by subclasses.
 
-    NOTE: ``ModelBridge`` may catch and silently discard this error.
+    NOTE: ``Adapter`` may catch and silently discard this error.
     """
 
     pass

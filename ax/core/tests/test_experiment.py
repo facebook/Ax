@@ -36,7 +36,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import AxError, RunnerNotFoundError, UnsupportedError
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
@@ -1537,7 +1537,7 @@ class ExperimentWithMapDataTest(TestCase):
                 trial._properties["source"], "Warm start.*Experiment.*trial"
             )
             self.assertEqual(
-                trial._properties["generation_model_key"], Models.SOBOL.value
+                trial._properties["generation_model_key"], Generators.SOBOL.value
             )
             self.assertDictEqual(trial.run_metadata, DUMMY_RUN_METADATA)
             i_old_trial += 1
@@ -1565,15 +1565,17 @@ class ExperimentWithMapDataTest(TestCase):
         # set seed to avoid transient errors caused by duplicate arms,
         # which leads to fewer arms in the trial than expected.
         seed = 0
-        sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space, seed=seed)
+        sobol = Generators.SOBOL(
+            experiment=exp, search_space=exp.search_space, seed=seed
+        )
         exp.new_batch_trial(generator_runs=[sobol.gen(n=7)]).run().complete()
 
         data = exp.fetch_data()
         set_rng_seed(seed)
-        gp = Models.BOTORCH_MODULAR(
+        gp = Generators.BOTORCH_MODULAR(
             experiment=exp, search_space=exp.search_space, data=data
         )
-        ts = Models.EMPIRICAL_BAYES_THOMPSON(
+        ts = Generators.EMPIRICAL_BAYES_THOMPSON(
             experiment=exp, search_space=exp.search_space, data=data
         )
         exp.new_batch_trial(generator_runs=[gp.gen(n=3), ts.gen(n=1)]).run().complete()
@@ -1586,7 +1588,7 @@ class ExperimentWithMapDataTest(TestCase):
 
     def test_it_does_not_take_both_single_and_multiple_gr_ars(self) -> None:
         exp = get_branin_experiment()
-        sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space)
+        sobol = Generators.SOBOL(experiment=exp, search_space=exp.search_space)
         gr1 = sobol.gen(n=7)
         gr2 = sobol.gen(n=7)
         with self.assertRaisesRegex(

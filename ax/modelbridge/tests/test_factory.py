@@ -7,7 +7,7 @@
 # pyre-strict
 
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
-from ax.modelbridge.discrete import DiscreteModelBridge
+from ax.modelbridge.discrete import DiscreteAdapter
 from ax.modelbridge.factory import (
     get_empirical_bayes_thompson,
     get_factorial,
@@ -15,7 +15,7 @@ from ax.modelbridge.factory import (
     get_thompson,
     get_uniform,
 )
-from ax.modelbridge.random import RandomModelBridge
+from ax.modelbridge.random import RandomAdapter
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
@@ -46,14 +46,14 @@ def get_multi_obj_exp_and_opt_config():
     return multi_obj_exp, optimization_config
 
 
-class ModelBridgeFactoryTestSingleObjective(TestCase):
+class AdapterFactoryTestSingleObjective(TestCase):
     def test_model_kwargs(self) -> None:
         """Tests that model kwargs are passed correctly."""
         exp = get_branin_experiment()
         sobol = get_sobol(
             search_space=exp.search_space, init_position=2, scramble=False, seed=239
         )
-        self.assertIsInstance(sobol, RandomModelBridge)
+        self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
             sobol_run = sobol.gen(1)
             exp.new_batch_trial().add_generator_run(sobol_run).run().mark_completed()
@@ -65,7 +65,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         """Tests factorial instantiation."""
         exp = get_factorial_experiment()
         factorial = get_factorial(exp.search_space)
-        self.assertIsInstance(factorial, DiscreteModelBridge)
+        self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         self.assertEqual(len(factorial_run.arms), 24)
 
@@ -73,14 +73,14 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         """Tests EB/TS instantiation."""
         exp = get_factorial_experiment()
         factorial = get_factorial(exp.search_space)
-        self.assertIsInstance(factorial, DiscreteModelBridge)
+        self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
         data = exp.fetch_data()
         eb_thompson = get_empirical_bayes_thompson(
             experiment=exp, data=data, min_weight=0.0
         )
-        self.assertIsInstance(eb_thompson, DiscreteModelBridge)
+        self.assertIsInstance(eb_thompson, DiscreteAdapter)
         self.assertIsInstance(eb_thompson.model, EmpiricalBayesThompsonSampler)
         thompson_run = eb_thompson.gen(n=5)
         self.assertEqual(len(thompson_run.arms), 5)
@@ -89,7 +89,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         """Tests TS instantiation."""
         exp = get_factorial_experiment()
         factorial = get_factorial(exp.search_space)
-        self.assertIsInstance(factorial, DiscreteModelBridge)
+        self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
         data = exp.fetch_data()
@@ -99,6 +99,6 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
     def test_uniform(self) -> None:
         exp = get_branin_experiment()
         uniform = get_uniform(exp.search_space)
-        self.assertIsInstance(uniform, RandomModelBridge)
+        self.assertIsInstance(uniform, RandomAdapter)
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)

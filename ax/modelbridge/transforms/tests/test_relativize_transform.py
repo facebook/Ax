@@ -21,15 +21,15 @@ from ax.core.observation import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge import ModelBridge
-from ax.modelbridge.registry import Models
+from ax.modelbridge import Adapter
+from ax.modelbridge.registry import Generators
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.relativize import (
     BaseRelativize,
     Relativize,
     RelativizeWithConstantControl,
 )
-from ax.models.base import Model
+from ax.models.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import (
@@ -92,7 +92,7 @@ class RelativizeDataTest(TestCase):
     ) -> None:
         for relativize_cls in self.relativize_classes:
             # modelbridge has no status quo
-            sobol = Models.SOBOL(search_space=get_search_space())
+            sobol = Generators.SOBOL(search_space=get_search_space())
             self.assertIsNone(sobol.status_quo)
             with self.assertRaisesRegex(
                 AssertionError, f"{relativize_cls.__name__} requires status quo data."
@@ -129,9 +129,9 @@ class RelativizeDataTest(TestCase):
                 )
                 t.mark_completed()
             data = exp.fetch_data()
-            modelbridge = ModelBridge(
+            modelbridge = Adapter(
                 search_space=exp.search_space,
-                model=Model(),
+                model=Generator(),
                 transforms=[relativize_cls],
                 experiment=exp,
                 data=data,
@@ -146,9 +146,9 @@ class RelativizeDataTest(TestCase):
             )
             # reset SQ
             none_throws(exp._status_quo)._parameters["x1"] = 0.0
-            modelbridge = ModelBridge(
+            modelbridge = Adapter(
                 search_space=exp.search_space,
-                model=Model(),
+                model=Generator(),
                 transforms=[relativize_cls],
                 experiment=exp,
                 data=data,
@@ -467,7 +467,7 @@ class RelativizeDataOptConfigTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         search_space = get_search_space()
-        gr = Models.SOBOL(search_space=search_space).gen(n=1)
+        gr = Generators.SOBOL(search_space=search_space).gen(n=1)
         self.model = Mock(
             search_space=search_space,
             status_quo=Mock(

@@ -29,13 +29,6 @@ jobs:
       minimal_dependencies: false
     secrets: inherit
 
-  build-tutorials:
-    name: Build tutorials with latest BoTorch
-    uses: ./.github/workflows/reusable_tutorials.yml
-    with:
-      smoke_test: false
-      pinned_botorch: false
-
   publish-latest-website:
     name: Publish latest website
     uses: ./.github/workflows/publish_website.yml
@@ -45,6 +38,7 @@ jobs:
       contents: write
     with:
       run_tutorials: true
+      pinned_botorch: false
 
   deploy-test-pypi:
 
@@ -68,6 +62,7 @@ jobs:
         ALLOW_LATEST_GPYTORCH_LINOP: true
       run: |
         # use latest BoTorch
+        uv pip install git+https://github.com/cornellius-gp/linear_operator.git
         uv pip install git+https://github.com/cornellius-gp/gpytorch.git
         uv pip install git+https://github.com/pytorch/botorch.git
         uv pip install -e ".[dev,mysql,notebook]"

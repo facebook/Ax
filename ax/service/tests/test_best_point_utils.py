@@ -25,8 +25,8 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.cross_validation import AssessModelFitResult
-from ax.modelbridge.registry import Models
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.registry import Generators
+from ax.modelbridge.torch import TorchAdapter
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
@@ -64,21 +64,21 @@ class TestBestPointUtils(TestCase):
         exp = get_branin_experiment()
 
         for _ in range(3):
-            sobol = Models.SOBOL(search_space=exp.search_space)
+            sobol = Generators.SOBOL(search_space=exp.search_space)
             generator_run = sobol.gen(n=1)
             trial = exp.new_trial(generator_run=generator_run)
             trial.run()
             trial.mark_completed()
             exp.attach_data(exp.fetch_data())
 
-        model = Models.BOTORCH_MODULAR(experiment=exp, data=exp.lookup_data())
+        model = Generators.BOTORCH_MODULAR(experiment=exp, data=exp.lookup_data())
         generator_run = model.gen(n=1)
         trial = exp.new_trial(generator_run=generator_run)
         trial.run()
         trial.mark_completed()
 
         with patch.object(
-            TorchModelBridge,
+            TorchAdapter,
             "model_best_point",
             return_value=(
                 (
@@ -105,7 +105,7 @@ class TestBestPointUtils(TestCase):
                     },
                 ),
             ):
-                self.assertIsNotNone(get_best_parameters(exp, Models))
+                self.assertIsNotNone(get_best_parameters(exp, Generators))
                 self.assertTrue(
                     any("Model fit is poor" in warning for warning in lg.output),
                     msg=lg.output,
@@ -122,24 +122,24 @@ class TestBestPointUtils(TestCase):
                     bad_fit_metrics_to_fisher_score={},
                 ),
             ):
-                self.assertIsNotNone(get_best_parameters(exp, Models))
+                self.assertIsNotNone(get_best_parameters(exp, Generators))
                 mock_model_best_point.assert_called()
 
         # Assert the non-mocked method works correctly as well
-        best_params = get_best_parameters(exp, Models)
+        best_params = get_best_parameters(exp, Generators)
         self.assertIsNotNone(best_params)
         # It works even when there are no predictions already stored on the
         # GeneratorRun
         for trial in exp.trials.values():
             trial.generator_run._best_arm_predictions = None
-        best_params_no_gr = get_best_parameters(exp, Models)
+        best_params_no_gr = get_best_parameters(exp, Generators)
         self.assertEqual(best_params, best_params_no_gr)
 
     def test_best_raw_objective_point(self) -> None:
         exp = get_branin_experiment()
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
             get_best_raw_objective_point(exp)
-        self.assertEqual(get_best_parameters(exp, Models), None)
+        self.assertEqual(get_best_parameters(exp, Generators), None)
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run().complete()
@@ -157,7 +157,7 @@ class TestBestPointUtils(TestCase):
             constrained=True,
             minimize=False,
         )
-        _, best_prediction = none_throws(get_best_parameters(exp, Models))
+        _, best_prediction = none_throws(get_best_parameters(exp, Generators))
         best_metrics = none_throws(best_prediction)[0]
         self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
 
@@ -166,7 +166,7 @@ class TestBestPointUtils(TestCase):
         # pyre-fixme[8]: Attribute `bound` declared in class `OutcomeConstraint`
         # has type `float` but is used as type `Tensor`.
         constraint.bound = torch.tensor(constraint.bound)
-        _, best_prediction = none_throws(get_best_parameters(exp, Models))
+        _, best_prediction = none_throws(get_best_parameters(exp, Generators))
         best_metrics = none_throws(best_prediction)[0]
         self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
 
@@ -219,7 +219,7 @@ class TestBestPointUtils(TestCase):
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
             get_best_raw_objective_point(exp)
-        self.assertEqual(get_best_parameters(exp, Models), None)
+        self.assertEqual(get_best_parameters(exp, Generators), None)
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run().complete()
@@ -237,7 +237,7 @@ class TestBestPointUtils(TestCase):
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
             get_best_raw_objective_point(exp)
-        self.assertEqual(get_best_parameters(exp, Models), None)
+        self.assertEqual(get_best_parameters(exp, Generators), None)
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run().complete()
@@ -267,7 +267,7 @@ class TestBestPointUtils(TestCase):
         # Check errors.
         with self.assertRaisesRegex(
             ValueError,
-            "Must specify ModelBridge or Experiment when calling "
+            "Must specify Adapter or Experiment when calling "
             "`_derel_opt_config_wrapper`.",
         ):
             _derel_opt_config_wrapper(optimization_config=input_optimization_config)
@@ -283,7 +283,7 @@ class TestBestPointUtils(TestCase):
         # Set status quo.
         exp.status_quo = exp.trials[0].arms[0]
 
-        # ModelBridges will have specific addresses and so must be self-same to
+        # Adapters will have specific addresses and so must be self-same to
         # pass equality checks.
         test_modelbridge_1 = get_tensor_converter_model(
             experiment=none_throws(exp),
@@ -304,7 +304,7 @@ class TestBestPointUtils(TestCase):
             f"{best_point_module}.get_tensor_converter_model",
             return_value=test_modelbridge_1,
         ), patch(
-            f"{best_point_module}.ModelBridge.get_training_data",
+            f"{best_point_module}.Adapter.get_training_data",
             return_value=test_observations_1,
         ):
             returned_value = _derel_opt_config_wrapper(
@@ -317,7 +317,7 @@ class TestBestPointUtils(TestCase):
             observations=test_observations_1,
         )
 
-        # Observations and ModelBridge are not constructed from other inputs when
+        # Observations and Adapter are not constructed from other inputs when
         # provided.
         test_modelbridge_2 = get_tensor_converter_model(
             experiment=none_throws(exp),
@@ -328,7 +328,7 @@ class TestBestPointUtils(TestCase):
             f"{best_point_module}.get_tensor_converter_model",
             return_value=test_modelbridge_2,
         ), patch(
-            f"{best_point_module}.ModelBridge.get_training_data",
+            f"{best_point_module}.Adapter.get_training_data",
             return_value=test_observations_2,
         ):
             returned_value = _derel_opt_config_wrapper(
@@ -339,7 +339,7 @@ class TestBestPointUtils(TestCase):
             )
             self.assertTrue(
                 any(
-                    "ModelBridge and Experiment provided to "
+                    "Adapter and Experiment provided to "
                     "`_derel_opt_config_wrapper`. Ignoring the latter." in warning
                     for warning in lg.output
                 ),

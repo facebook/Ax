@@ -11,7 +11,7 @@ from unittest import mock
 from ax.core.arm import Arm
 from ax.core.metric import Metric
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.plot.scatter import tile_fitted, tile_observations
 from ax.utils.common.testutils import TestCase
@@ -38,9 +38,9 @@ def get_modelbridge(
     # pyre-fixme[2]: Parameter must be annotated.
     mock_observations_from_data,
     status_quo_name: str | None = None,
-) -> ModelBridge:
+) -> Adapter:
     exp = get_experiment()
-    modelbridge = ModelBridge(
+    modelbridge = Adapter(
         search_space=get_search_space(),
         model=FullFactorialGenerator(),
         experiment=exp,
@@ -48,7 +48,7 @@ def get_modelbridge(
         status_quo_name=status_quo_name,
     )
     modelbridge._predict = mock.MagicMock(
-        "ax.modelbridge.base.ModelBridge._predict",
+        "ax.modelbridge.base.Adapter._predict",
         autospec=True,
         return_value=[get_observation().data],
     )

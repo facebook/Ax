@@ -22,32 +22,33 @@ from ax.modelbridge.generation_node_input_constructors import (
     NodeInputConstructors,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import Models
+from ax.modelbridge.model_spec import GeneratorSpec
+from ax.modelbridge.registry import Generators
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
+# type hints are stored as str when using from __future__ import annotations
 EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS = [
     inspect.Parameter(
         name="previous_node",
         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        annotation=GenerationNode | None,
+        annotation="GenerationNode | None",
     ),
     inspect.Parameter(
         name="next_node",
         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        annotation=GenerationNode,
+        annotation="GenerationNode",
     ),
     inspect.Parameter(
         name="gs_gen_call_kwargs",
         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        annotation=dict[str, Any],
+        annotation="dict[str, Any]",
     ),
     inspect.Parameter(
         name="experiment",
         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        annotation=Experiment,
+        annotation="Experiment",
     ),
 ]
 
@@ -55,8 +56,8 @@ EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS = [
 class TestGenerationNodeInputConstructors(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.sobol_model_spec = ModelSpec(
-            model_enum=Models.SOBOL,
+        self.sobol_model_spec = GeneratorSpec(
+            model_enum=Generators.SOBOL,
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
@@ -80,18 +81,19 @@ class TestGenerationNodeInputConstructors(TestCase):
             for p in InputConstructorPurpose
         }
 
+        # type hints are stored as str when using from __future__ import annotations
         self.all_purposes_expected_signatures = {
             InputConstructorPurpose.N: inspect.Signature(
                 parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
-                return_annotation=int,
+                return_annotation="int",
             ),
             InputConstructorPurpose.FIXED_FEATURES: inspect.Signature(
                 parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
-                return_annotation=ObservationFeatures | None,
+                return_annotation="ObservationFeatures | None",
             ),
             InputConstructorPurpose.STATUS_QUO_FEATURES: inspect.Signature(
                 parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
-                return_annotation=ObservationFeatures | None,
+                return_annotation="ObservationFeatures | None",
             ),
         }
 

@@ -51,7 +51,7 @@ class StratifiedStandardizeY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         """Initialize StratifiedStandardizeY.
@@ -148,7 +148,7 @@ class StratifiedStandardizeY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         if len(optimization_config.all_constraints) == 0:

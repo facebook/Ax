@@ -56,7 +56,7 @@ class PowerTransformY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         """Initialize the ``PowerTransformY`` transform.
@@ -64,7 +64,7 @@ class PowerTransformY(Transform):
         Args:
             search_space: The search space of the experiment. Unused.
             observations: A list of observations from the experiment.
-            modelbridge: The `ModelBridge` within which the transform is used. Unused.
+            modelbridge: The `Adapter` within which the transform is used. Unused.
             config: A dictionary of options to control the behavior of the transform.
                 Can contain the following keys:
                 - "metrics": A list of metric names to apply the transform to. If
@@ -132,7 +132,7 @@ class PowerTransformY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:

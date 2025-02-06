@@ -10,7 +10,7 @@
 Module containing a registry of standard models (and generators, samplers etc.)
 such as Sobol generator, GP+EI, Thompson sampler, etc.
 
-Use of `Models` enum allows for serialization and reinstantiation of models and
+Use of `Generators` enum allows for serialization and reinstantiation of models and
 generation strategies from generator runs they produced. To reinstantiate a model
 from generator run, use `get_model_from_generator_run` utility from this module.
 """
@@ -26,10 +26,10 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.discrete import DiscreteModelBridge
-from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.base import Adapter
+from ax.modelbridge.discrete import DiscreteAdapter
+from ax.modelbridge.random import RandomAdapter
+from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.choice_encode import (
     ChoiceToNumericChoice,
@@ -55,15 +55,17 @@ from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice
 from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.modelbridge.transforms.unit_x import UnitX
-from ax.models.base import Model
+from ax.models.base import Generator
 from ax.models.discrete.eb_ashr import EBAshr
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
-from ax.models.torch.botorch import BotorchModel
-from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
+from ax.models.torch.botorch import BotorchGenerator
+from ax.models.torch.botorch_modular.model import (
+    BoTorchGenerator as ModularBoTorchGenerator,
+)
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.models.torch.cbo_sac import SACBO
 from ax.utils.common.kwargs import (
@@ -115,11 +117,17 @@ MBM_X_trans: list[type[Transform]] = [
 Discrete_X_trans: list[type[Transform]] = [IntRangeToChoice]
 
 EB_ashr_trans: list[type[Transform]] = [
+    Derelativize,  # necessary to support relative constraints
+    # scales data from multiple trials since we currently don't filter to single
+    # trial data
     TransformToNewSQ,
+    # Ensure we pass unique arms to EBAshr. This assumes treatment effects are
+    # stationarity, but also should help with estimating the task-task covariance.
     MergeRepeatedMeasurements,
     SearchSpaceToChoice,
 ]
 
+# TODO: @mgarrard remove this once non-gs methods are reaped
 rel_EB_ashr_trans: list[type[Transform]] = [
     Relativize,
     MergeRepeatedMeasurements,
@@ -169,8 +177,8 @@ class ModelSetup(NamedTuple):
     such as BoTorch GP+EI, a Thompson sampler, or a Sobol quasirandom generator.
     """
 
-    bridge_class: type[ModelBridge]
-    model_class: type[Model]
+    bridge_class: type[Adapter]
+    model_class: type[Generator]
     transforms: list[type[Transform]]
     default_model_kwargs: dict[str, Any] | None = None
     standard_bridge_kwargs: dict[str, Any] | None = None
@@ -183,58 +191,58 @@ standard arguments a given model requires.
 """
 MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     "BoTorch": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=ModularBoTorchModel,
+        bridge_class=TorchAdapter,
+        model_class=ModularBoTorchGenerator,
         transforms=MBM_X_trans + Y_trans,
     ),
     "Legacy_GPEI": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=BotorchModel,
+        bridge_class=TorchAdapter,
+        model_class=BotorchGenerator,
         transforms=Cont_X_trans + Y_trans,
     ),
     "EB": ModelSetup(
-        bridge_class=DiscreteModelBridge,
+        bridge_class=DiscreteAdapter,
         model_class=EmpiricalBayesThompsonSampler,
         transforms=TS_trans,
     ),
     "EB_Ashr": ModelSetup(
-        bridge_class=DiscreteModelBridge,
+        bridge_class=DiscreteAdapter,
         model_class=EBAshr,
         transforms=EB_ashr_trans,
     ),
     "Factorial": ModelSetup(
-        bridge_class=DiscreteModelBridge,
+        bridge_class=DiscreteAdapter,
         model_class=FullFactorialGenerator,
         transforms=Discrete_X_trans,
     ),
     "Thompson": ModelSetup(
-        bridge_class=DiscreteModelBridge,
+        bridge_class=DiscreteAdapter,
         model_class=ThompsonSampler,
         transforms=TS_trans,
     ),
     "Sobol": ModelSetup(
-        bridge_class=RandomModelBridge,
+        bridge_class=RandomAdapter,
         model_class=SobolGenerator,
         transforms=Cont_X_trans,
     ),
     "Uniform": ModelSetup(
-        bridge_class=RandomModelBridge,
+        bridge_class=RandomAdapter,
         model_class=UniformGenerator,
         transforms=Cont_X_trans,
     ),
     "ST_MTGP": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=ModularBoTorchModel,
+        bridge_class=TorchAdapter,
+        model_class=ModularBoTorchGenerator,
         transforms=MBM_MTGP_trans,
     ),
     "BO_MIXED": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=ModularBoTorchModel,
+        bridge_class=TorchAdapter,
+        model_class=ModularBoTorchGenerator,
         transforms=Mixed_transforms + Y_trans,
     ),
     "SAASBO": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=ModularBoTorchModel,
+        bridge_class=TorchAdapter,
+        model_class=ModularBoTorchGenerator,
         transforms=MBM_X_trans + Y_trans,
         default_model_kwargs={
             "surrogate_spec": SurrogateSpec(
@@ -243,8 +251,8 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         },
     ),
     "SAAS_MTGP": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=ModularBoTorchModel,
+        bridge_class=TorchAdapter,
+        model_class=ModularBoTorchGenerator,
         transforms=MBM_MTGP_trans,
         default_model_kwargs={
             "surrogate_spec": SurrogateSpec(
@@ -253,7 +261,7 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         },
     ),
     "Contextual_SACBO": ModelSetup(
-        bridge_class=TorchModelBridge,
+        bridge_class=TorchAdapter,
         model_class=SACBO,
         transforms=Cont_X_trans + Y_trans,
     ),
@@ -262,17 +270,17 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
 
 class ModelRegistryBase(Enum):
     """Base enum that provides instrumentation of `__call__` on enum values,
-    for enums that link their values to `ModelSetup`-s like `Models`.
+    for enums that link their values to `ModelSetup`-s like `Generators`.
     """
 
     @property
-    def model_class(self) -> type[Model]:
+    def model_class(self) -> type[Generator]:
         """Type of `Model` used for the given model+bridge setup."""
         return MODEL_KEY_TO_MODEL_SETUP[self.value].model_class
 
     @property
-    def model_bridge_class(self) -> type[ModelBridge]:
-        """Type of `ModelBridge` used for the given model+bridge setup."""
+    def model_bridge_class(self) -> type[Adapter]:
+        """Type of `Adapter` used for the given model+bridge setup."""
         return MODEL_KEY_TO_MODEL_SETUP[self.value].bridge_class
 
     def __call__(
@@ -282,7 +290,7 @@ class ModelRegistryBase(Enum):
         data: Data | None = None,
         silently_filter_kwargs: bool = False,
         **kwargs: Any,
-    ) -> ModelBridge:
+    ) -> Adapter:
         assert self.value in MODEL_KEY_TO_MODEL_SETUP, f"Unknown model {self.value}"
         # All model bridges require either a search space or an experiment.
         assert search_space or experiment, "Search space or experiment required."
@@ -330,7 +338,7 @@ class ModelRegistryBase(Enum):
         )
         model = model_class(**model_kwargs)
 
-        # Create `ModelBridge`: defaults + standard kwargs + passed in kwargs.
+        # Create `Adapter`: defaults + standard kwargs + passed in kwargs.
         bridge_kwargs = consolidate_kwargs(
             kwargs_iterable=[
                 get_function_default_arguments(bridge_class),
@@ -366,7 +374,7 @@ class ModelRegistryBase(Enum):
 
     def view_defaults(self) -> tuple[dict[str, Any], dict[str, Any]]:
         """Obtains the default keyword arguments for the model and the modelbridge
-        specified through the Models enum, for ease of use in notebook environment,
+        specified through the Generators enum, for ease of use in notebook environment,
         since models and bridges cannot be inspected directly through the enum.
 
         Returns:
@@ -380,7 +388,7 @@ class ModelRegistryBase(Enum):
 
     def view_kwargs(self) -> tuple[dict[str, Any], dict[str, Any]]:
         """Obtains annotated keyword arguments that the model and the modelbridge
-        (corresponding to a given member of the Models enum) constructors expect.
+        (corresponding to a given member of the Generators enum) constructors expect.
 
         Returns:
             A tuple of annotated keyword arguments for the model and the model bridge.
@@ -418,20 +426,20 @@ class ModelRegistryBase(Enum):
         )
 
 
-class Models(ModelRegistryBase):
+class Generators(ModelRegistryBase):
     """Registry of available models.
 
     Uses MODEL_KEY_TO_MODEL_SETUP to retrieve settings for model and model bridge,
     by the key stored in the enum value.
 
     To instantiate a model in this enum, simply call an enum member like so:
-    `Models.SOBOL(search_space=search_space)` or
-    `Models.BOTORCH(experiment=experiment, data=data)`. Keyword arguments
+    `Generators.SOBOL(search_space=search_space)` or
+    `Generators.BOTORCH(experiment=experiment, data=data)`. Keyword arguments
     specified to the call will be passed into the model or the model bridge
     constructors according to their keyword.
 
-    For instance, `Models.SOBOL(search_space=search_space, scramble=False)`
-    will instantiate a `RandomModelBridge(search_space=search_space)`
+    For instance, `Generators.SOBOL(search_space=search_space, scramble=False)`
+    will instantiate a `RandomAdapter(search_space=search_space)`
     with a `SobolGenerator(scramble=False)` underlying model.
 
     NOTE: If you deprecate a model, please add its replacement to
@@ -454,29 +462,44 @@ class Models(ModelRegistryBase):
     CONTEXT_SACBO = "Contextual_SACBO"
 
 
+class ModelsMetaClass(type):
+    """Metaclass to override `__getattr__` for the Models class."""
+
+    def __getattr__(self, name: str) -> None:
+        raise DeprecationWarning(
+            "Models is deprecated, use `ax.modelbridge.registry.Generators` instead."
+        )
+
+
+class Models(metaclass=ModelsMetaClass):
+    """This is deprecated. Use Generators instead."""
+
+    pass
+
+
 def get_model_from_generator_run(
     generator_run: GeneratorRun,
     experiment: Experiment,
     data: Data,
     models_enum: type[ModelRegistryBase],
     after_gen: bool = True,
-) -> ModelBridge:
+) -> Adapter:
     """Reinstantiate a model from model key and kwargs stored on a given generator
     run, with the given experiment and the data to initialize the model with.
 
     Note: requires that the model that was used to get the generator run, is part
-    of the `Models` registry enum.
+    of the `Generators` registry enum.
 
     Args:
         generator_run: A `GeneratorRun` created by the model we are looking to
             reinstantiate.
         experiment: The experiment for which the model is reinstantiated.
         data: Data, with which to reinstantiate the model.
-        models_enum: Subclass of `Models` registry, from which to obtain
+        models_enum: Subclass of `Generators` registry, from which to obtain
             the settings of the model. Useful only if the generator run was
             created via a model that could not be included into the main registry,
             but can still be represented as a `ModelSetup` and was added to a
-            registry that extends `Models`.
+            registry that extends `Generators`.
         after_gen: Whether to reinstantiate the model in the state, in which it
             was after it created this generator run, as opposed to before.
             Defaults to True, useful when reinstantiating the model to resume
@@ -512,7 +535,7 @@ def get_model_from_generator_run(
 
 def _combine_model_kwargs_and_state(
     generator_run: GeneratorRun,
-    model_class: type[Model],
+    model_class: type[Generator],
     model_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Produces a combined dict of model kwargs and model state after gen,
@@ -534,7 +557,7 @@ def _combine_model_kwargs_and_state(
 
 
 def _extract_model_state_after_gen(
-    generator_run: GeneratorRun, model_class: type[Model]
+    generator_run: GeneratorRun, model_class: type[Generator]
 ) -> dict[str, Any]:
     """Extracts serialized post-generation model state from a generator run and
     deserializes it.

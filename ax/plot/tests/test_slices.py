@@ -7,7 +7,7 @@
 # pyre-strict
 
 import plotly.graph_objects as go
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.plot.base import AxPlotConfig
 from ax.plot.slice import (
     interact_slice,
@@ -25,7 +25,7 @@ class SlicesTest(TestCase):
     def test_Slices(self) -> None:
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
-        model = Models.BOTORCH_MODULAR(
+        model = Generators.BOTORCH_MODULAR(
             # Model bridge kwargs
             experiment=exp,
             data=exp.fetch_data(),
@@ -33,7 +33,7 @@ class SlicesTest(TestCase):
         # Assert that each type of plot can be constructed successfully
         plot = plot_slice_plotly(
             model,
-            # pyre-fixme[16]: `ModelBridge` has no attribute `parameters`.
+            # pyre-fixme[16]: `Adapter` has no attribute `parameters`.
             model.parameters[0],
             list(model.metric_names)[0],
         )

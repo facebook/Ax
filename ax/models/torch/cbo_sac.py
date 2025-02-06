@@ -11,8 +11,8 @@ from typing import Any
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.models.torch.botorch import BotorchModel
-from ax.models.torch_base import TorchModel
+from ax.models.torch.botorch import BotorchGenerator
+from ax.models.torch_base import TorchGenerator
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.fit import fit_gpytorch_mll
@@ -28,7 +28,7 @@ MIN_OBSERVED_NOISE_LEVEL = 1e-7
 logger: Logger = get_logger(__name__)
 
 
-class SACBO(BotorchModel):
+class SACBO(BotorchGenerator):
     """Does Bayesian optimization with structural additive contextual GP (SACGP).
     The parameter space decomposition must be provided.
 
@@ -48,7 +48,7 @@ class SACBO(BotorchModel):
         self.feature_names: list[str] = []
         super().__init__(model_constructor=self.get_and_fit_model)
 
-    @copy_doc(TorchModel.fit)
+    @copy_doc(TorchGenerator.fit)
     def fit(
         self,
         datasets: list[SupervisedDataset],

@@ -95,7 +95,7 @@ class Winsorize(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         if observations is None or len(observations) == 0:
@@ -173,7 +173,7 @@ def _get_cutoffs(
     metric_name: str,
     metric_values: list[float],
     winsorization_config: WinsorizationConfig | dict[str, WinsorizationConfig],
-    modelbridge: Optional["modelbridge_module.base.ModelBridge"],
+    modelbridge: Optional["modelbridge_module.base.Adapter"],
     observations: list[Observation] | None,
     optimization_config: OptimizationConfig | None,
     use_raw_sq: bool,

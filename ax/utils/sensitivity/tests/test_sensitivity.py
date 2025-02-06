@@ -12,10 +12,10 @@ from typing import cast
 from unittest.mock import patch, PropertyMock
 
 import torch
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.registry import Models
-from ax.modelbridge.torch import TorchModelBridge
-from ax.models.torch.botorch import BotorchModel
+from ax.modelbridge.base import Adapter
+from ax.modelbridge.registry import Generators
+from ax.modelbridge.torch import TorchAdapter
+from ax.models.torch.botorch import BotorchGenerator
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
@@ -44,21 +44,21 @@ from torch import Tensor
 
 
 @mock_botorch_optimize
-def get_modelbridge(modular: bool = False, saasbo: bool = False) -> ModelBridge:
+def get_modelbridge(modular: bool = False, saasbo: bool = False) -> Adapter:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
     if modular:
-        return Models.BOTORCH_MODULAR(
+        return Generators.BOTORCH_MODULAR(
             experiment=exp,
             data=exp.fetch_data(),
         )
     if saasbo:
-        return Models.SAASBO(
+        return Generators.SAASBO(
             experiment=exp,
             data=exp.fetch_data(),
         )
     else:
-        return Models.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
+        return Generators.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
 
 
 class SensitivityAnalysisTest(TestCase):
@@ -241,12 +241,12 @@ class SensitivityAnalysisTest(TestCase):
                 )
 
         # testing ax sensitivity utils
-        # model_bridge = cast(TorchModelBridge, get_modelbridge())
+        # model_bridge = cast(TorchAdapter, get_modelbridge())
         for modular in [False, True]:
-            model_bridge = cast(TorchModelBridge, get_modelbridge(modular=modular))
+            model_bridge = cast(TorchAdapter, get_modelbridge(modular=modular))
             with self.assertRaisesRegex(
                 NotImplementedError,
-                "but only TorchModelBridge is supported",
+                "but only TorchAdapter is supported",
             ):
                 # pyre-ignore
                 ax_parameter_sens(1, model_bridge.outcomes)
@@ -254,11 +254,14 @@ class SensitivityAnalysisTest(TestCase):
             with patch.object(model_bridge, "model", return_value=None):
                 with self.assertRaisesRegex(
                     NotImplementedError,
-                    r"but only Union\[BotorchModel, ModularBoTorchModel\] is supported",
+                    (
+                        r"but only Union\[BotorchGenerator, ModularBoTorchGenerator\] "
+                        r"is supported"
+                    ),
                 ):
                     ax_parameter_sens(model_bridge, model_bridge.outcomes)
 
-            torch_model = cast(BotorchModel, model_bridge.model)
+            torch_model = cast(BotorchGenerator, model_bridge.model)
             if not modular:
                 with self.assertRaisesRegex(
                     NotImplementedError,
@@ -273,7 +276,7 @@ class SensitivityAnalysisTest(TestCase):
                         mock.return_value = 2
                         ax_parameter_sens(model_bridge, model_bridge.outcomes)
 
-                # since only ModelList is supported for BotorchModel:
+                # since only ModelList is supported for BotorchGenerator:
                 gpytorch_model = ModelListGP(cast(GPyTorchModel, torch_model.model))
                 torch_model.model = gpytorch_model
 

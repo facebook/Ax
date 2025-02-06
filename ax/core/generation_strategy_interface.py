@@ -129,7 +129,7 @@ class GenerationStrategyInterface(ABC, Base):
                 resuggesting points that are currently being evaluated.
             model_gen_kwargs: Keyword arguments that are passed through to
                 ``GenerationNode.gen``, which will pass them through to
-                ``ModelSpec.gen``, which will pass them to ``ModelBridge.gen``.
+                ``GeneratorSpec.gen``, which will pass them to ``Adapter.gen``.
         """
         ...
 

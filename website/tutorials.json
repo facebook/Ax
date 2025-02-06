@@ -28,7 +28,7 @@
     },
     {
       "id": "modular_botax",
-      "title": "Modular `BoTorchModel`"
+      "title": "Modular `BoTorchGenerator`"
     }
   ],
   "Bayesian Optimization": [

@@ -13,9 +13,9 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.modelbridge.pairwise import (
     _binary_pref_to_comp_pair,
     _consolidate_comparisons,
-    PairwiseModelBridge,
+    PairwiseAdapter,
 )
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -31,7 +31,7 @@ from botorch.utils.datasets import RankingDataset
 from pyre_extensions import assert_is_instance
 
 
-class PairwiseModelBridgeTest(TestCase):
+class PairwiseAdapterTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         experiment = get_pbo_experiment()
@@ -41,7 +41,7 @@ class PairwiseModelBridgeTest(TestCase):
     @TestCase.ax_long_test(
         reason="TODO[T199510629] Fix: break up test into one test per case"
     )
-    def test_PairwiseModelBridge(self) -> None:
+    def test_PairwiseAdapter(self) -> None:
         surrogate = Surrogate(
             botorch_model_class=PairwiseGP,
             mll_class=PairwiseLaplaceMarginalLogLikelihood,
@@ -62,11 +62,11 @@ class PairwiseModelBridgeTest(TestCase):
             ),
         ]
         for botorch_acqf_class, model_gen_options, n in cases:
-            pmb = PairwiseModelBridge(
+            pmb = PairwiseAdapter(
                 experiment=self.experiment,
                 search_space=self.experiment.search_space,
                 data=self.data,
-                model=BoTorchModel(
+                model=BoTorchGenerator(
                     botorch_acqf_class=botorch_acqf_class,
                     surrogate=surrogate,
                 ),

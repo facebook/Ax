@@ -79,7 +79,7 @@ From String
     :show-inheritance:
 
 
-ModelBridge
+Adapter
 ~~~~~~~~~~~
 
 .. automodule:: ax.preview.modelbridge

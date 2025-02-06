@@ -84,13 +84,13 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
-from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol, Models
+from ax.modelbridge.factory import Cont_X_trans, Generators, get_factorial, get_sobol
 from ax.modelbridge.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
+from ax.modelbridge.model_spec import GeneratorSpec
 from ax.modelbridge.transition_criterion import (
     MaxGenerationParallelism,
     MinTrials,
@@ -98,7 +98,7 @@ from ax.modelbridge.transition_criterion import (
 )
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.winsorization_config import WinsorizationConfig
@@ -253,6 +253,7 @@ def get_branin_experiment(
     with_completed_batch: bool = False,
     with_completed_trial: bool = False,
     num_arms_per_trial: int = 15,
+    with_relative_constraint: bool = False,
 ) -> Experiment:
     search_space = search_space or get_branin_search_space(
         with_fidelity_parameter=with_fidelity_parameter,
@@ -260,12 +261,15 @@ def get_branin_experiment(
         with_str_choice_param=with_str_choice_param,
         with_parameter_constraint=with_parameter_constraint,
     )
+
     exp = Experiment(
         name="branin_test_experiment" if named else None,
         search_space=search_space,
         optimization_config=(
-            get_branin_optimization_config(minimize=minimize)
-            if has_optimization_config
+            get_branin_optimization_config(
+                minimize=minimize, with_relative_constraint=with_relative_constraint
+            )
+            if has_optimization_config or with_relative_constraint
             else None
         ),
         runner=SyntheticRunner(),
@@ -1716,8 +1720,20 @@ def get_optimization_config_no_constraints(
     )
 
 
-def get_branin_optimization_config(minimize: bool = False) -> OptimizationConfig:
-    return OptimizationConfig(objective=get_branin_objective(minimize=minimize))
+def get_branin_optimization_config(
+    minimize: bool = False, with_relative_constraint: bool = False
+) -> OptimizationConfig:
+    outcome_constraint = []
+    if with_relative_constraint:
+        outcome_constraint.append(
+            get_outcome_constraint(
+                metric=get_branin_metric(name="branin_d"), relative=True
+            )
+        )
+    return OptimizationConfig(
+        objective=get_branin_objective(minimize=minimize),
+        outcome_constraints=outcome_constraint,
+    )
 
 
 def _validate_num_objectives(num_objectives: int) -> None:
@@ -2238,30 +2254,30 @@ def get_model_predictions_per_arm() -> dict[str, TModelPredictArm]:
 ##############################
 
 
-def get_botorch_model() -> BoTorchModel:
-    return BoTorchModel(
+def get_botorch_model() -> BoTorchGenerator:
+    return BoTorchGenerator(
         surrogate=get_surrogate(), acquisition_class=get_acquisition_type()
     )
 
 
-def get_botorch_model_with_default_acquisition_class() -> BoTorchModel:
-    return BoTorchModel(
+def get_botorch_model_with_default_acquisition_class() -> BoTorchGenerator:
+    return BoTorchGenerator(
         surrogate=get_surrogate(),
         acquisition_class=Acquisition,
         botorch_acqf_class=get_acquisition_function_type(),
     )
 
 
-def get_botorch_model_with_surrogate_specs() -> BoTorchModel:
-    return BoTorchModel(
+def get_botorch_model_with_surrogate_specs() -> BoTorchGenerator:
+    return BoTorchGenerator(
         surrogate_specs={
             "name": SurrogateSpec(botorch_model_kwargs={"some_option": "some_value"})
         }
     )
 
 
-def get_botorch_model_with_surrogate_spec() -> BoTorchModel:
-    return BoTorchModel(
+def get_botorch_model_with_surrogate_spec() -> BoTorchGenerator:
+    return BoTorchGenerator(
         surrogate_spec=SurrogateSpec(botorch_model_kwargs={"some_option": "some_value"})
     )
 
@@ -2449,13 +2465,13 @@ def get_online_sobol_mbm_generation_strategy(
             ],
         ),
     ]
-    sobol_model_spec = ModelSpec(
-        model_enum=Models.SOBOL,
+    sobol_model_spec = GeneratorSpec(
+        model_enum=Generators.SOBOL,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
-    mbm_model_spec = ModelSpec(
-        model_enum=Models.BOTORCH_MODULAR,
+    mbm_model_spec = GeneratorSpec(
+        model_enum=Generators.BOTORCH_MODULAR,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )

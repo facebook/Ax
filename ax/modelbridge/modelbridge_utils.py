@@ -235,7 +235,7 @@ def extract_search_space_digest(
             if p.log_scale or p.logit_scale:
                 raise UserInputError(
                     "Log and Logit scale parameters must be transformed using the "
-                    "corresponding transform within the `ModelBridge`. After applying "
+                    "corresponding transform within the `Adapter`. After applying "
                     f"the transforms, we have {p.log_scale=} and {p.logit_scale=}."
                 )
             if p.parameter_type == ParameterType.INT:
@@ -683,7 +683,7 @@ def transform_callback(
 
 
 def get_pareto_frontier_and_configs(
-    modelbridge: modelbridge_module.torch.TorchModelBridge,
+    modelbridge: modelbridge_module.torch.TorchAdapter,
     observation_features: list[ObservationFeatures],
     observation_data: list[ObservationData] | None = None,
     objective_thresholds: TRefPoint | None = None,
@@ -697,7 +697,7 @@ def get_pareto_frontier_and_configs(
     observations.
 
     Args:
-        modelbridge: ``Modelbridge`` used to predict metrics outcomes.
+        modelbridge: ``Adapter`` used to predict metrics outcomes.
         observation_features: Observation features to consider for the Pareto
             frontier.
         observation_data: Data for computing the Pareto front, unless
@@ -827,7 +827,7 @@ def get_pareto_frontier_and_configs(
 
 
 def pareto_frontier(
-    modelbridge: modelbridge_module.torch.TorchModelBridge,
+    modelbridge: modelbridge_module.torch.TorchAdapter,
     observation_features: list[ObservationFeatures],
     observation_data: list[ObservationData] | None = None,
     objective_thresholds: TRefPoint | None = None,
@@ -839,7 +839,7 @@ def pareto_frontier(
     in the untransformed search space.
 
     Args:
-        modelbridge: ``Modelbridge`` used to predict metrics outcomes.
+        modelbridge: ``Adapter`` used to predict metrics outcomes.
         observation_features: Observation features to consider for the Pareto
             frontier.
         observation_data: Data for computing the Pareto front, unless
@@ -898,7 +898,7 @@ def pareto_frontier(
 
 
 def predicted_pareto_frontier(
-    modelbridge: modelbridge_module.torch.TorchModelBridge,
+    modelbridge: modelbridge_module.torch.TorchAdapter,
     objective_thresholds: TRefPoint | None = None,
     observation_features: list[ObservationFeatures] | None = None,
     optimization_config: MultiObjectiveOptimizationConfig | None = None,
@@ -909,7 +909,7 @@ def predicted_pareto_frontier(
     which points lie on the Pareto frontier.
 
     Args:
-        modelbridge: ``Modelbridge`` used to predict metrics outcomes.
+        modelbridge: ``Adapter`` used to predict metrics outcomes.
         observation_features: Observation features to predict, if provided and
             ``use_model_predictions is True``.
         objective_thresholds: Metric values bounding the region of interest in
@@ -943,7 +943,7 @@ def predicted_pareto_frontier(
 
 
 def observed_pareto_frontier(
-    modelbridge: modelbridge_module.torch.TorchModelBridge,
+    modelbridge: modelbridge_module.torch.TorchAdapter,
     objective_thresholds: TRefPoint | None = None,
     optimization_config: MultiObjectiveOptimizationConfig | None = None,
 ) -> list[Observation]:
@@ -952,7 +952,7 @@ def observed_pareto_frontier(
     as `Observation`-s.
 
     Args:
-        modelbridge: ``Modelbridge`` that holds previous training data.
+        modelbridge: ``Adapter`` that holds previous training data.
         objective_thresholds: Metric values bounding the region of interest in
             the objective outcome space; used to override objective thresholds
             in the optimization config, if needed.
@@ -979,7 +979,7 @@ def observed_pareto_frontier(
 
 
 def hypervolume(
-    modelbridge: modelbridge_module.torch.TorchModelBridge,
+    modelbridge: modelbridge_module.torch.TorchAdapter,
     observation_features: list[ObservationFeatures],
     objective_thresholds: TRefPoint | None = None,
     observation_data: list[ObservationData] | None = None,
@@ -1054,7 +1054,7 @@ def hypervolume(
 
 
 def _get_multiobjective_optimization_config(
-    modelbridge: modelbridge_module.torch.TorchModelBridge,
+    modelbridge: modelbridge_module.torch.TorchAdapter,
     optimization_config: OptimizationConfig | None = None,
     objective_thresholds: TRefPoint | None = None,
 ) -> MultiObjectiveOptimizationConfig:
@@ -1079,7 +1079,7 @@ def _get_multiobjective_optimization_config(
 
 
 def predicted_hypervolume(
-    modelbridge: modelbridge_module.torch.TorchModelBridge,
+    modelbridge: modelbridge_module.torch.TorchAdapter,
     objective_thresholds: TRefPoint | None = None,
     observation_features: list[ObservationFeatures] | None = None,
     optimization_config: MultiObjectiveOptimizationConfig | None = None,
@@ -1092,7 +1092,7 @@ def predicted_hypervolume(
     frontier formed from their predicted outcomes.
 
     Args:
-        modelbridge: Modelbridge used to predict metrics outcomes.
+        modelbridge: Adapter used to predict metrics outcomes.
         objective_thresholds: point defining the origin of hyperrectangles that
             can contribute to hypervolume.
         observation_features: observation features to predict. Model's training
@@ -1126,7 +1126,7 @@ def predicted_hypervolume(
 
 
 def observed_hypervolume(
-    modelbridge: modelbridge_module.torch.TorchModelBridge,
+    modelbridge: modelbridge_module.torch.TorchAdapter,
     objective_thresholds: TRefPoint | None = None,
     optimization_config: MultiObjectiveOptimizationConfig | None = None,
     selected_metrics: list[str] | None = None,
@@ -1137,7 +1137,7 @@ def observed_hypervolume(
     those outcomes.
 
     Args:
-        modelbridge: Modelbridge that holds previous training data.
+        modelbridge: Adapter that holds previous training data.
         objective_thresholds: Point defining the origin of hyperrectangles that
             can contribute to hypervolume. Note that if this is None,
             `objective_thresholds` must be present on the
@@ -1290,7 +1290,7 @@ def feasible_hypervolume(
 
 def _array_to_tensor(
     array: npt.NDArray | list[float],
-    modelbridge: modelbridge_module.base.ModelBridge | None = None,
+    modelbridge: modelbridge_module.base.Adapter | None = None,
 ) -> Tensor:
     if modelbridge and hasattr(modelbridge, "_array_to_tensor"):
         # pyre-ignore[16]: modelbridge does not have attribute `_array_to_tensor`
@@ -1300,7 +1300,7 @@ def _array_to_tensor(
 
 
 def _get_modelbridge_training_data(
-    modelbridge: modelbridge_module.torch.TorchModelBridge,
+    modelbridge: modelbridge_module.torch.TorchAdapter,
 ) -> tuple[list[ObservationFeatures], list[ObservationData], list[str | None]]:
     obs = modelbridge.get_training_data()
     return _unpack_observations(obs=obs)

@@ -441,7 +441,7 @@ class SurrogateSpec:
     Fields in the SurrogateSpec dataclass correspond to arguments in
     ``Surrogate.__init__``, except for ``outcomes`` which is used to specify which
     outcomes the Surrogate is responsible for modeling.
-    When ``BotorchModel.fit`` is called, these fields will be used to construct the
+    When ``BotorchGenerator.fit`` is called, these fields will be used to construct the
     requisite Surrogate objects.
     If ``outcomes`` is left empty then no outcomes will be fit to the Surrogate.
 
@@ -454,7 +454,7 @@ class SurrogateSpec:
         model_options: Dictionary of options / kwargs for the BoTorch
             ``Model`` constructed during ``Surrogate.fit``.
             Note that the corresponding attribute will later be updated to include any
-            additional kwargs passed into ``BoTorchModel.fit``.
+            additional kwargs passed into ``BoTorchGenerator.fit``.
             This argument is deprecated in favor of model_configs.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
             This argument is deprecated in favor of model_configs.
@@ -608,7 +608,7 @@ class Surrogate(Base):
     construction, incomplete, and should be treated as alpha
     versions only.**
 
-    Ax wrapper for BoTorch ``Model``, subcomponent of ``BoTorchModel``
+    Ax wrapper for BoTorch ``Model``, subcomponent of ``BoTorchGenerator``
     and is not meant to be used outside of it.
 
     Args:
@@ -620,7 +620,7 @@ class Surrogate(Base):
         model_options: Dictionary of options / kwargs for the BoTorch
             ``Model`` constructed during ``Surrogate.fit``.
             Note that the corresponding attribute will later be updated to include any
-            additional kwargs passed into ``BoTorchModel.fit``.
+            additional kwargs passed into ``BoTorchGenerator.fit``.
             This argument is deprecated in favor of model_configs.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
             This argument is deprecated in favor of model_configs.
@@ -674,7 +674,7 @@ class Surrogate(Base):
             Set to false to fit individual models to each metric in a loop.
         refit_on_cv: Whether to refit the model on the cross-validation folds.
         metric_to_best_model_config: Dictionary mapping a metric name to the best
-            model config. This is only used by BotorchModel.cross_validate and for
+            model config. This is only used by BotorchGenerator.cross_validate and for
             logging what model was used.
 
     """
@@ -773,7 +773,7 @@ class Surrogate(Base):
         if self._model is None:
             raise ValueError(
                 "BoTorch `Model` has not yet been constructed, please fit the "
-                "surrogate first (done via `BoTorchModel.fit`)."
+                "surrogate first (done via `BoTorchGenerator.fit`)."
             )
         return self._model
 
@@ -1015,7 +1015,7 @@ class Surrogate(Base):
         based on the SurrogateSpec's eval_criteria. The eval_criteria is
         computed using LOOCV on the provided dataset. The best model config is saved
         in self.metric_to_best_model_config for future use (e.g. for using cross-
-        validation at the Modelbridge level).
+        validation at the Adapter level).
 
         Args:
             dataset: Training data for the model

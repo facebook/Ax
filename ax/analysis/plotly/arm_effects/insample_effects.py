@@ -22,9 +22,9 @@ from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
@@ -157,7 +157,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
         return "Modeled" if self.use_modeled_effects else "Observed"
 
 
-def _get_max_observed_trial_index(model: ModelBridge) -> int | None:
+def _get_max_observed_trial_index(model: Adapter) -> int | None:
     """Returns the max observed trial index to appease multitask models for prediction
     by giving fixed features. This is not necessarily accurate and should eventually
     come from the generation strategy.
@@ -178,7 +178,7 @@ def _get_model(
     use_modeled_effects: bool,
     trial_index: int,
     metric_name: str,
-) -> ModelBridge:
+) -> Adapter:
     """Get a model for predictions.
 
     Args:
@@ -213,14 +213,14 @@ def _get_model(
 
         if model is None or not is_predictive(model=model):
             logger.info("Using empirical Bayes for predictions.")
-            return Models.EMPIRICAL_BAYES_THOMPSON(
+            return Generators.EMPIRICAL_BAYES_THOMPSON(
                 experiment=experiment, data=trial_data
             )
 
         return model
     else:
         # This model just predicts observed data
-        return Models.THOMPSON(
+        return Generators.THOMPSON(
             data=trial_data,
             search_space=experiment.search_space,
             experiment=experiment,
@@ -229,7 +229,7 @@ def _get_model(
 
 def _prepare_data(
     experiment: Experiment,
-    model: ModelBridge,
+    model: Adapter,
     outcome_constraints: list[OutcomeConstraint],
     metric_name: str,
     trial_index: int,
@@ -249,7 +249,7 @@ def _prepare_data(
 
     Args:
         experiment: Experiment to plot
-        model: ModelBridge being used for prediction
+        model: Adapter being used for prediction
         outcome_constraints: Derelatives outcome constraints used for
             assessing feasibility
         metric_name: Name of metric to plot

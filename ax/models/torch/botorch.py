@@ -34,7 +34,7 @@ from ax.models.torch.utils import (
     predict_from_model,
     subset_model,
 )
-from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
+from ax.models.torch_base import TorchGenerator, TorchGenResults, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
@@ -84,7 +84,7 @@ TOptimizer = Callable[
 ]
 TBestPointRecommender = Callable[
     [
-        TorchModel,
+        TorchGenerator,
         list[tuple[float, float]],
         Tensor,
         Optional[tuple[Tensor, Tensor]],
@@ -97,7 +97,7 @@ TBestPointRecommender = Callable[
 ]
 
 
-class BotorchModel(TorchModel):
+class BotorchGenerator(TorchGenerator):
     r"""
     Customizable botorch model.
 
@@ -158,7 +158,7 @@ class BotorchModel(TorchModel):
     `fidelity_features` is a list of ints that specify the positions of fidelity
     parameters in 'Xs', `metric_names` provides the names of each `Y` in `Ys`,
     `state_dict` is a pytorch module state dict, and `model` is a BoTorch `Model`.
-    Optional kwargs are being passed through from the `BotorchModel` constructor.
+    Optional kwargs are being passed through from the `BotorchGenerator` constructor.
     This callable is assumed to return a fitted BoTorch model that has the same
     dtype and lives on the same device as the input tensors.
 
@@ -222,7 +222,7 @@ class BotorchModel(TorchModel):
             target_fidelities,
         ) -> candidates
 
-    Here `model` is a TorchModel, `bounds` is a list of tuples containing bounds
+    Here `model` is a TorchGenerator, `bounds` is a list of tuples containing bounds
     on the parameters, `objective_weights` is a tensor of weights for the model outputs,
     `outcome_constraints` is a tuple of tensors describing the (linear) outcome
     constraints, `linear_constraints` is a tuple of tensors describing constraints
@@ -257,12 +257,12 @@ class BotorchModel(TorchModel):
         **kwargs: Any,
     ) -> None:
         warnings.warn(
-            "The legacy `BotorchModel` and its subclasses, including the current"
+            "The legacy `BotorchGenerator` and its subclasses, including the current"
             f"class `{self.__class__.__name__}`, slated for deprecation. "
             "These models will not be supported going forward and may be "
             "fully removed in a future release. Please consider using the "
-            "Modular BoTorch Model (MBM) setup (ax/models/torch/botorch_modular) "
-            "instead. If you run into a use case that is not supported by MBM, "
+            "Modular BoTorch Generator (MBG) setup (ax/models/torch/botorch_modular) "
+            "instead. If you run into a use case that is not supported by MBG, "
             "please raise this with an issue at https://github.com/facebook/Ax",
             DeprecationWarning,
             stacklevel=2,
@@ -289,7 +289,7 @@ class BotorchModel(TorchModel):
         self.fidelity_features: list[int] = []
         self.metric_names: list[str] = []
 
-    @copy_doc(TorchModel.fit)
+    @copy_doc(TorchGenerator.fit)
     def fit(
         self,
         datasets: list[SupervisedDataset],
@@ -297,7 +297,9 @@ class BotorchModel(TorchModel):
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
         if len(datasets) == 0:
-            raise DataRequiredError("BotorchModel.fit requires non-empty data sets.")
+            raise DataRequiredError(
+                "BotorchGenerator.fit requires non-empty data sets."
+            )
         self.Xs, self.Ys, self.Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         self.metric_names = sum((ds.outcome_names for ds in datasets), [])
         # Store search space info for later use (e.g. during generation)
@@ -324,11 +326,11 @@ class BotorchModel(TorchModel):
             **self._kwargs,
         )
 
-    @copy_doc(TorchModel.predict)
+    @copy_doc(TorchGenerator.predict)
     def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
         return self.model_predictor(model=self.model, X=X)  # pyre-ignore [28]
 
-    @copy_doc(TorchModel.gen)
+    @copy_doc(TorchGenerator.gen)
     def gen(
         self,
         n: int,
@@ -341,7 +343,7 @@ class BotorchModel(TorchModel):
 
         if search_space_digest.fidelity_features:
             raise NotImplementedError(
-                "Base BotorchModel does not support fidelity_features."
+                "Base BotorchGenerator does not support fidelity_features."
             )
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,
@@ -439,7 +441,7 @@ class BotorchModel(TorchModel):
             gen_metadata=gen_metadata,
         )
 
-    @copy_doc(TorchModel.best_point)
+    @copy_doc(TorchGenerator.best_point)
     def best_point(
         self,
         search_space_digest: SearchSpaceDigest,
@@ -465,7 +467,7 @@ class BotorchModel(TorchModel):
             target_fidelities=target_fidelities,
         )
 
-    @copy_doc(TorchModel.cross_validate)
+    @copy_doc(TorchGenerator.cross_validate)
     def cross_validate(  # pyre-ignore [14]: `search_space_digest` arg not needed here
         self,
         datasets: list[SupervisedDataset],

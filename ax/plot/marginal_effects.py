@@ -10,14 +10,14 @@ from typing import Any
 
 import pandas as pd
 import plotly.graph_objs as go
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.plot.base import AxPlotConfig, AxPlotTypes, DECIMALS
 from ax.plot.helper import get_plot_data
 from ax.utils.stats.statstools import marginal_effects
 from plotly import subplots
 
 
-def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
+def plot_marginal_effects(model: Adapter, metric: str) -> AxPlotConfig:
     """
     Calculates and plots the marginal effects -- the effect of changing one
     factor away from the randomized distribution of the experiment and fixing it

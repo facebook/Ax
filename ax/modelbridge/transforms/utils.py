@@ -162,7 +162,7 @@ def construct_new_search_space(
 
 def derelativize_optimization_config_with_raw_status_quo(
     optimization_config: OptimizationConfig,
-    modelbridge: modelbridge_module.base.ModelBridge,
+    modelbridge: modelbridge_module.base.Adapter,
     observations: list[Observation] | None,
 ) -> OptimizationConfig:
     """Derelativize optimization_config using raw status-quo values"""

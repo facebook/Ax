@@ -44,7 +44,7 @@ from botorch.utils.datasets import SupervisedDataset
 from pyre_extensions import assert_is_instance, none_throws
 
 
-class BoTorchModelUtilsTest(TestCase):
+class BoTorchGeneratorUtilsTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.dtype = torch.float

@@ -44,7 +44,7 @@ class MapKeyToFloat(MetadataToFloat):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         config = config or {}

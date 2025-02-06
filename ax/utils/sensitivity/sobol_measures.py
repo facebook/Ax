@@ -12,9 +12,11 @@ from typing import Any
 
 import numpy.typing as npt
 import torch
-from ax.modelbridge.torch import TorchModelBridge
-from ax.models.torch.botorch import BotorchModel
-from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
+from ax.modelbridge.torch import TorchAdapter
+from ax.models.torch.botorch import BotorchGenerator
+from ax.models.torch.botorch_modular.model import (
+    BoTorchGenerator as ModularBoTorchGenerator,
+)
 from ax.utils.sensitivity.derivative_measures import (
     compute_derivatives_from_model_list,
     sample_discrete_parameters,
@@ -834,14 +836,14 @@ def compute_sobol_indices_from_model_list(
 
 
 def ax_parameter_sens(
-    model_bridge: TorchModelBridge,
+    model_bridge: TorchAdapter,
     metrics: list[str] | None = None,
     order: str = "first",
     signed: bool = True,
     **sobol_kwargs: Any,
 ) -> dict[str, dict[str, npt.NDArray]]:
     """
-    Compute sensitivity for all metrics on an TorchModelBridge.
+    Compute sensitivity for all metrics on an TorchAdapter.
 
     Sobol measures are always positive regardless of the direction in which the
     parameter influences f. If `signed` is set to True, then the Sobol measure for each
@@ -851,7 +853,7 @@ def ax_parameter_sens(
     will have values close to 0.
 
     Args:
-        model_bridge: A ModelBridge object with models that were fit.
+        model_bridge: A Adapter object with models that were fit.
         metrics: The names of the metrics and outcomes for which to compute
             sensitivities. This should preferably be metrics with a good model fit.
             Defaults to model_bridge.outcomes.
@@ -938,32 +940,35 @@ def ax_parameter_sens(
 
 
 def _get_torch_model(
-    model_bridge: TorchModelBridge,
-) -> BotorchModel | ModularBoTorchModel:
-    """Returns the TorchModel of the model_bridge, if it is a type that stores
-    SearchSpaceDigest during model fitting. At this point, this is BotorchModel, and
-    ModularBoTorchModel.
+    model_bridge: TorchAdapter,
+) -> BotorchGenerator | ModularBoTorchGenerator:
+    """Returns the TorchGenerator of the model_bridge, if it is a type that stores
+    SearchSpaceDigest during model fitting. At this point, this is BotorchGenerator, and
+    ModularBoTorchGenerator.
     """
-    if not isinstance(model_bridge, TorchModelBridge):
+    if not isinstance(model_bridge, TorchAdapter):
         raise NotImplementedError(
-            f"{type(model_bridge)=}, but only TorchModelBridge is supported."
+            f"{type(model_bridge)=}, but only TorchAdapter is supported."
         )
-    model = model_bridge.model  # should be of type TorchModel
-    if not (isinstance(model, BotorchModel) or isinstance(model, ModularBoTorchModel)):
+    model = model_bridge.model  # should be of typeTorchGenerator
+    if not (
+        isinstance(model, BotorchGenerator)
+        or isinstance(model, ModularBoTorchGenerator)
+    ):
         raise NotImplementedError(
             f"{type(model_bridge.model)=}, but only "
-            "Union[BotorchModel, ModularBoTorchModel] is supported."
+            "Union[BotorchGenerator, ModularBoTorchGenerator] is supported."
         )
     return model
 
 
 def _get_model_per_metric(
-    model: BotorchModel | ModularBoTorchModel, metrics: list[str]
+    model: BotorchGenerator | ModularBoTorchGenerator, metrics: list[str]
 ) -> list[Model]:
-    """For a given TorchModel model, returns a list of botorch.models.model.Model
+    """For a given TorchGenerator model, returns a list of botorch.models.model.Model
     objects corresponding to - and in the same order as - the given metrics.
     """
-    if isinstance(model, BotorchModel):
+    if isinstance(model, BotorchGenerator):
         # guaranteed not to be None after accessing search_space_digest
         gp_model = model.model
         model_idx = [model.metric_names.index(m) for m in metrics]
@@ -975,14 +980,14 @@ def _get_model_per_metric(
                 "but only ModelList is supported."
             )
         return [gp_model.models[i] for i in model_idx]
-    else:  # isinstance(model, ModularBoTorchModel):
+    else:  # isinstance(model, ModularBoTorchGenerator):
         surrogate = model.surrogate
         outcomes = surrogate.outcomes
         model_list = []
         for m in metrics:  # for each metric, find a corresponding surrogate
             i = outcomes.index(m)
             metric_model = surrogate.model
-            # since model is a ModularBoTorchModel, metric_model will be a
+            # since model is a ModularBoTorchGenerator, metric_model will be a
             # `botorch.models.model.Model` object, which have the `num_outputs`
             # property and `subset_outputs` method.
             if metric_model.num_outputs > 1:  # subset to relevant output
