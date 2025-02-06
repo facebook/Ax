@@ -85,7 +85,7 @@ jobs:
       id: deployment
       uses: actions/upload-pages-artifact@v3
       with:
-        path: website/
+        path: website/build/
 
   deploy-website:
     needs: build-website
