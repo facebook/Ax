@@ -1,4 +1,4 @@
-name: Publish Website
+name: Publish Website Testing
 
 on:
   pull_request:
@@ -37,3 +37,5 @@ jobs:
     - name: Build website
       run: |
         bash scripts/make_docs.sh -b
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
