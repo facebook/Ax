@@ -117,11 +117,17 @@ MBM_X_trans: list[type[Transform]] = [
 Discrete_X_trans: list[type[Transform]] = [IntRangeToChoice]
 
 EB_ashr_trans: list[type[Transform]] = [
+    Derelativize,  # necessary to support relative constraints
+    # scales data from multiple trials since we currently don't filter to single
+    # trial data
     TransformToNewSQ,
+    # Ensure we pass unique arms to EBAshr. This assumes treatment effects are
+    # stationarity, but also should help with estimating the task-task covariance.
     MergeRepeatedMeasurements,
     SearchSpaceToChoice,
 ]
 
+# TODO: @mgarrard remove this once non-gs methods are reaped
 rel_EB_ashr_trans: list[type[Transform]] = [
     Relativize,
     MergeRepeatedMeasurements,

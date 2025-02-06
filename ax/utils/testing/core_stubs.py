@@ -253,6 +253,7 @@ def get_branin_experiment(
     with_completed_batch: bool = False,
     with_completed_trial: bool = False,
     num_arms_per_trial: int = 15,
+    with_relative_constraint: bool = False,
 ) -> Experiment:
     search_space = search_space or get_branin_search_space(
         with_fidelity_parameter=with_fidelity_parameter,
@@ -260,12 +261,15 @@ def get_branin_experiment(
         with_str_choice_param=with_str_choice_param,
         with_parameter_constraint=with_parameter_constraint,
     )
+
     exp = Experiment(
         name="branin_test_experiment" if named else None,
         search_space=search_space,
         optimization_config=(
-            get_branin_optimization_config(minimize=minimize)
-            if has_optimization_config
+            get_branin_optimization_config(
+                minimize=minimize, with_relative_constraint=with_relative_constraint
+            )
+            if has_optimization_config or with_relative_constraint
             else None
         ),
         runner=SyntheticRunner(),
@@ -1716,8 +1720,20 @@ def get_optimization_config_no_constraints(
     )
 
 
-def get_branin_optimization_config(minimize: bool = False) -> OptimizationConfig:
-    return OptimizationConfig(objective=get_branin_objective(minimize=minimize))
+def get_branin_optimization_config(
+    minimize: bool = False, with_relative_constraint: bool = False
+) -> OptimizationConfig:
+    outcome_constraint = []
+    if with_relative_constraint:
+        outcome_constraint.append(
+            get_outcome_constraint(
+                metric=get_branin_metric(name="branin_d"), relative=True
+            )
+        )
+    return OptimizationConfig(
+        objective=get_branin_objective(minimize=minimize),
+        outcome_constraints=outcome_constraint,
+    )
 
 
 def _validate_num_objectives(num_objectives: int) -> None:
