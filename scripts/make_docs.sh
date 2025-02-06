@@ -62,7 +62,7 @@ echo "Getting Docusaurus deps"
 echo "-----------------------------------"
 cd website || exit
 yarn
-
+yarn list
 
 if [[ $INSERT_API_REFS == true ]]; then
   echo "-----------------------------------"
