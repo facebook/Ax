@@ -441,7 +441,7 @@ class Client(WithDBSettingsBase):
         # If no progression is provided assume the data is not timeseries-like and
         # set step=NaN
         data_with_progression = [
-            ({"step": progression if progression is not None else np.nan}, raw_data)
+            ({"step": progression if progression is not None else -1.0}, raw_data)
         ]
 
         trial = assert_is_instance(self._experiment.trials[trial_index], Trial)

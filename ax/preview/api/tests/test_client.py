@@ -415,7 +415,7 @@ class TestClient(TestCase):
                         "mean": {0: 1.0},
                         "sem": {0: np.nan},
                         "trial_index": {0: 0},
-                        "step": {0: np.nan},
+                        "step": {0: -1.0},
                     }
                 )
             ),
@@ -440,7 +440,7 @@ class TestClient(TestCase):
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "trial_index": {0: 0, 1: 0},
-                        "step": {0: np.nan, 1: 10.0},
+                        "step": {0: -1, 1: 10.0},
                     }
                 )
             ),
@@ -467,7 +467,7 @@ class TestClient(TestCase):
                         "mean": {0: 2.0, 1: 1.0, 2: 2.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan},
                         "trial_index": {0: 0, 1: 0, 2: 0},
-                        "step": {0: 10.0, 1: np.nan, 2: np.nan},
+                        "step": {0: 10.0, 1: -1.0, 2: -1.0},
                     }
                 )
             ),
@@ -513,7 +513,7 @@ class TestClient(TestCase):
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "trial_index": {0: 0, 1: 0},
-                        "step": {0: np.nan, 1: np.nan},
+                        "step": {0: -1.0, 1: -1.0},
                     }
                 )
             ),
@@ -568,7 +568,7 @@ class TestClient(TestCase):
                         "mean": {0: 1.0},
                         "sem": {0: np.nan},
                         "trial_index": {0: 2},
-                        "step": {0: np.nan},
+                        "step": {0: -1.0},
                     }
                 )
             ),
