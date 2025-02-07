@@ -673,6 +673,10 @@ class Surrogate(Base):
         allow_batched_models: Set to true to fit the models in a batch if supported.
             Set to false to fit individual models to each metric in a loop.
         refit_on_cv: Whether to refit the model on the cross-validation folds.
+        warm_start_refit: Whether to warm-start refitting from the current state_dict
+            during cross-validation. If refit_on_cv is True, generally one
+            would set this to be False, so that no information is leaked between or
+            across folds.
         metric_to_best_model_config: Dictionary mapping a metric name to the best
             model config. This is only used by BotorchGenerator.cross_validate and for
             logging what model was used.
@@ -698,6 +702,7 @@ class Surrogate(Base):
         likelihood_options: dict[str, Any] | None = None,
         allow_batched_models: bool = True,
         refit_on_cv: bool = False,
+        warm_start_refit: bool = True,
         metric_to_best_model_config: dict[str, ModelConfig] | None = None,
     ) -> None:
         warnings_raised = _raise_deprecation_warning(
@@ -764,6 +769,7 @@ class Surrogate(Base):
         self._outcomes: list[str] | None = None
         self._model: Model | None = None
         self.refit_on_cv = refit_on_cv
+        self.warm_start_refit = warm_start_refit
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}" f" surrogate_spec={self.surrogate_spec}>"
@@ -855,7 +861,7 @@ class Surrogate(Base):
         )
         # pyre-ignore [45]
         model = botorch_model_class(**formatted_model_inputs)
-        if state_dict is not None:
+        if state_dict is not None and (not refit or self.warm_start_refit):
             model.load_state_dict(state_dict)
         if state_dict is None or refit:
             fit_botorch_model(
@@ -958,7 +964,18 @@ class Surrogate(Base):
             model_config = self.metric_to_best_model_config.get(
                 dataset.outcome_names[0]
             )
-            if len(model_configs) == 1 or (not refit and model_config is not None):
+            # Model selection is not performed if the best `ModelConfig` has already
+            # been identified (as specified in `metric_to_best_model_config`).
+            # The reason for doing this is to support the following flow:
+            # - Fit model to data and perform model selection, refitting on each fold
+            #   if `refit_on_cv=True`. This will set the best ModelConfig in
+            #   metric_to_best_model_config.
+            # - Evaluate the choice of model/visualize its performance via
+            #   `Modelbridge.cross_validate``. This also will refit on each fold if
+            #   `refit_on_cv=True`, but we wouldn't want to perform model selection
+            #   on each fold, but rather show the performance of the selecting
+            #   `ModelConfig`` since that is what will be used.
+            if len(model_configs) == 1 or (model_config is not None):
                 best_model_config = model_config or model_configs[0]
                 model = self._construct_model(
                     dataset=dataset,
@@ -1329,6 +1346,7 @@ class Surrogate(Base):
         return {
             "surrogate_spec": self.surrogate_spec,
             "refit_on_cv": self.refit_on_cv,
+            "warm_start_refit": self.warm_start_refit,
             "metric_to_best_model_config": self.metric_to_best_model_config,
         }
 

@@ -71,7 +71,8 @@ class BoTorchGenerator(TorchGenerator, Base):
             state dict or the state dict of the current BoTorch ``Model`` during
             refitting. If False, model parameters will be reoptimized from
             scratch on refit. NOTE: This setting is ignored during
-            ``cross_validate`` if ``refit_on_cv`` is False.
+            ``cross_validate`` if ``refit_on_cv`` is False. This is also used in
+            Surrogate.model_selection.
     """
 
     acquisition_class: type[Acquisition]
@@ -192,7 +193,9 @@ class BoTorchGenerator(TorchGenerator, Base):
                 else self.surrogate_spec
             )
             self._surrogate = Surrogate(
-                surrogate_spec=surrogate_spec, refit_on_cv=self.refit_on_cv
+                surrogate_spec=surrogate_spec,
+                refit_on_cv=self.refit_on_cv,
+                warm_start_refit=self.warm_start_refit,
             )
 
         # Fit the surrogate.
