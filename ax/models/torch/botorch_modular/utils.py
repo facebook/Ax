@@ -393,9 +393,9 @@ def fit_botorch_model(
     for m in models:
         # TODO: Support deterministic models when we support `ModelList`
         if is_fully_bayesian(m):
+            mll_options.setdefault("disable_progbar", True)
             fit_fully_bayesian_model_nuts(
                 m,
-                disable_progbar=True,
                 **mll_options,
             )
         elif isinstance(m, (GPyTorchModel, PairwiseGP)):
