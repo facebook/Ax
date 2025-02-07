@@ -686,6 +686,27 @@ class SurrogateTest(TestCase):
                 )
             mock_fit.assert_not_called()
 
+    def test_construct_model_warm_start(self) -> None:
+        for warm_start_refit in (False, True):
+            surrogate = Surrogate(warm_start_refit=warm_start_refit)
+            with patch.object(
+                SingleTaskGP, "__init__", return_value=None, autospec=True
+            ), patch(f"{SURROGATE_PATH}.fit_botorch_model"), patch.object(
+                SingleTaskGP, "load_state_dict"
+            ) as mock_load_state_dict:
+                surrogate._construct_model(
+                    dataset=self.training_data[0],
+                    search_space_digest=self.search_space_digest,
+                    model_config=surrogate.surrogate_spec.model_configs[0],
+                    default_botorch_model_class=SingleTaskGP,
+                    state_dict={},  # pyre-ignore [6]
+                    refit=True,
+                )
+                if warm_start_refit:
+                    mock_load_state_dict.assert_called_once()
+                else:
+                    mock_load_state_dict.assert_not_called()
+
     @mock_botorch_optimize
     def test_construct_custom_model(self, use_model_config: bool = False) -> None:
         # Test error for unsupported covar_module and likelihood.
@@ -1322,6 +1343,7 @@ class SurrogateTest(TestCase):
             expected = {
                 "surrogate_spec": surrogate.surrogate_spec,
                 "refit_on_cv": surrogate.refit_on_cv,
+                "warm_start_refit": surrogate.warm_start_refit,
                 "metric_to_best_model_config": surrogate.metric_to_best_model_config,
             }
             self.assertEqual(surrogate._serialize_attributes_as_kwargs(), expected)

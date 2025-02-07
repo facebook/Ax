@@ -785,7 +785,9 @@ class BoTorchGeneratorTest(TestCase):
                 search_space_digest=self.mf_search_space_digest,
                 candidate_metadata=self.candidate_metadata,
             )
-        mock_init.assert_called_with(surrogate_spec=surrogate_spec, refit_on_cv=False)
+        mock_init.assert_called_with(
+            surrogate_spec=surrogate_spec, refit_on_cv=False, warm_start_refit=True
+        )
 
     @mock_botorch_optimize
     def test_surrogate_options_propagation(self) -> None:
@@ -797,7 +799,9 @@ class BoTorchGeneratorTest(TestCase):
                 search_space_digest=self.mf_search_space_digest,
                 candidate_metadata=self.candidate_metadata,
             )
-        mock_init.assert_called_with(surrogate_spec=surrogate_spec, refit_on_cv=False)
+        mock_init.assert_called_with(
+            surrogate_spec=surrogate_spec, refit_on_cv=False, warm_start_refit=True
+        )
 
     @mock_botorch_optimize
     def test_model_list_choice(self) -> None:
