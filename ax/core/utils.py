@@ -453,6 +453,9 @@ def get_target_trial_index(experiment: Experiment) -> int | None:
     running_trials = [
         assert_is_instance(trial, BatchTrial)
         for trial in experiment.trials_by_status[TrialStatus.RUNNING]
+        # handles case where there is a running trial without data,
+        # which we wouldn't want as the target trial
+        if not trial.lookup_data().df.empty
     ]
     sorted_running_trials = _sort_trials(trials=running_trials, trials_are_running=True)
     # Priority 1: Any running long-run trial
