@@ -116,7 +116,7 @@ module.exports={
               },
               {
                 href: 'https://archive.ax.dev/versions.html',
-                label: '0.x.x',
+                label: '<= 0.4.1',
               },
             ],
         },
