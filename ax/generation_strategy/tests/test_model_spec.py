@@ -12,8 +12,11 @@ from unittest.mock import MagicMock, Mock, patch
 
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.model_spec import (
+    FactoryFunctionGeneratorSpec,
+    GeneratorSpec,
+)
 from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.model_spec import FactoryFunctionGeneratorSpec, GeneratorSpec
 from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase

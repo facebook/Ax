@@ -16,7 +16,10 @@ from threading import Event, Lock
 import numpy as np
 
 from ax.core.types import TEvaluationOutcome, TParameterization
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
 from ax.modelbridge.registry import Generators
 from ax.service.ax_client import AxClient
 from ax.service.interactive_loop import (

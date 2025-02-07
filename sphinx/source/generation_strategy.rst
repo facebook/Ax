@@ -8,7 +8,7 @@ ax.generation_strategy
 .. currentmodule:: ax.generation_strategy
 
 
-Generation Strategy, Registry, and Factory
+Generation Strategy
 ------------------------------------------
 
 Generation Strategy

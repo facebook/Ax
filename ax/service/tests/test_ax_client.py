@@ -48,14 +48,14 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
-from ax.metrics.branin import branin, BraninMetric
-from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
-from ax.modelbridge.generation_strategy import (
+from ax.generation_strategy.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
+from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.model_spec import GeneratorSpec
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.metrics.branin import branin, BraninMetric
 from ax.modelbridge.random import RandomAdapter
 from ax.modelbridge.registry import Cont_X_trans, Generators
 from ax.runners.synthetic import SyntheticRunner
@@ -3048,7 +3048,7 @@ class TestAxClient(TestCase):
         ]
 
         with mock.patch(
-            "ax.modelbridge.dispatch_utils.logger.info",
+            "ax.generation_strategy.dispatch_utils.logger.info",
             side_effect=(lambda log: logs.append(log)),
         ):
             ax_client.create_experiment(

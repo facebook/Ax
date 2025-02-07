@@ -30,13 +30,13 @@ from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.cross_validation import (
     assess_model_fit,
     compute_diagnostics,
     cross_validate,
 )
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     observed_pareto_frontier as observed_pareto,
     predicted_pareto_frontier as predicted_pareto,

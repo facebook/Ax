@@ -27,9 +27,9 @@ from ax.core.types import (
 from ax.core.utils import get_pending_observation_features
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted, UserInputError
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Generators
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,

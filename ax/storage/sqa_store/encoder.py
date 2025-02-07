@@ -45,7 +45,7 @@ from ax.core.runner import Runner
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,

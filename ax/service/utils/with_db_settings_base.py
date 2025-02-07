@@ -25,7 +25,7 @@ from ax.exceptions.core import (
     ObjectNotFoundError,
     UnsupportedError,
 )
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from pyre_extensions import none_throws

@@ -14,8 +14,8 @@ from ax.analysis.plotly.utils import select_metric
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.cross_validation import cross_validate
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from plotly import express as px, graph_objects as go
 from pyre_extensions import assert_is_instance, none_throws
 

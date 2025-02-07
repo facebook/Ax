@@ -15,7 +15,7 @@ from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
 from ax.core.observation import ObservationFeatures
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.prediction_utils import predict_at_point
 from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase

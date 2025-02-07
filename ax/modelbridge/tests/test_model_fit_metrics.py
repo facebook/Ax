@@ -14,6 +14,10 @@ import numpy as np
 from ax.core.experiment import Experiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.cross_validation import (
     _predict_on_cross_validation_data,
@@ -21,7 +25,6 @@ from ax.modelbridge.cross_validation import (
     compute_model_fit_metrics_from_modelbridge,
     get_fit_and_std_quality_and_generalization_dict,
 )
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import get_fitted_model_bridge, Scheduler, SchedulerOptions

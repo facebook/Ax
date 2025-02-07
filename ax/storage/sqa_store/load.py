@@ -16,7 +16,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.trial import Trial
 from ax.exceptions.core import ExperimentNotFoundError, ObjectNotFoundError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.reduced_state import (

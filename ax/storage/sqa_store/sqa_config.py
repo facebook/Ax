@@ -24,7 +24,7 @@ from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.trial import Trial
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_CLASS_ENCODER_REGISTRY,

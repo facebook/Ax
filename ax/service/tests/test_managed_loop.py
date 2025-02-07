@@ -11,8 +11,11 @@ from unittest.mock import Mock, patch
 import numpy as np
 import numpy.typing as npt
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
 from ax.metrics.branin import branin
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Generators
 from ax.service.managed_loop import OptimizationLoop, optimize
 from ax.utils.common.testutils import TestCase
