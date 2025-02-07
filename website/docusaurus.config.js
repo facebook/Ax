@@ -30,9 +30,6 @@ module.exports={
   },
   "onBrokenLinks": "throw",
   "onBrokenMarkdownLinks": "warn",
-  "future": {
-    "experimental_faster": true,
-  },
   "presets": [
     [
       "@docusaurus/preset-classic",

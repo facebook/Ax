@@ -1,8 +1,8 @@
 {
   "scripts": {
     "examples": "docusaurus-examples",
-    "start": "DOCUSAURUS_IGNORE_SSG_WARNINGS=true docusaurus start",
-    "build": "DOCUSAURUS_IGNORE_SSG_WARNINGS=true docusaurus build",
+    "start": "docusaurus start",
+    "build": "docusaurus build",
     "publish-gh-pages": "docusaurus-publish",
     "write-translations": "docusaurus-write-translations",
     "version": "docusaurus-version",
@@ -16,7 +16,6 @@
   "devDependencies": {},
   "dependencies": {
     "@docusaurus/core": "3.6.3",
-    "@docusaurus/faster": "3.6.3",
     "@docusaurus/plugin-client-redirects": "3.6.3",
     "@docusaurus/preset-classic": "3.6.3",
     "clsx": "^1.1.1",
