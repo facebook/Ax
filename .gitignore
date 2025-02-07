@@ -135,6 +135,7 @@ docs/tutorials/*
 !docs/tutorials/index.mdx
 
 # Docusaurus site
+**/yarn.lock
 website/build/
 website/i18n/
 **/node_modules/
