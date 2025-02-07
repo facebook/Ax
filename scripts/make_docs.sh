@@ -63,6 +63,7 @@ echo "-----------------------------------"
 cd website || exit
 yarn
 
+
 if [[ $INSERT_API_REFS == true ]]; then
   echo "-----------------------------------"
   echo "Inserting API reference links in Markdown files"
