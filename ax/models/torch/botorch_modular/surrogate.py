@@ -1189,7 +1189,7 @@ class Surrogate(Base):
         return diag_fn(
             y_obs=Y.view(-1).cpu().numpy(),
             y_pred=pred_Y,
-            se_pred=pred_Yvar,
+            se_pred=np.sqrt(pred_Yvar),
         )
 
     def _discard_cached_model_and_data_if_search_space_digest_changed(
