@@ -16,13 +16,13 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.generation_strategy import AxGenerationException
-from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.generation_node_input_constructors import (
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import GeneratorSpec
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.modelbridge.registry import Generators
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase

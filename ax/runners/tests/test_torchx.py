@@ -20,8 +20,9 @@ from ax.core import (
     RangeParameter,
     SearchSpace,
 )
+
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy
 from ax.metrics.torchx import TorchXMetric
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.runners.torchx import TorchXRunner
 from ax.service.scheduler import FailureRateExceededError, Scheduler, SchedulerOptions
 from ax.utils.common.constants import Keys

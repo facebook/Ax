@@ -9,11 +9,11 @@
 from unittest.mock import Mock, patch
 
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.best_model_selector import (
+from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
-from ax.modelbridge.model_spec import GeneratorSpec
+from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 

@@ -23,7 +23,7 @@ from ax.core.optimization_config import (
 from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
     extract_objective_weights,

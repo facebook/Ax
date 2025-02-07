@@ -14,23 +14,26 @@ import torch
 from ax.core.base_trial import TrialStatus
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.best_model_selector import (
+from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.generation_node import (
+from ax.generation_strategy.generation_node import (
     GenerationNode,
     GenerationStep,
     MISSING_MODEL_SELECTOR_MESSAGE,
 )
-from ax.modelbridge.generation_node_input_constructors import (
+from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
-from ax.modelbridge.model_spec import FactoryFunctionGeneratorSpec, GeneratorSpec
+from ax.generation_strategy.model_spec import (
+    FactoryFunctionGeneratorSpec,
+    GeneratorSpec,
+)
+from ax.generation_strategy.transition_criterion import MinTrials
+from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.registry import Generators
-from ax.modelbridge.transition_criterion import MinTrials
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase

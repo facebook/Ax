@@ -9,9 +9,12 @@ from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Generators
 from ax.service.tests.scheduler_test_utils import (
     AxSchedulerTestCase,

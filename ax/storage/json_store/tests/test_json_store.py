@@ -19,8 +19,8 @@ from ax.core.objective import Objective
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
-from ax.modelbridge.generation_node import GenerationStep
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_node import GenerationStep
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec

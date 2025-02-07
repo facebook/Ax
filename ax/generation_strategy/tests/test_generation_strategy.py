@@ -29,16 +29,24 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyRepeatedPoints,
     MaxParallelismReachedException,
 )
-from ax.modelbridge.best_model_selector import SingleDiagnosticBestModelSelector
-from ax.modelbridge.discrete import DiscreteAdapter
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.generation_node_input_constructors import (
+from ax.generation_strategy.best_model_selector import SingleDiagnosticBestModelSelector
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.model_spec import GeneratorSpec
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
+    AutoTransitionAfterGen,
+    MaxGenerationParallelism,
+    MinTrials,
+)
+from ax.modelbridge.discrete import DiscreteAdapter
+from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.random import RandomAdapter
 from ax.modelbridge.registry import (
     _extract_model_state_after_gen,
@@ -48,11 +56,6 @@ from ax.modelbridge.registry import (
     MODEL_KEY_TO_MODEL_SETUP,
 )
 from ax.modelbridge.torch import TorchAdapter
-from ax.modelbridge.transition_criterion import (
-    AutoTransitionAfterGen,
-    MaxGenerationParallelism,
-    MinTrials,
-)
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.constants import Keys
 from ax.utils.common.equality import same_elements

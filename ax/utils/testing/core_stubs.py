@@ -78,6 +78,20 @@ from ax.early_stopping.strategies.logical import (
     OrEarlyStoppingStrategy,
 )
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_node_input_constructors import (
+    InputConstructorPurpose,
+    NodeInputConstructors,
+)
+from ax.generation_strategy.generation_strategy import (
+    GenerationNode,
+    GenerationStrategy,
+)
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
+    MaxGenerationParallelism,
+    MinTrials,
+    TrialBasedCriterion,
+)
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.metrics.branin import BraninMetric
@@ -85,17 +99,6 @@ from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, Generators, get_factorial, get_sobol
-from ax.modelbridge.generation_node_input_constructors import (
-    InputConstructorPurpose,
-    NodeInputConstructors,
-)
-from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
-from ax.modelbridge.model_spec import GeneratorSpec
-from ax.modelbridge.transition_criterion import (
-    MaxGenerationParallelism,
-    MinTrials,
-    TrialBasedCriterion,
-)
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import BoTorchGenerator

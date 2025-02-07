@@ -25,7 +25,7 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.exceptions.storage import SQADecodeError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope, SQABase
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder

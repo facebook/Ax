@@ -15,14 +15,13 @@ from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.generation_strategy import (
+from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.model_spec import GeneratorSpec
-from ax.modelbridge.registry import Generators
-from ax.modelbridge.transition_criterion import (
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
     IsSingleObjective,
@@ -32,6 +31,7 @@ from ax.modelbridge.transition_criterion import (
     MinimumTrialsInStatus,
     MinTrials,
 )
+from ax.modelbridge.registry import Generators
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (

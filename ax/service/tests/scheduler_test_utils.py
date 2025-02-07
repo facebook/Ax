@@ -44,11 +44,14 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.exceptions.generation_strategy import AxGenerationException
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Generators, MBM_MTGP_trans
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
