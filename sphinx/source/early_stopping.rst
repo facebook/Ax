@@ -42,6 +42,14 @@ Logical Strategies
     :undoc-members:
     :show-inheritance:
 
+Multi-Objective Strategies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.early_stopping.strategies.multi_objective
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Utils
 -----
 
