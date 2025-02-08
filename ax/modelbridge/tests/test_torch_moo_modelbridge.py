@@ -47,7 +47,7 @@ from ax.utils.testing.core_stubs import (
     get_non_monolithic_branin_moo_data,
     TEST_SOBOL_SEED,
 )
-from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize, skip_fit_gpytorch_mll
 from ax.utils.testing.modeling_stubs import transform_1, transform_2
 from botorch.utils.multi_objective.pareto import is_non_dominated
 from pyre_extensions import assert_is_instance, none_throws
@@ -65,7 +65,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         f"{STUBS_PATH}.BraninMetric.is_available_while_running",
         return_value=False,
     )
-    @mock_botorch_optimize
+    @skip_fit_gpytorch_mll
     def helper_test_pareto_frontier(
         self, _, outcome_constraints: list[OutcomeConstraint] | None
     ) -> None:
