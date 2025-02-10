@@ -8,7 +8,7 @@
 
 import logging
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Iterable
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -254,6 +254,7 @@ class MultiTypeExperiment(Experiment):
     @copy_doc(Experiment.fetch_data)
     def fetch_data(
         self,
+        trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
@@ -265,11 +266,15 @@ class MultiTypeExperiment(Experiment):
         return self.default_data_constructor.from_multiple_data(
             [
                 (
-                    trial.fetch_data(**kwargs, metrics=metrics)
+                    trial.fetch_data(metrics=metrics, **kwargs)
                     if trial.status.expecting_data
                     else Data()
                 )
-                for trial in self.trials.values()
+                for trial in (
+                    self.get_trials_by_indices(trial_indices=trial_indices)
+                    if trial_indices is not None
+                    else self.trials.values()
+                )
             ]
         )
 

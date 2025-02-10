@@ -14,7 +14,7 @@ import warnings
 from collections import defaultdict, OrderedDict
 from collections.abc import Hashable, Iterable, Mapping
 from datetime import datetime
-from functools import partial, reduce
+from functools import partial
 
 from typing import Any, cast
 
@@ -337,18 +337,17 @@ class Experiment(Base):
         return arms_dict
 
     @property
-    def sum_trial_sizes(self) -> int:
-        """Sum of numbers of arms attached to each trial in this experiment."""
-        return reduce(lambda a, b: a + len(b.arms_by_name), self._trials.values(), 0)
+    def metrics(self) -> dict[str, Metric]:
+        """The metrics attached to the experiment."""
+        optimization_config_metrics: dict[str, Metric] = {}
+        if self.optimization_config is not None:
+            optimization_config_metrics = self.optimization_config.metrics
+        return {**self._tracking_metrics, **optimization_config_metrics}
 
     @property
     def num_abandoned_arms(self) -> int:
         """How many arms attached to this experiment are abandoned."""
-        abandoned = set()
-        for trial in self.trials.values():
-            for x in trial.abandoned_arms:
-                abandoned.add(x)
-        return len(abandoned)
+        return len({aa for t in self.trials.values() for aa in t.abandoned_arms})
 
     @property
     def optimization_config(self) -> OptimizationConfig | None:
@@ -477,14 +476,6 @@ class Experiment(Base):
         del self._tracking_metrics[metric_name]
         return self
 
-    @property
-    def metrics(self) -> dict[str, Metric]:
-        """The metrics attached to the experiment."""
-        optimization_config_metrics: dict[str, Metric] = {}
-        if self.optimization_config is not None:
-            optimization_config_metrics = self.optimization_config.metrics
-        return {**self._tracking_metrics, **optimization_config_metrics}
-
     def _metrics_by_class(
         self, metrics: list[Metric] | None = None
     ) -> dict[type[Metric], list[Metric]]:
@@ -500,6 +491,7 @@ class Experiment(Base):
 
     def fetch_data_results(
         self,
+        trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
@@ -528,43 +520,9 @@ class Experiment(Base):
         """
 
         return self._lookup_or_fetch_trials_results(
-            trials=list(self.trials.values()),
-            metrics=metrics,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
-            **kwargs,
-        )
-
-    def fetch_trials_data_results(
-        self,
-        trial_indices: Iterable[int],
-        metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
-        **kwargs: Any,
-    ) -> dict[int, dict[str, MetricFetchResult]]:
-        """Fetches data for specific trials on the experiment.
-
-        If a metric fetch fails, the Exception will be captured in the
-        MetricFetchResult along with a message.
-
-        NOTE: For metrics that are not available while trial is running, the data
-        may be retrieved from cache on the experiment. Data is cached on the experiment
-        via calls to `experiment.attach_data` and whether a given metric class is
-        available while trial is running is determined by the boolean returned from its
-        `is_available_while_running` class method.
-
-        Args:
-            trial_indices: Indices of trials, for which to fetch data.
-            metrics: If provided, fetch data for these metrics instead of the ones
-                defined on the experiment.
-            kwargs: keyword args to pass to underlying metrics' fetch data functions.
-
-        Returns:
-            A nested Dictionary from trial_index => metric_name => result
-        """
-        return self._lookup_or_fetch_trials_results(
-            trials=self.get_trials_by_indices(trial_indices=trial_indices),
+            trials=self.get_trials_by_indices(trial_indices=trial_indices)
+            if trial_indices is not None
+            else list(self.trials.values()),
             metrics=metrics,
             combine_with_last_data=combine_with_last_data,
             overwrite_existing_data=overwrite_existing_data,
@@ -573,6 +531,7 @@ class Experiment(Base):
 
     def fetch_data(
         self,
+        trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
@@ -600,63 +559,15 @@ class Experiment(Base):
             Data for the experiment.
         """
 
-        results = self._lookup_or_fetch_trials_results(
-            trials=list(self.trials.values()),
+        results = self.fetch_data_results(
+            trial_indices=trial_indices,
             metrics=metrics,
             combine_with_last_data=combine_with_last_data,
             overwrite_existing_data=overwrite_existing_data,
             **kwargs,
         )
-
-        base_metric_cls = (
-            MapMetric if self.default_data_constructor == MapData else Metric
-        )
-
-        return base_metric_cls._unwrap_experiment_data_multi(
-            results=results,
-        )
-
-    def fetch_trials_data(
-        self,
-        trial_indices: Iterable[int],
-        metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
-        **kwargs: Any,
-    ) -> Data:
-        """Fetches data for specific trials on the experiment.
-
-        NOTE: For metrics that are not available while trial is running, the data
-        may be retrieved from cache on the experiment. Data is cached on the experiment
-        via calls to `experiment.attach_data` and whetner a given metric class is
-        available while trial is running is determined by the boolean returned from its
-        `is_available_while_running` class method.
-
-        NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        lose rows) if Experiment.default_data_type is misconfigured!
-
-        Args:
-            trial_indices: Indices of trials, for which to fetch data.
-            metrics: If provided, fetch data for these metrics instead of the ones
-                defined on the experiment.
-            kwargs: Keyword args to pass to underlying metrics' fetch data functions.
-
-        Returns:
-            Data for the specific trials on the experiment.
-        """
-
-        results = self._lookup_or_fetch_trials_results(
-            trials=self.get_trials_by_indices(trial_indices=trial_indices),
-            metrics=metrics,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
-            **kwargs,
-        )
-
-        base_metric_cls = (
-            MapMetric if self.default_data_constructor == MapData else Metric
-        )
-        return base_metric_cls._unwrap_experiment_data_multi(
+        use_map_data = self.default_data_constructor == MapData
+        return (MapMetric if use_map_data else Metric)._unwrap_experiment_data_multi(
             results=results,
         )
 
