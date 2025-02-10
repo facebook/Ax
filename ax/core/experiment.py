@@ -1093,9 +1093,7 @@ class Experiment(Base):
         return self._default_data_type
 
     @property
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    def default_data_constructor(self) -> type:
+    def default_data_constructor(self) -> type[Data]:
         return DATA_TYPE_LOOKUP[self.default_data_type]
 
     def new_trial(
@@ -1385,15 +1383,16 @@ class Experiment(Base):
                     inplace=True,
                 )
                 # Attach updated data to new trial on experiment.
+                data_constructor = old_experiment.default_data_constructor
                 old_data = (
-                    old_experiment.default_data_constructor(
+                    cast(type[MapData], data_constructor)(
                         df=new_df,
                         map_key_infos=assert_is_instance(
                             old_experiment.lookup_data(), MapData
                         ).map_key_infos,
                     )
-                    if old_experiment.default_data_type == DataType.MAP_DATA
-                    else old_experiment.default_data_constructor(df=new_df)
+                    if data_constructor == MapData
+                    else data_constructor(df=new_df)
                 )
                 self.attach_data(data=old_data)
             if trial.status == TrialStatus.ABANDONED:
