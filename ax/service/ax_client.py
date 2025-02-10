@@ -23,7 +23,6 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import DataType, Experiment
 from ax.core.formatting_utils import data_and_evaluations_from_raw_data
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -1783,7 +1782,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def _save_generation_strategy_to_db_if_possible(
         self,
-        generation_strategy: GenerationStrategyInterface | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> bool:
         return super()._save_generation_strategy_to_db_if_possible(
             generation_strategy=generation_strategy or self.generation_strategy,

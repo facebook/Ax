@@ -26,7 +26,6 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
@@ -2524,29 +2523,3 @@ class CustomTestMetric(Metric):
     ) -> None:
         self.test_attribute = test_attribute
         super().__init__(name=name, lower_is_better=lower_is_better)
-
-
-class SpecialGenerationStrategy(GenerationStrategyInterface):
-    """A subclass of `GenerationStrategyInterface` to be used
-    for testing how methods respond to subtypes other than
-    `GenerationStrategy`."""
-
-    def __init__(self) -> None:
-        self._name = "special"
-        self._generator_runs: list[GeneratorRun] = []
-
-    def gen_for_multiple_trials_with_multiple_models(
-        self,
-        experiment: Experiment,
-        data: Data | None = None,
-        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        n: int | None = None,
-        num_trials: int = 1,
-        arms_per_node: dict[str, int] | None = None,
-    ) -> list[list[GeneratorRun]]:
-        return []
-
-    def clone_reset(self) -> SpecialGenerationStrategy:
-        clone = SpecialGenerationStrategy()
-        clone._name = self._name
-        return clone

@@ -18,7 +18,7 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckStatus,
 )
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws
 
 
@@ -47,7 +47,7 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
     def compute(
         self,
         experiment: Optional[Experiment] = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> HealthcheckAnalysisCard:
         status = HealthcheckStatus.PASS
         subtitle = self.reason

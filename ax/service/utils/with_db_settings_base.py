@@ -17,7 +17,6 @@ from ax.analysis.analysis import AnalysisCard
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
 from ax.exceptions.core import (
@@ -158,7 +157,7 @@ class WithDBSettingsBase:
         return exp_id, gs_id
 
     def _maybe_save_experiment_and_generation_strategy(
-        self, experiment: Experiment, generation_strategy: GenerationStrategyInterface
+        self, experiment: Experiment, generation_strategy: GenerationStrategy
     ) -> tuple[bool, bool]:
         """If DB settings are set on this `WithDBSettingsBase` instance, checks
         whether given experiment and generation strategy are already saved and
@@ -294,7 +293,7 @@ class WithDBSettingsBase:
         self,
         experiment: Experiment,
         trials: list[BaseTrial],
-        generation_strategy: GenerationStrategyInterface,
+        generation_strategy: GenerationStrategy,
         new_generator_runs: list[GeneratorRun],
         reduce_state_generator_runs: bool = False,
     ) -> None:
@@ -376,14 +375,14 @@ class WithDBSettingsBase:
 
     def _save_generation_strategy_to_db_if_possible(
         self,
-        generation_strategy: GenerationStrategyInterface | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> bool:
         """Saves given generation strategy if DB settings are set on this
         `WithDBSettingsBase` instance and the generation strategy is an
         instance of `GenerationStrategy`.
 
         Args:
-            generation_strategy: GenerationStrategyInterface to update in DB.
+            generation_strategy: GenerationStrategy to update in DB.
                 For now, only instances of  GenerationStrategy will be updated.
                 Otherwise, this function is a no-op.
 
@@ -393,19 +392,18 @@ class WithDBSettingsBase:
         if self.db_settings_set and generation_strategy is not None:
             # only local GenerationStrategies should need to be saved to
             # the database because only they make changes locally
-            if isinstance(generation_strategy, GenerationStrategy):
-                _save_generation_strategy_to_db_if_possible(
-                    generation_strategy=generation_strategy,
-                    encoder=self.db_settings.encoder,
-                    decoder=self.db_settings.decoder,
-                    suppress_all_errors=self._suppress_all_errors,
-                )
-                return True
+            _save_generation_strategy_to_db_if_possible(
+                generation_strategy=generation_strategy,
+                encoder=self.db_settings.encoder,
+                decoder=self.db_settings.decoder,
+                suppress_all_errors=self._suppress_all_errors,
+            )
+            return True
         return False
 
     def _update_generation_strategy_in_db_if_possible(
         self,
-        generation_strategy: GenerationStrategyInterface,
+        generation_strategy: GenerationStrategy,
         new_generator_runs: list[GeneratorRun],
         reduce_state_generator_runs: bool = False,
     ) -> bool:
@@ -415,7 +413,7 @@ class WithDBSettingsBase:
         instance of `GenerationStrategy`.
 
         Args:
-            generation_strategy: GenerationStrategyInterface to update in DB.
+            generation_strategy: GenerationStrategy to update in DB.
                 For now, only instances of  GenerationStrategy will be updated.
                 Otherwise, this function is a no-op.
             new_generator_runs: New generator runs of this generation strategy
@@ -427,16 +425,15 @@ class WithDBSettingsBase:
         if self.db_settings_set:
             # only local GenerationStrategies should need to be saved to
             # the database because only they make changes locally
-            if isinstance(generation_strategy, GenerationStrategy):
-                _update_generation_strategy_in_db_if_possible(
-                    generation_strategy=generation_strategy,
-                    new_generator_runs=new_generator_runs,
-                    encoder=self.db_settings.encoder,
-                    decoder=self.db_settings.decoder,
-                    suppress_all_errors=self._suppress_all_errors,
-                    reduce_state_generator_runs=reduce_state_generator_runs,
-                )
-                return True
+            _update_generation_strategy_in_db_if_possible(
+                generation_strategy=generation_strategy,
+                new_generator_runs=new_generator_runs,
+                encoder=self.db_settings.encoder,
+                decoder=self.db_settings.decoder,
+                suppress_all_errors=self._suppress_all_errors,
+                reduce_state_generator_runs=reduce_state_generator_runs,
+            )
+            return True
         return False
 
     def _update_runner_on_experiment_in_db_if_possible(

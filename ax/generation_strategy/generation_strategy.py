@@ -19,7 +19,6 @@ import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.utils import extend_pending_observations, extract_pending_observations
@@ -35,6 +34,7 @@ from ax.generation_strategy.generation_node_input_constructors import (
 from ax.generation_strategy.model_spec import FactoryFunctionGeneratorSpec
 from ax.generation_strategy.transition_criterion import TrialBasedCriterion
 from ax.modelbridge.base import Adapter
+from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import none_throws
@@ -70,7 +70,7 @@ def step_based_gs_only(f: Callable[..., T]) -> Callable[..., T]:
     return impl
 
 
-class GenerationStrategy(GenerationStrategyInterface):
+class GenerationStrategy(Base):
     """GenerationStrategy describes which model should be used to generate new
     points for which trials, enabling and automating use of different models
     throughout the optimization process. For instance, it allows to use one
@@ -93,6 +93,8 @@ class GenerationStrategy(GenerationStrategyInterface):
             strategy's name will be names of its nodes' models joined with '+'.
     """
 
+    DEFAULT_N: int = 1
+
     _nodes: list[GenerationNode]
     _curr: GenerationNode  # Current node in the strategy.
     # Whether all models in this GS are in Generators registry enum.
@@ -102,6 +104,7 @@ class GenerationStrategy(GenerationStrategyInterface):
     _generator_runs: list[GeneratorRun]
     # Experiment, for which this generation strategy has generated trials, if
     # it exists.
+    _name: str
     _experiment: Experiment | None = None
     _model: Adapter | None = None  # Current model.
 
@@ -149,7 +152,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         self._generator_runs = []
         # Set name to an explicit value ahead of time to avoid
         # adding properties during equality checks
-        super().__init__(name=name or self._make_default_name())
+        self._name = name or self._make_default_name()
 
     @property
     def is_node_based(self) -> bool:
@@ -178,6 +181,11 @@ class GenerationStrategy(GenerationStrategyInterface):
     def name(self, name: str) -> None:
         """Set generation strategy name."""
         self._name = name
+
+    @property
+    def name(self) -> str:
+        """Name of this generation strategy."""
+        return self._name
 
     @property
     @step_based_gs_only

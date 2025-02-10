@@ -18,7 +18,6 @@ from ax.analysis.plotly.arm_effects.utils import (
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import is_predictive
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.exceptions.core import DataRequiredError, UserInputError
@@ -77,7 +76,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("InSampleEffectsPlot requires an Experiment.")
@@ -174,7 +173,7 @@ def _get_max_observed_trial_index(model: Adapter) -> int | None:
 
 def _get_model(
     experiment: Experiment,
-    generation_strategy: GenerationStrategyInterface | None,
+    generation_strategy: GenerationStrategy | None,
     use_modeled_effects: bool,
     trial_index: int,
     metric_name: str,

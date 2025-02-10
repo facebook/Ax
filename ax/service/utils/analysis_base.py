@@ -13,7 +13,7 @@ from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel, Anal
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from pyre_extensions import assert_is_instance
 
@@ -27,9 +27,9 @@ class AnalysisBase(WithDBSettingsBase):
     # `AnalysisBase` to have type `Experiment` but is never initialized
     experiment: Experiment
     # pyre-fixme[13]: Attribute `generation_strategy` is declared in class
-    # `AnalysisBase` to have type `GenerationStrategyInterface` but
+    # `AnalysisBase` to have type `GenerationStrategy` but
     # is never initialized
-    generation_strategy: GenerationStrategyInterface
+    generation_strategy: GenerationStrategy
 
     def _choose_analyses(self) -> list[Analysis]:
         """

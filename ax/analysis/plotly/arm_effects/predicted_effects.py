@@ -21,7 +21,6 @@ from ax.analysis.plotly.utils import is_predictive
 from ax.core import OutcomeConstraint
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
@@ -68,7 +67,7 @@ class PredictedEffectsPlot(PlotlyAnalysis):
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("PredictedEffectsPlot requires an Experiment.")
