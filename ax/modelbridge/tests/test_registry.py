@@ -171,6 +171,7 @@ class ModelRegistryTest(TestCase):
                 "fit_tracking_metrics": True,
                 "fit_on_init": True,
                 "default_model_gen_options": None,
+                "fit_only_completed_map_metrics": True,
             },
         )
         prior_kwargs = {"lengthscale_prior": GammaPrior(6.0, 6.0)}
