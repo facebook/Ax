@@ -60,13 +60,6 @@ class FullFactorialGenerator(DiscreteGenerator):
         pending_observations: Sequence[Sequence[Sequence[TParamValue]]] | None = None,
         model_gen_options: TConfig | None = None,
     ) -> tuple[list[TParamValueList], list[float], TGenMetadata]:
-        if n != -1:
-            logger.warning(
-                "FullFactorialGenerator will ignore the specified value of n. "
-                "The generator automatically determines how many arms to "
-                "generate."
-            )
-
         if fixed_features:
             # Make a copy so as to not mutate it
             parameter_values = list(parameter_values)
@@ -74,6 +67,12 @@ class FullFactorialGenerator(DiscreteGenerator):
                 parameter_values[fixed_feature_index] = [fixed_feature_value]
 
         num_arms = reduce(mul, [len(values) for values in parameter_values], 1)
+        if n != num_arms:
+            logger.warning(
+                "FullFactorialGenerator will ignore the specified value of n. "
+                "The generator automatically determines how many arms to "
+                "generate."
+            )
         if self.check_cardinality and num_arms > self.max_cardinality:
             raise ValueError(
                 f"FullFactorialGenerator generated {num_arms} arms, "

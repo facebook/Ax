@@ -13,6 +13,7 @@ from collections import OrderedDict
 from collections.abc import Iterable, MutableMapping
 from datetime import datetime, timedelta
 from logging import Logger
+from math import prod
 from pathlib import Path
 from typing import Any, cast
 
@@ -559,7 +560,12 @@ def get_factorial_experiment(
 
     if with_batch:
         factorial_generator = get_factorial(search_space=exp.search_space)
-        factorial_run = factorial_generator.gen(n=-1)
+        # compute cardinality of discrete search space
+        n = prod(
+            len(assert_is_instance(p, ChoiceParameter).values)
+            for p in exp.search_space.parameters.values()
+        )
+        factorial_run = factorial_generator.gen(n=n)
         exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
             factorial_run
         )

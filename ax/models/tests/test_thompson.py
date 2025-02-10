@@ -90,6 +90,7 @@ class ThompsonSamplerTest(TestCase):
             generator.gen(5, self.parameter_values, objective_weights=None)
 
     def test_ThompsonSamplerMinWeight(self) -> None:
+        np.random.seed(0)
         generator = ThompsonSampler(min_weight=0.01)
         generator.fit(
             Xs=self.Xs,
@@ -99,7 +100,7 @@ class ThompsonSamplerTest(TestCase):
             outcome_names=self.outcome_names,
         )
         arms, weights, _ = generator.gen(
-            n=5,
+            n=3,
             parameter_values=self.parameter_values,
             objective_weights=np.ones(1),
         )
@@ -223,3 +224,20 @@ class ThompsonSamplerTest(TestCase):
             " not lead to a meaningful result.",
             str(warning_list[0].message),
         )
+
+    def test_ThompsonSamplerNonPositiveN(self) -> None:
+        generator = ThompsonSampler(min_weight=0.0)
+        generator.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
+        )
+        for n in (-1, 0):
+            with self.assertRaisesRegex(ValueError, "ThompsonSampler requires n > 0"):
+                generator.gen(
+                    n=n,
+                    parameter_values=self.parameter_values,
+                    objective_weights=np.ones(1),
+                )

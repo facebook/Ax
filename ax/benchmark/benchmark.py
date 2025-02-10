@@ -205,7 +205,7 @@ def get_benchmark_scheduler_options(
     Returns:
         ``SchedulerOptions``
     """
-    if method.batch_size > 1 or include_sq:
+    if method.batch_size is None or method.batch_size > 1 or include_sq:
         trial_type = TrialType.BATCH_TRIAL
     else:
         trial_type = TrialType.TRIAL
