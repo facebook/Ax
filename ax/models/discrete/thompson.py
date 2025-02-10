@@ -87,6 +87,9 @@ class ThompsonSampler(DiscreteGenerator):
         pending_observations: Sequence[Sequence[Sequence[TParamValue]]] | None = None,
         model_gen_options: TConfig | None = None,
     ) -> tuple[list[Sequence[TParamValue]], list[float], TGenMetadata]:
+        if n <= 0:
+            # TODO: use more informative error types
+            raise ValueError("ThompsonSampler requires n > 0.")
         if objective_weights is None:
             raise ValueError("ThompsonSampler requires objective weights.")
 
@@ -104,7 +107,6 @@ class ThompsonSampler(DiscreteGenerator):
             objective_weights=objective_weights, outcome_constraints=outcome_constraints
         )
         min_weight = self.min_weight if self.min_weight is not None else 2.0 / k
-
         # Second entry is used for tie-breaking
         weighted_arms = [
             (weights[i], np.random.random(), arms[i])
@@ -120,7 +122,7 @@ class ThompsonSampler(DiscreteGenerator):
             )
 
         weighted_arms.sort(reverse=True)
-        top_weighted_arms = weighted_arms[:n] if n > 0 else weighted_arms
+        top_weighted_arms = weighted_arms[:n]
         top_arms = [arm for _, _, arm in top_weighted_arms]
         top_weights = [weight for weight, _, _ in top_weighted_arms]
 
@@ -128,9 +130,7 @@ class ThompsonSampler(DiscreteGenerator):
         if self.uniform_weights:
             top_weights = [1.0 for _ in top_weights]
         else:
-            top_weights = [
-                (x * len(top_weights)) / sum(top_weights) for x in top_weights
-            ]
+            top_weights = [(x * n) / sum(top_weights) for x in top_weights]
         return (
             top_arms,
             top_weights,

@@ -55,7 +55,7 @@ class BenchmarkMethod(Base):
     distribute_replications: bool = False
     use_model_predictions_for_best_point: bool = False
 
-    batch_size: int = 1
+    batch_size: int | None = 1
     run_trials_in_batches: bool = False
     max_pending_trials: int = 1
     early_stopping_strategy: BaseEarlyStoppingStrategy | None = None

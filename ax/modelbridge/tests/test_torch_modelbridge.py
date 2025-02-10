@@ -899,4 +899,4 @@ class TorchAdapterTest(TestCase):
         self.assertNotEqual(modelbridge._model_space, modelbridge._search_space)
         # Generate candidates.
         gr = modelbridge.gen(n=3)
-        self.assertEqual(len(gr.arms), 3)
+        self.assertEqual(sum(gr.weights), 3)

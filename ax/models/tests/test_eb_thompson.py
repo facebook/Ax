@@ -75,7 +75,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             )
             self.assertEqual(arms, [[4, 4], [3, 3], [2, 2], [1, 1]])
             for weight, expected_weight in zip(
-                weights, [4 * i for i in [0.66, 0.25, 0.07, 0.02]]
+                weights, [5 * i for i in [0.66, 0.25, 0.07, 0.02]]
             ):
                 self.assertAlmostEqual(weight, expected_weight, delta=0.1)
 
@@ -95,7 +95,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
         )
         self.assertEqual(arms, [[3, 3], [2, 2], [1, 1]])
         for weight, expected_weight in zip(
-            weights, [3 * i for i in [0.74, 0.21, 0.05]]
+            weights, [5 * i for i in [0.74, 0.21, 0.05]]
         ):
             self.assertAlmostEqual(weight, expected_weight, delta=0.1)
 
