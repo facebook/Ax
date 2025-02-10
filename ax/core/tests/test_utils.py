@@ -12,7 +12,6 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -20,6 +19,7 @@ from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
     best_feasible_objective,

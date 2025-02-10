@@ -16,12 +16,12 @@ from logging import Logger
 from typing import Any, TypeVar
 
 import pandas as pd
-from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
+from ax.core.trial_status import TrialStatus
 from ax.core.utils import extend_pending_observations, extract_pending_observations
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import (

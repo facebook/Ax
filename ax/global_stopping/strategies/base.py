@@ -9,8 +9,9 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
+
+from ax.core.trial_status import TrialStatus
 from ax.utils.common.base import Base
 
 

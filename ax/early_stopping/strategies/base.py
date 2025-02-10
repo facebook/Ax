@@ -14,12 +14,12 @@ from logging import Logger
 
 import numpy.typing as npt
 import pandas as pd
-from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
+from ax.core.trial_status import TrialStatus
 
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.modelbridge.map_torch import MapTorchAdapter

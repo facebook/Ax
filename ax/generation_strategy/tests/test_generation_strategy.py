@@ -13,12 +13,12 @@ from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, ParameterType
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.trial_status import TrialStatus
 from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status as get_pending,
 )

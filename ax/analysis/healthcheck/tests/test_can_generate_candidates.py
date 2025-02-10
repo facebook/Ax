@@ -13,7 +13,7 @@ from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
-from ax.core.base_trial import TrialStatus
+from ax.core.trial_status import TrialStatus
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from pandas import testing as pdt

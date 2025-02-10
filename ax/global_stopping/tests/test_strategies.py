@@ -10,7 +10,6 @@
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -24,6 +23,7 @@ from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.global_stopping.strategies.improvement import (
     constraint_satisfaction,

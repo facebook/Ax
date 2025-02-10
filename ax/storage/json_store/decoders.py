@@ -17,7 +17,6 @@ from typing import Any, TYPE_CHECKING, TypeVar
 
 import torch
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import (
     AbandonedArm,
     BatchTrial,
@@ -27,6 +26,7 @@ from ax.core.batch_trial import (
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.transforms.base import Transform
 from ax.storage.botorch_modular_registry import (
