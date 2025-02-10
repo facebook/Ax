@@ -11,7 +11,7 @@ import traceback
 import pandas as pd
 from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel, AnalysisE
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from IPython.display import display, Markdown
 
 
@@ -37,7 +37,7 @@ class MarkdownAnalysis(Analysis):
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> MarkdownAnalysisCard: ...
 
     def _create_markdown_analysis_card(

@@ -19,7 +19,6 @@ from ax.analysis.plotly.surface.utils import (
 )
 from ax.analysis.plotly.utils import select_metric
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -63,7 +62,7 @@ class ContourPlot(PlotlyAnalysis):
     def compute(
         self,
         experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
+        generation_strategy: Optional[GenerationStrategy] = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ContourPlot requires an Experiment")

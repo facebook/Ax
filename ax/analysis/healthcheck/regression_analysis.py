@@ -19,8 +19,8 @@ from ax.analysis.healthcheck.regression_detection_utils import (
     detect_regressions_by_trial,
 )
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws
 
 
@@ -49,7 +49,7 @@ class RegressionAnalysis(HealthcheckAnalysis):
     def compute(
         self,
         experiment: Experiment | None,
-        generation_strategy: GenerationStrategyInterface | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> HealthcheckAnalysisCard:
         r"""
         Detect the regressing arms for all trials that have data.

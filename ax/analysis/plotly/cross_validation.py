@@ -12,12 +12,11 @@ from ax.analysis.analysis import AnalysisCardLevel
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import select_metric
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.cross_validation import cross_validate
 from plotly import express as px, graph_objects as go
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 
 class CrossValidationPlot(PlotlyAnalysis):
@@ -82,7 +81,7 @@ class CrossValidationPlot(PlotlyAnalysis):
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> PlotlyAnalysisCard:
         if generation_strategy is None:
             raise UserInputError("CrossValidation requires a GenerationStrategy")
@@ -92,11 +91,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         )
 
         df = _prepare_data(
-            # CrossValidationPlot requires a native Ax GenerationStrategy and cannot be
-            # used with a GenerationStrategyInterface.
-            generation_strategy=assert_is_instance(
-                generation_strategy, GenerationStrategy
-            ),
+            generation_strategy=generation_strategy,
             metric_name=metric_name,
             folds=self.folds,
             untransform=self.untransform,

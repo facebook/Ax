@@ -15,7 +15,7 @@ from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
 from typing import Any, Callable, cast, Optional
-from unittest.mock import call, Mock, patch, PropertyMock
+from unittest.mock import call, Mock, patch
 
 import pandas as pd
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
@@ -24,7 +24,6 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -93,7 +92,6 @@ from ax.utils.testing.core_stubs import (
     get_generator_run,
     get_online_sobol_mbm_generation_strategy,
     get_sobol,
-    SpecialGenerationStrategy,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
@@ -291,9 +289,6 @@ class AxSchedulerTestCase(TestCase):
     inherit and run its associated tests.
     """
 
-    GENERATION_STRATEGY_INTERFACE_CLASS: type[GenerationStrategyInterface] = (
-        GenerationStrategy
-    )
     # TODO[@mgarrard]: Change this to `str(GenerationStrategy.__module__)`
     # once we are no longer splitting which `GS.gen` to call into based on
     # `Trial` vs. `BatchTrial`
@@ -385,7 +380,7 @@ class AxSchedulerTestCase(TestCase):
         self,
         experiment: Experiment,
         generation_strategy: GenerationStrategy | None = None,
-    ) -> GenerationStrategyInterface:
+    ) -> GenerationStrategy:
         return none_throws(generation_strategy)
 
     @property
@@ -1661,7 +1656,7 @@ class AxSchedulerTestCase(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
         with patch.object(
-            self.GENERATION_STRATEGY_INTERFACE_CLASS,
+            GenerationStrategy,
             "_gen_multiple",
             side_effect=OptimizationComplete("test error"),
         ) as mock_gen_multiple:
@@ -2203,19 +2198,6 @@ class AxSchedulerTestCase(TestCase):
         self,
         scheduler: Scheduler,
     ) -> None:
-        with patch.object(
-            self.GENERATION_STRATEGY_INTERFACE_CLASS,
-            "model",
-            new_callable=PropertyMock,
-            return_value=None,
-        ), patch.object(
-            self.GENERATION_STRATEGY_INTERFACE_CLASS,
-            "_fit_current_model",
-            wraps=scheduler.standard_generation_strategy._fit_current_model,
-        ) as fit_model:
-            get_fitted_model_bridge(scheduler)
-            fit_model.assert_called_once()
-
         # testing get_fitted_model_bridge
         model_bridge = get_fitted_model_bridge(scheduler)
 
@@ -2259,21 +2241,6 @@ class AxSchedulerTestCase(TestCase):
                 db_settings=self.db_settings_if_always_needed,
             )
             self.assertEqual(scheduler.standard_generation_strategy, self.sobol_MBM_GS)
-
-        with self.subTest("with a `SpecialGenerationStrategy`"):
-            scheduler = Scheduler(
-                experiment=self.branin_experiment,
-                generation_strategy=SpecialGenerationStrategy(),
-                options=SchedulerOptions(
-                    **self.scheduler_options_kwargs,
-                ),
-                db_settings=self.db_settings_if_always_needed,
-            )
-            with self.assertRaisesRegex(
-                NotImplementedError,
-                "only supported with instances of `GenerationStrategy`",
-            ):
-                scheduler.standard_generation_strategy
 
     def test_get_improvement_over_baseline(self) -> None:
         n_total_trials = 8

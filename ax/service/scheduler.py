@@ -20,7 +20,6 @@ from typing import Any, cast, NamedTuple, Optional
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.multi_type_experiment import (
@@ -163,7 +162,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     """
 
     experiment: Experiment
-    generation_strategy: GenerationStrategyInterface
+    generation_strategy: GenerationStrategy
     # pyre-fixme[24]: Generic type `LoggerAdapter` expects 1 type parameter.
     logger: LoggerAdapter
     # Mapping of form {short string identifier -> message to show in reported
@@ -212,7 +211,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def __init__(
         self,
         experiment: Experiment,
-        generation_strategy: GenerationStrategyInterface,
+        generation_strategy: GenerationStrategy,
         options: SchedulerOptions,
         db_settings: Optional[DBSettings] = None,
         _skip_experiment_save: bool = False,
@@ -228,7 +227,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
 
         if not isinstance(experiment, Experiment):
             raise TypeError("{experiment} is not an Ax experiment.")
-        if not isinstance(generation_strategy, GenerationStrategyInterface):
+        if not isinstance(generation_strategy, GenerationStrategy):
             raise TypeError("{generation_strategy} is not a generation strategy.")
 
         # Initialize storage layer for the scheduler.

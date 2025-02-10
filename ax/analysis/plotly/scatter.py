@@ -12,8 +12,8 @@ from ax.analysis.analysis import AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import express as px, graph_objects as go
 
 
@@ -51,7 +51,7 @@ class ScatterPlot(PlotlyAnalysis):
     def compute(
         self,
         experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
+        generation_strategy: Optional[GenerationStrategy] = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ScatterPlot requires an Experiment")
