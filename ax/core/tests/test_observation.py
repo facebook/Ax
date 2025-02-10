@@ -12,7 +12,6 @@ from unittest.mock import Mock, patch, PropertyMock
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
@@ -29,6 +28,7 @@ from ax.core.observation import (
     separate_observations,
 )
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.core.types import TParameterization
 from ax.utils.common.testutils import TestCase
 from pyre_extensions import none_throws

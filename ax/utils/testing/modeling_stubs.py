@@ -10,12 +10,12 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
-from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,

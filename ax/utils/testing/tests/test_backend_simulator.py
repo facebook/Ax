@@ -8,7 +8,7 @@
 
 from unittest.mock import Mock, patch
 
-from ax.core.base_trial import TrialStatus
+from ax.core.trial_status import TrialStatus
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
 from ax.utils.testing.utils_testing_stubs import get_backend_simulator_with_trials

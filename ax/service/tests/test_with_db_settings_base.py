@@ -10,8 +10,9 @@ import random
 import string
 from unittest.mock import patch
 
-from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
+
+from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.with_db_settings_base import (
     try_load_generation_strategy,

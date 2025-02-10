@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from logging import Logger
 
-from ax.core.base_trial import TrialStatus
+from ax.core.trial_status import TrialStatus
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws

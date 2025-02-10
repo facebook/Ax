@@ -8,8 +8,8 @@
 from unittest.mock import patch
 
 import pandas as pd
-from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
+from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,

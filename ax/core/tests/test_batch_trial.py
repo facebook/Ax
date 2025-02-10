@@ -13,12 +13,12 @@ from unittest.mock import patch, PropertyMock
 
 import numpy as np
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial, GeneratorRunStruct
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase

@@ -204,6 +204,15 @@ Core Classes
     :show-inheritance:
 
 
+`TrialStatus`
+~~~~~~~~~~~~
+
+.. automodule:: ax.core.trial_status
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Core Types
 ----------
 

@@ -8,7 +8,7 @@
 
 from typing import Any, Mapping
 
-from ax.core.base_trial import TrialStatus
+from ax.core.trial_status import TrialStatus
 from ax.preview.api.protocols.utils import _APIRunner
 from ax.preview.api.types import TParameterization
 from pyre_extensions import override

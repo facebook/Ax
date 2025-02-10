@@ -11,8 +11,8 @@ from math import ceil, floor
 from typing import Any
 
 from ax.core import ObservationFeatures
-from ax.core.base_trial import STATUSES_EXPECTING_DATA
 from ax.core.experiment import Experiment
+from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.generation_strategy import AxGenerationException
 

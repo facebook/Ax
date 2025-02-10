@@ -11,13 +11,13 @@ from unittest import mock
 import numpy as np
 
 import torch
-
-from ax.core.base_trial import TrialStatus
 from ax.core.observation import (
     ObservationData,
     ObservationFeatures,
     recombine_observations,
 )
+
+from ax.core.trial_status import TrialStatus
 from ax.modelbridge.map_torch import MapTorchAdapter
 from ax.models.torch_base import TorchGenerator, TorchGenResults
 from ax.utils.common.constants import Keys

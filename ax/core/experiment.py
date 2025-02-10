@@ -22,12 +22,7 @@ import ax.core.observation as observation
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import (
-    BaseTrial,
-    DEFAULT_STATUSES_TO_WARM_START,
-    STATUSES_EXPECTING_DATA,
-    TrialStatus,
-)
+from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
 from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
@@ -41,6 +36,11 @@ from ax.core.parameter import Parameter
 from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
+from ax.core.trial_status import (
+    DEFAULT_STATUSES_TO_WARM_START,
+    STATUSES_EXPECTING_DATA,
+    TrialStatus,
+)
 from ax.core.types import ComparisonOp, TParameterization
 from ax.exceptions.core import (
     AxError,
