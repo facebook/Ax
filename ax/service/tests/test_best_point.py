@@ -44,6 +44,22 @@ class TestBestPointMixin(TestCase):
         opt_conf.objective.minimize = False
         self.assertEqual(get_trace(exp, opt_conf), [11, 11, 11, 15, 15])
 
+        with self.subTest("Single objective with constraints"):
+            # The second metric is the constraint and needs to be >= 0
+            exp = get_experiment_with_observations(
+                observations=[[11, -1], [10, 1], [9, 1], [15, -1], [11, 1]],
+                minimize=False,
+                constrained=True,
+            )
+            self.assertEqual(get_trace(exp), [float("-inf"), 10, 10, 10, 11])
+
+            exp = get_experiment_with_observations(
+                observations=[[11, -1], [10, 1], [9, 1], [15, -1], [11, 1]],
+                minimize=True,
+                constrained=True,
+            )
+            self.assertEqual(get_trace(exp), [float("inf"), 10, 9, 9, 9])
+
         # Scalarized.
         exp = get_experiment_with_observations(
             observations=[[1, 1], [2, 2], [3, 3]],
@@ -63,7 +79,7 @@ class TestBestPointMixin(TestCase):
         ).objective_thresholds = []
         self.assertEqual(get_trace(exp), [0.0, 0.0, 2.0, 8.0, 11.0, 11.0])
 
-        # W/ constraints.
+        # Multi-objective w/ constraints.
         exp = get_experiment_with_observations(
             observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 1, 1]],
             constrained=True,

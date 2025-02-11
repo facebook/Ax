@@ -421,6 +421,10 @@ class BestPointMixin(metaclass=ABCMeta):
         the hypervolume. For single objective, the performance is computed as
         the best observed objective value.
 
+        Infeasible points (that violate constraints) do not contribute to
+        improvements in the optimization trace. If the first trial(s) are infeasible,
+        the trace can start at inf or -inf.
+
         An iteration here refers to a completed or early-stopped (batch) trial.
         There will be one performance metric in the trace for each iteration.
 
@@ -507,14 +511,14 @@ class BestPointMixin(metaclass=ABCMeta):
             infeas_value = weighted_objective_thresholds
         else:
             Y_obj = Y @ objective_weights
-            infeas_value = Y_obj.min()
+            infeas_value = float("-inf")
         # Account for feasibility.
         if outcome_constraints is not None:
             cons_tfs = none_throws(
                 get_outcome_constraint_transforms(outcome_constraints)
             )
             feas = torch.all(torch.stack([c(Y) <= 0 for c in cons_tfs], dim=-1), dim=-1)
-            # Set the infeasible points to reference point or the worst observed value.
+            # Set the infeasible points to reference point or to NaN
             Y_obj[~feas] = infeas_value
         # Get unique trial indices. Note: only completed/early-stopped
         # trials are present.
