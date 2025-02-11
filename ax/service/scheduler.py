@@ -1991,7 +1991,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
                     self.experiment, MultiTypeExperiment
                 ).metrics_for_trial_type(trial_type=none_throws(self.trial_type))
                 kwargs["metrics"] = metrics
-            results = self.experiment.fetch_trials_data_results(
+            results = self.experiment.fetch_data_results(
                 trial_indices=trial_indices,
                 **kwargs,
             )

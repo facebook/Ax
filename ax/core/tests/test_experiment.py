@@ -9,6 +9,7 @@
 import logging
 from collections import OrderedDict
 from enum import unique
+from functools import reduce
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -608,7 +609,9 @@ class ExperimentTest(TestCase):
         arm = get_arm()
         exp.new_batch_trial().add_arm(arm)
         trial = exp.new_batch_trial().add_arm(arm)
-        self.assertEqual(exp.sum_trial_sizes, 2)
+        self.assertEqual(
+            reduce(lambda a, b: a + len(b.arms_by_name), exp._trials.values(), 0), 2
+        )
         self.assertEqual(len(exp.arms_by_name), 1)
         trial.mark_arm_abandoned(trial.arms[0].name)
         self.assertEqual(exp.num_abandoned_arms, 1)
@@ -666,34 +669,34 @@ class ExperimentTest(TestCase):
         batch_1 = exp.trials[1]
         batch_0.mark_completed()
         batch_1.mark_completed()
-        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
+        batch_0_data = exp.fetch_data(trial_indices=[0])
         self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
         self.assertEqual(
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
         )
-        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
+        batch_1_data = exp.fetch_data(trial_indices=[1])
         self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
         self.assertEqual(
             set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
         )
         self.assertEqual(
-            exp.fetch_trials_data(trial_indices=[0, 1]),
+            exp.fetch_data(trial_indices=[0, 1]),
             Data.from_multiple_data([batch_0_data, batch_1_data]),
         )
 
         self.assertEqual(len(exp.data_by_trial[0]), 2)
 
         with self.assertRaisesRegex(ValueError, ".* not associated .*"):
-            exp.fetch_trials_data(trial_indices=[2])
+            exp.fetch_data(trial_indices=[2])
         # Try to fetch data when there are only metrics and no attached data.
         exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
         exp.add_tracking_metric(Metric(name="b"))  # Add unimplemented metric.
-        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).df), 5)
+        self.assertEqual(len(exp.fetch_data(trial_indices=[0]).df), 5)
         # Try fetching attached data.
         exp.attach_data(batch_0_data)
         exp.attach_data(batch_1_data)
-        self.assertEqual(exp.fetch_trials_data(trial_indices=[0]), batch_0_data)
-        self.assertEqual(exp.fetch_trials_data(trial_indices=[1]), batch_1_data)
+        self.assertEqual(exp.fetch_data(trial_indices=[0]), batch_0_data)
+        self.assertEqual(exp.fetch_data(trial_indices=[1]), batch_1_data)
         self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
         self.assertEqual(
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
@@ -1444,38 +1447,40 @@ class ExperimentWithMapDataTest(TestCase):
         batch_1 = exp.trials[1]
         batch_0.mark_completed()
         batch_1.mark_completed()
-        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
+        batch_0_data = exp.fetch_data(trial_indices=[0])
         self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
         self.assertEqual(
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
         )
-        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
+        batch_1_data = exp.fetch_data(trial_indices=[1])
         self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
         self.assertEqual(
             set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
         )
         self.assertEqual(
-            exp.fetch_trials_data(trial_indices=[0, 1]).df.shape[0],
+            exp.fetch_data(trial_indices=[0, 1]).df.shape[0],
             len(exp.arms_by_name) * 2,
         )
 
         with self.assertRaisesRegex(ValueError, ".* not associated .*"):
-            exp.fetch_trials_data(trial_indices=[2])
+            exp.fetch_data(trial_indices=[2])
         # Try to fetch data when there are only metrics and no attached data.
         exp.remove_tracking_metric(metric_name="branin")  # Remove implemented metric.
         exp.add_tracking_metric(
             BraninMetric(name="branin", param_names=["x1", "x2"])
         )  # Add unimplemented metric.
-        # pyre-fixme[16]: `Data` has no attribute `map_df`.
-        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).map_df), 10)
+        self.assertEqual(
+            len(assert_is_instance(exp.fetch_data(trial_indices=[0]), MapData).map_df),
+            10,
+        )
         # Try fetching attached data.
         exp.attach_data(batch_0_data)
         exp.attach_data(batch_1_data)
         pd.testing.assert_frame_equal(
-            exp.fetch_trials_data(trial_indices=[0]).df, batch_0_data.df
+            exp.fetch_data(trial_indices=[0]).df, batch_0_data.df
         )
         pd.testing.assert_frame_equal(
-            exp.fetch_trials_data(trial_indices=[1]).df, batch_1_data.df
+            exp.fetch_data(trial_indices=[1]).df, batch_1_data.df
         )
         self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
         self.assertEqual(
