@@ -10,9 +10,9 @@ from logging import Logger
 from unittest.mock import MagicMock, patch
 
 import torch
-
-from ax.core.base_trial import TrialStatus
 from ax.core.observation import ObservationFeatures
+
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,

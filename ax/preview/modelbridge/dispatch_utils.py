@@ -7,7 +7,7 @@
 # pyre-unsafe
 
 import torch
-from ax.core.base_trial import TrialStatus
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,

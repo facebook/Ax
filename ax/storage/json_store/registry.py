@@ -23,7 +23,6 @@ from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import (
     AbandonedArm,
     BatchTrial,
@@ -58,6 +57,7 @@ from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.risk_measures import RiskMeasure
 from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,

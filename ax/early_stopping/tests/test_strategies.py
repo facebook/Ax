@@ -11,10 +11,10 @@ from typing import Any, cast
 
 import numpy as np
 from ax.core import OptimizationConfig
-from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective
+from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     ModelBasedEarlyStoppingStrategy,

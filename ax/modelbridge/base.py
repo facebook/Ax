@@ -19,7 +19,6 @@ from logging import Logger
 from typing import Any
 
 from ax.core.arm import Arm
-from ax.core.base_trial import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions, GeneratorRun
@@ -34,6 +33,7 @@ from ax.core.observation import (
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.types import (
     TCandidateMetadata,
     TModelCov,

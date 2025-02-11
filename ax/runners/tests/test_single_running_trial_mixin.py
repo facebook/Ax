@@ -7,7 +7,7 @@
 # pyre-strict
 
 
-from ax.core.base_trial import TrialStatus
+from ax.core.trial_status import TrialStatus
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
