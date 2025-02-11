@@ -154,20 +154,17 @@ Y_trans: list[type[Transform]] = [IVW, Derelativize, StandardizeY]
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
 TS_trans: list[type[Transform]] = Y_trans + [SearchSpaceToChoice]
 
-# Single-type MTGP transforms
-ST_MTGP_trans: list[type[Transform]] = Cont_X_trans + [
+MTGP_Y_trans: list[type[Transform]] = [
     Derelativize,
     TrialAsTask,
     StratifiedStandardizeY,
     TaskChoiceToIntTaskChoice,
 ]
 
-MBM_MTGP_trans: list[type[Transform]] = MBM_X_trans + [
-    Derelativize,
-    TrialAsTask,
-    StratifiedStandardizeY,
-    TaskChoiceToIntTaskChoice,
-]
+# Single-type MTGP transforms
+ST_MTGP_trans: list[type[Transform]] = Cont_X_trans + MTGP_Y_trans
+
+MBM_MTGP_trans: list[type[Transform]] = MBM_X_trans + MTGP_Y_trans
 
 
 class ModelSetup(NamedTuple):
