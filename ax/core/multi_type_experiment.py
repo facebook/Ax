@@ -27,20 +27,15 @@ logger: logging.Logger = get_logger(__name__)
 
 
 class MultiTypeExperiment(Experiment):
-    """Class for experiment with multiple trial types.
-
-    A canonical use case for this is tuning a large production system
-    with limited evaluation budget and a simulator which approximates
-    evaluations on the main system. Trial deployment and data fetching
-    is separate for the two systems, but the final data is combined and
-    fed into multi-task models.
-
-    See the Multi-Task Modeling tutorial for more details.
-
-    Attributes:
-        name: Name of the experiment.
-        description: Description of the experiment.
-    """
+    _default_trial_type: str
+    # Map from trial type to default runner of that type
+    _trial_type_to_runner: dict[str, Runner | None]
+    # Specifies which trial type each metric belongs to
+    _metric_to_trial_type: dict[str, str]
+    # Maps certain metric names to a canonical name. Useful for ancillary trial
+    # types' metrics, to specify which primary metrics they correspond to
+    # (e.g. 'comment_prediction' => 'comment')
+    _metric_to_canonical_name: dict[str, str]
 
     def __init__(
         self,
@@ -55,43 +50,50 @@ class MultiTypeExperiment(Experiment):
         is_test: bool = False,
         experiment_type: str | None = None,
         properties: dict[str, Any] | None = None,
-        default_data_type: DataType | None = None,
+        default_data_type: DataType = DataType.DATA,
     ) -> None:
-        """Inits Experiment.
+        """Initializes a ``MultiTypeExperiment``: special type of an experiment, in
+        which trials will have different "types", with each type determining how the
+        trial might be evaluated/deployed, as well as how it will be treated by the
+        optimization methodologies.
+
+        A canonical use case for this is tuning a large production system
+        with limited evaluation budget and a simulator which approximates
+        evaluations on the main system. Trial deployment and data fetching
+        is separate for the two systems, but the final data is combined and
+        fed into multi-task models.
+
+        See the Multi-Task Modeling tutorial for more details.
 
         Args:
-            name: Name of the experiment.
             search_space: Search space of the experiment.
-            default_trial_type: Default type for trials on this experiment.
-            default_runner: Default runner for trials of the default type.
+            default_trial_type: Type to assign to trials unless otherwise specified.
+            default_runner: Runner to use for the trial of the default trial type on
+                this experiment.
+            name: Name of the experiment.
             optimization_config: Optimization config of the experiment.
             tracking_metrics: Additional tracking metrics not used for optimization.
-                These are associated with the default trial type.
             runner: Default runner used for trials on this experiment.
             status_quo: Arm representing existing "control" arm.
             description: Description of the experiment.
             is_test: Convenience metadata tracker for the user to mark test experiments.
             experiment_type: The class of experiments this one belongs to.
-            properties: Dictionary of this experiment's properties.
+            properties: Dictionary of this experiment's properties.  It is meant to
+                only store primitives that pertain to Ax experiment state. Any trial
+                deployment-related information and modeling-layer configuration
+                should be stored elsewhere, e.g. in ``run_metadata`` of the trials.
             default_data_type: Enum representing the data type this experiment uses.
+            auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments
+                (sources of additional data for the optimization methodology leveraged
+                for the current expeirment), grouped by different purposes
+                (e.g., historical experiments for the purpose of Transfer Learning).
         """
-
         self._default_trial_type = default_trial_type
+        self._trial_type_to_runner = {default_trial_type: default_runner}
+        self._metric_to_trial_type = {}
+        self._metric_to_canonical_name = {}
 
-        # Map from trial type to default runner of that type
-        self._trial_type_to_runner: dict[str, Runner | None] = {
-            default_trial_type: default_runner
-        }
-
-        # Specifies which trial type each metric belongs to
-        self._metric_to_trial_type: dict[str, str] = {}
-
-        # Maps certain metric names to a canonical name. Useful for ancillary trial
-        # types' metrics, to specify which primary metrics they correspond to
-        # (e.g. 'comment_prediction' => 'comment')
-        self._metric_to_canonical_name: dict[str, str] = {}
-
-        # call super.__init__() after defining fields above, because we need
+        # call ``super.__init__()`` after defining fields above, because we need
         # them to be populated before optimization config is set
         super().__init__(
             name=name,

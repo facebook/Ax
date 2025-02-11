@@ -66,9 +66,7 @@ NO_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
 )
 
 ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
-
-# pyre-fixme[5]: Global expression must be annotated.
-round_floats_for_logging = partial(
+round_floats_for_logging: partial[int] = partial(
     _round_floats_for_logging,
     decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
 )
@@ -82,7 +80,38 @@ METRIC_DF_COLNAMES: Mapping[Hashable, str] = {
 
 
 class Experiment(Base):
-    """Base class for defining an experiment."""
+    # I. Metadata:
+    _name: str | None
+    _is_test: bool  # pyre-ignore[13]: Initialized in a setter.
+    _experiment_type: str | None  # pyre-ignore[13]: Initialized in a setter.
+    _time_created: datetime
+    # NOTE: While ``_properties`` is an unstructured JSON blob, it's meant
+    # exclusively for storing a small set of primitives that pertain to the
+    # experiment state, and NOT deployment- or modeling-related information.
+    _properties: dict[str, Any]
+    _default_data_type: DataType
+
+    # II. Key components of experiment design and state:
+    _search_space: SearchSpace  # pyre-ignore[13]: Initialized in a setter.
+    # Experiment can be created without an Opt.Config, e.g. it can be
+    # configured after an exploratory trial.
+    _optimization_config: OptimizationConfig | None = None
+    _trials: dict[int, BaseTrial]
+    _data_by_trial: dict[int, OrderedDict[int, Data]]
+    _tracking_metrics: dict[str, Metric]
+    _status_quo: Arm | None = None
+    _generator_runs: dict[int, GeneratorRun]
+    # Arms are unique on the experiment: arms with the same underlying
+    # parameterization will always receive the same name.
+    _arms_by_signature: dict[str, Arm]
+    _arms_by_name: dict[str, Arm]
+    # Experiment caches trial indices by status for performant access.
+    _trial_indices_by_status: dict[TrialStatus, set[int]]
+    # Auxiliary experiments are sources of auxiliary data that can be
+    # used by the optimization methods for the ongoing experiment.
+    auxiliary_experiments_by_purpose: dict[
+        AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
+    ]
 
     def __init__(
         self,
@@ -96,11 +125,13 @@ class Experiment(Base):
         is_test: bool = False,
         experiment_type: str | None = None,
         properties: dict[str, Any] | None = None,
-        default_data_type: DataType | None = None,
+        default_data_type: DataType = DataType.DATA,
         auxiliary_experiments_by_purpose: None
         | (dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]) = None,
     ) -> None:
-        """Inits Experiment.
+        """Initializes an ``Experiment``: central object for tracking experiment
+        state in Ax. The only required argument is a ``search_space``, but
+        ``name`` and ``is_test`` are also recommended.
 
         Args:
             search_space: Search space of the experiment.
@@ -118,52 +149,39 @@ class Experiment(Base):
                 should be stored elsewhere, e.g. in ``run_metadata`` of the trials.
             default_data_type: Enum representing the data type this experiment uses.
             auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments
-                for different purposes (e.g., transfer learning).
+                (sources of additional data for the optimization methodology leveraged
+                for the current expeirment), grouped by different purposes
+                (e.g., historical experiments for the purpose of Transfer Learning).
         """
-        # appease pyre
-        # pyre-fixme[13]: Attribute `_search_space` is never initialized.
-        self._search_space: SearchSpace
-        self._status_quo: Arm | None = None
-        # pyre-fixme[13]: Attribute `_is_test` is never initialized.
-        self._is_test: bool
-
         self._name = name
         self.description = description
         self.runner = runner
-        self.is_test = is_test
 
-        self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
-        self._experiment_type: str | None = experiment_type
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._optimization_config = None
-        self._tracking_metrics: dict[str, Metric] = {}
-        self._time_created: datetime = datetime.now()
-        self._trials: dict[int, BaseTrial] = {}
-        self._properties: dict[str, Any] = properties or {}
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._default_data_type = default_data_type or DataType.DATA
+        self._data_by_trial = {}
+        self._tracking_metrics = {}
+        self._time_created = datetime.now()
+        self._trials = {}
+        self._generator_runs = {}
+        self._properties = properties or {}
+        self._default_data_type = default_data_type
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
         # TTL checks for experiments that do not use TTL.
         self._trials_have_ttl = False
         # Make sure all statuses appear in this dict, to avoid key errors.
-        self._trial_indices_by_status: dict[TrialStatus, set[int]] = {
-            status: set() for status in TrialStatus
-        }
-        self._arms_by_signature: dict[str, Arm] = {}
-        self._arms_by_name: dict[str, Arm] = {}
+        self._trial_indices_by_status = {status: set() for status in TrialStatus}
+        self._arms_by_signature = {}
+        self._arms_by_name = {}
+        self.auxiliary_experiments_by_purpose = auxiliary_experiments_by_purpose or {}
 
-        self.auxiliary_experiments_by_purpose: dict[
-            AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
-        ] = auxiliary_experiments_by_purpose or {}
-
-        self.add_tracking_metrics(tracking_metrics or [])
-
-        # call setters defined below
+        # Call setters to set the respective protected attributes.
         self.search_space = search_space
         self.status_quo = status_quo
-        if optimization_config is not None:
+        self.is_test = is_test
+        self.experiment_type = experiment_type
+        self.add_tracking_metrics(tracking_metrics or [])
+        if optimization_config:
             self.optimization_config = optimization_config
 
     @property
@@ -950,6 +968,15 @@ class Experiment(Base):
         """
         self._check_TTL_on_running_trials()
         return self._trials
+
+    @property
+    def generator_runs(self) -> dict[int, GeneratorRun]:
+        """The generator_runs associated with the experiment.
+
+        NOTE: Generator runs are associated with an experiment when arms from
+        them are added to a trial on the expeirment.
+        """
+        return self._generator_runs
 
     @property
     def trials_by_status(self) -> dict[TrialStatus, list[BaseTrial]]:

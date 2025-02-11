@@ -119,6 +119,7 @@ class ExperimentTest(TestCase):
         self.assertIsNotNone(self.experiment.time_created)
         self.assertEqual(self.experiment.experiment_type, None)
         self.assertEqual(self.experiment.num_abandoned_arms, 0)
+        self.assertEqual(self.experiment.generator_runs, {})
 
     def test_ExperimentName(self) -> None:
         self.assertTrue(self.experiment.has_name)
