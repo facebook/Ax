@@ -373,13 +373,31 @@ def _filter_data_on_status(
     df: pd.DataFrame,
     experiment: experiment.Experiment,
     trial_status: TrialStatus | None,
-    # Arms on a BatchTrial can be abandoned even if the BatchTrial is not.
-    # Data will be filtered out if is_arm_abandoned is True and the corresponding
-    # statuses_to_include does not contain TrialStatus.ABANDONED.
     is_arm_abandoned: bool,
     statuses_to_include: set[TrialStatus],
     statuses_to_include_map_metric: set[TrialStatus],
 ) -> pd.DataFrame:
+    """Filters the dataframe to only include observations for the metrics attached
+    to the experiment, and only the observations from the trials with statuses in
+    corresponding `statuses_to_include` for each metric attached to the experiment.
+
+    Args:
+        df: Dataframe of observations to filter.
+        experiment: The experiment to which the data belongs. Used to check whether
+            the metric is attached to the experiment and the type of the metric.
+        trial_status: The status of the trial to which the data belongs.
+        is_arm_abandoned: Whether the arm to which the data belongs is abandoned.
+            This is used to handle abandoned arms on a ``BatchTrial``. ``BatchTrial``
+            may include abandoned arms even when the trial itself is not abandoned.
+            Abandoned arms are treated as if they belong to an abandoned trial.
+        statuses_to_include: Data from non-``MapMetric`` sub-classes will be filtered to
+            only include observations from trials with statuses in this set.
+        statuses_to_include_map_metric: Data from ``MapMetric`` sub-classes will be
+            filtered to only include observations from trials with statuses in this set.
+
+    Returns:
+        A dataframe with filtered observations.
+    """
     if "metric_name" not in df.columns:
         raise ValueError(f"`metric_name` column is missing from {df!r}.")
     dfs = []
