@@ -260,7 +260,6 @@ def _observations_from_dataframe(
     experiment: experiment.Experiment,
     df: pd.DataFrame,
     cols: list[str],
-    arm_name_only: bool,
     map_keys: Iterable[str],
     statuses_to_include: set[TrialStatus],
     statuses_to_include_map_metric: set[TrialStatus],
@@ -272,7 +271,7 @@ def _observations_from_dataframe(
         experiment: Experiment with arm parameters.
         df: DataFrame derived from experiment Data.
         cols: columns used to group data into different observations.
-        arm_name_only: whether arm_name is the only column in `cols`.
+            `cols` must always include `arm_name`.
         map_keys: columns that map dict-like Data
             e.g. `timestamp` in timeseries data, `epoch` in ML training traces.
         statuses_to_include: data from non-MapMetrics will only be included for trials
@@ -289,16 +288,11 @@ def _observations_from_dataframe(
         return []
     observations = []
     abandoned_arms_dict = {}
-    for g, d in df.groupby(by=cols if len(cols) > 1 else cols[0]):
+    for g, d in df.groupby(by=cols):
         obs_kwargs = {}
-        if arm_name_only:
-            features = {"arm_name": g}
-            arm_name = g
-            trial_index = None
-        else:
-            features = dict(zip(cols, g))
-            arm_name = features["arm_name"]
-            trial_index = features.get("trial_index", None)
+        features = dict(zip(cols, g, strict=True))
+        arm_name = features["arm_name"]
+        trial_index = features.get("trial_index", None)
 
         is_arm_abandoned = False
         trial_status = None
@@ -494,7 +488,6 @@ def observations_from_data(
         statuses_to_include_map_metric = {TrialStatus.COMPLETED}
     feature_cols = get_feature_cols(data)
     observations = []
-    arm_name_only = len(feature_cols) == 1  # there will always be an arm name
     # One DataFrame where all rows have all features.
     isnull = data.df[feature_cols].isnull()
     isnull_any = isnull.any(axis=1)
@@ -520,7 +513,6 @@ def observations_from_data(
             experiment=experiment,
             df=complete_df,
             cols=feature_cols,
-            arm_name_only=arm_name_only,
             statuses_to_include=statuses_to_include,
             statuses_to_include_map_metric=statuses_to_include_map_metric,
             map_keys=[],
@@ -533,7 +525,6 @@ def observations_from_data(
                 experiment=experiment,
                 df=incomplete_df,
                 cols=complete_feature_cols,
-                arm_name_only=arm_name_only,
                 statuses_to_include=statuses_to_include,
                 statuses_to_include_map_metric=statuses_to_include_map_metric,
                 map_keys=[],
@@ -594,7 +585,6 @@ def observations_from_map_data(
         )
     feature_cols = get_feature_cols(map_data, is_map_data=True)
     observations = []
-    arm_name_only = len(feature_cols) == 1  # there will always be an arm name
     # One DataFrame where all rows have all features.
     isnull = map_data.map_df[feature_cols].isnull()
     isnull_any = isnull.any(axis=1)
@@ -627,7 +617,6 @@ def observations_from_map_data(
             experiment=experiment,
             df=complete_df,
             cols=feature_cols,
-            arm_name_only=arm_name_only,
             map_keys=map_data.map_keys,
             statuses_to_include=statuses_to_include,
             statuses_to_include_map_metric=statuses_to_include_map_metric,
@@ -641,7 +630,6 @@ def observations_from_map_data(
                 experiment=experiment,
                 df=incomplete_df,
                 cols=complete_feature_cols,
-                arm_name_only=arm_name_only,
                 map_keys=map_data.map_keys,
                 statuses_to_include=statuses_to_include,
                 statuses_to_include_map_metric=statuses_to_include_map_metric,
