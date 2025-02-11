@@ -243,14 +243,6 @@ def _build_comparison_str(
     return msg
 
 
-def setup_import_mocks(
-    mocked_import_paths: list[str], mock_config_dict: dict[str, Any] | None = None
-) -> None:
-    """No-op"""
-
-    return None
-
-
 class TestCase(fake_filesystem_unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
