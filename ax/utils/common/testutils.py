@@ -8,7 +8,6 @@
 
 """Support functions for tests"""
 
-import builtins
 import contextlib
 import cProfile
 import io
@@ -24,9 +23,8 @@ from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager
 from logging import Logger
 from pstats import Stats
-from types import FrameType, ModuleType
+from types import FrameType
 from typing import Any, TypeVar, Union
-from unittest.mock import MagicMock
 
 import numpy as np
 from ax.exceptions.core import AxParameterWarning
@@ -248,42 +246,9 @@ def _build_comparison_str(
 def setup_import_mocks(
     mocked_import_paths: list[str], mock_config_dict: dict[str, Any] | None = None
 ) -> None:
-    """This function mocks expensive modules used in tests. It must be called before
-    those modules are imported or it will not work.  Stubbing out these modules
-    will obviously affect the behavior of all tests that use it, so be sure modules
-    being mocked are not important to your test.  It will also mock all child modules.
+    """No-op"""
 
-    Args:
-        mocked_import_paths: List of module paths to mock.
-        mock_config_dict: Dictionary of attributes to mock on the modules being mocked.
-            This is useful if the import is expensive, but there is still some
-            functionality it has the test relies on.  These attributes will be
-            set on all modules being mocked.
-    """
-
-    def custom_import(name: str, *args: Any, **kwargs: Any) -> ModuleType:
-        for import_path in mocked_import_paths:
-            if name == import_path or name.startswith(f"{import_path}."):
-                mymock = MagicMock()
-                if mock_config_dict is not None:
-                    mymock.configure_mock(**mock_config_dict)
-                return mymock
-        return original_import(name, *args, **kwargs)
-
-    for import_path in mocked_import_paths:
-        if import_path in sys.modules and not isinstance(
-            sys.modules[import_path], MagicMock
-        ):
-            raise Exception(f"{import_path} has already been imported!")
-
-    # Replace the original import with the custom one
-    # pyre-fixme[61][53]
-    original_import: Callable[..., ModuleType] = builtins.__import__
-    # pyre-fixme[9]: __import__ has type `(name: str, globals: Optional[Mapping[str,
-    #  object]] = ..., locals: Optional[Mapping[str, object]] = ..., fromlist:
-    #  Sequence[str] = ..., level: int = ...) -> ModuleType`; used as `(name: str,
-    #  *(Any), **(Any)) -> Any`.
-    builtins.__import__ = custom_import
+    return None
 
 
 class TestCase(fake_filesystem_unittest.TestCase):
