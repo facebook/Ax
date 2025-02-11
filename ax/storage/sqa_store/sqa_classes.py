@@ -12,9 +12,10 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, List
 
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import LifecycleStage
 from ax.core.parameter import ParameterType
+
+from ax.core.trial_status import TrialStatus
 from ax.core.types import (
     ComparisonOp,
     TModelPredict,

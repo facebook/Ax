@@ -20,7 +20,6 @@ from ax.analysis.markdown.markdown_analysis import (
     markdown_analysis_card_from_analysis_e,
 )
 from ax.analysis.utils import choose_analyses
-from ax.core.base_trial import TrialStatus  # Used as a return type
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -28,6 +27,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus  # Used as a return type
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,

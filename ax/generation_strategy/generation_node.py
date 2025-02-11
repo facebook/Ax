@@ -14,13 +14,13 @@ from logging import Logger
 from typing import Any, TYPE_CHECKING
 
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.generation_strategy.best_model_selector import BestModelSelector

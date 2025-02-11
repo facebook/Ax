@@ -11,7 +11,6 @@ import numpy as np
 import numpy.typing as npt
 
 import torch
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -25,6 +24,7 @@ from ax.core.observation import (
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
+from ax.core.trial_status import TrialStatus
 from ax.core.types import TCandidateMetadata
 from ax.modelbridge.base import GenResults
 from ax.modelbridge.modelbridge_utils import (

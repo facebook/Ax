@@ -19,11 +19,11 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base_trial import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
+from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys

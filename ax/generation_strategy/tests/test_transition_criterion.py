@@ -12,8 +12,8 @@ from unittest.mock import patch
 
 import pandas as pd
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,

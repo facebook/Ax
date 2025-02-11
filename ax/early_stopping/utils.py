@@ -10,9 +10,9 @@ from collections import defaultdict
 from logging import Logger
 
 import pandas as pd
-from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.core.trial_status import TrialStatus
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance
 

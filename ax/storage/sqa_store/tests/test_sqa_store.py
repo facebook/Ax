@@ -21,7 +21,6 @@ from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import LifecycleStage
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -30,6 +29,7 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
+from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError

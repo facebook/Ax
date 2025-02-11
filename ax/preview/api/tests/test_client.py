@@ -11,7 +11,6 @@ import numpy as np
 
 import pandas as pd
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
-from ax.core.base_trial import TrialStatus
 
 from ax.core.experiment import Experiment
 from ax.core.formatting_utils import DataType
@@ -28,6 +27,7 @@ from ax.core.parameter import (
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
 from ax.preview.api.client import Client
