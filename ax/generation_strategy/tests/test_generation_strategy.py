@@ -477,9 +477,9 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             str(gs3),
             "GenerationStrategy(name='test', nodes=[GenerationNode("
+            "node_name='test', "
             "model_specs=[GeneratorSpec(model_enum=Sobol, "
-            "model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
-            " model_key_override=None)], node_name=test, "
+            "model_key_override=None)], "
             "transition_criteria=[])])",
         )
 

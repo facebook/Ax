@@ -296,6 +296,16 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         if self._fitted_model is None:
             raise UserInputError("No fitted model found. Call fit() to generate one")
 
+    def _brief_repr(self) -> str:
+        """Returns a brief string representation of this model spec.
+        Includes just name and override, but not the various kwargs"""
+        return (
+            "GeneratorSpec("
+            f"\tmodel_enum={self.model_enum.value}, "
+            f"\tmodel_key_override={self.model_key_override}"
+            ")"
+        )
+
     def __repr__(self) -> str:
         model_kwargs = json.dumps(
             self.model_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
