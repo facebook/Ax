@@ -114,8 +114,10 @@ class TestDispatchUtils(TestCase):
                 self.assertEqual(model_key, "BoTorch")
 
     @mock_botorch_optimize
-    def test_choose_gs_defaults(self) -> None:
-        gs = choose_generation_strategy(gs_config=GenerationStrategyConfig())
+    def test_choose_gs_balanced(self) -> None:
+        gs = choose_generation_strategy(
+            gs_config=GenerationStrategyConfig(method=GenerationMethod.BALANCED)
+        )
         self.assertEqual(len(gs._nodes), 2)
         # Check the Sobol node & TC.
         sobol_node = gs._nodes[0]

@@ -142,7 +142,7 @@ class GenerationStrategyConfig:
             input corresponds to a valid device.
     """
 
-    method: GenerationMethod = GenerationMethod.BALANCED
+    method: GenerationMethod = GenerationMethod.FAST
     # Initialization options
     initialization_budget: int | None = None
     initialization_random_seed: int | None = None
