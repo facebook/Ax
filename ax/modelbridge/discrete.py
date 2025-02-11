@@ -26,7 +26,7 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.torch import (
     extract_objective_weights,
     extract_outcome_constraints,
-    validate_optimization_config,
+    validate_transformed_optimization_config,
 )
 from ax.models.discrete_base import DiscreteGenerator
 from ax.models.types import TConfig
@@ -124,7 +124,9 @@ class DiscreteAdapter(Adapter):
         """Generate new candidates according to search_space and
         optimization_config.
 
-        The outcome constraints should be transformed to no longer be relative.
+        Any outcome constraints should be transformed to no longer be relative, this
+        can be achieved using either ``Relativize`` or ``Derelativize`` transforms.
+        An error will be raised during validation if transform has not been applied.
         """
         # Validation
         if not self.parameters:
@@ -136,7 +138,7 @@ class DiscreteAdapter(Adapter):
             objective_weights = None
             outcome_constraints = None
         else:
-            validate_optimization_config(optimization_config, self.outcomes)
+            validate_transformed_optimization_config(optimization_config, self.outcomes)
             objective_weights = extract_objective_weights(
                 objective=optimization_config.objective, outcomes=self.outcomes
             )

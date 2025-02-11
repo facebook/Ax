@@ -833,7 +833,7 @@ class TorchAdapter(Adapter):
                 "to be specified"
             )
 
-        validate_optimization_config(optimization_config, self.outcomes)
+        validate_transformed_optimization_config(optimization_config, self.outcomes)
         objective_weights = extract_objective_weights(
             objective=optimization_config.objective, outcomes=self.outcomes
         )
@@ -1065,7 +1065,7 @@ class TorchAdapter(Adapter):
         )
 
 
-def validate_optimization_config(
+def validate_transformed_optimization_config(
     optimization_config: OptimizationConfig, outcomes: list[str]
 ) -> None:
     """Validate optimization config against model fitted outcomes.
@@ -1074,14 +1074,23 @@ def validate_optimization_config(
         optimization_config: Config to validate.
         outcomes: List of metric names w/ valid model fits.
 
-    Raises:
-        ValueError if:
-            1. Relative constraints are found
+    Raises if:
+            1. In the modeling layer, absolute constraints are required, however,
+               specifying relative constraints is supported. We handle this by
+               either 1) transforming the observations to be relative (so that the
+               constraints are absolute w.r.t relativized metrics), or 2)
+               derelativizing the constraint. If relative constraints are found at
+               this layer, we raise an error as likely either `Relativize` or
+               `Derelativized` transforms were expected to be applied but were not.
             2. Optimization metrics are not present in model fitted outcomes.
     """
     for c in optimization_config.outcome_constraints:
         if c.relative:
-            raise ValueError(f"{c} is a relative constraint.")
+            raise ValueError(
+                f"Passed {c} as a relative constraint. This likely indicates that "
+                "either a `Relativize` or `Derelativize` transform was expected to be"
+                " applied but was not."
+            )
         if isinstance(c, ScalarizedOutcomeConstraint):
             for c_metric in c.metrics:
                 if c_metric.name not in outcomes:
