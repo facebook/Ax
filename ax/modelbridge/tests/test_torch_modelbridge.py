@@ -457,7 +457,7 @@ class TorchAdapterTest(TestCase):
 
         # test optimization config validation - raise error when
         # ScalarizedOutcomeConstraint contains a metric that is not in the outcomes
-        with self.assertRaisesRegex(ValueError, "is a relative constraint."):
+        with self.assertRaisesRegex(ValueError, "as a relative constraint."):
             modelbridge.gen(
                 n=1,
                 optimization_config=OptimizationConfig(
