@@ -119,6 +119,7 @@ class TorchAdapter(Adapter):
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
         default_model_gen_options: TConfig | None = None,
+        fit_only_completed_map_metrics: bool = True,
     ) -> None:
         # This warning is being added while we are on 0.4.3, so it will be
         # released in 0.4.4 or 0.5.0. The `torch_dtype` argument can be removed
@@ -161,6 +162,7 @@ class TorchAdapter(Adapter):
             fit_abandoned=fit_abandoned,
             fit_tracking_metrics=fit_tracking_metrics,
             fit_on_init=fit_on_init,
+            fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
 
     def feature_importances(self, metric_name: str) -> dict[str, float]:

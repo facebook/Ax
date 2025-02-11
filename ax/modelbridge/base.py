@@ -22,11 +22,13 @@ from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions, GeneratorRun
+from ax.core.map_data import MapData
 from ax.core.observation import (
     Observation,
     ObservationData,
     ObservationFeatures,
     observations_from_data,
+    observations_from_map_data,
     recombine_observations,
     separate_observations,
 )
@@ -112,6 +114,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
+        fit_only_completed_map_metrics: bool = True,
     ) -> None:
         """
         Applies transforms and fits model.
@@ -156,6 +159,9 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
                 To fit the model afterwards, use `_process_and_transform_data`
                 to get the transformed inputs and call `_fit_if_implemented` with
                 the transformed inputs.
+            fit_only_completed_map_metrics: Whether to fit a model to map metrics only
+                when the trial is completed. This is useful for applications like
+                modeling partially completed learning curves in AutoML.
         """
         t_fit_start = time.monotonic()
         transforms = transforms or []
@@ -184,6 +190,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         self._fit_out_of_design = fit_out_of_design
         self._fit_abandoned = fit_abandoned
         self._fit_tracking_metrics = fit_tracking_metrics
+        self._fit_only_completed_map_metrics = fit_only_completed_map_metrics
         self.outcomes: list[str] = []
         self._experiment_has_immutable_search_space_and_opt_config: bool = (
             experiment is not None and experiment.immutable_search_space_and_opt_config
@@ -292,6 +299,14 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
     ) -> list[Observation]:
         if experiment is None or data is None:
             return []
+        if not self._fit_only_completed_map_metrics and isinstance(data, MapData):
+            return observations_from_map_data(
+                experiment=experiment,
+                map_data=data,
+                map_keys_as_parameters=True,
+                statuses_to_include=self.statuses_to_fit,
+                statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
+            )
         return observations_from_data(
             experiment=experiment,
             data=data,
@@ -557,7 +572,11 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
     @property
     def statuses_to_fit_map_metric(self) -> set[TrialStatus]:
         """Statuses to fit the model on."""
-        return {TrialStatus.COMPLETED}
+        return (
+            {TrialStatus.COMPLETED}
+            if self._fit_only_completed_map_metrics
+            else self.statuses_to_fit
+        )
 
     @training_in_design.setter
     def training_in_design(self, training_in_design: list[bool]) -> None:

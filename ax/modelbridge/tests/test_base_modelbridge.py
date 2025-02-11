@@ -15,6 +15,7 @@ import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -1040,3 +1041,46 @@ class testClampObservationFeatures(TestCase):
         )
         self.assertEqual(sum(m.training_in_design), 7)
         self.assertEqual(m.model_space.parameters["x2"].upper, 20)
+
+    @mock.patch(
+        "ax.modelbridge.base.observations_from_map_data",
+        autospec=True,
+        return_value=([get_observation1()]),
+    )
+    @mock.patch(
+        "ax.modelbridge.base.observations_from_data",
+        autospec=True,
+        return_value=([get_observation1(), get_observation2()]),
+    )
+    def test_fit_only_completed_map_metrics(
+        self, mock_observations_from_data: Mock, mock_observations_from_map_data: Mock
+    ) -> None:
+        # NOTE: If empty data object is not passed, observations are not
+        # extracted, even with mock.
+        # _prepare_observations is called in the constructor and itself calls
+        # observations_from_map_data.
+        Adapter(
+            search_space=get_search_space_for_value(),
+            model=0,
+            experiment=get_experiment_for_value(),
+            data=MapData(),
+            status_quo_name="1_1",
+            fit_only_completed_map_metrics=False,
+        )
+        self.assertTrue(mock_observations_from_map_data.called)
+        self.assertFalse(mock_observations_from_data.called)
+
+        # calling without map data calls regular observations_from_data even
+        # if fit_only_completed_map_metrics is False
+        mock_observations_from_data.reset_mock()
+        mock_observations_from_map_data.reset_mock()
+        Adapter(
+            search_space=get_search_space_for_value(),
+            model=0,
+            experiment=get_experiment_for_value(),
+            data=Data(),
+            status_quo_name="1_1",
+            fit_only_completed_map_metrics=False,
+        )
+        self.assertFalse(mock_observations_from_map_data.called)
+        self.assertTrue(mock_observations_from_data.called)
