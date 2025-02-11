@@ -679,15 +679,40 @@ class GenerationNode(SerializationMixin, SortableBase):
             return -1
         return min(gen_blocking_criterion_delta_from_threshold)
 
+    def _brief_transition_criteria_repr(self) -> str:
+        """Returns a brief string representation of the
+        transition criteria for this node.
+
+        Returns:
+            str: A string representation of the transition criteria for this node.
+        """
+        if self.transition_criteria is None:
+            return "None"
+        tc_list = ", ".join(
+            [
+                f"{tc.__class__.__name__}(transition_to='{str(tc.transition_to)}')"
+                for tc in self.transition_criteria
+            ]
+        )
+        return f"[{tc_list}]"
+
     def __repr__(self) -> str:
         "String representation of this GenerationNode"
         # add model specs
-        str_rep = f"{self.__class__.__name__}(model_specs="
-        model_spec_str = str(self.model_specs).replace("\n", " ").replace("\t", "")
-        str_rep += model_spec_str
+        str_rep = f"{self.__class__.__name__}"
+        str_rep += f"(node_name='{self.node_name}'"
 
-        str_rep += f", node_name={self.node_name}"
-        str_rep += f", transition_criteria={str(self.transition_criteria)}"
+        str_rep += ", model_specs="
+        model_spec_str = (
+            ", ".join([spec._brief_repr() for spec in self.model_specs])
+            .replace("\n", " ")
+            .replace("\t", "")
+        )
+        str_rep += f"[{model_spec_str}]"
+
+        str_rep += (
+            f", transition_criteria={str(self._brief_transition_criteria_repr())}"
+        )
 
         return f"{str_rep})"
 

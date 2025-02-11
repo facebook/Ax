@@ -311,16 +311,10 @@ class TestGenerationNode(TestCase):
 
         self.assertEqual(
             string_rep,
-            "GenerationNode(model_specs=[GeneratorSpec(model_enum=BoTorch,"
-            " model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
-            " model_key_override=None)], node_name=test, "
-            "transition_criteria=[MinTrials({'threshold': 5, "
-            "'only_in_statuses': [<enum 'TrialStatus'>.RUNNING], "
-            "'not_in_statuses': None, 'transition_to': None, "
-            "'block_transition_if_unmet': True, 'block_gen_if_met': False, "
-            "'use_all_trials_in_exp': False, "
-            "'continue_trial_generation': False, "
-            "'count_only_trials_with_data': False})])",
+            "GenerationNode(node_name='test', "
+            "model_specs=[GeneratorSpec(model_enum=BoTorch, "
+            "model_key_override=None)], "
+            "transition_criteria=[MinTrials(transition_to='None')])",
         )
 
     def test_single_fixed_features(self) -> None:

@@ -215,6 +215,23 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self.assertIn("test_cv_kwargs", repr_str)
         self.assertIn("test_model_key_override", repr_str)
 
+    def test_brief_rep(self) -> None:
+        ms = GeneratorSpec(
+            model_enum=Generators.BOTORCH_MODULAR,
+            model_kwargs={"test_model_kwargs": 1},
+            model_gen_kwargs={"test_gen_kwargs": 1},
+            model_cv_kwargs={"test_cv_kwargs": 1},
+        )
+        ms.model_key_override = "test_model_key_override"
+
+        repr_str = ms._brief_repr()
+
+        self.assertNotIn("\n", repr_str)
+        self.assertNotIn("test_model_kwargs", repr_str)
+        self.assertNotIn("test_gen_kwargs", repr_str)
+        self.assertNotIn("test_cv_kwargs", repr_str)
+        self.assertIn("test_model_key_override", repr_str)
+
 
 class FactoryFunctionGeneratorSpecTest(BaseGeneratorSpecTest):
     def test_construct(self) -> None:
