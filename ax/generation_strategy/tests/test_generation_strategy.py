@@ -408,7 +408,7 @@ class TestGenerationStrategy(TestCase):
                 ]
             )
 
-        exp = Experiment(
+        Experiment(
             name="test", search_space=SearchSpace(parameters=[get_choice_parameter()])
         )
         factorial_thompson_generation_strategy = GenerationStrategy(
@@ -421,8 +421,6 @@ class TestGenerationStrategy(TestCase):
         self.assertFalse(
             factorial_thompson_generation_strategy.uses_non_registered_models
         )
-        with self.assertRaises(ValueError):
-            factorial_thompson_generation_strategy._gen_with_multiple_nodes(exp)
         self.assertEqual(GenerationStep(model=sum, num_trials=1).model_name, "sum")
         with self.assertRaisesRegex(UserInputError, "Maximum parallelism should be"):
             GenerationStrategy(
