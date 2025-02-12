@@ -7,11 +7,13 @@
 
 from itertools import product
 
-from ax.benchmark.benchmark_metric import BenchmarkMetric
+import torch
 
+from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_problem_from_botorch,
+    get_continuous_search_space,
     get_moo_opt_config,
     get_soo_opt_config,
 )
@@ -35,7 +37,7 @@ from botorch.test_functions.synthetic import (
     ConstrainedHartmann,
     Cosine8,
 )
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestBenchmarkProblem(TestCase):
@@ -314,6 +316,31 @@ class TestBenchmarkProblem(TestCase):
     def test_moo_from_botorch(self) -> None:
         self._test_moo_from_botorch(lower_is_better=True)
         self._test_moo_from_botorch(lower_is_better=False)
+
+    def test_create_problem_from_botorch_with_shifted_function(self) -> None:
+        ax_problem = create_problem_from_botorch(
+            test_problem_class=BraninCurrin,
+            test_problem_kwargs={},
+            num_trials=10,
+            use_shifted_function=True,
+        )
+        dim = 2
+        # Check that search space is expanded by default.
+        self.assertEqual(
+            ax_problem.search_space,
+            get_continuous_search_space(bounds=[(0.0, 2.0)] * dim),
+        )
+        # Check that the arguments are passed down to the BoTorchTestFunction.
+        test_problem = assert_is_instance(ax_problem.test_function, BoTorchTestFunction)
+        self.assertTrue(test_problem.use_shifted_function)
+        self.assertEqual(none_throws(test_problem._offset).shape, torch.Size([dim]))
+        # Check that the offset is applied.
+        self.assertTrue(
+            torch.allclose(
+                test_problem.tensorize_params({f"x{i}": 0 for i in range(dim)}),
+                -none_throws(test_problem._offset),
+            )
+        )
 
     def test_maximization_problem(self) -> None:
         test_problem = create_problem_from_botorch(

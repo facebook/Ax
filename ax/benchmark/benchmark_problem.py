@@ -389,6 +389,7 @@ def create_problem_from_botorch(
     name: str | None = None,
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
+    use_shifted_function: bool = False,
     search_space: SearchSpace | None = None,
     report_inference_value_as_trace: bool = False,
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None,
@@ -426,6 +427,14 @@ def create_problem_from_botorch(
             observed or not (in which case it must be inferred by the model).
             This is separate from whether synthetic noise is added to the
             problem, which is controlled by the `noise_std` of the test problem.
+        use_shifted_function: Whether to use the shifted version of the test function.
+            If True, an offset tensor is randomly drawn from the test problem bounds,
+            and the we evaluate `f(X-offset)` rather than `f(X)`. This is useful for
+            changing the location of the optima for test functions that favor the
+            center of the search space.
+            If True, the default search space is enlarged to include the optimizer
+            within the bounds even after the offset is applied. If the original
+            bounds were `[low, high]`, the new bounds are `[2*low, 2*high]`.
         search_space: If provided, the `search_space` of the `BenchmarkProblem`.
             Otherwise, a `SearchSpace` with all `RangeParameter`s is created
             from the bounds of the test problem.
@@ -458,11 +467,13 @@ def create_problem_from_botorch(
     test_problem = test_problem_class(**test_problem_kwargs)
     is_constrained = isinstance(test_problem, ConstrainedBaseTestProblem)
 
-    search_space = (
-        get_continuous_search_space(test_problem._bounds)
-        if search_space is None
-        else search_space
-    )
+    if search_space is None:
+        if use_shifted_function:
+            search_space = get_continuous_search_space(
+                bounds=[(2 * b[0], 2 * b[1]) for b in test_problem._bounds]
+            )
+        else:
+            search_space = get_continuous_search_space(test_problem._bounds)
 
     dim = test_problem_kwargs.get("dim", None)
 
@@ -488,7 +499,9 @@ def create_problem_from_botorch(
     outcome_names = objective_names + constraint_names
 
     test_function = BoTorchTestFunction(
-        botorch_problem=test_problem, outcome_names=outcome_names
+        botorch_problem=test_problem,
+        outcome_names=outcome_names,
+        use_shifted_function=use_shifted_function,
     )
 
     if isinstance(test_problem, MultiObjectiveTestProblem):
