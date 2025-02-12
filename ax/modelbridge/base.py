@@ -503,10 +503,11 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
                 # observations of the status quo.
                 # This is useful for getting status_quo_data_by_trial
                 self._status_quo_name = sq_obs[0].arm_name
-                if len(sq_obs) > 1:
+                if len(sq_obs) > 1 and self._fit_only_completed_map_metrics:
+                    # it is expected to have multiple obserations for map data
                     logger.warning(
                         f"Status quo {status_quo_name} found in data with multiple "
-                        "features. Use status_quo_features to specify which to use."
+                        "observations. Use status_quo_features to specify which to use."
                     )
                 else:
                     # if there is a unique status_quo, set it
