@@ -263,7 +263,7 @@ def get_client_with_simple_discrete_moo_problem(
             metrics = [-m for m in metrics]
         y0, y1, y2 = metrics
         raw_data = {"y0": (y0, 0.0), "y1": (y1, 0.0), "y2": (y2, 0.0)}
-        # pyre-fixme [6]: In call `AxClient.complete_trial`, for 2nd parameter
+        # pyre-fixme[6]: In call `AxClient.complete_trial`, for 2nd parameter
         #  `raw_data`
         #  expected `Union[Dict[str, Union[Tuple[Union[float, floating, integer],
         #  Union[None, float, floating, integer]], float, floating, integer]],
@@ -1778,7 +1778,7 @@ class TestAxClient(TestCase):
             RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
         ) as mock_fit:
             ax_client.get_next_trial()
-            mock_fit.assert_called_once()
+            self.assertEqual(mock_fit.call_count, 1)
             features = mock_fit.call_args_list[0][1]["observations"][0].features
             # we're asserting it's actually created real Timestamp objects
             # for the observation features
@@ -1800,7 +1800,7 @@ class TestAxClient(TestCase):
             RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
         ) as mock_fit:
             ax_client.get_next_trial()
-            mock_fit.assert_called_once()
+            self.assertEqual(mock_fit.call_count, 1)
             features = mock_fit.call_args_list[0][1]["observations"][0].features
             # we're asserting it's actually created real Timestamp objects
             # for the observation features

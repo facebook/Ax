@@ -43,12 +43,6 @@ logger: Logger = get_logger(__name__)
 
 
 MAX_CONDITIONS_GENERATED = 10000
-MAX_GEN_DRAWS = 5
-MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
-    f"GenerationStrategy exceeded `MAX_GEN_DRAWS` of {MAX_GEN_DRAWS} while trying to "
-    "generate a unique parameterization. This indicates that the search space has "
-    "likely been fully explored, or that the sweep has converged."
-)
 T = TypeVar("T")
 
 
