@@ -379,12 +379,14 @@ def get_robust_branin_experiment(
 
 def get_map_metric(
     name: str,
+    noise_sd: float = 0.0,
     rate: float | None = None,
     decay_function_name: str = "exp_decay",
 ) -> BraninTimestampMapMetric:
     return BraninTimestampMapMetric(
         name=name,
         param_names=["x1", "x2"],
+        noise_sd=noise_sd,
         rate=rate,
         lower_is_better=True,
         decay_function_name=decay_function_name,
@@ -393,6 +395,7 @@ def get_map_metric(
 
 def get_branin_experiment_with_timestamp_map_metric(
     with_status_quo: bool = False,
+    noise_sd: float = 0.0,
     rate: float | None = None,
     map_tracking_metric: bool = False,
     decay_function_name: str = "exp_decay",
@@ -400,6 +403,7 @@ def get_branin_experiment_with_timestamp_map_metric(
     tracking_metric = (
         get_map_metric(
             name="tracking_branin_map",
+            noise_sd=noise_sd,
             rate=rate,
             decay_function_name=decay_function_name,
         )
@@ -413,6 +417,7 @@ def get_branin_experiment_with_timestamp_map_metric(
             objective=Objective(
                 metric=get_map_metric(
                     name="branin_map",
+                    noise_sd=noise_sd,
                     rate=rate,
                     decay_function_name=decay_function_name,
                 ),

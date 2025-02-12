@@ -119,7 +119,12 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                         "metric_name": self.name,
                         "sem": self.noise_sd if noisy else 0.0,
                         "trial_index": trial.index,
-                        "mean": [item["mean"] for item in res],
+                        "mean": [
+                            item["mean"] + self.noise_sd * np.random.randn()
+                            if noisy
+                            else 0.0
+                            for item in res
+                        ],
                         self.map_key_info.key: [
                             item[self.map_key_info.key] for item in res
                         ],
