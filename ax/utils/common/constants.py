@@ -93,4 +93,5 @@ class Keys(str, Enum):
     TASK_FEATURES = "task_features"
     TRIAL_COMPLETION_TIMESTAMP = "trial_completion_timestamp"
     WARM_START_REFITTING = "warm_start_refitting"
+    WARMSTART_TRIAL_MODEL_KEY = "generation_model_key"
     X_BASELINE = "X_baseline"
