@@ -9,6 +9,7 @@ from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.analysis.plotly.interaction import InteractionPlot
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.progression import ProgressionPlot
 from ax.analysis.plotly.scatter import ScatterPlot
 from ax.analysis.plotly.surface.contour import ContourPlot
 from ax.analysis.plotly.surface.slice import SlicePlot
@@ -17,9 +18,10 @@ __all__ = [
     "ContourPlot",
     "CrossValidationPlot",
     "InteractionPlot",
+    "ParallelCoordinatesPlot",
     "PlotlyAnalysis",
     "PlotlyAnalysisCard",
-    "ParallelCoordinatesPlot",
+    "ProgressionPlot",
     "ScatterPlot",
     "SlicePlot",
 ]

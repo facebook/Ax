@@ -191,3 +191,11 @@ Utils
     :members:
     :undoc-members:
     :show-inheritance:
+
+Progression
+~~~~~
+
+.. automodule:: ax.analysis.plotly.progression
+    :members:
+    :undoc-members:
+    :show-inheritance:
