@@ -117,7 +117,7 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
         # Model state is not extracted since there is no past GR.
         mock_model_state.assert_not_called()
         exp.new_trial(gs.gen(experiment=exp))
-        # Model state is extracted since there is a past GR.
+        # Model state is extracted for the model since there is a past GR.
         mock_model_state.assert_called_once()
         mock_model_state.reset_mock()
         # Gen with MBM/BO_MIXED.
@@ -770,51 +770,69 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaises(MaxParallelismReachedException):
             sobol_generation_strategy.gen(experiment=exp)
 
-    def test_deduplication(self) -> None:
-        tiny_parameters = [
-            FixedParameter(
-                name="x1",
-                parameter_type=ParameterType.FLOAT,
-                value=1.0,
-            ),
-            ChoiceParameter(
-                name="x2",
-                parameter_type=ParameterType.FLOAT,
-                values=[float(x) for x in range(2)],
-            ),
-        ]
-        tiny_search_space = SearchSpace(
-            parameters=cast(list[Parameter], tiny_parameters)
-        )
-        exp = get_branin_experiment(search_space=tiny_search_space)
-        sobol = GenerationStrategy(
-            name="Sobol",
-            steps=[
-                GenerationStep(
-                    model=Generators.SOBOL,
-                    num_trials=-1,
-                    # Disable model-level deduplication.
-                    model_kwargs={"deduplicate": False},
-                    should_deduplicate=True,
+    def test_deduplication_and_fallback(self) -> None:
+        # None uses default fallback, which catches
+        # GenerationStrategyRepeatedPoints and re-generate with sobol
+        # {} will not have a fallback model and will raise the exception
+        for fallback_specs in [{}, None]:
+            tiny_parameters = [
+                FixedParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    value=1.0,
                 ),
-            ],
-        )
-        for _ in range(2):
-            g = sobol.gen(exp)
-            exp.new_trial(generator_run=g).run()
+                ChoiceParameter(
+                    name="x2",
+                    parameter_type=ParameterType.FLOAT,
+                    values=[float(x) for x in range(2)],
+                ),
+            ]
+            tiny_search_space = SearchSpace(
+                parameters=cast(list[Parameter], tiny_parameters)
+            )
+            exp = get_branin_experiment(search_space=tiny_search_space)
+            sobol = GenerationStrategy(
+                name="Sobol",
+                nodes=[
+                    GenerationNode(
+                        node_name="sobol",
+                        model_specs=[
+                            GeneratorSpec(
+                                model_enum=Generators.SOBOL,
+                                model_kwargs={"deduplicate": False},
+                            )
+                        ],
+                        # Disable model-level deduplication.
+                        should_deduplicate=True,
+                        fallback_specs=fallback_specs,
+                    ),
+                ],
+            )
+            for _ in range(2):
+                g = sobol.gen(exp)
+                exp.new_trial(generator_run=g).run()
 
-        self.assertEqual(len(exp.arms_by_signature), 2)
+            self.assertEqual(len(exp.arms_by_signature), 2)
 
-        with self.assertRaisesRegex(
-            GenerationStrategyRepeatedPoints, "exceeded `MAX_GEN_DRAWS`"
-        ), mock.patch(
-            "ax.generation_strategy.generation_node.logger.info"
-        ) as mock_logger:
-            g = sobol.gen(exp)
-        self.assertEqual(mock_logger.call_count, 5)
-        self.assertIn(
-            "The generator run produced duplicate arms.", mock_logger.call_args[0][0]
-        )
+            if fallback_specs is not None:
+                with self.assertRaisesRegex(
+                    GenerationStrategyRepeatedPoints, "exceeded `MAX_GEN_ATTEMPTS`"
+                ), mock.patch(
+                    "ax.generation_strategy.generation_node.logger.info"
+                ) as mock_logger:
+                    g = sobol.gen(exp)
+            else:
+                # generation with a fallback model
+                with self.assertLogs(GenerationNode.__module__, logging.WARNING) as cm:
+                    g = sobol.gen(exp)
+                self.assertTrue(
+                    any("gen failed with error" in msg for msg in cm.output)
+                )
+            self.assertEqual(mock_logger.call_count, 5)
+            self.assertIn(
+                "The generator run produced duplicate arms.",
+                mock_logger.call_args[0][0],
+            )
 
     def test_current_generator_run_limit(self) -> None:
         NUM_INIT_TRIALS = 5
@@ -904,7 +922,8 @@ class TestGenerationStrategy(TestCase):
                 RandomAdapter, "gen"
             ):
                 self.sobol_GS.gen(experiment=experiment)
-                mock_model_fit.assert_called_once()
+                # We should only fit once for each model
+                self.assertEqual(mock_model_fit.call_count, 1)
                 observations = mock_model_fit.call_args[1].get("observations")
                 all_parameter_names = assert_is_instance(
                     experiment.search_space, HierarchicalSearchSpace
@@ -952,9 +971,9 @@ class TestGenerationStrategy(TestCase):
             # first four become trials.
             grs = sobol_MBM_gs._gen_multiple(experiment=exp, num_generator_runs=3)
             self.assertEqual(len(grs), 3)
-            # We should only fit once; refitting for each `gen` would be
-            # wasteful as there is no new data.
-            model_spec_fit_mock.assert_called_once()
+            # We should only fit once for each model
+            # refitting for each `gen` would be wasteful as there is no new data.
+            self.assertEqual(model_spec_fit_mock.call_count, 1)
             self.assertEqual(model_spec_gen_mock.call_count, 3)
             pending_in_each_gen = enumerate(
                 args_and_kwargs.kwargs.get("pending_observations")

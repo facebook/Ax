@@ -23,7 +23,6 @@ from ax.exceptions.core import UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.generation_strategy.best_model_selector import BestModelSelector
 
-
 if TYPE_CHECKING:
     from ax.generation_strategy.generation_node_input_constructors import (
         InputConstructorPurpose,
@@ -43,7 +42,11 @@ from ax.generation_strategy.transition_criterion import (
     TrialBasedCriterion,
 )
 from ax.modelbridge.base import Adapter
-from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
+from ax.modelbridge.registry import (
+    _extract_model_state_after_gen,
+    Generators,
+    ModelRegistryBase,
+)
 from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -60,12 +63,17 @@ MISSING_MODEL_SELECTOR_MESSAGE = (
     "the `BestModelSelector` will be used to select the `GeneratorSpec` to "
     "use for candidate generation."
 )
-MAX_GEN_DRAWS = 5
-MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
-    f"GenerationStrategy exceeded `MAX_GEN_DRAWS` of {MAX_GEN_DRAWS} while trying to "
-    "generate a unique parameterization. This indicates that the search space has "
-    "likely been fully explored, or that the sweep has converged."
+MAX_GEN_ATTEMPTS = 5
+MAX_GEN_ATTEMPTS_EXCEEDED_MESSAGE = (
+    f"GenerationStrategy exceeded `MAX_GEN_ATTEMPTS` of {MAX_GEN_ATTEMPTS} while "
+    "trying to generate a unique parameterization. This indicates that the search "
+    "space has likely been fully explored, or that the sweep has converged."
 )
+DEFAULT_FALLBACK = {
+    GenerationStrategyRepeatedPoints: GeneratorSpec(
+        model_enum=Generators.SOBOL, model_key_override="Fallback_Sobol"
+    )
+}
 
 
 class GenerationNode(SerializationMixin, SortableBase):
@@ -105,6 +113,8 @@ class GenerationNode(SerializationMixin, SortableBase):
             store the most recent previous ``GenerationNode`` name.
         should_skip: Whether to skip this node during generation time. Defaults to
             False, and can only currently be set to True via ``NodeInputConstructors``
+        fallback_specs: Optional dict mapping expected exception types to `ModelSpec`
+            fallbacks used when gen fails.
 
     Note for developers: by "model" here we really mean an Ax Adapter object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
@@ -150,6 +160,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         previous_node_name: str | None = None,
         trial_type: str | None = None,
         should_skip: bool = False,
+        fallback_specs: dict[type[Exception], GeneratorSpec] | None = None,
     ) -> None:
         self._node_name = node_name
         # Check that the model specs have unique model keys.
@@ -179,6 +190,10 @@ class GenerationNode(SerializationMixin, SortableBase):
         self._previous_node_name = previous_node_name
         self._trial_type = trial_type
         self._should_skip = should_skip
+        # pyre-fixme[8]: Incompatible attribute type
+        self.fallback_specs: dict[type[Exception], GeneratorSpec] = (
+            fallback_specs if fallback_specs is not None else DEFAULT_FALLBACK
+        )
 
     @property
     def node_name(self) -> str:
@@ -374,7 +389,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         self,
         n: int | None = None,
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        max_gen_draws_for_deduplication: int = MAX_GEN_DRAWS,
+        max_gen_attempts_for_deduplication: int = MAX_GEN_ATTEMPTS,
         arms_by_signature_for_deduplication: dict[str, Arm] | None = None,
         **model_gen_kwargs: Any,
     ) -> GeneratorRun:
@@ -389,54 +404,87 @@ class GenerationNode(SerializationMixin, SortableBase):
         Args:
             n: Optional integer representing how many arms should be in the generator
                 run produced by this method. When this is ``None``, ``n`` will be
-                determined by the ``GeneratorSpec`` that we are generating from.
+                determined by the ``ModelSpec`` that we are generating from.
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
-            max_gen_draws_for_deduplication: Maximum number of attempts for generating
-                new candidates without duplicates. If non-duplicate candidates are not
-                generated with these attempts, a ``GenerationStrategyRepeatedPoints``
-                exception will be raised.
+            max_gen_attempts_for_deduplication: Maximum number of attempts for
+                generating new candidates without duplicates. If non-duplicate
+                candidates are not generated with these attempts, a
+                ``GenerationStrategyRepeatedPoints`` exception will be raised.
             arms_by_signature_for_deduplication: A dictionary mapping arm signatures to
                 the arms, to be used for deduplicating newly generated arms.
             model_gen_kwargs: Keyword arguments, passed through to
-                ``GeneratorSpec.gen``; these override any pre-specified in
-                ``GeneratorSpec.model_gen_kwargs``.
+                ``ModelSpec.gen``; these override any pre-specified in
+                ``ModelSpec.model_gen_kwargs``.
 
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
         """
-        should_generate_run = True
         generator_run = None
         n_gen_draws = 0
-        # Keep generating until each of `generator_run.arms` is not a duplicate
-        # of a previous arm, if `should_deduplicate is True`
-        while should_generate_run:
+        try:
+            # Keep generating until each of `generator_run.arms` is not a duplicate
+            # of a previous arm, if `should_deduplicate is True`
+            while n_gen_draws < max_gen_attempts_for_deduplication:
+                n_gen_draws += 1
+                generator_run = self._gen(
+                    n=n,
+                    pending_observations=pending_observations,
+                    **model_gen_kwargs,
+                )
+                if not (
+                    self.should_deduplicate
+                    and arms_by_signature_for_deduplication
+                    and any(
+                        arm.signature in arms_by_signature_for_deduplication
+                        for arm in generator_run.arms
+                    )
+                ):  # Not deduplicating or generated a non-duplicate arm.
+                    break
+
+                logger.info(
+                    "The generator run produced duplicate arms. Re-running the "
+                    "generation step in an attempt to deduplicate. Candidates "
+                    f"produced in the last generator run: {generator_run.arms}."
+                )
+
+            if n_gen_draws >= max_gen_attempts_for_deduplication:
+                raise GenerationStrategyRepeatedPoints(
+                    MAX_GEN_ATTEMPTS_EXCEEDED_MESSAGE
+                )
+        except Exception as e:
+            error_type = type(e)
+            if error_type not in self.fallback_specs:
+                raise e
+
+            # identify fallback model to use
+            fallback_model = self.fallback_specs[error_type]
+            logger.warning(
+                f"gen failed with error {e}, "
+                "switching to fallback model with model_enum "
+                f"{fallback_model.model_enum}"
+            )
+
+            # fit fallback model using information from `self.experiment`
+            # as ground truth
+            fallback_model.fit(
+                experiment=self.experiment,
+                data=self.experiment.lookup_data(),
+                search_space=self.experiment.search_space,
+                optimization_config=self.experiment.optimization_config,
+                **self._get_model_state_from_last_generator_run(
+                    model_spec=fallback_model
+                ),
+            )
+            # Switch _model_spec_to_gen_from to a fallback spec
+            self._model_spec_to_gen_from = fallback_model
             generator_run = self._gen(
                 n=n,
                 pending_observations=pending_observations,
                 **model_gen_kwargs,
             )
-            should_generate_run = (
-                self.should_deduplicate
-                and arms_by_signature_for_deduplication
-                and any(
-                    arm.signature in arms_by_signature_for_deduplication
-                    for arm in generator_run.arms
-                )
-            )
-            n_gen_draws += 1
-            if should_generate_run:
-                if n_gen_draws > max_gen_draws_for_deduplication:
-                    raise GenerationStrategyRepeatedPoints(
-                        MAX_GEN_DRAWS_EXCEEDED_MESSAGE
-                    )
-                else:
-                    logger.info(
-                        "The generator run produced duplicate arms. Re-running the "
-                        "generation step in an attempt to deduplicate. Candidates "
-                        f"produced in the last generator run: {generator_run.arms}."
-                    )
+
         assert generator_run is not None, (
             "The GeneratorRun is None which is an unexpected state of this"
             " GenerationStrategy. This occurred on GenerationNode: {self.node_name}."
@@ -929,14 +977,14 @@ class GenerationStep(GenerationNode, SortableBase):
         self,
         n: int | None = None,
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        max_gen_draws_for_deduplication: int = MAX_GEN_DRAWS,
+        max_gen_attempts_for_deduplication: int = MAX_GEN_ATTEMPTS,
         arms_by_signature_for_deduplication: dict[str, Arm] | None = None,
         **model_gen_kwargs: Any,
     ) -> GeneratorRun:
         gr = super().gen(
             n=n,
             pending_observations=pending_observations,
-            max_gen_draws_for_deduplication=max_gen_draws_for_deduplication,
+            max_gen_attempts_for_deduplication=max_gen_attempts_for_deduplication,
             arms_by_signature_for_deduplication=arms_by_signature_for_deduplication,
             **model_gen_kwargs,
         )
