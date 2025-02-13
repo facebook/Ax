@@ -17,7 +17,7 @@ from typing import Any, TYPE_CHECKING
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.formatting_utils import data_and_evaluations_from_raw_data
-from ax.core.generator_run import GeneratorRun
+from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchResult
@@ -26,12 +26,17 @@ from ax.core.trial_status import TrialStatus
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
+from ax.utils.common.constants import Keys
 from pyre_extensions import none_throws
 
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401
+
+MANUAL_GENERATION_METHOD_STR = "Manual"
+UNKNOWN_GENERATION_METHOD_STR = "Unknown"
+STATUS_QUO_GENERATION_METHOD_STR = "Status Quo"
 
 
 def immutable_once_run(func: Callable) -> Callable:
@@ -657,6 +662,43 @@ class BaseTrial(ABC, SortableBase):
         raise NotImplementedError(
             "Abandoning arms is only supported for `BatchTrial`. "
             "Use `trial.mark_abandoned` if applicable."
+        )
+
+    @property
+    def generation_method_str(self) -> str:
+        """Returns the generation method(s) used to generate this trial's arms,
+        as a human-readable string (e.g. 'Sobol', 'BoTorch', 'Manual', etc.).
+        Returns a comma-delimited string if multiple generation methods were used.
+        """
+        # Use model key provided during warm-starting if present, since the
+        # generator run may not be present on warm-started trials.
+        if (
+            warm_start_model_key := self._properties.get(Keys.WARMSTART_TRIAL_MODEL_KEY)
+        ) is not None:
+            return warm_start_model_key
+
+        generation_methods = {
+            none_throws(generator_run._model_key)
+            for generator_run in self.generator_runs
+            if generator_run._model_key is not None
+        }
+
+        # Add generator-run-type strings for non-ModelBridge generator runs.
+        gr_type_name_to_str = {
+            GeneratorRunType.MANUAL.name: MANUAL_GENERATION_METHOD_STR,
+            GeneratorRunType.STATUS_QUO.name: STATUS_QUO_GENERATION_METHOD_STR,
+        }
+        generation_methods |= {
+            gr_type_name_to_str[generator_run.generator_run_type]
+            for generator_run in self.generator_runs
+            if generator_run.generator_run_type in gr_type_name_to_str
+        }
+
+        return (
+            # Sort for deterministic output
+            ", ".join(sorted(generation_methods))
+            if generation_methods
+            else UNKNOWN_GENERATION_METHOD_STR
         )
 
     def _mark_failed_if_past_TTL(self) -> None:
