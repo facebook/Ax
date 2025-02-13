@@ -151,6 +151,14 @@ Summary
     :undoc-members:
     :show-inheritance:
 
+SearchSpaceSummary
+~~~~~~~
+
+.. automodule:: ax.analysis.search_space_summary
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 MetricSummary
 ~~~~~~~
 
