@@ -151,6 +151,14 @@ Summary
     :undoc-members:
     :show-inheritance:
 
+MetricSummary
+~~~~~~~
+
+.. automodule:: ax.analysis.metric_summary
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Interaction
 ~~~~~~~~~~~
 

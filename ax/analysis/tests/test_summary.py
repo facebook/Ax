@@ -104,7 +104,7 @@ class TestSummary(TestCase):
                 },
             }
         )
-        self.assertTrue(card.df.equals(expected))
+        pd.testing.assert_frame_equal(card.df, expected)
 
         # Test without omitting empty columns
         analysis_no_omit = Summary(omit_empty_columns=False)
