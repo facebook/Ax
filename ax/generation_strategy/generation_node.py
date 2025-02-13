@@ -18,8 +18,6 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
@@ -209,9 +207,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             return None
 
     @property
-    def generation_strategy(
-        self,
-    ) -> GenerationStrategy:
+    def generation_strategy(self) -> GenerationStrategy:
         """Returns a backpointer to the GenerationStrategy, useful for obtaining the
         experiment associated with this GenerationStrategy"""
         # TODO: @mgarrard remove this property once we make experiment a required
@@ -289,24 +285,26 @@ class GenerationNode(SerializationMixin, SortableBase):
         self,
         experiment: Experiment,
         data: Data,
-        search_space: SearchSpace | None = None,
-        optimization_config: OptimizationConfig | None = None,
         **kwargs: Any,
     ) -> None:
         """Fits the specified models to the given experiment + data using
         the model kwargs set on each corresponding model spec and the kwargs
         passed to this method.
 
+        NOTE: During fitting of the ``GeneratorSpec``, state of this ``GeneratorSpec``
+        after its last candidate generation is extracted from the last
+        ``GeneratorRun`` it produced (if any was captured in
+        ``GeneratorRun.model_state_after_gen``) and passed into ``GeneratorSpec.fit``
+        as keyword arguments.
+
         Args:
             experiment: The experiment to fit the model to.
             data: The experiment data used to fit the model.
-            search_space: An optional overwrite for the experiment search space.
-            optimization_config: An optional overwrite for the experiment
-                optimization config.
             kwargs: Additional keyword arguments to pass to the model's
                 ``fit`` method. NOTE: Local kwargs take precedence over the ones
                 stored in ``GeneratorSpec.model_kwargs``.
         """
+        data = data if data is not None else experiment.lookup_data()
         if not data.df.empty:
             trial_indices_in_data = sorted(data.df["trial_index"].unique())
         else:
@@ -317,11 +315,10 @@ class GenerationNode(SerializationMixin, SortableBase):
                 f"Fitting model {model_spec.model_key} with data for "
                 f"trials: {trial_indices_in_data}"
             )
+            # search space and optimization config will come from the experiment
             model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
                 experiment=experiment,
                 data=data,
-                search_space=search_space,
-                optimization_config=optimization_config,
                 **{
                     **self._get_model_state_from_last_generator_run(
                         model_spec=model_spec

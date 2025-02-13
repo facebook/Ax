@@ -153,8 +153,6 @@ class TestGenerationNode(TestCase):
         mock_model_spec_fit.assert_called_with(
             experiment=self.branin_experiment,
             data=self.branin_data,
-            search_space=None,
-            optimization_config=None,
         )
 
     def test_gen(self) -> None:
