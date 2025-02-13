@@ -886,6 +886,12 @@ class TestClient(TestCase):
                 name="foo",
             )
         )
+
+        with self.assertRaisesRegex(
+            UnsupportedError, "No optimization config has been set"
+        ):
+            client.get_best_parameterization()
+
         client.configure_optimization(objective="foo")
         # Set initialization_budget=3 so we can reach a predictive GenerationNode
         # quickly
@@ -943,6 +949,13 @@ class TestClient(TestCase):
         )
         self.assertEqual({*prediction.keys()}, {"foo"})
 
+        # Try calling after setting OptimizationConfig to MOO problem
+        client.configure_optimization("foo, bar")
+        with self.assertRaisesRegex(
+            UnsupportedError, "Please call get_pareto_frontier"
+        ):
+            client.get_best_parameterization()
+
     @mock_botorch_optimize
     def test_get_pareto_frontier(self) -> None:
         client = Client()
@@ -957,6 +970,12 @@ class TestClient(TestCase):
                 name="foo",
             )
         )
+
+        with self.assertRaisesRegex(
+            UnsupportedError, "No optimization config has been set"
+        ):
+            client.get_pareto_frontier()
+
         client.configure_optimization(objective="foo, bar")
         # Set initialization_budget=3 so we can reach a predictive GenerationNode
         # quickly
@@ -1029,6 +1048,13 @@ class TestClient(TestCase):
                 )
             )
             self.assertEqual({*prediction.keys()}, {"foo", "bar"})
+
+        # Try calling after setting OptimizationConfig to single objective problem
+        client.configure_optimization("foo")
+        with self.assertRaisesRegex(
+            UnsupportedError, "Please call get_best_parameterization"
+        ):
+            client.get_pareto_frontier()
 
     @mock_botorch_optimize
     def test_predict(self) -> None:

@@ -693,6 +693,21 @@ class Client(WithDBSettingsBase):
                 each parameterization)
         """
 
+        if self._experiment.optimization_config is None:
+            raise UnsupportedError(
+                "No optimization config has been set. Please configure the "
+                "optimization before calling get_best_parameterization."
+            )
+
+        if self._experiment.optimization_config.is_moo_problem:
+            raise UnsupportedError(
+                "The client is currently configured to jointly optimize "
+                f"{self._experiment.optimization_config}. "
+                "Multi-objective optimization does not return a single best "
+                "parameterization -- it returns a Pareto frontier. Please call "
+                "get_pareto_frontier instead."
+            )
+
         if len(self._experiment.trials) < 1:
             raise UnsupportedError(
                 "No trials have been run yet. Please run at least one trial before "
@@ -737,6 +752,20 @@ class Client(WithDBSettingsBase):
                 - The name of the best arm (each trial has a unique name associated
                     with each parameterization).
         """
+        if self._experiment.optimization_config is None:
+            raise UnsupportedError(
+                "No optimization config has been set. Please configure the "
+                "optimization before calling get_pareto_frontier."
+            )
+
+        if not self._experiment.optimization_config.is_moo_problem:
+            raise UnsupportedError(
+                "The client is currently configured to optimize "
+                f"{self._experiment.optimization_config.objective}. "
+                "Single-objective optimization does not return a Pareto frontier -- "
+                "it returns a single best point. Please call "
+                "get_best_parameterization instead."
+            )
 
         if len(self._experiment.trials) < 1:
             raise UnsupportedError(
