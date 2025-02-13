@@ -11,6 +11,7 @@ from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.analysis.plotly.interaction import InteractionPlot
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
+from ax.analysis.plotly.progression import ProgressionPlot
 from ax.analysis.plotly.scatter import ScatterPlot
 from ax.analysis.summary import Summary
 from ax.core.experiment import Experiment
@@ -22,9 +23,12 @@ def choose_analyses(experiment: Experiment) -> list[Analysis]:
     Choose a default set of Analyses to compute based on the current state of the
     Experiment.
     """
+    # If there is no optimization config choose to plot just the Summary.
     if (optimization_config := experiment.optimization_config) is None:
-        return []
+        return [Summary()]
 
+    # In the multi-objective case plot Scatters showing the Pareto frontier for each
+    # pair of objectives and Interactions for each objective.
     if isinstance(optimization_config.objective, MultiObjective) or isinstance(
         optimization_config.objective, ScalarizedObjective
     ):
@@ -44,7 +48,8 @@ def choose_analyses(experiment: Experiment) -> list[Analysis]:
             InteractionPlot(metric_name=name)
             for name in optimization_config.objective.metric_names
         ]
-
+    # In the single-objective case plot ParallelCoordinates and up to six ScatterPlots
+    # for the objective versus other metrics.
     else:
         objective_name = optimization_config.objective.metric.name
         # ParallelCoorindates and leave-one-out cross validation
@@ -70,9 +75,27 @@ def choose_analyses(experiment: Experiment) -> list[Analysis]:
 
         interactions = [InteractionPlot(metric_name=objective_name)]
 
+    # If any number of objectives are timeseries-like plot their progression.
+    data = experiment.lookup_data()
+    progressions = [
+        ProgressionPlot(metric_name=metric)
+        for metric in optimization_config.metrics
+        # Only include the progression plot if the metric is timeseries-like, i.e. the
+        # true_df has more rows then the condensed df.
+        if sum(data.df["metric_name"] == metric)
+        != sum(data.true_df["metric_name"] == metric)
+    ]
+
     # Leave-one-out cross validation for each objective and outcome constraint
     cv_plots = [
         CrossValidationPlot(metric_name=name) for name in optimization_config.metrics
     ]
 
-    return [*objective_plots, *other_scatters, *interactions, *cv_plots, Summary()]
+    return [
+        *objective_plots,
+        *other_scatters,
+        *progressions,
+        *interactions,
+        *cv_plots,
+        Summary(),
+    ]
