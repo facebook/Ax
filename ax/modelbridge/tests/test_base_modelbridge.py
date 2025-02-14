@@ -12,6 +12,7 @@ from unittest import mock
 from unittest.mock import Mock
 
 import numpy as np
+import torch
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -32,6 +33,7 @@ from ax.modelbridge.base import (
 )
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.registry import Generators, Y_trans
+from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.models.base import Generator
 from ax.utils.common.constants import Keys
@@ -62,6 +64,7 @@ from ax.utils.testing.modeling_stubs import (
     transform_2,
 )
 from botorch.exceptions.warnings import InputDataWarning
+from botorch.models.utils.assorted import validate_input_scaling
 from pyre_extensions import none_throws
 
 
@@ -81,19 +84,15 @@ class BaseAdapterTest(TestCase):
         self, mock_fit: Mock, mock_gen_arms: Mock, mock_observations_from_data: Mock
     ) -> None:
         # Test that on init transforms are stored and applied in the correct order
-        transforms = [transform_1, transform_2]
+        transforms: list[type[Transform]] = [transform_1, transform_2]
         exp = get_experiment_for_value()
         ss = get_search_space_for_value()
         modelbridge = Adapter(
             search_space=ss,
             model=Generator(),
-            # pyre-fixme[6]: For 3rd param expected
-            #  `Optional[List[Type[Transform]]]` but got `List[Type[Union[transform_1,
-            #  transform_2]]]`.
             transforms=transforms,
             experiment=exp,
-            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-            data=0,
+            data=Data(),
         )
         self.assertFalse(
             modelbridge._experiment_has_immutable_search_space_and_opt_config
@@ -147,20 +146,20 @@ class BaseAdapterTest(TestCase):
             )
 
         # Test that transforms are applied correctly on predict
-        modelbridge._predict = mock.MagicMock(
+        mock_predict = mock.MagicMock(
             "ax.modelbridge.base.Adapter._predict",
             autospec=True,
             return_value=[get_observation2trans().data],
         )
+        modelbridge._predict = mock_predict
         modelbridge.predict([get_observation2().features])
         # Observation features sent to _predict are un-transformed afterwards
-        # pyre-fixme[16]: Callable `_predict` has no attribute `assert_called_with`.
-        modelbridge._predict.assert_called_with([get_observation2().features])
+        mock_predict.assert_called_with([get_observation2().features])
 
         # Check that _single_predict is equivalent here.
         modelbridge._single_predict([get_observation2().features])
         # Observation features sent to _predict are un-transformed afterwards
-        modelbridge._predict.assert_called_with([get_observation2().features])
+        mock_predict.assert_called_with([get_observation2().features])
 
         # Test transforms applied on gen
         modelbridge._gen = mock.MagicMock(
@@ -237,18 +236,19 @@ class BaseAdapterTest(TestCase):
         ) -> list[ObservationData]:
             nonlocal called
             called = True
-            warnings.warn(
-                "Data (outcome observations) is not standardized",
-                InputDataWarning,
-                stacklevel=2,
+            validate_input_scaling(
+                # Dummy non-scaled values to trigger warnings if checks are enabled.
+                train_X=torch.randn(2, 5),
+                train_Y=torch.rand(2, 1),
             )
             return [get_observation1trans().data]
 
-        modelbridge._cross_validate = mock.MagicMock(
+        mock_cv = mock.MagicMock(
             "ax.modelbridge.base.Adapter._cross_validate",
             autospec=True,
             side_effect=warn_and_return_mock_obs,
         )
+        modelbridge._cross_validate = mock_cv
         cv_training_data = [get_observation2()]
         cv_test_points = [get_observation1().features]
 
@@ -273,9 +273,7 @@ class BaseAdapterTest(TestCase):
         self.assertTrue(called)
         self.assertFalse(any(w.category is InputDataWarning for w in ws))
 
-        # pyre-fixme[16]: Callable `_cross_validate` has no attribute
-        #  `assert_called_with`.
-        modelbridge._cross_validate.assert_called_with(
+        mock_cv.assert_called_with(
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             cv_training_data=[get_observation2trans()],
             cv_test_points=[get_observation1().features],  # untransformed after
@@ -290,7 +288,7 @@ class BaseAdapterTest(TestCase):
             use_posterior_predictive=True,
         )
 
-        modelbridge._cross_validate.assert_called_with(
+        mock_cv.assert_called_with(
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             cv_training_data=[get_observation2trans()],
             cv_test_points=[get_observation1().features],  # untransformed after

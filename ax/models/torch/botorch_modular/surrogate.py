@@ -62,7 +62,6 @@ from ax.utils.stats.model_fit_stats import (
     RANK_CORRELATION,
 )
 from botorch.exceptions.errors import ModelFittingError
-from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
@@ -74,6 +73,7 @@ from botorch.models.transforms.input import (
 )
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
 from botorch.posteriors.gpytorch import GPyTorchPosterior
+from botorch.settings import validate_input_scaling
 from botorch.utils.containers import SliceContainer
 from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
@@ -1153,14 +1153,10 @@ class Surrogate(Base):
             test_X = X[i : i + 1]
             # fit model to all but one data point
             # TODO: consider batchifying
-            with warnings.catch_warnings():
-                # Suppress BoTorch input standardization warnings here, since they're
-                # expected to be triggered due to subsetting of the data.
-                warnings.filterwarnings(
-                    "ignore",
-                    message=r"Data \(outcome observations\) is not standardized",
-                    category=InputDataWarning,
-                )
+            # Since each CV fold removes points from the training data, the
+            # remaining observations will not pass the input scaling checks.
+            # To avoid confusing users with warnings, we disable these checks.
+            with validate_input_scaling(False):
                 loo_model = self._construct_model(
                     dataset=train_dataset,
                     search_space_digest=search_space_digest,
