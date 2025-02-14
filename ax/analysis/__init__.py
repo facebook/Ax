@@ -11,8 +11,16 @@ from ax.analysis.analysis import (
     AnalysisCardLevel,
     display_cards,
 )
+from ax.analysis.metric_summary import MetricSummary
 from ax.analysis.summary import Summary
 from ax.analysis.markdown import *  # noqa
 from ax.analysis.plotly import *  # noqa
 
-__all__ = ["Analysis", "AnalysisCard", "AnalysisCardLevel", "display_cards", "Summary"]
+__all__ = [
+    "Analysis",
+    "AnalysisCard",
+    "AnalysisCardLevel",
+    "display_cards",
+    "MetricSummary",
+    "Summary",
+]
