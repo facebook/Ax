@@ -12,10 +12,12 @@ from typing import Optional, TYPE_CHECKING
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -60,6 +62,7 @@ class TrialAsTask(Transform):
         config: TConfig | None = None,
     ) -> None:
         assert observations is not None, "TrialAsTask requires observations"
+        assert modelbridge is not None, "TrialAsTask requires modelbridge"
         # Identify values of trial.
         trials = {obs.features.trial_index for obs in observations}
         if isinstance(search_space, RobustSearchSpace):
@@ -110,7 +113,11 @@ class TrialAsTask(Transform):
             if config is not None and "target_trial" in config:
                 target_trial = int(config["target_trial"])  # pyre-ignore [6]
             else:
-                target_trial = min(trial_map.keys())
+                target_trial = none_throws(
+                    get_target_trial_index(
+                        experiment=none_throws(none_throws(modelbridge)._experiment)
+                    )
+                )
                 logger.debug(f"Setting target value for {p_name} to {target_trial}")
             self.target_values[p_name] = trial_map[target_trial]
 
