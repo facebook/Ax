@@ -281,18 +281,15 @@ class TestGenerationNodeInputConstructors(TestCase):
         self.assertEqual(num_to_gen, 4)
 
     def test_set_target_trial_long_run_wins(self) -> None:
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.LONG_RUN,
-            complete=False,
-            num_arms=1,
-        )
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=False,
-            num_arms=3,
-        )
+        for num_arms, trial_type in zip((1, 3), (Keys.LONG_RUN, Keys.SHORT_RUN)):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=trial_type,
+                complete=False,
+                num_arms=num_arms,
+                with_status_quo=True,
+            )
+        self.experiment.fetch_data()
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
@@ -314,6 +311,7 @@ class TestGenerationNodeInputConstructors(TestCase):
             complete=False,
             num_arms=1,
         )
+        self.experiment.fetch_data()
         with self.assertRaisesRegex(
             AxGenerationException,
             "experiment has no status quo",
@@ -326,20 +324,15 @@ class TestGenerationNodeInputConstructors(TestCase):
             )
 
     def test_status_quo_features(self) -> None:
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.LONG_RUN,
-            complete=False,
-            num_arms=1,
-            with_status_quo=True,
-        )
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.LONG_RUN,
-            complete=False,
-            num_arms=3,
-            with_status_quo=True,
-        )
+        for num_arms in (1, 3):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=Keys.LONG_RUN,
+                complete=False,
+                num_arms=num_arms,
+                with_status_quo=True,
+            )
+        self.experiment.fetch_data()
         sq_ft = NodeInputConstructors.STATUS_QUO_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
@@ -352,18 +345,14 @@ class TestGenerationNodeInputConstructors(TestCase):
         )
 
     def test_set_target_trial_most_arms_long_run_wins(self) -> None:
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.LONG_RUN,
-            complete=False,
-            num_arms=1,
-        )
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.LONG_RUN,
-            complete=False,
-            num_arms=3,
-        )
+        for num_arms in (1, 3):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=Keys.LONG_RUN,
+                complete=False,
+                num_arms=num_arms,
+            )
+        self.experiment.fetch_data()
         # Test most arms should win
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
@@ -382,18 +371,14 @@ class TestGenerationNodeInputConstructors(TestCase):
     def test_set_target_trial_long_run_ties(self) -> None:
         # if all things are equal we should just pick the first one
         # in the sorted list
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.LONG_RUN,
-            complete=False,
-            num_arms=1,
-        )
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.LONG_RUN,
-            complete=False,
-            num_arms=1,
-        )
+        for _ in range(2):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=Keys.LONG_RUN,
+                complete=False,
+                num_arms=1,
+            )
+        self.experiment.fetch_data()
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
@@ -409,18 +394,14 @@ class TestGenerationNodeInputConstructors(TestCase):
         )
 
     def test_set_target_trial_longest_duration_long_run_wins(self) -> None:
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.LONG_RUN,
-            complete=False,
-            num_arms=1,
-        )
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.LONG_RUN,
-            complete=False,
-            num_arms=1,
-        )
+        for _ in range(2):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=Keys.LONG_RUN,
+                complete=False,
+                num_arms=1,
+            )
+        self.experiment.fetch_data()
         self.experiment.trials[0]._time_run_started = datetime(2000, 1, 2)
         self.experiment.trials[1]._time_run_started = datetime(2000, 1, 1)
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
@@ -438,18 +419,14 @@ class TestGenerationNodeInputConstructors(TestCase):
         )
 
     def test_set_target_trial_running_short_trial_wins(self) -> None:
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.LONG_RUN,
-            complete=True,
-            num_arms=1,
-        )
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=False,
-            num_arms=1,
-        )
+        for trial_type, complete in zip((Keys.LONG_RUN, Keys.SHORT_RUN), (True, False)):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=trial_type,
+                complete=complete,
+                num_arms=1,
+            )
+        self.experiment.fetch_data()
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
@@ -465,18 +442,14 @@ class TestGenerationNodeInputConstructors(TestCase):
         )
 
     def test_set_target_trial_longest_short_wins(self) -> None:
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=False,
-            num_arms=1,
-        )
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=False,
-            num_arms=1,
-        )
+        for _ in range(2):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=Keys.SHORT_RUN,
+                complete=False,
+                num_arms=1,
+            )
+        self.experiment.fetch_data()
         self.experiment.trials[0]._time_run_started = datetime(2000, 1, 2)
         self.experiment.trials[1]._time_run_started = datetime(2000, 1, 1)
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
@@ -494,18 +467,14 @@ class TestGenerationNodeInputConstructors(TestCase):
         )
 
     def test_set_target_trial_most_arms_short_running_wins(self) -> None:
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=False,
-            num_arms=1,
-        )
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=False,
-            num_arms=3,
-        )
+        for num_arms in (1, 3):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=Keys.SHORT_RUN,
+                complete=False,
+                num_arms=num_arms,
+            )
+        self.experiment.fetch_data()
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
@@ -521,18 +490,14 @@ class TestGenerationNodeInputConstructors(TestCase):
         )
 
     def test_set_target_trial_most_arms_complete_short_wins(self) -> None:
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=True,
-            num_arms=1,
-        )
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=True,
-            num_arms=3,
-        )
+        for num_arms in (1, 3):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=Keys.SHORT_RUN,
+                complete=False,
+                num_arms=num_arms,
+            )
+        self.experiment.fetch_data()
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
@@ -548,18 +513,14 @@ class TestGenerationNodeInputConstructors(TestCase):
         )
 
     def test_set_target_trial_longest_short_complete_wins(self) -> None:
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=True,
-            num_arms=1,
-        )
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=True,
-            num_arms=1,
-        )
+        for _ in range(2):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=Keys.SHORT_RUN,
+                complete=True,
+                num_arms=1,
+            )
+        self.experiment.fetch_data()
         self.experiment.trials[0]._time_run_started = datetime(2000, 1, 2)
         self.experiment.trials[1]._time_run_started = datetime(2000, 1, 1)
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
@@ -587,6 +548,29 @@ class TestGenerationNodeInputConstructors(TestCase):
                 gs_gen_call_kwargs={},
                 experiment=self.experiment,
             )
+
+    def test_target_trial_latest_trial_no_data(self) -> None:
+        for _ in range(2):
+            self._add_sobol_trial(
+                experiment=self.experiment,
+                trial_type=Keys.SHORT_RUN,
+                complete=True,
+                num_arms=1,
+            )
+        self.experiment.fetch_trials_data(trial_indices=[0])
+        target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
+        )
+        self.assertEqual(
+            target_trial,
+            ObservationFeatures(
+                parameters={},
+                trial_index=0,
+            ),
+        )
 
     def _add_sobol_trial(
         self,
