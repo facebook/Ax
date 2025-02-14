@@ -99,7 +99,9 @@ class StratifiedStandardizeY(Transform):
             ]
             if len(task_parameters) == 0:
                 raise ValueError(
-                    "Must specify parameter for stratified standardization"
+                    "Must specify parameter for stratified standardization. This can "
+                    "happen if TrialAsTask is a no-op, due to there only being a single"
+                    " task level."
                 )
             elif len(task_parameters) != 1:
                 raise ValueError(

@@ -248,3 +248,59 @@ class TrialAsTaskTransformTest(TestCase):
                 observations=[],
                 modelbridge=self.modelbridge,
             )
+
+    def test_less_than_two_trials(self) -> None:
+        # test transform is a no-op with less than two trials
+        exp = get_branin_experiment()
+        exp.new_trial().add_arm(Arm(parameters={"x": 1}))
+        modelbridge = Adapter(
+            search_space=exp.search_space,
+            model=Generator(),
+            experiment=exp,
+        )
+        training_obs = self.training_obs[:1]
+        t = TrialAsTask(
+            search_space=exp.search_space,
+            observations=training_obs,
+            modelbridge=modelbridge,
+        )
+        self.assertEqual(t.trial_level_map, {})
+        training_feats = [training_obs[0].features]
+        training_feats_clone = deepcopy(training_feats)
+        self.assertEqual(
+            t.transform_observation_features(training_feats_clone), training_feats
+        )
+        self.assertEqual(
+            t.untransform_observation_features(training_feats), training_feats_clone
+        )
+        ss2 = exp.search_space.clone()
+        self.assertEqual(t.transform_search_space(ss2), exp.search_space)
+
+    def test_less_than_two_levels(self) -> None:
+        # test transform is a no-op with less than two trials
+        exp = get_branin_experiment()
+        exp.new_trial().add_arm(Arm(parameters={"x": 1}))
+        exp.new_trial().add_arm(Arm(parameters={"x": 2}))
+        modelbridge = Adapter(
+            search_space=exp.search_space,
+            model=Generator(),
+            experiment=exp,
+        )
+        training_obs = self.training_obs[:1]
+        t = TrialAsTask(
+            search_space=exp.search_space,
+            observations=training_obs,
+            modelbridge=modelbridge,
+            config={"trial_level_map": {"t": {0: "v1", 1: "v1"}}},
+        )
+        self.assertEqual(t.trial_level_map, {})
+        training_feats = [training_obs[0].features]
+        training_feats_clone = deepcopy(training_feats)
+        self.assertEqual(
+            t.transform_observation_features(training_feats_clone), training_feats
+        )
+        self.assertEqual(
+            t.untransform_observation_features(training_feats), training_feats_clone
+        )
+        ss2 = exp.search_space.clone()
+        self.assertEqual(t.transform_search_space(ss2), exp.search_space)
