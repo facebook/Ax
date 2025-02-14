@@ -35,6 +35,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.deterministic import FixedSingleSampleModel
+from botorch.settings import validate_input_scaling
 from botorch.utils.datasets import SupervisedDataset
 from pyre_extensions import assert_is_instance
 from torch import Tensor
@@ -362,15 +363,19 @@ class BoTorchGenerator(TorchGenerator, Base):
         )
 
         try:
-            self.fit(
-                datasets=datasets,
-                search_space_digest=search_space_digest,
-                # pyre-fixme [6]: state_dict() has a generic dict[str, Any] return type
-                # but it is actually an OrderedDict[str, Tensor].
-                state_dict=state_dict,
-                refit=self.refit_on_cv,
-                **additional_model_inputs,
-            )
+            # Since each CV fold removes points from the training data, the
+            # remaining observations will not pass the input scaling checks.
+            # To avoid confusing users with warnings, we disable these checks.
+            with validate_input_scaling(False):
+                self.fit(
+                    datasets=datasets,
+                    search_space_digest=search_space_digest,
+                    # pyre-fixme [6]: state_dict() has a generic dict[str, Any]
+                    # return type but it is actually an OrderedDict[str, Tensor].
+                    state_dict=state_dict,
+                    refit=self.refit_on_cv,
+                    **additional_model_inputs,
+                )
             X_test_prediction = self.predict(
                 X=X_test,
                 use_posterior_predictive=use_posterior_predictive,

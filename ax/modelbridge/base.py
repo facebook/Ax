@@ -8,13 +8,11 @@
 
 import json
 import time
-import warnings
 from abc import ABC
 from collections import OrderedDict
 from collections.abc import MutableMapping
 from copy import deepcopy
 from dataclasses import dataclass, field
-
 from logging import Logger
 from typing import Any
 
@@ -50,7 +48,7 @@ from ax.modelbridge.transforms.cast import Cast
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from botorch.exceptions.warnings import InputDataWarning
+from botorch.settings import validate_input_scaling
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
@@ -1004,15 +1002,10 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         )
 
         # Apply terminal transform, and get predictions.
-        with warnings.catch_warnings():
-            # Since each CV fold removes points from the training data, the remaining
-            # observations will not pass the standardization test. To avoid confusing
-            # users with this warning, we filter it out.
-            warnings.filterwarnings(
-                "ignore",
-                message=r"Data \(outcome observations\) is not standardized",
-                category=InputDataWarning,
-            )
+        # Since each CV fold removes points from the training data, the
+        # remaining observations will not pass the input scaling checks.
+        # To avoid confusing users with warnings, we disable these checks.
+        with validate_input_scaling(False):
             cv_predictions = self._cross_validate(
                 search_space=search_space,
                 cv_training_data=cv_training_data,
