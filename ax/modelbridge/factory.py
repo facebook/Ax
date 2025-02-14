@@ -119,9 +119,9 @@ def get_botorch(
     refit_on_cv: bool = False,
     optimization_config: OptimizationConfig | None = None,
 ) -> TorchAdapter:
-    """Instantiates a BotorchGenerator."""
+    """Instantiates a LegacyBoTorchGenerator."""
     if data.df.empty:
-        raise ValueError("`BotorchGenerator` requires non-empty data.")
+        raise ValueError("`LegacyBoTorchGenerator` requires non-empty data.")
     return assert_is_instance(
         Generators.LEGACY_BOTORCH(
             experiment=experiment,

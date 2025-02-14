@@ -11,7 +11,7 @@ from typing import Any, cast, Union
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.models.torch.botorch import BotorchGenerator
+from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.models.torch.botorch_defaults import get_qLogNEI
 from ax.models.torch.cbo_sac import generate_model_space_decomposition
 from ax.models.torch_base import TorchGenerator, TorchOptConfig
@@ -66,7 +66,7 @@ def get_map_model(
     return model, mll
 
 
-class LCEABO(BotorchGenerator):
+class LCEABO(LegacyBoTorchGenerator):
     r"""Does Bayesian optimization with Latent Context Embedding Additive (LCE-A) GP.
     The parameter space decomposition must be provided.
 

@@ -32,7 +32,7 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.registry import Cont_X_trans, ST_MTGP_trans, Y_trans
 from ax.modelbridge.torch import TorchAdapter
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchGenerator
+from ax.models.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.models.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
     pareto_frontier_evaluator,
@@ -106,7 +106,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchGenerator(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=[transform_1, transform_2],
             experiment=exp,
@@ -280,7 +280,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             experiment=exp,
             search_space=exp.search_space,
             data=exp.fetch_data(),
-            model=MultiObjectiveBotorchGenerator(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             transforms=[],
         )
         observation_features = [
@@ -359,7 +359,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
             modelbridge = TorchAdapter(
                 search_space=exp.search_space,
-                model=MultiObjectiveBotorchGenerator(),
+                model=MultiObjectiveLegacyBoTorchGenerator(),
                 optimization_config=optimization_config,
                 transforms=[],
                 experiment=exp,
@@ -445,7 +445,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         data = exp.fetch_data()
         modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchGenerator(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
@@ -575,7 +575,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         set_rng_seed(0)  # make model fitting deterministic
         modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchGenerator(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=ST_MTGP_trans,
             experiment=exp,
@@ -637,7 +637,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         exp._trials = get_hss_trials_with_fixed_parameter(exp=exp)
         modelbridge = TorchAdapter(
             search_space=hss,
-            model=MultiObjectiveBotorchGenerator(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
@@ -721,7 +721,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
 
         bridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchGenerator(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             experiment=exp,
             data=data,
@@ -741,7 +741,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         bridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchGenerator(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=[],
             experiment=exp,
