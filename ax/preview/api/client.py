@@ -21,6 +21,7 @@ from ax.analysis.markdown.markdown_analysis import (
 )
 from ax.analysis.utils import choose_analyses
 from ax.core.experiment import Experiment
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import ObservationFeatures
@@ -437,6 +438,11 @@ class Client(WithDBSettingsBase):
 
         Saves to database on completion if storage_config is present.
         """
+
+        # If any metric is not present on the Experiment, add it as a tracking metric
+        for metric_name in raw_data.keys():
+            if metric_name not in self._experiment.metrics:
+                self._experiment.add_tracking_metric(metric=MapMetric(name=metric_name))
 
         # If no progression is provided assume the data is not timeseries-like and
         # set step=NaN
