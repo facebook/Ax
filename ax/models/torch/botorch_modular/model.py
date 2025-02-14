@@ -24,7 +24,6 @@ from ax.models.torch.botorch import (
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import (
-    check_outcome_dataset_match,
     choose_botorch_acqf_class,
     construct_acquisition_and_optimizer_options,
     ModelConfig,
@@ -177,11 +176,6 @@ class BoTorchGenerator(TorchGenerator, Base):
             additional_model_inputs: Additional kwargs to pass to the
                 model input constructor in ``Surrogate.fit``.
         """
-        outcome_names = sum((ds.outcome_names for ds in datasets), [])
-        check_outcome_dataset_match(
-            outcome_names=outcome_names, datasets=datasets, exact_match=True
-        )  # Checks for duplicate outcome names
-
         # Store search space info for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
 
