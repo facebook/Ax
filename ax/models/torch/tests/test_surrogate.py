@@ -19,6 +19,7 @@ import numpy as np
 import torch
 from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.model import ModelError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
@@ -516,7 +517,7 @@ class SurrogateTest(TestCase):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             with self.assertRaisesRegex(
-                ValueError, "BoTorch `Model` has not yet been constructed."
+                ModelError, "BoTorch `Model` has not yet been constructed."
             ):
                 surrogate.model
 
@@ -524,7 +525,7 @@ class SurrogateTest(TestCase):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             with self.assertRaisesRegex(
-                ValueError,
+                ModelError,
                 "Underlying BoTorch `Model` has not yet received its training_data.",
             ):
                 surrogate.training_data
@@ -1542,7 +1543,7 @@ class SurrogateWithModelListTest(TestCase):
         )
         self.assertEqual(model_config.mll_class, self.mll_class)
         with self.assertRaisesRegex(
-            ValueError, "BoTorch `Model` has not yet been constructed"
+            ModelError, "BoTorch `Model` has not yet been constructed"
         ):
             self.surrogate.model
 

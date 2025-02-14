@@ -44,7 +44,7 @@ from torch import Tensor
 
 
 @mock_botorch_optimize
-def get_modelbridge(modular: bool = False, saasbo: bool = False) -> Adapter:
+def get_adapter(modular: bool = False, saasbo: bool = False) -> Adapter:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
     if modular:
@@ -64,8 +64,8 @@ def get_modelbridge(modular: bool = False, saasbo: bool = False) -> Adapter:
 class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.model = get_modelbridge().model.model
-        self.saas_model = get_modelbridge(saasbo=True).model.surrogate.model
+        self.model = get_adapter().model.model
+        self.saas_model = get_adapter(saasbo=True).model.surrogate.model
 
     def test_DgsmGpMean(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
@@ -197,12 +197,12 @@ class SensitivityAnalysisTest(TestCase):
         first_order = sensitivity_mean_bootstrap.first_order_indices()
         self.assertEqual(first_order.shape, torch.Size([2, 3]))
 
-        with self.assertRaises(ValueError):
-            sensitivity_mean = SobolSensitivityGPMean(
-                self.model, num_mc_samples=10, bounds=bounds, second_order=False
-            )
-            first_order = sensitivity_mean.first_order_indices()
-            total_order = sensitivity_mean.total_order_indices()
+        sensitivity_mean = SobolSensitivityGPMean(
+            self.model, num_mc_samples=10, bounds=bounds, second_order=False
+        )
+        first_order = sensitivity_mean.first_order_indices()
+        total_order = sensitivity_mean.total_order_indices()
+        with self.assertRaisesRegex(ValueError, "Second order indices"):
             second_order = sensitivity_mean.second_order_indices()
 
         # testing compute_sobol_indices_from_model_list
@@ -240,10 +240,10 @@ class SensitivityAnalysisTest(TestCase):
                     )
                 )
 
-        # testing ax sensitivity utils
-        # model_bridge = cast(TorchAdapter, get_modelbridge())
+    def test_SobolGPMean_SAASBO_Ax_utils(self) -> None:
+        num_mc_samples = 10
         for modular in [False, True]:
-            model_bridge = cast(TorchAdapter, get_modelbridge(modular=modular))
+            model_bridge = cast(TorchAdapter, get_adapter(modular=modular))
             with self.assertRaisesRegex(
                 NotImplementedError,
                 "but only TorchAdapter is supported",
@@ -254,10 +254,7 @@ class SensitivityAnalysisTest(TestCase):
             with patch.object(model_bridge, "model", return_value=None):
                 with self.assertRaisesRegex(
                     NotImplementedError,
-                    (
-                        r"but only Union\[BotorchGenerator, ModularBoTorchGenerator\] "
-                        r"is supported"
-                    ),
+                    "but only BotorchGenerator and ModularBoTorchGenerator",
                 ):
                     ax_parameter_sens(model_bridge, model_bridge.outcomes)
 
@@ -358,7 +355,7 @@ class SensitivityAnalysisTest(TestCase):
                 )
 
         # Test with signed
-        model_bridge = get_modelbridge(modular=True)
+        model_bridge = get_adapter(modular=True)
 
         # adding a categorical feature
         cat_model_bridge = copy.deepcopy(model_bridge)
@@ -486,7 +483,7 @@ class SensitivityAnalysisTest(TestCase):
         self.assertFalse(torch.allclose(Brnd, B))
 
     def test_Sobol_raises(self) -> None:
-        bridge = get_modelbridge(modular=True)
+        bridge = get_adapter(modular=True)
         with self.assertRaisesRegex(
             NotImplementedError,
             "Order third and fourth is not supported. Plese choose one of"

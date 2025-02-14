@@ -17,6 +17,7 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning
+from ax.exceptions.model import ModelError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import (
@@ -311,13 +312,12 @@ class BoTorchGeneratorTest(TestCase):
     # is only constructed when `model.fit` is called
     @mock.patch(f"{SURROGATE_PATH}.Surrogate._construct_model")
     def test_fit(self, mock_fit: Mock) -> None:
-        # If surrogate is not yet set, initialize it with dispatcher functions.
+        # If surrogate is not yet set, initialize it internally.
         self.model._surrogate = None
-        with self.assertRaisesRegex(RuntimeError, "is not initialized. Must `fit`"):
+        with self.assertRaisesRegex(
+            ModelError, "Surrogate has not yet been constructed."
+        ):
             self.model.search_space_digest  # can't access before fit
-
-        with self.assertRaisesRegex(RuntimeError, "manually is disallowed"):
-            self.model.search_space_digest = self.mf_search_space_digest
 
         self.model.fit(
             datasets=self.block_design_training_data,
@@ -523,7 +523,7 @@ class BoTorchGeneratorTest(TestCase):
             acquisition_options=self.acquisition_options,
         )
         # Assert that error is raised if we haven't fit the model
-        with self.assertRaises(RuntimeError):
+        with self.assertRaisesRegex(ModelError, "fit the model first"):
             model.gen(
                 n=1,
                 search_space_digest=search_space_digest,
@@ -721,7 +721,7 @@ class BoTorchGeneratorTest(TestCase):
         # Test model is None
         model.surrogate._model = None
         with self.assertRaisesRegex(
-            ValueError, "BoTorch `Model` has not yet been constructed"
+            ModelError, "BoTorch `Model` has not yet been constructed"
         ):
             model.feature_importances()
 

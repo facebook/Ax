@@ -22,6 +22,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
+from ax.exceptions.model import ModelError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.botorch_modular.input_constructors.covar_modules import (
     covar_module_argparse,
@@ -777,7 +778,7 @@ class Surrogate(Base):
     @property
     def model(self) -> Model:
         if self._model is None:
-            raise ValueError(
+            raise ModelError(
                 "BoTorch `Model` has not yet been constructed, please fit the "
                 "surrogate first (done via `BoTorchGenerator.fit`)."
             )
@@ -786,7 +787,7 @@ class Surrogate(Base):
     @property
     def training_data(self) -> list[SupervisedDataset]:
         if self._training_data is None:
-            raise ValueError(NOT_YET_FIT_MSG)
+            raise ModelError(NOT_YET_FIT_MSG)
         return self._training_data
 
     @property
@@ -1349,7 +1350,7 @@ class Surrogate(Base):
     @property
     def outcomes(self) -> list[str]:
         if self._outcomes is None:
-            raise RuntimeError("outcomes not initialized. Please call `fit` first.")
+            raise ModelError("`outcomes` was not initialized. Please call `fit` first.")
         return self._outcomes
 
     @outcomes.setter
