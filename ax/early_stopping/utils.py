@@ -98,12 +98,9 @@ def align_partial_results(
                     # do forward fill (with valid observations) to handle instances
                     # where one task only has data for early progressions
                     df_interp = df_interp.fillna(method="pad")
-            except ValueError as e:
+            except ValueError:
                 df_interp = df_ridx
-                logger.info(
-                    f"Got exception `{e}` during interpolation. "
-                    "Using uninterpolated values instead."
-                )
+
             # renaming column to trial index, append results
             dfs_mean[metric].append(df_interp["mean"].rename(tidx))
             if has_sem:
