@@ -211,7 +211,10 @@ def _create_single_objective(expression: Expr) -> Objective:
     # If the expression is a just a Symbol it represents a single metric objective
     if isinstance(expression, Symbol):
         return Objective(
-            metric=MapMetric(name=_unsanitize_dot(str(expression.name))), minimize=False
+            metric=MapMetric(
+                name=_unsanitize_dot(str(expression.name)), lower_is_better=False
+            ),
+            minimize=False,
         )
 
     # If the expression is a Mul it likely represents a single metric objective but
@@ -228,7 +231,10 @@ def _create_single_objective(expression: Expr) -> Objective:
         minimize = bool(expression.as_coefficient(symbol) < 0)
 
         return Objective(
-            metric=MapMetric(name=_unsanitize_dot(str(symbol))), minimize=minimize
+            metric=MapMetric(
+                name=_unsanitize_dot(str(symbol)), lower_is_better=minimize
+            ),
+            minimize=minimize,
         )
 
     # If the expression is an Add it represents a scalarized objective

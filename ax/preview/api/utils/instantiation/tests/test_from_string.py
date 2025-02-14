@@ -35,7 +35,9 @@ class TestFromString(TestCase):
         self.assertEqual(
             only_objective,
             OptimizationConfig(
-                objective=Objective(metric=MapMetric(name="ne"), minimize=False),
+                objective=Objective(
+                    metric=MapMetric(name="ne", lower_is_better=False), minimize=False
+                ),
             ),
         )
 
@@ -45,7 +47,9 @@ class TestFromString(TestCase):
         self.assertEqual(
             with_constraints,
             OptimizationConfig(
-                objective=Objective(metric=MapMetric(name="ne"), minimize=False),
+                objective=Objective(
+                    metric=MapMetric(name="ne", lower_is_better=False), minimize=False
+                ),
                 outcome_constraints=[
                     OutcomeConstraint(
                         metric=MapMetric(name="qps"),
@@ -66,8 +70,14 @@ class TestFromString(TestCase):
             MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(
                     objectives=[
-                        Objective(metric=MapMetric(name="ne"), minimize=True),
-                        Objective(metric=MapMetric(name="qps"), minimize=False),
+                        Objective(
+                            metric=MapMetric(name="ne", lower_is_better=True),
+                            minimize=True,
+                        ),
+                        Objective(
+                            metric=MapMetric(name="qps", lower_is_better=False),
+                            minimize=False,
+                        ),
                     ]
                 ),
                 outcome_constraints=[
@@ -124,13 +134,18 @@ class TestFromString(TestCase):
     def test_parse_objective(self) -> None:
         single_objective = parse_objective(objective_str="ne")
         self.assertEqual(
-            single_objective, Objective(metric=MapMetric(name="ne"), minimize=False)
+            single_objective,
+            Objective(
+                metric=MapMetric(name="ne", lower_is_better=False), minimize=False
+            ),
         )
 
         maximize_single_objective = parse_objective(objective_str="-qps")
         self.assertEqual(
             maximize_single_objective,
-            Objective(metric=MapMetric(name="qps"), minimize=True),
+            Objective(
+                metric=MapMetric(name="qps", lower_is_better=True), minimize=True
+            ),
         )
 
         scalarized_objective = parse_objective(
@@ -154,8 +169,14 @@ class TestFromString(TestCase):
             multiobjective,
             MultiObjective(
                 objectives=[
-                    Objective(metric=MapMetric(name="ne"), minimize=False),
-                    Objective(metric=MapMetric(name="qps"), minimize=True),
+                    Objective(
+                        metric=MapMetric(name="ne", lower_is_better=False),
+                        minimize=False,
+                    ),
+                    Objective(
+                        metric=MapMetric(name="qps", lower_is_better=True),
+                        minimize=True,
+                    ),
                 ]
             ),
         )
