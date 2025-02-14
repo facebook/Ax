@@ -13,12 +13,16 @@ from unittest.mock import patch, PropertyMock
 
 import numpy as np
 from ax.core.arm import Arm
+from ax.core.base_trial import (
+    MANUAL_GENERATION_METHOD_STR,
+    TrialStatus,
+    UNKNOWN_GENERATION_METHOD_STR,
+)
 from ax.core.batch_trial import BatchTrial, GeneratorRunStruct
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
-from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
@@ -76,9 +80,12 @@ class BatchTrialTest(TestCase):
             self.batch.generator_run_structs[0].generator_run.generator_run_type,
             GeneratorRunType.MANUAL.name,
         )
+        self.assertEqual(self.batch.generation_method_str, MANUAL_GENERATION_METHOD_STR)
 
-        # Test empty arms
-        self.assertEqual(len(self.experiment.new_batch_trial().abandoned_arms), 0)
+        # Test empty trial
+        t = self.experiment.new_batch_trial()
+        self.assertEqual(len(t.abandoned_arms), 0)
+        self.assertEqual(t.generation_method_str, UNKNOWN_GENERATION_METHOD_STR)
 
     def test_UndefinedSetters(self) -> None:
         with self.assertRaises(NotImplementedError):
@@ -480,6 +487,9 @@ class BatchTrialTest(TestCase):
         # test cloning with clear_trial_type=True
         new_batch_trial = batch.clone_to(clear_trial_type=True)
         self.assertIsNone(new_batch_trial.trial_type)
+        self.assertEqual(
+            new_batch_trial.generation_method_str, MANUAL_GENERATION_METHOD_STR
+        )
 
     def test_Runner(self) -> None:
         # Verify BatchTrial without runner will fail
@@ -667,9 +677,12 @@ class BatchTrialTest(TestCase):
         self.assertIn(2, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
 
     def test_get_candidate_metadata_from_all_generator_runs(self) -> None:
+        self.assertEqual(self.batch.generation_method_str, MANUAL_GENERATION_METHOD_STR)
         gr_1 = get_generator_run()
         gr_2 = get_generator_run2()
         self.batch.add_generator_run(gr_1)
+        self.assertEqual(self.batch.generation_method_str, "Manual, Sobol")
+
         # Arms are named when adding GR to trial, so reassign to have a GR that has
         # names arms.
         gr_1 = self.batch._generator_run_structs[-1].generator_run
@@ -719,6 +732,7 @@ class BatchTrialTest(TestCase):
                 cand_metadata_expected[arm.name],
                 self.batch._get_candidate_metadata(arm.name),
             )
+        self.assertEqual(self.batch.generation_method_str, "Manual, Sobol")
 
     def test_Sortable(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()

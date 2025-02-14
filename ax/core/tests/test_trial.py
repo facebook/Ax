@@ -12,7 +12,12 @@ from unittest import mock
 from unittest.mock import Mock, patch
 
 import pandas as pd
-from ax.core.base_trial import BaseTrial, TrialStatus
+from ax.core.base_trial import (
+    BaseTrial,
+    MANUAL_GENERATION_METHOD_STR,
+    TrialStatus,
+    UNKNOWN_GENERATION_METHOD_STR,
+)
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.runner import Runner
@@ -87,10 +92,13 @@ class TrialTest(TestCase):
         self.assertEqual(
             self.trial.generator_run.generator_run_type, GeneratorRunType.MANUAL.name
         )
+        self.assertEqual(self.trial.generation_method_str, MANUAL_GENERATION_METHOD_STR)
 
         # Test empty arms
+        t = self.experiment.new_trial()
         with self.assertRaises(AttributeError):
-            self.experiment.new_trial().arm_weights
+            t.arm_weights
+        self.assertEqual(t.generation_method_str, UNKNOWN_GENERATION_METHOD_STR)
 
         self.trial.mark_running(no_runner_required=True)
         self.assertTrue(self.trial.status.is_running)
