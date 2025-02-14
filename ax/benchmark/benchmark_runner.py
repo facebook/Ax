@@ -184,6 +184,7 @@ class BenchmarkRunner(Runner):
                     internal_clock=0,
                     use_update_as_start_time=True,
                 ),
+                verbose_logging=False,
             )
             self.simulated_backend_runner = SimulatedBackendRunner(
                 simulator=simulator,

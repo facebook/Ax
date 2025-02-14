@@ -405,6 +405,37 @@ class TestBenchmark(TestCase):
         self._test_replication_async(map_data=False)
         self._test_replication_async(map_data=True)
 
+    def test_logging(self) -> None:
+        method = get_async_benchmark_method()
+        problem = get_async_benchmark_problem(
+            map_data=True,
+        )
+        logger = get_logger("utils.testing.backend_simulator")
+
+        with self.subTest("Logs produced if level is DEBUG"):
+            with self.assertLogs(level=logging.DEBUG, logger=logger):
+                result = benchmark_replication(
+                    problem=problem,
+                    method=method,
+                    seed=0,
+                    strip_runner_before_saving=False,
+                    scheduler_logging_level=logging.DEBUG,
+                )
+            experiment = none_throws(result.experiment)
+            runner = assert_is_instance(experiment.runner, BenchmarkRunner)
+            self.assertFalse(
+                none_throws(runner.simulated_backend_runner).simulator._verbose_logging
+            )
+
+        with self.subTest("Logs not produced by default"), self.assertNoLogs(
+            level=logging.INFO, logger=logger
+        ), self.assertNoLogs(logger=logger):
+            benchmark_replication(
+                problem=problem,
+                method=method,
+                seed=0,
+            )
+
     def test_early_stopping(self) -> None:
         """
         Test early stopping with a deterministic generation strategy and ESS
