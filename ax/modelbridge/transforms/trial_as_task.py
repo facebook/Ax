@@ -51,6 +51,8 @@ class TrialAsTask(Transform):
 
     Will raise if trial not specified for every point in the training data.
 
+    If there are fewer than 2 trials or levels, the transform is a no-op.
+
     Transform is done in-place.
     """
 
@@ -109,7 +111,13 @@ class TrialAsTask(Transform):
             self.inverse_map = None
         # Compute target values
         self.target_values: dict[str, int | str] = {}
-        for p_name, trial_map in self.trial_level_map.items():
+
+        for p_name, trial_map in list(self.trial_level_map.items()):
+            if len(set(trial_map.values())) < 2:
+                # If there are less than two distinct levels, then we don't need to
+                # create a task parameter and the transform is a no-op.
+                del self.trial_level_map[p_name]
+                continue
             if config is not None and "target_trial" in config:
                 target_trial = int(config["target_trial"])  # pyre-ignore [6]
             else:
@@ -133,6 +141,9 @@ class TrialAsTask(Transform):
         trials. Trial indices set to None are probably pending points passed in by the
         user.
         """
+        if len(self.trial_level_map) == 0:
+            # no-op
+            return observation_features
         for obsf in observation_features:
             for p_name, level_dict in self.trial_level_map.items():
                 if obsf.trial_index is not None and int(obsf.trial_index) in level_dict:
@@ -147,6 +158,9 @@ class TrialAsTask(Transform):
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+        if len(self.trial_level_map) == 0:
+            # no-op
+            return search_space
         for p_name, level_dict in self.trial_level_map.items():
             level_values = sorted(set(level_dict.values()))
             if len(level_values) < 2:
@@ -174,6 +188,20 @@ class TrialAsTask(Transform):
     def untransform_observation_features(
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
+        """If task parameters have been added to observation features by
+        this parameter, then remove those task parameters and restore
+        the trial index/
+
+        Args:
+            observation_features: List of observation features to untransform.
+
+        Returns:
+            List of observation features with task parameters removed and trial
+                index restored.
+        """
+        if len(self.trial_level_map) == 0:
+            # no-op
+            return observation_features
         for obsf in observation_features:
             for p_name in self.trial_level_map:
                 pval = obsf.parameters.pop(p_name)
