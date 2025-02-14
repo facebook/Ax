@@ -103,8 +103,10 @@ def get_status_quo(
         raise AxGenerationException(
             f"Attempting to construct status quo input into {next_node} but couldn't "
             "identify the target trial. Often this could be due to no trials on the "
-            f"experiment that are in status {STATUSES_EXPECTING_DATA}. The trials on "
-            f"this experiment are: {experiment.trials}."
+            f"experiment that are in status {STATUSES_EXPECTING_DATA} "
+            f"and have data. The trials on this experiment are: "
+            f"{experiment.trials} and trials with data are: "
+            f"{experiment.lookup_data().df.trial_index.unique()}."
         )
     if experiment.status_quo is None:
         raise AxGenerationException(
