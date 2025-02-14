@@ -1296,11 +1296,7 @@ class AxSchedulerTestCase(TestCase):
         self.assertEqual(exp, self.branin_experiment)
         exp = none_throws(exp)
         self.assertEqual(
-            # pyre-fixme[16]: Add `_generator_runs` back to GSI interface or move
-            # interface to node-level from strategy-level (the latter is likely the
-            # better option) TODO
-            len(gs._generator_runs),
-            len(none_throws(loaded_gs)._generator_runs),
+            len(gs._generator_runs), len(none_throws(loaded_gs)._generator_runs)
         )
         scheduler.run_all_trials()
         # Check that experiment and GS were saved and test reloading with reduced state.
@@ -2450,18 +2446,12 @@ class AxSchedulerTestCase(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=GenerationStrategy(
                 steps=[
-                    GenerationStep(
-                        model=Generators.SOBOL,
-                        num_trials=1,
-                    ),
-                    GenerationStep(
-                        model=Generators.BOTORCH_MODULAR,
-                        num_trials=1,
-                    ),
+                    GenerationStep(model=Generators.SOBOL, num_trials=1),
+                    GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=1),
                     GenerationStep(
                         model=Generators.BOTORCH_MODULAR,
                         model_kwargs={
-                            # this will cause and error if the model
+                            # this will cause an error if the model
                             # doesn't get fixed features
                             "transforms": MBM_MTGP_trans,
                             "transform_configs": {
