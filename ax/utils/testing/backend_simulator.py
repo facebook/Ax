@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import logging
 import random
 import time
 from dataclasses import dataclass
@@ -140,9 +139,6 @@ class BackendSimulator(Base):
                 (only used for testing particular initialization cases)
             verbose_logging: If False, sets the logging level to WARNING.
         """
-        if not verbose_logging:
-            logger.setLevel(logging.WARNING)
-
         self.options: BackendSimulatorOptions = (
             BackendSimulatorOptions() if options is None else options
         )
@@ -152,6 +148,13 @@ class BackendSimulator(Base):
         self._completed: list[SimTrial] = completed or []
         self._verbose_logging = verbose_logging
         self._create_index_to_trial_map()
+
+    def log(self, msg: str) -> None:
+        """Log at INFO level if `verbose_logging`, otherwise DEBUG."""
+        if self._verbose_logging:
+            logger.info(msg)
+        else:
+            logger.debug(msg)
 
     @property
     def num_queued(self) -> int:
@@ -216,8 +219,8 @@ class BackendSimulator(Base):
             self.options.internal_clock = none_throws(self.options.internal_clock) + 1
         self._update(self.time)
         state = self.state()
-        logger.info(
-            "\n-----------\n"
+        self.log(
+            msg="\n-----------\n"
             f"Updated backend simulator state (time = {self.time}):\n"
             f"** Queued:\n{format(state.queued)}\n"
             f"** Running:\n{format(state.running)}\n"
@@ -308,15 +311,15 @@ class BackendSimulator(Base):
         """
         trial_status = self.lookup_trial_index_status(trial_index)
         if trial_status is not TrialStatus.RUNNING:
-            logger.info(
-                f"Trial {trial_index} is not currently running (has status "
+            self.log(
+                msg=f"Trial {trial_index} is not currently running (has status "
                 f"{trial_status}) and cannot be stopped."
             )
         else:
             trial = self._index_to_trial_map[trial_index]
             trial.sim_completed_time = self.time
-            logger.info(
-                f"Trial {trial_index} stopped at time {trial.sim_completed_time}."
+            self.log(
+                msg=f"Trial {trial_index} stopped at time {trial.sim_completed_time}."
             )
 
     def status(self) -> SimStatus:
