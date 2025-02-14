@@ -17,6 +17,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.model import ModelError
 from ax.models.torch.botorch import (
     get_feature_importances_from_botorch_model,
     get_rounding_func,
@@ -82,7 +83,6 @@ class BoTorchGenerator(TorchGenerator, Base):
     _surrogate: Surrogate | None
 
     _botorch_acqf_class: type[AcquisitionFunction] | None
-    _search_space_digest: SearchSpaceDigest | None = None
     _supports_robust_optimization: bool = True
 
     def __init__(
@@ -131,7 +131,7 @@ class BoTorchGenerator(TorchGenerator, Base):
     def surrogate(self) -> Surrogate:
         """Returns the ``Surrogate``, if it has been constructed."""
         if self._surrogate is None:
-            raise ValueError("Surrogate has not yet been constructed.")
+            raise ModelError("Surrogate has not yet been constructed.")
         return self._surrogate
 
     @property
@@ -177,9 +177,6 @@ class BoTorchGenerator(TorchGenerator, Base):
             additional_model_inputs: Additional kwargs to pass to the
                 model input constructor in ``Surrogate.fit``.
         """
-        # Store search space info for later use (e.g. during generation)
-        self._search_space_digest = search_space_digest
-
         # If a surrogate has not been constructed, construct it.
         if self._surrogate is None:
             surrogate_spec = (
@@ -237,13 +234,6 @@ class BoTorchGenerator(TorchGenerator, Base):
             acqf_options=self.acquisition_options,
             model_gen_options=torch_opt_config.model_gen_options,
         )
-        # update bounds / target values
-        search_space_digest = dataclasses.replace(
-            self.search_space_digest,
-            bounds=search_space_digest.bounds,
-            target_values=search_space_digest.target_values or {},
-        )
-
         acqf = self._instantiate_acquisition(
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -446,12 +436,11 @@ class BoTorchGenerator(TorchGenerator, Base):
 
     @property
     def search_space_digest(self) -> SearchSpaceDigest:
-        if self._search_space_digest is None:
-            raise RuntimeError(
+        """Returns the ``SearchSpaceDigest`` that was used while fitting the underlying
+        surrogate. If the surrogate has not been fit, raises a ``ModelError``.
+        """
+        if self.surrogate._last_search_space_digest is None:
+            raise ModelError(
                 "`search_space_digest` is not initialized. Must `fit` the model first."
             )
-        return self._search_space_digest
-
-    @search_space_digest.setter
-    def search_space_digest(self, value: SearchSpaceDigest) -> None:
-        raise RuntimeError("Setting search_space_digest manually is disallowed.")
+        return self.surrogate._last_search_space_digest

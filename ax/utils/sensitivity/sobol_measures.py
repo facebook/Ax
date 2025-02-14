@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy.typing as npt
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.modelbridge.torch import TorchAdapter
 from ax.models.torch.botorch import BotorchGenerator
 from ax.models.torch.botorch_modular.model import (
@@ -878,10 +879,8 @@ def ax_parameter_sens(
         raise NotImplementedError("Second order is not supported for signed indices.")
     if metrics is None:
         metrics = model_bridge.outcomes
-    # can safely access _search_space_digest after type check
-    torch_model = _get_torch_model(model_bridge)
-    digest = torch_model.search_space_digest
-    model_list = _get_model_per_metric(torch_model, metrics)
+    generator, digest = _get_generator_and_digest(adapter=model_bridge)
+    model_list = _get_model_per_metric(generator=generator, metrics=metrics)
     bounds = torch.tensor(digest.bounds).T  # transposing to make it 2 x d
 
     # for second order indices, we need to compute first order indices first
@@ -939,39 +938,35 @@ def ax_parameter_sens(
     return indices
 
 
-def _get_torch_model(
-    model_bridge: TorchAdapter,
-) -> BotorchGenerator | ModularBoTorchGenerator:
-    """Returns the TorchGenerator of the model_bridge, if it is a type that stores
-    SearchSpaceDigest during model fitting. At this point, this is BotorchGenerator, and
-    ModularBoTorchGenerator.
+def _get_generator_and_digest(
+    adapter: TorchAdapter,
+) -> tuple[BotorchGenerator | ModularBoTorchGenerator, SearchSpaceDigest]:
+    """Returns the generator of the adapter and the SearchSpaceDigest
+    that was used to fit the adapter.
     """
-    if not isinstance(model_bridge, TorchAdapter):
+    if not isinstance(adapter, TorchAdapter):
         raise NotImplementedError(
-            f"{type(model_bridge)=}, but only TorchAdapter is supported."
+            f"{type(adapter)=}, but only TorchAdapter is supported."
         )
-    model = model_bridge.model  # should be of typeTorchGenerator
-    if not (
-        isinstance(model, BotorchGenerator)
-        or isinstance(model, ModularBoTorchGenerator)
-    ):
+    generator = adapter.model
+    if not isinstance(generator, (BotorchGenerator, ModularBoTorchGenerator)):
         raise NotImplementedError(
-            f"{type(model_bridge.model)=}, but only "
-            "Union[BotorchGenerator, ModularBoTorchGenerator] is supported."
+            f"{type(generator)=}, but only BotorchGenerator and "
+            "ModularBoTorchGenerator are supported."
         )
-    return model
+    return generator, generator.search_space_digest
 
 
 def _get_model_per_metric(
-    model: BotorchGenerator | ModularBoTorchGenerator, metrics: list[str]
+    generator: BotorchGenerator | ModularBoTorchGenerator, metrics: list[str]
 ) -> list[Model]:
     """For a given TorchGenerator model, returns a list of botorch.models.model.Model
     objects corresponding to - and in the same order as - the given metrics.
     """
-    if isinstance(model, BotorchGenerator):
+    if isinstance(generator, BotorchGenerator):
         # guaranteed not to be None after accessing search_space_digest
-        gp_model = model.model
-        model_idx = [model.metric_names.index(m) for m in metrics]
+        gp_model = generator.model
+        model_idx = [generator.metric_names.index(m) for m in metrics]
         if not isinstance(gp_model, ModelList):
             if gp_model.num_outputs == 1:  # can accept single output models
                 return [gp_model for _ in model_idx]
@@ -981,7 +976,7 @@ def _get_model_per_metric(
             )
         return [gp_model.models[i] for i in model_idx]
     else:  # isinstance(model, ModularBoTorchGenerator):
-        surrogate = model.surrogate
+        surrogate = generator.surrogate
         outcomes = surrogate.outcomes
         model_list = []
         for m in metrics:  # for each metric, find a corresponding surrogate
