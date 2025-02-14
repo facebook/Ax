@@ -12,6 +12,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+from ax.core.trial_status import TrialStatus
 from ax.core.types import TParameterization
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 
@@ -101,9 +102,19 @@ class BenchmarkMethod(Base):
             raise NotImplementedError(
                 f"Currently only n_points=1 is supported. Got {n_points=}."
             )
+        if len(experiment.trials) == 0:
+            raise ValueError(
+                "Cannot identify a best point if experiment has no trials."
+            )
+
+        def _get_first_parameterization_from_last_trial() -> TParameterization:
+            return experiment.trials[max(experiment.trials)].arms[0].parameters
 
         # SOO, n=1 case.
         # Note: This has the same effect as Scheduler.get_best_parameters
+        if len(experiment.trials_by_status[TrialStatus.COMPLETED]) == 0:
+            return [_get_first_parameterization_from_last_trial()]
+
         result = BestPointMixin._get_best_trial(
             experiment=experiment,
             generation_strategy=self.generation_strategy,
@@ -113,7 +124,7 @@ class BenchmarkMethod(Base):
         if result is None:
             # This can happen if no points are predicted to satisfy all outcome
             # constraints.
-            return []
-
-        i, params, prediction = none_throws(result)
+            params = _get_first_parameterization_from_last_trial()
+        else:
+            i, params, prediction = none_throws(result)
         return [params]
