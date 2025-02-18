@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import warnings
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from copy import deepcopy
@@ -31,7 +30,7 @@ from ax.utils.stats.model_fit_stats import (
     ModelFitMetricProtocol,
     std_of_the_standardized_error,
 )
-from botorch.exceptions.warnings import InputDataWarning
+from botorch.settings import validate_input_scaling
 
 logger: Logger = get_logger(__name__)
 
@@ -161,15 +160,10 @@ def cross_validate(
             ) = model._transform_inputs_for_cv(
                 cv_training_data=cv_training_data, cv_test_points=cv_test_points
             )
-            with warnings.catch_warnings():
-                # Since each CV fold removes points from the training data, the
-                # remaining observations will not pass the standardization test.
-                # To avoid confusing users with this warning, we filter it out.
-                warnings.filterwarnings(
-                    "ignore",
-                    message=r"Data \(outcome observations\) is not standardized",
-                    category=InputDataWarning,
-                )
+            # Since each CV fold removes points from the training data, the
+            # remaining observations will not pass the input scaling checks.
+            # To avoid confusing users with warnings, we disable these checks.
+            with validate_input_scaling(False):
                 cv_test_predictions = model._cross_validate(
                     search_space=search_space,
                     cv_training_data=cv_training_data,
