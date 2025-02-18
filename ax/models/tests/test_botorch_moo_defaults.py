@@ -16,7 +16,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_defaults import NO_OBSERVED_POINTS_MESSAGE
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchGenerator
+from ax.models.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.models.torch.botorch_moo_defaults import (
     get_outcome_constraint_transforms,
     get_qLogEHVI,
@@ -31,6 +31,7 @@ from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize_context_manager
 from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.model import Model
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.testing import MockModel, MockPosterior
@@ -88,7 +89,7 @@ class FrontierEvaluatorTest(TestCase):
     def test_pareto_frontier_raise_error_when_missing_data(self) -> None:
         with self.assertRaises(ValueError):
             pareto_frontier_evaluator(
-                model=MultiObjectiveBotorchGenerator(),
+                model=MultiObjectiveLegacyBoTorchGenerator(),
                 objective_thresholds=self.objective_thresholds,
                 objective_weights=self.objective_weights,
                 Yvar=self.Yvar,
@@ -153,7 +154,7 @@ class FrontierEvaluatorTest(TestCase):
 
     def test_pareto_frontier_evaluator_predict(self) -> None:
         def dummy_predict(
-            model: MultiObjectiveBotorchGenerator,
+            model: Model,
             X: Tensor,
             use_posterior_predictive: bool = False,
         ) -> tuple[Tensor, Tensor]:
@@ -162,11 +163,7 @@ class FrontierEvaluatorTest(TestCase):
             cov = torch.zeros(mean.shape[0], mean.shape[1], mean.shape[1])
             return mean, cov
 
-        # pyre-fixme: Incompatible parameter type [6]: In call
-        # `MultiObjectiveBotorchGenerator.__init__`, for argument `model_predictor`,
-        # expected `typing.Callable[[Model, Tensor, bool], Tuple[Tensor,
-        # Tensor]]` but got named arguments
-        model = MultiObjectiveBotorchGenerator(model_predictor=dummy_predict)
+        model = MultiObjectiveLegacyBoTorchGenerator(model_predictor=dummy_predict)
         _fit_model(model=model, X=self.X, Y=self.Y, Yvar=self.Yvar)
 
         Y, _, indx = pareto_frontier_evaluator(
@@ -182,7 +179,7 @@ class FrontierEvaluatorTest(TestCase):
         self.assertTrue(torch.equal(torch.arange(2, 4), indx))
 
     def test_pareto_frontier_evaluator_with_outcome_constraints(self) -> None:
-        model = MultiObjectiveBotorchGenerator()
+        model = MultiObjectiveLegacyBoTorchGenerator()
         Y, _, indx = pareto_frontier_evaluator(
             model=model,
             objective_weights=self.objective_weights,

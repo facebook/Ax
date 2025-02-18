@@ -62,7 +62,7 @@ from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
-from ax.models.torch.botorch import BotorchGenerator
+from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.models.torch.botorch_modular.model import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
@@ -194,7 +194,7 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     ),
     "Legacy_GPEI": ModelSetup(
         bridge_class=TorchAdapter,
-        model_class=BotorchGenerator,
+        model_class=LegacyBoTorchGenerator,
         transforms=Cont_X_trans + Y_trans,
     ),
     "EB": ModelSetup(

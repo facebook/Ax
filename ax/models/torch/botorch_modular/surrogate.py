@@ -442,7 +442,7 @@ class SurrogateSpec:
     Fields in the SurrogateSpec dataclass correspond to arguments in
     ``Surrogate.__init__``, except for ``outcomes`` which is used to specify which
     outcomes the Surrogate is responsible for modeling.
-    When ``BotorchGenerator.fit`` is called, these fields will be used to construct the
+    When ``BoTorchGenerator.fit`` is called, these fields will be used to construct the
     requisite Surrogate objects.
     If ``outcomes`` is left empty then no outcomes will be fit to the Surrogate.
 
@@ -679,8 +679,8 @@ class Surrogate(Base):
             would set this to be False, so that no information is leaked between or
             across folds.
         metric_to_best_model_config: Dictionary mapping a metric name to the best
-            model config. This is only used by BotorchGenerator.cross_validate and for
-            logging what model was used.
+            model config. This is only used by `BoTorchGenerator.cross_validate` and
+            for logging what model was used.
 
     """
 

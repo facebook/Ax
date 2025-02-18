@@ -97,7 +97,7 @@ TBestPointRecommender = Callable[
 ]
 
 
-class BotorchGenerator(TorchGenerator):
+class LegacyBoTorchGenerator(TorchGenerator):
     r"""
     Customizable botorch model.
 
@@ -158,9 +158,9 @@ class BotorchGenerator(TorchGenerator):
     `fidelity_features` is a list of ints that specify the positions of fidelity
     parameters in 'Xs', `metric_names` provides the names of each `Y` in `Ys`,
     `state_dict` is a pytorch module state dict, and `model` is a BoTorch `Model`.
-    Optional kwargs are being passed through from the `BotorchGenerator` constructor.
-    This callable is assumed to return a fitted BoTorch model that has the same
-    dtype and lives on the same device as the input tensors.
+    Optional kwargs are being passed through from the `LegacyBoTorchGenerator`
+    constructor. This callable is assumed to return a fitted BoTorch model that has
+    the same dtype and lives on the same device as the input tensors.
 
     ::
 
@@ -257,8 +257,8 @@ class BotorchGenerator(TorchGenerator):
         **kwargs: Any,
     ) -> None:
         warnings.warn(
-            "The legacy `BotorchGenerator` and its subclasses, including the current"
-            f"class `{self.__class__.__name__}`, slated for deprecation. "
+            "The legacy `LegacyBoTorchGenerator` and its subclasses, including the "
+            f"current class `{self.__class__.__name__}`, slated for deprecation. "
             "These models will not be supported going forward and may be "
             "fully removed in a future release. Please consider using the "
             "Modular BoTorch Generator (MBG) setup (ax/models/torch/botorch_modular) "
@@ -298,7 +298,7 @@ class BotorchGenerator(TorchGenerator):
     ) -> None:
         if len(datasets) == 0:
             raise DataRequiredError(
-                "BotorchGenerator.fit requires non-empty data sets."
+                "LegacyBoTorchGenerator.fit requires non-empty data sets."
             )
         self.Xs, self.Ys, self.Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         self.metric_names = sum((ds.outcome_names for ds in datasets), [])
@@ -343,7 +343,7 @@ class BotorchGenerator(TorchGenerator):
 
         if search_space_digest.fidelity_features:
             raise NotImplementedError(
-                "Base BotorchGenerator does not support fidelity_features."
+                "Base LegacyBoTorchGenerator does not support fidelity_features."
             )
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,

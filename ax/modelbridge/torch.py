@@ -64,7 +64,7 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchGenerator
+from ax.models.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch_base import TorchGenerator, TorchOptConfig
 from ax.models.types import TConfig
@@ -212,7 +212,7 @@ class TorchAdapter(Adapter):
                 "`infer_objective_thresholds` does not support risk measures."
             )
         # Infer objective thresholds.
-        if isinstance(self.model, MultiObjectiveBotorchGenerator):
+        if isinstance(self.model, MultiObjectiveLegacyBoTorchGenerator):
             model = self.model.model
             Xs = self.model.Xs
         elif isinstance(self.model, BoTorchGenerator):
@@ -220,9 +220,9 @@ class TorchAdapter(Adapter):
             Xs = self.model.surrogate.Xs
         else:
             raise UnsupportedError(
-                "Model must be a MultiObjectiveBotorchGenerator or an appropriate "
-                "Modular Botorch Model to infer_objective_thresholds. Found "
-                f"{type(self.model)}."
+                "Model must be a MultiObjectiveLegacyBoTorchGenerator or an "
+                "appropriate Modular Botorch Model to infer_objective_thresholds. "
+                f"Found {type(self.model)}."
             )
 
         obj_thresholds = infer_objective_thresholds(
