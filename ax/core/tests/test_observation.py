@@ -23,7 +23,6 @@ from ax.core.observation import (
     ObservationData,
     ObservationFeatures,
     observations_from_data,
-    observations_from_map_data,
     recombine_observations,
     separate_observations,
 )
@@ -475,7 +474,7 @@ class ObservationsTest(TestCase):
                 MapKeyInfo(key="timestamp", default_value=0.0),
             ],
         )
-        observations = observations_from_map_data(experiment, data)
+        observations = observations_from_data(experiment, data)
 
         self.assertEqual(len(observations), 3)
 

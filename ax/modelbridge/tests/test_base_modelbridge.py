@@ -1041,22 +1041,17 @@ class testClampObservationFeatures(TestCase):
         self.assertEqual(m.model_space.parameters["x2"].upper, 20)
 
     @mock.patch(
-        "ax.modelbridge.base.observations_from_map_data",
+        "ax.modelbridge.base.observations_from_data",
         autospec=True,
         return_value=([get_observation1()]),
     )
-    @mock.patch(
-        "ax.modelbridge.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1(), get_observation2()]),
-    )
     def test_fit_only_completed_map_metrics(
-        self, mock_observations_from_data: Mock, mock_observations_from_map_data: Mock
+        self, mock_observations_from_data: Mock
     ) -> None:
         # NOTE: If empty data object is not passed, observations are not
         # extracted, even with mock.
         # _prepare_observations is called in the constructor and itself calls
-        # observations_from_map_data.
+        # observations_from_data with map_keys_as_parameters=True
         Adapter(
             search_space=get_search_space_for_value(),
             model=0,
@@ -1065,13 +1060,16 @@ class testClampObservationFeatures(TestCase):
             status_quo_name="1_1",
             fit_only_completed_map_metrics=False,
         )
-        self.assertTrue(mock_observations_from_map_data.called)
-        self.assertFalse(mock_observations_from_data.called)
-
-        # calling without map data calls regular observations_from_data even
-        # if fit_only_completed_map_metrics is False
+        mock_observations_from_data.assert_called_once_with(
+            experiment=mock.ANY,
+            data=mock.ANY,
+            statuses_to_include=mock.ANY,
+            statuses_to_include_map_metric=mock.ANY,
+            map_keys_as_parameters=True,
+        )
         mock_observations_from_data.reset_mock()
-        mock_observations_from_map_data.reset_mock()
+        # calling without map data calls observations_from_data with
+        # map_keys_as_parameters=False even if fit_only_completed_map_metrics is False
         Adapter(
             search_space=get_search_space_for_value(),
             model=0,
@@ -1080,5 +1078,10 @@ class testClampObservationFeatures(TestCase):
             status_quo_name="1_1",
             fit_only_completed_map_metrics=False,
         )
-        self.assertFalse(mock_observations_from_map_data.called)
-        self.assertTrue(mock_observations_from_data.called)
+        mock_observations_from_data.assert_called_once_with(
+            experiment=mock.ANY,
+            data=mock.ANY,
+            statuses_to_include=mock.ANY,
+            statuses_to_include_map_metric=mock.ANY,
+            map_keys_as_parameters=False,
+        )

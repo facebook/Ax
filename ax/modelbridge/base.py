@@ -26,7 +26,6 @@ from ax.core.observation import (
     ObservationData,
     ObservationFeatures,
     observations_from_data,
-    observations_from_map_data,
     recombine_observations,
     separate_observations,
 )
@@ -297,19 +296,15 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
     ) -> list[Observation]:
         if experiment is None or data is None:
             return []
-        if not self._fit_only_completed_map_metrics and isinstance(data, MapData):
-            return observations_from_map_data(
-                experiment=experiment,
-                map_data=data,
-                map_keys_as_parameters=True,
-                statuses_to_include=self.statuses_to_fit,
-                statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
-            )
+        map_keys_as_parameters = (
+            not self._fit_only_completed_map_metrics and isinstance(data, MapData)
+        )
         return observations_from_data(
             experiment=experiment,
             data=data,
             statuses_to_include=self.statuses_to_fit,
             statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
+            map_keys_as_parameters=map_keys_as_parameters,
         )
 
     def _transform_data(
