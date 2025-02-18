@@ -89,12 +89,10 @@ def get_test_trial(
     n_steps = 3 if multiple_time_steps else 1
     dfs = {
         name: pd.concat(
-            (
-                _get_one_step_df(
-                    batch=batch, metric_name=name, step=i, observe_noise_sd=True
-                )
-                for i in range(n_steps)
+            _get_one_step_df(
+                batch=batch, metric_name=name, step=i, observe_noise_sd=True
             )
+            for i in range(n_steps)
         )
         for name in ["test_metric1", "test_metric2"]
     }

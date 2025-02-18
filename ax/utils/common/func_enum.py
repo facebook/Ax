@@ -4,9 +4,10 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+from collections.abc import Callable
 from enum import Enum, unique
 from importlib import import_module
-from typing import Any, Callable
+from typing import Any
 
 from ax.exceptions.core import UnsupportedError
 

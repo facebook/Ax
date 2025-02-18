@@ -8,10 +8,9 @@
 
 import re
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 from logging import INFO, Logger
-from typing import Optional, Sequence
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -94,11 +93,11 @@ class WithDBSettingsBase:
     if `db_settings` property is set to a non-None value on the instance.
     """
 
-    _db_settings: Optional[DBSettings] = None
+    _db_settings: DBSettings | None = None
 
     def __init__(
         self,
-        db_settings: Optional[DBSettings] = None,
+        db_settings: DBSettings | None = None,
         logging_level: int = INFO,
         suppress_all_errors: bool = False,
     ) -> None:
@@ -118,7 +117,7 @@ class WithDBSettingsBase:
         logger.setLevel(logging_level)
 
     @staticmethod
-    def _get_default_db_settings() -> Optional[DBSettings]:
+    def _get_default_db_settings() -> DBSettings | None:
         """Overridable method to get default db_settings
         if none are passed in __init__
         """

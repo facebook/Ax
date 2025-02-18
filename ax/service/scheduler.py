@@ -15,7 +15,7 @@ from datetime import datetime
 from enum import IntEnum
 from logging import LoggerAdapter
 from time import sleep
-from typing import Any, cast, NamedTuple, Optional
+from typing import Any, cast, NamedTuple
 
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -213,7 +213,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         experiment: Experiment,
         generation_strategy: GenerationStrategy,
         options: SchedulerOptions,
-        db_settings: Optional[DBSettings] = None,
+        db_settings: DBSettings | None = None,
         _skip_experiment_save: bool = False,
     ) -> None:
         self.experiment = experiment
@@ -277,7 +277,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         cls,
         experiment_name: str,
         options: SchedulerOptions,
-        db_settings: Optional[DBSettings] = None,
+        db_settings: DBSettings | None = None,
         generation_strategy: GenerationStrategy | None = None,
         reduced_state: bool = True,
         **kwargs: Any,
@@ -574,7 +574,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
         timeout_hours: float | None = None,
-        idle_callback: Optional[Callable[[Scheduler], None]] = None,
+        idle_callback: Callable[[Scheduler], None] | None = None,
     ) -> OptimizationResult:
         """Run up to ``max_trials`` trials; will run all ``max_trials`` unless
         completion criterion is reached. For base ``Scheduler``, completion criterion
@@ -623,7 +623,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def run_all_trials(
         self,
         timeout_hours: float | None = None,
-        idle_callback: Optional[Callable[[Scheduler], None]] = None,
+        idle_callback: Callable[[Scheduler], None] | None = None,
     ) -> OptimizationResult:
         """Run all trials until ``should_consider_optimization_complete`` yields
         true (by default, ``should_consider_optimization_complete`` will yield true when
@@ -1540,7 +1540,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def _complete_optimization(
         self,
         num_preexisting_trials: int,
-        idle_callback: Optional[Callable[[Scheduler], None]] = None,
+        idle_callback: Callable[[Scheduler], None] | None = None,
     ) -> dict[str, Any]:
         """Conclude optimization with waiting for anymore running trials and
         return final results via `wait_for_completed_trials_and_report_results`.

@@ -6,7 +6,6 @@
 # pyre-strict
 
 import json
-from typing import Tuple
 
 import pandas as pd
 
@@ -156,7 +155,7 @@ def constraints_feasibility(
     optimization_config: OptimizationConfig,
     model: Adapter,
     prob_threshold: float = 0.99,
-) -> Tuple[bool, pd.DataFrame]:
+) -> tuple[bool, pd.DataFrame]:
     r"""
     Check the feasibility of the constraints for the experiment.
 

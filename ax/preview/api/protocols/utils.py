@@ -9,7 +9,8 @@
 import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Any, Iterable, Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 import pandas as pd
 

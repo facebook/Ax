@@ -7,11 +7,10 @@
 # pyre-strict
 
 from collections import OrderedDict
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from functools import reduce
 
 from logging import Logger
-from typing import Mapping
 
 import pandas as pd
 import torch

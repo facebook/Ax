@@ -6,7 +6,8 @@
 # pyre-strict
 
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from ax.preview.api.protocols.utils import _APIMetric
 from pyre_extensions import override

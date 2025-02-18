@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from logging import Logger
 from time import time
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -48,7 +48,7 @@ class TimeAsFeature(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         assert observations is not None, "TimeAsFeature requires observations"

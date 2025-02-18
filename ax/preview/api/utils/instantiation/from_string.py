@@ -6,7 +6,7 @@
 # pyre-strict
 
 import re
-from typing import Sequence
+from collections.abc import Sequence
 
 from ax.core.map_metric import MapMetric
 

@@ -6,8 +6,9 @@
 # pyre-strict
 
 import json
+from collections.abc import Sequence
 from logging import Logger
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 
