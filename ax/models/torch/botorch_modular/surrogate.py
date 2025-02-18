@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field, InitVar
 from logging import Logger
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 import torch
@@ -826,7 +826,7 @@ class Surrogate(Base):
         search_space_digest: SearchSpaceDigest,
         model_config: ModelConfig,
         default_botorch_model_class: type[Model],
-        state_dict: OrderedDict[str, Tensor] | None,
+        state_dict: Mapping[str, Tensor] | None,
         refit: bool,
     ) -> Model:
         """Constructs the underlying BoTorch ``Model`` using the training data.
@@ -851,7 +851,7 @@ class Surrogate(Base):
         botorch_model_class = (
             model_config.botorch_model_class or default_botorch_model_class
         )
-        if self._should_reuse_last_model(dataset=dataset):
+        if self._dataset_matches_cache(dataset=dataset):
             return self._submodels[outcome_names]
         formatted_model_inputs = submodel_input_constructor(
             botorch_model_class,  # Do not pass as kwarg since this is used to dispatch.
@@ -872,12 +872,12 @@ class Surrogate(Base):
             )
         return model
 
-    def _should_reuse_last_model(
+    def _dataset_matches_cache(
         self,
         dataset: SupervisedDataset,
     ) -> bool:
-        """Checks whether the given dataset and model class match the last
-        dataset.
+        """Returns `True` if the given dataset matches the last dataset used to fit
+        the model for the corresponding outcomes.
         """
         outcome_names = tuple(dataset.outcome_names)
         return (
@@ -890,8 +890,9 @@ class Surrogate(Base):
         datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
-        state_dict: OrderedDict[str, Tensor] | None = None,
+        state_dict: Mapping[str, Tensor] | None = None,
         refit: bool = True,
+        repeat_model_selection_if_dataset_changed: bool = True,
     ) -> None:
         """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
 
@@ -920,6 +921,14 @@ class Surrogate(Base):
                 the order corresponding to the Xs.
             state_dict: Optional state dict to load.
             refit: Whether to re-optimize model parameters.
+            repeat_model_selection_if_dataset_changed: Whether to repeat model
+                selection, ignoring previously found best config, if the dataset
+                for the corresponding outcomes has changed. This is typically
+                set to `True` when called from ``BoTorchGenerator.fit`` but set
+                to `False` when called from ``BoTorchGenerator.cross_validate``.
+                During cross_validation, we want to evaluate the quality of the
+                previously selected best model, rather than repeating model selection
+                for each fold.
         """
         self._discard_cached_model_and_data_if_search_space_digest_changed(
             search_space_digest=search_space_digest
@@ -953,18 +962,24 @@ class Surrogate(Base):
                     )
                 else:
                     submodel_state_dict = state_dict
-            outcome_name = dataset.outcome_names[0]
+            outcome_name_tuple = tuple(dataset.outcome_names)
+            first_outcome_name = outcome_name_tuple[0]
             model_configs = (
-                self.surrogate_spec.metric_to_model_configs[outcome_name]
-                if outcome_name in self.surrogate_spec.metric_to_model_configs
+                self.surrogate_spec.metric_to_model_configs[first_outcome_name]
+                if first_outcome_name in self.surrogate_spec.metric_to_model_configs
                 else self.surrogate_spec.model_configs
             )
-            # Case 1: There is either 1 model config, or we don't want to refit
-            # and we know what the previous best model was
-            outcome_name_tuple = tuple(dataset.outcome_names)
-            model_config = self.metric_to_best_model_config.get(
-                dataset.outcome_names[0]
-            )
+            # Case 1: There is either 1 model config, or we don't want to re-do
+            # model selection and we know what the previous best model was.
+            if (
+                not repeat_model_selection_if_dataset_changed
+                or self._dataset_matches_cache(dataset=dataset)
+            ):
+                # Re-use the best model config, if the dataset hasn't changed or
+                # `repeat_model_selection_if_dataset_changed` is set to `False`.
+                model_config = self.metric_to_best_model_config.get(first_outcome_name)
+            else:
+                model_config = None
             # Model selection is not performed if the best `ModelConfig` has already
             # been identified (as specified in `metric_to_best_model_config`).
             # The reason for doing this is to support the following flow:

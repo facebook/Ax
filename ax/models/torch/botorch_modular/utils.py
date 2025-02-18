@@ -11,7 +11,7 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any
+from typing import Any, Mapping
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -409,7 +409,7 @@ def fit_botorch_model(
 
 
 def subset_state_dict(
-    state_dict: OrderedDict[str, Tensor],
+    state_dict: Mapping[str, Tensor],
     submodel_index: int,
 ) -> OrderedDict[str, Tensor]:
     """Get the state dict for a submodel from the state dict of a model list.
