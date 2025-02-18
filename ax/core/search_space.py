@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import math
 import warnings
-from collections.abc import Callable, Hashable, Mapping
+from collections.abc import Callable, Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import reduce
 from logging import Logger
 from random import choice, uniform
-from typing import Sequence
 
 import numpy.typing as npt
 import pandas as pd

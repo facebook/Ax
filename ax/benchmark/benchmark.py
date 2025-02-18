@@ -24,7 +24,6 @@ from collections.abc import Iterable, Mapping
 from itertools import product
 from logging import Logger, WARNING
 from time import monotonic, time
-from typing import Set
 
 import numpy as np
 import numpy.typing as npt
@@ -289,7 +288,7 @@ def benchmark_replication(
     best_params_by_trial: list[list[TParameterization]] = []
 
     is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
-    trials_used_for_best_point: Set[int] = set()
+    trials_used_for_best_point: set[int] = set()
 
     # Run the optimization loop.
     timeout_hours = method.timeout_hours

@@ -9,12 +9,12 @@
 import logging
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Callable, cast, Optional
+from typing import Any, cast
 from unittest.mock import call, Mock, patch
 
 import pandas as pd
@@ -296,7 +296,7 @@ class AxSchedulerTestCase(TestCase):
         str,
         Callable[
             [...],
-            Optional[dict[str, list[ObservationFeatures]]],
+            dict[str, list[ObservationFeatures]] | None,
         ],
     ] = (
         f"{Scheduler.__module__}."
@@ -307,7 +307,7 @@ class AxSchedulerTestCase(TestCase):
         str,
         Callable[
             [...],
-            Optional[dict[str, list[ObservationFeatures]]],
+            dict[str, list[ObservationFeatures]] | None,
         ],
     ] = (
         f"{GenerationStrategy.__module__}.extract_pending_observations",
@@ -435,7 +435,7 @@ class AxSchedulerTestCase(TestCase):
         return DBSettings(encoder=encoder, decoder=decoder)
 
     @property
-    def db_settings_if_always_needed(self) -> Optional[DBSettings]:
+    def db_settings_if_always_needed(self) -> DBSettings | None:
         if self.ALWAYS_USE_DB:
             return self.db_settings
         return None
@@ -1041,7 +1041,7 @@ class AxSchedulerTestCase(TestCase):
 
             testScheduler.logger.debug(testDebugMessage)
 
-            with open(temp_file.name, "r") as f:
+            with open(temp_file.name) as f:
                 log_contents = f.read()
                 self.assertIn(testDebugMessage, log_contents)
             temp_file.close()

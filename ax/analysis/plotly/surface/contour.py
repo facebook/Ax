@@ -6,7 +6,6 @@
 # pyre-strict
 
 import math
-from typing import Optional
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
@@ -61,8 +60,8 @@ class ContourPlot(PlotlyAnalysis):
 
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategy] = None,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ContourPlot requires an Experiment")

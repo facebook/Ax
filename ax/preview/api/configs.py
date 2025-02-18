@@ -5,9 +5,10 @@
 
 # pyre-strict
 
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, List, Mapping, Sequence
+from typing import Any
 
 from ax.preview.api.types import TParameterValue
 from ax.storage.registry_bundle import RegistryBundleBase
@@ -58,7 +59,7 @@ class ChoiceParameterConfig:
     """
 
     name: str
-    values: List[float] | List[int] | List[str] | List[bool]
+    values: list[float] | list[int] | list[str] | list[bool]
     parameter_type: ParameterType
     is_ordered: bool | None = None
     dependent_parameters: Mapping[TParameterValue, Sequence[str]] | None = None

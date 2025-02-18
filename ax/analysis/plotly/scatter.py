@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
@@ -50,8 +49,8 @@ class ScatterPlot(PlotlyAnalysis):
 
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategy] = None,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ScatterPlot requires an Experiment")

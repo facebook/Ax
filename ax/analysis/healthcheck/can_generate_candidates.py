@@ -7,7 +7,6 @@
 
 import json
 from datetime import datetime
-from typing import Optional
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
@@ -46,7 +45,7 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
 
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
+        experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
     ) -> HealthcheckAnalysisCard:
         status = HealthcheckStatus.PASS

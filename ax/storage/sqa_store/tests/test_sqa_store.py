@@ -7,11 +7,12 @@
 # pyre-strict
 
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum, unique
 from logging import Logger
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 

@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Mapping
+from collections.abc import Mapping
 
 TParameterValue = int | float | str | bool
 TParameterization = Mapping[str, TParameterValue]

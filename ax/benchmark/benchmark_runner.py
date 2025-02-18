@@ -127,7 +127,7 @@ def get_total_runtime(
     # By default, each step takes 1 virtual second.
     if step_runtime_function is not None:
         max_step_runtime = max(
-            (step_runtime_function(arm.parameters) for arm in trial.arms)
+            step_runtime_function(arm.parameters) for arm in trial.arms
         )
     else:
         max_step_runtime = 1

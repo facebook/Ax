@@ -9,10 +9,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Sequence
+from typing import Any
 from warnings import warn
 
 import numpy as np

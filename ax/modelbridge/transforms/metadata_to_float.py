@@ -8,8 +8,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from logging import Logger
-from typing import Any, Iterable, Optional, SupportsFloat, TYPE_CHECKING
+from typing import Any, SupportsFloat, TYPE_CHECKING
 
 from ax.core import ParameterType
 
@@ -51,7 +53,7 @@ class MetadataToFloat(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         if observations is None or not observations:
