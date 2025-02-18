@@ -288,7 +288,9 @@ def _observations_from_dataframe(
         return []
     observations = []
     abandoned_arms_dict = {}
-    for g, d in df.groupby(by=cols):
+    # NOTE: dropna is important to avoid dropping the whole or part of the df if
+    # a feature column is filled with NaN / NaT values.
+    for g, d in df.groupby(by=cols, dropna=False):
         obs_kwargs = {}
         features = dict(zip(cols, g, strict=True))
         arm_name = features["arm_name"]
@@ -321,7 +323,7 @@ def _observations_from_dataframe(
         if obs_parameters:
             obs_kwargs["parameters"] = obs_parameters
         for f, val in features.items():
-            if f in OBS_KWARGS:
+            if f in OBS_KWARGS and not pd.isna(val):
                 obs_kwargs[f] = val
         # add start and end time of trial if the start and end time
         # is the same for all metrics and arms
@@ -487,50 +489,14 @@ def observations_from_data(
     if statuses_to_include_map_metric is None:
         statuses_to_include_map_metric = {TrialStatus.COMPLETED}
     feature_cols = get_feature_cols(data)
-    observations = []
-    # One DataFrame where all rows have all features.
-    isnull = data.df[feature_cols].isnull()
-    isnull_any = isnull.any(axis=1)
-    incomplete_df_cols = isnull[isnull_any].any()
-
-    # Get the incomplete_df columns that are complete, and usable as groupby keys.
-    complete_feature_cols = list(
-        OBS_COLS.intersection(incomplete_df_cols.index[~incomplete_df_cols])
+    return _observations_from_dataframe(
+        experiment=experiment,
+        df=data.df,
+        cols=feature_cols,
+        statuses_to_include=statuses_to_include,
+        statuses_to_include_map_metric=statuses_to_include_map_metric,
+        map_keys=[],
     )
-
-    if set(feature_cols) == set(complete_feature_cols):
-        complete_df = data.df
-        incomplete_df = None
-    else:
-        # The groupby and filter is expensive, so do it only if we have to.
-        grouped = data.df.groupby(by=complete_feature_cols)
-        complete_df = grouped.filter(lambda r: ~r[feature_cols].isnull().any().any())
-        incomplete_df = grouped.filter(lambda r: r[feature_cols].isnull().any().any())
-
-    # Get Observations from complete_df
-    observations.extend(
-        _observations_from_dataframe(
-            experiment=experiment,
-            df=complete_df,
-            cols=feature_cols,
-            statuses_to_include=statuses_to_include,
-            statuses_to_include_map_metric=statuses_to_include_map_metric,
-            map_keys=[],
-        )
-    )
-    if incomplete_df is not None:
-        # Get Observations from incomplete_df
-        observations.extend(
-            _observations_from_dataframe(
-                experiment=experiment,
-                df=incomplete_df,
-                cols=complete_feature_cols,
-                statuses_to_include=statuses_to_include,
-                statuses_to_include_map_metric=statuses_to_include_map_metric,
-                map_keys=[],
-            )
-        )
-    return observations
 
 
 def observations_from_map_data(
@@ -584,59 +550,15 @@ def observations_from_map_data(
             include_first_last=True,
         )
     feature_cols = get_feature_cols(map_data, is_map_data=True)
-    observations = []
-    # One DataFrame where all rows have all features.
-    isnull = map_data.map_df[feature_cols].isnull()
-    isnull_any = isnull.any(axis=1)
-    incomplete_df_cols = isnull[isnull_any].any()
-
-    # Get the incomplete_df columns that are complete, and usable as groupby keys.
-    obs_cols_and_map = OBS_COLS.union(map_data.map_keys)
-    complete_feature_cols = list(
-        obs_cols_and_map.intersection(incomplete_df_cols.index[~incomplete_df_cols])
+    return _observations_from_dataframe(
+        experiment=experiment,
+        df=map_data.map_df,
+        cols=feature_cols,
+        map_keys=map_data.map_keys,
+        statuses_to_include=statuses_to_include,
+        statuses_to_include_map_metric=statuses_to_include_map_metric,
+        map_keys_as_parameters=map_keys_as_parameters,
     )
-
-    if set(feature_cols) == set(complete_feature_cols):
-        complete_df = map_data.map_df
-        incomplete_df = None
-    else:
-        # The groupby and filter is expensive, so do it only if we have to.
-        grouped = map_data.map_df.groupby(
-            by=(
-                complete_feature_cols
-                if len(complete_feature_cols) > 1
-                else complete_feature_cols[0]
-            )
-        )
-        complete_df = grouped.filter(lambda r: ~r[feature_cols].isnull().any().any())
-        incomplete_df = grouped.filter(lambda r: r[feature_cols].isnull().any().any())
-
-    # Get Observations from complete_df
-    observations.extend(
-        _observations_from_dataframe(
-            experiment=experiment,
-            df=complete_df,
-            cols=feature_cols,
-            map_keys=map_data.map_keys,
-            statuses_to_include=statuses_to_include,
-            statuses_to_include_map_metric=statuses_to_include_map_metric,
-            map_keys_as_parameters=map_keys_as_parameters,
-        )
-    )
-    if incomplete_df is not None:
-        # Get Observations from incomplete_df
-        observations.extend(
-            _observations_from_dataframe(
-                experiment=experiment,
-                df=incomplete_df,
-                cols=complete_feature_cols,
-                map_keys=map_data.map_keys,
-                statuses_to_include=statuses_to_include,
-                statuses_to_include_map_metric=statuses_to_include_map_metric,
-                map_keys_as_parameters=map_keys_as_parameters,
-            )
-        )
-    return observations
 
 
 def separate_observations(
