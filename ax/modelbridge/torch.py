@@ -453,7 +453,6 @@ class TorchAdapter(Adapter):
         cv_test_points: list[ObservationFeatures],
         parameters: list[str] | None = None,
         use_posterior_predictive: bool = False,
-        **kwargs: Any,
     ) -> list[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
@@ -479,7 +478,6 @@ class TorchAdapter(Adapter):
             X_test=torch.as_tensor(X_test, dtype=self.dtype, device=self.device),
             search_space_digest=search_space_digest,
             use_posterior_predictive=use_posterior_predictive,
-            **kwargs,
         )
         # Convert array back to ObservationData
         return array_to_observation_data(
