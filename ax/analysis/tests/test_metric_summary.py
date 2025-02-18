@@ -80,7 +80,7 @@ class TestMetricSummary(TestCase):
                     ),
                 ),
                 "Bound": ["None", ">= 1.0", "<= 0.0", "None"],
-                "Lower is Better": ["None", "None", "None", "None"],
+                "Lower is Better": [False, False, "None", "None"],
             }
         )
         pd.testing.assert_frame_equal(card.df, expected)
