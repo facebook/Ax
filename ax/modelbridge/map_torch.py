@@ -5,7 +5,8 @@
 
 # pyre-strict
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -292,7 +293,6 @@ class MapTorchAdapter(TorchAdapter):
         cv_test_points: list[ObservationFeatures],
         parameters: list[str] | None = None,
         use_posterior_predictive: bool = False,
-        **kwargs: Any,
     ) -> list[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data. The difference from `TorchAdapter._cross_validate`
@@ -308,7 +308,6 @@ class MapTorchAdapter(TorchAdapter):
             cv_test_points=cv_test_points,
             parameters=parameters,  # we pass the map_keys too by default
             use_posterior_predictive=use_posterior_predictive,
-            **kwargs,
         )
         observation_features, observation_data = separate_observations(cv_training_data)
         # Since map_keys are used as features, there can be the possibility that

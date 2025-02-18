@@ -24,7 +24,6 @@ from collections.abc import Iterable, Mapping
 from itertools import product
 from logging import Logger, WARNING
 from time import monotonic, time
-from typing import Set
 
 import numpy as np
 import numpy.typing as npt
@@ -248,6 +247,11 @@ def benchmark_replication(
         seed: The seed to use for this replication.
         strip_runner_before_saving: Whether to strip the runner from the
             experiment before saving it. This enables serialization.
+        scheduler_logging_level: If >INFO, logs will only appear when unexpected
+            things happen. If INFO, logs will update when a trial is completed
+            and when an early stopping strategy, if present, decides whether or
+            not to continue a trial. If DEBUG, logs additionaly include
+            information from a `BackendSimulator`, if present.
 
     Return:
         ``BenchmarkResult`` object.
@@ -263,8 +267,7 @@ def benchmark_replication(
         logging_level=scheduler_logging_level,
     )
     runner = get_benchmark_runner(
-        problem=problem,
-        max_concurrency=scheduler_options.max_pending_trials,
+        problem=problem, max_concurrency=scheduler_options.max_pending_trials
     )
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",
@@ -285,7 +288,7 @@ def benchmark_replication(
     best_params_by_trial: list[list[TParameterization]] = []
 
     is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
-    trials_used_for_best_point: Set[int] = set()
+    trials_used_for_best_point: set[int] = set()
 
     # Run the optimization loop.
     timeout_hours = method.timeout_hours

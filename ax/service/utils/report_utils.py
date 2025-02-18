@@ -1186,8 +1186,8 @@ def _objective_vs_true_objective_scatter(
 # TODO: may want to have a way to do this with a plot_fn
 # that returns a list of plots, such as get_standard_plots
 def get_figure_and_callback(
-    plot_fn: Callable[["Scheduler"], go.Figure],
-) -> tuple[go.Figure, Callable[["Scheduler"], None]]:
+    plot_fn: Callable[[Scheduler], go.Figure],
+) -> tuple[go.Figure, Callable[[Scheduler], None]]:
     """
     Produce a figure and a callback for updating the figure in place.
 
@@ -1212,7 +1212,7 @@ def get_figure_and_callback(
     fig = go.FigureWidget(layout=go.Layout())
 
     # pyre-fixme[53]: Captured variable `fig` is not annotated.
-    def _update_fig_in_place(scheduler: "Scheduler") -> None:
+    def _update_fig_in_place(scheduler: Scheduler) -> None:
         try:
             new_fig = plot_fn(scheduler)
         except RuntimeError as e:

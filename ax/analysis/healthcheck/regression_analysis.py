@@ -6,7 +6,6 @@
 # pyre-strict
 
 import json
-from typing import Tuple
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
@@ -111,7 +110,7 @@ class RegressionAnalysis(HealthcheckAnalysis):
 
 def process_regression_dict(
     regressions_by_trial: dict[int, dict[str, dict[str, float]]],
-) -> Tuple[pd.DataFrame, str]:
+) -> tuple[pd.DataFrame, str]:
     r"""
     Process the dictionary of trial indices, regressing arms and metrics into
         a dataframe and a string.

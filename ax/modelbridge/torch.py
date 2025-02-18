@@ -9,10 +9,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Sequence
+from typing import Any
 from warnings import warn
 
 import numpy as np
@@ -64,7 +64,7 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchGenerator
+from ax.models.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch_base import TorchGenerator, TorchOptConfig
 from ax.models.types import TConfig
@@ -212,7 +212,7 @@ class TorchAdapter(Adapter):
                 "`infer_objective_thresholds` does not support risk measures."
             )
         # Infer objective thresholds.
-        if isinstance(self.model, MultiObjectiveBotorchGenerator):
+        if isinstance(self.model, MultiObjectiveLegacyBoTorchGenerator):
             model = self.model.model
             Xs = self.model.Xs
         elif isinstance(self.model, BoTorchGenerator):
@@ -220,9 +220,9 @@ class TorchAdapter(Adapter):
             Xs = self.model.surrogate.Xs
         else:
             raise UnsupportedError(
-                "Model must be a MultiObjectiveBotorchGenerator or an appropriate "
-                "Modular Botorch Model to infer_objective_thresholds. Found "
-                f"{type(self.model)}."
+                "Model must be a MultiObjectiveLegacyBoTorchGenerator or an "
+                "appropriate Modular Botorch Model to infer_objective_thresholds. "
+                f"Found {type(self.model)}."
             )
 
         obj_thresholds = infer_objective_thresholds(
@@ -453,7 +453,6 @@ class TorchAdapter(Adapter):
         cv_test_points: list[ObservationFeatures],
         parameters: list[str] | None = None,
         use_posterior_predictive: bool = False,
-        **kwargs: Any,
     ) -> list[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
@@ -479,7 +478,6 @@ class TorchAdapter(Adapter):
             X_test=torch.as_tensor(X_test, dtype=self.dtype, device=self.device),
             search_space_digest=search_space_digest,
             use_posterior_predictive=use_posterior_predictive,
-            **kwargs,
         )
         # Convert array back to ObservationData
         return array_to_observation_data(

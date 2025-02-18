@@ -248,7 +248,7 @@ class TestBenchmarkRunner(TestCase):
                 for i, df in enumerate(res.values()):
                     if isinstance(noise_std, list):
                         self.assertEqual(df["sem"].item(), noise_std[i])
-                        if all((n == 0 for n in noise_std)):
+                        if all(n == 0 for n in noise_std):
                             self.assertTrue(np.array_equal(df["mean"], Y[i, :]))
                     else:  # float
                         self.assertEqual(df["sem"].item(), noise_std)

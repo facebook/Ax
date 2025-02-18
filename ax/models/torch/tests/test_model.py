@@ -17,6 +17,7 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning
+from ax.exceptions.model import ModelError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import (
@@ -311,13 +312,12 @@ class BoTorchGeneratorTest(TestCase):
     # is only constructed when `model.fit` is called
     @mock.patch(f"{SURROGATE_PATH}.Surrogate._construct_model")
     def test_fit(self, mock_fit: Mock) -> None:
-        # If surrogate is not yet set, initialize it with dispatcher functions.
+        # If surrogate is not yet set, initialize it internally.
         self.model._surrogate = None
-        with self.assertRaisesRegex(RuntimeError, "is not initialized. Must `fit`"):
+        with self.assertRaisesRegex(
+            ModelError, "Surrogate has not yet been constructed."
+        ):
             self.model.search_space_digest  # can't access before fit
-
-        with self.assertRaisesRegex(RuntimeError, "manually is disallowed"):
-            self.model.search_space_digest = self.mf_search_space_digest
 
         self.model.fit(
             datasets=self.block_design_training_data,
@@ -389,6 +389,7 @@ class BoTorchGeneratorTest(TestCase):
         )
 
         old_surrogate = self.model.surrogate
+        clone_surrogate = old_surrogate.clone_reset()
 
         for refit_on_cv, warm_start_refit, use_posterior_predictive in product(
             (True, False), (True, False), (True, False)
@@ -396,8 +397,13 @@ class BoTorchGeneratorTest(TestCase):
             self.model.refit_on_cv = refit_on_cv
             self.model.warm_start_refit = warm_start_refit
             with ExitStack() as es:
+                mock_clone = es.enter_context(
+                    mock.patch.object(
+                        old_surrogate, "clone_reset", return_value=clone_surrogate
+                    )
+                )
                 mock_fit = es.enter_context(
-                    mock.patch.object(self.model, "fit", wraps=self.model.fit)
+                    mock.patch.object(clone_surrogate, "fit", wraps=clone_surrogate.fit)
                 )
                 mock_predict_orig_surrogate = es.enter_context(
                     mock.patch.object(
@@ -417,6 +423,7 @@ class BoTorchGeneratorTest(TestCase):
                     search_space_digest=self.search_space_digest,
                     use_posterior_predictive=use_posterior_predictive,
                 )
+            mock_clone.assert_called_once()
             # Check that `predict` is called on the cloned surrogate, not
             # on the original one.
             mock_predict_orig_surrogate.assert_not_called()
@@ -523,7 +530,7 @@ class BoTorchGeneratorTest(TestCase):
             acquisition_options=self.acquisition_options,
         )
         # Assert that error is raised if we haven't fit the model
-        with self.assertRaises(RuntimeError):
+        with self.assertRaisesRegex(ModelError, "fit the model first"):
             model.gen(
                 n=1,
                 search_space_digest=search_space_digest,
@@ -721,7 +728,7 @@ class BoTorchGeneratorTest(TestCase):
         # Test model is None
         model.surrogate._model = None
         with self.assertRaisesRegex(
-            ValueError, "BoTorch `Model` has not yet been constructed"
+            ModelError, "BoTorch `Model` has not yet been constructed"
         ):
             model.feature_importances()
 

@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Union
 
 import mdformat
 import nbformat
@@ -45,7 +45,7 @@ priorities = [
 ]
 
 
-def load_nb_metadata() -> Dict[str, Dict[str, str]]:
+def load_nb_metadata() -> dict[str, dict[str, str]]:
     """
     Load the metadata and list of notebooks that are to be converted to MDX.
 
@@ -83,7 +83,7 @@ def load_notebook(path: Path) -> NotebookNode:
     return nb
 
 
-def create_folders(path: Path) -> Tuple[str, Path]:
+def create_folders(path: Path) -> tuple[str, Path]:
     """
     Create asset folders for the tutorial.
 
@@ -109,7 +109,7 @@ def create_folders(path: Path) -> Tuple[str, Path]:
     return filename, assets_folder
 
 
-def create_frontmatter(path: Path, nb_metadata: Dict[str, Dict[str, str]]) -> str:
+def create_frontmatter(path: Path, nb_metadata: dict[str, dict[str, str]]) -> str:
     """
     Create frontmatter for the resulting MDX file.
 
@@ -154,7 +154,7 @@ def create_imports() -> str:
     return f"{imports}\n"
 
 
-def get_current_git_tag() -> Optional[str]:
+def get_current_git_tag() -> str | None:
     """
     Retrieve the current Git tag if the current commit is tagged.
 
@@ -175,7 +175,7 @@ def get_current_git_tag() -> Optional[str]:
 
 
 def create_buttons(
-    nb_metadata: Dict[str, Dict[str, str]],
+    nb_metadata: dict[str, dict[str, str]],
 ) -> str:
     """
     Create buttons that link to Colab and GitHub for the tutorial.
@@ -397,8 +397,8 @@ def handle_cell_input(cell: NotebookNode, language: str) -> str:
 
 
 def handle_image(
-    values: List[Dict[str, Union[int, str, NotebookNode]]],
-) -> List[Tuple[int, str]]:
+    values: list[dict[str, int | str | NotebookNode]],
+) -> list[tuple[int, str]]:
     """
     Convert embedded images to string MDX can consume.
 
@@ -421,8 +421,8 @@ def handle_image(
 
 
 def handle_markdown(
-    values: List[Dict[str, Union[int, str, NotebookNode]]],
-) -> List[Tuple[int, str]]:
+    values: list[dict[str, int | str | NotebookNode]],
+) -> list[tuple[int, str]]:
     """
     Convert and format Markdown for MDX.
 
@@ -445,8 +445,8 @@ def handle_markdown(
 
 
 def handle_pandas(
-    values: List[Dict[str, Union[int, str, NotebookNode]]],
-) -> List[Tuple[int, str]]:
+    values: list[dict[str, int | str | NotebookNode]],
+) -> list[tuple[int, str]]:
     """
     Handle how to display pandas DataFrames.
 
@@ -488,8 +488,8 @@ def handle_pandas(
 
 
 def handle_plain(
-    values: List[Dict[str, Union[int, str, NotebookNode]]],
-) -> List[Tuple[int, str]]:
+    values: list[dict[str, int | str | NotebookNode]],
+) -> list[tuple[int, str]]:
     """
     Handle how to plain cell output should be displayed in MDX.
 
@@ -519,9 +519,9 @@ def handle_plain(
 
 
 def handle_plotly(
-    values: List[Dict[str, Union[int, str, NotebookNode]]],
+    values: list[dict[str, int | str | NotebookNode]],
     plot_data_folder: Path,
-) -> List[Tuple[int, str]]:
+) -> list[tuple[int, str]]:
     """
     Convert Plotly outputs to MDX.
 
@@ -552,8 +552,8 @@ def handle_plotly(
 
 
 def handle_tqdm(
-    values: List[Dict[str, Union[int, str, NotebookNode]]],
-) -> List[Tuple[int, str]]:
+    values: list[dict[str, int | str | NotebookNode]],
+) -> list[tuple[int, str]]:
     """
     Handle the output of tqdm.
 
@@ -575,9 +575,9 @@ def handle_tqdm(
     return [(index, f"<CellOutput>\n{{\n  `{md}`\n}}\n</CellOutput>\n\n")]
 
 
-CELL_OUTPUTS_TO_PROCESS = Dict[
+CELL_OUTPUTS_TO_PROCESS = dict[
     str,
-    List[Dict[str, Union[int, str, NotebookNode]]],
+    list[dict[str, Union[int, str, NotebookNode]]],
 ]
 
 
@@ -622,8 +622,8 @@ def aggregate_mdx(
 
 
 def prioritize_dtypes(
-    cell_outputs: List[NotebookNode],
-) -> Tuple[List[List[str]], List[bool]]:
+    cell_outputs: list[NotebookNode],
+) -> tuple[list[list[str]], list[bool]]:
     """
     Prioritize cell output data types.
 
@@ -664,7 +664,7 @@ def aggregate_images_and_plotly(
     prioritized_data_dtype: str,
     cell_output: NotebookNode,
     data: NotebookNode,
-    plotly_flags: List[bool],
+    plotly_flags: list[bool],
     cell_outputs_to_process: CELL_OUTPUTS_TO_PROCESS,
     i: int,
 ) -> None:
@@ -727,7 +727,7 @@ def aggregate_plain_output(
     cell_outputs_to_process["plain"].append({"index": i, "data": data})
 
 
-def aggregate_output_types(cell_outputs: List[NotebookNode]) -> CELL_OUTPUTS_TO_PROCESS:
+def aggregate_output_types(cell_outputs: list[NotebookNode]) -> CELL_OUTPUTS_TO_PROCESS:
     """
     Aggregate cell outputs into a dictionary for further processing.
 

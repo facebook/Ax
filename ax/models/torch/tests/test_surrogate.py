@@ -19,6 +19,7 @@ import numpy as np
 import torch
 from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.model import ModelError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
@@ -516,7 +517,7 @@ class SurrogateTest(TestCase):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             with self.assertRaisesRegex(
-                ValueError, "BoTorch `Model` has not yet been constructed."
+                ModelError, "BoTorch `Model` has not yet been constructed."
             ):
                 surrogate.model
 
@@ -524,7 +525,7 @@ class SurrogateTest(TestCase):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             with self.assertRaisesRegex(
-                ValueError,
+                ModelError,
                 "Underlying BoTorch `Model` has not yet received its training_data.",
             ):
                 surrogate.training_data
@@ -699,7 +700,7 @@ class SurrogateTest(TestCase):
                     search_space_digest=self.search_space_digest,
                     model_config=surrogate.surrogate_spec.model_configs[0],
                     default_botorch_model_class=SingleTaskGP,
-                    state_dict={},  # pyre-ignore [6]
+                    state_dict={},
                     refit=True,
                 )
                 if warm_start_refit:
@@ -1116,6 +1117,57 @@ class SurrogateTest(TestCase):
         self.assertIsInstance(model.models[0].covar_module, MaternKernel)
         # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(model.models[1].covar_module, RBFKernel)
+
+    def test_fit_multiple_model_configs_multiple_iterations(self) -> None:
+        """This test reproduces multiple iterations of model fitting in a
+        typical experiment, where fit is called, model is used to generate
+        candidates (this step is skipped), and fit is called again with
+        the new data. This test checks that the model fitting fits all
+        model specs and picks the best model corresponding to the new data.
+        `fit_botorch_model` is mocked to provide easy access to which models
+        are being fit.
+        """
+        model_configs = [
+            ModelConfig(covar_module_class=RBFKernel),
+            ModelConfig(covar_module_class=LinearKernel),
+        ]
+        surrogate = Surrogate(surrogate_spec=SurrogateSpec(model_configs=model_configs))
+        X = torch.rand(5, 3, **self.tkwargs)
+        Y = torch.rand(5, 1, **self.tkwargs)
+        ds1 = SupervisedDataset(
+            X=X[:4],
+            Y=Y[:4],
+            feature_names=self.feature_names,
+            outcome_names=self.metric_names,
+        )
+        ds2 = SupervisedDataset(
+            X=X,
+            Y=Y,
+            feature_names=self.feature_names,
+            outcome_names=self.metric_names,
+        )
+        with patch(
+            f"{SURROGATE_PATH}.fit_botorch_model",
+            side_effect=lambda model, **_: model.eval(),
+        ) as mock_fit:
+            surrogate.fit(
+                datasets=[ds1],
+                search_space_digest=self.search_space_digest,
+            )
+        # Should be called twice, since we have two model configs.
+        self.assertEqual(mock_fit.call_count, 2)
+        # Fit again with updated data.
+        with patch(
+            f"{SURROGATE_PATH}.fit_botorch_model",
+            side_effect=lambda model, **_: model.eval(),
+        ) as mock_fit:
+            surrogate.fit(
+                datasets=[ds2],
+                search_space_digest=self.search_space_digest,
+            )
+        # Should be called twice, since we have two model configs
+        # and the data is updated.
+        self.assertEqual(mock_fit.call_count, 2)
 
     def test_exception_for_multiple_model_configs_and_multioutcome_dataset(
         self,
@@ -1542,7 +1594,7 @@ class SurrogateWithModelListTest(TestCase):
         )
         self.assertEqual(model_config.mll_class, self.mll_class)
         with self.assertRaisesRegex(
-            ValueError, "BoTorch `Model` has not yet been constructed"
+            ModelError, "BoTorch `Model` has not yet been constructed"
         ):
             self.surrogate.model
 
@@ -1686,10 +1738,6 @@ class SurrogateWithModelListTest(TestCase):
                 datasets=datasets,
                 search_space_digest=search_space_digest,
                 refit=False,
-                # pyre-fixme: Incompatible parameter type [6]: In call
-                # `Surrogate.fit`, for argument `state_dict`, expected
-                # `Optional[OrderedDict[str, Tensor]]` but got `Dict[str,
-                # typing.Any]`
                 state_dict=state_dict,
             )
 

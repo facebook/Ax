@@ -9,11 +9,11 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Callable, Iterable, Mapping, MutableMapping
+from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from copy import deepcopy
 from functools import partial
 from logging import Logger
-from typing import Any, Sequence, SupportsFloat, TYPE_CHECKING
+from typing import Any, SupportsFloat, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt

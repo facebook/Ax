@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import List, Union
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
@@ -103,7 +102,7 @@ class TestSearchSpaceAnalysis(TestCase):
             ],
         )
 
-        parametrizations: List[dict[str, Union[None, bool, float, int, str]]] = [
+        parametrizations: list[dict[str, None | bool | float | int | str]] = [
             {
                 "float_range_1": 1.0,
                 "float_range_2": 1.0,

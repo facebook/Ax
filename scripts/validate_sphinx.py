@@ -34,7 +34,7 @@ EXCLUDE_MODULES = {
 def parse_rst(rst_filename: str) -> Set[str]:
     """Extract automodule directives from rst."""
     ret = set()
-    with open(rst_filename, "r") as f:
+    with open(rst_filename) as f:
         lines = f.readlines()
         for line in lines:
             line = line.strip()

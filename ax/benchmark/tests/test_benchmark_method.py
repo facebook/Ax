@@ -13,7 +13,9 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.benchmark.methods.sobol import get_sobol_generation_strategy
 from ax.core.experiment import Experiment
+from ax.modelbridge.factory import get_sobol
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pyre_extensions import none_throws
 
 
@@ -71,8 +73,36 @@ class TestBenchmarkMethod(TestCase):
                 experiment=experiment, optimization_config=soo_config, n_points=2
             )
 
-        with self.subTest("Empty experiment"):
-            result = method.get_best_parameters(
+        with self.subTest("Empty experiment"), self.assertRaisesRegex(
+            ValueError, "Cannot identify a best point if experiment has no trials"
+        ):
+            method.get_best_parameters(
                 experiment=experiment, optimization_config=soo_config, n_points=1
             )
-            self.assertEqual(result, [])
+
+        with self.subTest("All constraints violated"):
+            experiment = get_experiment_with_observations(
+                observations=[[1, -1], [2, -1]],
+                constrained=True,
+            )
+            best_point = method.get_best_parameters(
+                n_points=1,
+                experiment=experiment,
+                optimization_config=none_throws(experiment.optimization_config),
+            )
+            self.assertEqual(len(best_point), 1)
+            self.assertEqual(best_point[0], experiment.trials[1].arms[0].parameters)
+
+        with self.subTest("No completed trials"):
+            experiment = get_experiment_with_observations(observations=[])
+            sobol_generator = get_sobol(search_space=experiment.search_space)
+            for _ in range(3):
+                trial = experiment.new_trial(generator_run=sobol_generator.gen(n=1))
+                trial.run()
+            best_point = method.get_best_parameters(
+                n_points=1,
+                experiment=experiment,
+                optimization_config=none_throws(experiment.optimization_config),
+            )
+            self.assertEqual(len(best_point), 1)
+            self.assertEqual(best_point[0], experiment.trials[2].arms[0].parameters)

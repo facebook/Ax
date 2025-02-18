@@ -742,7 +742,9 @@ class ObservationsTest(TestCase):
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
 
-    def test_ObservationsFromDataWithDifferentTimesSingleTrial(self) -> None:
+    def test_ObservationsFromDataWithDifferentTimesSingleTrial(
+        self, with_nat: bool = False
+    ) -> None:
         params0: TParameterization = {"x": 0, "y": "a"}
         params1: TParameterization = {"x": 1, "y": "a"}
         truth = [
@@ -754,7 +756,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 0,
                 "metric_name": "a",
                 "start_time": "2024-03-20 08:45:00",
-                "end_time": "2024-03-20 08:47:00",
+                "end_time": pd.NaT if with_nat else "2024-03-20 08:47:00",
             },
             {
                 "arm_name": "0_0",
@@ -764,6 +766,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 0,
                 "metric_name": "b",
                 "start_time": "2024-03-20 08:45:00",
+                "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
             },
             {
                 "arm_name": "0_1",
@@ -773,7 +776,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 0,
                 "metric_name": "a",
                 "start_time": "2024-03-20 08:43:00",
-                "end_time": "2024-03-20 08:46:00",
+                "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
             },
             {
                 "arm_name": "0_1",
@@ -783,7 +786,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 0,
                 "metric_name": "b",
                 "start_time": "2024-03-20 08:45:00",
-                "end_time": "2024-03-20 08:46:00",
+                "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
             },
         ]
         arms_by_name = {
@@ -848,10 +851,16 @@ class ObservationsTest(TestCase):
                 self.assertIsNone(obs.features.end_time)
             else:
                 self.assertIsNone(obs.features.start_time)
-                self.assertEqual(
-                    none_throws(obs.features.end_time).strftime("%Y-%m-%d %X"),
-                    "2024-03-20 08:46:00",
-                )
+                if with_nat:
+                    self.assertIsNone(obs.features.end_time)
+                else:
+                    self.assertEqual(
+                        none_throws(obs.features.end_time).strftime("%Y-%m-%d %X"),
+                        "2024-03-20 08:46:00",
+                    )
+
+    def test_observations_from_dataframe_with_nat_timestamps(self) -> None:
+        self.test_ObservationsFromDataWithDifferentTimesSingleTrial(with_nat=True)
 
     def test_SeparateObservations(self) -> None:
         obs_arm_name = "0_0"

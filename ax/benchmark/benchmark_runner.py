@@ -127,7 +127,7 @@ def get_total_runtime(
     # By default, each step takes 1 virtual second.
     if step_runtime_function is not None:
         max_step_runtime = max(
-            (step_runtime_function(arm.parameters) for arm in trial.arms)
+            step_runtime_function(arm.parameters) for arm in trial.arms
         )
     else:
         max_step_runtime = 1
@@ -184,6 +184,7 @@ class BenchmarkRunner(Runner):
                     internal_clock=0,
                     use_update_as_start_time=True,
                 ),
+                verbose_logging=False,
             )
             self.simulated_backend_runner = SimulatedBackendRunner(
                 simulator=simulator,
