@@ -67,7 +67,7 @@ class BoTorchGenerator(TorchGenerator, Base):
         surrogate: In lieu of ``SurrogateSpec``, an instance of ``Surrogate`` may
             be provided. In most cases, ``surrogate_spec`` should be used instead.
         refit_on_cv: Whether to reoptimize model parameters during call to
-            ``BoTorchmodel.cross_validate``.
+            ``BoTorchGenerator.cross_validate``.
         warm_start_refit: Whether to load parameters from either the provided
             state dict or the state dict of the current BoTorch ``Model`` during
             refitting. If False, model parameters will be reoptimized from
@@ -330,7 +330,6 @@ class BoTorchGenerator(TorchGenerator, Base):
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
         use_posterior_predictive: bool = False,
-        **additional_model_inputs: Any,
     ) -> tuple[Tensor, Tensor]:
         current_surrogate = self.surrogate
         # If we should be refitting but not warm-starting the refit, set
@@ -364,7 +363,6 @@ class BoTorchGenerator(TorchGenerator, Base):
                     # return type but it is actually an OrderedDict[str, Tensor].
                     state_dict=state_dict,
                     refit=self.refit_on_cv,
-                    **additional_model_inputs,
                 )
             X_test_prediction = self.predict(
                 X=X_test,

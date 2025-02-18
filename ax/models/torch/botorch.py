@@ -473,7 +473,6 @@ class LegacyBoTorchGenerator(TorchGenerator):
         datasets: list[SupervisedDataset],
         X_test: Tensor,
         use_posterior_predictive: bool = False,
-        **kwargs: Any,
     ) -> tuple[Tensor, Tensor]:
         if self._model is None:
             raise RuntimeError("Cannot cross-validate model that has not been fitted.")
