@@ -15,7 +15,7 @@ import torch
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.registry import Generators
 from ax.modelbridge.torch import TorchAdapter
-from ax.models.torch.botorch import BotorchGenerator
+from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
@@ -254,11 +254,11 @@ class SensitivityAnalysisTest(TestCase):
             with patch.object(model_bridge, "model", return_value=None):
                 with self.assertRaisesRegex(
                     NotImplementedError,
-                    "but only BotorchGenerator and ModularBoTorchGenerator",
+                    "but only LegacyBoTorchGenerator and ModularBoTorchGenerator",
                 ):
                     ax_parameter_sens(model_bridge, model_bridge.outcomes)
 
-            torch_model = cast(BotorchGenerator, model_bridge.model)
+            torch_model = cast(LegacyBoTorchGenerator, model_bridge.model)
             if not modular:
                 with self.assertRaisesRegex(
                     NotImplementedError,
@@ -273,7 +273,7 @@ class SensitivityAnalysisTest(TestCase):
                         mock.return_value = 2
                         ax_parameter_sens(model_bridge, model_bridge.outcomes)
 
-                # since only ModelList is supported for BotorchGenerator:
+                # since only ModelList is supported for LegacyBoTorchGenerator:
                 gpytorch_model = ModelListGP(cast(GPyTorchModel, torch_model.model))
                 torch_model.model = gpytorch_model
 

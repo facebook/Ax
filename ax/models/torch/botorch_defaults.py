@@ -558,7 +558,7 @@ def recommend_best_observed_point(
     """
     if target_fidelities:
         raise NotImplementedError(
-            "target_fidelities not implemented for base BotorchGenerator"
+            "target_fidelities not implemented for base LegacyBoTorchGenerator"
         )
 
     x_best = best_observed_point(

@@ -14,7 +14,7 @@ import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.modelbridge.torch import TorchAdapter
-from ax.models.torch.botorch import BotorchGenerator
+from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.models.torch.botorch_modular.model import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
@@ -940,7 +940,7 @@ def ax_parameter_sens(
 
 def _get_generator_and_digest(
     adapter: TorchAdapter,
-) -> tuple[BotorchGenerator | ModularBoTorchGenerator, SearchSpaceDigest]:
+) -> tuple[LegacyBoTorchGenerator | ModularBoTorchGenerator, SearchSpaceDigest]:
     """Returns the generator of the adapter and the SearchSpaceDigest
     that was used to fit the adapter.
     """
@@ -949,21 +949,21 @@ def _get_generator_and_digest(
             f"{type(adapter)=}, but only TorchAdapter is supported."
         )
     generator = adapter.model
-    if not isinstance(generator, (BotorchGenerator, ModularBoTorchGenerator)):
+    if not isinstance(generator, (LegacyBoTorchGenerator, ModularBoTorchGenerator)):
         raise NotImplementedError(
-            f"{type(generator)=}, but only BotorchGenerator and "
+            f"{type(generator)=}, but only LegacyBoTorchGenerator and "
             "ModularBoTorchGenerator are supported."
         )
     return generator, generator.search_space_digest
 
 
 def _get_model_per_metric(
-    generator: BotorchGenerator | ModularBoTorchGenerator, metrics: list[str]
+    generator: LegacyBoTorchGenerator | ModularBoTorchGenerator, metrics: list[str]
 ) -> list[Model]:
     """For a given TorchGenerator model, returns a list of botorch.models.model.Model
     objects corresponding to - and in the same order as - the given metrics.
     """
-    if isinstance(generator, BotorchGenerator):
+    if isinstance(generator, LegacyBoTorchGenerator):
         # guaranteed not to be None after accessing search_space_digest
         gp_model = generator.model
         model_idx = [generator.metric_names.index(m) for m in metrics]

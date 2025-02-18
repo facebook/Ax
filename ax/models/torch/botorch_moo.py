@@ -14,8 +14,8 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
-    BotorchGenerator,
     get_rounding_func,
+    LegacyBoTorchGenerator,
     TBestPointRecommender,
     TModelConstructor,
     TModelPredictor,
@@ -67,7 +67,7 @@ TOptimizerList = Callable[
 ]
 
 
-class MultiObjectiveBotorchGenerator(BotorchGenerator):
+class MultiObjectiveLegacyBoTorchGenerator(LegacyBoTorchGenerator):
     r"""
     Customizable multi-objective model.
 
@@ -113,9 +113,9 @@ class MultiObjectiveBotorchGenerator(BotorchGenerator):
     `fidelity_features` is a list of ints that specify the positions of fidelity
     parameters in 'Xs', `metric_names` provides the names of each `Y` in `Ys`,
     `state_dict` is a pytorch module state dict, and `model` is a BoTorch `Model`.
-    Optional kwargs are being passed through from the `BotorchGenerator` constructor.
-    This callable is assumed to return a fitted BoTorch model that has the same
-    dtype and lives on the same device as the input tensors.
+    Optional kwargs are being passed through from the `LegacyBoTorchGenerator`
+    constructor. This callable is assumed to return a fitted BoTorch model that has
+    the same dtype and lives on the same device as the input tensors.
 
     ::
 
@@ -249,7 +249,7 @@ class MultiObjectiveBotorchGenerator(BotorchGenerator):
 
         if search_space_digest.fidelity_features:  # untested
             raise NotImplementedError(
-                "fidelity_features not implemented for base BotorchGenerator"
+                "fidelity_features not implemented for base LegacyBoTorchGenerator"
             )
         if (
             torch_opt_config.objective_thresholds is not None
