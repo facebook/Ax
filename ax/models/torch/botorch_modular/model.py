@@ -204,6 +204,7 @@ class BoTorchGenerator(TorchGenerator, Base):
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=refit,
+            repeat_model_selection_if_dataset_changed=True,
         )
 
     def predict(
@@ -356,13 +357,12 @@ class BoTorchGenerator(TorchGenerator, Base):
             # remaining observations will not pass the input scaling checks.
             # To avoid confusing users with warnings, we disable these checks.
             with validate_input_scaling(False):
-                self.fit(
+                self.surrogate.fit(
                     datasets=datasets,
                     search_space_digest=search_space_digest,
-                    # pyre-fixme [6]: state_dict() has a generic dict[str, Any]
-                    # return type but it is actually an OrderedDict[str, Tensor].
                     state_dict=state_dict,
                     refit=self.refit_on_cv,
+                    repeat_model_selection_if_dataset_changed=False,
                 )
             X_test_prediction = self.predict(
                 X=X_test,

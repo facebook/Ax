@@ -389,6 +389,7 @@ class BoTorchGeneratorTest(TestCase):
         )
 
         old_surrogate = self.model.surrogate
+        clone_surrogate = old_surrogate.clone_reset()
 
         for refit_on_cv, warm_start_refit, use_posterior_predictive in product(
             (True, False), (True, False), (True, False)
@@ -396,8 +397,13 @@ class BoTorchGeneratorTest(TestCase):
             self.model.refit_on_cv = refit_on_cv
             self.model.warm_start_refit = warm_start_refit
             with ExitStack() as es:
+                mock_clone = es.enter_context(
+                    mock.patch.object(
+                        old_surrogate, "clone_reset", return_value=clone_surrogate
+                    )
+                )
                 mock_fit = es.enter_context(
-                    mock.patch.object(self.model, "fit", wraps=self.model.fit)
+                    mock.patch.object(clone_surrogate, "fit", wraps=clone_surrogate.fit)
                 )
                 mock_predict_orig_surrogate = es.enter_context(
                     mock.patch.object(
@@ -417,6 +423,7 @@ class BoTorchGeneratorTest(TestCase):
                     search_space_digest=self.search_space_digest,
                     use_posterior_predictive=use_posterior_predictive,
                 )
+            mock_clone.assert_called_once()
             # Check that `predict` is called on the cloned surrogate, not
             # on the original one.
             mock_predict_orig_surrogate.assert_not_called()
