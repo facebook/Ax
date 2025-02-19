@@ -348,7 +348,6 @@ class ReportUtilsTest(TestCase):
         exp.trials[0].run()
         exp.fetch_data()
         relative_df = exp_to_df(exp=exp, show_relative_metrics=True)
-        print(relative_df)
         self.assertTrue(f"{OBJECTIVE_NAME}_%CH" in relative_df.columns.tolist())
         self.assertEqual(relative_df[f"{OBJECTIVE_NAME}_%CH"].values[0], 0.0)
 
