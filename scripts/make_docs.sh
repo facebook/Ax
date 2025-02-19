@@ -22,7 +22,7 @@ usage() {
 
 BUILD_STATIC=false
 ONLY_DOCUSAURUS=false
-BUILD_TUTORIALS=false
+EXECUTE_TUTORIALS=false
 INSERT_API_REFS=false
 
 while getopts 'hbotrk:' flag; do
@@ -37,7 +37,7 @@ while getopts 'hbotrk:' flag; do
       ONLY_DOCUSAURUS=true
       ;;
     t)
-      BUILD_TUTORIALS=true
+      EXECUTE_TUTORIALS=true
       ;;
     r)
       INSERT_API_REFS=true
@@ -47,6 +47,13 @@ while getopts 'hbotrk:' flag; do
       ;;
   esac
 done
+
+if [[ $EXECUTE_TUTORIALS == true ]]; then
+  echo "-----------------------------------"
+  echo "Executing tutorials"
+  echo "-----------------------------------"
+  python3 scripts/run_tutorials.py -w "${cwd}"
+fi
 
 if [[ $ONLY_DOCUSAURUS == false ]]; then
   echo "-----------------------------------"
