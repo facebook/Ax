@@ -110,10 +110,16 @@ def get_best_raw_objective_point_with_trial_index(
     }
     completed_df = dat.df[dat.df["trial_index"].isin(completed_indices)]
 
-    feasible_df = _filter_feasible_rows(
-        df=completed_df,
-        optimization_config=optimization_config,
+    is_feasible = _is_row_feasible(
+        df=completed_df, optimization_config=optimization_config
     )
+    if not is_feasible.any():
+        raise ValueError(
+            "No points satisfied all outcome constraints within 95 percent"
+            "confidence interval."
+        )
+    feasible_df = completed_df.loc[is_feasible]
+
     objective = optimization_config.objective
     best_row_helper = (
         _get_best_row_for_scalarized_objective
@@ -134,19 +140,6 @@ def get_best_raw_objective_point_with_trial_index(
     }
 
     return best_trial_index, none_throws(best_arm).parameters, vals
-
-
-def get_best_raw_objective_point(
-    experiment: Experiment,
-    optimization_config: OptimizationConfig | None = None,
-    trial_indices: Iterable[int] | None = None,
-) -> tuple[TParameterization, dict[str, tuple[float, float]]]:
-    _, parameterization, vals = get_best_raw_objective_point_with_trial_index(
-        experiment=experiment,
-        optimization_config=optimization_config,
-        trial_indices=trial_indices,
-    )
-    return parameterization, vals
 
 
 def _extract_best_arm_from_gr(
@@ -339,7 +332,8 @@ def get_best_by_raw_objective_with_trial_index(
         )
     except ValueError as err:
         logger.error(
-            f"Encountered error while trying to identify the best point: {err}"
+            "Encountered error while trying to identify the best point: "
+            f"'{err}'. Returning None."
         )
         return None
     return (
@@ -347,137 +341,6 @@ def get_best_by_raw_objective_with_trial_index(
         parameterization,
         _raw_values_to_model_predict_arm(values),
     )
-
-
-def get_best_by_raw_objective(
-    experiment: Experiment,
-    optimization_config: OptimizationConfig | None = None,
-    trial_indices: Iterable[int] | None = None,
-) -> tuple[TParameterization, TModelPredictArm | None] | None:
-    """Given an experiment, identifies the arm that had the best raw objective,
-    based on the data fetched from the experiment.
-
-    TModelPredictArm is of the form:
-        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
-
-    Args:
-        experiment: Experiment, on which to identify best raw objective arm.
-        optimization_config: Optimization config to use in place of the one stored
-            on the experiment.
-        trial_indices: Indices of trials for which to retrieve data. If None will
-            retrieve data from all available trials.
-
-    Returns:
-        Tuple of parameterization, and model predictions for it.
-    """
-    res = get_best_by_raw_objective_with_trial_index(
-        experiment=experiment,
-        optimization_config=optimization_config,
-        trial_indices=trial_indices,
-    )
-
-    if res is None:
-        return None
-
-    _, parameterization, vals = res
-    return parameterization, vals
-
-
-def get_best_parameters_with_trial_index(
-    experiment: Experiment,
-    models_enum: type[ModelRegistryBase],
-    optimization_config: OptimizationConfig | None = None,
-    trial_indices: Iterable[int] | None = None,
-) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
-    """Given an experiment, identifies the best arm.
-
-    First attempts according to do so with models used in optimization and
-    its corresponding predictions if available. Falls back to the best raw
-    objective based on the data fetched from the experiment.
-
-    TModelPredictArm is of the form:
-        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
-
-    Args:
-        experiment: Experiment, on which to identify best raw objective arm.
-        models_enum: Registry of all models that may be in the experiment's
-            generation strategy.
-        optimization_config: Optimization config to use in place of the one stored
-            on the experiment.
-        trial_indices: Indices of trials for which to retrieve data. If None will
-            retrieve data from all available trials.
-
-    Returns:
-        Tuple of trial index, parameterization, and model predictions for it.
-    """
-    optimization_config = optimization_config or experiment.optimization_config
-    if optimization_config is None:
-        raise ValueError(
-            "Cannot identify the best point without an optimization config, but no "
-            "optimization config was provided on the experiment or as an argument."
-        )
-
-    if optimization_config.is_moo_problem:
-        logger.warning(
-            "get_best_parameters is deprecated for multi-objective optimization. "
-            "This method will return an arbitrary point on the pareto frontier."
-        )
-
-    # Find latest trial which has a generator_run attached and get its predictions
-    res = get_best_parameters_from_model_predictions_with_trial_index(
-        experiment=experiment,
-        models_enum=models_enum,
-        optimization_config=optimization_config,
-        trial_indices=trial_indices,
-    )
-
-    if res is not None:
-        return res
-
-    return get_best_by_raw_objective_with_trial_index(
-        experiment=experiment, optimization_config=optimization_config
-    )
-
-
-def get_best_parameters(
-    experiment: Experiment,
-    models_enum: type[ModelRegistryBase],
-    optimization_config: OptimizationConfig | None = None,
-    trial_indices: Iterable[int] | None = None,
-) -> tuple[TParameterization, TModelPredictArm | None] | None:
-    """Given an experiment, identifies the best arm.
-
-    First attempts according to do so with models used in optimization and
-    its corresponding predictions if available. Falls back to the best raw
-    objective based on the data fetched from the experiment.
-
-    TModelPredictArm is of the form:
-        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
-
-    Args:
-        experiment: Experiment, on which to identify best raw objective arm.
-        models_enum: Registry of all models that may be in the experiment's
-            generation strategy.
-        optimization_config: Optimization config to use in place of the one stored
-            on the experiment.
-        trial_indices: Indices of trials for which to retrieve data. If None will
-            retrieve data from all available trials.
-
-    Returns:
-        Tuple of parameterization and model predictions for it.
-    """
-    res = get_best_parameters_with_trial_index(
-        experiment=experiment,
-        models_enum=models_enum,
-        optimization_config=optimization_config,
-        trial_indices=trial_indices,
-    )
-
-    if res is None:
-        return None
-
-    _, parameterization, vals = res
-    return parameterization, vals
 
 
 def get_pareto_optimal_parameters(
@@ -701,28 +564,6 @@ def _is_row_feasible(
         df["arm_name"].apply(lambda x: x not in bad_arm_names),
         pd.Series,
     )
-
-
-def _filter_feasible_rows(
-    df: pd.DataFrame,
-    optimization_config: OptimizationConfig,
-) -> pd.DataFrame:
-    """Filter out arms that do not satisfy outcome constraints
-
-    Looks at all arm data collected and removes rows corresponding to arms in
-    which one or more of their associated metrics' 95% confidence interval
-    falls outside of any outcome constraint's bounds (i.e. we are 95% sure the
-    bound is not satisfied).
-    """
-
-    feasible = df.loc[_is_row_feasible(df=df, optimization_config=optimization_config)]
-    if feasible.empty:
-        raise ValueError(
-            "No points satisfied all outcome constraints within 95 percent"
-            "confidence interval."
-        )
-
-    return feasible
 
 
 def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:

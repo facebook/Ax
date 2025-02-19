@@ -33,7 +33,7 @@ from ax.modelbridge.base import Adapter
 from ax.modelbridge.registry import Generators
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
-    get_best_raw_objective_point,
+    get_best_raw_objective_point_with_trial_index,
 )
 from ax.service.utils.instantiation import (
     DEFAULT_OBJECTIVE_NAME,
@@ -258,7 +258,7 @@ class OptimizationLoop:
             return parameterizations, predictions
 
         # Could not find through model, default to using raw objective.
-        parameterization, values = get_best_raw_objective_point(
+        _, parameterization, values = get_best_raw_objective_point_with_trial_index(
             experiment=self.experiment
         )
         # For values, grab just the means to conform to TModelPredictArm format.

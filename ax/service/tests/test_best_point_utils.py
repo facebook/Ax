@@ -34,8 +34,9 @@ from ax.service.utils.best_point import (
     _extract_best_arm_from_gr,
     _is_row_feasible,
     extract_Y_from_data,
-    get_best_parameters,
-    get_best_raw_objective_point,
+    get_best_by_raw_objective_with_trial_index,
+    get_best_parameters_from_model_predictions_with_trial_index,
+    get_best_raw_objective_point_with_trial_index,
     logger as best_point_logger,
 )
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
@@ -82,10 +83,7 @@ class TestBestPointUtils(TestCase):
             "model_best_point",
             return_value=(
                 (
-                    Arm(
-                        name="0_0",
-                        parameters={"x1": -4.842811906710267, "x2": 11.887089014053345},
-                    ),
+                    exp.trials[0].arms[0],
                     (
                         {"branin": 34.76260622783635},
                         {"branin": {"branin": 0.00028306433439807734}},
@@ -105,7 +103,11 @@ class TestBestPointUtils(TestCase):
                     },
                 ),
             ):
-                self.assertIsNotNone(get_best_parameters(exp, Generators))
+                self.assertIsNotNone(
+                    get_best_parameters_from_model_predictions_with_trial_index(
+                        exp, Generators
+                    )
+                )
                 self.assertTrue(
                     any("Model fit is poor" in warning for warning in lg.output),
                     msg=lg.output,
@@ -122,24 +124,41 @@ class TestBestPointUtils(TestCase):
                     bad_fit_metrics_to_fisher_score={},
                 ),
             ):
-                self.assertIsNotNone(get_best_parameters(exp, Generators))
+                self.assertIsNotNone(
+                    get_best_parameters_from_model_predictions_with_trial_index(
+                        exp, Generators
+                    )
+                )
                 mock_model_best_point.assert_called()
 
         # Assert the non-mocked method works correctly as well
-        best_params = get_best_parameters(exp, Generators)
+        res = get_best_parameters_from_model_predictions_with_trial_index(
+            experiment=exp, models_enum=Generators
+        )
+        trial_index, best_params, predict_arm = none_throws(res)
         self.assertIsNotNone(best_params)
+        self.assertIsNotNone(trial_index)
+        self.assertIsNotNone(predict_arm)
         # It works even when there are no predictions already stored on the
         # GeneratorRun
         for trial in exp.trials.values():
             trial.generator_run._best_arm_predictions = None
-        best_params_no_gr = get_best_parameters(exp, Generators)
+        res = get_best_parameters_from_model_predictions_with_trial_index(
+            experiment=exp, models_enum=Generators
+        )
+        trial_index, best_params_no_gr, predict_arm_no_gr = none_throws(res)
         self.assertEqual(best_params, best_params_no_gr)
+        self.assertEqual(predict_arm, predict_arm_no_gr)
+        self.assertIsNotNone(trial_index)
+        self.assertIsNotNone(predict_arm)
 
     def test_best_raw_objective_point(self) -> None:
         exp = get_branin_experiment()
-        with self.assertRaisesRegex(ValueError, "Cannot identify best "):
-            get_best_raw_objective_point(exp)
-        self.assertEqual(get_best_parameters(exp, Generators), None)
+        with self.assertRaisesRegex(
+            ValueError, "Cannot identify best point if experiment contains no data."
+        ):
+            get_best_raw_objective_point_with_trial_index(experiment=exp)
+        self.assertIsNone(get_best_by_raw_objective_with_trial_index(exp))
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run().complete()
@@ -148,7 +167,9 @@ class TestBestPointUtils(TestCase):
         opt_conf = exp.optimization_config.clone()
         opt_conf.objective.metric._name = "not_branin"
         with self.assertRaisesRegex(ValueError, "No data has been logged"):
-            get_best_raw_objective_point(exp, opt_conf)
+            get_best_raw_objective_point_with_trial_index(
+                experiment=exp, optimization_config=opt_conf
+            )
 
         # Test constraints work as expected.
         observations = [[1.0, 2.0], [3.0, 4.0], [-5.0, -6.0]]
@@ -157,7 +178,9 @@ class TestBestPointUtils(TestCase):
             constrained=True,
             minimize=False,
         )
-        _, best_prediction = none_throws(get_best_parameters(exp, Generators))
+        _, __, best_prediction = none_throws(
+            get_best_by_raw_objective_with_trial_index(exp)
+        )
         best_metrics = none_throws(best_prediction)[0]
         self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
 
@@ -166,7 +189,9 @@ class TestBestPointUtils(TestCase):
         # pyre-fixme[8]: Attribute `bound` declared in class `OutcomeConstraint`
         # has type `float` but is used as type `Tensor`.
         constraint.bound = torch.tensor(constraint.bound)
-        _, best_prediction = none_throws(get_best_parameters(exp, Generators))
+        _, __, best_prediction = none_throws(
+            get_best_by_raw_objective_with_trial_index(exp)
+        )
         best_metrics = none_throws(best_prediction)[0]
         self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
 
@@ -187,7 +212,9 @@ class TestBestPointUtils(TestCase):
         )
 
         with self.assertRaisesRegex(ValueError, "No points satisfied"):
-            get_best_raw_objective_point(exp, opt_conf)
+            get_best_raw_objective_point_with_trial_index(
+                experiment=exp, optimization_config=opt_conf
+            )
 
     def test_best_raw_objective_point_unsatisfiable_relative(self) -> None:
         exp = get_experiment_with_observations(
@@ -201,7 +228,9 @@ class TestBestPointUtils(TestCase):
         opt_conf.outcome_constraints[0].bound = 9999
 
         with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
-            get_best_raw_objective_point(exp, opt_conf)
+            get_best_raw_objective_point_with_trial_index(
+                exp, optimization_config=opt_conf
+            )
             self.assertTrue(
                 any("No status quo provided" in warning for warning in lg.output),
                 msg=lg.output,
@@ -210,7 +239,7 @@ class TestBestPointUtils(TestCase):
         exp.status_quo = exp.trials[0].arms[0]
 
         with self.assertRaisesRegex(ValueError, "No points satisfied"):
-            get_best_raw_objective_point(exp, opt_conf)
+            get_best_raw_objective_point_with_trial_index(exp, opt_conf)
 
     def test_best_raw_objective_point_scalarized(self) -> None:
         exp = get_branin_experiment()
@@ -218,13 +247,20 @@ class TestBestPointUtils(TestCase):
             ScalarizedObjective(metrics=[get_branin_metric()], minimize=True)
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
-            get_best_raw_objective_point(exp)
-        self.assertEqual(get_best_parameters(exp, Generators), None)
+            get_best_raw_objective_point_with_trial_index(exp)
+        self.assertIsNone(
+            get_best_parameters_from_model_predictions_with_trial_index(
+                experiment=exp, models_enum=Generators
+            )
+        )
+        self.assertIsNone(get_best_by_raw_objective_with_trial_index(experiment=exp))
+        params = {"x1": 5.0, "x2": 5.0}
         exp.new_trial(
-            generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
+            generator_run=GeneratorRun(arms=[Arm(parameters=params)])
         ).run().complete()
         exp.fetch_data()
-        self.assertEqual(get_best_raw_objective_point(exp)[0], {"x1": 5.0, "x2": 5.0})
+        _, parameterization, __ = get_best_raw_objective_point_with_trial_index(exp)
+        self.assertEqual(parameterization, params)
 
     def test_best_raw_objective_point_scalarized_multi(self) -> None:
         exp = get_branin_experiment()
@@ -236,13 +272,20 @@ class TestBestPointUtils(TestCase):
             )
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
-            get_best_raw_objective_point(exp)
-        self.assertEqual(get_best_parameters(exp, Generators), None)
+            get_best_raw_objective_point_with_trial_index(exp)
+        self.assertIsNone(
+            get_best_parameters_from_model_predictions_with_trial_index(
+                experiment=exp, models_enum=Generators
+            )
+        )
+        self.assertIsNone(get_best_by_raw_objective_with_trial_index(experiment=exp))
+        params = {"x1": 5.0, "x2": 5.0}
         exp.new_trial(
-            generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
+            generator_run=GeneratorRun(arms=[Arm(parameters=params)])
         ).run().complete()
         exp.fetch_data()
-        self.assertEqual(get_best_raw_objective_point(exp)[0], {"x1": 5.0, "x2": 5.0})
+        _, parameterization, __ = get_best_raw_objective_point_with_trial_index(exp)
+        self.assertEqual(parameterization, params)
 
     @patch(
         f"{best_point_module}.derelativize_optimization_config_with_raw_status_quo",
