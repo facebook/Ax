@@ -5,8 +5,12 @@
 
 # pyre-strict
 
+import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
-from ax.analysis.plotly.progression import ProgressionPlot
+from ax.analysis.plotly.progression import (
+    _calculate_wallclock_timeseries,
+    ProgressionPlot,
+)
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_test_map_data_experiment
@@ -33,8 +37,25 @@ class TestProgression(TestCase):
         )
         self.assertEqual(card.level, AnalysisCardLevel.MID)
         self.assertEqual(
-            {*card.df.columns}, {"trial_index", "arm_name", "branin_map", "progression"}
+            {*card.df.columns},
+            {"trial_index", "arm_name", "branin_map", "progression", "wallclock_time"},
         )
 
         self.assertIsNotNone(card.blob)
         self.assertEqual(card.blob_annotation, "plotly")
+
+    def test_calculate_wallclock_timeseries(self) -> None:
+        experiment = get_test_map_data_experiment(
+            num_trials=2, num_fetches=5, num_complete=2
+        )
+        wallclock_timeseries = _calculate_wallclock_timeseries(
+            experiment=experiment, metric_name="branin_map"
+        )
+
+        self.assertEqual(len(wallclock_timeseries), 2)
+        self.assertTrue(
+            all(len(timeseries) == 5 for timeseries in wallclock_timeseries.values())
+        )
+
+        for timeseries in wallclock_timeseries.values():
+            self.assertTrue(pd.Series(timeseries).is_monotonic_increasing)
