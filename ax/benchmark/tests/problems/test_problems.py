@@ -6,10 +6,13 @@
 # pyre-strict
 
 
+from unittest.mock import patch
+
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.problems.registry import BENCHMARK_PROBLEM_REGISTRY, get_problem
 from ax.benchmark.problems.runtime_funcs import int_from_params
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.benchmark_stubs import get_mock_lcbench_data
 
 
 class TestProblems(TestCase):
@@ -19,7 +22,13 @@ class TestProblems(TestCase):
             if "MNIST" in name:
                 continue  # Skip these as they cause the test to take a long time
 
-            problem = get_problem(problem_key=name)
+            # Avoid downloading data from the internet
+            with patch(
+                "ax.benchmark.problems.surrogate."
+                "lcbench.early_stopping.load_lcbench_data",
+                return_value=get_mock_lcbench_data(),
+            ):
+                problem = get_problem(problem_key=name)
             self.assertIsInstance(problem, BenchmarkProblem, msg=name)
 
     def test_name(self) -> None:

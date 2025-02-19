@@ -16,6 +16,12 @@ from ax.benchmark.problems.hpo.torchvision import (
     get_pytorch_cnn_torchvision_benchmark_problem,
 )
 from ax.benchmark.problems.runtime_funcs import int_from_params
+from ax.benchmark.problems.surrogate.lcbench.early_stopping import (
+    get_lcbench_early_stopping_benchmark_problem,
+)
+from ax.benchmark.problems.surrogate.lcbench.transfer_learning import (
+    get_lcbench_benchmark_problem,
+)
 from ax.benchmark.problems.synthetic.bandit import get_bandit_problem
 from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_ackley,
@@ -146,6 +152,13 @@ BENCHMARK_PROBLEM_REGISTRY = {
     "jenatton": BenchmarkProblemRegistryEntry(
         factory_fn=get_jenatton_benchmark_problem,
         factory_kwargs={"num_trials": 50, "observe_noise_sd": False},
+    ),
+    "LCBench:v1 Fashion-MNIST": BenchmarkProblemRegistryEntry(
+        get_lcbench_benchmark_problem, factory_kwargs={"dataset_name": "Fashion-MNIST"}
+    ),
+    "LCBench Early Stopping Fashion-MNIST": BenchmarkProblemRegistryEntry(
+        get_lcbench_early_stopping_benchmark_problem,
+        factory_kwargs={"dataset_name": "Fashion-MNIST"},
     ),
     "levy4": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,

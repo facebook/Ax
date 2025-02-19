@@ -90,6 +90,14 @@ class LCBenchDataLoader(AbstractParquetDataLoader):
 
 @dataclass(kw_only=True)
 class LCBenchData:
+    """
+    Args:
+        parameter_df: DataFrame with columns corresponding to the names of the
+            parameters in get_lcbench_parameter_names().
+        metric_series: Series of metric values with index names "trial" and "epoch".
+        timestamp_series: Series of timestamps with index name "trial".
+    """
+
     parameter_df: pd.DataFrame
     metric_series: pd.Series
     timestamp_series: pd.Series

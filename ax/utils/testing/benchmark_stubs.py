@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
@@ -29,6 +30,8 @@ from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFu
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
+from ax.benchmark.problems.surrogate.lcbench.data import LCBenchData
+from ax.benchmark.problems.surrogate.lcbench.utils import get_lcbench_parameters
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_search_space
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
@@ -372,3 +375,26 @@ def get_benchmark_map_unavailable_while_running_metric() -> (
     BenchmarkMapUnavailableWhileRunningMetric
 ):
     return BenchmarkMapUnavailableWhileRunningMetric(name="test", lower_is_better=True)
+
+
+def get_mock_lcbench_data() -> LCBenchData:
+    """
+    Used for mocking out `load_lcbench_data` to avoid downloading data from the
+    internet.
+    """
+    timestamp_series = pd.Series([0], index=pd.Index([0], name="trial"))
+    parameters = get_lcbench_parameters()
+
+    parameter_df = pd.DataFrame(
+        {name: [param.lower, param.upper] for name, param in parameters.items()}
+    )
+    metric_series = pd.Series(
+        [0],
+        index=pd.MultiIndex.from_tuples([(0, 0)], names=["trial", "epoch"]),
+    )
+
+    return LCBenchData(
+        parameter_df=parameter_df,
+        metric_series=metric_series,
+        timestamp_series=timestamp_series,
+    )

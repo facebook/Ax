@@ -23,6 +23,7 @@ from ax.benchmark.problems.surrogate.lcbench.data import (
 )
 from ax.benchmark.problems.surrogate.lcbench.transfer_learning import DEFAULT_NUM_TRIALS
 from ax.benchmark.problems.surrogate.lcbench.utils import (
+    BASELINE_VALUES,
     DEFAULT_METRIC_NAME,
     get_lcbench_log_scale_parameter_names,
     get_lcbench_optimization_config,
@@ -45,43 +46,7 @@ logger: Logger = get_logger(__name__)
 
 TRegressorProtocol = TypeVar("TRegressorProtocol", bound="RegressorProtocol")
 
-BASELINE_VALUES: dict[str, float] = {
-    "APSFailure": 97.75948131763847,
-    "Amazon_employee_access": 93.39364177908142,
-    "Australian": 88.1445880383116,
-    "Fashion-MNIST": 84.75904272864778,
-    "KDDCup09_appetency": 96.13544312868322,
-    "MiniBooNE": 85.8639428612948,
-    "adult": 79.50334987749676,
-    "airlines": 58.96099030718572,
-    "albert": 63.885932360810884,
-    "bank-marketing": 83.72755317459641,
-    "blood-transfusion-service-center": 62.651717620524835,
-    "car": 78.59464531457958,
-    "christine": 72.22719165860138,
-    "cnae-9": 92.24923138962973,
-    "connect-4": 63.808749677494774,
-    "covertype": 61.61393200315512,
-    "credit-g": 70.45312807563056,
-    "dionis": 53.71071232033245,
-    "fabert": 64.44304132875557,
-    "helena": 18.239085505279544,
-    "higgs": 64.74999655474926,
-    "jannis": 57.82155396833136,
-    "jasmine": 80.48475426337272,
-    "jungle_chess_2pcs_raw_endgame_complete": 65.58537332961572,
-    "kc1": 77.28692486000287,
-    "kr-vs-kp": 93.63368446446995,
-    "mfeat-factors": 94.72758417873838,
-    "nomao": 93.73968374826451,
-    "numerai28.6": 51.60281273196557,
-    "phoneme": 75.20979771001986,
-    "segment": 78.81992685291081,
-    "shuttle": 96.45744339531132,
-    "sylvine": 91.15923021902736,
-    "vehicle": 67.40729695042013,
-    "volkert": 49.204981948803855,
-}
+
 OPTIMAL_VALUES: dict[str, float] = {
     "APSFailure": 98.97643280029295,
     "Amazon_employee_access": 94.1208953857422,
@@ -256,18 +221,17 @@ class LearningCurveBenchmarkTestFunction(BenchmarkTestFunction):
 
     def evaluate_true(self, params: Mapping[str, TParamValue]) -> torch.Tensor:
         X = pd.DataFrame.from_records(data=[params])
-        Y = self.metric_surrogate.predict(X)  # shape: (1, 50)
+        Y = self.metric_surrogate.predict(X=X)  # shape: (1, 50)
         return torch.from_numpy(Y)
 
     def step_runtime(self, params: Mapping[str, TParamValue]) -> float:
         X = pd.DataFrame.from_records(data=[params])
-        Y = self.runtime_surrogate.predict(X)  # shape: (1,)
+        Y = self.runtime_surrogate.predict(X=X)  # shape: (1,)
         return Y.item()
 
 
 def get_lcbench_early_stopping_benchmark_problem(
     dataset_name: str,
-    metric_name: str = DEFAULT_METRIC_NAME,
     num_trials: int = DEFAULT_NUM_TRIALS,
     constant_step_runtime: bool = False,
     noise_std: Mapping[str, float] | float = 0.0,
@@ -279,7 +243,6 @@ def get_lcbench_early_stopping_benchmark_problem(
     Args:
         dataset_name: Must be one of the keys of `DEFAULT_AND_OPTIMAL_VALUES`, which
             correspond to the names of the datasets available in LCBench.
-        metric_name: The name of the metric to use for the objective.
         num_trials: The number of optimization trials to run.
         constant_step_runtime: Determines if the step runtime is fixed or varies
             based on the hyperparameters.
@@ -296,14 +259,14 @@ def get_lcbench_early_stopping_benchmark_problem(
     if dataset_name not in DATASET_NAMES:
         raise UserInputError(f"`dataset_name` must be one of {sorted(DATASET_NAMES)}")
 
-    name = f"LCBench_Surrogate_{dataset_name}_{metric_name}:v1"
+    name = f"LCBench_Surrogate_{dataset_name}:v1"
 
     optimal_value = OPTIMAL_VALUES[dataset_name]
     baseline_value = BASELINE_VALUES[dataset_name]
 
     search_space: SearchSpace = get_lcbench_search_space()
     optimization_config: OptimizationConfig = get_lcbench_optimization_config(
-        metric_name=metric_name,
+        metric_name=DEFAULT_METRIC_NAME,
         observe_noise_sd=observe_noise_sd,
         use_map_metric=True,
     )
