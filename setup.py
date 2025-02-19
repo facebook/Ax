@@ -36,7 +36,6 @@ DEV_REQUIRES = [
     "beautifulsoup4",
     "black==24.2.0",
     "flake8",
-    "hypothesis",
     "Jinja2",
     "pyfakefs",
     "pytest>=4.6",

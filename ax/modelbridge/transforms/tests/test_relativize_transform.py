@@ -40,7 +40,6 @@ from ax.utils.testing.core_stubs import (
     get_branin_with_multi_task,
     get_search_space,
 )
-from hypothesis import assume, given, settings, strategies as st
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -328,60 +327,51 @@ class RelativizeDataTest(TestCase):
                     modelbridge=None,
                 )
 
-    # pyre-fixme[56]: Pyre was not able to infer the type of argument
-    #  `hypothesis.strategies.floats($parameter$min_value = - 10.000000,
-    #  $parameter$max_value = 10.000000)` to decorator factory `hypothesis.given`.
-    @given(
-        st.floats(min_value=-10.0, max_value=10.0),
-        st.floats(min_value=0, max_value=10.0),
-        st.floats(min_value=-10.0, max_value=10.0),
-        st.floats(min_value=0, max_value=10.0),
-    )
-    @settings(max_examples=1000, deadline=None)
-    def test_transform_status_quos_always_zero(
-        self,
-        sq_mean: float,
-        sq_sem: float,
-        mean: float,
-        sem: float,
-    ) -> None:
-        assume(abs(sq_mean) >= 1e-10)
-        assume(abs(sq_mean) != sq_sem)
+    def test_transform_status_quos_always_zero(self) -> None:
+        for _ in range(1000):
+            sq_mean = np.random.uniform(-10.0, 10.0)
+            sq_sem = np.random.uniform(0, 10.0)
+            mean = np.random.uniform(-10.0, 10.0)
+            sem = np.random.uniform(0, 10.0)
+            if abs(sq_mean) < 1e-10 or abs(sq_mean) == sq_sem:
+                continue
 
-        arm_names = ["status_quo", "0_0"]
-        obs_data = [
-            ObservationData(
-                metric_names=["foo"],
-                means=np.array([sq_mean]),
-                covariance=np.array([[sq_sem]]),
-            ),
-            ObservationData(
-                metric_names=["foo"],
-                means=np.array([mean]),
-                covariance=np.array([[sem]]),
-            ),
-        ]
-        obs_features = [
-            ObservationFeatures(parameters={"x": 1}, trial_index=0),
-            ObservationFeatures(parameters={"x": 2}, trial_index=0),
-        ]
-        modelbridge = Mock(
-            status_quo=Mock(
-                data=obs_data[0], features=obs_features[0], arm_name=arm_names[0]
-            ),
-            status_quo_data_by_trial={0: obs_data[0]},
-        )
-        observations = recombine_observations(obs_features, obs_data, arm_names)
-        for relativize_cls in [Relativize, RelativizeWithConstantControl]:
-            transform = relativize_cls(
-                search_space=None,
-                observations=observations,
-                modelbridge=modelbridge,
+            arm_names = ["status_quo", "0_0"]
+            obs_data = [
+                ObservationData(
+                    metric_names=["foo"],
+                    means=np.array([sq_mean]),
+                    covariance=np.array([[sq_sem]]),
+                ),
+                ObservationData(
+                    metric_names=["foo"],
+                    means=np.array([mean]),
+                    covariance=np.array([[sem]]),
+                ),
+            ]
+            obs_features = [
+                ObservationFeatures(parameters={"x": 1}, trial_index=0),
+                ObservationFeatures(parameters={"x": 2}, trial_index=0),
+            ]
+            modelbridge = Mock(
+                status_quo=Mock(
+                    data=obs_data[0], features=obs_features[0], arm_name=arm_names[0]
+                ),
+                status_quo_data_by_trial={0: obs_data[0]},
             )
-            relative_obs = transform.transform_observations(observations)
-            self.assertEqual(relative_obs[0].data.metric_names, ["foo"])
-            self.assertAlmostEqual(relative_obs[0].data.means[0], 0, places=4)
-            self.assertAlmostEqual(relative_obs[0].data.covariance[0][0], 0, places=4)
+            observations = recombine_observations(obs_features, obs_data, arm_names)
+            for relativize_cls in [Relativize, RelativizeWithConstantControl]:
+                transform = relativize_cls(
+                    search_space=None,
+                    observations=observations,
+                    modelbridge=modelbridge,
+                )
+                relative_obs = transform.transform_observations(observations)
+                self.assertEqual(relative_obs[0].data.metric_names, ["foo"])
+                self.assertAlmostEqual(relative_obs[0].data.means[0], 0, places=4)
+                self.assertAlmostEqual(
+                    relative_obs[0].data.covariance[0][0], 0, places=4
+                )
 
     def test_multitask_data(self) -> None:
         experiment = get_branin_with_multi_task()
