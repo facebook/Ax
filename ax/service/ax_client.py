@@ -72,7 +72,7 @@ from ax.service.utils.instantiation import (
     InstantiationBase,
     ObjectiveProperties,
 )
-from ax.service.utils.with_db_settings_base import DBSettings
+from ax.service.utils.with_db_settings_base import TDBSettings
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -182,7 +182,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     def __init__(
         self,
         generation_strategy: GenerationStrategy | None = None,
-        db_settings: DBSettings | None = None,
+        db_settings: TDBSettings = None,
         enforce_sequential_optimization: bool = True,
         random_seed: int | None = None,
         torch_device: torch.device | None = None,
