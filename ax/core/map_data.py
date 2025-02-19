@@ -300,12 +300,13 @@ class MapData(Data):
         if self._memo_df is not None:
             return self._memo_df
 
+        # If map_keys is empty just return the df
         if len(self.map_keys) == 0:
             # If map_keys is empty just return the df
             return self.map_df
 
-        self._memo_df = self.map_df.sort_values(self.map_keys).drop_duplicates(
-            MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
+        self._memo_df = _tail(
+            map_df=self.map_df, map_keys=self.map_keys, n=1, sort=True
         )
 
         return self._memo_df
@@ -362,6 +363,32 @@ class MapData(Data):
             description=self.description,
         )
 
+    def latest(
+        self,
+        map_keys: list[str] | None = None,
+        rows_per_group: int = 1,
+    ) -> MapData:
+        """Return a new MapData with the most recently observed `rows_per_group`
+        rows for each (arm, metric) group, determined by the `map_key` values,
+        where higher implies more recent.
+
+        This function considers only the relative ordering of the `map_key` values,
+        making it most suitable when these values are equally spaced.
+
+        If `rows_per_group` is greater than the number of rows in a given
+        (arm, metric) group, then all rows are returned.
+        """
+        if map_keys is None:
+            map_keys = self.map_keys
+
+        return MapData(
+            df=_tail(
+                map_df=self.map_df, map_keys=map_keys, n=rows_per_group, sort=True
+            ),
+            map_key_infos=self.map_key_infos,
+            description=self.description,
+        )
+
     def subsample(
         self,
         map_key: str | None = None,
@@ -370,17 +397,19 @@ class MapData(Data):
         limit_rows_per_metric: int | None = None,
         include_first_last: bool = True,
     ) -> MapData:
-        """Subsample the `map_key` column in an equally-spaced manner (if there is
-        a `self.map_keys` is length one, then `map_key` can be set to None). The
-        values of the `map_key` column are not taken into account, so this function
-        is most reasonable when those values are equally-spaced. There are three
-        ways that this can be done:
+        """Return a new MapData that subsamples the `map_key` column in an
+        equally-spaced manner. If `self.map_keys` has a length of one, `map_key`
+        can be set to None. This function considers only the relative ordering
+        of the `map_key` values, making it most suitable when these values are
+        equally spaced.
+
+        There are three ways that this can be done:
             1. If `keep_every = k` is set, then every kth row of the DataFrame in the
                 `map_key` column is kept after grouping by `DEDUPLICATE_BY_COLUMNS`.
                 In other words, every kth step of each (arm, metric) will be kept.
             2. If `limit_rows_per_group = n`, the method will find the (arm, metric)
                 pair with the largest number of rows in the `map_key` column and select
-                an approprioate `keep_every` such that each (arm, metric) has at most
+                an appropriate `keep_every` such that each (arm, metric) has at most
                 `n` rows in the `map_key` column.
             3. If `limit_rows_per_metric = n`, the method will select an
                 appropriate `keep_every` such that the total number of rows per
@@ -476,6 +505,18 @@ def _subsample_rate(
         "at least one of `keep_every`, `limit_rows_per_group`, "
         "or `limit_rows_per_metric` must be specified."
     )
+
+
+def _tail(
+    map_df: pd.DataFrame,
+    map_keys: list[str],
+    n: int = 1,
+    sort: bool = True,
+) -> pd.DataFrame:
+    df = map_df.sort_values(map_keys).groupby(MapData.DEDUPLICATE_BY_COLUMNS).tail(n)
+    if sort:
+        df.sort_values(MapData.DEDUPLICATE_BY_COLUMNS, inplace=True)
+    return df
 
 
 def _subsample_one_metric(
