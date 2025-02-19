@@ -9,11 +9,9 @@
 import re
 import time
 from collections.abc import Iterable, Sequence
-
 from logging import INFO, Logger
 
 from ax.analysis.analysis import AnalysisCard
-
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -75,10 +73,13 @@ try:  # We don't require SQLAlchemy by default.
     from sqlalchemy.exc import OperationalError
     from sqlalchemy.orm.exc import StaleDataError
 
+    TDBSettings = DBSettings | None
+
     # We retry on `OperationalError` if saving to DB.
     RETRY_EXCEPTION_TYPES = (OperationalError, StaleDataError)
 except (ModuleNotFoundError, IncompatibleDependencyVersion, TypeError):
     DBSettings = None
+    TDBSettings = None
     Decoder = None
     Encoder = None
     SQAConfig = None
@@ -93,11 +94,11 @@ class WithDBSettingsBase:
     if `db_settings` property is set to a non-None value on the instance.
     """
 
-    _db_settings: DBSettings | None = None
+    _db_settings: TDBSettings = None
 
     def __init__(
         self,
-        db_settings: DBSettings | None = None,
+        db_settings: TDBSettings = None,
         logging_level: int = INFO,
         suppress_all_errors: bool = False,
     ) -> None:
@@ -117,7 +118,7 @@ class WithDBSettingsBase:
         logger.setLevel(logging_level)
 
     @staticmethod
-    def _get_default_db_settings() -> DBSettings | None:
+    def _get_default_db_settings() -> TDBSettings:
         """Overridable method to get default db_settings
         if none are passed in __init__
         """

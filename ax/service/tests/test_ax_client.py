@@ -2031,7 +2031,7 @@ class TestAxClient(TestCase):
 
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
     @patch.dict(sys.modules, {"sqalchemy": None})
-    @patch("ax.service.ax_client.DBSettings", None)
+    @patch("ax.service.ax_client.TDBSettings", None)
     def test_no_sqa(self) -> None:
         # Make sure we couldn't import sqa_store.structs (this could happen when
         # SQLAlchemy is not installed).
