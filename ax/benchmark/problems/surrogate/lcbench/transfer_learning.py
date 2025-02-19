@@ -14,13 +14,11 @@ import torch
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.benchmark.problems.surrogate.lcbench.utils import (
+    BASELINE_VALUES,
     DEFAULT_METRIC_NAME,
     get_lcbench_optimization_config,
-    get_lcbench_search_space,
 )
-from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.registry import Cont_X_trans, Generators, Y_trans
 from ax.modelbridge.torch import TorchAdapter
@@ -35,30 +33,7 @@ from pyre_extensions import assert_is_instance
 
 DEFAULT_NUM_TRIALS: int = 30
 
-BASELINE_VALUES: dict[str, float] = {
-    "KDDCup09_appetency": 94.84762378096477,
-    "APSFailure": 97.75754021610224,
-    "albert": 63.893807756587876,
-    "Amazon_employee_access": 93.92434556024065,
-    "Australian": 89.35657945184583,
-    "Fashion-MNIST": 84.94202558279305,
-    "car": 80.47958436427733,
-    "christine": 72.27323565977512,
-    "cnae-9": 94.15832149950144,
-    "covertype": 61.552294168420595,
-    "dionis": 54.99212355534204,
-    "fabert": 64.88207128531921,
-    "helena": 19.156010689783603,
-    "higgs": 64.84690723875762,
-    "jannis": 57.58628096200955,
-    "jasmine": 80.6321652907534,
-    "kr-vs-kp": 94.53560263952683,
-    "mfeat-factors": 95.58423367904923,
-    "nomao": 93.51402242799601,
-    "shuttle": 96.43481523407816,
-    "sylvine": 91.91719206036713,
-    "volkert": 49.50686237250762,
-}
+
 DEFAULT_AND_OPTIMAL_VALUES: dict[str, tuple[float, float]] = {
     "KDDCup09_appetency": (87.14437173839048, 100.41903197808242),
     "APSFailure": (97.3412499690734, 98.38099041845653),
@@ -83,36 +58,6 @@ DEFAULT_AND_OPTIMAL_VALUES: dict[str, tuple[float, float]] = {
     "sylvine": (83.1596613771663, 98.85179841137813),
     "volkert": (45.361097364985376, 58.133196667029864),
 }
-
-
-def get_lcbench_experiment(
-    metric_name: str = DEFAULT_METRIC_NAME,
-    observe_noise_stds: bool = False,
-) -> Experiment:
-    """Construct an experiment with the LCBench search space and optimization config.
-    Used in N5808878 to fit the initial surrogate, and may be useful for the setup
-    of transfer learning experiments.
-
-    Args:
-        observe_noise_stds: Whether or not the magnitude of the observation noise
-            is known.
-        metric_name: The name of the metric to use for the objective.
-
-    Returns:
-        An experiment with the LCBench search space and optimization config.
-    """
-
-    search_space: SearchSpace = get_lcbench_search_space()
-    optimization_config: OptimizationConfig = get_lcbench_optimization_config(
-        metric_name=metric_name,
-        observe_noise_sd=observe_noise_stds,
-        use_map_metric=False,
-    )
-
-    experiment = Experiment(
-        search_space=search_space, optimization_config=optimization_config
-    )
-    return experiment
 
 
 def get_lcbench_surrogate() -> Surrogate:

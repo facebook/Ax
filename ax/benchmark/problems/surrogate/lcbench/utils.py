@@ -13,6 +13,44 @@ from ax.core.search_space import SearchSpace
 
 DEFAULT_METRIC_NAME: str = "Train/val_accuracy"
 
+BASELINE_VALUES: dict[str, float] = {
+    "APSFailure": 97.75948131763847,
+    "Amazon_employee_access": 93.39364177908142,
+    "Australian": 88.1445880383116,
+    "Fashion-MNIST": 84.75904272864778,
+    "KDDCup09_appetency": 96.13544312868322,
+    "MiniBooNE": 85.8639428612948,
+    "adult": 79.50334987749676,
+    "airlines": 58.96099030718572,
+    "albert": 63.885932360810884,
+    "bank-marketing": 83.72755317459641,
+    "blood-transfusion-service-center": 62.651717620524835,
+    "car": 78.59464531457958,
+    "christine": 72.22719165860138,
+    "cnae-9": 92.24923138962973,
+    "connect-4": 63.808749677494774,
+    "covertype": 61.61393200315512,
+    "credit-g": 70.45312807563056,
+    "dionis": 53.71071232033245,
+    "fabert": 64.44304132875557,
+    "helena": 18.239085505279544,
+    "higgs": 64.74999655474926,
+    "jannis": 57.82155396833136,
+    "jasmine": 80.48475426337272,
+    "jungle_chess_2pcs_raw_endgame_complete": 65.58537332961572,
+    "kc1": 77.28692486000287,
+    "kr-vs-kp": 93.63368446446995,
+    "mfeat-factors": 94.72758417873838,
+    "nomao": 93.73968374826451,
+    "numerai28.6": 51.60281273196557,
+    "phoneme": 75.20979771001986,
+    "segment": 78.81992685291081,
+    "shuttle": 96.45744339531132,
+    "sylvine": 91.15923021902736,
+    "vehicle": 67.40729695042013,
+    "volkert": 49.204981948803855,
+}
+
 
 def get_lcbench_search_space() -> SearchSpace:
     """Construct the LCBench search space."""
