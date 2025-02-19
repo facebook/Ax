@@ -465,6 +465,7 @@ def observations_from_data(
     statuses_to_include: set[TrialStatus] | None = None,
     statuses_to_include_map_metric: set[TrialStatus] | None = None,
     map_keys_as_parameters: bool = False,
+    latest_rows_per_group: int | None = None,
     limit_rows_per_metric: int | None = None,
     limit_rows_per_group: int | None = None,
 ) -> list[Observation]:
@@ -485,17 +486,21 @@ def observations_from_data(
             trials with statuses in this set. Defaults to all statuses except abandoned.
         map_keys_as_parameters: Whether map_keys should be returned as part of
             the parameters of the Observation objects.
-        limit_rows_per_metric: If specified, and if data is an instance of MapData,
-            uses MapData.subsample() with
-            `limit_rows_per_metric` equal to the specified value on the first
-            map_key (map_data.map_keys[0]) to subsample the MapData. This is
-            useful in, e.g., cases where learning curves are frequently
-            updated, leading to an intractable number of Observation objects
-            created.
-        limit_rows_per_group: If specified, and if data is an instance of MapData,
-            uses MapData.subsample() with
-            `limit_rows_per_group` equal to the specified value on the first
-            map_key (map_data.map_keys[0]) to subsample the MapData.
+        latest_rows_per_group: If specified and data is an instance of MapData,
+            uses MapData.latest() with `rows_per_group=latest_rows_per_group` to
+            retrieve the most recent rows for each group. Useful in cases where
+            learning curves are frequently updated, preventing an excessive
+            number of Observation objects. Overrides `limit_rows_per_metric`
+            and `limit_rows_per_group`.
+        limit_rows_per_metric: If specified and data is an instance of MapData,
+            uses MapData.subsample() with `limit_rows_per_metric` on the first
+            map_key (map_data.map_keys[0]) to subsample the MapData. Useful for
+            managing the number of Observation objects when learning curves are
+            frequently updated. Ignored if `latest_rows_per_group` is specified.
+        limit_rows_per_group: If specified and data is an instance of MapData,
+            uses MapData.subsample() with `limit_rows_per_group` on the first
+            map_key (map_data.map_keys[0]) to subsample the MapData. Ignored if
+            `latest_rows_per_group` is specified.
 
     Returns:
         List of Observation objects.
@@ -509,9 +514,11 @@ def observations_from_data(
     if is_map_data:
         data = assert_is_instance(data, MapData)
         map_keys.extend(data.map_keys)
-        if limit_rows_per_metric is not None or limit_rows_per_group is not None:
+        if latest_rows_per_group is not None:
+            data = data.latest(map_keys=map_keys, rows_per_group=latest_rows_per_group)
+        elif limit_rows_per_metric is not None or limit_rows_per_group is not None:
             data = data.subsample(
-                map_key=map_keys[0],
+                map_key=data.map_keys[0],
                 limit_rows_per_metric=limit_rows_per_metric,
                 limit_rows_per_group=limit_rows_per_group,
                 include_first_last=True,

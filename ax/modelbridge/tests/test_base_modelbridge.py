@@ -1060,14 +1060,12 @@ class testClampObservationFeatures(TestCase):
             status_quo_name="1_1",
             fit_only_completed_map_metrics=False,
         )
-        mock_observations_from_data.assert_called_once_with(
-            experiment=mock.ANY,
-            data=mock.ANY,
-            statuses_to_include=mock.ANY,
-            statuses_to_include_map_metric=mock.ANY,
-            map_keys_as_parameters=True,
-        )
+        _, kwargs = mock_observations_from_data.call_args
+        self.assertTrue(kwargs["map_keys_as_parameters"])
+        # assert `latest_rows_per_group` is not specified or is None
+        self.assertIsNone(kwargs.get("latest_rows_per_group"))
         mock_observations_from_data.reset_mock()
+
         # calling without map data calls observations_from_data with
         # map_keys_as_parameters=False even if fit_only_completed_map_metrics is False
         Adapter(
@@ -1078,10 +1076,5 @@ class testClampObservationFeatures(TestCase):
             status_quo_name="1_1",
             fit_only_completed_map_metrics=False,
         )
-        mock_observations_from_data.assert_called_once_with(
-            experiment=mock.ANY,
-            data=mock.ANY,
-            statuses_to_include=mock.ANY,
-            statuses_to_include_map_metric=mock.ANY,
-            map_keys_as_parameters=False,
-        )
+        _, kwargs = mock_observations_from_data.call_args
+        self.assertFalse(kwargs["map_keys_as_parameters"])
