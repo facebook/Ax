@@ -148,7 +148,7 @@ Typeutils
     :show-inheritance:
 
 Typeutils Non-Native
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.utils.common.typeutils_nonnative
     :members:

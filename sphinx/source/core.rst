@@ -54,7 +54,7 @@ Core Classes
 
 
 `AuxiliaryExperiment`
-~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.core.auxiliary
     :members:
@@ -205,7 +205,7 @@ Core Classes
 
 
 `TrialStatus`
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 .. automodule:: ax.core.trial_status
     :members:
