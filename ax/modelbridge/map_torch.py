@@ -20,7 +20,7 @@ from ax.core.observation import (
     Observation,
     ObservationData,
     ObservationFeatures,
-    observations_from_map_data,
+    observations_from_data,
     separate_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
@@ -257,14 +257,14 @@ class MapTorchAdapter(TorchAdapter):
         """
         if experiment is None or data is None:
             return []
-        return observations_from_map_data(
+        return observations_from_data(
             experiment=experiment,
-            map_data=data,  # pyre-ignore[6]: Checked in __init__.
-            map_keys_as_parameters=True,
+            data=data,
             limit_rows_per_metric=self._map_data_limit_rows_per_metric,
             limit_rows_per_group=self._map_data_limit_rows_per_group,
             statuses_to_include=self.statuses_to_fit,
             statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
+            map_keys_as_parameters=True,
         )
 
     def _compute_in_design(
