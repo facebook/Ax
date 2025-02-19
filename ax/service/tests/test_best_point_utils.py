@@ -46,6 +46,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_metric,
     get_branin_search_space,
+    get_experiment_with_map_data,
     get_experiment_with_observations,
     get_sobol,
 )
@@ -153,6 +154,15 @@ class TestBestPointUtils(TestCase):
         self.assertIsNotNone(predict_arm)
 
     def test_best_raw_objective_point(self) -> None:
+        with self.subTest("Only early-stopped trials"):
+            exp = get_experiment_with_map_data()
+            exp.trials[0].mark_running(no_runner_required=True)
+            exp.trials[0].mark_early_stopped()
+            with self.assertRaisesRegex(
+                ValueError, "Cannot identify best point if no trials are completed."
+            ):
+                get_best_raw_objective_point_with_trial_index(experiment=exp)
+
         exp = get_branin_experiment()
         with self.assertRaisesRegex(
             ValueError, "Cannot identify best point if experiment contains no data."

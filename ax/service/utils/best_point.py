@@ -108,6 +108,8 @@ def get_best_raw_objective_point_with_trial_index(
     completed_indices = {
         t.index for t in experiment.trials_by_status[TrialStatus.COMPLETED]
     }
+    if len(completed_indices) == 0:
+        raise ValueError("Cannot identify best point if no trials are completed.")
     completed_df = dat.df[dat.df["trial_index"].isin(completed_indices)]
 
     is_feasible = _is_row_feasible(
