@@ -121,8 +121,8 @@ class ProgressionPlot(PlotlyAnalysis):
                     x=terminal_points[x_axis_name],
                     y=terminal_points[metric_name],
                     mode="markers",
+                    marker={"symbol": "x", "color": "red"},
                     showlegend=False,
-                    line_color="red",
                     hoverinfo="none",
                 )
             )
