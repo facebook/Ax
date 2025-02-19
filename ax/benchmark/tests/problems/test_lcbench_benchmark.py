@@ -17,6 +17,7 @@ from pyre_extensions import assert_is_instance
 
 
 class TestLCBenchBenchmark(TestCase):
+    @TestCase.ax_long_test(reason="Training random forest regressor")
     def test_lcbench_predictions(self) -> None:
         self.assertEqual(len(DEFAULT_AND_OPTIMAL_VALUES), 22)
         # NOTE: lots of tasks, so testing only one here o/w this is very slow

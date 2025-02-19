@@ -85,6 +85,46 @@ OPTIMAL_VALUES: dict[str, float] = {
     "volkert": 64.02699279785156,
 }
 
+# Chosen so that for the median parameterization, one step takes one virtual
+# second.
+RUNTIME_MULTIPLIERS = {
+    "APSFailure": 0.2498361853616576,
+    "Amazon_employee_access": 0.5596248586092226,
+    "Australian": 1.0748285031033658,
+    "Fashion-MNIST": 0.057873893027107395,
+    "KDDCup09_appetency": 0.2714829300383819,
+    "MiniBooNE": 0.20530997463252754,
+    "adult": 0.4423476551967684,
+    "airlines": 0.06473793535537586,
+    "albert": 0.06832237841522835,
+    "bank-marketing": 0.46517394252532845,
+    "blood-transfusion-service-center": 1.1101296769694071,
+    "car": 1.0536256049024968,
+    "christine": 0.025742718302424954,
+    "cnae-9": 0.08811760797353926,
+    "connect-4": 0.33489219890695243,
+    "covertype": 0.05049155246078877,
+    "credit-g": 1.0400726314123157,
+    "dionis": 0.0231601276801126,
+    "fabert": 0.08971358669025394,
+    "helena": 0.25008050673472376,
+    "higgs": 0.26990484596881176,
+    "jannis": 0.2828372999943685,
+    "jasmine": 0.7655180467265444,
+    "jungle_chess_2pcs_raw_endgame_complete": 0.47160243094434906,
+    "kc1": 1.0143178289557349,
+    "kr-vs-kp": 0.9390239320512418,
+    "mfeat-factors": 0.595676967891612,
+    "nomao": 0.4420599860962263,
+    "numerai28.6": 0.28377545234818863,
+    "phoneme": 0.9689051773179346,
+    "segment": 1.000676324600838,
+    "shuttle": 0.39362569776573014,
+    "sylvine": 0.9179851039769921,
+    "vehicle": 1.048848701347826,
+    "volkert": 0.28538440509808005,
+}
+
 
 class RegressorProtocol(Protocol):
     """
@@ -227,7 +267,7 @@ class LearningCurveBenchmarkTestFunction(BenchmarkTestFunction):
     def step_runtime(self, params: Mapping[str, TParamValue]) -> float:
         X = pd.DataFrame.from_records(data=[params])
         Y = self.runtime_surrogate.predict(X=X)  # shape: (1,)
-        return Y.item()
+        return Y.item() * RUNTIME_MULTIPLIERS[self.dataset_name]
 
 
 def get_lcbench_early_stopping_benchmark_problem(
