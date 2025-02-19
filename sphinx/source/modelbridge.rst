@@ -26,7 +26,7 @@ Generation Node
     :show-inheritance:
 
 External Generation Node
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.external_generation_node
     :members:
     :undoc-members:
@@ -59,7 +59,7 @@ Factory
     :show-inheritance:
 
 GeneratorSpec
-~~~~~~~~~
+~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.model_spec
     :members:
     :undoc-members:
@@ -207,7 +207,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.fill_missing_parameters`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.fill_missing_parameters
     :members:
@@ -377,7 +377,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.time\_as\_feature`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.time_as_feature
     :members:
@@ -385,7 +385,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.transform\_to\_new\_sq`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.transform_to_new_sq
     :members:

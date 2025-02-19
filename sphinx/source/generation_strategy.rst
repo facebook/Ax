@@ -2,7 +2,7 @@
     :class: hidden-section
 
 ax.generation_strategy
-==============
+======================
 
 .. automodule:: ax.generation_strategy
 .. currentmodule:: ax.generation_strategy
@@ -26,28 +26,28 @@ Generation Node
     :show-inheritance:
 
 External Generation Node
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 .. automodule:: ax.generation_strategy.external_generation_node
     :members:
     :undoc-members:
     :show-inheritance:
 
 Transition Criterion
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 .. automodule:: ax.generation_strategy.transition_criterion
     :members:
     :undoc-members:
     :show-inheritance:
 
 Generation Node Input Constructors
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. automodule:: ax.generation_strategy.generation_node_input_constructors
     :members:
     :undoc-members:
     :show-inheritance:
 
 GeneratorSpec
-~~~~~~~~~
+~~~~~~~~~~~~~
 .. automodule:: ax.generation_strategy.model_spec
     :members:
     :undoc-members:

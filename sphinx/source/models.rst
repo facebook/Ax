@@ -9,7 +9,7 @@ ax.models
 
 
 Base Generators & Utilities
------------------------
+---------------------------
 
 ax.models.base
 ~~~~~~~~~~~~~~
@@ -61,7 +61,7 @@ ax.models.winsorization\_config module
 
 
 Discrete Generators
----------------
+-------------------
 
 ax.models.discrete.eb\_thompson module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -96,7 +96,7 @@ ax.models.discrete.eb\_ashr module
     :show-inheritance:
 
 ax.models.discrete.ashr\_utils module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.models.discrete.ashr_utils
     :members:
@@ -105,7 +105,7 @@ ax.models.discrete.ashr\_utils module
 
 
 Random Generators
--------------
+-----------------
 
 ax.models.random.base module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -132,7 +132,7 @@ ax.models.random.sobol module
     :show-inheritance:
 
 Torch Generators & Utilities
-------------------------
+----------------------------
 
 ax.models.torch.botorch module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
