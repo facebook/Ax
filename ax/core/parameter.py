@@ -527,7 +527,7 @@ class ChoiceParameter(Parameter):
         name: Name of the parameter.
         parameter_type: Enum indicating the type of parameter
             value (e.g. string, int).
-        values: List of allowed values for the parameter.
+        values: List of allowed value(s) for the parameter.
         is_ordered: If False, the parameter is a categorical variable.
             Defaults to False if parameter_type is STRING and ``values``
             is longer than 2, else True.
@@ -566,9 +566,6 @@ class ChoiceParameter(Parameter):
         self._is_task = is_task
         self._is_fidelity = is_fidelity
         self._target_value: TParamValue = self.cast(target_value)
-        # A choice parameter with only one value is a FixedParameter.
-        if not len(values) > 1:
-            raise UserInputError(f"{self._name}({values}): {FIXED_CHOICE_PARAM_ERROR}")
         # Cap the number of possible values.
         if len(values) > MAX_VALUES_CHOICE_PARAM:
             raise UserInputError(
@@ -680,9 +677,6 @@ class ChoiceParameter(Parameter):
         Args:
             values: New list of allowed values.
         """
-        # A choice parameter with only one value is a FixedParameter.
-        if not len(values) > 1:
-            raise UserInputError(FIXED_CHOICE_PARAM_ERROR)
         self._values = self._cast_values(values)
         return self
 
@@ -757,7 +751,10 @@ class ChoiceParameter(Parameter):
 
 
 class FixedParameter(Parameter):
-    """Parameter object that specifies a single fixed value."""
+    """
+    *DEPRECATED*: Use ChoiceParameter with a single value instead.
+
+    Parameter object that specifies a single fixed value."""
 
     def __init__(
         self,
@@ -768,7 +765,10 @@ class FixedParameter(Parameter):
         target_value: TParamValue = None,
         dependents: dict[TParamValue, list[str]] | None = None,
     ) -> None:
-        """Initialize FixedParameter
+        """
+        *DEPRECATED*: Use ChoiceParameter with a single value instead.
+
+        Initialize FixedParameter
 
         Args:
             name: Name of the parameter.
@@ -780,6 +780,10 @@ class FixedParameter(Parameter):
             dependents: Optional mapping for parameters in hierarchical search
                 spaces; format is { value -> list of dependent parameter names }.
         """
+        warn(
+            "FixedParameter is deprecated. Use ChoiceParameter with a single value "
+            "instead.",
+        )
         if is_fidelity and (target_value is None):
             raise UserInputError(
                 "`target_value` should not be None for the fidelity parameter: "
