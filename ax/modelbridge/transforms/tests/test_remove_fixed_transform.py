@@ -33,6 +33,7 @@ class RemoveFixedTransformTest(TestCase):
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
                 ),
                 FixedParameter("c", parameter_type=ParameterType.STRING, value="a"),
+                ChoiceParameter("d", parameter_type=ParameterType.INT, values=[1]),
             ]
         )
         self.t = RemoveFixed(
@@ -41,11 +42,11 @@ class RemoveFixedTransformTest(TestCase):
         )
 
     def test_Init(self) -> None:
-        self.assertEqual(list(self.t.fixed_parameters.keys()), ["c"])
+        self.assertEqual(list(self.t.single_choice_params.keys()), ["c", "d"])
 
     def test_TransformObservationFeatures(self) -> None:
         observation_features = [
-            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a"})
+            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a", "d": 1})
         ]
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -56,10 +57,10 @@ class RemoveFixedTransformTest(TestCase):
         self.assertEqual(obs_ft2, observation_features)
 
         observation_features = [
-            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a"})
+            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a", "d": 1})
         ]
         observation_features_different = [
-            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "b"})
+            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "b", "d": 10})
         ]
         # Fixed parameter is out of design. It will still get removed.
         t_obs = self.t.transform_observation_features(observation_features)
@@ -72,11 +73,15 @@ class RemoveFixedTransformTest(TestCase):
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(ss2.parameters.get("c"), None)
+        self.assertEqual(ss2.parameters.get("d"), None)
 
     def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
         rss.add_parameter(
             FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
+        )
+        rss.add_parameter(
+            ChoiceParameter("e", parameter_type=ParameterType.INT, values=[1]),
         )
         # Transform a non-distributional parameter.
         t = RemoveFixed(
@@ -90,6 +95,7 @@ class RemoveFixedTransformTest(TestCase):
         # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
         self.assertEqual(len(rss.parameter_distributions), 2)
         self.assertNotIn("d", rss.parameters)
+        self.assertNotIn("e", rss.parameters)
         # Test with environmental variables.
         all_params = list(rss.parameters.values())
         rss = RobustSearchSpace(
@@ -101,6 +107,9 @@ class RemoveFixedTransformTest(TestCase):
         )
         rss.add_parameter(
             FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
+        )
+        rss.add_parameter(
+            ChoiceParameter("e", parameter_type=ParameterType.INT, values=[1]),
         )
         t = RemoveFixed(
             search_space=rss,

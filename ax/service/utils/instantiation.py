@@ -7,6 +7,7 @@
 # pyre-strict
 
 import enum
+import warnings
 from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass
@@ -251,14 +252,17 @@ class InstantiationBase:
         parameter_type: str | None,
     ) -> ChoiceParameter:
         values = representation["values"]
-        assert isinstance(values, list) and len(values) > 1, (
-            f"Cannot parse parameter {name}: for choice parameters, json representation"
-            " should include a list of two or more values."
+        assert isinstance(values, list), (
+            f"Can't parse parameter {name} with values: {values},"
+            "values should type list."
         )
         return ChoiceParameter(
             name=name,
             parameter_type=cls._to_parameter_type(
-                values, parameter_type, name, "values"
+                values,
+                parameter_type,
+                name,
+                "values",
             ),
             values=values,
             is_ordered=assert_is_instance_optional(
@@ -283,27 +287,20 @@ class InstantiationBase:
         name: str,
         representation: TParameterRepresentation,
         parameter_type: str | None,
-    ) -> FixedParameter:
-        assert "value" in representation, "Value is required for fixed parameters."
-        value = representation["value"]
-        assert type(value) in PARAM_TYPES.values(), (
-            f"Cannot parse fixed parameter {name}: for fixed parameters, json "
-            "representation should include a single value."
+    ) -> ChoiceParameter:
+        warnings.warn(
+            "`fixed` parameters are deprecated. Please use `ChoiceParameter` with a "
+            "single-value instead. This config will instantiate a `ChoiceParameter`",
+            DeprecationWarning,
+            stacklevel=2,
         )
-        return FixedParameter(
+        # Convert TParameterRepresentation to a ChoiceParameter representation.
+        representation["values"] = [representation["value"]]  # pyre-ignore[6]
+        representation["type"] = "choice"
+        return cls._make_choice_param(
             name=name,
-            parameter_type=(
-                cls._get_parameter_type(type(value))  # pyre-ignore[6]
-                if parameter_type is None
-                # pyre-ignore[6]
-                else cls._get_parameter_type(PARAM_TYPES[parameter_type])
-            ),
-            value=value,  # pyre-ignore[6]
-            is_fidelity=assert_is_instance(
-                representation.get("is_fidelity", False), bool
-            ),
-            target_value=representation.get("target_value", None),  # pyre-ignore[6]
-            dependents=representation.get("dependents", None),  # pyre-ignore[6]
+            representation=representation,
+            parameter_type=parameter_type,
         )
 
     @classmethod
@@ -357,23 +354,11 @@ class InstantiationBase:
             assert (
                 "values" in representation
             ), "Values are required for choice parameters."
-            values = representation["values"]
-            if isinstance(values, list) and len(values) == 1:
-                logger.info(
-                    f"Choice parameter {name} contains only one value, converting to a"
-                    + " fixed parameter instead."
-                )
-                # update the representation to a fixed parameter class
-                parameter_class = "fixed"
-                representation["type"] = parameter_class
-                representation["value"] = values[0]
-                del representation["values"]
-            else:
-                return cls._make_choice_param(
-                    name=name,
-                    representation=representation,
-                    parameter_type=parameter_type,
-                )
+            return cls._make_choice_param(
+                name=name,
+                representation=representation,
+                parameter_type=parameter_type,
+            )
 
         if parameter_class == "fixed":
             assert not any(isinstance(val, list) for val in representation.values())
