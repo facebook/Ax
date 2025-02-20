@@ -95,7 +95,7 @@ class MapData(Data):
     `experiment.attach_data()` (this requires a description to be set.)
     """
 
-    DEDUPLICATE_BY_COLUMNS = ["arm_name", "metric_name"]
+    DEDUPLICATE_BY_COLUMNS = ["trial_index", "arm_name", "metric_name"]
 
     _map_df: pd.DataFrame
     _memo_df: pd.DataFrame | None

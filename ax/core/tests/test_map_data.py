@@ -21,6 +21,15 @@ class MapDataTest(TestCase):
                 {
                     "arm_name": "0_0",
                     "epoch": 0,
+                    "mean": 3.0,
+                    "sem": 0.3,
+                    "trial_index": 0,
+                    "metric_name": "a",
+                },
+                # repeated arm 0_0
+                {
+                    "arm_name": "0_0",
+                    "epoch": 0,
                     "mean": 2.0,
                     "sem": 0.2,
                     "trial_index": 1,
@@ -77,6 +86,10 @@ class MapDataTest(TestCase):
         ]
 
         self.mmd = MapData(df=self.df, map_key_infos=self.map_key_infos)
+
+    def test_df(self) -> None:
+        df = self.mmd.df
+        self.assertEqual(set(df["trial_index"].drop_duplicates()), {0, 1})
 
     def test_map_key_info(self) -> None:
         self.assertEqual(self.map_key_infos, self.mmd.map_key_infos)
