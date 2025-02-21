@@ -324,9 +324,6 @@ def sanitize_mdx(mdx: str) -> str:
 
     # -- KaTeX --
     # Wrap '\begin{}...\end{}' in $$ for KaTeX to work.
-    mdx = re.sub(
-        "(\\\\begin\\\\{(\\w*?)\\\\}(.|\n)*?end\\\\{\\2\\\\})", "$$\\g<1>$$", mdx
-    )
     # Make sure $$ symbols are not escaped and include line breaks.
     mdx = re.sub(
         "\\\\?\\$\\\\?\\$((?:.|\n)*?)\\\\?\\$\\\\?\\$", "\n$$\n\\g<1>\n$$\n", mdx
