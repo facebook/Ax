@@ -66,10 +66,11 @@ class RandomForest(TorchGenerator):
         return _rf_predict(self.models, X)
 
     @copy_doc(TorchGenerator.cross_validate)
-    def cross_validate(  # pyre-ignore [14]: not using metric_names or ssd
+    def cross_validate(
         self,
         datasets: list[SupervisedDataset],
         X_test: Tensor,
+        search_space_digest: SearchSpaceDigest,
         use_posterior_predictive: bool = False,
     ) -> tuple[Tensor, Tensor]:
         Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)

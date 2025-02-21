@@ -557,6 +557,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
             ]
             mean, variance = model.cross_validate(
                 datasets=combined_datasets,
+                search_space_digest=search_space_digest,
                 X_test=torch.tensor([[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], **tkwargs),
             )
             self.assertEqual(mean.shape, torch.Size([2, 2]))
@@ -566,6 +567,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
             model.refit_on_cv = True
             mean, variance = model.cross_validate(
                 datasets=combined_datasets,
+                search_space_digest=search_space_digest,
                 X_test=torch.tensor([[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], **tkwargs),
             )
             self.assertEqual(mean.shape, torch.Size([2, 2]))
@@ -580,7 +582,11 @@ class LegacyBoTorchGeneratorTest(TestCase):
             with self.assertRaisesRegex(
                 RuntimeError, r"Cannot cross-validate model that has not been fitted"
             ):
-                unfit_model.cross_validate(datasets=combined_datasets, X_test=Xs1[0])
+                unfit_model.cross_validate(
+                    datasets=combined_datasets,
+                    search_space_digest=search_space_digest,
+                    X_test=Xs1[0],
+                )
             with self.assertRaisesRegex(
                 RuntimeError,
                 r"Cannot calculate feature_importances without a fitted model",

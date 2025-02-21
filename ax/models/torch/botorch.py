@@ -468,10 +468,11 @@ class LegacyBoTorchGenerator(TorchGenerator):
         )
 
     @copy_doc(TorchGenerator.cross_validate)
-    def cross_validate(  # pyre-ignore [14]: `search_space_digest` arg not needed here
+    def cross_validate(
         self,
         datasets: list[SupervisedDataset],
         X_test: Tensor,
+        search_space_digest: SearchSpaceDigest,
         use_posterior_predictive: bool = False,
     ) -> tuple[Tensor, Tensor]:
         if self._model is None:
