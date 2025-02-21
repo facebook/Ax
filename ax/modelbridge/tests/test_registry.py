@@ -159,7 +159,6 @@ class ModelRegistryTest(TestCase):
             gpei._bridge_kwargs,
             {
                 "transform_configs": None,
-                "torch_dtype": None,
                 "torch_device": None,
                 "status_quo_name": None,
                 "status_quo_features": None,
