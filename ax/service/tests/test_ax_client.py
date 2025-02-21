@@ -1940,7 +1940,7 @@ class TestAxClient(TestCase):
             )  # No trial #10 in experiment.
         with self.assertRaisesRegex(UnsupportedError, ".* is of type"):
             ax_client.attach_trial({"x": 1, "y": 2})
-    
+
     def test_attach_trial_invalid_parameters(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -1951,28 +1951,28 @@ class TestAxClient(TestCase):
         )
         # Test attaching trial with parameter outside bounds fails by default
         with self.assertRaisesRegex(
-            ValueError, "20.0 is not a valid value for parameter RangeParameter\(name='x'"
+            ValueError,
+            "20.0 is not a valid value for parameter RangeParameter\(name='x'",
         ):
-            ax_client.attach_trial(
-                parameters={"x": 20.0, "y": 1.0}
-            )
-            
+            ax_client.attach_trial(parameters={"x": 20.0, "y": 1.0})
+
         # Test attaching trial with parameter outside bounds fails with raise_parameter_error=True
         with self.assertRaisesRegex(
-            ValueError, "20.0 is not a valid value for parameter RangeParameter\(name='x'"
+            ValueError,
+            "20.0 is not a valid value for parameter RangeParameter\(name='x'",
         ):
             ax_client.attach_trial(
-                parameters={"x": 20.0, "y": 1.0},
-                raise_parameter_error=True
+                parameters={"x": 20.0, "y": 1.0}, raise_parameter_error=True
             )
 
         # Test attaching trial with parameter outside bounds succeeds with raise_parameter_error=False
         _, idx = ax_client.attach_trial(
-            parameters={"x": 20.0, "y": 1.0},
-            raise_parameter_error=False
+            parameters={"x": 20.0, "y": 1.0}, raise_parameter_error=False
         )
         ax_client.complete_trial(trial_index=idx, raw_data=5)
-        self.assertEqual(ax_client.get_trial_parameters(trial_index=idx), {"x": 20.0, "y": 1.0})
+        self.assertEqual(
+            ax_client.get_trial_parameters(trial_index=idx), {"x": 20.0, "y": 1.0}
+        )
 
     def test_attach_trial_ttl_seconds(self) -> None:
         ax_client = AxClient()
