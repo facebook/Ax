@@ -381,6 +381,13 @@ class SearchSpace(Base):
     def validate_membership(
         self, parameters: TParameterization, raise_error: bool = True
     ) -> None:
+        """Validates if a parameterization belongs in the search space.
+        
+        Args:
+            raise_error: If True, raise an error if validating membership
+                of the parameterization in the search space fails. If False, do not 
+                raise an error.
+        """
         self.check_membership(parameterization=parameters, raise_error=raise_error)
         # `check_membership` uses int and float interchangeably, which we don't
         # want here.
