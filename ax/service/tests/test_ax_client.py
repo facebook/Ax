@@ -1949,23 +1949,23 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        # Test attaching trial with parameter outside bounds fails by default
+        # Test parameter outside bounds fails by default
         with self.assertRaisesRegex(
             ValueError,
-            "20.0 is not a valid value for parameter RangeParameter\(name='x'",
+            "20.0 is not a valid value for parameter RangeParameter\\(name='x'",
         ):
             ax_client.attach_trial(parameters={"x": 20.0, "y": 1.0})
 
-        # Test attaching trial with parameter outside bounds fails with raise_parameter_error=True
+        # Test parameter outside bounds fails with raise_parameter_error=True
         with self.assertRaisesRegex(
             ValueError,
-            "20.0 is not a valid value for parameter RangeParameter\(name='x'",
+            "20.0 is not a valid value for parameter RangeParameter\\(name='x'",
         ):
             ax_client.attach_trial(
                 parameters={"x": 20.0, "y": 1.0}, raise_parameter_error=True
             )
 
-        # Test attaching trial with parameter outside bounds succeeds with raise_parameter_error=False
+        # Test parameter outside bounds succeeds with raise_parameter_error=False
         _, idx = ax_client.attach_trial(
             parameters={"x": 20.0, "y": 1.0}, raise_parameter_error=False
         )
