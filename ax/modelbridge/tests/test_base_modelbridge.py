@@ -22,6 +22,7 @@ from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
+from ax.core.parameter_constraint import SumConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.base import (
@@ -1000,10 +1001,21 @@ class testClampObservationFeatures(TestCase):
         experiment.attach_data(get_branin_data_batch(batch=trial, fill_vals=sq_vals))
         trial.mark_completed()
         data = experiment.lookup_data()
+        # Make search space with a parameter constraint
+        ss = experiment.search_space.clone()
+        ss.set_parameter_constraints(
+            [
+                SumConstraint(
+                    parameters=list(ss.parameters.values()),
+                    is_upper_bound=True,
+                    bound=30.0,
+                )
+            ]
+        )
 
         # Check that SQ and custom are OOD
         m = Adapter(
-            search_space=experiment.search_space,
+            search_space=ss,
             model=None,
             experiment=experiment,
             data=data,
@@ -1014,10 +1026,11 @@ class testClampObservationFeatures(TestCase):
         self.assertEqual(set(ood_arms), {"status_quo", "custom"})
         self.assertEqual(m.model_space.parameters["x1"].lower, -5.0)  # pyre-ignore[16]
         self.assertEqual(m.model_space.parameters["x2"].upper, 15.0)  # pyre-ignore[16]
+        self.assertEqual(len(m.model_space.parameter_constraints), 1)
 
         # With expand model space, custom is not OOD, and model space is expanded
         m = Adapter(
-            search_space=experiment.search_space,
+            search_space=ss,
             model=None,
             experiment=experiment,
             data=data,
@@ -1027,10 +1040,11 @@ class testClampObservationFeatures(TestCase):
         self.assertEqual(set(ood_arms), {"status_quo"})
         self.assertEqual(m.model_space.parameters["x1"].lower, -20.0)
         self.assertEqual(m.model_space.parameters["x2"].upper, 18.0)
+        self.assertEqual(m.model_space.parameter_constraints, [])
 
         # With fill values, SQ is also in design, and x2 is further expanded
         m = Adapter(
-            search_space=experiment.search_space,
+            search_space=ss,
             model=None,
             experiment=experiment,
             data=data,
@@ -1039,6 +1053,7 @@ class testClampObservationFeatures(TestCase):
         )
         self.assertEqual(sum(m.training_in_design), 7)
         self.assertEqual(m.model_space.parameters["x2"].upper, 20)
+        self.assertEqual(m.model_space.parameter_constraints, [])
 
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",

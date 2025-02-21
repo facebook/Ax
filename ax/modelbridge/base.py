@@ -140,7 +140,8 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
             expand_model_space: If True, expand range parameter bounds in model
                 space to cover given training data. This will make the modeling
                 space larger than the search space if training data fall outside
-                the search space.
+                the search space. Will also include training points that violate
+                parameter constraints in the modeling.
             fit_out_of_design: If specified, all training data are used.
                 Otherwise, only in design points are used.
             fit_abandoned: Whether data for abandoned arms or trials should be
@@ -441,6 +442,8 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
             if isinstance(p, RangeParameter):
                 p.lower = min(p.lower, min(param_vals[p.name]))
                 p.upper = max(p.upper, max(param_vals[p.name]))
+        # Remove parameter constraints from the model space.
+        self._model_space.set_parameter_constraints([])
 
     def _set_status_quo(
         self,
