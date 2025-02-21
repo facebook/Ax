@@ -1553,6 +1553,9 @@ class Experiment(Base):
                 trial such that the experiment's power to detect effects of
                 certain size is as high as possible. Refer to documentation of
                 `BatchTrial.set_status_quo_and_optimize_power` for more detail.
+            raise_parameter_error: If True, raise an error if validating membership
+                of the parameterization in the search space fails. If False, do not 
+                raise an error.
 
         Returns:
             Tuple of arm name to parameterization dict, and trial index from

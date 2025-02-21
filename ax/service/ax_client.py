@@ -890,6 +890,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             ttl_seconds: If specified, will consider the trial failed after this
                 many seconds. Used to detect dead trials that were not marked
                 failed properly.
+            raise_parameter_error: If True, raise an error if validating membership
+                of the parameterization in the search space fails. If False, do not 
+                raise an error.
 
         Returns:
             Tuple of parameterization and trial index from newly created trial.
