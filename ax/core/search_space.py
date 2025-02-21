@@ -378,8 +378,10 @@ class SearchSpace(Base):
                             f"`{parameter_name}` does not exist in search space."
                         )
 
-    def validate_membership(self, parameters: TParameterization) -> None:
-        self.check_membership(parameterization=parameters, raise_error=True)
+    def validate_membership(
+        self, parameters: TParameterization, raise_error: bool = True
+    ) -> None:
+        self.check_membership(parameterization=parameters, raise_error=raise_error)
         # `check_membership` uses int and float interchangeably, which we don't
         # want here.
         for p_name, parameter in self.parameters.items():

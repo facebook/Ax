@@ -881,6 +881,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         ttl_seconds: int | None = None,
         run_metadata: dict[str, Any] | None = None,
         arm_name: str | None = None,
+        raise_parameter_error: bool = True,
     ) -> tuple[TParameterization, int]:
         """Attach a new trial with the given parameterization to the experiment.
 
@@ -899,6 +900,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             arm_names=[arm_name] if arm_name else None,
             ttl_seconds=ttl_seconds,
             run_metadata=run_metadata,
+            raise_parameter_error=raise_parameter_error,
         )
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
