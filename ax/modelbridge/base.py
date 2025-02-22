@@ -306,6 +306,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
             statuses_to_include=self.statuses_to_fit,
             statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
             map_keys_as_parameters=map_keys_as_parameters,
+            load_only_completed_map_metrics=self._fit_only_completed_map_metrics,
         )
 
     def _transform_data(

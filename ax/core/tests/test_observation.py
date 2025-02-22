@@ -474,7 +474,9 @@ class ObservationsTest(TestCase):
                 MapKeyInfo(key="timestamp", default_value=0.0),
             ],
         )
-        observations = observations_from_data(experiment, data)
+        observations = observations_from_data(
+            experiment, data, load_only_completed_map_metrics=False
+        )
 
         self.assertEqual(len(observations), 3)
 

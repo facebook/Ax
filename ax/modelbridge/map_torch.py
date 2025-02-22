@@ -201,8 +201,10 @@ class MapTorchAdapter(TorchAdapter):
         `self.parameters_with_map_keys` instead of `self.parameters`.
         """
         self.parameters = list(search_space.parameters.keys())
+        print("MAPTORCH parameters", parameters)
         if parameters is None:
             parameters = self.parameters_with_map_keys
+        print("MAPTORCH parameters", parameters)
         super()._fit(
             model=model,
             search_space=search_space,
@@ -265,6 +267,7 @@ class MapTorchAdapter(TorchAdapter):
             statuses_to_include=self.statuses_to_fit,
             statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
             map_keys_as_parameters=True,
+            load_only_completed_map_metrics=False,
         )
 
     def _compute_in_design(
