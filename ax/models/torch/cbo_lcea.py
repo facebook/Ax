@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from logging import Logger
 from typing import Any, cast, Union
 
@@ -117,7 +118,7 @@ class LCEABO(LegacyBoTorchGenerator):
     @copy_doc(TorchGenerator.fit)
     def fit(
         self,
-        datasets: list[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
