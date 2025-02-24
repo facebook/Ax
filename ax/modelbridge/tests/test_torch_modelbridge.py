@@ -88,11 +88,9 @@ class TorchAdapterTest(TestCase):
             device=device,
             fit_on_init=False,
         )
-        dtype = torch.double
-        self.assertEqual(model_bridge.dtype, dtype)
         self.assertEqual(model_bridge.device, device)
         self.assertIsNone(model_bridge._last_observations)
-        tkwargs: dict[str, Any] = {"dtype": dtype, "device": device}
+        tkwargs: dict[str, Any] = {"dtype": torch.double, "device": device}
         # Test `_fit`.
         X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
         datasets = {
@@ -284,34 +282,6 @@ class TorchAdapterTest(TestCase):
         model_bridge.parameters = ["x", "y"]
         X = model_bridge._transform_observation_features(observation_features=obsf)
         self.assertTrue(torch.equal(X, torch.tensor([[1.0, 2.0]], **tkwargs)))
-
-    def _test_TorchAdapter_torch_dtype_deprecated(
-        self, torch_dtype: torch.dtype
-    ) -> None:
-        search_space = get_search_space_for_range_values(
-            min=0.0, max=5.0, parameter_names=["x1", "x2", "x3"]
-        )
-        model = mock.MagicMock(TorchGenerator, autospec=True, instance=True)
-        experiment = Experiment(search_space=search_space, name="test")
-        with self.assertWarnsRegex(
-            DeprecationWarning,
-            "The `torch_dtype` argument to `TorchAdapter` is deprecated",
-        ):
-            TorchAdapter(
-                experiment=experiment,
-                search_space=search_space,
-                data=experiment.lookup_data(),
-                model=model,
-                transforms=[],
-                fit_on_init=False,
-                torch_dtype=torch_dtype,
-            )
-
-    def test_TorchAdapter_float(self) -> None:
-        self._test_TorchAdapter_torch_dtype_deprecated(torch_dtype=torch.float32)
-
-    def test_TorchAdapter_float64(self) -> None:
-        self._test_TorchAdapter_torch_dtype_deprecated(torch_dtype=torch.float64)
 
     def test_TorchAdapter_cuda(self) -> None:
         if torch.cuda.is_available():

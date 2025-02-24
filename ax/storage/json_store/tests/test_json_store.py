@@ -804,7 +804,11 @@ class JSONStoreTest(TestCase):
             "max_parallelism": None,
             "use_update": False,
             "enforce_num_trials": True,
-            "model_kwargs": {"fit_on_update": False, "other_kwarg": 5},
+            "model_kwargs": {
+                "fit_on_update": False,
+                "torch_dtype": torch.double,
+                "other_kwarg": 5,
+            },
             "model_gen_kwargs": {},
             "index": -1,
             "should_deduplicate": False,

@@ -63,7 +63,6 @@ class MapTorchAdapter(TorchAdapter):
         model: TorchGenerator,
         transforms: list[type[Transform]],
         transform_configs: dict[str, TConfig] | None = None,
-        torch_dtype: torch.dtype | None = None,
         torch_device: torch.device | None = None,
         status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,
@@ -90,7 +89,6 @@ class MapTorchAdapter(TorchAdapter):
                 the reverse order.
             transform_configs: A dictionary from transform name to the
                 transform config dictionary.
-            torch_dtype: Torch data type.
             torch_device: Torch device.
             status_quo_name: Name of the status quo arm. Can only be used if
                 Data has a single set of ObservationFeatures corresponding to
@@ -134,7 +132,6 @@ class MapTorchAdapter(TorchAdapter):
             model=model,
             transforms=transforms,
             transform_configs=transform_configs,
-            torch_dtype=torch_dtype,
             torch_device=torch_device,
             status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,

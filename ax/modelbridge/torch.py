@@ -13,7 +13,6 @@ from collections.abc import Callable, Sequence
 from copy import deepcopy
 from logging import Logger
 from typing import Any
-from warnings import warn
 
 import numpy as np
 import numpy.typing as npt
@@ -108,7 +107,6 @@ class TorchAdapter(Adapter):
         model: TorchGenerator,
         transforms: list[type[Transform]],
         transform_configs: dict[str, TConfig] | None = None,
-        torch_dtype: torch.dtype | None = None,
         torch_device: torch.device | None = None,
         status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,
@@ -121,19 +119,6 @@ class TorchAdapter(Adapter):
         default_model_gen_options: TConfig | None = None,
         fit_only_completed_map_metrics: bool = True,
     ) -> None:
-        # This warning is being added while we are on 0.4.3, so it will be
-        # released in 0.4.4 or 0.5.0. The `torch_dtype` argument can be removed
-        # in the subsequent minor version. It should also be removed from
-        # `TorchAdapter` subclasses.
-        if torch_dtype is not None:
-            warn(
-                "The `torch_dtype` argument to `TorchAdapter` is deprecated"
-                " and will be ignored; data will be in double precision.",
-                DeprecationWarning,
-            )
-
-        # Note: When `torch_dtype` is removed, this attribute can be removed
-        self.dtype: torch.dtype = torch.double
         self.device = torch_device
         # pyre-ignore [4]: Attribute `_default_model_gen_options` of class
         # `TorchAdapter` must have a type that does not contain `Any`.
@@ -311,7 +296,7 @@ class TorchAdapter(Adapter):
         return [self._array_to_tensor(x) for x in arrays]
 
     def _array_to_tensor(self, array: npt.NDArray | list[float]) -> Tensor:
-        return torch.as_tensor(array, dtype=self.dtype, device=self.device)
+        return torch.as_tensor(array, dtype=torch.double, device=self.device)
 
     def _convert_observations(
         self,
@@ -367,10 +352,10 @@ class TorchAdapter(Adapter):
                 raise ValueError(f"Outcome `{outcome}` was not observed.")
             X = torch.stack(Xs[outcome], dim=0)
             Y = torch.tensor(
-                Ys[outcome], dtype=self.dtype, device=self.device
+                Ys[outcome], dtype=torch.double, device=self.device
             ).unsqueeze(-1)
             Yvar = torch.tensor(
-                Yvars[outcome], dtype=self.dtype, device=self.device
+                Yvars[outcome], dtype=torch.double, device=self.device
             ).unsqueeze(-1)
             if Yvar.isnan().all():
                 Yvar = None
@@ -468,13 +453,13 @@ class TorchAdapter(Adapter):
             parameters = self.parameters
         X_test = torch.tensor(
             [[obsf.parameters[p] for p in parameters] for obsf in cv_test_points],
-            dtype=self.dtype,
+            dtype=torch.double,
             device=self.device,
         )
         # Use the model to do the cross validation
         f_test, cov_test = none_throws(self.model).cross_validate(
             datasets=datasets,
-            X_test=torch.as_tensor(X_test, dtype=self.dtype, device=self.device),
+            X_test=torch.as_tensor(X_test, dtype=torch.double, device=self.device),
             search_space_digest=search_space_digest,
             use_posterior_predictive=use_posterior_predictive,
         )
@@ -1040,7 +1025,7 @@ class TorchAdapter(Adapter):
             try:
                 x = torch.tensor(
                     [obsf.parameters[p] for p in parameters],
-                    dtype=self.dtype,
+                    dtype=torch.double,
                     device=self.device,
                 )
             except (KeyError, TypeError):
