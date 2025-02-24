@@ -50,7 +50,7 @@ class TestInteractionPlot(TestCase):
     )
     @mock_botorch_optimize
     def test_compute(self) -> None:
-        analysis = InteractionPlot(metric_name="bar")
+        analysis = InteractionPlot(metric_name="bar", use_oak_model=True)
 
         # Test that it fails if no Experiment is provided
         with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
@@ -67,9 +67,13 @@ class TestInteractionPlot(TestCase):
         self.assertEqual(card.title, "Interaction Analysis for bar")
         self.assertEqual(
             card.subtitle,
-            "Understand an Experiment's data as one- or two-dimensional additive "
-            "components with sparsity. Important components are visualized through "
-            "slice or contour plots",
+            "Understand how changes to your parameters affect bar. Parameters, or "
+            "pairs of parameters which rank higher here explain more of the observed "
+            "variation in bar. The direction of the effect is indicated by the color "
+            "of the bar plot. Additionally, the six most important parameters are "
+            "visualized through surface plots which show the predicted outcomes for "
+            "bar as a function of the plotted parameters with the other parameters "
+            "held fixed.",
         )
         self.assertEqual(card.level, AnalysisCardLevel.MID)
         self.assertEqual(
