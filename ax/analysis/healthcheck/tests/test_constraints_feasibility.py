@@ -10,7 +10,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.constraints_feasibility import (
     constraints_feasibility,
     ConstraintsFeasibilityAnalysis,
@@ -169,6 +169,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         self.assertEqual(card.name, "ConstraintsFeasibility")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
         self.assertEqual(card.subtitle, "All constraints are feasible.")
 
         df_metric_d = pd.DataFrame(

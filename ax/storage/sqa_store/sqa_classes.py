@@ -351,6 +351,7 @@ class SQAAnalysisCard(Base):
         Integer, ForeignKey("experiment_v2.id"), nullable=False
     )
     attributes: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
+    category: Column[int] = Column(Integer, nullable=False)
 
 
 class SQAExperiment(Base):

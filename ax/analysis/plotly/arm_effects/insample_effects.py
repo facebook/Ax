@@ -9,7 +9,7 @@ from itertools import chain
 from logging import Logger
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.arm_effects.utils import (
     get_predictions_by_arm,
     prepare_arm_effects_plot,
@@ -144,6 +144,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             level=level + nudge,
             df=df,
             fig=fig,
+            category=AnalysisCardCategory.INSIGHT,
         )
         return card
 

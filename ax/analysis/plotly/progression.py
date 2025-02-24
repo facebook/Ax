@@ -8,7 +8,7 @@ from logging import Logger
 
 import numpy as np
 import plotly.express as px
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import select_metric
@@ -133,6 +133,7 @@ class ProgressionPlot(PlotlyAnalysis):
             level=AnalysisCardLevel.MID,
             df=df,
             fig=fig,
+            category=AnalysisCardCategory.INSIGHT,
         )
 
 

@@ -7,7 +7,7 @@
 
 import numpy as np
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.summary import Summary
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
@@ -60,6 +60,7 @@ class TestSummary(TestCase):
             "High-level summary of the `Trial`-s in this `Experiment`",
         )
         self.assertEqual(card.level, AnalysisCardLevel.MID)
+        self.assertEqual(card.category, AnalysisCardCategory.INFO)
         self.assertIsNotNone(card.blob)
         self.assertEqual(card.blob_annotation, "dataframe")
 

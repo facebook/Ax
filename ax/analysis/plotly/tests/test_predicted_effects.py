@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import torch
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.arm_effects.predicted_effects import PredictedEffectsPlot
 from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
 from ax.core.observation import ObservationFeatures
@@ -126,6 +126,7 @@ class TestPredictedEffectsPlot(TestCase):
                         )
                     ),
                 )
+                self.assertEqual(card.category, AnalysisCardCategory.ACTIONABLE)
                 # AND THEN it has the right rows and columns in the dataframe
                 self.assertEqual(
                     {*card.df.columns},

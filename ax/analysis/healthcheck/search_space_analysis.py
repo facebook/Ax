@@ -11,7 +11,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
     HealthcheckAnalysisCard,
@@ -104,6 +104,7 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
             df=df,
             level=level,
             attributes={"trial_index": self.trial_index},
+            category=AnalysisCardCategory.DIAGNOSTIC,
         )
 
 

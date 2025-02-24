@@ -9,7 +9,7 @@ import json
 
 import pandas as pd
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
@@ -68,6 +68,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         title_status = "Success"
         level = AnalysisCardLevel.LOW
         df = pd.DataFrame({"status": [status]})
+        category = AnalysisCardCategory.DIAGNOSTIC
 
         if experiment is None:
             raise UserInputError(
@@ -83,6 +84,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
                 subtitle=subtitle,
                 df=df,
                 level=level,
+                category=category,
             )
 
         if (
@@ -97,6 +99,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
                 subtitle=subtitle,
                 df=df,
                 level=level,
+                category=category,
             )
 
         if generation_strategy is None:
@@ -148,6 +151,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             subtitle=subtitle,
             df=df,
             level=level,
+            category=category,
         )
 
 

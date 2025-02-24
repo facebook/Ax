@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
@@ -57,6 +57,7 @@ class TestCrossValidationPlot(TestCase):
             "Out-of-sample predictions using leave-one-out CV",
         )
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
             {"arm_name", "observed", "observed_sem", "predicted", "predicted_sem"},

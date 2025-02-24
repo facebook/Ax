@@ -1061,6 +1061,7 @@ class Decoder:
                 if analysis_card_sqa.attributes == ""
                 else json.loads(analysis_card_sqa.attributes)
             ),
+            category=analysis_card_sqa.category,
         )
         card.db_id = analysis_card_sqa.id
         return card
