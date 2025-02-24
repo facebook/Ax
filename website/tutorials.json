@@ -8,5 +8,11 @@
         "id": "human_in_the_loop",
         "title": "Ask-tell Optimization in a Human-in-the-loop Setting"
       }
+    ],
+    "Advanced features": [
+      {
+        "id": "early_stopping",
+        "title": "Ask-tell experimentation with early stopping"
+      }
     ]
   }
