@@ -7,6 +7,10 @@
       {
         "id": "human_in_the_loop",
         "title": "Ask-tell Optimization in a Human-in-the-loop Setting"
+      },
+      {
+        "id": "closed_loop",
+        "title": "Closed-loop Optimization with Ax"
       }
     ],
     "Advanced features": [
