@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from logging import Logger
 from typing import Any, cast
@@ -586,7 +586,7 @@ def randomize_objective_weights(
 
 
 def _datasets_to_legacy_inputs(
-    datasets: list[SupervisedDataset],
+    datasets: Sequence[SupervisedDataset],
 ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
     """Convert a dictionary of dataset containers to legacy X, Y, Yvar inputs"""
     Xs, Ys, Yvars = [], [], []
