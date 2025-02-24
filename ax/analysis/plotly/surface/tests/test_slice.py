@@ -7,10 +7,13 @@
 
 from ax.analysis.analysis import AnalysisCardLevel
 from ax.analysis.plotly.surface.slice import SlicePlot
+from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
+
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestSlicePlot(TestCase):
@@ -63,11 +66,20 @@ class TestSlicePlot(TestCase):
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(
             {*card.df.columns},
-            {
-                "x",
-                "bar_mean",
-                "bar_sem",
-            },
+            {"x", "bar_mean", "bar_sem", "sampled"},
         )
         self.assertIsNotNone(card.blob)
         self.assertEqual(card.blob_annotation, "plotly")
+
+        # Assert that any row where sampled is True has a value of x that is
+        # sampled in at least one trial.
+        x_values_sampled = {
+            none_throws(assert_is_instance(trial, Trial).arm).parameters["x"]
+            for trial in self.client.experiment.trials.values()
+        }
+        self.assertTrue(
+            card.df.apply(
+                lambda row: row["x"] in x_values_sampled if row["sampled"] else True,
+                axis=1,
+            ).all()
+        )
