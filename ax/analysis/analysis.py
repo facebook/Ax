@@ -19,9 +19,39 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
-from IPython.display import display, Markdown
+from IPython.display import display
 
 logger: Logger = get_logger(__name__)
+
+# Simple HTML template for rendering a card with a title, subtitle, and body with
+# scrollable overflow.
+# Using classes from Infima, the default theme for Docusaurus. These will render
+# beautifully in Docusaurus and look fine unstyled in other environments like Jupyter.
+html_template = """
+<style>
+.content {{
+overflow-x: auto;
+overflow-y: auto;
+height:500px;
+}}
+</style>
+<div class="card-demo">
+  <div class="card">
+    <div class="card__header">
+      <b>
+        {title_str}
+      </b>
+      <p>
+        {subtitle_str}
+      </p>
+    </div>
+    <div class="card__body">
+      {body_html}
+    </div>
+    </div>
+  </div>
+</div>
+"""
 
 
 class AnalysisCardLevel(IntEnum):
@@ -74,16 +104,33 @@ class AnalysisCard(Base):
         self.blob = blob
         self.attributes = {} if attributes is None else attributes
 
-    def _ipython_display_(self) -> None:
+    def _repr_html_(self) -> str:
         """
-        IPython display hook. This is called when the AnalysisCard is printed in an
-        IPython environment (ex. Jupyter). This method should be implemented by
-        subclasses of Analysis to display the AnalysisCard in a useful way.
+        IPython HTML representation hook. This is called when the AnalysisCard is
+        rendered in an IPython environment (ex. Jupyter). This method should be
+        implemented by subclasses of Analysis to display the AnalysisCard in a useful
+        way.
 
         By default, this method displays the raw data in a pandas DataFrame.
         """
-        display(Markdown(f"## {self.title}\n\n### {self.subtitle}"))
-        display(self.df)
+
+        return html_template.format(
+            title_str=self.title,
+            subtitle_str=self.subtitle,
+            body_html=self._body_html(),
+        )
+
+    def _body_html(self) -> str:
+        """
+        Return the HTML body of the AnalysisCard (the dataframe, plot, etc.). This is
+        used by the AnalysisCard._repr_html_ method to render the AnalysisCard in an
+        IPython environment (ex. Jupyter).
+
+        This, not _repr_html_, should be implemented by subclasses of AnalysisCard in
+        most cases.
+        """
+
+        return f"<div class='content'>{self.df.to_html()}<div>"
 
 
 def display_cards(

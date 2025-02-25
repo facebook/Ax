@@ -10,8 +10,20 @@ import pandas as pd
 from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from IPython.display import display, Markdown
 from plotly import graph_objects as go, io as pio
+
+# Body HTML template for Plotly figures with a couple tricks for rendering in Jupyter.
+# 1. It is necessary to use the UTF-8 encoding with plotly graphics to get e.g.
+# negativesigns to render correctly
+# 2. require.js is not compatible with ES6 import used by plotly.js so we null out
+# define
+body_html_template = """
+<meta charset="utf-8" />
+<script>define = null;</script>
+<div class="content">
+    {figure_html}
+</div>
+"""
 
 
 class PlotlyAnalysisCard(AnalysisCard):
@@ -20,13 +32,17 @@ class PlotlyAnalysisCard(AnalysisCard):
     def get_figure(self) -> go.Figure:
         return pio.from_json(self.blob)
 
-    def _ipython_display_(self) -> None:
+    def _body_html(self) -> str:
         """
-        IPython display hook. This is called when the AnalysisCard is printed in an
-        IPython environment (ex. Jupyter). Here we want to display the Plotly figure.
+        Return the standalone HTML of the Plotly figure that can be rendered in an
+        IPython environment (ex. Jupyter).
         """
-        display(Markdown(f"## {self.title}\n\n### {self.subtitle}"))
-        display(self.get_figure())
+
+        return body_html_template.format(
+            figure_html=self.get_figure().to_html(
+                full_html=False, include_plotlyjs=True
+            )
+        )
 
 
 class PlotlyAnalysis(Analysis):
