@@ -9,18 +9,20 @@
 
 const tutorials = () => {
   const allTutorialMetadata = require('./tutorials.json');
-  const tutorialsSidebar = [{
-    type: 'category',
-    label: 'Tutorials',
-    collapsed: false,
-    items: [
-      {
-        type: 'doc',
-        id: 'tutorials/index',
-        label: 'Overview',
-      },
-    ],
-  },];
+  const tutorialsSidebar = [
+    {
+      type: 'category',
+      label: 'Tutorials',
+      collapsed: false,
+      items: [
+        {
+          type: 'doc',
+          id: 'tutorials/index',
+          label: 'Overview',
+        },
+      ],
+    },
+  ];
   for (var category in allTutorialMetadata) {
     const categoryItems = allTutorialMetadata[category];
     const items = [];
@@ -43,10 +45,7 @@ const tutorials = () => {
 
 export default {
   docs: {
-    "Introduction": ["why-ax"],
-    "Getting Started": ["installation", "api", "glossary"],
-    "Algorithms": ["bayesopt", "banditopt"],
-    "Components": ["core", "trial-evaluation", "data", "models", "storage"],
+    Introduction: ['why-ax'],
   },
   tutorials: tutorials(),
 };
