@@ -881,6 +881,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         ttl_seconds: int | None = None,
         run_metadata: dict[str, Any] | None = None,
         arm_name: str | None = None,
+        raise_parameter_error: bool = True,
     ) -> tuple[TParameterization, int]:
         """Attach a new trial with the given parameterization to the experiment.
 
@@ -889,6 +890,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             ttl_seconds: If specified, will consider the trial failed after this
                 many seconds. Used to detect dead trials that were not marked
                 failed properly.
+            raise_parameter_error: If True, raise an error if validating membership
+                of the parameterization in the search space fails. If False, do not 
+                raise an error.
 
         Returns:
             Tuple of parameterization and trial index from newly created trial.
@@ -899,6 +903,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             arm_names=[arm_name] if arm_name else None,
             ttl_seconds=ttl_seconds,
             run_metadata=run_metadata,
+            raise_parameter_error=raise_parameter_error,
         )
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,

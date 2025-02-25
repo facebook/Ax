@@ -1535,6 +1535,7 @@ class Experiment(Base):
         ttl_seconds: int | None = None,
         run_metadata: dict[str, Any] | None = None,
         optimize_for_power: bool = False,
+        raise_parameter_error: bool = True,
     ) -> tuple[dict[str, TParameterization], int]:
         """Attach a new trial with the given parameterization to the experiment.
 
@@ -1552,6 +1553,9 @@ class Experiment(Base):
                 trial such that the experiment's power to detect effects of
                 certain size is as high as possible. Refer to documentation of
                 `BatchTrial.set_status_quo_and_optimize_power` for more detail.
+            raise_parameter_error: If True, raise an error if validating membership
+                of the parameterization in the search space fails. If False, do not 
+                raise an error.
 
         Returns:
             Tuple of arm name to parameterization dict, and trial index from
@@ -1564,7 +1568,9 @@ class Experiment(Base):
 
         # Validate search space membership for all parameterizations
         for parameterization in parameterizations:
-            self.search_space.validate_membership(parameters=parameterization)
+            self.search_space.validate_membership(
+                parameters=parameterization, raise_error=raise_parameter_error
+            )
 
         # Validate number of arm names if any arm names are provided.
         named_arms = False
