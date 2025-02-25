@@ -11,6 +11,10 @@
       {
         "id": "closed_loop",
         "title": "Closed-loop Optimization with Ax"
+      },
+      {
+        "id": "automl",
+        "title": "Ax for AutoML"
       }
     ],
     "Advanced features": [
