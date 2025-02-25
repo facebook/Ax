@@ -3,6 +3,10 @@
       {
         "id": "ask_tell",
         "title": "Ask-tell Optimization with Ax"
+      },
+      {
+        "id": "human_in_the_loop",
+        "title": "Ask-tell Optimization in a Human-in-the-loop Setting"
       }
     ]
   }
