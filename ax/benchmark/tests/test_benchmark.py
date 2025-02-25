@@ -22,7 +22,6 @@ from ax.benchmark.benchmark import (
     compute_baseline_value_from_sobol,
     compute_score_trace,
     get_benchmark_scheduler_options,
-    get_oracle_experiment_from_experiment,
     get_oracle_experiment_from_params,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
@@ -71,7 +70,7 @@ from ax.utils.testing.benchmark_stubs import (
     TestDataset,
 )
 
-from ax.utils.testing.core_stubs import get_branin_experiment, get_experiment
+from ax.utils.testing.core_stubs import get_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
@@ -163,6 +162,7 @@ class TestBenchmark(TestCase):
                 oracle_trace=np.array([]),
                 optimization_trace=np.array([]),
                 score_trace=np.array([]),
+                cost_trace=np.array([]),
                 fit_time=0.0,
                 gen_time=0.0,
                 experiment=get_experiment(),
@@ -179,6 +179,7 @@ class TestBenchmark(TestCase):
                 oracle_trace=np.array([]),
                 optimization_trace=np.array([]),
                 score_trace=np.array([]),
+                cost_trace=np.array([]),
                 fit_time=0.0,
                 gen_time=0.0,
             )
@@ -321,13 +322,24 @@ class TestBenchmark(TestCase):
         }
         # When two trials complete at the same time, the inference trace uses
         # data from both to get the best point, and repeats it.
-        # The oracle trace is the same.
-        expected_inference_traces = {
+        expected_traces = {
             "All complete at different times": [0, 1, 2, 3],
             # 0 and 1 complete at the same time, as do 2 and 3
-            "Trials complete immediately": [1, 1, 3, 3],
-            "Trials complete at same time": [1, 1, 3, 3],
+            "Trials complete immediately": [1, 3],
+            "Trials complete at same time": [1, 3],
             "Complete out of order": [1, 1, 3, 3],
+        }
+        expected_costs = {
+            "All complete at different times": [1, 3, 7, 12],
+            "Trials complete immediately": [1, 2],
+            "Trials complete at same time": [1, 2],
+            "Complete out of order": [1, 2, 3, 4],
+        }
+        expected_backend_simulator_time = {
+            "All complete at different times": 12,
+            "Trials complete immediately": 2,
+            "Trials complete at same time": 2,
+            "Complete out of order": 4,
         }
 
         for case_name, step_runtime_fn in step_runtime_fns.items():
@@ -368,6 +380,11 @@ class TestBenchmark(TestCase):
                 backend_simulator = none_throws(
                     runner.simulated_backend_runner
                 ).simulator
+                self.assertEqual(
+                    backend_simulator.time,
+                    expected_backend_simulator_time[case_name],
+                    msg=case_name,
+                )
                 completed_trials = backend_simulator.state().completed
                 self.assertEqual(len(completed_trials), 4)
                 for trial_index, expected_start_time in enumerate(
@@ -394,7 +411,18 @@ class TestBenchmark(TestCase):
                 self.assertFalse(np.isnan(result.inference_trace).any())
                 self.assertEqual(
                     result.inference_trace.tolist(),
-                    expected_inference_traces[case_name],
+                    expected_traces[case_name],
+                    msg=case_name,
+                )
+                self.assertEqual(
+                    result.oracle_trace.tolist(),
+                    expected_traces[case_name],
+                    msg=case_name,
+                )
+                self.assertEqual(
+                    result.cost_trace.tolist(),
+                    expected_costs[case_name],
+                    msg=case_name,
                 )
                 if map_data:
                     data = assert_is_instance(experiment.lookup_data(), MapData)
@@ -862,38 +890,6 @@ class TestBenchmark(TestCase):
             get_oracle_experiment_from_params(
                 problem=problem, dict_of_dict_of_params={0: {}}
             )
-
-    def test_get_oracle_experiment_from_experiment(self) -> None:
-        problem = create_problem_from_botorch(
-            test_problem_class=Branin,
-            test_problem_kwargs={},
-            num_trials=5,
-        )
-
-        # empty experiment
-        empty_experiment = get_branin_experiment(with_trial=False)
-        oracle_experiment = get_oracle_experiment_from_experiment(
-            problem=problem, experiment=empty_experiment
-        )
-        self.assertEqual(oracle_experiment.search_space, problem.search_space)
-        self.assertEqual(
-            oracle_experiment.optimization_config, problem.optimization_config
-        )
-        self.assertEqual(oracle_experiment.trials.keys(), set())
-
-        experiment = get_branin_experiment(
-            with_trial=True,
-            search_space=problem.search_space,
-            with_status_quo=False,
-        )
-        oracle_experiment = get_oracle_experiment_from_experiment(
-            problem=problem, experiment=experiment
-        )
-        self.assertEqual(oracle_experiment.search_space, problem.search_space)
-        self.assertEqual(
-            oracle_experiment.optimization_config, problem.optimization_config
-        )
-        self.assertEqual(oracle_experiment.trials.keys(), experiment.trials.keys())
 
     def _test_multi_fidelity_or_multi_task(self, fidelity_or_task: str) -> None:
         """
