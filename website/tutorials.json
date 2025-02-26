@@ -11,16 +11,18 @@
       {
         "id": "closed_loop",
         "title": "Closed-loop Optimization with Ax"
-      },
-      {
-        "id": "automl",
-        "title": "Ax for AutoML"
       }
     ],
     "Advanced features": [
       {
         "id": "early_stopping",
         "title": "Ask-tell experimentation with early stopping"
+      }
+    ],
+    "Applications and Integrations:": [
+      {
+        "id": "automl",
+        "title": "Ax for AutoML"
       }
     ]
   }
