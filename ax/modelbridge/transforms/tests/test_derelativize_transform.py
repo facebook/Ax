@@ -29,12 +29,6 @@ from ax.utils.common.testutils import TestCase
 
 
 class DerelativizeTransformTest(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        m = mock.patch.object(Adapter, "__abstractmethods__", frozenset())
-        self.addCleanup(m.stop)
-        m.start()
-
     def test_DerelativizeTransform(self) -> None:
         for negative_metrics in [False, True]:
             sq_sign = -1.0 if negative_metrics else 1.0

@@ -7,10 +7,10 @@
 # pyre-strict
 
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from ax.core.data import Data
-
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -80,7 +80,6 @@ class RandomAdapter(Adapter):
             the transformed inputs.
     """
 
-    # pyre-fixme[13]: Attribute `model` is never initialized.
     model: RandomGenerator
     # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: list[str]
@@ -90,10 +89,10 @@ class RandomAdapter(Adapter):
         search_space: SearchSpace,
         # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         model: Any,
-        transforms: list[type[Transform]] | None = None,
+        transforms: Sequence[type[Transform]] | None = None,
         experiment: Experiment | None = None,
         data: Data | None = None,
-        transform_configs: dict[str, TConfig] | None = None,
+        transform_configs: Mapping[str, TConfig] | None = None,
         status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,

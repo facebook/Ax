@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+from collections.abc import Mapping, Sequence
 from logging import Logger
 
 import torch
@@ -109,8 +110,8 @@ def get_botorch(
     data: Data,
     search_space: SearchSpace | None = None,
     device: torch.device = DEFAULT_TORCH_DEVICE,
-    transforms: list[type[Transform]] = Cont_X_trans + Y_trans,
-    transform_configs: dict[str, TConfig] | None = None,
+    transforms: Sequence[type[Transform]] = Cont_X_trans + Y_trans,
+    transform_configs: Mapping[str, TConfig] | None = None,
     model_constructor: TModelConstructor = get_and_fit_model,
     model_predictor: TModelPredictor = predict_from_model,
     acqf_constructor: TAcqfConstructor = get_qLogNEI,

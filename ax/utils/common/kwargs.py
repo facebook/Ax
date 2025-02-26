@@ -6,9 +6,8 @@
 
 # pyre-strict
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from inspect import Parameter, signature
-
 from logging import Logger
 from typing import Any
 
@@ -20,7 +19,7 @@ TKwargs = dict[str, Any]
 
 
 def consolidate_kwargs(
-    kwargs_iterable: Iterable[dict[str, Any] | None], keywords: Iterable[str]
+    kwargs_iterable: Iterable[Mapping[str, Any] | None], keywords: Iterable[str]
 ) -> dict[str, Any]:
     """Combine an iterable of kwargs into a single dict of kwargs, where kwargs
     by duplicate keys that appear later in the iterable get priority over the

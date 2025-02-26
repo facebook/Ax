@@ -20,7 +20,6 @@ from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
-
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.modelbridge.map_torch import MapTorchAdapter
 from ax.modelbridge.modelbridge_utils import (
@@ -515,7 +514,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 def get_transform_helper_model(
     experiment: Experiment,
     data: Data,
-    transforms: list[type[Transform]] | None = None,
+    transforms: Sequence[type[Transform]] | None = None,
 ) -> MapTorchAdapter:
     """
     Constructs a TorchAdapter, to be used as a helper for transforming parameters.
