@@ -875,8 +875,6 @@ def ax_parameter_sens(
             f"Order {order} is not supported. Plese choose one of"
             " 'first', 'total' or 'second'."
         )
-    if order == "second" and signed:
-        raise NotImplementedError("Second order is not supported for signed indices.")
     if metrics is None:
         metrics = model_bridge.outcomes
     generator, digest = _get_generator_and_digest(adapter=model_bridge)
@@ -892,6 +890,10 @@ def ax_parameter_sens(
         order="first" if order == "second" else order,
         discrete_features=digest.categorical_features + digest.ordinal_features,
         **sobol_kwargs,
+    )
+    feature_names = digest.feature_names
+    indices_unsigned = array_with_string_indices_to_dict(
+        rows=metrics, cols=feature_names, A=ind.numpy()
     )
     if signed:
         ind_deriv = compute_derivatives_from_model_list(
@@ -910,7 +912,6 @@ def ax_parameter_sens(
             ind_deriv[:, i] = 1.0
         ind *= torch.sign(ind_deriv)
 
-    feature_names = digest.feature_names
     indices = array_with_string_indices_to_dict(
         rows=metrics, cols=feature_names, A=ind.numpy()
     )
@@ -920,7 +921,7 @@ def ax_parameter_sens(
             bounds=bounds,
             order="second",
             discrete_features=digest.categorical_features + digest.ordinal_features,
-            first_order_idcs=indices,
+            first_order_idcs=indices_unsigned,
             **sobol_kwargs,
         )
         second_order_feature_names = [
