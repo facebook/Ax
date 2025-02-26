@@ -214,7 +214,11 @@ class MapData(Data):
                     unique_map_key_infos.append(mki)
 
         df = pd.concat(
-            [pd.DataFrame(columns=[mki.key for mki in unique_map_key_infos])]
+            [
+                pd.DataFrame(
+                    {mki.key: [mki.default_value] for mki in unique_map_key_infos}
+                )
+            ]
             + [datum.map_df for datum in data]
         ).fillna(value={mki.key: mki.default_value for mki in unique_map_key_infos})
 
