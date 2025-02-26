@@ -96,7 +96,13 @@ def _prepare_data(
 
     # Filter for only rows with the relevant metric names
     metric_name_mask = data["metric_name"].isin([x_metric_name, y_metric_name])
-    filtered = data[metric_name_mask][
+    # Do not plot running or early stopped trials since their terminal point does not
+    # represent full fidelity.
+    status_mask = data["trial_index"].apply(
+        lambda trial_index: experiment.trials[trial_index].status.is_terminal
+        and not experiment.trials[trial_index].status.is_early_stopped
+    )
+    filtered = data[metric_name_mask & status_mask][
         ["trial_index", "arm_name", "metric_name", "mean"]
     ]
 

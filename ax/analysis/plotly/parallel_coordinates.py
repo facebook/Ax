@@ -79,6 +79,9 @@ def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:
         }
         for trial in experiment.trials.values()
         for arm in trial.arms
+        # Do not plot running or early stopped trials since their terminal point does
+        # not represent full fidelity.
+        if trial.status.is_terminal and not trial.status.is_early_stopped
     ]
 
     return pd.DataFrame.from_records(records).dropna()
