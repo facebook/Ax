@@ -2599,7 +2599,7 @@ class TestAxClient(TestCase):
         # Check that the data in the frontier matches the observed data
         # (it should be in the original, un-transformed space)
         input_data = (
-            ax_client.experiment.fetch_trials_data([idx_of_frontier_point])
+            ax_client.experiment.fetch_data(trial_indices=[idx_of_frontier_point])
             .df["mean"]
             .values
         )
