@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
 from typing import Any
@@ -105,8 +105,8 @@ class TorchAdapter(Adapter):
         search_space: SearchSpace,
         data: Data,
         model: TorchGenerator,
-        transforms: list[type[Transform]],
-        transform_configs: dict[str, TConfig] | None = None,
+        transforms: Sequence[type[Transform]],
+        transform_configs: Mapping[str, TConfig] | None = None,
         torch_device: torch.device | None = None,
         status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,

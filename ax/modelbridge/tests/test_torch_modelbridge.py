@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from contextlib import ExitStack
 from typing import Any
 from unittest import mock
@@ -60,7 +61,7 @@ from pyre_extensions import assert_is_instance, none_throws
 
 def _get_modelbridge_from_experiment(
     experiment: Experiment,
-    transforms: list[type[Transform]] | None = None,
+    transforms: Sequence[type[Transform]] | None = None,
     device: torch.device | None = None,
     fit_on_init: bool = True,
 ) -> TorchAdapter:

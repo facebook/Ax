@@ -17,6 +17,7 @@ from generator run, use `get_model_from_generator_run` utility from this module.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from enum import Enum
 from inspect import isfunction, signature
 from logging import Logger
@@ -176,10 +177,10 @@ class ModelSetup(NamedTuple):
 
     bridge_class: type[Adapter]
     model_class: type[Generator]
-    transforms: list[type[Transform]]
-    default_model_kwargs: dict[str, Any] | None = None
-    standard_bridge_kwargs: dict[str, Any] | None = None
-    not_saved_model_kwargs: list[str] | None = None
+    transforms: Sequence[type[Transform]]
+    default_model_kwargs: Mapping[str, Any] | None = None
+    standard_bridge_kwargs: Mapping[str, Any] | None = None
+    not_saved_model_kwargs: Sequence[str] | None = None
 
 
 """A mapping of string keys that indicate a model, to the corresponding

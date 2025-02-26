@@ -5,12 +5,11 @@
 
 # pyre-strict
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-
 import torch
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -61,8 +60,8 @@ class MapTorchAdapter(TorchAdapter):
         search_space: SearchSpace,
         data: Data,
         model: TorchGenerator,
-        transforms: list[type[Transform]],
-        transform_configs: dict[str, TConfig] | None = None,
+        transforms: Sequence[type[Transform]],
+        transform_configs: Mapping[str, TConfig] | None = None,
         torch_device: torch.device | None = None,
         status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,

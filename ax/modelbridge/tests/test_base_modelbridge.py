@@ -34,7 +34,6 @@ from ax.modelbridge.base import (
 )
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.registry import Generators, Y_trans
-from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.models.base import Generator
 from ax.utils.common.constants import Keys
@@ -85,7 +84,7 @@ class BaseAdapterTest(TestCase):
         self, mock_fit: Mock, mock_gen_arms: Mock, mock_observations_from_data: Mock
     ) -> None:
         # Test that on init transforms are stored and applied in the correct order
-        transforms: list[type[Transform]] = [transform_1, transform_2]
+        transforms = [transform_1, transform_2]
         exp = get_experiment_for_value()
         ss = get_search_space_for_value()
         modelbridge = Adapter(

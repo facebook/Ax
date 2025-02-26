@@ -8,9 +8,8 @@
 
 import json
 import time
-from abc import ABC
 from collections import OrderedDict
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from logging import Logger
@@ -69,7 +68,7 @@ class GenResults:
     gen_metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
+class Adapter:
     """The main object for using models in Ax.
 
     Adapter specifies 3 methods for using models:
@@ -99,10 +98,10 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         search_space: SearchSpace,
         # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         model: Any,
-        transforms: list[type[Transform]] | None = None,
+        transforms: Sequence[type[Transform]] | None = None,
         experiment: Experiment | None = None,
         data: Data | None = None,
-        transform_configs: dict[str, TConfig] | None = None,
+        transform_configs: Mapping[str, TConfig] | None = None,
         status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
@@ -163,7 +162,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         """
         t_fit_start = time.monotonic()
         transforms = transforms or []
-        transforms = [Cast] + transforms
+        transforms = [Cast] + list(transforms)
 
         self.fit_time: float = 0.0
         self.fit_time_since_gen: float = 0.0
@@ -184,7 +183,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         # space to cover training data.
         self._model_space: SearchSpace = search_space.clone()
         self._raw_transforms = transforms
-        self._transform_configs: dict[str, TConfig] | None = transform_configs
+        self._transform_configs: Mapping[str, TConfig] | None = transform_configs
         self._fit_out_of_design = fit_out_of_design
         self._fit_abandoned = fit_abandoned
         self._fit_tracking_metrics = fit_tracking_metrics
@@ -314,8 +313,8 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         self,
         observations: list[Observation],
         search_space: SearchSpace,
-        transforms: list[type[Transform]] | None,
-        transform_configs: dict[str, TConfig] | None,
+        transforms: Sequence[type[Transform]] | None,
+        transform_configs: Mapping[str, TConfig] | None,
         assign_transforms: bool = True,
     ) -> tuple[list[Observation], SearchSpace]:
         """Initialize transforms and apply them to provided data."""
