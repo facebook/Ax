@@ -8,7 +8,7 @@
 from datetime import datetime, timedelta
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
@@ -34,6 +34,7 @@ class TestCanGenerateCandidates(TestCase):
         self.assertEqual(card.title, "Ax Candidate Generation Success")
         self.assertEqual(card.subtitle, "No problems found.")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
         pdt.assert_frame_equal(
             card.df,
             pd.DataFrame(

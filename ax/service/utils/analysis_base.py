@@ -9,7 +9,13 @@ from collections.abc import Iterable
 
 import pandas as pd
 
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel, AnalysisE
+from ax.analysis.analysis import (
+    Analysis,
+    AnalysisCard,
+    AnalysisCardCategory,
+    AnalysisCardLevel,
+    AnalysisE,
+)
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.experiment import Experiment
@@ -89,6 +95,7 @@ class AnalysisBase(WithDBSettingsBase):
                         blob=traceback_str,
                         df=pd.DataFrame(),
                         level=AnalysisCardLevel.DEBUG,
+                        category=AnalysisCardCategory.ERROR,
                     )
                 )
 

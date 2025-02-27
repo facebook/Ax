@@ -32,6 +32,14 @@ class AnalysisCardLevel(IntEnum):
     CRITICAL = 40
 
 
+class AnalysisCardCategory(IntEnum):
+    ERROR = 0
+    ACTIONABLE = 1
+    INSIGHT = 2
+    DIAGNOSTIC = 3  # Equivalent to "health check" in online setting
+    INFO = 4
+
+
 class AnalysisCard(Base):
     # Name of the analysis computed, usually the class name of the Analysis which
     # produced the card. Useful for grouping by when querying a large collection of
@@ -44,6 +52,8 @@ class AnalysisCard(Base):
     title: str
     subtitle: str
 
+    # Level of the card with respect to its importance. Higher levels are more
+    # important, and will be displayed first.
     level: int
 
     df: pd.DataFrame  # Raw data produced by the Analysis
@@ -53,6 +63,9 @@ class AnalysisCard(Base):
     # the blob and presenting it to the user (ex. PlotlyAnalysisCard.get_figure()
     # decodes the blob into a go.Figure object).
     blob: str
+    # Type of the card (ex: "insight", "diagnostic"), useful for
+    # grouping the cards to display only one category in notebook environments.
+    category: int
     # How to interpret the blob (ex. "dataframe", "plotly", "markdown")
     blob_annotation = "dataframe"
 
@@ -64,6 +77,7 @@ class AnalysisCard(Base):
         level: int,
         df: pd.DataFrame,
         blob: str,
+        category: int,
         attributes: dict[str, Any] | None = None,
     ) -> None:
         self.name = name
@@ -73,6 +87,7 @@ class AnalysisCard(Base):
         self.df = df
         self.blob = blob
         self.attributes = {} if attributes is None else attributes
+        self.category = category
 
     def _ipython_display_(self) -> None:
         """
@@ -162,6 +177,7 @@ class Analysis(Protocol):
         subtitle: str,
         level: int,
         df: pd.DataFrame,
+        category: int,
     ) -> AnalysisCard:
         """
         Make an AnalysisCard from this Analysis using provided fields and
@@ -175,6 +191,7 @@ class Analysis(Protocol):
             level=level,
             df=df,
             blob=df.to_json(),
+            category=category,
         )
 
     @property

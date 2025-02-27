@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.surface.contour import ContourPlot
 from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
@@ -71,6 +71,7 @@ class TestContourPlot(TestCase):
             "2D contour of the surrogate model's predicted outcomes for bar",
         )
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
             {

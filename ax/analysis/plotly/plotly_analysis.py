@@ -47,6 +47,7 @@ class PlotlyAnalysis(Analysis):
         level: int,
         df: pd.DataFrame,
         fig: go.Figure,
+        category: int,
     ) -> PlotlyAnalysisCard:
         """
         Make a PlotlyAnalysisCard from this Analysis using provided fields and
@@ -60,4 +61,5 @@ class PlotlyAnalysis(Analysis):
             level=level,
             df=df,
             blob=pio.to_json(fig),
+            category=category,
         )

@@ -6,7 +6,7 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.progression import (
     _calculate_wallclock_timeseries,
     ProgressionPlot,
@@ -36,6 +36,7 @@ class TestProgression(TestCase):
             "Observe how the metric changes as each trial progresses",
         )
         self.assertEqual(card.level, AnalysisCardLevel.MID)
+        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
             {"trial_index", "arm_name", "branin_map", "progression", "wallclock_time"},

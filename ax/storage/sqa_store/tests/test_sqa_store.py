@@ -17,7 +17,7 @@ from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCard, AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCard, AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
@@ -2209,6 +2209,7 @@ class SQAStoreTest(TestCase):
             df=test_df,
             blob="test blob",
             attributes={"foo": "bar"},
+            category=AnalysisCardCategory.DIAGNOSTIC,
         )
         markdown_analysis_card = MarkdownAnalysisCard(
             name="test_markdown_analysis_card",
@@ -2218,6 +2219,7 @@ class SQAStoreTest(TestCase):
             df=test_df,
             blob="This is some **really cool** markdown",
             attributes={"foo": "baz"},
+            category=AnalysisCardCategory.DIAGNOSTIC,
         )
         plotly_analysis_card = PlotlyAnalysisCard(
             name="test_plotly_analysis_card",
@@ -2227,6 +2229,7 @@ class SQAStoreTest(TestCase):
             df=test_df,
             blob=pio.to_json(go.Figure()),
             attributes={"foo": "bad"},
+            category=AnalysisCardCategory.DIAGNOSTIC,
         )
         with self.subTest("test_save_analysis_cards"):
             save_experiment(self.experiment)

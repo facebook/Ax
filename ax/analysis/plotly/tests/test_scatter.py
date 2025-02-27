@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.scatter import _prepare_data, ScatterPlot
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.modelbridge.registry import Generators
@@ -38,6 +38,7 @@ class TestScatterPlot(TestCase):
             "Compare arms by their observed metric values",
         )
         self.assertEqual(card.level, AnalysisCardLevel.HIGH)
+        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
             {"arm_name", "trial_index", "branin_a", "branin_b", "is_optimal"},

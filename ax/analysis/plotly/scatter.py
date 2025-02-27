@@ -7,7 +7,7 @@
 
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.core.experiment import Experiment
@@ -75,6 +75,7 @@ class ScatterPlot(PlotlyAnalysis):
             level=AnalysisCardLevel.HIGH,
             df=df,
             fig=fig,
+            category=AnalysisCardCategory.INSIGHT,
         )
 
 

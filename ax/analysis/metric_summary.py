@@ -5,7 +5,12 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel
+from ax.analysis.analysis import (
+    Analysis,
+    AnalysisCard,
+    AnalysisCardCategory,
+    AnalysisCardLevel,
+)
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -40,4 +45,5 @@ class MetricSummary(Analysis):
             subtitle="High-level summary of the `Metric`-s in this `Experiment`",
             level=AnalysisCardLevel.MID,
             df=experiment.metric_config_summary_df,
+            category=AnalysisCardCategory.INFO,
         )
