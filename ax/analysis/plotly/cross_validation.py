@@ -69,9 +69,8 @@ class CrossValidationPlot(PlotlyAnalysis):
                 reflect the how good the model used for candidate generation actually
                 is.
             trial_index: Optional trial index that the model from generation_strategy
-                was used to generate.  We should therefore only have observations from
-                trials prior to this trial index in our plot.  If this is not True, we
-                should error out.
+                was used to generate. Useful card attribute to filter to only specific
+                trial.
         """
 
         self.metric_name = metric_name
@@ -191,9 +190,8 @@ class CrossValidationPlot(PlotlyAnalysis):
                 reflect the how good the model used for candidate generation actually
                 is.
             trial_index: Optional trial index that the model from generation_strategy
-                was used to generate.  We should therefore only have observations from
-                trials prior to this trial index in our plot.  If this is not True, we
-                should error out.
+                was used to generate. Useful card attribute to filter to only specific
+                trial.
             experiment: Optional Experiment associated with this analysis. Used to set
                 the priority of the analysis based on the metric importance in the
                 optimization config.
@@ -255,16 +253,6 @@ def _prepare_data(
 
     records = []
     for observed, predicted in cv_results:
-        if trial_index is not None:
-            if (
-                observed.features.trial_index is not None
-                and observed.features.trial_index >= trial_index
-            ):
-                raise UserInputError(
-                    "CrossValidationPlot was specified to be for the generation of "
-                    f"trial {trial_index}, but has observations from trial "
-                    f"{observed.features.trial_index}."
-                )
         # Find the index of the metric in observed and predicted
         observed_i = next(
             (
