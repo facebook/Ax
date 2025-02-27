@@ -106,11 +106,12 @@ class CrossValidationPlot(PlotlyAnalysis):
     def _compute_adhoc(
         self,
         adapter: Adapter,
-        metric_name: str,
+        metric_names: list[str],
         experiment: Experiment | None = None,
         folds: int = -1,
         untransform: bool = True,
-    ) -> PlotlyAnalysisCard:
+        metric_name_mapping: dict[str, str] | None = None,
+    ) -> list[PlotlyAnalysisCard]:
         """
         Helper method to expose adhoc cross validation plotting. This overrides the
         default assumption that the adapter from the generation strategy should be
@@ -118,8 +119,8 @@ class CrossValidationPlot(PlotlyAnalysis):
 
         Args:
             adapter: The adapter that will be assessed during cross validation.
-            metric_name: The name of the metric to plot. Must be provided for adhoc
-                plotting.
+            metric_names: A list of all the metrics to perform cross validation on.
+                Must be provided for adhoc plotting.
             experiment: Experiment associated with this analysis. Used to determine
                 the priority of the analysis based on the metric importance in the
                 optimization config.
@@ -136,17 +137,31 @@ class CrossValidationPlot(PlotlyAnalysis):
                 regions where outliers have been removed, we have found it to better
                 reflect the how good the model used for candidate generation actually
                 is.
+            metric_name_mapping: Optional mapping from default metric names to more
+                readable metric names.
         """
-        return self._construct_plot(
-            adapter=adapter,
-            metric_name=metric_name,
-            folds=folds,
-            untransform=untransform,
-            # trial_index argument is used with generation strategy since this is an
-            # adhoc plot call, this will be None.
-            trial_index=None,
-            experiment=experiment,
-        )
+        plots = []
+        for metric_name in metric_names:
+            # replace metric name with human readable name if mapping is provided
+            refined_metric_name = (
+                metric_name_mapping.get(metric_name, metric_name)
+                if metric_name_mapping
+                else metric_name
+            )
+            plots.append(
+                self._construct_plot(
+                    adapter=adapter,
+                    metric_name=metric_name,
+                    folds=folds,
+                    untransform=untransform,
+                    # trial_index argument is used with generation strategy since this
+                    # is an adhoc plot call, this will be None.
+                    trial_index=None,
+                    experiment=experiment,
+                    refined_metric_name=refined_metric_name,
+                )
+            )
+        return plots
 
     def _construct_plot(
         self,
@@ -156,6 +171,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         untransform: bool,
         trial_index: int | None,
         experiment: Experiment | None = None,
+        refined_metric_name: str | None = None,
     ) -> PlotlyAnalysisCard:
         """
         Args:
@@ -181,6 +197,8 @@ class CrossValidationPlot(PlotlyAnalysis):
             experiment: Optional Experiment associated with this analysis. Used to set
                 the priority of the analysis based on the metric importance in the
                 optimization config.
+            metric_name_mapping: Optional mapping from default metric names to more
+                readable metric names.
         """
         df = _prepare_data(
             adapter=adapter,
@@ -209,8 +227,11 @@ class CrossValidationPlot(PlotlyAnalysis):
         else:
             nudge = 0
 
+        # If a human readable metric name is provided, use it in the title
+        metric_title = refined_metric_name if refined_metric_name else metric_name
+
         return self._create_plotly_analysis_card(
-            title=f"Cross Validation for {metric_name}",
+            title=f"Cross Validation for {metric_title}",
             subtitle=f"Out-of-sample predictions using {k_folds_substring} CV",
             level=AnalysisCardLevel.LOW.value + nudge,
             df=df,
@@ -271,7 +292,9 @@ def _prepare_data(
     return pd.DataFrame.from_records(records)
 
 
-def _prepare_plot(df: pd.DataFrame) -> go.Figure:
+def _prepare_plot(
+    df: pd.DataFrame,
+) -> go.Figure:
     # Create a scatter plot using Plotly Graph Objects for more control
     fig = go.Figure()
     # Add scatter trace with error bars
