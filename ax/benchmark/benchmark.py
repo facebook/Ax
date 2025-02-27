@@ -20,7 +20,7 @@ Key terms used:
 """
 
 import warnings
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from itertools import product
 from logging import Logger, WARNING
 from time import monotonic, time
@@ -282,6 +282,34 @@ def _get_oracle_trace_from_arms(
     return np.array(oracle_trace)
 
 
+def _get_inference_trace_from_params(
+    best_params_list: Sequence[Mapping[str, TParamValue]],
+    problem: BenchmarkProblem,
+    n_elements: int,
+) -> npt.NDArray:
+    """
+    Get the inference value of each parameterization in ``best_params_list``.
+
+    ``best_params_list`` can be empty, indicating that inference value is not
+    supported for this benchmark, in which case the returned array will be all
+    NaNs with length ``n_elements``. If it is not empty, it must have length
+    ``n_elements``.
+    """
+    if len(best_params_list) == 0:
+        return np.full(n_elements, np.nan)
+    if len(best_params_list) != n_elements:
+        raise RuntimeError(
+            f"Expected {n_elements} elements in `best_params_list`, got "
+            f"{len(best_params_list)}."
+        )
+    return np.array(
+        [
+            _get_oracle_value_of_params(params=params, problem=problem)
+            for params in best_params_list
+        ]
+    )
+
+
 def benchmark_replication(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
@@ -426,11 +454,10 @@ def benchmark_replication(
 
         scheduler.summarize_final_result()
 
-    inference_trace = np.array(
-        [
-            _get_oracle_value_of_params(params=params, problem=problem)
-            for params in best_params_list
-        ]
+    inference_trace = _get_inference_trace_from_params(
+        best_params_list=best_params_list,
+        problem=problem,
+        n_elements=len(cost_trace),
     )
     oracle_trace = _get_oracle_trace_from_arms(
         evaluated_arms_list=evaluated_arms_list, problem=problem
