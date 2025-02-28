@@ -9,6 +9,7 @@
 from unittest import mock
 
 import numpy as np
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
@@ -68,10 +69,12 @@ class TransformUtilsTest(TestCase):
             ]
         )
         modelbridge = Adapter(
-            experiment=Experiment(search_space=dummy_search_space),
+            experiment=Experiment(
+                search_space=dummy_search_space,
+                status_quo=Arm(parameters={"x": 1.0, "y": 1.0}, name="1_1"),
+            ),
             model=Generator(),
             optimization_config=optimization_config,
-            status_quo_name="1_1",
         )
         new_opt_config = derelativize_optimization_config_with_raw_status_quo(
             optimization_config=optimization_config,

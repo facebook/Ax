@@ -472,11 +472,14 @@ class BaseAdapterTest(TestCase):
     @mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
     def test_SetStatusQuo(self, _, __) -> None:
         exp = get_experiment_for_value()
-        adapter = Adapter(experiment=exp, model=Generator(), status_quo_name="1_1")
+        # Specify through the experiment.
+        exp.status_quo = Arm(parameters={"x": 3.0}, name="1_1")
+        adapter = Adapter(experiment=exp, model=Generator())
         self.assertEqual(adapter.status_quo, get_observation1())
         self.assertEqual(adapter.status_quo_name, "1_1")
 
         # Alternatively, we can specify by features
+        exp = get_experiment_for_value()
         adapter = Adapter(
             experiment=exp,
             model=Generator(),
@@ -494,20 +497,10 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(adapter.status_quo, get_observation1())
         self.assertEqual(adapter.status_quo_name, "1_1")
 
-        # Errors if features and name both specified
-        with self.assertRaisesRegex(
-            UserInputError,
-            "Specify either status_quo_name or status_quo_features, not both.",
-        ):
-            adapter = Adapter(
-                experiment=exp,
-                model=Generator(),
-                status_quo_features=get_observation1().features,
-                status_quo_name="1_1",
-            )
-
-        # Left as None if features or name don't exist
-        adapter = Adapter(experiment=exp, model=Generator(), status_quo_name="1_0")
+        # Left as None if features or name don't exist in the data.
+        exp = get_experiment_for_value()
+        exp.status_quo = Arm(parameters={"x": 3.0}, name="1_0")
+        adapter = Adapter(experiment=exp, model=Generator())
         self.assertIsNone(adapter.status_quo)
         self.assertIsNone(adapter.status_quo_name)
         adapter = Adapter(
@@ -603,11 +596,7 @@ class BaseAdapterTest(TestCase):
     def test_SetTrainingDataDupFeatures(self, _: Mock, __: Mock) -> None:
         # Throws an error if repeated features in observations.
         with self.assertRaises(ValueError):
-            Adapter(
-                experiment=get_experiment_for_value(),
-                model=Generator(),
-                status_quo_name="1_1",
-            )
+            Adapter(experiment=get_experiment_for_value(), model=Generator())
 
     def test_UnwrapObservationData(self) -> None:
         observation_data = [get_observation1().data, get_observation2().data]
@@ -952,11 +941,12 @@ class testClampObservationFeatures(TestCase):
     ) -> None:
         # _prepare_observations is called in the constructor and itself calls
         # observations_from_data with map_keys_as_parameters=True
+        experiment = get_experiment_for_value()
+        experiment.status_quo = Arm(name="1_1", parameters={"x": 3.0})
         Adapter(
-            experiment=get_experiment_for_value(),
+            experiment=experiment,
             model=Generator(),
             data=MapData(),
-            status_quo_name="1_1",
             fit_only_completed_map_metrics=False,
         )
         kwargs = mock_observations_from_data.call_args.kwargs
@@ -968,9 +958,8 @@ class testClampObservationFeatures(TestCase):
         # calling without map data calls observations_from_data with
         # map_keys_as_parameters=False even if fit_only_completed_map_metrics is False
         Adapter(
-            experiment=get_experiment_for_value(),
+            experiment=experiment,
             model=Generator(),
-            status_quo_name="1_1",
             fit_only_completed_map_metrics=False,
         )
         kwargs = mock_observations_from_data.call_args.kwargs

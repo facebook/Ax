@@ -86,7 +86,11 @@ _DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
 }
 
 # Deprecated model kwargs, to be removed from GStep / GNodes.
-_DEPRECATED_MODEL_KWARGS: tuple[str, ...] = ("fit_on_update", "torch_dtype")
+_DEPRECATED_MODEL_KWARGS: tuple[str, ...] = (
+    "fit_on_update",
+    "torch_dtype",
+    "status_quo_name",
+)
 
 
 @dataclass
@@ -321,6 +325,19 @@ def generator_run_from_json(
             for k, v in object_json.items()
         }
     )
+    # Remove deprecated kwargs from model kwargs & bridge kwargs.
+    if generator_run._model_kwargs is not None:
+        generator_run._model_kwargs = {
+            k: v
+            for k, v in generator_run._model_kwargs.items()
+            if k not in _DEPRECATED_MODEL_KWARGS
+        }
+    if generator_run._bridge_kwargs is not None:
+        generator_run._bridge_kwargs = {
+            k: v
+            for k, v in generator_run._bridge_kwargs.items()
+            if k not in _DEPRECATED_MODEL_KWARGS
+        }
     generator_run._time_created = object_from_json(
         time_created_json,
         decoder_registry=decoder_registry,

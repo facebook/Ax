@@ -43,7 +43,6 @@ class RandomAdapter(Adapter):
         data: Data | None = None,
         transforms: Sequence[type[Transform]] | None = None,
         transform_configs: Mapping[str, TConfig] | None = None,
-        status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
         fit_out_of_design: bool = False,
@@ -59,7 +58,6 @@ class RandomAdapter(Adapter):
             experiment=experiment,
             data=data,
             transform_configs=transform_configs,
-            status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
             expand_model_space=False,
@@ -132,7 +130,6 @@ class RandomAdapter(Adapter):
     def _set_status_quo(
         self,
         experiment: Experiment | None,
-        status_quo_name: str | None,
         status_quo_features: ObservationFeatures | None,
     ) -> None:
         pass

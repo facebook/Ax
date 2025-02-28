@@ -15,7 +15,6 @@ from collections import defaultdict, OrderedDict
 from collections.abc import Hashable, Iterable, Mapping
 from datetime import datetime
 from functools import partial, reduce
-
 from typing import Any, cast
 
 import ax.core.observation as observation

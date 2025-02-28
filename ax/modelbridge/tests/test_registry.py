@@ -163,7 +163,6 @@ class ModelRegistryTest(TestCase):
             {
                 "transform_configs": None,
                 "torch_device": None,
-                "status_quo_name": None,
                 "status_quo_features": None,
                 "optimization_config": None,
                 "transforms": Cont_X_trans + Y_trans,
@@ -262,7 +261,6 @@ class ModelRegistryTest(TestCase):
                     "optimization_config": None,
                     "transforms": Cont_X_trans,
                     "transform_configs": None,
-                    "status_quo_name": None,
                     "status_quo_features": None,
                     "fit_out_of_design": False,
                     "fit_abandoned": False,
@@ -285,7 +283,6 @@ class ModelRegistryTest(TestCase):
                     "experiment",
                     "data",
                     "transform_configs",
-                    "status_quo_name",
                     "status_quo_features",
                     "expand_model_space",
                     "fit_out_of_design",

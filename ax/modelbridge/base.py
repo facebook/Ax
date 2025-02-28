@@ -103,7 +103,6 @@ class Adapter:
         data: Data | None = None,
         transforms: Sequence[type[Transform]] | None = None,
         transform_configs: Mapping[str, TConfig] | None = None,
-        status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
         expand_model_space: bool = True,
@@ -138,11 +137,8 @@ class Adapter:
                 the reverse order.
             transform_configs: A dictionary from transform name to the
                 transform config dictionary.
-            status_quo_name: Name of the status quo arm. Can only be used if
-                Data has a single set of ObservationFeatures corresponding to
-                that arm.
-            status_quo_features: ObservationFeatures to use as status quo.
-                Either this or status_quo_name should be specified, not both.
+            status_quo_features: ObservationFeatures to use as status quo. If None,
+                the status quo will be extracted from the experiment, if it exists.
             optimization_config: An optional ``OptimizationConfig`` defining how to
                 optimize the model. Defaults to `experiment.optimization_config`.
             expand_model_space: If True, expand range parameter bounds in model
@@ -231,9 +227,7 @@ class Adapter:
         # Set model status quo.
         # NOTE: training data must be set before setting the status quo.
         self._set_status_quo(
-            experiment=experiment,
-            status_quo_name=status_quo_name,
-            status_quo_features=status_quo_features,
+            experiment=experiment, status_quo_features=status_quo_features
         )
 
         # Save model, apply terminal transform, and fit.
@@ -453,38 +447,25 @@ class Adapter:
 
     def _set_status_quo(
         self,
-        experiment: Experiment | None,
-        status_quo_name: str | None,
+        experiment: Experiment,
         status_quo_features: ObservationFeatures | None,
     ) -> None:
-        """Set model status quo by matching status_quo_name or status_quo_features.
+        """Set model status quo by matching status_quo_features or
+        extracting from the experiment.
 
-        First checks for status quo in inputs status_quo_name and
-        status_quo_features. If neither of these is provided, checks the
-        experiment for a status quo. If that is set, it is handled by name in
-        the same way as input status_quo_name.
+        First checks for status quo in inputs status_quo_features. If not provided,
+        checks the experiment for a status quo. If either one exists, looks through
+        the training data for an observation with the same name or features.
 
         Args:
             experiment: Experiment that will be checked for status quo.
-            status_quo_name: Name of status quo arm.
             status_quo_features: Features for status quo.
         """
         self._status_quo: Observation | None = None
         sq_obs = None
 
-        if (
-            status_quo_name is None
-            and status_quo_features is None
-            and experiment is not None
-            and experiment.status_quo is not None
-        ):
+        if status_quo_features is None and experiment.status_quo is not None:
             status_quo_name = experiment.status_quo.name
-
-        if status_quo_name is not None:
-            if status_quo_features is not None:
-                raise UserInputError(
-                    "Specify either status_quo_name or status_quo_features, not both."
-                )
             sq_obs = [
                 obs for obs in self._training_data if obs.arm_name == status_quo_name
             ]
@@ -495,8 +476,11 @@ class Adapter:
                 if (obs.features.parameters == status_quo_features.parameters)
                 and (obs.features.trial_index == status_quo_features.trial_index)
             ]
+            status_quo_name = sq_obs[0].arm_name if sq_obs else None
+        else:
+            status_quo_name = None
 
-        # if status_quo_name or status_quo_features is used for matching status quo
+        # If a status quo was found in the training data.
         if sq_obs is not None:
             if len(sq_obs) == 0:
                 logger.warning(f"Status quo {status_quo_name} not present in data")
@@ -505,7 +489,7 @@ class Adapter:
                 # observation features) should be consistent even if we have multiple
                 # observations of the status quo.
                 # This is useful for getting status_quo_data_by_trial
-                self._status_quo_name = sq_obs[0].arm_name
+                self._status_quo_name = status_quo_name
                 if len(sq_obs) > 1 and self._fit_only_completed_map_metrics:
                     # it is expected to have multiple obserations for map data
                     logger.warning(
@@ -522,11 +506,7 @@ class Adapter:
         """A map of trial index to the status quo observation data of each trial"""
         return _get_status_quo_by_trial(
             observations=self._training_data,
-            status_quo_name=(
-                self._status_quo_name
-                if self.status_quo is None
-                else self.status_quo.arm_name
-            ),
+            status_quo_name=self.status_quo_name,
             status_quo_features=(
                 None if self.status_quo is None else self.status_quo.features
             ),
