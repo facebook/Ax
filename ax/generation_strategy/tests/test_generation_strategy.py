@@ -73,6 +73,10 @@ from ax.utils.testing.mock import mock_botorch_optimize
 from pyre_extensions import assert_is_instance, none_throws
 
 
+# TODO[@mgarrard, @drfreund]: Update all tests that use `_gen_with_multiple
+# _nodes` to use the main `gen` entrypoint.
+
+
 class TestGenerationStrategyWithoutAdapterMocks(TestCase):
     """The test class above heavily mocks the modelbridge. This makes it
     difficult to test certain aspects of the GS. This is an alternative
@@ -1430,19 +1434,11 @@ class TestGenerationStrategy(TestCase):
                 call_kwargs.get("pending_observations")
                 for _, call_kwargs in gen_spec_gen_mock.call_args_list
             )
-
-            # pending points is updated in plac so we can't check each intermediate
-            # call state, however we can confirm that all arms in the grs produced by
-            # _gen_with_multiple_nodes are present in the pending points
             for idx, pending in pending_in_each_gen:
-                # the first pending call will be empty because we didn't pass in any
-                # additional points, start checking after the first position
-                # that the pending points we expect are present
-                if idx > 0:
-                    prev_gr = grs[idx - 1]
-                    for arm in prev_gr.arms:
-                        for m in pending:
-                            self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
+                prev_gr = grs[idx - 1]
+                for arm in prev_gr.arms:
+                    for m in pending:
+                        self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
 
             exp.new_batch_trial(generator_runs=grs).mark_running(
                 no_runner_required=True
