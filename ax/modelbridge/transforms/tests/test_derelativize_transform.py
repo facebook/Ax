@@ -12,6 +12,7 @@ from unittest import mock
 from unittest.mock import Mock, patch
 
 import numpy as np
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -119,9 +120,11 @@ class DerelativizeTransformTest(TestCase):
             ]
         )
         g = Adapter(
-            experiment=Experiment(search_space=search_space),
+            experiment=Experiment(
+                search_space=search_space,
+                status_quo=Arm(parameters={"x": 1.0, "y": 1.0}, name="1_1"),
+            ),
             model=Generator(),
-            status_quo_name="1_1",
         )
 
         # Test with no relative constraints
@@ -199,9 +202,11 @@ class DerelativizeTransformTest(TestCase):
         # Test with relative constraint, out-of-design status quo
         mock_predict.side_effect = RuntimeError()
         g = Adapter(
-            experiment=Experiment(search_space=search_space),
+            experiment=Experiment(
+                search_space=search_space,
+                status_quo=Arm(parameters={"x": 1.0, "y": 1.0}, name="1_2"),
+            ),
             model=Generator(),
-            status_quo_name="1_2",
         )
         oc = OptimizationConfig(
             objective=objective,
@@ -246,9 +251,11 @@ class DerelativizeTransformTest(TestCase):
 
         # Raises error if predict fails with in-design status quo
         g = Adapter(
-            experiment=Experiment(search_space=search_space),
+            experiment=Experiment(
+                search_space=search_space,
+                status_quo=Arm(parameters={"x": 1.0, "y": 1.0}, name="1_1"),
+            ),
             model=Generator(),
-            status_quo_name="1_1",
         )
         oc = OptimizationConfig(
             objective=objective,
