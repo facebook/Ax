@@ -164,7 +164,9 @@ class TestGenerationNode(TestCase):
             self.sobol_model_spec, "gen", wraps=self.sobol_model_spec.gen
         ) as mock_model_spec_gen:
             gr = self.sobol_generation_node.gen(
-                n=1, pending_observations={"branin": []}
+                experiment=self.branin_experiment,
+                n=1,
+                pending_observations={"branin": []},
             )
         mock_model_spec_gen.assert_called_with(n=1, pending_observations={"branin": []})
         self.assertEqual(gr._model_key, self.sobol_model_spec.model_key)
@@ -194,7 +196,7 @@ class TestGenerationNode(TestCase):
             experiment=self.branin_experiment,
             data=self.branin_data,
         )
-        gr = mbm_short.gen(n=2)
+        gr = mbm_short.gen(experiment=self.branin_experiment, n=2)
         gen_metadata = gr.gen_metadata
         self.assertIsNotNone(gen_metadata)
         self.assertEqual(gen_metadata["trial_type"], Keys.SHORT_RUN)
@@ -206,10 +208,11 @@ class TestGenerationNode(TestCase):
             experiment=self.branin_experiment,
             data=self.branin_data,
         )
-        gr = self.sobol_generation_node.gen(n=2)
+        gr = self.sobol_generation_node.gen(experiment=self.branin_experiment, n=2)
         self.assertIsNotNone(gr.gen_metadata)
         self.assertFalse("trial_type" in gr.gen_metadata)
 
+    @mock_botorch_optimize
     def test_model_gen_kwargs_deepcopy(self) -> None:
         sampler = SobolQMCNormalSampler(torch.Size([1]))
         node = GenerationNode(
@@ -234,7 +237,9 @@ class TestGenerationNode(TestCase):
             experiment=self.branin_experiment,
             data=dat,
         )
-        node.gen(n=1, pending_observations={"branin": []})
+        node.gen(
+            experiment=self.branin_experiment, n=1, pending_observations={"branin": []}
+        )
         # verify that sampler is not modified in-place by checking base samples
         self.assertIs(
             node.model_spec_to_gen_from.model_gen_kwargs["model_gen_options"][
@@ -435,7 +440,9 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         )
         # Check that with `ModelSelectionNode` generation from a node with
         # multiple model specs does not fail.
-        gr = self.model_selection_node.gen(n=1, pending_observations={"branin": []})
+        gr = self.model_selection_node.gen(
+            experiment=self.branin_experiment, n=1, pending_observations={"branin": []}
+        )
         # Check that the metric aggregation function is called twice, once for each
         # model spec.
         self.assertEqual(self.mock_aggregation.call_count, 2)
