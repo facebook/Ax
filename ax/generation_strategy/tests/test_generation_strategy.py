@@ -580,10 +580,13 @@ class TestGenerationStrategy(TestCase):
                 )
                 ms = none_throws(g._model_state_after_gen).copy()
                 # Compare the model state to Sobol state.
-                sobol_model = none_throws(gs.model).model
+                sobol_model = assert_is_instance(
+                    none_throws(gs.model).model, SobolGenerator
+                )
                 self.assertTrue(
                     np.array_equal(
-                        ms.pop("generated_points"), sobol_model.generated_points
+                        ms.pop("generated_points"),
+                        none_throws(sobol_model.generated_points),
                     )
                 )
                 # Replace expected seed with the one generated in __init__.
@@ -714,9 +717,9 @@ class TestGenerationStrategy(TestCase):
         """Checks that generation strategy works with custom factory functions.
         No information about the model should be saved on generator run."""
 
-        def get_sobol(search_space: SearchSpace) -> RandomAdapter:
+        def get_sobol(experiment: Experiment) -> RandomAdapter:
             return RandomAdapter(
-                search_space=search_space,
+                experiment=experiment,
                 model=SobolGenerator(),
                 transforms=Cont_X_trans,
             )
@@ -1551,10 +1554,13 @@ class TestGenerationStrategy(TestCase):
                 )
                 ms = none_throws(g._model_state_after_gen).copy()
                 # Compare the model state to Sobol state.
-                sobol_model = none_throws(self.sobol_MBM_GS_nodes.model).model
+                sobol_model = assert_is_instance(
+                    none_throws(self.sobol_MBM_GS_nodes.model).model, SobolGenerator
+                )
                 self.assertTrue(
                     np.array_equal(
-                        ms.pop("generated_points"), sobol_model.generated_points
+                        ms.pop("generated_points"),
+                        none_throws(sobol_model.generated_points),
                     )
                 )
                 # Replace expected seed with the one generated in __init__.

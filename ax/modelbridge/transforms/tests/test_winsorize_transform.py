@@ -38,6 +38,7 @@ from ax.modelbridge.transforms.winsorize import (
     AUTO_WINS_QUANTILE,
     Winsorize,
 )
+from ax.models.base import Generator
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -601,10 +602,9 @@ class WinsorizeTransformTest(TestCase):
             ],
         )
         modelbridge = Adapter(
-            search_space=search_space,
-            model=None,
+            experiment=Experiment(search_space=search_space),
+            model=Generator(),
             transforms=[],
-            experiment=Experiment(search_space, "test"),
             data=Data(),
             optimization_config=oc,
         )
@@ -619,10 +619,9 @@ class WinsorizeTransformTest(TestCase):
             )
 
         modelbridge = Adapter(
-            search_space=search_space,
-            model=None,
+            experiment=Experiment(search_space=search_space),
+            model=Generator(),
             transforms=[],
-            experiment=Experiment(search_space, "test"),
             data=Data(),
             status_quo_name="1_1",
             optimization_config=oc,
@@ -692,7 +691,9 @@ def get_default_transform_cutoffs(
         covariance=np.eye(obs_data_len),
     )
     obs = Observation(features=ObservationFeatures({}), data=obsd)
-    modelbridge = _wrap_optimization_config_in_modelbridge(optimization_config)
+    modelbridge = _wrap_optimization_config_in_modelbridge(
+        optimization_config=optimization_config
+    )
     transform = Winsorize(
         search_space=None,
         observations=[deepcopy(obs)],
@@ -708,7 +709,7 @@ def _wrap_optimization_config_in_modelbridge(
     optimization_config: OptimizationConfig,
 ) -> Adapter:
     return Adapter(
-        search_space=SearchSpace(parameters=[]),
-        model=1,
+        experiment=Experiment(search_space=SearchSpace(parameters=[])),
+        model=Generator(),
         optimization_config=optimization_config,
     )

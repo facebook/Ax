@@ -7,7 +7,6 @@
 
 import os
 from collections.abc import Mapping
-
 from typing import Any
 
 import torch
@@ -23,6 +22,7 @@ from ax.exceptions.core import UserInputError
 from ax.modelbridge.registry import Cont_X_trans, Generators, Y_trans
 from ax.modelbridge.torch import TorchAdapter
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.testing.mock import skip_fit_gpytorch_mll_context_manager
 from botorch.models import SingleTaskGP
@@ -133,7 +133,9 @@ def get_lcbench_benchmark_problem(
                 data=obj["data"],
                 transforms=Cont_X_trans + Y_trans,
             )
-        mb.model.surrogate.model.load_state_dict(obj["state_dict"])
+        assert_is_instance(mb.model, BoTorchGenerator).surrogate.model.load_state_dict(
+            obj["state_dict"]
+        )
         return assert_is_instance(mb, TorchAdapter)
 
     name = f"LCBench_Surrogate_{dataset_name}:v1"

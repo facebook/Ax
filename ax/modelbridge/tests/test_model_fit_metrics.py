@@ -153,7 +153,7 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.experiment = get_branin_experiment()
-        self.sobol = Generators.SOBOL(search_space=self.experiment.search_space)
+        self.sobol = Generators.SOBOL(experiment=self.experiment)
 
     def test_it_returns_empty_data_for_sobol(self) -> None:
         results = get_fit_and_std_quality_and_generalization_dict(

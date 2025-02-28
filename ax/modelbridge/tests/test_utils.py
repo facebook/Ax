@@ -56,7 +56,7 @@ class TestAdapterUtils(TestCase):
             arm=self.trial.arm, trial_index=self.trial.index
         )
         self.hss_exp = get_hierarchical_search_space_experiment()
-        self.hss_sobol = Generators.SOBOL(search_space=self.hss_exp.search_space)
+        self.hss_sobol = Generators.SOBOL(experiment=self.hss_exp)
         self.hss_gr = self.hss_sobol.gen(n=1)
         self.hss_trial = self.hss_exp.new_trial(self.hss_gr)
         self.hss_arm = none_throws(self.hss_trial.arm)

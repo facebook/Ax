@@ -17,6 +17,7 @@ from generator run, use `get_model_from_generator_run` utility from this module.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from inspect import isfunction, signature
@@ -27,6 +28,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.discrete import DiscreteAdapter
 from ax.modelbridge.random import RandomAdapter
@@ -289,13 +291,34 @@ class ModelRegistryBase(Enum):
         silently_filter_kwargs: bool = False,
         **kwargs: Any,
     ) -> Adapter:
-        assert self.value in MODEL_KEY_TO_MODEL_SETUP, f"Unknown model {self.value}"
-        # All model bridges require either a search space or an experiment.
-        assert search_space or experiment, "Search space or experiment required."
-        search_space = search_space or none_throws(experiment).search_space
+        if self.value not in MODEL_KEY_TO_MODEL_SETUP:
+            raise UserInputError(f"Unknown model {self.value}")
         model_setup_info = MODEL_KEY_TO_MODEL_SETUP[self.value]
         model_class = model_setup_info.model_class
         bridge_class = model_setup_info.bridge_class
+        if experiment is None:
+            # Some Adapters used to accept search_space as the only input.
+            # Temporarily support it with a deprecation warning.
+            if (
+                issubclass(bridge_class, (RandomAdapter, DiscreteAdapter))
+                and search_space is not None
+            ):
+                warnings.warn(
+                    "Passing in a `search_space` to initialize a generator from a "
+                    "registry is being deprecated. `experiment` is now a required "
+                    "input for initializing `Adapters`. Please use `experiment` "
+                    "when initializing generators going forward. "
+                    "Support for `search_space` will be removed in Ax 0.7.0.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                # Construct a dummy experiment for temporary support.
+                experiment = Experiment(search_space=search_space)
+            else:
+                raise UserInputError(
+                    "`experiment` is required to initialize a model from registry."
+                )
+        search_space = search_space or none_throws(experiment).search_space
 
         if not silently_filter_kwargs:
             # Check correct kwargs are present
