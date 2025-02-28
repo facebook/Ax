@@ -217,8 +217,8 @@ class BenchmarkRunner(Runner):
 
     def get_noise_stds(self) -> dict[str, float]:
         noise_std = self.noise_std
-        if isinstance(noise_std, float):
-            return {name: noise_std for name in self.outcome_names}
+        if isinstance(noise_std, float | int):
+            return {name: float(noise_std) for name in self.outcome_names}
         elif isinstance(noise_std, dict):
             if not set(noise_std.keys()) == set(self.outcome_names):
                 raise ValueError(

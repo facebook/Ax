@@ -302,6 +302,30 @@ class TestBenchmarkRunner(TestCase):
         self.assertLess(np.abs(z_scores).min(), 2)
         self.assertGreater(z_scores.max(), 0.05)
 
+    def test_get_noise_stds(self) -> None:
+        test_function = BoTorchTestFunction(
+            botorch_problem=Hartmann(dim=6),
+            outcome_names=["objective_0"],
+        )
+        expected_noise_sd_dict = {"objective_0": 1.0}
+        with self.subTest("float noise_std"):
+            runner = BenchmarkRunner(test_function=test_function, noise_std=1.0)
+            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
+
+        with self.subTest("int noise_std"):
+            runner = BenchmarkRunner(test_function=test_function, noise_std=1)
+            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
+
+        with self.subTest("dict noise_std"):
+            runner = BenchmarkRunner(
+                test_function=test_function, noise_std=expected_noise_sd_dict
+            )
+            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
+
+        with self.subTest("list noise_std"):
+            runner = BenchmarkRunner(test_function=test_function, noise_std=[1.0])
+            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
+
     def test_heterogeneous_noise(self) -> None:
         outcome_names = ["objective_0", "constraint"]
         noise_dict = {"objective_0": 0.1, "constraint": 0.05}
