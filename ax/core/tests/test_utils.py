@@ -330,7 +330,6 @@ class UtilsTest(TestCase):
                 ),
             ):
                 pending = get_pending_observation_features(self.experiment)
-                print(pending)
                 self.assertEqual(
                     pending,
                     {
