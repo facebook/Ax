@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import json
 import time
 from collections import OrderedDict
 from collections.abc import Mapping, MutableMapping, Sequence
@@ -503,14 +502,20 @@ class Adapter:
 
     @property
     def status_quo_data_by_trial(self) -> dict[int, ObservationData] | None:
-        """A map of trial index to the status quo observation data of each trial"""
-        return _get_status_quo_by_trial(
-            observations=self._training_data,
-            status_quo_name=self.status_quo_name,
-            status_quo_features=(
-                None if self.status_quo is None else self.status_quo.features
-            ),
-        )
+        """A map of trial index to the status quo observation data of each trial.
+
+        If status quo does not exist, return None.
+        """
+        # Status quo name will be set if status quo exists. We can just filter by name.
+        if self.status_quo_name is None:
+            return None
+        # Identify status quo data by arm name.
+        return {
+            # NOTE: casting to int here, in case the index is a numpy integer.
+            int(none_throws(obs.features.trial_index)): obs.data
+            for obs in self._training_data
+            if obs.arm_name == self.status_quo_name
+        }
 
     @property
     def status_quo(self) -> Observation | None:
@@ -1208,47 +1213,3 @@ def clamp_observation_features(
                 )
                 obsf.parameters[p.name] = p.upper
     return observation_features
-
-
-def _get_status_quo_by_trial(
-    observations: list[Observation],
-    status_quo_name: str | None = None,
-    status_quo_features: ObservationFeatures | None = None,
-) -> dict[int, ObservationData] | None:
-    r"""
-    Given a status quo observation, return a dictionary of trial index to
-    the status quo observation data of each trial.
-
-    When either `status_quo_name` or `status_quo_features` exists, return the dict;
-    when both exist, use `status_quo_name`;
-    when neither exists, return None.
-
-    Args:
-        observations: List of observations.
-        status_quo_name: Name of the status quo.
-        status_quo_features: ObservationFeatures for the status quo.
-
-    Returns:
-        A map from trial index to status quo observation data, or None
-    """
-    trial_idx_to_sq_data = None
-    if status_quo_name is not None:
-        # identify status quo by arm name
-        trial_idx_to_sq_data = {
-            int(none_throws(obs.features.trial_index)): obs.data
-            for obs in observations
-            if obs.arm_name == status_quo_name
-        }
-    elif status_quo_features is not None:
-        # identify status quo by (untransformed) feature
-        status_quo_signature = json.dumps(
-            status_quo_features.parameters, sort_keys=True
-        )
-        trial_idx_to_sq_data = {
-            int(none_throws(obs.features.trial_index)): obs.data
-            for obs in observations
-            if json.dumps(obs.features.parameters, sort_keys=True)
-            == status_quo_signature
-        }
-
-    return trial_idx_to_sq_data
