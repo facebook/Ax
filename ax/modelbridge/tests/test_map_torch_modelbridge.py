@@ -18,6 +18,7 @@ from ax.core.observation import (
 )
 
 from ax.core.trial_status import TrialStatus
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.map_torch import MapTorchAdapter
 from ax.models.torch_base import TorchGenerator, TorchGenResults
 from ax.utils.common.constants import Keys
@@ -50,7 +51,10 @@ class MapTorchAdapterTest(TestCase):
             data=experiment.lookup_data(),
             model=model,
             transforms=[],
-            fit_out_of_design=True,
+            data_loader_config=DataLoaderConfig(
+                fit_out_of_design=True,
+                latest_rows_per_group=None,
+            ),
             default_model_gen_options={"target_map_values": {"timestamp": 4.0}},
         )
         # Check that indices are set correctly.
@@ -60,6 +64,7 @@ class MapTorchAdapterTest(TestCase):
         self.assertTrue(torch.equal(t1, t2), msg=f"{t1} != {t2}")
         t1 = datasets_arg[1].group_indices
         t2 = torch.tensor([0, 0, 1, 1, 2, 2])
+        # TODO: Fix this
         self.assertTrue(torch.equal(t1, t2), msg=f"{t1} != {t2}")
         # Check map data is converted to observations, that we get one Observation
         # per row of MapData

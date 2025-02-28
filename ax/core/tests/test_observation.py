@@ -474,9 +474,7 @@ class ObservationsTest(TestCase):
                 MapKeyInfo(key="timestamp", default_value=0.0),
             ],
         )
-        observations = observations_from_data(
-            experiment, data, load_only_completed_map_metrics=False
-        )
+        observations = observations_from_data(experiment, data)
 
         self.assertEqual(len(observations), 3)
 
@@ -493,6 +491,14 @@ class ObservationsTest(TestCase):
             self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
             self.assertEqual(obs.arm_name, t["arm_name"])
             self.assertEqual(obs.features.metadata, {"timestamp": t["timestamp"]})
+
+        # testing that we can handle empty data with latest_rows_per_group
+        empty_data = MapData()
+        observations = observations_from_data(
+            experiment,
+            empty_data,
+            latest_rows_per_group=1,
+        )
 
     def test_ObservationsFromDataAbandoned(self) -> None:
         truth = [
