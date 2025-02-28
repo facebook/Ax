@@ -44,6 +44,7 @@ from ax.exceptions.model import AdapterMethodNotImplementedError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
+from ax.models.base import Generator
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from botorch.settings import validate_input_scaling
@@ -89,18 +90,18 @@ class Adapter:
     receives appropriate inputs.
 
     Subclasses will implement what is here referred to as the "terminal
-    transform," which is a transform that changes types of the data and problem
+    transform", which is a transform that changes types of the data and problem
     specification.
     """
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-        model: Any,
-        transforms: Sequence[type[Transform]] | None = None,
-        experiment: Experiment | None = None,
+        *,
+        experiment: Experiment,
+        model: Generator,
+        search_space: SearchSpace | None = None,
         data: Data | None = None,
+        transforms: Sequence[type[Transform]] | None = None,
         transform_configs: Mapping[str, TConfig] | None = None,
         status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,
@@ -116,14 +117,22 @@ class Adapter:
         Applies transforms and fits model.
 
         Args:
-            experiment: Is used to get arm parameters. Is not mutated.
-            search_space: Search space for fitting the model. Constraints need
-                not be the same ones used in gen. RangeParameter bounds are
-                considered soft and will be expanded to match the range of the
-                data sent in for fitting, if expand_model_space is True.
-            data: Ax Data.
-            model: Interface will be specified in subclass. If model requires
+            experiment: An ``Experiment`` object representing the setup and the
+                current state of the experiment, including the search space,
+                trials and observation data. It is used to extract various
+                attributes, and is not mutated.
+            model: A ``Generator`` that is used for generating candidates.
+                Its interface will be specified in subclasses. If model requires
                 initialization, that should be done prior to its use here.
+            search_space: An optional ``SearchSpace`` for fitting  the model.
+                If not provided, `experiment.search_space` is used.
+                The search space may be modified during ``Adapter.gen``, e.g.,
+                to try out a different set of parameter bounds or constraints.
+                The bounds of the ``RangeParameter``s are considered soft and
+                will be expanded to match the range of the data sent in for fitting,
+                if `expand_model_space` is True.
+            data: An optional ``Data`` object, containing mean and SEM observations.
+                If `None`, extracted using `experiment.lookup_data()`.
             transforms: List of uninitialized transform classes. Forward
                 transforms will be applied in this order, and untransforms in
                 the reverse order.
@@ -134,8 +143,8 @@ class Adapter:
                 that arm.
             status_quo_features: ObservationFeatures to use as status quo.
                 Either this or status_quo_name should be specified, not both.
-            optimization_config: Optimization config defining how to optimize
-                the model.
+            optimization_config: An optional ``OptimizationConfig`` defining how to
+                optimize the model. Defaults to `experiment.optimization_config`.
             expand_model_space: If True, expand range parameter bounds in model
                 space to cover given training data. This will make the modeling
                 space larger than the search space if training data fall outside
@@ -178,6 +187,7 @@ class Adapter:
         self._model_kwargs: dict[str, Any] | None = None
         self._bridge_kwargs: dict[str, Any] | None = None
         # The space used for optimization.
+        search_space = search_space or experiment.search_space
         self._search_space: SearchSpace = search_space.clone()
         # The space used for modeling. Might be larger than the optimization
         # space to cover training data.
@@ -193,13 +203,12 @@ class Adapter:
             experiment is not None and experiment.immutable_search_space_and_opt_config
         )
         self._experiment_properties: dict[str, Any] = {}
-        self._experiment: Experiment | None = experiment
+        self._experiment: Experiment = experiment
 
-        if experiment is not None:
-            if self._optimization_config is None:
-                self._optimization_config = experiment.optimization_config
-            self._arms_by_signature = experiment.arms_by_signature
-            self._experiment_properties = experiment._properties
+        if self._optimization_config is None:
+            self._optimization_config = experiment.optimization_config
+        self._arms_by_signature = experiment.arms_by_signature
+        self._experiment_properties = experiment._properties
 
         if self._fit_tracking_metrics is False:
             if self._optimization_config is None:
@@ -211,6 +220,7 @@ class Adapter:
 
         # Set training data (in the raw / untransformed space). This also omits
         # out-of-design and abandoned observations depending on the corresponding flags.
+        data = data if data is not None else experiment.lookup_data()
         observations_raw = self._prepare_observations(experiment=experiment, data=data)
         if expand_model_space:
             self._set_model_space(observations=observations_raw)
@@ -258,11 +268,7 @@ class Adapter:
         """
         try:
             t_fit_start = time.monotonic()
-            self._fit(
-                model=self.model,
-                search_space=search_space,
-                observations=observations,
-            )
+            self._fit(search_space=search_space, observations=observations)
             increment = time.monotonic() - t_fit_start + time_so_far
             self.fit_time += increment
             self.fit_time_since_gen += increment
@@ -476,7 +482,7 @@ class Adapter:
 
         if status_quo_name is not None:
             if status_quo_features is not None:
-                raise ValueError(
+                raise UserInputError(
                     "Specify either status_quo_name or status_quo_features, not both."
                 )
             sq_obs = [
@@ -595,8 +601,6 @@ class Adapter:
 
     def _fit(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-        model: Any,
         search_space: SearchSpace,
         observations: list[Observation],
     ) -> None:
@@ -734,21 +738,6 @@ class Adapter:
         raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement `_predict`."
         )
-
-    def update(self, new_data: Data, experiment: Experiment) -> None:
-        """Update the model bridge and the underlying model with new data. This
-        method should be used instead of `fit`, in cases where the underlying
-        model does not need to be re-fit from scratch, but rather updated.
-
-        Note: `update` expects only new data (obtained since the model initialization
-        or last update) to be passed in, not all data in the experiment.
-
-        Args:
-            new_data: Data from the experiment obtained since the last call to
-                `update`.
-            experiment: Experiment, in which this data was obtained.
-        """
-        raise DeprecationWarning("Adapter.update is deprecated. Use `fit` instead.")
 
     def _get_transformed_gen_args(
         self,
@@ -1079,14 +1068,12 @@ class Adapter:
         """Obtains the state of the underlying model (if using a stateful one)
         in a readily JSON-serializable form.
         """
-        model = none_throws(self.model)
-        return model.serialize_state(raw_state=model._get_state())
+        return self.model.serialize_state(raw_state=self.model._get_state())
 
     def _deserialize_model_state(
         self, serialized_state: dict[str, Any]
     ) -> dict[str, Any]:
-        model = none_throws(self.model)
-        return model.deserialize_state(serialized_state=serialized_state)
+        return self.model.deserialize_state(serialized_state=serialized_state)
 
     def feature_importances(self, metric_name: str) -> dict[str, float]:
         """Computes feature importances for a single metric.

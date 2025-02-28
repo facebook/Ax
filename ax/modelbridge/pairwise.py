@@ -45,7 +45,7 @@ class PairwiseAdapter(TorchAdapter):
         (
             Xs,
             Ys,
-            Yvars,
+            _,  # Yvars is not used here.
             candidate_metadata_dict,
             any_candidate_metadata_is_not_none,
             trial_indices,

@@ -12,7 +12,6 @@ from unittest import mock
 from unittest.mock import Mock, patch
 
 import numpy as np
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -25,6 +24,7 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.derelativize import Derelativize
+from ax.models.base import Generator
 from ax.utils.common.testutils import TestCase
 
 
@@ -119,11 +119,8 @@ class DerelativizeTransformTest(TestCase):
             ]
         )
         g = Adapter(
-            search_space=search_space,
-            model=None,
-            transforms=[],
-            experiment=Experiment(search_space, "test"),
-            data=Data(),
+            experiment=Experiment(search_space=search_space),
+            model=Generator(),
             status_quo_name="1_1",
         )
 
@@ -202,11 +199,8 @@ class DerelativizeTransformTest(TestCase):
         # Test with relative constraint, out-of-design status quo
         mock_predict.side_effect = RuntimeError()
         g = Adapter(
-            search_space=search_space,
-            model=None,
-            transforms=[],
-            experiment=Experiment(search_space, "test"),
-            data=Data(),
+            experiment=Experiment(search_space=search_space),
+            model=Generator(),
             status_quo_name="1_2",
         )
         oc = OptimizationConfig(
@@ -252,11 +246,8 @@ class DerelativizeTransformTest(TestCase):
 
         # Raises error if predict fails with in-design status quo
         g = Adapter(
-            search_space=search_space,
-            model=None,
-            transforms=[],
-            experiment=Experiment(search_space, "test"),
-            data=Data(),
+            experiment=Experiment(search_space=search_space),
+            model=Generator(),
             status_quo_name="1_1",
         )
         oc = OptimizationConfig(
@@ -311,13 +302,7 @@ class DerelativizeTransformTest(TestCase):
             t2.transform_optimization_config(deepcopy(oc_scalarized_only), g, None)
 
         # Raises error with relative constraint, no status quo.
-        g = Adapter(
-            search_space=search_space,
-            model=None,
-            transforms=[],
-            experiment=Experiment(search_space, "test"),
-            data=Data(),
-        )
+        g = Adapter(experiment=Experiment(search_space=search_space), model=Generator())
         with self.assertRaises(DataRequiredError):
             t.transform_optimization_config(deepcopy(oc), g, None)
 
@@ -325,7 +310,7 @@ class DerelativizeTransformTest(TestCase):
         with self.assertRaises(ValueError):
             t.transform_optimization_config(deepcopy(oc), None, None)
 
-    def test_Errors(self) -> None:
+    def test_errors(self) -> None:
         t = Derelativize(
             search_space=None,
             observations=[],
@@ -339,8 +324,14 @@ class DerelativizeTransformTest(TestCase):
         search_space = SearchSpace(
             parameters=[RangeParameter("x", ParameterType.FLOAT, 0, 20)]
         )
-        g = Adapter(search_space, None, [])
+        adapter = Adapter(
+            experiment=Experiment(search_space=search_space), model=Generator()
+        )
         with self.assertRaises(ValueError):
-            t.transform_optimization_config(oc, None, None)
+            t.transform_optimization_config(
+                optimization_config=oc, modelbridge=None, fixed_features=None
+            )
         with self.assertRaises(DataRequiredError):
-            t.transform_optimization_config(oc, g, None)
+            t.transform_optimization_config(
+                optimization_config=oc, modelbridge=adapter, fixed_features=None
+            )

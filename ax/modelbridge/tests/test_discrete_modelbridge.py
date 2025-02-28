@@ -74,14 +74,15 @@ class DiscreteAdapterTest(TestCase):
         self.model_gen_options = {"option": "yes"}
 
     @mock.patch("ax.modelbridge.discrete.DiscreteAdapter.__init__", return_value=None)
-    def test_fit(self, mock_init: Mock) -> None:
+    def test_fit(self, _: Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
-        ma = DiscreteAdapter()
-        ma._training_data = self.observations
+        adapter = DiscreteAdapter()
+        adapter._training_data = self.observations
         model = mock.create_autospec(DiscreteGenerator, instance=True)
-        ma._fit(model, self.search_space, self.observations)
-        self.assertEqual(ma.parameters, ["x", "y", "z"])
-        self.assertEqual(sorted(ma.outcomes), ["a", "b"])
+        adapter.model = model
+        adapter._fit(self.search_space, self.observations)
+        self.assertEqual(adapter.parameters, ["x", "y", "z"])
+        self.assertEqual(sorted(adapter.outcomes), ["a", "b"])
         Xs = {
             "a": [[0, "foo", True], [1, "foo", True], [1, "bar", True]],
             "b": [[0, "foo", True], [1, "foo", True]],
@@ -91,23 +92,23 @@ class DiscreteAdapterTest(TestCase):
         parameter_values = [[0.0, 1.0], ["foo", "bar"], [True]]
         model_fit_args = model.fit.mock_calls[0][2]
         for i, x in enumerate(model_fit_args["Xs"]):
-            self.assertEqual(x, Xs[ma.outcomes[i]])
+            self.assertEqual(x, Xs[adapter.outcomes[i]])
         for i, y in enumerate(model_fit_args["Ys"]):
-            self.assertEqual(y, Ys[ma.outcomes[i]])
+            self.assertEqual(y, Ys[adapter.outcomes[i]])
         for i, v in enumerate(model_fit_args["Yvars"]):
-            self.assertEqual(v, Yvars[ma.outcomes[i]])
+            self.assertEqual(v, Yvars[adapter.outcomes[i]])
         self.assertEqual(model_fit_args["parameter_values"], parameter_values)
 
         sq_obs = Observation(
             features=ObservationFeatures({}), data=self.observation_data[0]
         )
         with self.assertRaises(ValueError):
-            ma._fit(model, self.search_space, self.observations + [sq_obs])
+            adapter._fit(self.search_space, self.observations + [sq_obs])
 
     @mock.patch("ax.modelbridge.discrete.DiscreteAdapter.__init__", return_value=None)
     def test_predict(self, mock_init: Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
-        ma = DiscreteAdapter()
+        adapter = DiscreteAdapter()
         model = mock.MagicMock(DiscreteGenerator, autospec=True, instance=True)
         model.predict.return_value = (
             np.array([[1.0, -1], [2.0, -2]]),
@@ -115,10 +116,10 @@ class DiscreteAdapterTest(TestCase):
                 (np.array([[1.0, 4.0], [4.0, 6]]), np.array([[2.0, 5.0], [5.0, 7]]))
             ),
         )
-        ma.model = model
-        ma.parameters = ["x", "y", "z"]
-        ma.outcomes = ["a", "b"]
-        observation_data = ma._predict(self.observation_features)
+        adapter.model = model
+        adapter.parameters = ["x", "y", "z"]
+        adapter.outcomes = ["a", "b"]
+        observation_data = adapter._predict(self.observation_features)
         X = [[0, "foo", True], [1, "foo", True], [1, "bar", True]]
         self.assertTrue(model.predict.mock_calls[0][2]["X"], X)
         for i, od in enumerate(observation_data):
@@ -134,11 +135,11 @@ class DiscreteAdapterTest(TestCase):
             ],
         )
         # pyre-fixme[20]: Argument `model` expected.
-        ma = DiscreteAdapter()
+        adapter = DiscreteAdapter()
         # Test validation.
         with self.assertRaisesRegex(UserInputError, "positive integer or -1."):
-            ma._validate_gen_inputs(n=0)
-        ma._validate_gen_inputs(n=-1)
+            adapter._validate_gen_inputs(n=0)
+        adapter._validate_gen_inputs(n=-1)
         # Test rest of gen.
         model = mock.MagicMock(DiscreteGenerator, autospec=True, instance=True)
         best_x = [0.0, 2.0, 1.0]
@@ -147,10 +148,10 @@ class DiscreteAdapterTest(TestCase):
             [1.0, 2.0],
             {"best_x": best_x},
         )
-        ma.model = model
-        ma.parameters = ["x", "y", "z"]
-        ma.outcomes = ["a", "b"]
-        gen_results = ma._gen(
+        adapter.model = model
+        adapter.parameters = ["x", "y", "z"]
+        adapter.outcomes = ["a", "b"]
+        gen_results = adapter._gen(
             n=3,
             search_space=self.search_space,
             optimization_config=optimization_config,
@@ -189,14 +190,14 @@ class DiscreteAdapterTest(TestCase):
         self.assertEqual(gen_results.weights, [1.0, 2.0])
         self.assertEqual(
             gen_results.best_observation_features,
-            ObservationFeatures(parameters=dict(zip(ma.parameters, best_x))),
+            ObservationFeatures(parameters=dict(zip(adapter.parameters, best_x))),
         )
 
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])
         optimization_config.outcome_constraints = []
-        ma.parameters = ["x", "y"]
-        ma._gen(
+        adapter.parameters = ["x", "y"]
+        adapter._gen(
             n=3,
             search_space=search_space,
             optimization_config=optimization_config,
@@ -217,7 +218,7 @@ class DiscreteAdapterTest(TestCase):
             ],
         )
         with self.assertRaises(ValueError):
-            ma._gen(
+            adapter._gen(
                 n=3,
                 search_space=search_space,
                 optimization_config=optimization_config,
@@ -229,7 +230,7 @@ class DiscreteAdapterTest(TestCase):
     @mock.patch("ax.modelbridge.discrete.DiscreteAdapter.__init__", return_value=None)
     def test_cross_validate(self, mock_init: Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
-        ma = DiscreteAdapter()
+        adapter = DiscreteAdapter()
         model = mock.MagicMock(DiscreteGenerator, autospec=True, instance=True)
         model.cross_validate.return_value = (
             np.array([[1.0, -1], [2.0, -2]]),
@@ -237,10 +238,10 @@ class DiscreteAdapterTest(TestCase):
                 (np.array([[1.0, 4.0], [4.0, 6]]), np.array([[2.0, 5.0], [5.0, 7]]))
             ),
         )
-        ma.model = model
-        ma.parameters = ["x", "y", "z"]
-        ma.outcomes = ["a", "b"]
-        observation_data = ma._cross_validate(
+        adapter.model = model
+        adapter.parameters = ["x", "y", "z"]
+        adapter.outcomes = ["a", "b"]
+        observation_data = adapter._cross_validate(
             search_space=self.search_space,
             cv_training_data=self.observations,
             cv_test_points=self.observation_features,
