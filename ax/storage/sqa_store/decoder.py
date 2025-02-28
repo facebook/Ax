@@ -15,7 +15,6 @@ from typing import Any, cast, Union
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCard
-
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -48,7 +47,7 @@ from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, Sea
 from ax.core.trial import Trial
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.storage.json_store.decoder import object_from_json
+from ax.storage.json_store.decoder import _DEPRECATED_MODEL_KWARGS, object_from_json
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -779,6 +778,19 @@ class Decoder:
             ),
             generation_node_name=generator_run_sqa.generation_node_name,
         )
+        # Remove deprecated kwargs from model kwargs & bridge kwargs.
+        if generator_run._model_kwargs is not None:
+            generator_run._model_kwargs = {
+                k: v
+                for k, v in generator_run._model_kwargs.items()
+                if k not in _DEPRECATED_MODEL_KWARGS
+            }
+        if generator_run._bridge_kwargs is not None:
+            generator_run._bridge_kwargs = {
+                k: v
+                for k, v in generator_run._bridge_kwargs.items()
+                if k not in _DEPRECATED_MODEL_KWARGS
+            }
         generator_run._time_created = generator_run_sqa.time_created
         generator_run._generator_run_type = self.get_enum_name(
             value=generator_run_sqa.generator_run_type,
