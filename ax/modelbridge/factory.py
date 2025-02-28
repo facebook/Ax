@@ -74,7 +74,7 @@ def get_sobol(
     """
     return assert_is_instance(
         Generators.SOBOL(
-            search_space=search_space,
+            experiment=Experiment(search_space=search_space),
             seed=seed,
             deduplicate=deduplicate,
             init_position=init_position,
@@ -99,7 +99,9 @@ def get_uniform(
     """
     return assert_is_instance(
         Generators.UNIFORM(
-            search_space=search_space, seed=seed, deduplicate=deduplicate
+            experiment=Experiment(search_space=search_space),
+            seed=seed,
+            deduplicate=deduplicate,
         ),
         RandomAdapter,
     )

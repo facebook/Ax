@@ -91,23 +91,15 @@ class TorchAdapter(Adapter):
     them to the model.
     """
 
-    model: TorchGenerator | None = None
-    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
-    outcomes: list[str]  # pyre-ignore[13]: These are initialized in _fit.
-    # pyre-fixme[13]: Attribute `parameters` is never initialized.
-    parameters: list[str]  # pyre-ignore[13]: These are initialized in _fit.
-    _default_model_gen_options: TConfig
-    _last_observations: list[Observation] | None = None
-
     def __init__(
         self,
+        *,
         experiment: Experiment,
-        search_space: SearchSpace,
-        data: Data,
         model: TorchGenerator,
-        transforms: Sequence[type[Transform]],
+        search_space: SearchSpace | None = None,
+        data: Data | None = None,
+        transforms: Sequence[type[Transform]] | None = None,
         transform_configs: Mapping[str, TConfig] | None = None,
-        torch_device: torch.device | None = None,
         status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
@@ -116,13 +108,22 @@ class TorchAdapter(Adapter):
         fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
-        default_model_gen_options: TConfig | None = None,
         fit_only_completed_map_metrics: bool = True,
+        default_model_gen_options: TConfig | None = None,
+        torch_device: torch.device | None = None,
     ) -> None:
-        self.device = torch_device
-        # pyre-ignore [4]: Attribute `_default_model_gen_options` of class
-        # `TorchAdapter` must have a type that does not contain `Any`.
-        self._default_model_gen_options = default_model_gen_options or {}
+        """In addition to common arguments documented in the base ``Adapter`` class,
+        ``TorchAdapter`` accepts the following arguments.
+
+        Args:
+            default_model_gen_options: A dictionary of default options to use
+                during candidate generation. These will be overridden by any
+                `model_gen_options` passed to the `Adapter.gen` method.
+            torch_device: The device to use for any torch tensors and operations
+                on these tensors.
+        """
+        self.device: torch.device | None = torch_device
+        self._default_model_gen_options: TConfig = default_model_gen_options or {}
 
         # Handle init for multi-objective optimization.
         self.is_moo_problem: bool = False
@@ -131,6 +132,14 @@ class TorchAdapter(Adapter):
                 optimization_config or experiment.optimization_config
             )
             self.is_moo_problem = optimization_config.is_moo_problem
+
+        # Tracks last set of observations used to fit the model, to skip
+        # model fitting when it's not necessary.
+        self._last_observations: list[Observation] | None = None
+
+        # These are set during model fitting.
+        self.parameters: list[str] = []
+        self.outcomes: list[str] = []
 
         super().__init__(
             experiment=experiment,
@@ -150,11 +159,14 @@ class TorchAdapter(Adapter):
             fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
 
+        # Re-assign self.model for more precise typing.
+        self.model: TorchGenerator = model
+
     def feature_importances(self, metric_name: str) -> dict[str, float]:
-        importances_tensor = none_throws(self.model).feature_importances()
-        importances_dict = dict(zip(self.outcomes, importances_tensor))
+        importances_tensor = self.model.feature_importances()
+        importances_dict = dict(zip(self.outcomes, importances_tensor, strict=True))
         importances_arr = importances_dict[metric_name].flatten()
-        return dict(zip(self.parameters, importances_arr))
+        return dict(zip(self.parameters, importances_arr, strict=True))
 
     def infer_objective_thresholds(
         self,
@@ -250,11 +262,11 @@ class TorchAdapter(Adapter):
             search_space=base_gen_args.search_space,
             pending_observations=base_gen_args.pending_observations,
             fixed_features=base_gen_args.fixed_features,
-            model_gen_options=None,
+            model_gen_options=model_gen_options,
             optimization_config=base_gen_args.optimization_config,
         )
         try:
-            xbest = none_throws(self.model).best_point(
+            xbest = self.model.best_point(
                 search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
             )
@@ -441,9 +453,9 @@ class TorchAdapter(Adapter):
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
         """
-        if self.model is None:
+        if not self.parameters:
             raise ValueError(FIT_MODEL_ERROR.format(action="_cross_validate"))
-        datasets, candidate_metadata, search_space_digest = self._get_fit_args(
+        datasets, _, search_space_digest = self._get_fit_args(
             search_space=search_space,
             observations=cv_training_data,
             parameters=parameters,
@@ -457,7 +469,7 @@ class TorchAdapter(Adapter):
             device=self.device,
         )
         # Use the model to do the cross validation
-        f_test, cov_test = none_throws(self.model).cross_validate(
+        f_test, cov_test = self.model.cross_validate(
             datasets=datasets,
             X_test=torch.as_tensor(X_test, dtype=torch.double, device=self.device),
             search_space_digest=search_space_digest,
@@ -546,7 +558,7 @@ class TorchAdapter(Adapter):
         fixed_features: ObservationFeatures | None = None,
         acq_options: dict[str, Any] | None = None,
     ) -> list[float]:
-        if self.model is None:
+        if not self.parameters:
             raise RuntimeError(
                 FIT_MODEL_ERROR.format(action="_evaluate_acquisition_function")
             )
@@ -562,7 +574,7 @@ class TorchAdapter(Adapter):
                 for obsf in observation_features
             ]
         )
-        evals = none_throws(self.model).evaluate_acquisition_function(
+        evals = self.model.evaluate_acquisition_function(
             X=self._array_to_tensor(X),
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -635,13 +647,12 @@ class TorchAdapter(Adapter):
 
     def _fit(
         self,
-        model: TorchGenerator,
         search_space: SearchSpace,
         observations: list[Observation],
         parameters: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
-        if self.model is not None and observations == self._last_observations:
+        if observations == self._last_observations:
             logger.debug(
                 "The observations are identical to the last set of observations "
                 "used to fit the model. Skipping model fitting."
@@ -653,9 +664,7 @@ class TorchAdapter(Adapter):
             parameters=parameters,
             update_outcomes_and_parameters=True,
         )
-        # Fit
-        self.model = model
-        none_throws(self.model).fit(
+        self.model.fit(
             datasets=datasets,
             search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
@@ -676,7 +685,7 @@ class TorchAdapter(Adapter):
 
         The outcome constraints should be transformed to no longer be relative.
         """
-        if self.model is None:
+        if not self.parameters:
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
 
         augmented_model_gen_options = {
@@ -692,7 +701,7 @@ class TorchAdapter(Adapter):
         )
 
         # Generate the candidates
-        gen_results = none_throws(self.model).gen(
+        gen_results = self.model.gen(
             n=n,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -722,7 +731,7 @@ class TorchAdapter(Adapter):
             candidate_metadata=gen_results.candidate_metadata,
         )
         try:
-            xbest = none_throws(self.model).best_point(
+            xbest = self.model.best_point(
                 search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
             )
@@ -747,11 +756,11 @@ class TorchAdapter(Adapter):
     def _predict(
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationData]:
-        if not self.model:
+        if not self.parameters:
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_predict"))
         # Convert observation features to array
         X = observation_features_to_array(self.parameters, observation_features)
-        f, cov = none_throws(self.model).predict(X=self._array_to_tensor(X))
+        f, cov = self.model.predict(X=self._array_to_tensor(X))
         f = f.detach().cpu().clone().numpy()
         cov = cov.detach().cpu().clone().numpy()
         if f.shape[-2] != X.shape[-2]:
@@ -857,10 +866,10 @@ class TorchAdapter(Adapter):
             else None
         )
         if risk_measure is not None:
-            if not none_throws(self.model)._supports_robust_optimization:
+            if not self.model._supports_robust_optimization:
                 raise UnsupportedError(
                     f"{self.model.__class__.__name__} does not support robust "
-                    "optimization. Consider using modular BoTorch model instead."
+                    "optimization. Consider using modular BoTorch generator instead."
                 )
             else:
                 risk_measure = extract_risk_measure(risk_measure=risk_measure)

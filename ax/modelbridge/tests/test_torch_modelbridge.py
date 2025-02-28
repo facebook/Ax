@@ -67,8 +67,6 @@ def _get_modelbridge_from_experiment(
 ) -> TorchAdapter:
     return TorchAdapter(
         experiment=experiment,
-        search_space=experiment.search_space,
-        data=experiment.lookup_data(),
         model=BoTorchGenerator(),
         transforms=transforms or [],
         torch_device=device,
@@ -84,13 +82,13 @@ class TorchAdapterTest(TestCase):
             min=0.0, max=5.0, parameter_names=feature_names
         )
         experiment = Experiment(search_space=search_space, name="test")
-        model_bridge = _get_modelbridge_from_experiment(
+        adapter = _get_modelbridge_from_experiment(
             experiment=experiment,
             device=device,
             fit_on_init=False,
         )
-        self.assertEqual(model_bridge.device, device)
-        self.assertIsNone(model_bridge._last_observations)
+        self.assertEqual(adapter.device, device)
+        self.assertIsNone(adapter._last_observations)
         tkwargs: dict[str, Any] = {"dtype": torch.double, "device": device}
         # Test `_fit`.
         X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
@@ -129,12 +127,10 @@ class TorchAdapterTest(TestCase):
         ]
         observations = recombine_observations(observation_features, observation_data)
 
-        model = BoTorchGenerator()
+        model = adapter.model
         with mock.patch.object(model, "fit", wraps=model.fit) as mock_fit:
-            model_bridge._fit(
-                model=model, search_space=search_space, observations=observations
-            )
-        model_fit_args = mock_fit.mock_calls[0][2]
+            adapter._fit(search_space=search_space, observations=observations)
+        model_fit_args = mock_fit.call_args.kwargs
         self.assertEqual(model_fit_args["datasets"], list(datasets.values()))
 
         expected_ssd = SearchSpaceDigest(
@@ -142,14 +138,10 @@ class TorchAdapterTest(TestCase):
         )
         self.assertEqual(model_fit_args["search_space_digest"], expected_ssd)
         self.assertIsNone(model_fit_args["candidate_metadata"])
-        self.assertEqual(model_bridge._last_observations, observations)
+        self.assertEqual(adapter._last_observations, observations)
 
         with mock.patch(f"{TorchAdapter.__module__}.logger.debug") as mock_logger:
-            model_bridge._fit(
-                model=model,
-                search_space=search_space,
-                observations=observations,
-            )
+            adapter._fit(search_space=search_space, observations=observations)
         mock_logger.assert_called_once_with(
             "The observations are identical to the last set of observations "
             "used to fit the model. Skipping model fitting."
@@ -170,7 +162,7 @@ class TorchAdapterTest(TestCase):
         with mock.patch.object(
             model, "predict", return_value=predict_return_value
         ) as mock_predict:
-            pr_obs_data = model_bridge._predict(
+            pr_obs_data = adapter._predict(
                 observation_features=observation_features[:1]
             )
         self.assertTrue(torch.equal(mock_predict.mock_calls[0][2]["X"], X[:1]))
@@ -209,7 +201,7 @@ class TorchAdapterTest(TestCase):
                 # silence a warning about inability to generate unique candidates
                 mock.patch(f"{Adapter.__module__}.logger.warning")
             )
-            gen_run = model_bridge.gen(
+            gen_run = adapter.gen(
                 n=3,
                 search_space=search_space,
                 optimization_config=opt_config,
@@ -262,7 +254,7 @@ class TorchAdapterTest(TestCase):
             "cross_validate",
             return_value=predict_return_value,
         ) as mock_cross_validate:
-            cv_obs_data = model_bridge._cross_validate(
+            cv_obs_data = adapter._cross_validate(
                 search_space=search_space,
                 cv_training_data=observations,
                 cv_test_points=cv_test_points,
@@ -276,12 +268,12 @@ class TorchAdapterTest(TestCase):
         # Transform observations
         # This functionality is likely to be deprecated (T134940274)
         # so this is not a thorough test.
-        model_bridge.transform_observations(observations=observations)
+        adapter.transform_observations(observations=observations)
 
         # Transform observation features
         obsf = [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
-        model_bridge.parameters = ["x", "y"]
-        X = model_bridge._transform_observation_features(observation_features=obsf)
+        adapter.parameters = ["x", "y"]
+        X = adapter._transform_observation_features(observation_features=obsf)
         self.assertTrue(torch.equal(X, torch.tensor([[1.0, 2.0]], **tkwargs)))
 
     def test_TorchAdapter_cuda(self) -> None:

@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from collections import OrderedDict
 from unittest import mock
 
 import numpy as np
@@ -42,52 +41,35 @@ class RandomAdapterTest(TestCase):
             SumConstraint([x, z], False, 3.5),
         ]
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
+        self.experiment = Experiment(search_space=self.search_space)
         self.model_gen_options = {"option": "yes"}
 
-    @mock.patch("ax.modelbridge.random.RandomAdapter.__init__", return_value=None)
-    def test_Fit(self, mock_init: mock.Mock) -> None:
-        # pyre-fixme[20]: Argument `model` expected.
-        modelbridge = RandomAdapter()
-        model = mock.create_autospec(RandomGenerator, instance=True)
-        modelbridge._fit(model, self.search_space, None)
-        self.assertEqual(modelbridge.parameters, ["x", "y", "z"])
-        self.assertTrue(isinstance(modelbridge.model, RandomGenerator))
+    def test_fit(self) -> None:
+        adapter = RandomAdapter(experiment=self.experiment, model=RandomGenerator())
+        self.assertEqual(adapter.parameters, ["x", "y", "z"])
+        self.assertTrue(isinstance(adapter.model, RandomGenerator))
 
-    @mock.patch("ax.modelbridge.random.RandomAdapter.__init__", return_value=None)
-    def test_Predict(self, mock_init: mock.Mock) -> None:
-        # pyre-fixme[20]: Argument `model` expected.
-        modelbridge = RandomAdapter()
-        modelbridge.transforms = OrderedDict()
-        modelbridge.parameters = ["x", "y", "z"]
+    def test_predict(self) -> None:
+        adapter = RandomAdapter(experiment=self.experiment, model=RandomGenerator())
         with self.assertRaises(NotImplementedError):
-            modelbridge._predict([])
+            adapter._predict([])
 
-    @mock.patch("ax.modelbridge.random.RandomAdapter.__init__", return_value=None)
-    def test_CrossValidate(self, mock_init: mock.Mock) -> None:
-        # pyre-fixme[20]: Argument `model` expected.
-        modelbridge = RandomAdapter()
-        modelbridge.transforms = OrderedDict()
-        modelbridge.parameters = ["x", "y", "z"]
+    def test_cross_validate(self) -> None:
+        adapter = RandomAdapter(experiment=self.experiment, model=RandomGenerator())
         with self.assertRaises(NotImplementedError):
-            modelbridge._cross_validate(self.search_space, [], [])
+            adapter._cross_validate(self.search_space, [], [])
 
-    @mock.patch("ax.modelbridge.random.RandomAdapter.__init__", return_value=None)
-    def test_Gen(self, mock_init: mock.Mock) -> None:
-        # Test with constraints
-        # pyre-fixme[20]: Argument `model` expected.
-        modelbridge = RandomAdapter(model=RandomGenerator())
-        modelbridge.parameters = ["x", "y", "z"]
-        modelbridge.transforms = OrderedDict()
-        modelbridge.model = RandomGenerator()
+    def test_gen_w_constraints(self) -> None:
+        adapter = RandomAdapter(experiment=self.experiment, model=RandomGenerator())
         with mock.patch.object(
-            modelbridge.model,
+            adapter.model,
             "gen",
             return_value=(
                 np.array([[1.0, 2.0, 3.0], [3.0, 4.0, 3.0]]),
                 np.array([1.0, 2.0]),
             ),
         ) as mock_gen:
-            gen_results = modelbridge._gen(
+            gen_results = adapter._gen(
                 n=3,
                 search_space=self.search_space,
                 pending_observations={},
@@ -118,15 +100,18 @@ class RandomAdapterTest(TestCase):
         self.assertEqual(obsf[1].parameters, {"x": 3.0, "y": 4.0, "z": 3.0})
         self.assertTrue(np.array_equal(gen_results.weights, np.array([1.0, 2.0])))
 
+    def test_gen_simple(self) -> None:
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])
-        modelbridge.parameters = ["x", "y"]
+        adapter = RandomAdapter(
+            experiment=Experiment(search_space=search_space), model=RandomGenerator()
+        )
         with mock.patch.object(
-            modelbridge.model,
+            adapter.model,
             "gen",
             return_value=(np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([1.0, 2.0])),
         ) as mock_gen:
-            modelbridge._gen(
+            adapter._gen(
                 n=3,
                 search_space=search_space,
                 pending_observations={},
@@ -145,7 +130,7 @@ class RandomAdapterTest(TestCase):
 
     def test_deduplicate(self) -> None:
         sobol = RandomAdapter(
-            search_space=get_small_discrete_search_space(),
+            experiment=Experiment(search_space=get_small_discrete_search_space()),
             model=SobolGenerator(deduplicate=True),
             transforms=Cont_X_trans,
         )

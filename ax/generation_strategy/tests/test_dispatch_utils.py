@@ -22,6 +22,7 @@ from ax.generation_strategy.dispatch_utils import (
 from ax.modelbridge.registry import Generators, MBM_X_trans, Mixed_transforms, Y_trans
 from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.winsorize import Winsorize
+from ax.models.random.sobol import SobolGenerator
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -35,7 +36,7 @@ from ax.utils.testing.core_stubs import (
     run_branin_experiment_with_generation_strategy,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestDispatchUtils(TestCase):
@@ -406,7 +407,9 @@ class TestDispatchUtils(TestCase):
         )
         sobol.gen(experiment=get_experiment(), n=1)
         # First model is actually a bridge, second is the Sobol engine.
-        self.assertEqual(none_throws(sobol.model).model.seed, 9)
+        self.assertEqual(
+            assert_is_instance(none_throws(sobol.model).model, SobolGenerator).seed, 9
+        )
 
         with self.subTest("warns if use_saasbo is true"):
             with self.assertLogs(

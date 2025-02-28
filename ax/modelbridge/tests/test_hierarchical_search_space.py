@@ -152,7 +152,7 @@ class TestHierarchicalSearchSpace(TestCase):
             runner=SyntheticRunner(),
         )
 
-        sobol = Generators.SOBOL(search_space=hss)
+        sobol = Generators.SOBOL(experiment=experiment)
         for _ in range(num_sobol_trials):
             trial = experiment.new_trial(generator_run=sobol.gen(n=1))
             trial.run().mark_completed()

@@ -10,6 +10,7 @@ from collections import OrderedDict
 
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.discrete import DiscreteAdapter
 from ax.modelbridge.random import RandomAdapter
 from ax.modelbridge.registry import (
@@ -37,6 +38,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_status_quo_trials,
     get_branin_optimization_config,
+    get_branin_search_space,
     get_factorial_experiment,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -52,6 +54,7 @@ from gpytorch.kernels.rbf_kernel import RBFKernel
 from gpytorch.kernels.scale_kernel import ScaleKernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
+from pyre_extensions import assert_is_instance
 
 
 class ModelRegistryTest(TestCase):
@@ -73,13 +76,13 @@ class ModelRegistryTest(TestCase):
             data=exp.fetch_data(),
         )
         self.assertIsInstance(gpei, TorchAdapter)
-        self.assertIsInstance(gpei.model, BoTorchGenerator)
-        self.assertEqual(gpei.model.botorch_acqf_class, qExpectedImprovement)
-        self.assertEqual(gpei.model.acquisition_class, Acquisition)
-        self.assertEqual(gpei.model.acquisition_options, {"best_f": 0.0})
-        self.assertIsInstance(gpei.model.surrogate, Surrogate)
+        generator = assert_is_instance(gpei.model, BoTorchGenerator)
+        self.assertEqual(generator.botorch_acqf_class, qExpectedImprovement)
+        self.assertEqual(generator.acquisition_class, Acquisition)
+        self.assertEqual(generator.acquisition_options, {"best_f": 0.0})
+        self.assertIsInstance(generator.surrogate, Surrogate)
         # SingleTaskGP should be picked.
-        self.assertIsInstance(gpei.model.surrogate.model, SingleTaskGP)
+        self.assertIsInstance(generator.surrogate.model, SingleTaskGP)
 
         gr = gpei.gen(n=1)
         self.assertIsNotNone(gr.best_arm_predictions)
@@ -87,7 +90,7 @@ class ModelRegistryTest(TestCase):
     @mock_botorch_optimize
     def test_SAASBO(self) -> None:
         exp = get_branin_experiment()
-        sobol = Generators.SOBOL(search_space=exp.search_space)
+        sobol = Generators.SOBOL(experiment=exp)
         self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
             sobol_run = sobol.gen(n=1)
@@ -96,14 +99,14 @@ class ModelRegistryTest(TestCase):
         saasbo = Generators.SAASBO(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(saasbo, TorchAdapter)
         self.assertEqual(saasbo._model_key, "SAASBO")
-        self.assertIsInstance(saasbo.model, BoTorchGenerator)
-        surrogate_spec = saasbo.model.surrogate_spec
+        generator = assert_is_instance(saasbo.model, BoTorchGenerator)
+        surrogate_spec = generator.surrogate_spec
         self.assertEqual(
             surrogate_spec,
             SurrogateSpec(botorch_model_class=SaasFullyBayesianSingleTaskGP),
         )
         self.assertEqual(
-            saasbo.model.surrogate.surrogate_spec.model_configs[0].botorch_model_class,
+            generator.surrogate.surrogate_spec.model_configs[0].botorch_model_class,
             SaasFullyBayesianSingleTaskGP,
         )
 
@@ -112,7 +115,7 @@ class ModelRegistryTest(TestCase):
         """Tests Sobol and Legacy GPEI instantiation through the Generators enum."""
         exp = get_branin_experiment()
         # Check that factory generates a valid sobol modelbridge.
-        sobol = Generators.SOBOL(search_space=exp.search_space)
+        sobol = Generators.SOBOL(experiment=exp)
         self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
             sobol_run = sobol.gen(n=1)
@@ -191,7 +194,7 @@ class ModelRegistryTest(TestCase):
         Generators enum."""
         exp = get_branin_experiment()
         sobol = Generators.SOBOL(
-            search_space=exp.search_space, init_position=2, scramble=False, seed=239
+            experiment=exp, init_position=2, scramble=False, seed=239
         )
         self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
@@ -201,7 +204,7 @@ class ModelRegistryTest(TestCase):
     def test_enum_factorial(self) -> None:
         """Tests factorial instantiation through the Generators enum."""
         exp = get_factorial_experiment()
-        factorial = Generators.FACTORIAL(exp.search_space)
+        factorial = Generators.FACTORIAL(experiment=exp)
         self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         self.assertEqual(len(factorial_run.arms), 24)
@@ -209,7 +212,7 @@ class ModelRegistryTest(TestCase):
     def test_enum_empirical_bayes_thompson(self) -> None:
         """Tests EB/TS instantiation through the Generators enum."""
         exp = get_factorial_experiment()
-        factorial = Generators.FACTORIAL(exp.search_space)
+        factorial = Generators.FACTORIAL(experiment=exp)
         self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
@@ -225,7 +228,7 @@ class ModelRegistryTest(TestCase):
     def test_enum_thompson(self) -> None:
         """Tests TS instantiation through the Generators enum."""
         exp = get_factorial_experiment()
-        factorial = Generators.FACTORIAL(exp.search_space)
+        factorial = Generators.FACTORIAL(experiment=exp)
         self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
@@ -236,7 +239,7 @@ class ModelRegistryTest(TestCase):
     def test_enum_uniform(self) -> None:
         """Tests uniform random instantiation through the Generators enum."""
         exp = get_branin_experiment()
-        uniform = Generators.UNIFORM(exp.search_space)
+        uniform = Generators.UNIFORM(experiment=exp)
         self.assertIsInstance(uniform, RandomAdapter)
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)
@@ -309,8 +312,9 @@ class ModelRegistryTest(TestCase):
             models_enum=Generators,
             after_gen=False,
         )
-        self.assertEqual(sobol.model.init_position, 0)
-        self.assertEqual(sobol.model.seed, 239)
+        generator = assert_is_instance(sobol.model, SobolGenerator)
+        self.assertEqual(generator.init_position, 0)
+        self.assertEqual(generator.seed, 239)
         # Restore the model as it was after generation (to resume generation).
         sobol_after_gen = get_model_from_generator_run(
             generator_run=gr,
@@ -318,8 +322,9 @@ class ModelRegistryTest(TestCase):
             data=exp.fetch_data(),
             models_enum=Generators,
         )
-        self.assertEqual(sobol_after_gen.model.init_position, 1)
-        self.assertEqual(sobol_after_gen.model.seed, 239)
+        generator = assert_is_instance(sobol_after_gen.model, SobolGenerator)
+        self.assertEqual(generator.init_position, 1)
+        self.assertEqual(generator.seed, 239)
         self.assertEqual(initial_sobol.gen(n=1).arms, sobol_after_gen.gen(n=1).arms)
         exp.new_trial(generator_run=gr)
         # Check restoration of GPEI, to ensure proper restoration of callable kwargs
@@ -410,16 +415,16 @@ class ModelRegistryTest(TestCase):
                     surrogate=surrogate,
                 )
                 self.assertIsInstance(mtgp, TorchAdapter)
-                self.assertIsInstance(mtgp.model, BoTorchGenerator)
-                self.assertEqual(mtgp.model.acquisition_class, Acquisition)
+                generator = assert_is_instance(mtgp.model, BoTorchGenerator)
+                self.assertEqual(generator.acquisition_class, Acquisition)
                 is_moo = isinstance(
                     exp.optimization_config, MultiObjectiveOptimizationConfig
                 )
                 if is_moo:
-                    self.assertIsInstance(mtgp.model.surrogate.model, ModelListGP)
-                    models = mtgp.model.surrogate.model.models
+                    self.assertIsInstance(generator.surrogate.model, ModelListGP)
+                    models = generator.surrogate.model.models
                 else:
-                    models = [mtgp.model.surrogate.model]
+                    models = [generator.surrogate.model]
 
                 for model in models:
                     self.assertIsInstance(
@@ -452,7 +457,7 @@ class ModelRegistryTest(TestCase):
     def test_extract_model_state_after_gen(self) -> None:
         # Test with actual state.
         exp = get_branin_experiment()
-        sobol = Generators.SOBOL(search_space=exp.search_space)
+        sobol = Generators.SOBOL(experiment=exp)
         gr = sobol.gen(n=1)
         expected_state = sobol.model._get_state()
         self.assertEqual(gr._model_state_after_gen, expected_state)
@@ -475,3 +480,17 @@ class ModelRegistryTest(TestCase):
             r" instead.",
         ):
             Models.BOTORCH_MODULAR
+
+    def test_initialize_from_search_space(self) -> None:
+        search_space = get_branin_search_space()
+        with self.assertWarnsRegex(
+            DeprecationWarning, "Passing in a `search_space` to initialize"
+        ):
+            adapter = Generators.SOBOL(search_space=search_space)
+        self.assertEqual(adapter._model_space, search_space)
+        self.assertIsNotNone(adapter._experiment)
+        with self.assertRaisesRegex(
+            UserInputError,
+            "`experiment` is required to initialize a model from registry.",
+        ):
+            Generators.BOTORCH_MODULAR(search_space=search_space)
