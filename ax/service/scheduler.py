@@ -1779,16 +1779,16 @@ class Scheduler(AnalysisBase, BestPointMixin):
             pending = get_pending_observation_features_based_on_trial_status(
                 experiment=self.experiment
             )
-            grs = self.generation_strategy._gen_multiple(
+            grs = self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
                 experiment=self.experiment,
-                num_generator_runs=num_trials,
+                num_trials=num_trials,
                 n=1,
                 pending_observations=pending,
                 fixed_features=get_fixed_features_from_experiment(
                     experiment=self.experiment
                 ),
             )
-            return [[gr] for gr in grs]
+            return grs
         # TODO: pass self.trial_type to GS.gen for multi-type experiments
 
     def _update_and_save_trials(
