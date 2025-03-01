@@ -10,6 +10,7 @@
 from warnings import catch_warnings
 
 import numpy as np
+from ax.exceptions.core import UnsupportedError
 from ax.exceptions.model import ModelError
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
@@ -200,7 +201,7 @@ class ThompsonSamplerTest(TestCase):
         self.assertTrue(np.array_equal(f, np.array([[1], [3]])))
         self.assertTrue(np.array_equal(cov, np.ones((2, 1, 1))))
 
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(UnsupportedError, "out-of-sample"):
             generator.predict([[1, 2]])
 
     def test_ThompsonSamplerMultiObjectiveWarning(self) -> None:
