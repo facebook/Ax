@@ -9,7 +9,9 @@
 from unittest.mock import patch
 
 import numpy as np
+from ax.exceptions.core import UnsupportedError
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
+from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 
 
@@ -80,6 +82,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
                 self.assertAlmostEqual(weight, expected_weight, delta=0.1)
 
     def test_EmpiricalBayesThompsonSamplerWarning(self) -> None:
+        set_rng_seed(0)
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
             Xs=[x[:-1] for x in self.Xs],
@@ -132,5 +135,5 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             )
         )
 
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(UnsupportedError, "out-of-sample"):
             generator.predict([[1, 2]])

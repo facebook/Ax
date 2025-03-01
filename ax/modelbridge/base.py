@@ -886,7 +886,8 @@ class Adapter:
                 best_point_predictions = extract_arm_predictions(
                     model_predictions=self.predict([best_obsf]), arm_idx=0
                 )
-        except NotImplementedError:
+        except Exception as e:
+            logger.debug(f"Model predictions failed with error {e}.")
             model_predictions = None
 
         if best_obsf is None:
