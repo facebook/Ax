@@ -25,19 +25,14 @@ class MaxParallelismReachedException(AxGenerationException):
 
     def __init__(
         self,
-        model_name: str,
         num_running: int,
         step_index: int | None = None,
         node_name: str | None = None,
     ) -> None:
         if node_name is not None:
-            msg_start = (
-                f"Maximum parallelism for generation node #{node_name} ({model_name})"
-            )
+            msg_start = f"Maximum parallelism for generation node #{node_name}"
         else:
-            msg_start = (
-                f"Maximum parallelism for generation step #{step_index} ({model_name})"
-            )
+            msg_start = f"Maximum parallelism for generation step #{step_index}"
         super().__init__(
             msg_start
             + f" has been reached: {num_running} trials are currently 'running'. Some "
