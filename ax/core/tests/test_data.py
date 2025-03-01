@@ -375,8 +375,6 @@ class DataTest(TestCase):
                 ]
             )
         ).df
-        print(actual_filtered)
-        print(expected_filtered)
         self.assertTrue(actual_filtered.equals(expected_filtered))
 
     def test_data_column_data_types_default(self) -> None:
