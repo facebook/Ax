@@ -73,6 +73,10 @@ from ax.utils.testing.mock import mock_botorch_optimize
 from pyre_extensions import assert_is_instance, none_throws
 
 
+# TODO[@mgarrard, @drfreund]: Update all tests that use `_gen_with_multiple
+# _nodes` to use the main `gen` entrypoint.
+
+
 class TestGenerationStrategyWithoutAdapterMocks(TestCase):
     """The test class above heavily mocks the modelbridge. This makes it
     difficult to test certain aspects of the GS. This is an alternative
@@ -528,7 +532,7 @@ class TestGenerationStrategy(TestCase):
         for _ in range(2):
             gs.gen(exp)
         # Make sure Sobol is used to generate the 6th point.
-        self.assertIsInstance(gs._model, RandomAdapter)
+        self.assertIsInstance(gs.model, RandomAdapter)
 
     def test_sobol_MBM_strategy(self) -> None:
         exp = get_branin_experiment()
@@ -958,40 +962,53 @@ class TestGenerationStrategy(TestCase):
                 )
             )
 
-    def test_gen_multiple(self) -> None:
+    def test_gen_for_multiple_trials_with_multiple_models_bw_comp(self) -> None:
+        # This test initially tested _gen_multiple, however, this has
+        # been replaced with gen_for_multiple_trials_with_multiple_models
+        # ensure the original gen_multiple behavior is preserved.
         exp = get_experiment_with_multi_objective()
         sobol_MBM_gs = self.sobol_MBM_step_GS
 
         with mock_patch_method_original(
             mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
             original_method=GeneratorSpec.gen,
-        ) as model_spec_gen_mock, mock_patch_method_original(
+        ) as gen_spec_gen_mock, mock_patch_method_original(
             mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.fit",
             original_method=GeneratorSpec.fit,
-        ) as model_spec_fit_mock:
+        ) as gen_spec_fit_mock:
             # Generate first four Sobol GRs (one more to gen after that if
             # first four become trials.
-            grs = sobol_MBM_gs._gen_multiple(experiment=exp, num_generator_runs=3)
+            grs = sobol_MBM_gs.gen_for_multiple_trials_with_multiple_models(
+                experiment=exp, num_trials=3
+            )
             self.assertEqual(len(grs), 3)
-            # We should only fit once for each model
-            # refitting for each `gen` would be wasteful as there is no new data.
-            self.assertEqual(model_spec_fit_mock.call_count, 1)
-            self.assertEqual(model_spec_gen_mock.call_count, 3)
+            # We should only fit once; refitting for each `gen` would be
+            # wasteful as there is no new data.
+            # TODO[@drfreund]: This is currently regressed to fit three times, which is
+            # expected as of changeset 5/n; fixed in 8/n. Will change expected value to
+            # 1 in 8/n.
+            self.assertEqual(gen_spec_fit_mock.call_count, 3)
+            self.assertEqual(gen_spec_gen_mock.call_count, 3)
             pending_in_each_gen = enumerate(
                 args_and_kwargs.kwargs.get("pending_observations")
-                for args_and_kwargs in model_spec_gen_mock.call_args_list
+                for args_and_kwargs in gen_spec_gen_mock.call_args_list
             )
+            # Mark first three trials as running: they will now be pending points for
+            # the next generation from the GS.
             for gr, (idx, pending) in zip(grs, pending_in_each_gen):
-                exp.new_trial(generator_run=gr).mark_running(no_runner_required=True)
+                exp.new_trial(generator_run=gr[0]).mark_running(no_runner_required=True)
                 if idx > 0:
-                    prev_gr = grs[idx - 1]
+                    prev_gr = grs[idx - 1][0]
                     for arm in prev_gr.arms:
                         for m in pending:
                             self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
-            model_spec_gen_mock.reset_mock()
+            gen_spec_fit_mock.reset_mock()
+            gen_spec_gen_mock.reset_mock()
 
             # Check case with pending features initially specified; we should get two
-            # GRs now (remaining in Sobol step) even though we requested 3.
+            # GRs now (remaining in Sobol step) even though we requested 3, because
+            # there already are three trials produced from `GenerationStep_0` node,
+            # and its `MaxTrials` is 5.
             original_pending = none_throws(get_pending(experiment=exp))
             first_3_trials_obs_feats = [
                 ObservationFeatures.from_arm(arm=a, trial_index=idx)
@@ -1003,28 +1020,40 @@ class TestGenerationStrategy(TestCase):
                     same_elements(original_pending[m], first_3_trials_obs_feats)
                 )
 
-            grs = sobol_MBM_gs._gen_multiple(
+            grs_for_trials = sobol_MBM_gs.gen_for_multiple_trials_with_multiple_models(
                 experiment=exp,
-                num_generator_runs=3,
+                num_trials=3,
                 pending_observations=get_pending(experiment=exp),
             )
-            self.assertEqual(len(grs), 2)
+            self.assertEqual(len(grs_for_trials), 2)
+            for grs_for_trial in grs_for_trials:
+                self.assertEqual(len(grs_for_trial), 1)
+                exp.new_trial(generator_run=grs_for_trial[0]).mark_running(
+                    no_runner_required=True
+                )
 
-            pending_in_each_gen = enumerate(
-                args_and_kwargs[1].get("pending_observations")
-                for args_and_kwargs in model_spec_gen_mock.call_args_list
+            # TODO[@drfreund]: Should be 1 after changeset 8/n.
+            self.assertEqual(gen_spec_fit_mock.call_count, 2)
+            self.assertEqual(gen_spec_gen_mock.call_count, 2)
+            # We can't check the pending points in each call to `gen` because they
+            # are modified in-place, but we can check that their final set is
+            # inclusive of all the arms in all the GRs in this experiment so far.
+            most_updated_pending_obs_arg = gen_spec_gen_mock.call_args[1].get(
+                "pending_observations"
             )
-            for gr, (idx, pending) in zip(grs, pending_in_each_gen):
-                exp.new_trial(generator_run=gr).mark_running(no_runner_required=True)
-                if idx > 0:
-                    prev_gr = grs[idx - 1]
-                    for arm in prev_gr.arms:
-                        for m in pending:
-                            # In this case, we should see both the originally-pending
-                            # and the new arms as pending observation features.
-                            self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
-                            for p in original_pending[m]:
-                                self.assertIn(p, pending[m])
+            all_trials_obs_feats = [
+                ObservationFeatures.from_arm(arm=a, trial_index=idx)
+                for idx, trial in exp.trials.items()
+                for a in trial.arms
+            ]
+            # At the time these arms were added as pending, they did not have trial
+            # indices yet (they were added to trials later.)
+            for i in range(3, len(exp.trials)):
+                all_trials_obs_feats[i].trial_index = None
+            for m in exp.metrics.keys():
+                self.assertTrue(
+                    same_elements(most_updated_pending_obs_arg[m], all_trials_obs_feats)
+                )
 
     def test_gen_for_multiple_uses_total_concurrent_arms_for_a_default(
         self,
@@ -1066,6 +1095,9 @@ class TestGenerationStrategy(TestCase):
             args_and_kwargs.kwargs.get("pending_observations")
             for args_and_kwargs in model_spec_gen_mock.call_args_list
         )
+        # pending points is updated in plac so we can't check each intermediate
+        # call state, however we can confirm that all arms in the grs produced by
+        # _gen_with_multiple_nodes are present in the pending points
         for gr, (idx, pending) in zip(grs, pending_in_each_gen):
             exp.new_trial(generator_run=gr[0]).mark_running(no_runner_required=True)
             if idx > 0:
@@ -1408,39 +1440,27 @@ class TestGenerationStrategy(TestCase):
         with mock_patch_method_original(
             mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
             original_method=GeneratorSpec.gen,
-        ) as model_spec_gen_mock:
+        ) as gen_spec_gen_mock:
             # Generate a trial that should be composed of arms from 3 nodes
             grs = gs._gen_with_multiple_nodes(
                 experiment=exp, arms_per_node=arms_per_node
             )
-
             self.assertEqual(len(grs), 3)  # len == 3 due to 3 nodes contributing
+            self.assertEqual(gen_spec_gen_mock.call_count, 3)
             pending_in_each_gen = enumerate(
                 call_kwargs.get("pending_observations")
-                for _, call_kwargs in model_spec_gen_mock.call_args_list
+                for _, call_kwargs in gen_spec_gen_mock.call_args_list
             )
-
-            # for each call to gen after the first call to gen, which should have no
-            # pending points the number of pending points should be equal to the sum of
-            # the number of arms we suspect from the previous nodes
-            expected_pending_per_call = [2, 3]
             for idx, pending in pending_in_each_gen:
-                # the first pending call will be empty because we didn't pass in any
-                # additional points, start checking after the first position
-                # that the pending points we expect are present
-                if idx > 0:
-                    self.assertEqual(
-                        len(pending["m2"]), expected_pending_per_call[idx - 1]
-                    )
-                    prev_gr = grs[idx - 1]
-                    for arm in prev_gr.arms:
-                        for m in pending:
-                            self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
+                prev_gr = grs[idx - 1]
+                for arm in prev_gr.arms:
+                    for m in pending:
+                        self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
 
             exp.new_batch_trial(generator_runs=grs).mark_running(
                 no_runner_required=True
             )
-            model_spec_gen_mock.reset_mock()
+            gen_spec_gen_mock.reset_mock()
 
             # check that the pending points line up
             original_pending = none_throws(get_pending(experiment=exp))
@@ -1463,10 +1483,10 @@ class TestGenerationStrategy(TestCase):
             self.assertEqual(len(grs), 3)  # len == 3 due to 3 nodes contributing
             pending_in_each_gen = enumerate(
                 call_kwargs.get("pending_observations")
-                for _, call_kwargs in model_spec_gen_mock.call_args_list
+                for _, call_kwargs in gen_spec_gen_mock.call_args_list
             )
-            # check first call is 6 (from the previous trial having 6 arms)
-            self.assertEqual(len(list(pending_in_each_gen)[0][1]["m1"]), 6)
+            # check pending points is now 12 (from the previous trial having 6 arms)
+            self.assertEqual(len(list(pending_in_each_gen)[0][1]["m1"]), 12)
 
     def test_gs_initializes_default_props_correctly(self) -> None:
         """Test that all previous nodes are initialized to None"""
@@ -1608,9 +1628,7 @@ class TestGenerationStrategy(TestCase):
         )
         exp = get_branin_experiment()
         for _ in range(5):
-            trial = exp.new_trial(
-                generator_run=gs.gen(n=1, experiment=exp, data=exp.lookup_data())
-            )
+            trial = exp.new_trial(generator_run=gs.gen(n=1, experiment=exp))
             trial.mark_running(no_runner_required=True)
             exp.attach_data(get_branin_data(trials=[trial]))
             trial.mark_completed()
@@ -1938,7 +1956,9 @@ class TestGenerationStrategy(TestCase):
                 )
                 exp.new_batch_trial(
                     generator_runs=gs._gen_with_multiple_nodes(
-                        exp, n=9, fixed_features=passed_fixed_features
+                        exp,
+                        n=9,
+                        fixed_features=passed_fixed_features,
                     )
                 )
                 fixed_features_in_gen = model_spec_gen_mock.call_args_list[
