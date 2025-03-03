@@ -85,6 +85,20 @@ class CastTransformTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
+        # Check that the transform casts the parameter values when necessary.
+        observation_features = [
+            ObservationFeatures(parameters={"a": 1, "b": 2, "c": "a", "d": 2.1})
+        ]
+        expected = [
+            ObservationFeatures(parameters={"a": 1.0, "b": 2.0, "c": "a", "d": 2})
+        ]
+        self.assertEqual(
+            self.t.transform_observation_features(
+                observation_features=observation_features
+            ),
+            expected,
+        )
+
     def test_untransform_observation_features(self) -> None:
         # Verify running the transform on uncasted values properly converts them
         # (e.g. typing, rounding)
