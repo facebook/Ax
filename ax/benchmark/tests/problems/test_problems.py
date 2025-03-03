@@ -13,6 +13,7 @@ from ax.benchmark.problems.registry import BENCHMARK_PROBLEM_REGISTRY, get_probl
 from ax.benchmark.problems.runtime_funcs import int_from_params
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import get_mock_lcbench_data
+from sklearn.pipeline import Pipeline
 
 
 class TestProblems(TestCase):
@@ -27,7 +28,7 @@ class TestProblems(TestCase):
                 "ax.benchmark.problems.surrogate."
                 "lcbench.early_stopping.load_lcbench_data",
                 return_value=get_mock_lcbench_data(),
-            ):
+            ), patch.object(Pipeline, "fit"):
                 problem = get_problem(problem_key=name)
             self.assertIsInstance(problem, BenchmarkProblem, msg=name)
 
@@ -51,7 +52,15 @@ class TestProblems(TestCase):
 
     def test_no_duplicates(self) -> None:
         keys = [elt for elt in BENCHMARK_PROBLEM_REGISTRY.keys() if "MNIST" not in elt]
-        names = {get_problem(problem_key=key).name for key in keys}
+
+        # Avoid downloading data from the internet
+        with patch(
+            "ax.benchmark.problems.surrogate."
+            "lcbench.early_stopping.load_lcbench_data",
+            return_value=get_mock_lcbench_data(),
+        ), patch.object(Pipeline, "fit"):
+            names = {get_problem(problem_key=key).name for key in keys}
+
         self.assertEqual(len(keys), len(names))
 
     def test_external_registry(self) -> None:
