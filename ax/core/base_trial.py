@@ -621,8 +621,16 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
-        if self._status != TrialStatus.RUNNING:
-            raise ValueError("Can only early stop trial that is currently running.")
+        if not unsafe:
+            if self._status != TrialStatus.RUNNING:
+                raise ValueError("Can only early stop trial that is currently running.")
+
+            if self.lookup_data().df.empty:
+                raise UnsupportedError(
+                    "Cannot mark trial early stopped without data. Please mark trial "
+                    "abandoned instead."
+                )
+
         self._status = TrialStatus.EARLY_STOPPED
         self._time_completed = datetime.now()
         return self
@@ -822,4 +830,4 @@ class BaseTrial(ABC, SortableBase):
         if self.status == TrialStatus.FAILED:
             new_trial.mark_failed(reason=self.failed_reason)
             return
-        new_trial.mark_as(self.status)
+        new_trial.mark_as(self.status, unsafe=True)
