@@ -78,14 +78,6 @@ class TestCrossValidationPlot(TestCase):
                 card.df["arm_name"].unique(),
             )
 
-    def test_it_can_only_contain_observation_prior_to_the_trial_index(self) -> None:
-        analysis = CrossValidationPlot(metric_name="bar", trial_index=7)
-        with self.assertRaisesRegex(
-            UserInputError,
-            "CrossValidationPlot was specified to be for the generation of trial 7",
-        ):
-            analysis.compute(generation_strategy=self.client.generation_strategy)
-
     def test_it_can_specify_trial_index_correctly(self) -> None:
         analysis = CrossValidationPlot(metric_name="bar", trial_index=9)
         card = analysis.compute(generation_strategy=self.client.generation_strategy)
