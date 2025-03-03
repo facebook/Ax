@@ -68,6 +68,36 @@ class GenResults:
     gen_metadata: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class DataLoaderConfig:
+    """This dataclass contains parameters that control the `Adapter._set_training_data`.
+
+    Args:
+        fit_out_of_design: If specified, all training data are used.
+            Otherwise, only in design points are used.
+        fit_abandoned: Whether data for abandoned arms or trials should be included in
+            model training data. If `False`, only non-abandoned points are returned.
+        fit_only_completed_map_metrics: Whether to fit a model to map metrics only when
+            the trial is completed. This is useful for applications like modeling
+            partially completed learning curves in AutoML.
+        latest_rows_per_group: If specified and data is an instance of MapData, uses
+            MapData.latest() with `latest_rows_per_group` to retrieve the most recent
+            rows for each group. Useful in cases where learning curves are frequently
+            updated, preventing an excessive number of Observation objects.
+        limit_rows_per_metric: Subsample the map data so that the total number of
+            rows per metric is limited by this value.
+        limit_rows_per_group: Subsample the map data so that the number of rows
+            in the `map_key` column for each (arm, metric) is limited by this value.
+    """
+
+    fit_out_of_design: bool = False
+    fit_abandoned: bool = False
+    fit_only_completed_map_metrics: bool = True
+    latest_rows_per_group: int | None = 1
+    limit_rows_per_metric: int | None = None
+    limit_rows_per_group: int | None = None
+
+
 class Adapter:
     """The main object for using models in Ax.
 
@@ -105,11 +135,12 @@ class Adapter:
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
         expand_model_space: bool = True,
-        fit_out_of_design: bool = False,
-        fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
-        fit_only_completed_map_metrics: bool = True,
+        data_loader_config: DataLoaderConfig | None = None,
+        fit_out_of_design: bool | None = None,
+        fit_abandoned: bool | None = None,
+        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         """
         Applies transforms and fits model.
@@ -145,11 +176,6 @@ class Adapter:
                 space larger than the search space if training data fall outside
                 the search space. Will also include training points that violate
                 parameter constraints in the modeling.
-            fit_out_of_design: If specified, all training data are used.
-                Otherwise, only in design points are used.
-            fit_abandoned: Whether data for abandoned arms or trials should be
-                included in model training data. If ``False``, only
-                non-abandoned points are returned.
             fit_tracking_metrics: Whether to fit a model for tracking metrics.
                 Setting this to False will improve runtime at the expense of
                 models not being available for predicting tracking metrics.
@@ -160,10 +186,26 @@ class Adapter:
                 To fit the model afterwards, use `_process_and_transform_data`
                 to get the transformed inputs and call `_fit_if_implemented` with
                 the transformed inputs.
-            fit_only_completed_map_metrics: Whether to fit a model to map metrics only
-                when the trial is completed. This is useful for applications like
-                modeling partially completed learning curves in AutoML.
+            data_loader_config: A DataLoaderConfig of options for loading data. See the
+                docstring of DataLoaderConfig for more details.
+            fit_out_of_design: Deprecation warning: `fit_out_of_design` is deprecated.
+                Overwrites `data_loader_config.fit_out_of_design` if not None.
+            fit_abandoned: Deprecation warning: `fit_out_of_design` is deprecated.
+                Overwrites `data_loader_config.fit_abandoned` if not None.
+            fit_only_completed_map_metrics: Deprecation warning: `fit_out_of_design`
+                is deprecated. If not None, overwrites
+                `data_loader_config.fit_only_completed_map_metrics`.
         """
+        if data_loader_config is None:
+            data_loader_config = DataLoaderConfig()
+
+        data_loader_config = _legacy_overwrite_data_loader_options(
+            data_loader_config=data_loader_config,
+            fit_out_of_design=fit_out_of_design,
+            fit_abandoned=fit_abandoned,
+            fit_only_completed_map_metrics=fit_only_completed_map_metrics,
+        )
+
         t_fit_start = time.monotonic()
         transforms = transforms or []
         transforms = [Cast] + list(transforms)
@@ -189,10 +231,8 @@ class Adapter:
         self._model_space: SearchSpace = search_space.clone()
         self._raw_transforms = transforms
         self._transform_configs: Mapping[str, TConfig] | None = transform_configs
-        self._fit_out_of_design = fit_out_of_design
-        self._fit_abandoned = fit_abandoned
+        self._data_loader_config: DataLoaderConfig = data_loader_config
         self._fit_tracking_metrics = fit_tracking_metrics
-        self._fit_only_completed_map_metrics = fit_only_completed_map_metrics
         self.outcomes: list[str] = []
         self._experiment_has_immutable_search_space_and_opt_config: bool = (
             experiment is not None and experiment.immutable_search_space_and_opt_config
@@ -295,17 +335,17 @@ class Adapter:
     ) -> list[Observation]:
         if experiment is None or data is None:
             return []
-        map_keys_as_parameters = (
-            not self._fit_only_completed_map_metrics and isinstance(data, MapData)
-        )
+        fit_only_completed = self._data_loader_config.fit_only_completed_map_metrics
+        map_keys_as_parameters = not fit_only_completed and isinstance(data, MapData)
         return observations_from_data(
             experiment=experiment,
             data=data,
-            latest_rows_per_group=None,
+            latest_rows_per_group=self._data_loader_config.latest_rows_per_group,
+            limit_rows_per_metric=self._data_loader_config.limit_rows_per_metric,
+            limit_rows_per_group=self._data_loader_config.limit_rows_per_group,
             statuses_to_include=self.statuses_to_fit,
             statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
             map_keys_as_parameters=map_keys_as_parameters,
-            load_only_completed_map_metrics=self._fit_only_completed_map_metrics,
         )
 
     def _transform_data(
@@ -373,7 +413,7 @@ class Adapter:
     ) -> list[Observation]:
         """Set training_in_design, and decide whether to filter out of design points."""
         # Don't filter points.
-        if self._fit_out_of_design:
+        if self._data_loader_config.fit_out_of_design:
             # Use all data for training
             # Set training_in_design to True for all observations so that
             # all observations are used in CV and plotting
@@ -489,7 +529,10 @@ class Adapter:
                 # observations of the status quo.
                 # This is useful for getting status_quo_data_by_trial
                 self._status_quo_name = status_quo_name
-                if len(sq_obs) > 1 and self._fit_only_completed_map_metrics:
+                if (
+                    len(sq_obs) > 1
+                    and self._data_loader_config.fit_only_completed_map_metrics
+                ):
                     # it is expected to have multiple obserations for map data
                     logger.warning(
                         f"Status quo {status_quo_name} found in data with multiple "
@@ -554,7 +597,7 @@ class Adapter:
     @property
     def statuses_to_fit(self) -> set[TrialStatus]:
         """Statuses to fit the model on."""
-        if self._fit_abandoned:
+        if self._data_loader_config.fit_abandoned:
             return set(TrialStatus)
         return NON_ABANDONED_STATUSES
 
@@ -563,7 +606,7 @@ class Adapter:
         """Statuses to fit the model on."""
         return (
             {TrialStatus.COMPLETED}
-            if self._fit_only_completed_map_metrics
+            if self._data_loader_config.fit_only_completed_map_metrics
             else self.statuses_to_fit
         )
 
@@ -871,7 +914,7 @@ class Adapter:
 
         # Clamp the untransformed data to the original search space if
         # we don't fit/gen OOD points
-        if not self._fit_out_of_design:
+        if not self._data_loader_config.fit_out_of_design:
             observation_features = clamp_observation_features(
                 observation_features, orig_search_space
             )
@@ -1214,3 +1257,47 @@ def clamp_observation_features(
                 )
                 obsf.parameters[p.name] = p.upper
     return observation_features
+
+
+def _legacy_overwrite_data_loader_options(
+    data_loader_config: DataLoaderConfig,
+    fit_out_of_design: bool | None = None,
+    fit_abandoned: bool | None = None,
+    fit_only_completed_map_metrics: bool | None = None,
+    warn_if_legacy: bool = True,
+) -> DataLoaderConfig:
+    """Overwrites data loader config with legacy keyword arguments.
+
+    Args:
+        data_loader_config: Data loader config.
+        fit_out_of_design: Whether to fit out-of-design points.
+        fit_abandoned: Whether to fit abandoned arms.
+        fit_only_completed_map_metrics: Whether to fit only completed map metrics.
+        warn_if_legacy: Whether to warn if legacy keyword arguments are used.
+
+    Returns:
+        Updated data loader config.
+    """
+    data_loader_config_dict = {}
+    for var_name, deprecated_var in (
+        ("fit_out_of_design", fit_out_of_design),
+        ("fit_abandoned", fit_abandoned),
+        ("fit_only_completed_map_metrics", fit_only_completed_map_metrics),
+    ):
+        if deprecated_var is not None:
+            if warn_if_legacy:
+                logger.warning(
+                    f"`{var_name}` is deprecated. Please pass as "
+                    f"`data_loader_options.{var_name}` instead."
+                )
+            data_loader_config_dict[var_name] = deprecated_var
+        else:
+            data_loader_config_dict[var_name] = getattr(data_loader_config, var_name)
+
+    data_loader_config = DataLoaderConfig(
+        latest_rows_per_group=data_loader_config.latest_rows_per_group,
+        limit_rows_per_metric=data_loader_config.limit_rows_per_metric,
+        limit_rows_per_group=data_loader_config.limit_rows_per_group,
+        **data_loader_config_dict,
+    )
+    return data_loader_config
