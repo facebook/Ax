@@ -11,6 +11,7 @@ from collections import OrderedDict
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.exceptions.core import UserInputError
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.discrete import DiscreteAdapter
 from ax.modelbridge.random import RandomAdapter
 from ax.modelbridge.registry import (
@@ -167,14 +168,21 @@ class ModelRegistryTest(TestCase):
                 "optimization_config": None,
                 "transforms": Cont_X_trans + Y_trans,
                 "expand_model_space": True,
-                "fit_out_of_design": False,
-                "fit_abandoned": False,
                 "fit_tracking_metrics": True,
                 "fit_on_init": True,
                 "default_model_gen_options": None,
-                "fit_only_completed_map_metrics": True,
+                "data_loader_config": None,
+                # now passed through the data loader config
+                "fit_only_completed_map_metrics": None,
+                "fit_out_of_design": None,
+                "fit_abandoned": None,
             },
         )
+        self.assertIsInstance(gpei._data_loader_config, DataLoaderConfig)
+        self.assertEqual(gpei._data_loader_config.fit_only_completed_map_metrics, True)
+        self.assertEqual(gpei._data_loader_config.fit_out_of_design, False)
+        self.assertEqual(gpei._data_loader_config.fit_abandoned, False)
+
         prior_kwargs = {"lengthscale_prior": GammaPrior(6.0, 6.0)}
         gpei = Generators.LEGACY_BOTORCH(
             experiment=exp,

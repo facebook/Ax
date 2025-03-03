@@ -951,8 +951,8 @@ class testClampObservationFeatures(TestCase):
         )
         kwargs = mock_observations_from_data.call_args.kwargs
         self.assertTrue(kwargs["map_keys_as_parameters"])
-        # assert `latest_rows_per_group` is not specified or is None
-        self.assertIsNone(kwargs.get("latest_rows_per_group"))
+        # assert `latest_rows_per_group` is 1
+        self.assertEqual(kwargs["latest_rows_per_group"], 1)
         mock_observations_from_data.reset_mock()
 
         # calling without map data calls observations_from_data with

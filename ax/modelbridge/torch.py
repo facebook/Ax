@@ -41,7 +41,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
-from ax.modelbridge.base import Adapter, gen_arms, GenResults
+from ax.modelbridge.base import Adapter, DataLoaderConfig, gen_arms, GenResults
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
     extract_objective_thresholds,
@@ -103,13 +103,14 @@ class TorchAdapter(Adapter):
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
         expand_model_space: bool = True,
-        fit_out_of_design: bool = False,
-        fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
-        fit_only_completed_map_metrics: bool = True,
         default_model_gen_options: TConfig | None = None,
         torch_device: torch.device | None = None,
+        data_loader_config: DataLoaderConfig | None = None,
+        fit_out_of_design: bool | None = None,
+        fit_abandoned: bool | None = None,
+        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         """In addition to common arguments documented in the base ``Adapter`` class,
         ``TorchAdapter`` accepts the following arguments.
@@ -120,6 +121,12 @@ class TorchAdapter(Adapter):
                 `model_gen_options` passed to the `Adapter.gen` method.
             torch_device: The device to use for any torch tensors and operations
                 on these tensors.
+            data_loader_options: A dictionary of options for loading data.
+            fit_out_of_design: Overwrites `data_loader_config.fit_out_of_design` if
+                not None.
+            fit_abandoned: Overwrites `data_loader_config.fit_abandoned` if not None.
+            fit_only_completed_map_metrics: If not None, overwrites
+                `data_loader_config.fit_only_completed_map_metrics`.
         """
         self.device: torch.device | None = torch_device
         self._default_model_gen_options: TConfig = default_model_gen_options or {}
@@ -150,10 +157,11 @@ class TorchAdapter(Adapter):
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
             expand_model_space=expand_model_space,
-            fit_out_of_design=fit_out_of_design,
-            fit_abandoned=fit_abandoned,
             fit_tracking_metrics=fit_tracking_metrics,
             fit_on_init=fit_on_init,
+            data_loader_config=data_loader_config,
+            fit_out_of_design=fit_out_of_design,
+            fit_abandoned=fit_abandoned,
             fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
 
@@ -883,7 +891,7 @@ class TorchAdapter(Adapter):
             opt_config_metrics=opt_config_metrics,
             is_moo=optimization_config.is_moo_problem,
             risk_measure=risk_measure,
-            fit_out_of_design=self._fit_out_of_design,
+            fit_out_of_design=self._data_loader_config.fit_out_of_design,
         )
         return search_space_digest, torch_opt_config
 
