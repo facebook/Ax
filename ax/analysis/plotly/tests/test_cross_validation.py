@@ -9,6 +9,7 @@ from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
+from ax.modelbridge.registry import Generators
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -60,7 +61,7 @@ class TestCrossValidationPlot(TestCase):
         self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
-            {"arm_name", "observed", "observed_sem", "predicted", "predicted_sem"},
+            {"arm_name", "observed", "observed_95_ci", "predicted", "predicted_95_ci"},
         )
         self.assertIsNotNone(card.blob)
         self.assertEqual(card.blob_annotation, "plotly")
@@ -98,3 +99,19 @@ class TestCrossValidationPlot(TestCase):
                 arm_name,
                 card.df["arm_name"].unique(),
             )
+
+    @mock_botorch_optimize
+    def test_compute_adhoc(self) -> None:
+        metric_mapping = {"bar": "spunky"}
+        data = self.client.experiment.lookup_data()
+        adapter = Generators.BOTORCH_MODULAR(
+            experiment=self.client.experiment, data=data
+        )
+        analysis = CrossValidationPlot()._compute_adhoc(
+            adapter=adapter, data=data, metric_name_mapping=metric_mapping
+        )
+        self.assertEqual(len(analysis), 1)
+        card = analysis[0]
+        self.assertEqual(card.name, "CrossValidationPlot")
+        # validate that the metric name replacement occured
+        self.assertEqual(card.title, "Cross Validation for spunky")

@@ -11,6 +11,7 @@ from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import select_metric
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -106,11 +107,12 @@ class CrossValidationPlot(PlotlyAnalysis):
     def _compute_adhoc(
         self,
         adapter: Adapter,
-        metric_name: str,
+        data: Data,
         experiment: Experiment | None = None,
         folds: int = -1,
         untransform: bool = True,
-    ) -> PlotlyAnalysisCard:
+        metric_name_mapping: dict[str, str] | None = None,
+    ) -> list[PlotlyAnalysisCard]:
         """
         Helper method to expose adhoc cross validation plotting. This overrides the
         default assumption that the adapter from the generation strategy should be
@@ -118,8 +120,9 @@ class CrossValidationPlot(PlotlyAnalysis):
 
         Args:
             adapter: The adapter that will be assessed during cross validation.
-            metric_name: The name of the metric to plot. Must be provided for adhoc
-                plotting.
+            data: The Data that was used to fit the model. Will be used in this
+                adhoc cross validation call to compute the cross validation for all
+                metrics in the Data object.
             experiment: Experiment associated with this analysis. Used to determine
                 the priority of the analysis based on the metric importance in the
                 optimization config.
@@ -136,17 +139,34 @@ class CrossValidationPlot(PlotlyAnalysis):
                 regions where outliers have been removed, we have found it to better
                 reflect the how good the model used for candidate generation actually
                 is.
+            metric_name_mapping: Optional mapping from default metric names to more
+                readable metric names.
         """
-        return self._construct_plot(
-            adapter=adapter,
-            metric_name=metric_name,
-            folds=folds,
-            untransform=untransform,
-            # trial_index argument is used with generation strategy since this is an
-            # adhoc plot call, this will be None.
-            trial_index=None,
-            experiment=experiment,
-        )
+        plots = []
+        # Get all unique metric names in the data object, CVs will be computed for
+        # all metrics in the data object
+        metric_names = list(data.df["metric_name"].unique())
+        for metric_name in metric_names:
+            # replace metric name with human readable name if mapping is provided
+            refined_metric_name = (
+                metric_name_mapping.get(metric_name, metric_name)
+                if metric_name_mapping
+                else metric_name
+            )
+            plots.append(
+                self._construct_plot(
+                    adapter=adapter,
+                    metric_name=metric_name,
+                    folds=folds,
+                    untransform=untransform,
+                    # trial_index argument is used with generation strategy since this
+                    # is an adhoc plot call, this will be None.
+                    trial_index=None,
+                    experiment=experiment,
+                    refined_metric_name=refined_metric_name,
+                )
+            )
+        return plots
 
     def _construct_plot(
         self,
@@ -156,6 +176,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         untransform: bool,
         trial_index: int | None,
         experiment: Experiment | None = None,
+        refined_metric_name: str | None = None,
     ) -> PlotlyAnalysisCard:
         """
         Args:
@@ -181,6 +202,8 @@ class CrossValidationPlot(PlotlyAnalysis):
             experiment: Optional Experiment associated with this analysis. Used to set
                 the priority of the analysis based on the metric importance in the
                 optimization config.
+            refined_metric_name: Optional replacement for raw metric name, useful for
+                imporving readability of the plot title.
         """
         df = _prepare_data(
             adapter=adapter,
@@ -209,8 +232,11 @@ class CrossValidationPlot(PlotlyAnalysis):
         else:
             nudge = 0
 
+        # If a human readable metric name is provided, use it in the title
+        metric_title = refined_metric_name if refined_metric_name else metric_name
+
         return self._create_plotly_analysis_card(
-            title=f"Cross Validation for {metric_name}",
+            title=f"Cross Validation for {metric_title}",
             subtitle=f"Out-of-sample predictions using {k_folds_substring} CV",
             level=AnalysisCardLevel.LOW.value + nudge,
             df=df,
@@ -263,15 +289,20 @@ def _prepare_data(
                 "arm_name": observed.arm_name,
                 "observed": observed.data.means[observed_i],
                 "predicted": predicted.means[predicted_i],
-                # Take the square root of the SEM to get the standard deviation
-                "observed_sem": observed.data.covariance[observed_i][observed_i] ** 0.5,
-                "predicted_sem": predicted.covariance[predicted_i][predicted_i] ** 0.5,
+                # Compute the 95% confidence intervals for plotting purposes
+                "observed_95_ci": observed.data.covariance[observed_i][observed_i]
+                ** 0.5
+                * 1.96,
+                "predicted_95_ci": predicted.covariance[predicted_i][predicted_i] ** 0.5
+                * 1.96,
             }
             records.append(record)
     return pd.DataFrame.from_records(records)
 
 
-def _prepare_plot(df: pd.DataFrame) -> go.Figure:
+def _prepare_plot(
+    df: pd.DataFrame,
+) -> go.Figure:
     # Create a scatter plot using Plotly Graph Objects for more control
     fig = go.Figure()
     fig.add_trace(
@@ -284,13 +315,13 @@ def _prepare_plot(df: pd.DataFrame) -> go.Figure:
             },
             error_x={
                 "type": "data",
-                "array": df["observed_sem"],
+                "array": df["observed_95_ci"],
                 "visible": True,
                 "color": "rgba(0, 0, 255, 0.2)",  # partially transparent blue
             },
             error_y={
                 "type": "data",
-                "array": df["predicted_sem"],
+                "array": df["predicted_95_ci"],
                 "visible": True,
                 "color": "rgba(0, 0, 255, 0.2)",  # partially transparent blue
             },
@@ -313,15 +344,15 @@ def _prepare_plot(df: pd.DataFrame) -> go.Figure:
     # this line.
     lower_bound = (
         min(
-            (df["observed"] - df["observed_sem"].fillna(0)).min(),
-            (df["predicted"] - df["predicted_sem"].fillna(0)).min(),
+            (df["observed"] - df["observed_95_ci"].fillna(0)).min(),
+            (df["predicted"] - df["predicted_95_ci"].fillna(0)).min(),
         )
         * 0.999  # tight autozoom
     )
     upper_bound = (
         max(
-            (df["observed"] + df["observed_sem"].fillna(0)).max(),
-            (df["predicted"] + df["predicted_sem"].fillna(0)).max(),
+            (df["observed"] + df["observed_95_ci"].fillna(0)).max(),
+            (df["predicted"] + df["predicted_95_ci"].fillna(0)).max(),
         )
         * 1.001  # tight autozoom
     )
