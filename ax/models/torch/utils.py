@@ -464,10 +464,6 @@ def get_botorch_objective_and_transform(
         # We are doing multi-objective optimization.
         return _get_weighted_mo_objective(objective_weights=objective_weights), None
     if outcome_constraints:
-        if X_observed is None:
-            raise UnsupportedError(
-                "X_observed is required to construct a constrained BoTorch objective."
-            )
         # If there are outcome constraints, we use MC Acquisition functions.
         obj_tf: Callable[[Tensor, Tensor | None], Tensor] = (
             get_objective_weights_transform(objective_weights)
@@ -481,13 +477,17 @@ def get_botorch_objective_and_transform(
         # Acquisition object.
         if issubclass(botorch_acqf_class, SampleReducingMCAcquisitionFunction):
             return GenericMCObjective(objective=objective), None
-        else:  # this is still used by KG
-            con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-            inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
-            objective = ConstrainedMCObjective(
-                objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
+        # this is still used by KG
+        if X_observed is None:
+            raise UnsupportedError(
+                "X_observed is required to construct a constrained BoTorch objective."
             )
-            return objective, None
+        con_tfs = get_outcome_constraint_transforms(outcome_constraints)
+        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
+        objective = ConstrainedMCObjective(
+            objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
+        )
+        return objective, None
     # Case of linear weights - use ScalarizedPosteriorTransform
     transform = ScalarizedPosteriorTransform(weights=objective_weights)
     return None, transform
