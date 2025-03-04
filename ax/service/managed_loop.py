@@ -30,7 +30,6 @@ from ax.exceptions.core import SearchSpaceExhausted, UserInputError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from ax.modelbridge.registry import Generators
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
     get_best_raw_objective_point_with_trial_index,
@@ -251,7 +250,7 @@ class OptimizationLoop:
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
         best_point = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=self.experiment, models_enum=Generators
+            experiment=self.experiment, generation_strategy=self.generation_strategy
         )
         if best_point is not None:
             _, parameterizations, predictions = best_point

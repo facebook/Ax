@@ -9,7 +9,6 @@
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from functools import reduce
-
 from logging import Logger
 
 import pandas as pd
@@ -40,11 +39,7 @@ from ax.modelbridge.modelbridge_utils import (
     observed_pareto_frontier as observed_pareto,
     predicted_pareto_frontier as predicted_pareto,
 )
-from ax.modelbridge.registry import (
-    Generators,
-    get_model_from_generator_run,
-    ModelRegistryBase,
-)
+from ax.modelbridge.registry import Generators
 from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
@@ -184,7 +179,7 @@ def _raw_values_to_model_predict_arm(
 
 def get_best_parameters_from_model_predictions_with_trial_index(
     experiment: Experiment,
-    models_enum: type[ModelRegistryBase],
+    generation_strategy: GenerationStrategy,
     optimization_config: OptimizationConfig | None = None,
     trial_indices: Iterable[int] | None = None,
 ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
@@ -206,11 +201,12 @@ def get_best_parameters_from_model_predictions_with_trial_index(
         ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
 
     Args:
-        experiment: Experiment, on which to identify best raw objective arm.
-        models_enum: Registry of all models that may be in the experiment's
-            generation strategy.
-        optimization_config: Optimization config to use in place of the one stored
-            on the experiment.
+        experiment: ``Experiment``, on which to identify best raw objective arm.
+        generation_strategy: ``GenerationStrategy`` containing the model to get
+            the predictions from. This is typically the ``GenerationStrategy`` that
+            was used to generate the trials in the experiment.
+        optimization_config: Optional ``OptimizationConfig`` override, to use in place
+            of the one stored on the experiment.
         trial_indices: Indices of trials for which to retrieve data. If None will
             retrieve data from all available trials.
 
@@ -240,16 +236,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
 
         if gr is not None:
             data = experiment.lookup_data(trial_indices=trial_indices)
-
-            try:
-                model = get_model_from_generator_run(
-                    generator_run=gr,
-                    experiment=experiment,
-                    data=data,
-                    models_enum=models_enum,
-                )
-            except ValueError:
-                return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
+            model = generation_strategy.model
 
             # If model is not TorchAdapter, just use the best arm from the
             # last good generator run

@@ -32,7 +32,6 @@ from ax.modelbridge.modelbridge_utils import (
     predicted_hypervolume,
     validate_and_apply_final_transform,
 )
-from ax.modelbridge.registry import ModelRegistryBase
 from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.models.torch.botorch_moo_defaults import (
@@ -269,30 +268,17 @@ class BestPointMixin(metaclass=ABCMeta):
                 "Please use `get_pareto_optimal_parameters` for multi-objective "
                 "problems."
             )
-        # TODO[drfreund]: Find a way to include data for last trial in the
-        # calculation of best parameters.
+
         if use_model_predictions:
-            current_model = generation_strategy._curr.model_spec_to_gen_from.model_enum
-            # Cover for the case where source of `self._curr.model` was not a
-            # `Generators` enum but a factory function, in which case we cannot do
-            # `get_model_from_generator_run` (since we don't have model type and inputs
-            # recorded on the generator run.
-            models_enum = (
-                current_model.__class__
-                if isinstance(current_model, ModelRegistryBase)
-                else None
+            res = best_point_utils.get_best_parameters_from_model_predictions_with_trial_index(  # noqa
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                optimization_config=optimization_config,
+                trial_indices=trial_indices,
             )
 
-            if models_enum is not None:
-                res = best_point_utils.get_best_parameters_from_model_predictions_with_trial_index(  # noqa
-                    experiment=experiment,
-                    models_enum=models_enum,
-                    optimization_config=optimization_config,
-                    trial_indices=trial_indices,
-                )
-
-                if res is not None:
-                    return res
+            if res is not None:
+                return res
 
         return best_point_utils.get_best_by_raw_objective_with_trial_index(
             experiment=experiment,
