@@ -20,6 +20,7 @@ import numpy.typing as npt
 from ax.core.observation import Observation, ObservationData, recombine_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import Adapter, unwrap_observation_data
+from ax.modelbridge.random import RandomAdapter
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.model_fit_stats import (
     coefficient_of_determination,
@@ -430,7 +431,8 @@ def get_fit_and_std_quality_and_generalization_dict(
         }
 
     except Exception as e:
-        warn("Encountered exception in computing model fit quality: " + str(e))
+        if not isinstance(fitted_model_bridge, RandomAdapter):
+            warn("Encountered exception in computing model fit quality: " + str(e))
         return {
             "model_fit_quality": None,
             "model_std_quality": None,
