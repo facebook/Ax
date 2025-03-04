@@ -95,9 +95,12 @@ def _prepare_data(
     # Lookup the data that has already been fetched and attached to the experiment
     data = experiment.lookup_data().df
 
-    # Filter for only rows with the relevant metric names
+    # Filter for only rows with the relevant metric names and only completed trials
     metric_name_mask = data["metric_name"].isin([x_metric_name, y_metric_name])
-    filtered = data[metric_name_mask][
+    status_mask = data["trial_index"].apply(
+        lambda trial_index: experiment.trials[trial_index].status.is_completed
+    )
+    filtered = data[metric_name_mask & status_mask][
         ["trial_index", "arm_name", "metric_name", "mean"]
     ]
 
