@@ -34,7 +34,7 @@ from ax.modelbridge.base import Adapter
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_list
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -127,6 +127,7 @@ class GenerationStrategy(Base):
                 "`GenerationStrategy` inputs are:\n"
                 "`steps` (list of `GenerationStep`) or\n"
                 "`nodes` (list of `GenerationNode`)."
+                f"Encountered: {steps=}, {nodes=}"
             )
 
         # Log warning if the GS uses a non-registered (factory function) model.
@@ -337,6 +338,8 @@ class GenerationStrategy(Base):
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
         """
+        self.experiment = experiment
+
         gr = self._gen_with_multiple_nodes(
             experiment=experiment,
             data=data,
@@ -408,11 +411,18 @@ class GenerationStrategy(Base):
             if pending_observations is None
             else deepcopy(pending_observations)
         )
-        gr_limit = self._curr.generator_run_limit(raise_generation_errors=False)
-        if gr_limit == -1:
+        # TODO[@drfreund, @mgarrard]: Can we avoid having to check all TCs here?
+        # To do so, we would need: 1) another way to understand that there are
+        # no trial-counting TCs with a trial limit, 2) a way to, during `_gen_from
+        # multiple_nodes`, stop once we've generated (limit - pre-existing trials)
+        # new trials (just checking TCs won't work because it will look at the number
+        # of trials on the experiment but not at the would-be trials already produced
+        # in the loop).
+        new_trials_limit = self._curr.new_trial_limit(raise_generation_errors=False)
+        if new_trials_limit == -1:  # There is no additional limit on new trials.
             num_trials = max(num_trials, 1)
         else:
-            num_trials = max(min(num_trials, gr_limit), 1)
+            num_trials = max(min(num_trials, new_trials_limit), 1)
         for _i in range(num_trials):
             trial_grs.append(
                 self._gen_with_multiple_nodes(
@@ -447,7 +457,7 @@ class GenerationStrategy(Base):
             return 0, True
 
         # if the generation strategy is not complete, optimization is not complete
-        return self._curr.generator_run_limit(), False
+        return self._curr.new_trial_limit(), False
 
     def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""
@@ -680,12 +690,13 @@ class GenerationStrategy(Base):
         return gs_str
 
     # ------------------------- Candidate generation helpers. -------------------------
+
     def _gen_with_multiple_nodes(
         self,
         experiment: Experiment,
-        data: Data | None = None,
-        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         n: int | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        data: Data | None = None,
         fixed_features: ObservationFeatures | None = None,
         arms_per_node: dict[str, int] | None = None,
     ) -> list[GeneratorRun]:
@@ -739,15 +750,12 @@ class GenerationStrategy(Base):
         )
         self.experiment = experiment
         self._validate_arms_per_node(arms_per_node=arms_per_node)
-        pack_gs_gen_kwargs = self._initialize_gen_kwargs(
-            experiment=experiment,
-            grs_this_gen=grs_this_gen,
-            data=data,
-            n=n,
-            fixed_features=fixed_features,
-            arms_per_node=arms_per_node,
-            pending_observations=pending_observations,
-        )
+        pack_gs_gen_kwargs = {
+            "grs_this_gen": grs_this_gen,
+            "n": n,
+            "fixed_features": fixed_features,
+            "arms_per_node": arms_per_node,
+        }
 
         while continue_gen_for_trial:
             should_transition, node_to_gen_from_name = (
@@ -762,26 +770,16 @@ class GenerationStrategy(Base):
                 # until now so node properties can be as up to date as possible
                 node_to_gen_from._should_skip = False
             self._maybe_transition_to_next_node()
-            input_constructor_values = self._curr.apply_input_constructors(
-                gen_kwargs=pack_gs_gen_kwargs
-            )
-            if node_to_gen_from._should_skip:
-                # `_should_skip` is determined during input constructor application
-                continue
-
-            # TODO[@drfreund,mgarrard]: We won't need this here if we figure
-            # out another way to pass SQ features.
-            sq_f = input_constructor_values.pop("status_quo_features")
-            if sq_f is not None:
-                sq_f = assert_is_instance(sq_f, ObservationFeatures)
-            self._fit_current_model(data=data, status_quo_features=sq_f)
-            self._curr.generator_run_limit(raise_generation_errors=True)
-            model_gen_kwargs = pack_gs_gen_kwargs.copy()
-            model_gen_kwargs.update(input_constructor_values)
             try:
                 gr = self._curr.gen(
-                    **model_gen_kwargs,
+                    experiment=experiment,
+                    data=data,
+                    pending_observations=pending_observations,
+                    skip_fit=False,  # TODO[@drfreund]: Make this variable in 8/n
+                    **pack_gs_gen_kwargs,
                 )
+                # TODO[@drfreund]: Do we need this or can we just not keep `GS._model`?
+                self._model = self._curr._fitted_model
             except DataRequiredError as err:
                 # Model needs more data, so we log the error and return
                 # as many generator runs as we were able to produce, unless
@@ -790,6 +788,9 @@ class GenerationStrategy(Base):
                     raise
                 logger.debug(f"Model required more data: {err}.")
                 break
+            if gr is None:
+                # GR should only be none if current node's `_should_skip` is true`
+                continue
             self._generator_runs.append(gr)
             grs_this_gen.append(gr)
             # ensure that the points generated from each node are marked as pending
@@ -829,73 +830,7 @@ class GenerationStrategy(Base):
             for tc in self._curr.transition_edges[next_node]
         )
 
-    def _initialize_gen_kwargs(
-        self,
-        experiment: Experiment,
-        grs_this_gen: list[GeneratorRun],
-        data: Data | None = None,
-        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        n: int | None = None,
-        fixed_features: ObservationFeatures | None = None,
-        arms_per_node: dict[str, int] | None = None,
-    ) -> dict[str, Any]:
-        """Creates a dictionary mapping the name of all kwargs kwargs passed into
-        ``gen_with_multiple_nodes`` to their values. This is used by
-        ``NodeInputConstructors`` to dynamically determine node inputs during gen.
-
-        Args:
-            See ``gen_with_multiple_nodes`` documentation
-            + grs_this_gen: A running list of generator runs produced during this
-                call to gen_with_multiple_nodes. Currently needed by some input
-                constructors.
-
-        Returns:
-            A dictionary mapping the name of all kwargs kwargs passed into
-            ``gen_with_multiple_nodes`` to their values.
-        """
-        return {
-            "experiment": experiment,
-            "grs_this_gen": grs_this_gen,
-            "data": data,
-            "n": n,
-            "fixed_features": fixed_features,
-            "arms_per_node": arms_per_node,
-            "pending_observations": pending_observations,
-        }
-
     # ------------------------- Model selection logic helpers. -------------------------
-
-    def _fit_current_model(
-        self,
-        data: Data | None,
-        status_quo_features: ObservationFeatures | None = None,
-    ) -> None:
-        """Fits or update the model on the current generation node (does not move
-        between generation nodes).
-
-        Args:
-            data: Optional ``Data`` to fit or update with; if not specified, generation
-                strategy will obtain the data via ``experiment.lookup_data``.
-            status_quo_features: An ``ObservationFeature`` of the status quo arm,
-                needed by some models during fit to accommodate relative constraints.
-                Includes the status quo parameterization and target trial index.
-        """
-        data = self.experiment.lookup_data() if data is None else data
-
-        # Only pass status_quo_features if not None to avoid errors
-        # with ``ExternalGenerationNode``.
-        if status_quo_features is not None:
-            self._curr.fit(
-                experiment=self.experiment,
-                data=data,
-                status_quo_features=status_quo_features,
-            )
-        else:
-            self._curr.fit(
-                experiment=self.experiment,
-                data=data,
-            )
-        self._model = self._curr._fitted_model
 
     def _maybe_transition_to_next_node(
         self,
@@ -935,6 +870,6 @@ class GenerationStrategy(Base):
                     self._curr = node
                     # Moving to the next node also entails unsetting this GS's model
                     # (since new node's model will be initialized for the first time;
-                    # this is done in `self._fit_current_model).
+                    # this is done in `_gen_with_multiple_nodes`).
                     self._model = None
         return move_to_next_node

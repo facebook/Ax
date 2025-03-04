@@ -2155,6 +2155,6 @@ def get_fitted_model_bridge(scheduler: Scheduler, force_refit: bool = False) -> 
     gs = scheduler.standard_generation_strategy
     model_bridge = gs.model  # Optional[Adapter]
     if model_bridge is None or force_refit:  # Need to re-fit the model.
-        gs._fit_current_model(data=None)  # Will lookup_data if none is provided.
+        gs._curr._fit(experiment=scheduler.experiment)
         model_bridge = cast(Adapter, gs.model)
     return model_bridge

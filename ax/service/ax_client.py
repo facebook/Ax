@@ -1304,7 +1304,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             )
         # Check if we should transition before generating the next candidate.
         self.generation_strategy._maybe_transition_to_next_node()
-        self.generation_strategy._fit_current_model(data=None)
+        self.generation_strategy._curr._fit(experiment=self.experiment)
 
     def verify_trial_parameterization(
         self, trial_index: int, parameterization: TParameterization
