@@ -1298,7 +1298,9 @@ class ExperimentTest(TestCase):
         self.assertEqual(experiment.trial_indices_expecting_data, {2, 4})
         experiment.trials[4].mark_failed()
         self.assertEqual(experiment.trial_indices_expecting_data, {2})
-        experiment.trials[5].mark_running(no_runner_required=True).mark_early_stopped()
+        experiment.trials[5].mark_running(no_runner_required=True).mark_early_stopped(
+            unsafe=True
+        )
         self.assertEqual(experiment.trial_indices_expecting_data, {2, 5})
 
     def test_stop_trial(self) -> None:

@@ -404,6 +404,12 @@ class BatchTrialTest(TestCase):
     def test_EarlyStoppedBatchTrial(self) -> None:
         self.batch.runner = SyntheticRunner()
         self.batch.run()
+        self.batch.attach_batch_trial_data(
+            raw_data={
+                self.batch.arms[0].name: {"m1": 1.0, "m2": 2.0},
+                self.batch.arms[1].name: {"m1": 3.0, "m2": 4.0},
+            }
+        )
         self.batch.mark_early_stopped()
 
         self.assertEqual(self.batch.status, TrialStatus.EARLY_STOPPED)

@@ -687,9 +687,16 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
 
         trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
-        client.mark_trial_early_stopped(
+
+        with self.assertRaisesRegex(
+            UnsupportedError, "Cannot mark trial early stopped"
+        ):
+            client.mark_trial_early_stopped(trial_index=trial_index)
+
+        client.attach_data(
             trial_index=trial_index, raw_data={"foo": 0.0}, progression=1
         )
+        client.mark_trial_early_stopped(trial_index=trial_index)
         self.assertEqual(
             client._experiment.trials[trial_index].status,
             TrialStatus.EARLY_STOPPED,

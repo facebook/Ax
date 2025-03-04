@@ -560,23 +560,16 @@ class Client(WithDBSettingsBase):
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
         )
 
-    def mark_trial_early_stopped(
-        self, trial_index: int, raw_data: TOutcome, progression: int | None = None
-    ) -> None:
+    def mark_trial_early_stopped(self, trial_index: int) -> None:
         """
-        Manually mark a trial as EARLY_STOPPED while attaching the most recent data.
-        This is used when the user has decided (with or without Ax's recommendation) to
-        stop the trial early. EARLY_STOPPED trials will not be re-suggested by
-        get_next_trials.
+        Manually mark a trial as EARLY_STOPPED. This is used when the user has decided
+        (with or without Ax's recommendation) to stop the trial after some data has
+        been attached but before the trial is completed. Note that if data has not been
+        attached for the trial yet users should instead call ``mark_trial_abandoned``.
+        EARLY_STOPPED trials will not be re-suggested by ``get_next_trials``.
 
         Saves to database on completion if storage_config is present.
         """
-
-        # First attach the new data
-        self.attach_data(
-            trial_index=trial_index, raw_data=raw_data, progression=progression
-        )
-
         self._experiment.trials[trial_index].mark_early_stopped()
 
         self._save_or_update_trial_in_db_if_possible(

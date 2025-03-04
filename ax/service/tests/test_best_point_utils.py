@@ -157,7 +157,7 @@ class TestBestPointUtils(TestCase):
         with self.subTest("Only early-stopped trials"):
             exp = get_experiment_with_map_data()
             exp.trials[0].mark_running(no_runner_required=True)
-            exp.trials[0].mark_early_stopped()
+            exp.trials[0].mark_early_stopped(unsafe=True)
             with self.assertRaisesRegex(
                 ValueError, "Cannot identify best point if no trials are completed."
             ):
@@ -414,7 +414,7 @@ class TestBestPointUtils(TestCase):
                 no_runner_required=True
             )
             if i in [3, 8, 10]:
-                trial.mark_early_stopped()
+                trial.mark_early_stopped(unsafe=True)
             else:
                 trial.mark_completed()
 
