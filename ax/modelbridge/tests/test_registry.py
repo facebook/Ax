@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from collections import OrderedDict
 
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -18,13 +17,11 @@ from ax.modelbridge.registry import (
     _extract_model_state_after_gen,
     Cont_X_trans,
     Generators,
-    get_model_from_generator_run,
     MODEL_KEY_TO_MODEL_SETUP,
     Models,
     Y_trans,
 )
 from ax.modelbridge.torch import TorchAdapter
-from ax.models.base import Generator
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
@@ -35,7 +32,6 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
-    get_branin_data,
     get_branin_experiment,
     get_branin_experiment_with_status_quo_trials,
     get_branin_optimization_config,
@@ -300,72 +296,6 @@ class ModelRegistryTest(TestCase):
                 ]
             ),
         )
-
-    @mock_botorch_optimize
-    def test_get_model_from_generator_run(self) -> None:
-        """Tests that it is possible to restore a model from a generator run it
-        produced, if `Generators` registry was used.
-        """
-        exp = get_branin_experiment()
-        initial_sobol = Generators.SOBOL(experiment=exp, seed=239)
-        gr = initial_sobol.gen(n=1)
-        # Restore the model as it was before generation.
-        sobol = get_model_from_generator_run(
-            generator_run=gr,
-            experiment=exp,
-            data=exp.fetch_data(),
-            models_enum=Generators,
-            after_gen=False,
-        )
-        generator = assert_is_instance(sobol.model, SobolGenerator)
-        self.assertEqual(generator.init_position, 0)
-        self.assertEqual(generator.seed, 239)
-        # Restore the model as it was after generation (to resume generation).
-        sobol_after_gen = get_model_from_generator_run(
-            generator_run=gr,
-            experiment=exp,
-            data=exp.fetch_data(),
-            models_enum=Generators,
-        )
-        generator = assert_is_instance(sobol_after_gen.model, SobolGenerator)
-        self.assertEqual(generator.init_position, 1)
-        self.assertEqual(generator.seed, 239)
-        self.assertEqual(initial_sobol.gen(n=1).arms, sobol_after_gen.gen(n=1).arms)
-        exp.new_trial(generator_run=gr)
-        # Check restoration of GPEI, to ensure proper restoration of callable kwargs
-        gpei = Generators.LEGACY_BOTORCH(experiment=exp, data=get_branin_data())
-        # Punch GPEI model + bridge kwargs into the Sobol generator run, to avoid
-        # a slow call to `gpei.gen`, and remove Sobol's model state.
-        gr._model_key = "Legacy_GPEI"
-        gr._model_kwargs = gpei._model_kwargs
-        gr._bridge_kwargs = gpei._bridge_kwargs
-        gr._model_state_after_gen = {}
-        gpei_restored = get_model_from_generator_run(
-            gr, experiment=exp, data=get_branin_data(), models_enum=Generators
-        )
-        for key in gpei.__dict__:
-            self.assertIn(key, gpei_restored.__dict__)
-            original, restored = gpei.__dict__[key], gpei_restored.__dict__[key]
-            # Fit times are set in instantiation so not same and model compared below.
-            if key in ["fit_time", "fit_time_since_gen", "model", "training_data"]:
-                continue  # Fit times are set in instantiation so won't be same.
-            if isinstance(original, OrderedDict) and isinstance(restored, OrderedDict):
-                original, restored = list(original.keys()), list(restored.keys())
-            if isinstance(original, Generator) and isinstance(restored, Generator):
-                continue  # Model equality is tough to compare.
-                self.assertEqual(original, restored)
-
-        for key in gpei.model.__dict__:
-            self.assertIn(key, gpei_restored.model.__dict__)
-            original, restored = (
-                gpei.model.__dict__[key],
-                gpei_restored.model.__dict__[key],
-            )
-            # Botorch model equality is tough to compare and training data
-            # is unnecessary to compare, because data passed to model was the same
-            if key in ["_model", "warm_start_refitting", "Xs", "Ys"]:
-                continue
-            self.assertEqual(original, restored)
 
     def test_ModelSetups_do_not_share_kwargs(self) -> None:
         """Tests that none of the preset model and bridge combinations share a
