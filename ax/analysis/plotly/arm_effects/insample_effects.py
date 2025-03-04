@@ -17,6 +17,7 @@ from ax.analysis.plotly.arm_effects.utils import (
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import is_predictive
+from ax.core.data import Data
 
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -148,6 +149,16 @@ class InSampleEffectsPlot(PlotlyAnalysis):
         )
         return card
 
+    def _compute_adhoc(
+        self,
+        experiment: Experiment,
+        data: Data | None = None,
+        label_dict: dict[str, str] | None = None,
+    ) -> PlotlyAnalysisCard:
+        """TODO"""
+
+        return self.compute(experiment=experiment)
+
     @property
     def name(self) -> str:
         return f"{self._plot_type_string}EffectsPlot"
@@ -263,6 +274,8 @@ def _prepare_data(
             )
         ]
     )
+    print(trial.generator_runs)
+    print(model)
     trial_predictions = [
         get_predictions_by_arm(
             model=model,
@@ -273,7 +286,10 @@ def _prepare_data(
         )
         for gr in trial.generator_runs
     ]
-
+    print("sq")
+    # print(status_quo_prediction)
+    print("trial")
+    # print(trial_predictions)
     df = pd.DataFrame.from_records(
         list(
             chain(
