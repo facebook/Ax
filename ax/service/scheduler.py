@@ -1779,16 +1779,16 @@ class Scheduler(AnalysisBase, BestPointMixin):
             pending = get_pending_observation_features_based_on_trial_status(
                 experiment=self.experiment
             )
-            grs = self.generation_strategy._gen_multiple(
+            grs = self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
                 experiment=self.experiment,
-                num_generator_runs=num_trials,
+                num_trials=num_trials,
                 n=1,
                 pending_observations=pending,
                 fixed_features=get_fixed_features_from_experiment(
                     experiment=self.experiment
                 ),
             )
-            return [[gr] for gr in grs]
+            return grs
         # TODO: pass self.trial_type to GS.gen for multi-type experiments
 
     def _update_and_save_trials(
@@ -2155,6 +2155,6 @@ def get_fitted_model_bridge(scheduler: Scheduler, force_refit: bool = False) -> 
     gs = scheduler.standard_generation_strategy
     model_bridge = gs.model  # Optional[Adapter]
     if model_bridge is None or force_refit:  # Need to re-fit the model.
-        gs._fit_current_model(data=None)  # Will lookup_data if none is provided.
+        gs._curr._fit(experiment=scheduler.experiment)
         model_bridge = cast(Adapter, gs.model)
     return model_bridge

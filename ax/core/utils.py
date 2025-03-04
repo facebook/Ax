@@ -397,32 +397,31 @@ def get_pending_observation_features_based_on_trial_status(
 def extend_pending_observations(
     experiment: Experiment,
     pending_observations: dict[str, list[ObservationFeatures]],
-    generator_runs: list[GeneratorRun],
-) -> dict[str, list[ObservationFeatures]]:
+    generator_run: GeneratorRun,
+) -> None:
     """Extend given pending observations dict (from metric name to observations
     that are pending for that metric), with arms in a given generator run.
+
+    Note: This function performs this operation in-place for performance reasons.
+    It is only used within the ``GenerationStrategy`` class, and is not intended
+    for wide re-use. Please use caution when re-using this function.
 
     Args:
         experiment: Experiment, for which the generation strategy is producing
             ``GeneratorRun``s.
         pending_observations: Dict from metric name to pending observations for
             that metric, used to avoid resuggesting arms that will be explored soon.
-        generator_runs: List of ``GeneratorRun``s currently produced by the
-            ``GenerationStrategy``.
+        generator_run: ``GeneratorRun`` currently produced by the
+            ``GenerationStrategy`` to add to the pending points.
 
-    Returns:
-        A new dictionary of pending observations to avoid in-place modification
     """
-    pending_observations = deepcopy(pending_observations)
-    extended_observations: dict[str, list[ObservationFeatures]] = {}
     for m in experiment.metrics:
-        extended_obs_set = set(pending_observations.get(m, []))
-        for generator_run in generator_runs:
-            for a in generator_run.arms:
-                ob_ft = ObservationFeatures.from_arm(a)
-                extended_obs_set.add(ob_ft)
-        extended_observations[m] = list(extended_obs_set)
-    return extended_observations
+        if m not in pending_observations:
+            pending_observations[m] = []
+        pending_observations[m].extend(
+            ObservationFeatures.from_arm(a) for a in generator_run.arms
+        )
+    return
 
 
 # -------------------- Get target trial utils. ---------------------
