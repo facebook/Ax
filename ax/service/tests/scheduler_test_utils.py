@@ -580,9 +580,9 @@ class AxSchedulerTestCase(TestCase):
         )
         with patch.object(
             type(branin_gs),
-            "_gen_multiple",
-            return_value=[get_generator_run()],
-        ) as patch_gen_multiple:
+            "gen_for_multiple_trials_with_multiple_models",
+            return_value=[[get_generator_run()]],
+        ) as patch_gen_for_multiple_trials_with_multiple_models:
             scheduler = Scheduler(
                 experiment=self.branin_experiment,
                 generation_strategy=branin_gs,
@@ -596,7 +596,7 @@ class AxSchedulerTestCase(TestCase):
                 SchedulerInternalError, ".* only one was expected"
             ):
                 scheduler.run_all_trials()
-            patch_gen_multiple.assert_called_once()
+            patch_gen_for_multiple_trials_with_multiple_models.assert_called_once()
 
     def test_run_all_trials_using_runner_and_metrics(self) -> None:
         branin_gs = self._get_generation_strategy_strategy_for_test(
@@ -1352,7 +1352,7 @@ class AxSchedulerTestCase(TestCase):
         scheduler.run_n_trials(max_trials=1)
         with patch.object(
             GenerationStrategy,
-            "_gen_multiple",
+            "_gen_with_multiple_nodes",
             side_effect=AxGenerationException("model error"),
         ):
             with self.assertRaises(SchedulerInternalError):
@@ -1653,12 +1653,12 @@ class AxSchedulerTestCase(TestCase):
         )
         with patch.object(
             GenerationStrategy,
-            "_gen_multiple",
+            "gen_for_multiple_trials_with_multiple_models",
             side_effect=OptimizationComplete("test error"),
-        ) as mock_gen_multiple:
+        ) as mock_gen_with_multiple_nodes:
             scheduler.run_n_trials(max_trials=1)
         # no trials should run if _gen_multiple throws an OptimizationComplete error
-        mock_gen_multiple.assert_called_once()
+        mock_gen_with_multiple_nodes.assert_called_once()
         self.assertEqual(len(scheduler.experiment.trials), 0)
 
     @patch(
