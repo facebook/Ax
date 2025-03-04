@@ -429,6 +429,16 @@ def get_fit_and_std_quality_and_generalization_dict(
             "model_std_generalization": _model_std_quality(np.array(gen_std)),
         }
 
+    # Do not warn if the Adapter does not implment a predict method
+    # (ex. RandomAdapter).
+    except NotImplementedError:
+        return {
+            "model_fit_quality": None,
+            "model_std_quality": None,
+            "model_fit_generalization": None,
+            "model_std_generalization": None,
+        }
+
     except Exception as e:
         warn("Encountered exception in computing model fit quality: " + str(e))
         return {
