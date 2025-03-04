@@ -80,6 +80,7 @@ def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:
         }
         for trial in experiment.trials.values()
         for arm in trial.arms
+        if trial.status.is_completed  # Only include completed trials
     ]
 
     return pd.DataFrame.from_records(records).dropna()
