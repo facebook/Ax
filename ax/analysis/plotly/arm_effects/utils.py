@@ -231,6 +231,8 @@ def get_predictions_by_arm(
     abandoned_arms: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     trial_index = _get_trial_index_for_predictions(model)
+    print("mia")
+    print(gr)
     if gr is None:
         if abandoned_arms:
             raise UserInputError(
@@ -261,6 +263,7 @@ def get_predictions_by_arm(
             )
             for obsf in features
         ]
+        print("predictions")
     except NotImplementedError:
         raise UserInputError(
             "This plot requires a GenerationStrategy which is "
