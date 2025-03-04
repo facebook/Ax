@@ -48,4 +48,7 @@ export default {
     Introduction: ['why-ax', 'intro-to-ae', 'intro-to-bo'],
   },
   tutorials: tutorials(),
+  recipes: {
+    Recipes: ['recipes/index'],
+  },
 };

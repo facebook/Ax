@@ -96,6 +96,12 @@ module.exports={
           "position": "left"
         },
         {
+          "type": "docSidebar",
+          "sidebarId": "recipes",
+          "label": "Recipes",
+          "position": "left"
+        },
+        {
           "href": "https://ax.readthedocs.io/",
           "label": "API",
           "position": "left",
