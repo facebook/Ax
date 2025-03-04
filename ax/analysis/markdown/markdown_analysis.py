@@ -32,7 +32,8 @@ class MarkdownAnalysisCard(AnalysisCard):
         IPython display hook. This is called when the AnalysisCard is printed in an
         IPython environment (ex. Jupyter). Here we want to render the Markdown.
         """
-        display(Markdown(f"## {self.title}\n\n### {self.subtitle}\n\n{self.blob}"))
+        self._display_header()
+        display(Markdown(self.blob))
 
 
 class MarkdownAnalysis(Analysis):

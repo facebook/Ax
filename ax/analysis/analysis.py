@@ -97,8 +97,15 @@ class AnalysisCard(Base):
 
         By default, this method displays the raw data in a pandas DataFrame.
         """
-        display(Markdown(f"## {self.title}\n\n### {self.subtitle}"))
+        self._display_header()
         display(self.df)
+
+    def _display_header(self) -> None:
+        """
+        Display the title and subtitle of the AnalysisCard. Used in _ipython_display_
+        across all subclasses of AnalysisCard to ensure a uniform look and feel.
+        """
+        display(Markdown(f"**{self.title}**\n\n{self.subtitle}"))
 
 
 def display_cards(
