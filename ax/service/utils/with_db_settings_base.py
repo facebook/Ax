@@ -217,6 +217,7 @@ class WithDBSettingsBase:
         experiment_name: str,
         reduced_state: bool = False,
         skip_runners_and_metrics: bool = False,
+        load_auxiliary_experiments: bool = True,
     ) -> tuple[Experiment | None, GenerationStrategy | None]:
         """Loads experiment and its corresponding generation strategy from database
         if DB settings are set on this `WithDBSettingsBase` instance.
@@ -242,8 +243,8 @@ class WithDBSettingsBase:
             raise ValueError("Cannot load from DB in absence of DB settings.")
 
         logger.info(
-            "Loading experiment and generation strategy (with reduced state: "
-            f"{reduced_state})..."
+            f"""Loading experiment and generation strategy (with {reduced_state=},
+            {load_auxiliary_experiments=})..."""
         )
         start_time = time.time()
         experiment = _load_experiment(
@@ -252,6 +253,7 @@ class WithDBSettingsBase:
             reduced_state=reduced_state,
             load_trials_in_batches_of_size=LOADING_MINI_BATCH_SIZE,
             skip_runners_and_metrics=skip_runners_and_metrics,
+            load_auxiliary_experiments=load_auxiliary_experiments,
         )
         if not isinstance(experiment, Experiment):
             raise ValueError("Service API only supports `Experiment`.")
