@@ -156,9 +156,14 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
         self.sobol = Generators.SOBOL(experiment=self.experiment)
 
     def test_it_returns_empty_data_for_sobol(self) -> None:
-        results = get_fit_and_std_quality_and_generalization_dict(
-            fitted_model_bridge=self.sobol,
-        )
+        with warnings.catch_warnings(record=True) as ws:
+            results = get_fit_and_std_quality_and_generalization_dict(
+                fitted_model_bridge=self.sobol,
+            )
+
+            # Ensure we did not warn since we are using a Sobol Generator
+            self.assertEqual(len(ws), 0)
+
         expected = {
             "model_fit_quality": None,
             "model_std_quality": None,
