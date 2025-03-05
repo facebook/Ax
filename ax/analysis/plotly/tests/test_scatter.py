@@ -51,13 +51,25 @@ class TestScatterPlot(TestCase):
         experiment = get_experiment_with_observations(
             observations=observations,
         )
+        # Mark one trial as failed to ensure that it gets filtered out.
+        experiment.trials[9].mark_failed(unsafe=True)
 
         data = _prepare_data(
             experiment=experiment, x_metric_name="m1", y_metric_name="m2"
         )
 
-        # Ensure that the data is in the correct shape
-        self.assertEqual(len(data), len(observations))
+        # Ensure that the data is in the correct shape and only completed trials have
+        # rows in the dataframe.
+        self.assertEqual(
+            len(data),
+            len(
+                [
+                    trial
+                    for trial in experiment.trials.values()
+                    if trial.status.is_completed
+                ]
+            ),
+        )
         self.assertEqual(
             {*data.columns},
             {
@@ -69,8 +81,8 @@ class TestScatterPlot(TestCase):
             },
         )
 
-        # Check data is correct
-        for i in range(len(observations)):
+        # Check data is correct, ignoring the last trial since it was marked as failed.
+        for i in range(len(observations) - 1):
             row = data.iloc[i]
             self.assertEqual(row["trial_index"], i)
             self.assertEqual(row["arm_name"], f"{i}_0")
@@ -78,7 +90,7 @@ class TestScatterPlot(TestCase):
             self.assertEqual(row["m2"], observations[i][1])
 
             # Ensure that the optimal point is labeled correctly
-            if i == len(observations) - 1:
+            if i == len(observations) - 2:
                 self.assertTrue(row["is_optimal"])
             else:
                 self.assertFalse(row["is_optimal"])

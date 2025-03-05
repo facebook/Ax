@@ -45,7 +45,7 @@ class TestParallelCoordinatesPlot(TestCase):
         analysis_no_metric = ParallelCoordinatesPlot()
         _ = analysis_no_metric.compute(experiment=experiment)
 
-    def testselect_metric(self) -> None:
+    def test_select_metric(self) -> None:
         experiment = get_branin_experiment()
         experiment_no_optimization_config = get_branin_experiment(
             has_optimization_config=False
