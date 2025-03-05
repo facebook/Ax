@@ -427,14 +427,6 @@ class GenerationStrategy(Base):
                     fixed_features=fixed_features,
                 )
             )
-
-            extend_pending_observations(
-                experiment=experiment,
-                pending_observations=pending_observations,
-                # pass in the most recently generated grs each time to avoid
-                # duplication
-                generator_runs=trial_grs[-1],
-            )
         return trial_grs
 
     def current_generator_run_limit(
@@ -745,7 +737,10 @@ class GenerationStrategy(Base):
             )
         grs = []
         continue_gen_for_trial = True
-        pending_observations = deepcopy(pending_observations) or {}
+        pending_observations = (
+            pending_observations if pending_observations is not None else {}
+        )
+        self.experiment = experiment
         self._validate_arms_per_node(arms_per_node=arms_per_node)
         pack_gs_gen_kwargs = self._initialize_gen_kwargs(
             experiment=experiment,
@@ -808,13 +803,11 @@ class GenerationStrategy(Base):
                 self._generator_runs.append(curr_node_gr)
                 grs.append(curr_node_gr)
                 # ensure that the points generated from each node are marked as pending
-                # points for future calls to gen
-                pending_observations = extend_pending_observations(
+                # points for future calls to gen, or further generation for this trial
+                extend_pending_observations(
                     experiment=experiment,
                     pending_observations=pending_observations,
-                    # only pass in the most recent generator run to avoid unnecessary
-                    # deduplication in extend_pending_observations
-                    generator_runs=[grs[-1]],
+                    generator_run=curr_node_gr,
                 )
             continue_gen_for_trial = self._should_continue_gen_for_trial()
         return grs
