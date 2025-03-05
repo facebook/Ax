@@ -19,7 +19,7 @@
         "title": "Ask-tell experimentation with early stopping"
       }
     ],
-    "Applications and Integrations:": [
+    "Applications and Integrations": [
       {
         "id": "automl",
         "title": "Ax for AutoML"
