@@ -28,7 +28,7 @@ from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -426,23 +426,19 @@ def _filter_data_on_status(
     return df
 
 
-def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
+def get_feature_cols(data: Data) -> list[str]:
     """Get the columns used to identify and group observations from a Data object.
 
     Args:
         data: the Data object from which to extract the feature columns.
-        is_map_data: If True, the Data object's map_keys will be included.
+            If the Data object is an instance of MapData, the map_keys will be
+            included in the feature columns.
 
     Returns:
         A list of column names to be used to group observations.
     """
     feature_cols = OBS_COLS.intersection(data.df.columns)
-    # note we use this check, rather than isinstance, since
-    # only some Adapters (e.g. MapTorchAdapter)
-    # use observations_from_data, which is required
-    # to properly handle MapData features (e.g. fidelity).
-    if is_map_data:
-        data = assert_is_instance(data, MapData)
+    if isinstance(data, MapData):
         feature_cols = feature_cols.union(data.map_keys)
 
     for column in TIME_COLS:
@@ -509,11 +505,8 @@ def observations_from_data(
         statuses_to_include = NON_ABANDONED_STATUSES
     if statuses_to_include_map_metric is None:
         statuses_to_include_map_metric = NON_ABANDONED_STATUSES
-    is_map_data = isinstance(data, MapData)
-    map_keys = []
-    if is_map_data:
-        data = assert_is_instance(data, MapData)
-        map_keys.extend(data.map_keys)
+    if isinstance(data, MapData):
+        map_keys = data.map_keys
         if latest_rows_per_group is not None:
             data = data.latest(map_keys=map_keys, rows_per_group=latest_rows_per_group)
         elif limit_rows_per_metric is not None or limit_rows_per_group is not None:
@@ -525,12 +518,12 @@ def observations_from_data(
             )
         df = data.map_df
     else:
+        map_keys = []
         df = data.df
-    feature_cols = get_feature_cols(data, is_map_data=is_map_data)
     return _observations_from_dataframe(
         experiment=experiment,
         df=df,
-        cols=feature_cols,
+        cols=get_feature_cols(data=data),
         map_keys=map_keys,
         statuses_to_include=statuses_to_include,
         statuses_to_include_map_metric=statuses_to_include_map_metric,
