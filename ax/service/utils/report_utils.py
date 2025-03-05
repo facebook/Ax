@@ -1504,7 +1504,7 @@ def warn_if_unpredictable_metrics(
     # Get fit quality dict.
     model_bridge = generation_strategy.model  # Optional[Adapter]
     if model_bridge is None:  # Need to re-fit the model.
-        generation_strategy._fit_current_model(data=None)
+        generation_strategy._curr._fit(experiment=experiment)
         model_bridge = cast(Adapter, generation_strategy.model)
     if isinstance(model_bridge, RandomAdapter):
         logger.debug(
