@@ -9,7 +9,6 @@
 from collections.abc import Callable
 from contextlib import contextmanager
 from typing import Any, TypeVar
-
 from unittest.mock import MagicMock, patch
 
 
