@@ -24,6 +24,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Generators
 from ax.modelbridge.torch import TorchAdapter
@@ -64,20 +65,21 @@ class TestBestPointUtils(TestCase):
     @mock_botorch_optimize
     def test_best_from_model_prediction(self) -> None:
         exp = get_branin_experiment()
+        gs = choose_generation_strategy(
+            search_space=exp.search_space,
+            num_initialization_trials=3,
+            suggested_model_override=Generators.BOTORCH_MODULAR,
+        )
 
         for _ in range(3):
-            sobol = Generators.SOBOL(search_space=exp.search_space)
-            generator_run = sobol.gen(n=1)
+            generator_run = gs.gen(experiment=exp, n=1)
             trial = exp.new_trial(generator_run=generator_run)
-            trial.run()
-            trial.mark_completed()
+            trial.run().mark_completed()
             exp.attach_data(exp.fetch_data())
 
-        model = Generators.BOTORCH_MODULAR(experiment=exp, data=exp.lookup_data())
-        generator_run = model.gen(n=1)
+        generator_run = gs.gen(experiment=exp, n=1)
         trial = exp.new_trial(generator_run=generator_run)
-        trial.run()
-        trial.mark_completed()
+        trial.run().mark_completed()
 
         with patch.object(
             TorchAdapter,
@@ -106,7 +108,7 @@ class TestBestPointUtils(TestCase):
             ):
                 self.assertIsNotNone(
                     get_best_parameters_from_model_predictions_with_trial_index(
-                        exp, Generators
+                        experiment=exp, adapter=gs.model
                     )
                 )
                 self.assertTrue(
@@ -127,14 +129,14 @@ class TestBestPointUtils(TestCase):
             ):
                 self.assertIsNotNone(
                     get_best_parameters_from_model_predictions_with_trial_index(
-                        exp, Generators
+                        experiment=exp, adapter=gs.model
                     )
                 )
                 mock_model_best_point.assert_called()
 
         # Assert the non-mocked method works correctly as well
         res = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=exp, models_enum=Generators
+            experiment=exp, adapter=gs.model
         )
         trial_index, best_params, predict_arm = none_throws(res)
         self.assertIsNotNone(best_params)
@@ -145,7 +147,7 @@ class TestBestPointUtils(TestCase):
         for trial in exp.trials.values():
             trial.generator_run._best_arm_predictions = None
         res = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=exp, models_enum=Generators
+            experiment=exp, adapter=gs.model
         )
         trial_index, best_params_no_gr, predict_arm_no_gr = none_throws(res)
         self.assertEqual(best_params, best_params_no_gr)
@@ -253,6 +255,7 @@ class TestBestPointUtils(TestCase):
 
     def test_best_raw_objective_point_scalarized(self) -> None:
         exp = get_branin_experiment()
+        gs = choose_generation_strategy(search_space=exp.search_space)
         exp.optimization_config = OptimizationConfig(
             ScalarizedObjective(metrics=[get_branin_metric()], minimize=True)
         )
@@ -260,7 +263,7 @@ class TestBestPointUtils(TestCase):
             get_best_raw_objective_point_with_trial_index(exp)
         self.assertIsNone(
             get_best_parameters_from_model_predictions_with_trial_index(
-                experiment=exp, models_enum=Generators
+                experiment=exp, adapter=gs.model
             )
         )
         self.assertIsNone(get_best_by_raw_objective_with_trial_index(experiment=exp))
@@ -274,6 +277,7 @@ class TestBestPointUtils(TestCase):
 
     def test_best_raw_objective_point_scalarized_multi(self) -> None:
         exp = get_branin_experiment()
+        gs = choose_generation_strategy(search_space=exp.search_space)
         exp.optimization_config = OptimizationConfig(
             ScalarizedObjective(
                 metrics=[get_branin_metric(), get_branin_metric(lower_is_better=False)],
@@ -282,10 +286,10 @@ class TestBestPointUtils(TestCase):
             )
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
-            get_best_raw_objective_point_with_trial_index(exp)
+            get_best_raw_objective_point_with_trial_index(experiment=exp)
         self.assertIsNone(
             get_best_parameters_from_model_predictions_with_trial_index(
-                experiment=exp, models_enum=Generators
+                experiment=exp, adapter=gs.model
             )
         )
         self.assertIsNone(get_best_by_raw_objective_with_trial_index(experiment=exp))
