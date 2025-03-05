@@ -40,6 +40,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.sampling.normal import SobolQMCNormalSampler
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -146,32 +147,45 @@ class TestGenerationNode(TestCase):
         with patch.object(
             self.sobol_model_spec, "fit", wraps=self.sobol_model_spec.fit
         ) as mock_model_spec_fit:
-            self.sobol_generation_node.fit(
+            self.sobol_generation_node._fit(
                 experiment=self.branin_experiment,
                 data=self.branin_data,
             )
         mock_model_spec_fit.assert_called_with(
             experiment=self.branin_experiment,
             data=self.branin_data,
+            status_quo_features=None,
         )
 
     def test_gen(self) -> None:
-        self.sobol_generation_node.fit(
-            experiment=self.branin_experiment,
-            data=self.branin_data,
-        )
         with patch.object(
             self.sobol_model_spec, "gen", wraps=self.sobol_model_spec.gen
-        ) as mock_model_spec_gen:
+        ) as mock_model_spec_gen, patch.object(
+            self.sobol_model_spec, "fit", wraps=self.sobol_model_spec.fit
+        ) as mock_model_spec_fit:
             gr = self.sobol_generation_node.gen(
                 experiment=self.branin_experiment,
+                data=self.branin_experiment.lookup_data(),
                 n=1,
                 pending_observations={"branin": []},
             )
-        mock_model_spec_gen.assert_called_with(n=1, pending_observations={"branin": []})
-        self.assertEqual(gr._model_key, self.sobol_model_spec.model_key)
-        # pyre-fixme[16]: Optional type has no attribute `get`.
-        self.assertEqual(gr._model_kwargs.get("init_position"), 3)
+            self.assertIsNotNone(gr)
+            self.assertEqual(gr._model_key, self.sobol_model_spec.model_key)
+            model_kwargs = gr._model_kwargs
+            self.assertIsNotNone(model_kwargs)
+            self.assertEqual(model_kwargs.get("init_position"), 3)
+        mock_model_spec_fit.assert_called_with(
+            experiment=self.branin_experiment,
+            data=self.branin_experiment.lookup_data(),
+            status_quo_features=None,
+        )
+        mock_model_spec_gen.assert_called_with(
+            experiment=self.branin_experiment,
+            data=self.branin_experiment.lookup_data(),
+            n=1,
+            pending_observations={"branin": []},
+            fixed_features=None,
+        )
 
     @mock_botorch_optimize
     def test_gen_with_trial_type(self) -> None:
@@ -192,11 +206,13 @@ class TestGenerationNode(TestCase):
             ],
             trial_type=Keys.SHORT_RUN,
         )
-        mbm_short.fit(
+        gr = mbm_short.gen(
             experiment=self.branin_experiment,
-            data=self.branin_data,
+            data=self.branin_experiment.lookup_data(),
+            pending_observations=None,
+            n=2,
         )
-        gr = mbm_short.gen(experiment=self.branin_experiment, n=2)
+        self.assertIsNotNone(gr)
         gen_metadata = gr.gen_metadata
         self.assertIsNotNone(gen_metadata)
         self.assertEqual(gen_metadata["trial_type"], Keys.SHORT_RUN)
@@ -204,13 +220,14 @@ class TestGenerationNode(TestCase):
         self.assertIsNotNone(gen_metadata[Keys.EXPECTED_ACQF_VAL])
 
     def test_gen_with_no_trial_type(self) -> None:
-        self.sobol_generation_node.fit(
+        gr = self.sobol_generation_node.gen(
             experiment=self.branin_experiment,
-            data=self.branin_data,
+            data=self.branin_experiment.lookup_data(),
+            pending_observations=None,
+            n=2,
         )
-        gr = self.sobol_generation_node.gen(experiment=self.branin_experiment, n=2)
-        self.assertIsNotNone(gr.gen_metadata)
-        self.assertFalse("trial_type" in gr.gen_metadata)
+        self.assertIsNotNone(gr)
+        self.assertNotIn("trial_type", none_throws(gr.gen_metadata))
 
     @mock_botorch_optimize
     def test_model_gen_kwargs_deepcopy(self) -> None:
@@ -233,12 +250,11 @@ class TestGenerationNode(TestCase):
             ],
         )
         dat = self.branin_experiment.lookup_data()
-        node.fit(
+        node.gen(
             experiment=self.branin_experiment,
             data=dat,
-        )
-        node.gen(
-            experiment=self.branin_experiment, n=1, pending_observations={"branin": []}
+            n=1,
+            pending_observations={"branin": []},
         )
         # verify that sampler is not modified in-place by checking base samples
         self.assertIs(
@@ -268,7 +284,7 @@ class TestGenerationNode(TestCase):
             ],
         )
         self.assertIsNone(node.model_to_gen_from_name)
-        node.fit(
+        node._fit(
             experiment=self.branin_experiment,
             data=self.branin_data,
         )
@@ -435,19 +451,28 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
 
     @mock_botorch_optimize
     def test_gen(self) -> None:
-        self.model_selection_node.fit(
-            experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()
-        )
         # Check that with `ModelSelectionNode` generation from a node with
         # multiple model specs does not fail.
-        gr = self.model_selection_node.gen(
-            experiment=self.branin_experiment, n=1, pending_observations={"branin": []}
+        with patch.object(
+            self.model_selection_node, "_fit", wraps=self.model_selection_node._fit
+        ) as mock_fit:
+            gr = self.model_selection_node.gen(
+                experiment=self.branin_experiment,
+                data=self.branin_experiment.lookup_data(),
+                n=1,
+                pending_observations={"branin": []},
+            )
+            # The model specs are practically identical for this example.
+            # May pick either one.
+            self.assertIsNotNone(gr)
+            self.assertEqual(
+                self.model_selection_node.model_to_gen_from_name, gr._model_key
+            )
+        mock_fit.assert_called_with(
+            experiment=self.branin_experiment,
+            data=self.branin_experiment.lookup_data(),
+            status_quo_features=None,
         )
         # Check that the metric aggregation function is called twice, once for each
         # model spec.
         self.assertEqual(self.mock_aggregation.call_count, 2)
-        # The model specs are practically identical for this example.
-        # May pick either one.
-        self.assertEqual(
-            self.model_selection_node.model_to_gen_from_name, gr._model_key
-        )
