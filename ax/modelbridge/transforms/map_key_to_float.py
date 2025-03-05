@@ -6,14 +6,13 @@
 
 # pyre-strict
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.metadata_to_float import MetadataToFloat
 from ax.models.types import TConfig
-from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -22,10 +21,10 @@ if TYPE_CHECKING:
 
 class MapKeyToFloat(MetadataToFloat):
     """
-    This transform extracts the entry from the metadata field of the
-    observation features corresponding to the default map key
-    (`MapMetric.map_key_info.key`) and inserts it into the
-    parameter field.
+    This transform extracts the entry from the metadata field of the observation
+    features corresponding to the `parameters` specified in the transform config,
+    or the default map key (`MapMetric.map_key_info.key`) if not specified,
+    and inserts it into the parameter field.
 
     Inheriting from the `MetadataToFloat` transform, this transform
     also adds a range (float) parameter to the search space.
@@ -48,10 +47,9 @@ class MapKeyToFloat(MetadataToFloat):
         config: TConfig | None = None,
     ) -> None:
         config = config or {}
-        self.parameters: dict[str, dict[str, Any]] = assert_is_instance(
-            config.setdefault("parameters", {}), dict
-        )
-        self.parameters.setdefault(self.DEFAULT_MAP_KEY, {})
+        # Use the default map key if nothing is specified in the config.
+        if "parameters" not in config:
+            config["parameters"] = {self.DEFAULT_MAP_KEY: {}}
         super().__init__(
             search_space=search_space,
             observations=observations,
