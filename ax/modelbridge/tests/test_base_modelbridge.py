@@ -964,3 +964,21 @@ class testClampObservationFeatures(TestCase):
         )
         kwargs = mock_observations_from_data.call_args.kwargs
         self.assertFalse(kwargs["map_keys_as_parameters"])
+
+    def test_data_extraction_from_experiment(self) -> None:
+        # Checks that data is extracted from experiment both on __init__ and
+        # in _process_and_transform_data, if it is not provided.
+        exp = get_experiment_for_value()
+        lookup_patch = mock.patch.object(
+            exp, "lookup_data", return_value=exp.lookup_data()
+        ).start()
+        adapter = Adapter(experiment=exp, model=Generator())
+        lookup_patch.assert_called_once()
+        lookup_patch.reset_mock()
+        adapter._process_and_transform_data(experiment=exp)
+        lookup_patch.assert_called_once()
+        lookup_patch.reset_mock()
+        # Not called if data is provided.
+        adapter = Adapter(experiment=exp, model=Generator(), data=MapData())
+        adapter._process_and_transform_data(experiment=exp, data=MapData())
+        lookup_patch.assert_not_called()
