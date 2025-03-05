@@ -1582,7 +1582,7 @@ class TestAxClient(TestCase):
         ax_client = get_branin_optimization()
         for _ in range(5):
             parameterization, trial_index = ax_client.get_next_trial()
-        with self.assertRaisesRegex(DataRequiredError, "All trials for current model"):
+        with self.assertRaisesRegex(DataRequiredError, "All trials for current node"):
             ax_client.get_next_trial()
         # Check that with enforce_sequential_optimization off, we can keep
         # generating.
@@ -2048,7 +2048,7 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        with self.assertRaisesRegex(DataRequiredError, "All trials for current model "):
+        with self.assertRaisesRegex(DataRequiredError, "All trials for current node"):
             run_trials_using_recommended_parallelism(ax_client, [(6, 6), (-1, 3)], 20)
 
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
@@ -2684,10 +2684,7 @@ class TestAxClient(TestCase):
             num_trials=20, include_objective_thresholds=False
         )
         ax_client.generation_strategy._maybe_transition_to_next_node()
-        ax_client.generation_strategy._fit_current_model(
-            data=ax_client.experiment.lookup_data()
-        )
-
+        ax_client.generation_strategy._curr._fit(experiment=ax_client.experiment)
         with with_rng_seed(seed=RANDOM_SEED):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
 
@@ -2972,17 +2969,14 @@ class TestAxClient(TestCase):
             support_intermediate_data=True,
         )
 
-        exception = MaxParallelismReachedException(
-            step_index=1, model_name="test", num_running=10
-        )
+        exception = MaxParallelismReachedException(step_index=1, num_running=10)
 
         # pyre-fixme[53]: Captured variable `exception` is not annotated.
         # pyre-fixme[2]: Parameter must be annotated.
         def fake_new_trial(*args, **kwargs) -> None:
             raise exception
 
-        # pyre-fixme[16]: `Optional` has no attribute `new_trial`.
-        ax_client._experiment.new_trial = fake_new_trial
+        ax_client.experiment.new_trial = fake_new_trial
 
         # Without early stopping.
         with self.assertRaises(MaxParallelismReachedException) as cm:

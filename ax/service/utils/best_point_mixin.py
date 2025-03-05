@@ -375,7 +375,7 @@ class BestPointMixin(metaclass=ABCMeta):
         if use_model_predictions:
             # Make sure that the model is fitted. If model is fitted already,
             # this should be a no-op.
-            generation_strategy._fit_current_model(data=None)
+            generation_strategy._curr._fit(experiment=experiment)
             model = generation_strategy.model
             if not isinstance(model, TorchAdapter):
                 raise ValueError(
