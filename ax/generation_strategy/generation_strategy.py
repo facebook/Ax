@@ -405,7 +405,7 @@ class GenerationStrategy(Base):
             run for that trial.
         """
         self.experiment = experiment
-        trial_grs = []
+        grs_for_multiple_trials = []
         pending_observations = (
             extract_pending_observations(experiment=experiment) or {}
             if pending_observations is None
@@ -424,7 +424,7 @@ class GenerationStrategy(Base):
         else:
             num_trials = max(min(num_trials, new_trials_limit), 1)
         for _i in range(num_trials):
-            trial_grs.append(
+            grs_for_multiple_trials.append(
                 self._gen_with_multiple_nodes(
                     experiment=experiment,
                     data=data,
@@ -432,9 +432,10 @@ class GenerationStrategy(Base):
                     pending_observations=pending_observations,
                     arms_per_node=arms_per_node,
                     fixed_features=fixed_features,
+                    first_generation_in_multi=len(grs_for_multiple_trials) < 1,
                 )
             )
-        return trial_grs
+        return grs_for_multiple_trials
 
     def current_generator_run_limit(
         self,
@@ -699,6 +700,7 @@ class GenerationStrategy(Base):
         data: Data | None = None,
         fixed_features: ObservationFeatures | None = None,
         arms_per_node: dict[str, int] | None = None,
+        first_generation_in_multi: bool = True,
     ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
         ``BatchTrial``, and if producing a ``BatchTrial``, allows for multiple
@@ -769,13 +771,13 @@ class GenerationStrategy(Base):
                 # reset should skip as conditions may have changed, do not reset
                 # until now so node properties can be as up to date as possible
                 node_to_gen_from._should_skip = False
-            self._maybe_transition_to_next_node()
+            transitioned = self._maybe_transition_to_next_node()
             try:
                 gr = self._curr.gen(
                     experiment=experiment,
                     data=data,
                     pending_observations=pending_observations,
-                    skip_fit=False,  # TODO[@drfreund]: Make this variable in 8/n
+                    skip_fit=not (first_generation_in_multi or transitioned),
                     **pack_gs_gen_kwargs,
                 )
                 # TODO[@drfreund]: Do we need this or can we just not keep `GS._model`?

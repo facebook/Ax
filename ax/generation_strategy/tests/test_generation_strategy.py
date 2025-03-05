@@ -984,10 +984,7 @@ class TestGenerationStrategy(TestCase):
             self.assertEqual(len(grs), 3)
             # We should only fit once; refitting for each `gen` would be
             # wasteful as there is no new data.
-            # TODO[@drfreund]: This is currently regressed to fit three times, which is
-            # expected as of changeset 5/n; fixed in 8/n. Will change expected value to
-            # 1 in 8/n.
-            self.assertEqual(gen_spec_fit_mock.call_count, 3)
+            self.assertEqual(gen_spec_fit_mock.call_count, 1)
             self.assertEqual(gen_spec_gen_mock.call_count, 3)
             pending_in_each_gen = enumerate(
                 args_and_kwargs.kwargs.get("pending_observations")
@@ -1032,8 +1029,7 @@ class TestGenerationStrategy(TestCase):
                     no_runner_required=True
                 )
 
-            # TODO[@drfreund]: Should be 1 after changeset 8/n.
-            self.assertEqual(gen_spec_fit_mock.call_count, 2)
+            self.assertEqual(gen_spec_fit_mock.call_count, 1)
             self.assertEqual(gen_spec_gen_mock.call_count, 2)
             # We can't check the pending points in each call to `gen` because they
             # are modified in-place, but we can check that their final set is
