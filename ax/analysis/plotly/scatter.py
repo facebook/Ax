@@ -19,9 +19,10 @@ from plotly import express as px, graph_objects as go
 class ScatterPlot(PlotlyAnalysis):
     """
     Plotly Scatter plot for any two metrics. Each arm is represented by a single point,
-    whose color indicates the arm's trial index. Optionally, the Pareto frontier can be
-    shown. This plot is useful for understanding the relationship and/or tradeoff
-    between two metrics.
+    whose color indicates the arm's trial index. Only completed trials are shown.
+
+    Optionally, the Pareto frontier can be shown. This plot is useful for understanding
+    the relationship and/or tradeoff between two metrics.
 
     The DataFrame computed will contain one row per arm and the following columns:
         - trial_index: The trial index of the arm
@@ -95,9 +96,12 @@ def _prepare_data(
     # Lookup the data that has already been fetched and attached to the experiment
     data = experiment.lookup_data().df
 
-    # Filter for only rows with the relevant metric names
+    # Filter for only rows with the relevant metric names and only completed trials
     metric_name_mask = data["metric_name"].isin([x_metric_name, y_metric_name])
-    filtered = data[metric_name_mask][
+    status_mask = data["trial_index"].apply(
+        lambda trial_index: experiment.trials[trial_index].status.is_completed
+    )
+    filtered = data[metric_name_mask & status_mask][
         ["trial_index", "arm_name", "metric_name", "mean"]
     ]
 
