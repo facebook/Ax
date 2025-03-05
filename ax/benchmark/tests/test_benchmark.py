@@ -316,10 +316,10 @@ class TestBenchmark(TestCase):
             "Complete out of order": [0, 0, 1, 2],
         }
         expected_pending_in_each_gen = {
-            "All complete at different times": [[], [0], [1], [2]],
-            "Trials complete immediately": [[], [0], [], [2]],
-            "Trials complete at same time": [[], [0], [], [2]],
-            "Complete out of order": [[], [0], [0], [2]],
+            "All complete at different times": [[None], [0], [1], [2]],
+            "Trials complete immediately": [[None], [0], [None], [2]],
+            "Trials complete at same time": [[None], [0], [None], [2]],
+            "Complete out of order": [[None], [0], [0], [2]],
         }
         # When two trials complete at the same time, the inference trace uses
         # data from both to get the best point, and repeats it.
