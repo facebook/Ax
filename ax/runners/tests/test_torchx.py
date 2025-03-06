@@ -21,7 +21,7 @@ from ax.core import (
     SearchSpace,
 )
 
-from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.metrics.torchx import TorchXMetric
 from ax.runners.torchx import TorchXRunner
 from ax.service.scheduler import FailureRateExceededError, Scheduler, SchedulerOptions
@@ -87,7 +87,7 @@ class TorchXRunnerTest(TestCase):
         scheduler = Scheduler(
             experiment=experiment,
             generation_strategy=(
-                choose_generation_strategy(
+                choose_generation_strategy_legacy(
                     search_space=experiment.search_space,
                 )
             ),
@@ -117,7 +117,7 @@ class TorchXRunnerTest(TestCase):
         scheduler = Scheduler(
             experiment=experiment,
             generation_strategy=(
-                choose_generation_strategy(
+                choose_generation_strategy_legacy(
                     search_space=experiment.search_space,
                 )
             ),
@@ -155,7 +155,7 @@ class TorchXRunnerTest(TestCase):
         scheduler = Scheduler(
             experiment=experiment,
             generation_strategy=(
-                choose_generation_strategy(
+                choose_generation_strategy_legacy(
                     search_space=experiment.search_space,
                     max_parallelism_cap=parallelism,
                 )

@@ -21,7 +21,7 @@ from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
-from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_node import GenerationNode
 
 from ax.generation_strategy.generation_node_input_constructors import (
@@ -204,7 +204,7 @@ def get_generation_strategy(
                 get_sobol
             )
     else:
-        gs = choose_generation_strategy(
+        gs = choose_generation_strategy_legacy(
             search_space=get_search_space(), should_deduplicate=True
         )
         if with_callable_model_kwarg:
