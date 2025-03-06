@@ -575,8 +575,9 @@ class TestGenerationStrategy(TestCase):
                         "status_quo_features": None,
                         "transform_configs": None,
                         "transforms": Cont_X_trans,
-                        "fit_out_of_design": False,
-                        "fit_abandoned": False,
+                        "fit_out_of_design": None,  # False by DataLoaderConfig default
+                        "fit_abandoned": None,  # False by DataLoaderConfig default
+                        "data_loader_config": None,
                         "fit_tracking_metrics": True,
                         "fit_on_init": True,
                     },
@@ -1560,8 +1561,9 @@ class TestGenerationStrategy(TestCase):
                         "status_quo_features": None,
                         "transform_configs": None,
                         "transforms": Cont_X_trans,
-                        "fit_out_of_design": False,
-                        "fit_abandoned": False,
+                        "fit_out_of_design": None,  # False by DataLoaderConfig default
+                        "fit_abandoned": None,  # False by DataLoaderConfig default
+                        "data_loader_config": None,
                         "fit_tracking_metrics": True,
                         "fit_on_init": True,
                     },

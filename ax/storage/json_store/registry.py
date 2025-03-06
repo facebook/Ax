@@ -98,6 +98,7 @@ from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.factory import Generators
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.modelbridge.transforms.base import Transform
@@ -323,6 +324,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
     "Data": Data,
+    "DataLoaderConfig": DataLoaderConfig,
     "DataType": DataType,
     "DomainType": DomainType,
     "Experiment": Experiment,

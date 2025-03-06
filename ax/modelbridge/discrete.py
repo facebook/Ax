@@ -22,7 +22,7 @@ from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValueList
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import Adapter, GenResults
+from ax.modelbridge.base import Adapter, DataLoaderConfig, GenResults
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
     get_fixed_features,
@@ -58,11 +58,12 @@ class DiscreteAdapter(Adapter):
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
         expand_model_space: bool = True,
-        fit_out_of_design: bool = False,
-        fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
-        fit_only_completed_map_metrics: bool = True,
+        data_loader_config: DataLoaderConfig | None = None,
+        fit_out_of_design: bool | None = None,
+        fit_abandoned: bool | None = None,
+        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         # These are set in _fit.
         self.parameters: list[str] = []
@@ -77,6 +78,7 @@ class DiscreteAdapter(Adapter):
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
             expand_model_space=expand_model_space,
+            data_loader_config=data_loader_config,
             fit_out_of_design=fit_out_of_design,
             fit_abandoned=fit_abandoned,
             fit_tracking_metrics=fit_tracking_metrics,

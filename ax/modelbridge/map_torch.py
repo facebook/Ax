@@ -71,8 +71,8 @@ class MapTorchAdapter(TorchAdapter):
         map_data_limit_rows_per_metric: int | None = None,
         map_data_limit_rows_per_group: int | None = None,
         data_loader_config: DataLoaderConfig | None = None,
-        fit_out_of_design: bool = False,
-        fit_abandoned: bool = False,
+        fit_out_of_design: bool | None = None,
+        fit_abandoned: bool | None = None,
     ) -> None:
         """In addition to common arguments documented in the ``Adapter`` and
         ``TorchAdapter`` classes, ``MapTorchAdapter`` accepts the following arguments.

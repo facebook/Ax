@@ -20,6 +20,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.registry import (
     Generators,
     MODEL_KEY_TO_MODEL_SETUP,
@@ -108,7 +109,9 @@ def _make_botorch_step(
     model_kwargs["transform_configs"]["Derelativize"] = (
         derelativization_transform_config
     )
-    model_kwargs["fit_out_of_design"] = fit_out_of_design
+    model_kwargs["data_loader_config"] = DataLoaderConfig(
+        fit_out_of_design=fit_out_of_design
+    )
 
     if not no_winsorization:
         _, default_bridge_kwargs = model.view_defaults()
@@ -525,7 +528,9 @@ def choose_generation_strategy(
 
         model_kwargs: dict[str, Any] = {
             "torch_device": torch_device,
-            "fit_out_of_design": fit_out_of_design,
+            "data_loader_config": DataLoaderConfig(
+                fit_out_of_design=fit_out_of_design,
+            ),
         }
 
         # Create `generation_strategy`, adding first Sobol step

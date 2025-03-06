@@ -19,6 +19,7 @@ from ax.generation_strategy.dispatch_utils import (
     choose_generation_strategy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.registry import Generators, MBM_X_trans, Mixed_transforms, Y_trans
 from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.winsorize import Winsorize
@@ -60,7 +61,7 @@ class TestDispatchUtils(TestCase):
                 "torch_device": None,
                 "transforms": expected_transforms,
                 "transform_configs": expected_transform_configs,
-                "fit_out_of_design": False,
+                "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
             device = torch.device("cpu")
@@ -126,7 +127,7 @@ class TestDispatchUtils(TestCase):
                     "torch_device",
                     "transforms",
                     "transform_configs",
-                    "fit_out_of_design",
+                    "data_loader_config",
                 },
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
@@ -204,7 +205,7 @@ class TestDispatchUtils(TestCase):
                 "torch_device": None,
                 "transforms": [Winsorize] + Mixed_transforms + Y_trans,
                 "transform_configs": expected_transform_configs,
-                "fit_out_of_design": False,
+                "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed search space)"):
@@ -219,7 +220,7 @@ class TestDispatchUtils(TestCase):
                 "torch_device": None,
                 "transforms": [Winsorize] + Mixed_transforms + Y_trans,
                 "transform_configs": expected_transform_configs,
-                "fit_out_of_design": False,
+                "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed multi-objective optimization)"):
@@ -241,7 +242,7 @@ class TestDispatchUtils(TestCase):
                     "torch_device",
                     "transforms",
                     "transform_configs",
-                    "fit_out_of_design",
+                    "data_loader_config",
                 },
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
