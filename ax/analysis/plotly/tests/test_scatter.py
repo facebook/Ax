@@ -41,7 +41,15 @@ class TestScatterPlot(TestCase):
         self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
-            {"arm_name", "trial_index", "branin_a", "branin_b", "is_optimal"},
+            {
+                "arm_name",
+                "trial_index",
+                "branin_a",
+                "branin_b",
+                "branin_a_sem",
+                "branin_b_sem",
+                "is_optimal",
+            },
         )
         self.assertIsNotNone(card.blob)
         self.assertEqual(card.blob_annotation, "plotly")
@@ -49,7 +57,7 @@ class TestScatterPlot(TestCase):
     def test_prepare_data(self) -> None:
         observations = [[float(i), float(i + 1)] for i in range(10)]
         experiment = get_experiment_with_observations(
-            observations=observations,
+            observations=observations, with_sem=True
         )
         # Mark one trial as failed to ensure that it gets filtered out.
         experiment.trials[9].mark_failed(unsafe=True)
@@ -78,6 +86,8 @@ class TestScatterPlot(TestCase):
                     "arm_name",
                     "m1",
                     "m2",
+                    "m1_sem",
+                    "m2_sem",
                     "is_optimal",
                 },
             )
@@ -95,6 +105,7 @@ class TestScatterPlot(TestCase):
                     self.assertTrue(row["is_optimal"])
                 else:
                     self.assertFalse(row["is_optimal"])
+
         with self.subTest("Test trial filter applied"):
             data = _prepare_data(
                 experiment=experiment,
