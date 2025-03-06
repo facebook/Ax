@@ -1091,8 +1091,6 @@ class AxSchedulerTestCase(TestCase):
         # Should raise after 3 retries.
         with self.assertRaisesRegex(RuntimeError, ".* testing .*"):
             scheduler.run_all_trials()
-            # pyre-fixme[16]: `Scheduler` has no attribute `run_trial_call_count`.
-            self.assertEqual(scheduler.run_trial_call_count, 3)
 
     def test_retries_nonretriable_error(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
@@ -1114,8 +1112,6 @@ class AxSchedulerTestCase(TestCase):
         # Should raise right away since ValueError is non-retriable.
         with self.assertRaisesRegex(ValueError, ".* testing .*"):
             scheduler.run_all_trials()
-            # pyre-fixme[16]: `Scheduler` has no attribute `run_trial_call_count`.
-            self.assertEqual(scheduler.run_trial_call_count, 1)
 
     def test_set_ttl(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(

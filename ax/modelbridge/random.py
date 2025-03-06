@@ -14,7 +14,7 @@ from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.base import Adapter, GenResults
+from ax.modelbridge.base import Adapter, DataLoaderConfig, GenResults
 from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,
     extract_search_space_digest,
@@ -45,10 +45,11 @@ class RandomAdapter(Adapter):
         transform_configs: Mapping[str, TConfig] | None = None,
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
-        fit_out_of_design: bool = False,
-        fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
+        data_loader_config: DataLoaderConfig | None = None,
+        fit_out_of_design: bool | None = None,
+        fit_abandoned: bool | None = None,
     ) -> None:
         self.parameters: list[str] = []
         super().__init__(
@@ -61,6 +62,7 @@ class RandomAdapter(Adapter):
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
             expand_model_space=False,
+            data_loader_config=data_loader_config,
             fit_out_of_design=fit_out_of_design,
             fit_abandoned=fit_abandoned,
             fit_tracking_metrics=fit_tracking_metrics,

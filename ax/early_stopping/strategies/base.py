@@ -21,6 +21,7 @@ from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import estimate_early_stopping_savings
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.map_torch import MapTorchAdapter
 from ax.modelbridge.modelbridge_utils import (
     _unpack_observations,
@@ -535,5 +536,8 @@ def get_transform_helper_model(
         data=data,
         model=TorchGenerator(),
         transforms=transforms,
-        fit_out_of_design=True,
+        data_loader_config=DataLoaderConfig(
+            fit_out_of_design=True,
+            latest_rows_per_group=None,
+        ),
     )
