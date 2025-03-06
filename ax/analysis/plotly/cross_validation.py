@@ -83,6 +83,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
         if generation_strategy is None:
             raise UserInputError("CrossValidation requires a GenerationStrategy")

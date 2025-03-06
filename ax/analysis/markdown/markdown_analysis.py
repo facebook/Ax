@@ -18,6 +18,7 @@ from ax.analysis.analysis import (
 )
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from IPython.display import display, Markdown
 
 
@@ -45,6 +46,7 @@ class MarkdownAnalysis(Analysis):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> MarkdownAnalysisCard: ...
 
     def _create_markdown_analysis_card(

@@ -77,6 +77,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("InSampleEffectsPlot requires an Experiment.")

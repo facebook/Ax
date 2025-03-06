@@ -18,6 +18,7 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
 )
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from pyre_extensions import none_throws
 
 
@@ -47,6 +48,7 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> HealthcheckAnalysisCard:
         status = HealthcheckStatus.PASS
         subtitle = self.reason
