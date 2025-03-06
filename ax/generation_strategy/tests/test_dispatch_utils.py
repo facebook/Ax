@@ -13,22 +13,30 @@ from typing import Any
 import torch
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.dispatch_utils import (
     _make_botorch_step,
     calculate_num_initialization_trials,
+    choose_generation_strategy,
     choose_generation_strategy_legacy,
     DEFAULT_BAYESIAN_PARALLELISM,
+    GenerationMethod,
 )
+from ax.generation_strategy.transition_criterion import MinTrials
 from ax.modelbridge.registry import Generators, MBM_X_trans, Mixed_transforms, Y_trans
 from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.random.sobol import SobolGenerator
+from ax.models.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
     get_branin_search_space,
     get_discrete_search_space,
     get_experiment,
+    get_experiment_with_observations,
     get_factorial_search_space,
     get_large_factorial_search_space,
     get_large_ordinal_search_space,
@@ -36,11 +44,170 @@ from ax.utils.testing.core_stubs import (
     run_branin_experiment_with_generation_strategy,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.utils import run_trials_with_gs
+from botorch.models.transforms.input import Normalize, Warp
+from gpytorch.kernels.linear_kernel import LinearKernel
 from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestDispatchUtils(TestCase):
     """Tests that dispatching utilities correctly select generation strategies."""
+
+    def test_choose_gs_random_search(self) -> None:
+        gs = choose_generation_strategy(method=GenerationMethod.RANDOM_SEARCH)
+        self.assertEqual(len(gs._nodes), 1)
+        sobol_node = gs._nodes[0]
+        self.assertEqual(len(sobol_node.model_specs), 1)
+        sobol_spec = sobol_node.model_specs[0]
+        self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
+        self.assertEqual(sobol_spec.model_kwargs, {"seed": None})
+        self.assertEqual(sobol_node._transition_criteria, [])
+        # Make sure it generates.
+        run_trials_with_gs(experiment=get_branin_experiment(), gs=gs, num_trials=3)
+
+    @mock_botorch_optimize
+    def test_choose_gs_fast_with_options(self) -> None:
+        gs = choose_generation_strategy(
+            method=GenerationMethod.FAST,
+            initialization_budget=3,
+            initialization_random_seed=0,
+            use_existing_trials_for_initialization=False,
+            min_observed_initialization_trials=4,
+            allow_exceeding_initialization_budget=True,
+            torch_device="cpu",
+        )
+        self.assertEqual(len(gs._nodes), 2)
+        # Check the Sobol node & TC.
+        sobol_node = gs._nodes[0]
+        self.assertTrue(sobol_node.should_deduplicate)
+        self.assertEqual(len(sobol_node.model_specs), 1)
+        sobol_spec = sobol_node.model_specs[0]
+        self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
+        self.assertEqual(sobol_spec.model_kwargs, {"seed": 0})
+        expected_tc = [
+            MinTrials(
+                threshold=3,
+                transition_to="MBM",
+                block_gen_if_met=False,
+                block_transition_if_unmet=True,
+                use_all_trials_in_exp=False,
+            ),
+            MinTrials(
+                threshold=4,
+                transition_to="MBM",
+                block_gen_if_met=False,
+                block_transition_if_unmet=True,
+                use_all_trials_in_exp=False,
+                only_in_statuses=[TrialStatus.COMPLETED],
+                count_only_trials_with_data=True,
+            ),
+        ]
+        self.assertEqual(sobol_node._transition_criteria, expected_tc)
+        # Check the MBM node.
+        mbm_node = gs._nodes[1]
+        self.assertTrue(mbm_node.should_deduplicate)
+        self.assertEqual(len(mbm_node.model_specs), 1)
+        mbm_spec = mbm_node.model_specs[0]
+        self.assertEqual(mbm_spec.model_enum, Generators.BOTORCH_MODULAR)
+        expected_ss = SurrogateSpec(model_configs=[ModelConfig(name="MBM defaults")])
+        self.assertEqual(
+            mbm_spec.model_kwargs,
+            {"surrogate_spec": expected_ss, "torch_device": torch.device("cpu")},
+        )
+        self.assertEqual(mbm_node._transition_criteria, [])
+        # Experiment with 2 observations. We should still generate 4 Sobol trials.
+        experiment = get_experiment_with_observations([[1.0], [2.0]])
+        # Mark the existing trials as manual to prevent them from counting for Sobol.
+        for trial in experiment.trials.values():
+            none_throws(
+                assert_is_instance(trial, Trial).generator_run
+            )._model_key = "Manual"
+        # Generate 5 trials and make sure they're from the correct nodes.
+        run_trials_with_gs(experiment=experiment, gs=gs, num_trials=5)
+        self.assertEqual(len(experiment.trials), 7)
+        for trial in experiment.trials.values():
+            model_key = none_throws(
+                assert_is_instance(trial, Trial).generator_run
+            )._model_key
+            if trial.index < 2:
+                self.assertEqual(model_key, "Manual")
+            elif trial.index < 6:
+                self.assertEqual(model_key, "Sobol")
+            else:
+                self.assertEqual(model_key, "BoTorch")
+
+    @mock_botorch_optimize
+    def test_choose_gs_balanced(self) -> None:
+        gs = choose_generation_strategy(method=GenerationMethod.BALANCED)
+        self.assertEqual(len(gs._nodes), 2)
+        # Check the Sobol node & TC.
+        sobol_node = gs._nodes[0]
+        self.assertTrue(sobol_node.should_deduplicate)
+        self.assertEqual(len(sobol_node.model_specs), 1)
+        sobol_spec = sobol_node.model_specs[0]
+        self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
+        self.assertEqual(sobol_spec.model_kwargs, {"seed": None})
+        expected_tc = [
+            MinTrials(
+                threshold=5,
+                transition_to="MBM",
+                block_gen_if_met=True,
+                block_transition_if_unmet=True,
+                use_all_trials_in_exp=True,
+            ),
+            MinTrials(
+                threshold=2,
+                transition_to="MBM",
+                block_gen_if_met=False,
+                block_transition_if_unmet=True,
+                use_all_trials_in_exp=True,
+                only_in_statuses=[TrialStatus.COMPLETED],
+                count_only_trials_with_data=True,
+            ),
+        ]
+        self.assertEqual(sobol_node._transition_criteria, expected_tc)
+        # Check the MBM node.
+        mbm_node = gs._nodes[1]
+        self.assertTrue(mbm_node.should_deduplicate)
+        self.assertEqual(len(mbm_node.model_specs), 1)
+        mbm_spec = mbm_node.model_specs[0]
+        self.assertEqual(mbm_spec.model_enum, Generators.BOTORCH_MODULAR)
+        expected_ss = SurrogateSpec(
+            model_configs=[
+                ModelConfig(name="MBM defaults"),
+                ModelConfig(
+                    covar_module_class=LinearKernel,
+                    input_transform_classes=[Warp, Normalize],
+                    input_transform_options={"Normalize": {"center": 0.0}},
+                    name="LinearKernel with Warp",
+                ),
+            ]
+        )
+        self.assertEqual(
+            mbm_spec.model_kwargs, {"surrogate_spec": expected_ss, "torch_device": None}
+        )
+        self.assertEqual(mbm_node._transition_criteria, [])
+        # Experiment with 2 observations. We should generate 3 more Sobol trials.
+        experiment = get_experiment_with_observations([[1.0], [2.0]])
+        # Mark the existing trials as manual to prevent them from counting for Sobol.
+        # They'll still count for TC, since we use all trials in the experiment.
+        for trial in experiment.trials.values():
+            none_throws(
+                assert_is_instance(trial, Trial).generator_run
+            )._model_key = "Manual"
+        # Generate 5 trials and make sure they're from the correct nodes.
+        run_trials_with_gs(experiment=experiment, gs=gs, num_trials=5)
+        self.assertEqual(len(experiment.trials), 7)
+        for trial in experiment.trials.values():
+            model_key = none_throws(
+                assert_is_instance(trial, Trial).generator_run
+            )._model_key
+            if trial.index < 2:
+                self.assertEqual(model_key, "Manual")
+            elif trial.index < 5:
+                self.assertEqual(model_key, "Sobol")
+            else:
+                self.assertEqual(model_key, "BoTorch")
 
     @mock_botorch_optimize
     def test_choose_generation_strategy_legacy(self) -> None:
