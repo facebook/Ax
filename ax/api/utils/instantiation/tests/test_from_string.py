@@ -5,6 +5,13 @@
 
 # pyre-strict
 
+from ax.api.utils.instantiation.from_string import (
+    _sanitize_dot,
+    optimization_config_from_string,
+    parse_objective,
+    parse_outcome_constraint,
+    parse_parameter_constraint,
+)
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
@@ -19,13 +26,6 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.exceptions.core import UserInputError
-from ax.preview.api.utils.instantiation.from_string import (
-    _sanitize_dot,
-    optimization_config_from_string,
-    parse_objective,
-    parse_outcome_constraint,
-    parse_parameter_constraint,
-)
 from ax.utils.common.testutils import TestCase
 
 

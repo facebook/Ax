@@ -10,7 +10,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from ax.preview.api.types import TParameterValue
+from ax.api.types import TParameterValue
+
+from ax.generation_strategy.dispatch_utils import GenerationMethod
 from ax.storage.registry_bundle import RegistryBundleBase
 
 
@@ -81,31 +83,6 @@ class ExperimentConfig:
     description: str | None = None
     experiment_type: str | None = None
     owner: str | None = None
-
-
-class GenerationMethod(Enum):
-    """An enum to specify the desired candidate generation method for the experiment.
-    This is used in ``GenerationStrategyConfig``, along with the properties of the
-    experiment, to determine the generation strategy to use for candidate generation.
-
-    NOTE: New options should be rarely added to this enum. This is not intended to be
-    a list of generation strategies for the user to choose from. Instead, this enum
-    should only provide high level guidance to the underlying generation strategy
-    dispatch logic, which is responsible for determinining the exact details.
-
-    Available options are:
-        BALANCED: A balanced generation method that may utilize (per-metric) model
-            selection to achieve a good model accuracy. This method excludes expensive
-            methods, such as the fully Bayesian SAASBO model. Used by default.
-        FAST: A faster generation method that uses the built-in defaults from the
-            Modular BoTorch Model without any model selection.
-        RANDOM_SEARCH: Primarily intended for pure exploration experiments, this
-            method utilizes quasi-random Sobol sequences for candidate generation.
-    """
-
-    BALANCED = "balanced"
-    FAST = "fast"
-    RANDOM_SEARCH = "random_search"
 
 
 @dataclass

@@ -12,6 +12,19 @@ import numpy as np
 
 import pandas as pd
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
+from ax.api.client import Client
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    ExperimentConfig,
+    GenerationStrategyConfig,
+    OrchestrationConfig,
+    ParameterType,
+    RangeParameterConfig,
+    StorageConfig,
+)
+from ax.api.protocols.metric import IMetric
+from ax.api.protocols.runner import IRunner
+from ax.api.types import TParameterization
 
 from ax.core.experiment import Experiment
 from ax.core.formatting_utils import DataType
@@ -31,19 +44,6 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
-from ax.preview.api.client import Client
-from ax.preview.api.configs import (
-    ChoiceParameterConfig,
-    ExperimentConfig,
-    GenerationStrategyConfig,
-    OrchestrationConfig,
-    ParameterType,
-    RangeParameterConfig,
-    StorageConfig,
-)
-from ax.preview.api.protocols.metric import IMetric
-from ax.preview.api.protocols.runner import IRunner
-from ax.preview.api.types import TParameterization
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (

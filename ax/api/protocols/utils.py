@@ -13,6 +13,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 import pandas as pd
+from ax.api.types import TParameterization
 
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.map_data import MapData, MapKeyInfo
@@ -21,7 +22,6 @@ from ax.core.metric import MetricFetchE, MetricFetchResult
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.exceptions.storage import JSONEncodeError
-from ax.preview.api.types import TParameterization
 from ax.utils.common.result import Err, Ok
 from pyre_extensions import assert_is_instance, none_throws, override
 
