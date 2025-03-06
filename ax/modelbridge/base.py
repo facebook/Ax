@@ -255,7 +255,6 @@ class Adapter:
 
         # Set training data (in the raw / untransformed space). This also omits
         # out-of-design and abandoned observations depending on the corresponding flags.
-        data = data if data is not None else experiment.lookup_data()
         observations_raw = self._prepare_observations(experiment=experiment, data=data)
         if expand_model_space:
             self._set_model_space(observations=observations_raw)
@@ -309,9 +308,7 @@ class Adapter:
             pass
 
     def _process_and_transform_data(
-        self,
-        experiment: Experiment | None = None,
-        data: Data | None = None,
+        self, experiment: Experiment, data: Data | None = None
     ) -> tuple[list[Observation], SearchSpace]:
         r"""Processes the data into observations and returns transformed
         observations and the search space. This packages the following methods:
@@ -331,10 +328,9 @@ class Adapter:
         )
 
     def _prepare_observations(
-        self, experiment: Experiment | None, data: Data | None
+        self, experiment: Experiment, data: Data | None = None
     ) -> list[Observation]:
-        if experiment is None or data is None:
-            return []
+        data = data if data is not None else experiment.lookup_data()
         fit_only_completed = self._data_loader_config.fit_only_completed_map_metrics
         map_keys_as_parameters = not fit_only_completed and isinstance(data, MapData)
         return observations_from_data(

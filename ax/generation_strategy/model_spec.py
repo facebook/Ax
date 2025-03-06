@@ -134,12 +134,10 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         if self._fitted_model is not None and self._safe_to_update(
             experiment=experiment, combined_model_kwargs=combined_model_kwargs
         ):
-            # Update the data on the modelbridge and call `_fit`.
+            # Update the data on the adapter and call `_fit`.
             # This will skip model fitting if the data has not changed.
             observations, search_space = self.fitted_model._process_and_transform_data(
-                experiment=experiment,
-                # TODO[saitcakmak, T159088683]: Remove the need to extract data
-                data=data if data is not None else experiment.lookup_data(),
+                experiment=experiment, data=data
             )
             self.fitted_model._fit_if_implemented(
                 search_space=search_space, observations=observations, time_so_far=0.0
@@ -381,7 +379,7 @@ class FactoryFunctionGeneratorSpec(GeneratorSpec):
     def fit(
         self,
         experiment: Experiment,
-        data: Data,
+        data: Data | None = None,
         search_space: SearchSpace | None = None,
         optimization_config: OptimizationConfig | None = None,
         **model_kwargs: Any,
