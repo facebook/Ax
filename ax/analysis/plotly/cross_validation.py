@@ -92,7 +92,12 @@ class CrossValidationPlot(PlotlyAnalysis):
         )
         # If model is not fit already, fit it
         if generation_strategy.model is None:
-            generation_strategy._fit_current_model(None)
+            if experiment is None:
+                raise UserInputError(
+                    "Unable to find a model on the GenerationStrategy,"
+                    " so Experiment must be provided to fit the model."
+                )
+            generation_strategy._curr._fit(experiment=experiment)
 
         return self._construct_plot(
             adapter=none_throws(generation_strategy.model),

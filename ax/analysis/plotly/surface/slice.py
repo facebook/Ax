@@ -64,7 +64,7 @@ class SlicePlot(PlotlyAnalysis):
             raise UserInputError("SlicePlot requires a GenerationStrategy")
 
         if generation_strategy.model is None:
-            generation_strategy._fit_current_model(None)
+            generation_strategy._curr._fit(experiment=experiment)
 
         metric_name = self.metric_name or select_metric(experiment=experiment)
 
