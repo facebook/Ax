@@ -781,6 +781,7 @@ def get_experiment_with_observations(
     constrained: bool = False,
     with_tracking_metrics: bool = False,
     search_space: SearchSpace | None = None,
+    with_sem: bool = False,
 ) -> Experiment:
     if observations:
         multi_objective = (len(observations[0]) - constrained) > 1
@@ -865,7 +866,7 @@ def get_experiment_with_observations(
                         "arm_name": f"{i}_0",
                         "metric_name": f"m{j + 1}",
                         "mean": o,
-                        "sem": None,
+                        "sem": 0.1 if with_sem else None,
                         "trial_index": i,
                     }
                     for j, o in enumerate(obs)
