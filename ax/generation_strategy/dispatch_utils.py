@@ -294,7 +294,7 @@ def calculate_num_initialization_trials(
     return max(ret, 5)
 
 
-def choose_generation_strategy(
+def choose_generation_strategy_legacy(
     search_space: SearchSpace,
     *,
     use_batch_trials: bool = False,
