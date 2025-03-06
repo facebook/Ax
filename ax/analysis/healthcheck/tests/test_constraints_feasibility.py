@@ -10,7 +10,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.constraints_feasibility import (
     constraints_feasibility,
     ConstraintsFeasibilityAnalysis,
@@ -104,7 +104,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             ],
         )
         generation_strategy.experiment = experiment
-        generation_strategy._fit_current_model(data=experiment.lookup_data())
+        generation_strategy._curr._fit(experiment=experiment)
         self.experiment: Experiment = experiment
         self.generation_strategy: GenerationStrategy = generation_strategy
 
@@ -139,7 +139,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         generation_strategy = self.generation_strategy
 
         experiment.attach_data(data=Data(df=df))
-        generation_strategy._fit_current_model(data=experiment.lookup_data())
+        generation_strategy._curr._fit(experiment=experiment)
         model = none_throws(generation_strategy.model)
         optimization_config = assert_is_instance(
             experiment.optimization_config, OptimizationConfig
@@ -169,6 +169,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         self.assertEqual(card.name, "ConstraintsFeasibility")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
         self.assertEqual(card.subtitle, "All constraints are feasible.")
 
         df_metric_d = pd.DataFrame(
@@ -188,7 +189,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         generation_strategy = self.generation_strategy
         experiment.attach_data(data=Data(df=df))
         generation_strategy.experiment = experiment
-        generation_strategy._fit_current_model(data=experiment.lookup_data())
+        generation_strategy._curr._fit(experiment=experiment)
         cfa = ConstraintsFeasibilityAnalysis()
         card = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy

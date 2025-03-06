@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+from collections.abc import Mapping, Sequence
 from logging import Logger
 
 import torch
@@ -73,7 +74,7 @@ def get_sobol(
     """
     return assert_is_instance(
         Generators.SOBOL(
-            search_space=search_space,
+            experiment=Experiment(search_space=search_space),
             seed=seed,
             deduplicate=deduplicate,
             init_position=init_position,
@@ -98,7 +99,9 @@ def get_uniform(
     """
     return assert_is_instance(
         Generators.UNIFORM(
-            search_space=search_space, seed=seed, deduplicate=deduplicate
+            experiment=Experiment(search_space=search_space),
+            seed=seed,
+            deduplicate=deduplicate,
         ),
         RandomAdapter,
     )
@@ -108,10 +111,9 @@ def get_botorch(
     experiment: Experiment,
     data: Data,
     search_space: SearchSpace | None = None,
-    dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
-    transforms: list[type[Transform]] = Cont_X_trans + Y_trans,
-    transform_configs: dict[str, TConfig] | None = None,
+    transforms: Sequence[type[Transform]] = Cont_X_trans + Y_trans,
+    transform_configs: Mapping[str, TConfig] | None = None,
     model_constructor: TModelConstructor = get_and_fit_model,
     model_predictor: TModelPredictor = predict_from_model,
     acqf_constructor: TAcqfConstructor = get_qLogNEI,
@@ -127,7 +129,6 @@ def get_botorch(
             experiment=experiment,
             data=data,
             search_space=search_space or experiment.search_space,
-            torch_dtype=dtype,
             torch_device=device,
             transforms=transforms,
             transform_configs=transform_configs,

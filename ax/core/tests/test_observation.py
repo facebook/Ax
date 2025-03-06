@@ -492,6 +492,14 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.arm_name, t["arm_name"])
             self.assertEqual(obs.features.metadata, {"timestamp": t["timestamp"]})
 
+        # testing that we can handle empty data with latest_rows_per_group
+        empty_data = MapData()
+        observations = observations_from_data(
+            experiment,
+            empty_data,
+            latest_rows_per_group=1,
+        )
+
     def test_ObservationsFromDataAbandoned(self) -> None:
         truth = [
             {

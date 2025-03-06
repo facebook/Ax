@@ -9,7 +9,6 @@
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from functools import reduce
-
 from logging import Logger
 
 import pandas as pd
@@ -40,11 +39,7 @@ from ax.modelbridge.modelbridge_utils import (
     observed_pareto_frontier as observed_pareto,
     predicted_pareto_frontier as predicted_pareto,
 )
-from ax.modelbridge.registry import (
-    Generators,
-    get_model_from_generator_run,
-    ModelRegistryBase,
-)
+from ax.modelbridge.registry import Generators
 from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
@@ -184,33 +179,29 @@ def _raw_values_to_model_predict_arm(
 
 def get_best_parameters_from_model_predictions_with_trial_index(
     experiment: Experiment,
-    models_enum: type[ModelRegistryBase],
+    adapter: Adapter | None,
     optimization_config: OptimizationConfig | None = None,
     trial_indices: Iterable[int] | None = None,
 ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
     """Given an experiment, returns the best predicted parameterization and
     corresponding prediction.
 
-    The best point & predictions are computed using the model from the
-    (first) generator run of the latest trial. If the latest trial doesn't
-    have a generator run, returns None. If the model from the latest trial
-    is not TorchModelBridge or the model construction fails, this will
-    return the best point & the predictions that were saved on the
-    generator run (rather than re-computing them with latest data). If the
-    model fit assessment returns bad fit for any of the metrics, this will
-    fall back to returning the best point based on raw observations.
-
-    Only some models return predictions. For instance GPEI does while Sobol does not.
+    The best point & predictions are computed using the given ``Adapter``
+    and its ``predict`` method (if implemented). If ``adapter`` is not a
+    ``TorchAdapter``, the best point is extracted from the (first) generator run
+    of the latest trial. If the latest trial doesn't have a generator run, returns
+    None. If the model fit assessment returns bad fit for any of the metrics, this
+    will fall back to returning the best point based on raw observations.
 
     TModelPredictArm is of the form:
         ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
 
     Args:
-        experiment: Experiment, on which to identify best raw objective arm.
-        models_enum: Registry of all models that may be in the experiment's
-            generation strategy.
-        optimization_config: Optimization config to use in place of the one stored
-            on the experiment.
+        experiment: ``Experiment``, on which to identify best raw objective arm.
+        adapter: The ``Adapter`` to use to get the model predictions. If None, the
+            best point will be extracted from the generator run of the latest trial.
+        optimization_config: Optional ``OptimizationConfig`` override, to use in place
+            of the one stored on the experiment.
         trial_indices: Indices of trials for which to retrieve data. If None will
             retrieve data from all available trials.
 
@@ -229,74 +220,62 @@ def get_best_parameters_from_model_predictions_with_trial_index(
             "multi-objective optimization configs. This method will return an "
             "arbitrary point on the pareto frontier."
         )
+    gr = None
+    data = experiment.lookup_data(trial_indices=trial_indices)
+    # Extract the latest GR from the experiment.
     for _, trial in sorted(experiment.trials.items(), key=lambda x: x[0], reverse=True):
-        gr = None
         if isinstance(trial, Trial):
             gr = trial.generator_run
         elif isinstance(trial, BatchTrial):
             if len(trial.generator_run_structs) > 0:
                 # In theory batch_trial can have >1 gr, grab the first
                 gr = trial.generator_run_structs[0].generator_run
-
         if gr is not None:
-            data = experiment.lookup_data(trial_indices=trial_indices)
+            break
 
-            try:
-                model = get_model_from_generator_run(
-                    generator_run=gr,
-                    experiment=experiment,
-                    data=data,
-                    models_enum=models_enum,
-                )
-            except ValueError:
-                return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
+    if not isinstance(adapter, TorchAdapter):
+        if gr is None:
+            return None
+        return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
-            # If model is not TorchAdapter, just use the best arm from the
-            # last good generator run
-            if not isinstance(model, TorchAdapter):
-                return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
+    # Check to see if the adapter is worth using.
+    cv_results = cross_validate(model=adapter)
+    diagnostics = compute_diagnostics(result=cv_results)
+    assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
+    objective_name = optimization_config.objective.metric.name
+    # If model fit is bad use raw results
+    if objective_name in assess_model_fit_results.bad_fit_metrics_to_fisher_score:
+        logger.warning("Model fit is poor; falling back on raw data for best point.")
 
-            # Check to see if the model is worth using
-            cv_results = cross_validate(model=model)
-            diagnostics = compute_diagnostics(result=cv_results)
-            assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
-            objective_name = optimization_config.objective.metric.name
-            # If model fit is bad use raw results
-            if (
-                objective_name
-                in assess_model_fit_results.bad_fit_metrics_to_fisher_score
-            ):
-                logger.warning(
-                    "Model fit is poor; falling back on raw data for best point."
-                )
+        if not _is_all_noiseless(df=data.df, metric_name=objective_name):
+            logger.warning(
+                "Model fit is poor and data on objective metric "
+                + f"{objective_name} is noisy; interpret best points "
+                + "results carefully."
+            )
 
-                if not _is_all_noiseless(df=data.df, metric_name=objective_name):
-                    logger.warning(
-                        "Model fit is poor and data on objective metric "
-                        + f"{objective_name} is noisy; interpret best points "
-                        + "results carefully."
-                    )
+        return get_best_by_raw_objective_with_trial_index(
+            experiment=experiment,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+        )
 
-                return get_best_by_raw_objective_with_trial_index(
-                    experiment=experiment,
-                    optimization_config=optimization_config,
-                    trial_indices=trial_indices,
-                )
+    res = adapter.model_best_point()
+    if res is None:
+        if gr is None:
+            return None
+        return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
-            res = model.model_best_point()
-            if res is None:
-                return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
+    best_arm, best_arm_predictions = res
 
-            best_arm, best_arm_predictions = res
-
-            # Map the arm to the trial index of the first trial that contains it.
-            for trial_index, trial in experiment.trials.items():
-                if best_arm in trial.arms:
-                    return (
-                        trial_index,
-                        none_throws(best_arm).parameters,
-                        best_arm_predictions,
-                    )
+    # Map the arm to the trial index of the first trial that contains it.
+    for trial_index, trial in experiment.trials.items():
+        if best_arm in trial.arms:
+            return (
+                trial_index,
+                none_throws(best_arm).parameters,
+                best_arm_predictions,
+            )
 
     return None
 
@@ -414,7 +393,7 @@ def get_pareto_optimal_parameters(
         ).is_moo_problem
     )
     if is_moo_modelbridge:
-        generation_strategy._fit_current_model(data=None)
+        generation_strategy._curr._fit(experiment=experiment)
     else:
         modelbridge = Generators.BOTORCH_MODULAR(
             experiment=experiment,

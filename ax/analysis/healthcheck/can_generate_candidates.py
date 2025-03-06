@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
@@ -94,4 +94,5 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
                 }
             ),
             level=level,
+            category=AnalysisCardCategory.DIAGNOSTIC,
         )

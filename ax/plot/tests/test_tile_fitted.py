@@ -8,6 +8,8 @@
 
 from unittest import mock
 
+from ax.core import Experiment
+
 from ax.core.arm import Arm
 from ax.core.metric import Metric
 from ax.core.search_space import SearchSpace
@@ -17,7 +19,6 @@ from ax.plot.scatter import tile_fitted, tile_observations
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_data,
-    get_experiment,
     get_experiment_with_data,
     get_search_space,
 )
@@ -32,20 +33,17 @@ from ax.utils.testing.modeling_stubs import get_observation
 @mock.patch(
     "ax.modelbridge.base.gen_arms", autospec=True, return_value=[Arm(parameters={})]
 )
-def get_modelbridge(
-    # pyre-fixme[2]: Parameter must be annotated.
-    mock_gen_arms,
-    # pyre-fixme[2]: Parameter must be annotated.
-    mock_observations_from_data,
-    status_quo_name: str | None = None,
-) -> Adapter:
-    exp = get_experiment()
-    modelbridge = Adapter(
+def get_modelbridge(_, __, status_quo_name: str | None = None) -> Adapter:
+    exp = Experiment(
         search_space=get_search_space(),
-        model=FullFactorialGenerator(),
-        experiment=exp,
-        data=get_data(),
-        status_quo_name=status_quo_name,
+        status_quo=Arm(
+            parameters={"w": 1.0, "x": 1.0, "y": "foo", "z": True}, name=status_quo_name
+        )
+        if status_quo_name is not None
+        else None,
+    )
+    modelbridge = Adapter(
+        experiment=exp, model=FullFactorialGenerator(), data=get_data()
     )
     modelbridge._predict = mock.MagicMock(
         "ax.modelbridge.base.Adapter._predict",
@@ -118,9 +116,9 @@ class TileObservationsTest(TestCase):
         exp.trials[0].run()
         exp.trials[0].mark_completed()
         exp.add_tracking_metric(Metric("ax_test_metric"))
-        # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-        #  `dict_values[str, Parameter]`.
-        exp.search_space = SearchSpace(parameters=exp.search_space.parameters.values())
+        exp.search_space = SearchSpace(
+            parameters=list(exp.search_space.parameters.values())
+        )
         config = tile_observations(experiment=exp, arm_names=["0_1", "0_2"], rel=False)
 
         for key in ["layout", "data"]:

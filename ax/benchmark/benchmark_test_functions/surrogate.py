@@ -66,7 +66,7 @@ class SurrogateTestFunction(BenchmarkTestFunction):
         return torch.tensor(
             means,
             device=self.surrogate.device,
-            dtype=self.surrogate.dtype,
+            dtype=torch.double,
         )
 
     @equality_typechecker

@@ -6,6 +6,11 @@
 
 # pyre-strict
 
+from ax.core.experiment import Experiment
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.modelbridge.discrete import DiscreteAdapter
 from ax.modelbridge.factory import (
@@ -24,13 +29,12 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_multi_objective,
     get_factorial_experiment,
 )
+from pyre_extensions import assert_is_instance, none_throws
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def get_multi_obj_exp_and_opt_config():
+def get_multi_obj_exp_and_opt_config() -> tuple[Experiment, OptimizationConfig]:
     multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
-    # pyre-fixme[16]: Optional type has no attribute `objective`.
-    metrics = multi_obj_exp.optimization_config.objective.metrics
+    metrics = none_throws(multi_obj_exp.optimization_config).objective.metrics
     multi_objective_thresholds = [
         ObjectiveThreshold(
             metric=metrics[0], bound=5.0, relative=False, op=ComparisonOp.LEQ
@@ -39,14 +43,13 @@ def get_multi_obj_exp_and_opt_config():
             metric=metrics[1], bound=10.0, relative=False, op=ComparisonOp.LEQ
         ),
     ]
-    # pyre-fixme[16]: Optional type has no attribute `clone_with_args`.
-    optimization_config = multi_obj_exp.optimization_config.clone_with_args(
-        objective_thresholds=multi_objective_thresholds
-    )
+    optimization_config = assert_is_instance(
+        multi_obj_exp.optimization_config, MultiObjectiveOptimizationConfig
+    ).clone_with_args(objective_thresholds=multi_objective_thresholds)
     return multi_obj_exp, optimization_config
 
 
-class AdapterFactoryTestSingleObjective(TestCase):
+class TestAdapterFactorySingleObjective(TestCase):
     def test_model_kwargs(self) -> None:
         """Tests that model kwargs are passed correctly."""
         exp = get_branin_experiment()

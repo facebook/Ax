@@ -156,6 +156,22 @@ BENCHMARK_PROBLEM_REGISTRY = {
     "LCBench:v1 Fashion-MNIST": BenchmarkProblemRegistryEntry(
         get_lcbench_benchmark_problem, factory_kwargs={"dataset_name": "Fashion-MNIST"}
     ),
+    "LCBench Early Stopping airlines": BenchmarkProblemRegistryEntry(
+        get_lcbench_early_stopping_benchmark_problem,
+        factory_kwargs={"dataset_name": "airlines"},
+    ),
+    "LCBench Early Stopping albert": BenchmarkProblemRegistryEntry(
+        get_lcbench_early_stopping_benchmark_problem,
+        factory_kwargs={"dataset_name": "albert"},
+    ),
+    "LCBench Early Stopping covertype": BenchmarkProblemRegistryEntry(
+        get_lcbench_early_stopping_benchmark_problem,
+        factory_kwargs={"dataset_name": "covertype"},
+    ),
+    "LCBench Early Stopping christine": BenchmarkProblemRegistryEntry(
+        get_lcbench_early_stopping_benchmark_problem,
+        factory_kwargs={"dataset_name": "christine"},
+    ),
     "LCBench Early Stopping Fashion-MNIST": BenchmarkProblemRegistryEntry(
         get_lcbench_early_stopping_benchmark_problem,
         factory_kwargs={"dataset_name": "Fashion-MNIST"},

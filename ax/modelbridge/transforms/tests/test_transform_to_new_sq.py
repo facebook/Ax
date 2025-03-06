@@ -78,7 +78,6 @@ class TransformToNewSQSpecificTest(TestCase):
             model=Generator(),
             experiment=self.exp,
             data=self.exp.lookup_data(),
-            status_quo_name="status_quo",
         )
 
     def test_modelbridge_without_status_quo_name(self) -> None:

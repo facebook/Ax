@@ -54,7 +54,9 @@ class TestExternalGenerationNode(TestCase):
         self.assertIsNone(node._fitted_model)
         self.assertIsNone(node.model_spec_to_gen_from)
         with self.assertRaisesRegex(UnsupportedError, "Unexpected arguments"):
-            node.fit(experiment=MagicMock(), data=MagicMock(), search_space=MagicMock())
+            node._fit(
+                experiment=MagicMock(), data=MagicMock(), search_space=MagicMock()
+            )
 
     def test_generation(self) -> None:
         node = DummyNode()

@@ -7,6 +7,10 @@
 # pyre-strict
 
 
+from typing import Mapping, Sequence
+
+from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -28,6 +32,7 @@ from ax.modelbridge.torch import (
     extract_outcome_constraints,
     validate_transformed_optimization_config,
 )
+from ax.modelbridge.transforms.base import Transform
 from ax.models.discrete_base import DiscreteGenerator
 from ax.models.types import TConfig
 
@@ -38,25 +43,54 @@ FIT_MODEL_ERROR = "Model must be fit before {action}."
 class DiscreteAdapter(Adapter):
     """A model bridge for using models based on discrete parameters.
 
-    Requires that all parameters have been transformed to ChoiceParameters.
+    Requires that all parameters to have been transformed to ChoiceParameters.
     """
 
-    # pyre-fixme[13]: Attribute `model` is never initialized.
-    model: DiscreteGenerator
-    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
-    outcomes: list[str]
-    # pyre-fixme[13]: Attribute `parameters` is never initialized.
-    parameters: list[str]
-    # pyre-fixme[13]: Attribute `search_space` is never initialized.
-    search_space: SearchSpace | None
+    def __init__(
+        self,
+        *,
+        experiment: Experiment,
+        model: DiscreteGenerator,
+        search_space: SearchSpace | None = None,
+        data: Data | None = None,
+        transforms: Sequence[type[Transform]] | None = None,
+        transform_configs: Mapping[str, TConfig] | None = None,
+        status_quo_features: ObservationFeatures | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        expand_model_space: bool = True,
+        fit_out_of_design: bool = False,
+        fit_abandoned: bool = False,
+        fit_tracking_metrics: bool = True,
+        fit_on_init: bool = True,
+        fit_only_completed_map_metrics: bool = True,
+    ) -> None:
+        # These are set in _fit.
+        self.parameters: list[str] = []
+        self.outcomes: list[str] = []
+        super().__init__(
+            experiment=experiment,
+            model=model,
+            search_space=search_space,
+            data=data,
+            transforms=transforms,
+            transform_configs=transform_configs,
+            status_quo_features=status_quo_features,
+            optimization_config=optimization_config,
+            expand_model_space=expand_model_space,
+            fit_out_of_design=fit_out_of_design,
+            fit_abandoned=fit_abandoned,
+            fit_tracking_metrics=fit_tracking_metrics,
+            fit_on_init=fit_on_init,
+            fit_only_completed_map_metrics=fit_only_completed_map_metrics,
+        )
+        # Re-assing for more precise typing.
+        self.model: DiscreteGenerator = model
 
     def _fit(
         self,
-        model: DiscreteGenerator,
         search_space: SearchSpace,
         observations: list[Observation],
     ) -> None:
-        self.model = model
         # Convert observations to arrays
         self.parameters = list(search_space.parameters.keys())
         all_metric_names: set[str] = set()

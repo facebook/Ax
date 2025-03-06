@@ -5,12 +5,11 @@
 
 # pyre-strict
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-
 import torch
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -33,7 +32,7 @@ from ax.modelbridge.modelbridge_utils import (
     observation_features_to_array,
     parse_observation_features,
 )
-from ax.modelbridge.torch import FIT_MODEL_ERROR, TorchAdapter
+from ax.modelbridge.torch import DataLoaderConfig, FIT_MODEL_ERROR, TorchAdapter
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchGenerator
 from ax.models.types import TConfig
@@ -57,73 +56,52 @@ class MapTorchAdapter(TorchAdapter):
 
     def __init__(
         self,
+        *,
         experiment: Experiment,
-        search_space: SearchSpace,
-        data: Data,
         model: TorchGenerator,
-        transforms: list[type[Transform]],
-        transform_configs: dict[str, TConfig] | None = None,
-        torch_dtype: torch.dtype | None = None,
-        torch_device: torch.device | None = None,
-        status_quo_name: str | None = None,
+        search_space: SearchSpace | None = None,
+        data: Data | None = None,
+        transforms: Sequence[type[Transform]] | None = None,
+        transform_configs: Mapping[str, TConfig] | None = None,
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
-        fit_out_of_design: bool = False,
         fit_on_init: bool = True,
-        fit_abandoned: bool = False,
         default_model_gen_options: TConfig | None = None,
+        torch_device: torch.device | None = None,
         map_data_limit_rows_per_metric: int | None = None,
         map_data_limit_rows_per_group: int | None = None,
+        data_loader_config: DataLoaderConfig | None = None,
+        fit_out_of_design: bool = False,
+        fit_abandoned: bool = False,
     ) -> None:
-        """
-        Applies transforms and fits model.
+        """In addition to common arguments documented in the ``Adapter`` and
+        ``TorchAdapter`` classes, ``MapTorchAdapter`` accepts the following arguments.
 
         Args:
-            experiment: Is used to get arm parameters. Is not mutated.
-            search_space: Search space for fitting the model. Constraints need
-                not be the same ones used in gen.
-            data: Ax Data.
-            model: Interface will be specified in subclass. If model requires
-                initialization, that should be done prior to its use here.
-            transforms: List of uninitialized transform classes. Forward
-                transforms will be applied in this order, and untransforms in
-                the reverse order.
-            transform_configs: A dictionary from transform name to the
-                transform config dictionary.
-            torch_dtype: Torch data type.
-            torch_device: Torch device.
-            status_quo_name: Name of the status quo arm. Can only be used if
-                Data has a single set of ObservationFeatures corresponding to
-                that arm.
-            status_quo_features: ObservationFeatures to use as status quo.
-                Either this or status_quo_name should be specified, not both.
-            optimization_config: Optimization config defining how to optimize
-                the model.
-            fit_out_of_design: If specified, all training data is returned.
-                Otherwise, only in design points are returned.
-            fit_on_init: Whether to fit the model on initialization. This can
-                be used to skip model fitting when a fitted model is not needed.
-                To fit the model afterwards, use `_process_and_transform_data`
-                to get the transformed inputs and call `_fit_if_implemented` with
-                the transformed inputs.
-            fit_abandoned: Whether data for abandoned arms or trials should be
-                included in model training data. If ``False``, only
-                non-abandoned points are returned.
-            default_model_gen_options: Options passed down to `model.gen(...)`.
             map_data_limit_rows_per_metric: Subsample the map data so that the
-                total number of rows per metric is limited by this value.
+                total number of rows per metric is limited by this value. Used in place
+                `limit_rows_per_metric` in `data_loader_config` for MapTorchAdapter.
             map_data_limit_rows_per_group: Subsample the map data so that the
                 number of rows in the `map_key` column for each (arm, metric)
-                is limited by this value.
+                is limited by this value. Is used in place `limit_rows_per_group` in
+                `data_loader_config` for MapTorchAdapter.
+            data_loader_options: A dictionary of options for loading data.
+            fit_out_of_design: Overwrites `data_loader_config.fit_out_of_design` if
+                not None.
+            fit_abandoned: Overwrites `data_loader_config.fit_abandoned` if not None.
         """
+        data = data or experiment.lookup_data()
+
+        if data_loader_config is None:
+            data_loader_config = DataLoaderConfig(latest_rows_per_group=None)
 
         if not isinstance(data, MapData):
             raise ValueError("`MapTorchAdapter expects `MapData` instead of `Data`.")
 
         if any(isinstance(t, BatchTrial) for t in experiment.trials.values()):
             raise ValueError("MapTorchAdapter does not support batch trials.")
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._map_key_features = data.map_keys
+
+        self._map_key_features: list[str] = data.map_keys
         self._map_data_limit_rows_per_metric = map_data_limit_rows_per_metric
         self._map_data_limit_rows_per_group = map_data_limit_rows_per_group
 
@@ -134,15 +112,14 @@ class MapTorchAdapter(TorchAdapter):
             model=model,
             transforms=transforms,
             transform_configs=transform_configs,
-            torch_dtype=torch_dtype,
             torch_device=torch_device,
-            status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
             fit_out_of_design=fit_out_of_design,
             fit_abandoned=fit_abandoned,
             fit_on_init=fit_on_init,
             default_model_gen_options=default_model_gen_options,
+            data_loader_config=data_loader_config,
         )
 
     @property
@@ -191,7 +168,6 @@ class MapTorchAdapter(TorchAdapter):
 
     def _fit(
         self,
-        model: TorchGenerator,
         search_space: SearchSpace,
         observations: list[Observation],
         parameters: list[str] | None = None,
@@ -204,7 +180,6 @@ class MapTorchAdapter(TorchAdapter):
         if parameters is None:
             parameters = self.parameters_with_map_keys
         super()._fit(
-            model=model,
             search_space=search_space,
             observations=observations,
             parameters=parameters,
@@ -262,6 +237,7 @@ class MapTorchAdapter(TorchAdapter):
             data=data,
             limit_rows_per_metric=self._map_data_limit_rows_per_metric,
             limit_rows_per_group=self._map_data_limit_rows_per_group,
+            latest_rows_per_group=self._data_loader_config.latest_rows_per_group,
             statuses_to_include=self.statuses_to_fit,
             statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
             map_keys_as_parameters=True,

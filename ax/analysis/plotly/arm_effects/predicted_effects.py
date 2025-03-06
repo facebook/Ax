@@ -9,7 +9,7 @@ from itertools import chain
 from typing import Any
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.arm_effects.utils import (
     get_predictions_by_arm,
@@ -96,7 +96,9 @@ class PredictedEffectsPlot(PlotlyAnalysis):
             )
 
         if generation_strategy.model is None:
-            generation_strategy._fit_current_model(data=experiment.lookup_data())
+            generation_strategy._curr._fit(
+                experiment=experiment, data=experiment.lookup_data()
+            )
 
         model = none_throws(generation_strategy.model)
         if not is_predictive(model=model):
@@ -144,6 +146,7 @@ class PredictedEffectsPlot(PlotlyAnalysis):
             level=level + nudge,
             df=df,
             fig=fig,
+            category=AnalysisCardCategory.ACTIONABLE,
         )
 
 

@@ -5,10 +5,11 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
+from ax.modelbridge.registry import Generators
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -57,9 +58,10 @@ class TestCrossValidationPlot(TestCase):
             "Out-of-sample predictions using leave-one-out CV",
         )
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
-            {"arm_name", "observed", "observed_sem", "predicted", "predicted_sem"},
+            {"arm_name", "observed", "observed_95_ci", "predicted", "predicted_95_ci"},
         )
         self.assertIsNotNone(card.blob)
         self.assertEqual(card.blob_annotation, "plotly")
@@ -76,14 +78,6 @@ class TestCrossValidationPlot(TestCase):
                 card.df["arm_name"].unique(),
             )
 
-    def test_it_can_only_contain_observation_prior_to_the_trial_index(self) -> None:
-        analysis = CrossValidationPlot(metric_name="bar", trial_index=7)
-        with self.assertRaisesRegex(
-            UserInputError,
-            "CrossValidationPlot was specified to be for the generation of trial 7",
-        ):
-            analysis.compute(generation_strategy=self.client.generation_strategy)
-
     def test_it_can_specify_trial_index_correctly(self) -> None:
         analysis = CrossValidationPlot(metric_name="bar", trial_index=9)
         card = analysis.compute(generation_strategy=self.client.generation_strategy)
@@ -97,3 +91,19 @@ class TestCrossValidationPlot(TestCase):
                 arm_name,
                 card.df["arm_name"].unique(),
             )
+
+    @mock_botorch_optimize
+    def test_compute_adhoc(self) -> None:
+        metric_mapping = {"bar": "spunky"}
+        data = self.client.experiment.lookup_data()
+        adapter = Generators.BOTORCH_MODULAR(
+            experiment=self.client.experiment, data=data
+        )
+        analysis = CrossValidationPlot()._compute_adhoc(
+            adapter=adapter, data=data, metric_name_mapping=metric_mapping
+        )
+        self.assertEqual(len(analysis), 1)
+        card = analysis[0]
+        self.assertEqual(card.name, "CrossValidationPlot")
+        # validate that the metric name replacement occured
+        self.assertEqual(card.title, "Cross Validation for spunky")

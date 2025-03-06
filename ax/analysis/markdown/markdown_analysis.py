@@ -9,7 +9,13 @@
 import traceback
 
 import pandas as pd
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel, AnalysisE
+from ax.analysis.analysis import (
+    Analysis,
+    AnalysisCard,
+    AnalysisCardCategory,
+    AnalysisCardLevel,
+    AnalysisE,
+)
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from IPython.display import display, Markdown
@@ -26,7 +32,8 @@ class MarkdownAnalysisCard(AnalysisCard):
         IPython display hook. This is called when the AnalysisCard is printed in an
         IPython environment (ex. Jupyter). Here we want to render the Markdown.
         """
-        display(Markdown(f"## {self.title}\n\n### {self.subtitle}\n\n{self.blob}"))
+        self._display_header()
+        display(Markdown(self.blob))
 
 
 class MarkdownAnalysis(Analysis):
@@ -47,6 +54,7 @@ class MarkdownAnalysis(Analysis):
         level: int,
         df: pd.DataFrame,
         message: str,
+        category: int,
     ) -> MarkdownAnalysisCard:
         """
         Make a MarkdownAnalysisCard from this Analysis using provided fields and
@@ -60,6 +68,7 @@ class MarkdownAnalysis(Analysis):
             level=level,
             df=df,
             blob=message,
+            category=category,
         )
 
 
@@ -80,4 +89,5 @@ def markdown_analysis_card_from_analysis_e(
         ),
         df=pd.DataFrame(),
         level=AnalysisCardLevel.DEBUG,
+        category=AnalysisCardCategory.ERROR,
     )

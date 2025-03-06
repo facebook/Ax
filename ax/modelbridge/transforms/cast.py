@@ -102,6 +102,10 @@ class Cast(Transform):
 
         Returns: transformed observation features
         """
+        observation_features = self._cast_parameter_values(
+            observation_features=observation_features
+        )
+
         if not self.flatten_hss:
             return observation_features
         # Inject the parameters model suggested in the flat search space, which then
@@ -133,10 +137,9 @@ class Cast(Transform):
 
         Returns: observation features in the original space
         """
-        for obsf in observation_features:
-            for p_name, p_value in obsf.parameters.items():
-                if p_name in self.search_space.parameters:
-                    obsf.parameters[p_name] = self.search_space[p_name].cast(p_value)
+        observation_features = self._cast_parameter_values(
+            observation_features=observation_features
+        )
 
         if not self.flatten_hss:
             return observation_features
@@ -147,3 +150,22 @@ class Cast(Transform):
             ).cast_observation_features(observation_features=obs_feats)
             for obs_feats in observation_features
         ]
+
+    def _cast_parameter_values(
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
+        """Cast parameter values of the given ``ObseravationFeatures`` to the
+        ``ParameterType`` of the corresponding parameters in the search space.
+
+        NOTE: This is done in-place.
+
+        Args:
+            observation_features: A list of ``ObservationFeatures`` to cast.
+
+        Returns: observation features with casted parameter values.
+        """
+        for obsf in observation_features:
+            for p_name, p_value in obsf.parameters.items():
+                if p_name in self.search_space.parameters:
+                    obsf.parameters[p_name] = self.search_space[p_name].cast(p_value)
+        return observation_features

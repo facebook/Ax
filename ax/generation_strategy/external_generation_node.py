@@ -17,8 +17,6 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
@@ -125,12 +123,11 @@ class ExternalGenerationNode(GenerationNode, ABC):
     def model_spec_to_gen_from(self) -> None:
         return None
 
-    def fit(
+    def _fit(
         self,
         experiment: Experiment,
-        data: Data,
-        search_space: SearchSpace | None = None,
-        optimization_config: OptimizationConfig | None = None,
+        data: Data | None = None,
+        status_quo_features: ObservationFeatures | None = None,
         **kwargs: Any,
     ) -> None:
         """A method used to initialize or update the experiment state / data
@@ -144,26 +141,29 @@ class ExternalGenerationNode(GenerationNode, ABC):
             data: The experiment data used to fit the model.
             search_space: UNSUPPORTED. An optional override for the experiment
                 search space.
-            optimization_config: UNSUPPORTED. An optional override for the experiment
-                optimization config.
+            status_quo_features: UNSUPPORTED. An optional specification of which
+                status quo (aka "control") features should be used. Currently not
+                yet used in ``ExternalGenerationNode``.
             kwargs: UNSUPPORTED. Additional keyword arguments for model fitting.
         """
-        if search_space is not None or optimization_config is not None or kwargs:
+        if status_quo_features is not None or kwargs:
             raise UnsupportedError(
-                "Unexpected arguments encountered. `ExternalGenerationNode.fit` only "
+                "Unexpected arguments encountered. `ExternalGenerationNode._fit` only "
                 "supports `experiment` and `data` arguments. "
                 "Each of the following arguments should be None / empty. "
-                f"{search_space=}, {optimization_config=}, {kwargs=}."
+                f"{status_quo_features=}, {kwargs=}."
             )
         t_fit_start = time.monotonic()
         self.update_generator_state(
             experiment=experiment,
-            data=data,
+            data=data if data is not None else experiment.lookup_data(),
         )
         self.fit_time_since_gen += time.monotonic() - t_fit_start
 
     def _gen(
         self,
+        experiment: Experiment,
+        data: Data | None = None,
         n: int | None = None,
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         **model_gen_kwargs: Any,
@@ -198,6 +198,8 @@ class ExternalGenerationNode(GenerationNode, ABC):
                         pending_parameters.append(o.parameters)
         generated_params: list[TParameterization] = []
         for _ in range(n):
+            # NOTE: We could pass `experiment` and `data` to `get_next_candidate`
+            # to make it possible for it to be stateless in more cases.
             params = self.get_next_candidate(pending_parameters=pending_parameters)
             generated_params.append(params)
             pending_parameters.append(params)

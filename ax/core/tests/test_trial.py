@@ -205,6 +205,11 @@ class TrialTest(TestCase):
                     kwargs["reason"] = "test_reason_abandon"
                 if status == TrialStatus.FAILED:
                     kwargs["reason"] = "test_reason_failed"
+
+                # Trial must have data before it can be marked EARLY_STOPPED
+                if status == TrialStatus.EARLY_STOPPED:
+                    self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
+
                 self.trial.mark_as(status=status, **kwargs)
                 self.assertTrue(self.trial.status == status)
 
@@ -254,6 +259,7 @@ class TrialTest(TestCase):
             self.trial._runner = DummyStopRunner()
             self.trial.mark_running()
             self.assertEqual(self.trial.status, TrialStatus.RUNNING)
+            self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
             self.trial.stop(new_status=new_status, reason=reason)
             self.assertEqual(self.trial.status, new_status)
             self.assertEqual(

@@ -314,7 +314,7 @@ class SensitivityAnalysisTest(TestCase):
                     input_qmc=True,
                     num_mc_samples=num_mc_samples,
                     order="second",
-                    signed=False,
+                    signed=True,
                 )
 
                 so_ind_tnsr = compute_sobol_indices_from_model_list(
@@ -337,7 +337,7 @@ class SensitivityAnalysisTest(TestCase):
                     # pyre-fixme[6]: For 2nd argument expected
                     #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
                     #  but got `Union[bool, float, int]`.
-                    fo_ind_tnsr[0, 0].item(),
+                    -fo_ind_tnsr[0, 0].item(),
                 )
                 self.assertAlmostEqual(
                     second_ind_dict["branin"]["x2"],
@@ -494,16 +494,6 @@ class SensitivityAnalysisTest(TestCase):
                 metrics=None,
                 order="third and fourth",
                 signed=False,
-            )
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "Second order is not supported for signed indices.",
-        ):
-            ax_parameter_sens(
-                model_bridge=bridge,
-                metrics=None,
-                order="second",
-                signed=True,
             )
 
     def test_Sobol_computed_correctly_first_order(self) -> None:

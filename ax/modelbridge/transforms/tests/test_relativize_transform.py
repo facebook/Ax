@@ -11,6 +11,7 @@ from unittest.mock import Mock
 import numpy as np
 import numpy.typing as npt
 from ax.core import BatchTrial
+from ax.core.experiment import Experiment
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -91,7 +92,7 @@ class RelativizeDataTest(TestCase):
     ) -> None:
         for relativize_cls in self.relativize_classes:
             # modelbridge has no status quo
-            sobol = Generators.SOBOL(search_space=get_search_space())
+            sobol = Generators.SOBOL(experiment=get_branin_experiment())
             self.assertIsNone(sobol.status_quo)
             with self.assertRaisesRegex(
                 AssertionError, f"{relativize_cls.__name__} requires status quo data."
@@ -457,7 +458,7 @@ class RelativizeDataOptConfigTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         search_space = get_search_space()
-        gr = Generators.SOBOL(search_space=search_space).gen(n=1)
+        gr = Generators.SOBOL(experiment=Experiment(search_space=search_space)).gen(n=1)
         self.model = Mock(
             search_space=search_space,
             status_quo=Mock(

@@ -7,7 +7,7 @@
 
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.core.experiment import Experiment
@@ -19,9 +19,10 @@ from plotly import express as px, graph_objects as go
 class ScatterPlot(PlotlyAnalysis):
     """
     Plotly Scatter plot for any two metrics. Each arm is represented by a single point,
-    whose color indicates the arm's trial index. Optionally, the Pareto frontier can be
-    shown. This plot is useful for understanding the relationship and/or tradeoff
-    between two metrics.
+    whose color indicates the arm's trial index. Only completed trials are shown.
+
+    Optionally, the Pareto frontier can be shown. This plot is useful for understanding
+    the relationship and/or tradeoff between two metrics.
 
     The DataFrame computed will contain one row per arm and the following columns:
         - trial_index: The trial index of the arm
@@ -32,7 +33,11 @@ class ScatterPlot(PlotlyAnalysis):
     """
 
     def __init__(
-        self, x_metric_name: str, y_metric_name: str, show_pareto_frontier: bool = False
+        self,
+        x_metric_name: str,
+        y_metric_name: str,
+        show_pareto_frontier: bool = False,
+        trial_index: int | None = None,
     ) -> None:
         """
         Args:
@@ -40,12 +45,14 @@ class ScatterPlot(PlotlyAnalysis):
             y_metric_name: The name of the metric to plot on the y-axis.
             show_pareto_frontier: Whether to show the Pareto frontier for the two
                 metrics. Optimization direction is inferred from the Experiment.
+            trial_index: Optional trial index to filter the data to. If not specified,
+                all trials will be included.
         """
 
         self.x_metric_name = x_metric_name
         self.y_metric_name = y_metric_name
-
         self.show_pareto_frontier = show_pareto_frontier
+        self.trial_index = trial_index
 
     def compute(
         self,
@@ -59,6 +66,7 @@ class ScatterPlot(PlotlyAnalysis):
             experiment=experiment,
             x_metric_name=self.x_metric_name,
             y_metric_name=self.y_metric_name,
+            trial_index=self.trial_index,
         )
         fig = _prepare_plot(
             df=df,
@@ -67,6 +75,7 @@ class ScatterPlot(PlotlyAnalysis):
             show_pareto_frontier=self.show_pareto_frontier,
             x_lower_is_better=experiment.metrics[self.x_metric_name].lower_is_better
             or False,
+            trial_index=self.trial_index,
         )
 
         return self._create_plotly_analysis_card(
@@ -75,11 +84,15 @@ class ScatterPlot(PlotlyAnalysis):
             level=AnalysisCardLevel.HIGH,
             df=df,
             fig=fig,
+            category=AnalysisCardCategory.INSIGHT,
         )
 
 
 def _prepare_data(
-    experiment: Experiment, x_metric_name: str, y_metric_name: str
+    experiment: Experiment,
+    x_metric_name: str,
+    y_metric_name: str,
+    trial_index: int | None = None,
 ) -> pd.DataFrame:
     """
     Extract the relevant data from the experiment and prepare it into a dataframe
@@ -89,16 +102,25 @@ def _prepare_data(
         experiment: The experiment to extract data from.
         x_metric_name: The name of the metric to plot on the x-axis.
         y_metric_name: The name of the metric to plot on the y-axis.
+        trial_index: Optional trial index to filter the data to. If not specified,
+                all trials will be included.
     """
 
     # Lookup the data that has already been fetched and attached to the experiment
     data = experiment.lookup_data().df
 
-    # Filter for only rows with the relevant metric names
+    # Filter for only rows with the relevant metric names and only completed trials
     metric_name_mask = data["metric_name"].isin([x_metric_name, y_metric_name])
-    filtered = data[metric_name_mask][
+    status_mask = data["trial_index"].apply(
+        lambda trial_index: experiment.trials[trial_index].status.is_completed
+    )
+    filtered = data[metric_name_mask & status_mask][
         ["trial_index", "arm_name", "metric_name", "mean"]
     ]
+
+    # filter data to trial index if specified
+    if trial_index is not None:
+        filtered = filtered[filtered["trial_index"] == trial_index]
 
     # Pivot the data so that each row is an arm and the columns are the metric names
     pivoted: pd.DataFrame = filtered.pivot_table(
@@ -117,8 +139,7 @@ def _prepare_data(
     # Add a column indicating whether the arm is on the Pareto frontier. This is
     # calculated by comparing each arm to all other arms in the experiment and
     # creating a mask.
-    # If directional guidance is not specified, we assume that we intendt to maximize
-    # the metric.
+    # If directional guidance is not specified, assume higher is better
     x_lower_is_better: bool = experiment.metrics[x_metric_name].lower_is_better or False
     y_lower_is_better: bool = experiment.metrics[y_metric_name].lower_is_better or False
 
@@ -149,6 +170,7 @@ def _prepare_plot(
     y_metric_name: str,
     show_pareto_frontier: bool,
     x_lower_is_better: bool,
+    trial_index: int | None = None,
 ) -> go.Figure:
     """
     Prepare a scatter plot for the given DataFrame.
@@ -166,12 +188,16 @@ def _prepare_plot(
         show_pareto_frontier: Whether to draw the Pareto frontier for the two metrics
         x_lower_is_better: Whether the metric on the x-axis is being minimized (only
             relevant if show_pareto_frontier=True)
+        trial_index: Optional trial index to filter the data to. If not specified,
+                all trials will be included.
     """
     fig = px.scatter(
         df,
         x=x_metric_name,
         y=y_metric_name,
-        color="trial_index",
+        # only show legend + multiple colors if trial index is not specified
+        # indicating all trials are being shown
+        color="trial_index" if trial_index is None else None,
         hover_data=["trial_index", "arm_name", x_metric_name, y_metric_name],
     )
 

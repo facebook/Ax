@@ -7,7 +7,7 @@
 
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.search_space_analysis import (
     boundary_proportions_message,
     search_space_boundary_proportions,
@@ -35,9 +35,9 @@ class TestSearchSpaceAnalysis(TestCase):
         card = ssa.compute(experiment=experiment)
 
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
         self.assertEqual(card.name, "SearchSpaceAnalysis")
         self.assertEqual(card.title, "Ax Search Space Analysis Warning")
-        print(card.subtitle)
         subtitle = (
             "\n - Parameter x1 values are at their lower bound in 66.67% of all "
             "suggested parameters, which exceeds the threshold of 50.00%. "

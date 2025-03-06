@@ -8,7 +8,7 @@ from logging import Logger
 
 import numpy as np
 import plotly.express as px
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import select_metric
@@ -96,13 +96,19 @@ class ProgressionPlot(PlotlyAnalysis):
             experiment=experiment, metric_name=metric_name
         )
 
+        # If there is a nan in the wallclock time dict's keys then lookup will fail. If
+        # this happens, set the wallclock time to nan and continue.
         df["wallclock_time"] = df.apply(
-            lambda row: wallclock_series[row["trial_index"]][row["progression"]],
+            lambda row: wallclock_series[row["trial_index"]].get(
+                row["progression"], np.nan
+            ),
             axis=1,
         )
         if len(terminal_points) > 0:
             terminal_points["wallclock_time"] = terminal_points.apply(
-                lambda row: wallclock_series[row["trial_index"]][row["progression"]],
+                lambda row: wallclock_series[row["trial_index"]].get(
+                    row["progression"], np.nan
+                ),
                 axis=1,
             )
 
@@ -133,6 +139,7 @@ class ProgressionPlot(PlotlyAnalysis):
             level=AnalysisCardLevel.MID,
             df=df,
             fig=fig,
+            category=AnalysisCardCategory.INSIGHT,
         )
 
 

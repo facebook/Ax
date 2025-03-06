@@ -6,11 +6,9 @@
 
 # pyre-strict
 
-import json
 import time
-from abc import ABC
 from collections import OrderedDict
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from logging import Logger
@@ -45,6 +43,7 @@ from ax.exceptions.model import AdapterMethodNotImplementedError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
+from ax.models.base import Generator
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from botorch.settings import validate_input_scaling
@@ -69,7 +68,37 @@ class GenResults:
     gen_metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
+@dataclass(frozen=True)
+class DataLoaderConfig:
+    """This dataclass contains parameters that control the `Adapter._set_training_data`.
+
+    Args:
+        fit_out_of_design: If specified, all training data are used.
+            Otherwise, only in design points are used.
+        fit_abandoned: Whether data for abandoned arms or trials should be included in
+            model training data. If `False`, only non-abandoned points are returned.
+        fit_only_completed_map_metrics: Whether to fit a model to map metrics only when
+            the trial is completed. This is useful for applications like modeling
+            partially completed learning curves in AutoML.
+        latest_rows_per_group: If specified and data is an instance of MapData, uses
+            MapData.latest() with `latest_rows_per_group` to retrieve the most recent
+            rows for each group. Useful in cases where learning curves are frequently
+            updated, preventing an excessive number of Observation objects.
+        limit_rows_per_metric: Subsample the map data so that the total number of
+            rows per metric is limited by this value.
+        limit_rows_per_group: Subsample the map data so that the number of rows
+            in the `map_key` column for each (arm, metric) is limited by this value.
+    """
+
+    fit_out_of_design: bool = False
+    fit_abandoned: bool = False
+    fit_only_completed_map_metrics: bool = True
+    latest_rows_per_group: int | None = 1
+    limit_rows_per_metric: int | None = None
+    limit_rows_per_group: int | None = None
+
+
+class Adapter:
     """The main object for using models in Ax.
 
     Adapter specifies 3 methods for using models:
@@ -90,62 +119,63 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
     receives appropriate inputs.
 
     Subclasses will implement what is here referred to as the "terminal
-    transform," which is a transform that changes types of the data and problem
+    transform", which is a transform that changes types of the data and problem
     specification.
     """
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-        model: Any,
-        transforms: list[type[Transform]] | None = None,
-        experiment: Experiment | None = None,
+        *,
+        experiment: Experiment,
+        model: Generator,
+        search_space: SearchSpace | None = None,
         data: Data | None = None,
-        transform_configs: dict[str, TConfig] | None = None,
-        status_quo_name: str | None = None,
+        transforms: Sequence[type[Transform]] | None = None,
+        transform_configs: Mapping[str, TConfig] | None = None,
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
         expand_model_space: bool = True,
-        fit_out_of_design: bool = False,
-        fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
-        fit_only_completed_map_metrics: bool = True,
+        data_loader_config: DataLoaderConfig | None = None,
+        fit_out_of_design: bool | None = None,
+        fit_abandoned: bool | None = None,
+        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         """
         Applies transforms and fits model.
 
         Args:
-            experiment: Is used to get arm parameters. Is not mutated.
-            search_space: Search space for fitting the model. Constraints need
-                not be the same ones used in gen. RangeParameter bounds are
-                considered soft and will be expanded to match the range of the
-                data sent in for fitting, if expand_model_space is True.
-            data: Ax Data.
-            model: Interface will be specified in subclass. If model requires
+            experiment: An ``Experiment`` object representing the setup and the
+                current state of the experiment, including the search space,
+                trials and observation data. It is used to extract various
+                attributes, and is not mutated.
+            model: A ``Generator`` that is used for generating candidates.
+                Its interface will be specified in subclasses. If model requires
                 initialization, that should be done prior to its use here.
+            search_space: An optional ``SearchSpace`` for fitting  the model.
+                If not provided, `experiment.search_space` is used.
+                The search space may be modified during ``Adapter.gen``, e.g.,
+                to try out a different set of parameter bounds or constraints.
+                The bounds of the ``RangeParameter``s are considered soft and
+                will be expanded to match the range of the data sent in for fitting,
+                if `expand_model_space` is True.
+            data: An optional ``Data`` object, containing mean and SEM observations.
+                If `None`, extracted using `experiment.lookup_data()`.
             transforms: List of uninitialized transform classes. Forward
                 transforms will be applied in this order, and untransforms in
                 the reverse order.
             transform_configs: A dictionary from transform name to the
                 transform config dictionary.
-            status_quo_name: Name of the status quo arm. Can only be used if
-                Data has a single set of ObservationFeatures corresponding to
-                that arm.
-            status_quo_features: ObservationFeatures to use as status quo.
-                Either this or status_quo_name should be specified, not both.
-            optimization_config: Optimization config defining how to optimize
-                the model.
+            status_quo_features: ObservationFeatures to use as status quo. If None,
+                the status quo will be extracted from the experiment, if it exists.
+            optimization_config: An optional ``OptimizationConfig`` defining how to
+                optimize the model. Defaults to `experiment.optimization_config`.
             expand_model_space: If True, expand range parameter bounds in model
                 space to cover given training data. This will make the modeling
                 space larger than the search space if training data fall outside
-                the search space.
-            fit_out_of_design: If specified, all training data are used.
-                Otherwise, only in design points are used.
-            fit_abandoned: Whether data for abandoned arms or trials should be
-                included in model training data. If ``False``, only
-                non-abandoned points are returned.
+                the search space. Will also include training points that violate
+                parameter constraints in the modeling.
             fit_tracking_metrics: Whether to fit a model for tracking metrics.
                 Setting this to False will improve runtime at the expense of
                 models not being available for predicting tracking metrics.
@@ -156,13 +186,29 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
                 To fit the model afterwards, use `_process_and_transform_data`
                 to get the transformed inputs and call `_fit_if_implemented` with
                 the transformed inputs.
-            fit_only_completed_map_metrics: Whether to fit a model to map metrics only
-                when the trial is completed. This is useful for applications like
-                modeling partially completed learning curves in AutoML.
+            data_loader_config: A DataLoaderConfig of options for loading data. See the
+                docstring of DataLoaderConfig for more details.
+            fit_out_of_design: Deprecation warning: `fit_out_of_design` is deprecated.
+                Overwrites `data_loader_config.fit_out_of_design` if not None.
+            fit_abandoned: Deprecation warning: `fit_out_of_design` is deprecated.
+                Overwrites `data_loader_config.fit_abandoned` if not None.
+            fit_only_completed_map_metrics: Deprecation warning: `fit_out_of_design`
+                is deprecated. If not None, overwrites
+                `data_loader_config.fit_only_completed_map_metrics`.
         """
+        if data_loader_config is None:
+            data_loader_config = DataLoaderConfig()
+
+        data_loader_config = _legacy_overwrite_data_loader_options(
+            data_loader_config=data_loader_config,
+            fit_out_of_design=fit_out_of_design,
+            fit_abandoned=fit_abandoned,
+            fit_only_completed_map_metrics=fit_only_completed_map_metrics,
+        )
+
         t_fit_start = time.monotonic()
         transforms = transforms or []
-        transforms = [Cast] + transforms
+        transforms = [Cast] + list(transforms)
 
         self.fit_time: float = 0.0
         self.fit_time_since_gen: float = 0.0
@@ -178,28 +224,26 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         self._model_kwargs: dict[str, Any] | None = None
         self._bridge_kwargs: dict[str, Any] | None = None
         # The space used for optimization.
+        search_space = search_space or experiment.search_space
         self._search_space: SearchSpace = search_space.clone()
         # The space used for modeling. Might be larger than the optimization
         # space to cover training data.
         self._model_space: SearchSpace = search_space.clone()
         self._raw_transforms = transforms
-        self._transform_configs: dict[str, TConfig] | None = transform_configs
-        self._fit_out_of_design = fit_out_of_design
-        self._fit_abandoned = fit_abandoned
+        self._transform_configs: Mapping[str, TConfig] | None = transform_configs
+        self._data_loader_config: DataLoaderConfig = data_loader_config
         self._fit_tracking_metrics = fit_tracking_metrics
-        self._fit_only_completed_map_metrics = fit_only_completed_map_metrics
         self.outcomes: list[str] = []
         self._experiment_has_immutable_search_space_and_opt_config: bool = (
             experiment is not None and experiment.immutable_search_space_and_opt_config
         )
         self._experiment_properties: dict[str, Any] = {}
-        self._experiment: Experiment | None = experiment
+        self._experiment: Experiment = experiment
 
-        if experiment is not None:
-            if self._optimization_config is None:
-                self._optimization_config = experiment.optimization_config
-            self._arms_by_signature = experiment.arms_by_signature
-            self._experiment_properties = experiment._properties
+        if self._optimization_config is None:
+            self._optimization_config = experiment.optimization_config
+        self._arms_by_signature = experiment.arms_by_signature
+        self._experiment_properties = experiment._properties
 
         if self._fit_tracking_metrics is False:
             if self._optimization_config is None:
@@ -221,9 +265,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         # Set model status quo.
         # NOTE: training data must be set before setting the status quo.
         self._set_status_quo(
-            experiment=experiment,
-            status_quo_name=status_quo_name,
-            status_quo_features=status_quo_features,
+            experiment=experiment, status_quo_features=status_quo_features
         )
 
         # Save model, apply terminal transform, and fit.
@@ -258,11 +300,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         """
         try:
             t_fit_start = time.monotonic()
-            self._fit(
-                model=self.model,
-                search_space=search_space,
-                observations=observations,
-            )
+            self._fit(search_space=search_space, observations=observations)
             increment = time.monotonic() - t_fit_start + time_so_far
             self.fit_time += increment
             self.fit_time_since_gen += increment
@@ -270,9 +308,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
             pass
 
     def _process_and_transform_data(
-        self,
-        experiment: Experiment | None = None,
-        data: Data | None = None,
+        self, experiment: Experiment, data: Data | None = None
     ) -> tuple[list[Observation], SearchSpace]:
         r"""Processes the data into observations and returns transformed
         observations and the search space. This packages the following methods:
@@ -292,17 +328,17 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         )
 
     def _prepare_observations(
-        self, experiment: Experiment | None, data: Data | None
+        self, experiment: Experiment, data: Data | None = None
     ) -> list[Observation]:
-        if experiment is None or data is None:
-            return []
-        map_keys_as_parameters = (
-            not self._fit_only_completed_map_metrics and isinstance(data, MapData)
-        )
+        data = data if data is not None else experiment.lookup_data()
+        fit_only_completed = self._data_loader_config.fit_only_completed_map_metrics
+        map_keys_as_parameters = not fit_only_completed and isinstance(data, MapData)
         return observations_from_data(
             experiment=experiment,
             data=data,
-            latest_rows_per_group=None,
+            latest_rows_per_group=self._data_loader_config.latest_rows_per_group,
+            limit_rows_per_metric=self._data_loader_config.limit_rows_per_metric,
+            limit_rows_per_group=self._data_loader_config.limit_rows_per_group,
             statuses_to_include=self.statuses_to_fit,
             statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
             map_keys_as_parameters=map_keys_as_parameters,
@@ -312,8 +348,8 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         self,
         observations: list[Observation],
         search_space: SearchSpace,
-        transforms: list[type[Transform]] | None,
-        transform_configs: dict[str, TConfig] | None,
+        transforms: Sequence[type[Transform]] | None,
+        transform_configs: Mapping[str, TConfig] | None,
         assign_transforms: bool = True,
     ) -> tuple[list[Observation], SearchSpace]:
         """Initialize transforms and apply them to provided data."""
@@ -373,7 +409,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
     ) -> list[Observation]:
         """Set training_in_design, and decide whether to filter out of design points."""
         # Don't filter points.
-        if self._fit_out_of_design:
+        if self._data_loader_config.fit_out_of_design:
             # Use all data for training
             # Set training_in_design to True for all observations so that
             # all observations are used in CV and plotting
@@ -441,41 +477,30 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
             if isinstance(p, RangeParameter):
                 p.lower = min(p.lower, min(param_vals[p.name]))
                 p.upper = max(p.upper, max(param_vals[p.name]))
+        # Remove parameter constraints from the model space.
+        self._model_space.set_parameter_constraints([])
 
     def _set_status_quo(
         self,
-        experiment: Experiment | None,
-        status_quo_name: str | None,
+        experiment: Experiment,
         status_quo_features: ObservationFeatures | None,
     ) -> None:
-        """Set model status quo by matching status_quo_name or status_quo_features.
+        """Set model status quo by matching status_quo_features or
+        extracting from the experiment.
 
-        First checks for status quo in inputs status_quo_name and
-        status_quo_features. If neither of these is provided, checks the
-        experiment for a status quo. If that is set, it is handled by name in
-        the same way as input status_quo_name.
+        First checks for status quo in inputs status_quo_features. If not provided,
+        checks the experiment for a status quo. If either one exists, looks through
+        the training data for an observation with the same name or features.
 
         Args:
             experiment: Experiment that will be checked for status quo.
-            status_quo_name: Name of status quo arm.
             status_quo_features: Features for status quo.
         """
         self._status_quo: Observation | None = None
         sq_obs = None
 
-        if (
-            status_quo_name is None
-            and status_quo_features is None
-            and experiment is not None
-            and experiment.status_quo is not None
-        ):
+        if status_quo_features is None and experiment.status_quo is not None:
             status_quo_name = experiment.status_quo.name
-
-        if status_quo_name is not None:
-            if status_quo_features is not None:
-                raise ValueError(
-                    "Specify either status_quo_name or status_quo_features, not both."
-                )
             sq_obs = [
                 obs for obs in self._training_data if obs.arm_name == status_quo_name
             ]
@@ -486,8 +511,11 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
                 if (obs.features.parameters == status_quo_features.parameters)
                 and (obs.features.trial_index == status_quo_features.trial_index)
             ]
+            status_quo_name = sq_obs[0].arm_name if sq_obs else None
+        else:
+            status_quo_name = None
 
-        # if status_quo_name or status_quo_features is used for matching status quo
+        # If a status quo was found in the training data.
         if sq_obs is not None:
             if len(sq_obs) == 0:
                 logger.warning(f"Status quo {status_quo_name} not present in data")
@@ -496,8 +524,11 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
                 # observation features) should be consistent even if we have multiple
                 # observations of the status quo.
                 # This is useful for getting status_quo_data_by_trial
-                self._status_quo_name = sq_obs[0].arm_name
-                if len(sq_obs) > 1 and self._fit_only_completed_map_metrics:
+                self._status_quo_name = status_quo_name
+                if (
+                    len(sq_obs) > 1
+                    and self._data_loader_config.fit_only_completed_map_metrics
+                ):
                     # it is expected to have multiple obserations for map data
                     logger.warning(
                         f"Status quo {status_quo_name} found in data with multiple "
@@ -510,18 +541,20 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
 
     @property
     def status_quo_data_by_trial(self) -> dict[int, ObservationData] | None:
-        """A map of trial index to the status quo observation data of each trial"""
-        return _get_status_quo_by_trial(
-            observations=self._training_data,
-            status_quo_name=(
-                self._status_quo_name
-                if self.status_quo is None
-                else self.status_quo.arm_name
-            ),
-            status_quo_features=(
-                None if self.status_quo is None else self.status_quo.features
-            ),
-        )
+        """A map of trial index to the status quo observation data of each trial.
+
+        If status quo does not exist, return None.
+        """
+        # Status quo name will be set if status quo exists. We can just filter by name.
+        if self.status_quo_name is None:
+            return None
+        # Identify status quo data by arm name.
+        return {
+            # NOTE: casting to int here, in case the index is a numpy integer.
+            int(none_throws(obs.features.trial_index)): obs.data
+            for obs in self._training_data
+            if obs.arm_name == self.status_quo_name
+        }
 
     @property
     def status_quo(self) -> Observation | None:
@@ -560,7 +593,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
     @property
     def statuses_to_fit(self) -> set[TrialStatus]:
         """Statuses to fit the model on."""
-        if self._fit_abandoned:
+        if self._data_loader_config.fit_abandoned:
             return set(TrialStatus)
         return NON_ABANDONED_STATUSES
 
@@ -569,7 +602,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         """Statuses to fit the model on."""
         return (
             {TrialStatus.COMPLETED}
-            if self._fit_only_completed_map_metrics
+            if self._data_loader_config.fit_only_completed_map_metrics
             else self.statuses_to_fit
         )
 
@@ -592,8 +625,6 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
 
     def _fit(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-        model: Any,
         search_space: SearchSpace,
         observations: list[Observation],
     ) -> None:
@@ -731,21 +762,6 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement `_predict`."
         )
-
-    def update(self, new_data: Data, experiment: Experiment) -> None:
-        """Update the model bridge and the underlying model with new data. This
-        method should be used instead of `fit`, in cases where the underlying
-        model does not need to be re-fit from scratch, but rather updated.
-
-        Note: `update` expects only new data (obtained since the model initialization
-        or last update) to be passed in, not all data in the experiment.
-
-        Args:
-            new_data: Data from the experiment obtained since the last call to
-                `update`.
-            experiment: Experiment, in which this data was obtained.
-        """
-        raise DeprecationWarning("Adapter.update is deprecated. Use `fit` instead.")
 
     def _get_transformed_gen_args(
         self,
@@ -894,7 +910,7 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
 
         # Clamp the untransformed data to the original search space if
         # we don't fit/gen OOD points
-        if not self._fit_out_of_design:
+        if not self._data_loader_config.fit_out_of_design:
             observation_features = clamp_observation_features(
                 observation_features, orig_search_space
             )
@@ -909,7 +925,8 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
                 best_point_predictions = extract_arm_predictions(
                     model_predictions=self.predict([best_obsf]), arm_idx=0
                 )
-        except NotImplementedError:
+        except Exception as e:
+            logger.debug(f"Model predictions failed with error {e}.")
             model_predictions = None
 
         if best_obsf is None:
@@ -1076,14 +1093,12 @@ class Adapter(ABC):  # noqa: B024 -- Adapter doesn't have any abstract methods.
         """Obtains the state of the underlying model (if using a stateful one)
         in a readily JSON-serializable form.
         """
-        model = none_throws(self.model)
-        return model.serialize_state(raw_state=model._get_state())
+        return self.model.serialize_state(raw_state=self.model._get_state())
 
     def _deserialize_model_state(
         self, serialized_state: dict[str, Any]
     ) -> dict[str, Any]:
-        model = none_throws(self.model)
-        return model.deserialize_state(serialized_state=serialized_state)
+        return self.model.deserialize_state(serialized_state=serialized_state)
 
     def feature_importances(self, metric_name: str) -> dict[str, float]:
         """Computes feature importances for a single metric.
@@ -1240,45 +1255,45 @@ def clamp_observation_features(
     return observation_features
 
 
-def _get_status_quo_by_trial(
-    observations: list[Observation],
-    status_quo_name: str | None = None,
-    status_quo_features: ObservationFeatures | None = None,
-) -> dict[int, ObservationData] | None:
-    r"""
-    Given a status quo observation, return a dictionary of trial index to
-    the status quo observation data of each trial.
-
-    When either `status_quo_name` or `status_quo_features` exists, return the dict;
-    when both exist, use `status_quo_name`;
-    when neither exists, return None.
+def _legacy_overwrite_data_loader_options(
+    data_loader_config: DataLoaderConfig,
+    fit_out_of_design: bool | None = None,
+    fit_abandoned: bool | None = None,
+    fit_only_completed_map_metrics: bool | None = None,
+    warn_if_legacy: bool = True,
+) -> DataLoaderConfig:
+    """Overwrites data loader config with legacy keyword arguments.
 
     Args:
-        observations: List of observations.
-        status_quo_name: Name of the status quo.
-        status_quo_features: ObservationFeatures for the status quo.
+        data_loader_config: Data loader config.
+        fit_out_of_design: Whether to fit out-of-design points.
+        fit_abandoned: Whether to fit abandoned arms.
+        fit_only_completed_map_metrics: Whether to fit only completed map metrics.
+        warn_if_legacy: Whether to warn if legacy keyword arguments are used.
 
     Returns:
-        A map from trial index to status quo observation data, or None
+        Updated data loader config.
     """
-    trial_idx_to_sq_data = None
-    if status_quo_name is not None:
-        # identify status quo by arm name
-        trial_idx_to_sq_data = {
-            int(none_throws(obs.features.trial_index)): obs.data
-            for obs in observations
-            if obs.arm_name == status_quo_name
-        }
-    elif status_quo_features is not None:
-        # identify status quo by (untransformed) feature
-        status_quo_signature = json.dumps(
-            status_quo_features.parameters, sort_keys=True
-        )
-        trial_idx_to_sq_data = {
-            int(none_throws(obs.features.trial_index)): obs.data
-            for obs in observations
-            if json.dumps(obs.features.parameters, sort_keys=True)
-            == status_quo_signature
-        }
+    data_loader_config_dict = {}
+    for var_name, deprecated_var in (
+        ("fit_out_of_design", fit_out_of_design),
+        ("fit_abandoned", fit_abandoned),
+        ("fit_only_completed_map_metrics", fit_only_completed_map_metrics),
+    ):
+        if deprecated_var is not None:
+            if warn_if_legacy:
+                logger.warning(
+                    f"`{var_name}` is deprecated. Please pass as "
+                    f"`data_loader_options.{var_name}` instead."
+                )
+            data_loader_config_dict[var_name] = deprecated_var
+        else:
+            data_loader_config_dict[var_name] = getattr(data_loader_config, var_name)
 
-    return trial_idx_to_sq_data
+    data_loader_config = DataLoaderConfig(
+        latest_rows_per_group=data_loader_config.latest_rows_per_group,
+        limit_rows_per_metric=data_loader_config.limit_rows_per_metric,
+        limit_rows_per_group=data_loader_config.limit_rows_per_group,
+        **data_loader_config_dict,
+    )
+    return data_loader_config

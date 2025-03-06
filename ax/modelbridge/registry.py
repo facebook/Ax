@@ -9,14 +9,12 @@
 """
 Module containing a registry of standard models (and generators, samplers etc.)
 such as Sobol generator, GP+EI, Thompson sampler, etc.
-
-Use of `Generators` enum allows for serialization and reinstantiation of models and
-generation strategies from generator runs they produced. To reinstantiate a model
-from generator run, use `get_model_from_generator_run` utility from this module.
 """
 
 from __future__ import annotations
 
+import warnings
+from collections.abc import Mapping, Sequence
 from enum import Enum
 from inspect import isfunction, signature
 from logging import Logger
@@ -26,6 +24,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.discrete import DiscreteAdapter
 from ax.modelbridge.random import RandomAdapter
@@ -176,10 +175,10 @@ class ModelSetup(NamedTuple):
 
     bridge_class: type[Adapter]
     model_class: type[Generator]
-    transforms: list[type[Transform]]
-    default_model_kwargs: dict[str, Any] | None = None
-    standard_bridge_kwargs: dict[str, Any] | None = None
-    not_saved_model_kwargs: list[str] | None = None
+    transforms: Sequence[type[Transform]]
+    default_model_kwargs: Mapping[str, Any] | None = None
+    standard_bridge_kwargs: Mapping[str, Any] | None = None
+    not_saved_model_kwargs: Sequence[str] | None = None
 
 
 """A mapping of string keys that indicate a model, to the corresponding
@@ -288,13 +287,34 @@ class ModelRegistryBase(Enum):
         silently_filter_kwargs: bool = False,
         **kwargs: Any,
     ) -> Adapter:
-        assert self.value in MODEL_KEY_TO_MODEL_SETUP, f"Unknown model {self.value}"
-        # All model bridges require either a search space or an experiment.
-        assert search_space or experiment, "Search space or experiment required."
-        search_space = search_space or none_throws(experiment).search_space
+        if self.value not in MODEL_KEY_TO_MODEL_SETUP:
+            raise UserInputError(f"Unknown model {self.value}")
         model_setup_info = MODEL_KEY_TO_MODEL_SETUP[self.value]
         model_class = model_setup_info.model_class
         bridge_class = model_setup_info.bridge_class
+        if experiment is None:
+            # Some Adapters used to accept search_space as the only input.
+            # Temporarily support it with a deprecation warning.
+            if (
+                issubclass(bridge_class, (RandomAdapter, DiscreteAdapter))
+                and search_space is not None
+            ):
+                warnings.warn(
+                    "Passing in a `search_space` to initialize a generator from a "
+                    "registry is being deprecated. `experiment` is now a required "
+                    "input for initializing `Adapters`. Please use `experiment` "
+                    "when initializing generators going forward. "
+                    "Support for `search_space` will be removed in Ax 0.7.0.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                # Construct a dummy experiment for temporary support.
+                experiment = Experiment(search_space=search_space)
+            else:
+                raise UserInputError(
+                    "`experiment` is required to initialize a model from registry."
+                )
+        search_space = search_space or none_throws(experiment).search_space
 
         if not silently_filter_kwargs:
             # Check correct kwargs are present
@@ -472,85 +492,6 @@ class Models(metaclass=ModelsMetaClass):
     """This is deprecated. Use Generators instead."""
 
     pass
-
-
-def get_model_from_generator_run(
-    generator_run: GeneratorRun,
-    experiment: Experiment,
-    data: Data,
-    models_enum: type[ModelRegistryBase],
-    after_gen: bool = True,
-) -> Adapter:
-    """Reinstantiate a model from model key and kwargs stored on a given generator
-    run, with the given experiment and the data to initialize the model with.
-
-    Note: requires that the model that was used to get the generator run, is part
-    of the `Generators` registry enum.
-
-    Args:
-        generator_run: A `GeneratorRun` created by the model we are looking to
-            reinstantiate.
-        experiment: The experiment for which the model is reinstantiated.
-        data: Data, with which to reinstantiate the model.
-        models_enum: Subclass of `Generators` registry, from which to obtain
-            the settings of the model. Useful only if the generator run was
-            created via a model that could not be included into the main registry,
-            but can still be represented as a `ModelSetup` and was added to a
-            registry that extends `Generators`.
-        after_gen: Whether to reinstantiate the model in the state, in which it
-            was after it created this generator run, as opposed to before.
-            Defaults to True, useful when reinstantiating the model to resume
-            optimization, rather than to recreate its state at the time of
-            generation. TO recreate state at the time of generation, set to `False`.
-    """
-    if not generator_run._model_key:
-        raise ValueError(
-            "Cannot restore model from generator run as no model key was "
-            "on the generator run stored."
-        )
-    model = models_enum(generator_run._model_key)
-    model_kwargs = generator_run._model_kwargs or {}
-    if after_gen:
-        model_kwargs = _combine_model_kwargs_and_state(
-            generator_run=generator_run, model_class=model.model_class
-        )
-    bridge_kwargs = generator_run._bridge_kwargs or {}
-    model_kwargs = _decode_callables_from_references(model_kwargs)
-    bridge_kwargs = _decode_callables_from_references(bridge_kwargs)
-    model_keywords = list(model_kwargs.keys())
-    for key in model_keywords:
-        if key in bridge_kwargs:
-            logger.debug(
-                f"Keyword argument `{key}` occurs in both model and model bridge "
-                f"kwargs stored in the generator run. Assuming the `{key}` kwarg "
-                "is passed into the model by the model bridge and removing its "
-                "value from the model kwargs."
-            )
-            del model_kwargs[key]
-    return model(experiment=experiment, data=data, **bridge_kwargs, **model_kwargs)
-
-
-def _combine_model_kwargs_and_state(
-    generator_run: GeneratorRun,
-    model_class: type[Generator],
-    model_kwargs: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Produces a combined dict of model kwargs and model state after gen,
-    extracted from generator run. If model kwargs are not specified,
-    model kwargs from the generator run will be used.
-    """
-    model_kwargs = model_kwargs or generator_run._model_kwargs or {}
-    if generator_run._model_state_after_gen is None:
-        return model_kwargs
-
-    # We don't want to update `model_kwargs` on the `GenerationStep`,
-    # just to add to them for the purpose of this function.
-    return {
-        **model_kwargs,
-        **_extract_model_state_after_gen(
-            generator_run=generator_run, model_class=model_class
-        ),
-    }
 
 
 def _extract_model_state_after_gen(

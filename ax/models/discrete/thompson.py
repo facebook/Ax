@@ -15,6 +15,7 @@ import numpy as np
 import numpy.typing as npt
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
 from ax.exceptions.constants import TS_MIN_WEIGHT_ERROR, TS_NO_FEASIBLE_ARMS_ERROR
+from ax.exceptions.core import UnsupportedError
 from ax.exceptions.model import ModelError
 from ax.models.discrete_base import DiscreteGenerator
 from ax.models.types import TConfig
@@ -154,8 +155,9 @@ class ThompsonSampler(DiscreteGenerator):
             for j, x in enumerate(predictX):
                 # iterate through parameterizations at which to make predictions
                 if x not in X_to_Y_and_Yvar:
-                    raise ValueError(
-                        "ThompsonSampler does not support out-of-sample prediction."
+                    raise UnsupportedError(
+                        "ThompsonSampler does not support out-of-sample prediction. "
+                        f"(X: {X[j]} - note that this is post-transform application)."
                     )
                 f[j, i], cov[j, i, i] = X_to_Y_and_Yvar[
                     assert_is_instance(x, TParamValue)

@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import torch
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.arm_effects.insample_effects import InSampleEffectsPlot
 from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
 from ax.exceptions.core import DataRequiredError, UserInputError
@@ -134,6 +134,7 @@ class TestInsampleEffectsPlot(TestCase):
         )
         # +2 because it's on objective, +1 because it's modeled
         self.assertEqual(card.level, AnalysisCardLevel.MID + 3)
+        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
 
     def test_compute_modeled_can_use_ebts_for_no_gs(self) -> None:
         # GIVEN an experiment with a trial with data

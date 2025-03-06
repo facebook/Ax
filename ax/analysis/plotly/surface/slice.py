@@ -8,7 +8,7 @@
 import math
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.surface.utils import (
@@ -93,6 +93,7 @@ class SlicePlot(PlotlyAnalysis):
             level=AnalysisCardLevel.LOW,
             df=df,
             fig=fig,
+            category=AnalysisCardCategory.INSIGHT,
         )
 
 
@@ -130,7 +131,8 @@ def _prepare_data(
             {
                 parameter_name: xs[i],
                 f"{metric_name}_mean": predictions[0][metric_name][i],
-                f"{metric_name}_sem": predictions[1][metric_name][metric_name][i],
+                f"{metric_name}_sem": predictions[1][metric_name][metric_name][i]
+                ** 0.5,  # Convert the variance to the SEM
             }
             for i in range(len(xs))
         ]
@@ -145,6 +147,7 @@ def _prepare_plot(
 ) -> go.Figure:
     x = df[parameter_name].tolist()
     y = df[f"{metric_name}_mean"].tolist()
+    # Convert the SEMs to 95% confidence intervals
     y_upper = (df[f"{metric_name}_mean"] + 1.96 * df[f"{metric_name}_sem"]).tolist()
     y_lower = (df[f"{metric_name}_mean"] - 1.96 * df[f"{metric_name}_sem"]).tolist()
 

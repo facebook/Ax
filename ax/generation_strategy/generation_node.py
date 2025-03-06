@@ -11,15 +11,19 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 from logging import Logger
-from typing import Any, TYPE_CHECKING
+from typing import Any, cast, TYPE_CHECKING, Union
 
-from ax.core.arm import Arm
+# TODO[@mgarrard, @drfreund]: Remove this when we streamline `apply_input
+# constructors`, such that they no longer need to access individual
+# input constructor purposes.
+import ax.generation_strategy as gs_module  # @manual
+
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import AxError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.generation_strategy.best_model_selector import BestModelSelector
 
@@ -69,8 +73,8 @@ MAX_GEN_ATTEMPTS_EXCEEDED_MESSAGE = (
     "trying to generate a unique parameterization. This indicates that the search "
     "space has likely been fully explored, or that the sweep has converged."
 )
-DEFAULT_FALLBACK = {
-    GenerationStrategyRepeatedPoints: GeneratorSpec(
+DEFAULT_FALLBACK: dict[type[Exception], GeneratorSpec] = {
+    cast(type[Exception], GenerationStrategyRepeatedPoints): GeneratorSpec(
         model_enum=Generators.SOBOL, model_key_override="Fallback_Sobol"
     )
 }
@@ -138,6 +142,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     _previous_node_name: str | None = None
     _trial_type: str | None = None
     _should_skip: bool = False
+    fallback_specs: dict[type[Exception], GeneratorSpec]
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
@@ -190,8 +195,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         self._previous_node_name = previous_node_name
         self._trial_type = trial_type
         self._should_skip = should_skip
-        # pyre-fixme[8]: Incompatible attribute type
-        self.fallback_specs: dict[type[Exception], GeneratorSpec] = (
+        self.fallback_specs = (
             fallback_specs if fallback_specs is not None else DEFAULT_FALLBACK
         )
 
@@ -296,10 +300,30 @@ class GenerationNode(SerializationMixin, SortableBase):
         """
         return self.model_spec_to_gen_from._fitted_model
 
-    def fit(
+    def __repr__(self) -> str:
+        """String representation of this ``GenerationNode`` (note that it
+        will abridge some aspects of ``TransitionCriterion`` and
+        ``GeneratorSpec`` attributes).
+        """
+        str_rep = f"{self.__class__.__name__}"
+        str_rep += f"(node_name='{self.node_name}'"
+        str_rep += ", model_specs="
+        generator_spec_str = (
+            ", ".join([spec._brief_repr() for spec in self.model_specs])
+            .replace("\n", " ")
+            .replace("\t", "")
+        )
+        str_rep += f"[{generator_spec_str}]"
+        str_rep += (
+            f", transition_criteria={str(self._brief_transition_criteria_repr())}"
+        )
+        return f"{str_rep})"
+
+    def _fit(
         self,
         experiment: Experiment,
-        data: Data,
+        data: Data | None = None,
+        status_quo_features: ObservationFeatures | None = None,
         **kwargs: Any,
     ) -> None:
         """Fits the specified models to the given experiment + data using
@@ -314,26 +338,19 @@ class GenerationNode(SerializationMixin, SortableBase):
 
         Args:
             experiment: The experiment to fit the model to.
-            data: The experiment data used to fit the model.
+            data: The experiment data used to fit the model, optional (if not specified
+                will use ``experiment.lookup_data()``, extracted in ``Adapter``).
+            status_quo_features: The features of the status quo arm, if it exists.
             kwargs: Additional keyword arguments to pass to the model's
                 ``fit`` method. NOTE: Local kwargs take precedence over the ones
                 stored in ``GeneratorSpec.model_kwargs``.
         """
-        data = data if data is not None else experiment.lookup_data()
-        if not data.df.empty:
-            trial_indices_in_data = sorted(data.df["trial_index"].unique())
-        else:
-            trial_indices_in_data = []
         self._model_spec_to_gen_from = None
         for model_spec in self.model_specs:
-            logger.debug(
-                f"Fitting model {model_spec.model_key} with data for "
-                f"trials: {trial_indices_in_data}"
-            )
-            # search space and optimization config will come from the experiment
             model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
                 experiment=experiment,
                 data=data,
+                status_quo_features=status_quo_features,
                 **{
                     **self._get_model_state_from_last_generator_run(
                         model_spec=model_spec
@@ -341,6 +358,229 @@ class GenerationNode(SerializationMixin, SortableBase):
                     **kwargs,
                 },
             )
+
+    def gen(
+        self,
+        *,
+        experiment: Experiment,
+        pending_observations: dict[str, list[ObservationFeatures]] | None,
+        skip_fit: bool = False,
+        data: Data | None = None,
+        **gs_gen_kwargs: Any,
+    ) -> GeneratorRun | None:
+        """This method generates candidates using `self._gen` and handles deduplication
+        of generated candidates if `self.should_deduplicate=True`.
+
+        NOTE: This method returning ``None`` indicates that this node should be skipped
+            by its generation strategy.
+        NOTE: ``n`` argument will be passed through this node's input constructors,
+            which might modify the number of arms this node will produce. Also, some
+            underlying generators  may ignore the ``n`` argument and produce a
+            model-determined number of arms. In that case this method will also output
+            a generator run with number of arms that may differ from ``n``.
+
+        Args:
+            experiment: The experiment to generate candidates for.
+            data: Optional override for the experiment data used to generate candidates;
+                if not specified, will use ``experiment.lookup_data()`` (extracted in
+                ``Adapter``).
+            pending_observations: A map from metric name to pending
+                observations for that metric, used by some models to avoid
+                resuggesting points that are currently being evaluated.
+            model_gen_kwargs: Keyword arguments, passed through to
+                ``ModelSpec.gen``; these override any pre-specified in
+                ``ModelSpec.model_gen_kwargs``. Often will contain ``n``.
+
+        Returns:
+            A ``GeneratorRun`` containing the newly generated candidates or ``None``
+            if this node is not in a correct state to generate candidates and should
+            be skipped (e.g. if its input constructor for the ``n`` argument specifies
+            that it should generate 0 candidate arms given the current experiment
+            state and user inputs).
+        """
+        # TODO: Consider returning "should skip" from apply input constructors
+        input_constructor_values = self.apply_input_constructors(
+            experiment=experiment,
+            gen_kwargs=gs_gen_kwargs,
+        )
+        # If during input constructor application we determined that we should skip
+        # this node, return early.
+        if self._should_skip:
+            logger.info(f"Skipping generation for node {self.node_name}.")
+            return None
+
+        if not skip_fit:
+            self._fit(
+                experiment=experiment,
+                data=data,
+                # pyre-ignore[6] TODO: Handle extracting SQ features differently in a
+                # follow-up commit
+                status_quo_features=input_constructor_values.pop(
+                    "status_quo_features", None
+                ),
+            )
+        model_gen_kwargs = gs_gen_kwargs.copy()
+        model_gen_kwargs.update(input_constructor_values)
+        try:
+            # Generate from the main generator on this node. If deduplicating,
+            # keep generating until each of `generator_run.arms` is not a
+            # duplicate of a previous active arm (e.g. not from a failed trial)
+            # on the experiment.
+            gr = self._gen_maybe_deduplicate(
+                experiment=experiment,
+                data=data,
+                pending_observations=pending_observations,
+                **model_gen_kwargs,
+            )
+        except Exception as e:
+            gr = self._try_gen_with_fallback(
+                exception=e,
+                experiment=experiment,
+                data=data,
+                pending_observations=pending_observations,
+                **model_gen_kwargs,
+            )
+
+        gr._generation_node_name = self.node_name
+        # TODO: @mgarrard determine a more refined way to indicate trial type
+        if self._trial_type is not None:
+            gen_metadata = gr.gen_metadata if gr.gen_metadata is not None else {}
+            gen_metadata["trial_type"] = self._trial_type
+            gr._gen_metadata = gen_metadata
+        return gr
+
+    def _gen(
+        self,
+        experiment: Experiment,
+        n: int | None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None,
+        data: Data | None,
+        **model_gen_kwargs: Any,
+    ) -> GeneratorRun:
+        """Picks a fitted model, from which to generate candidates (via
+        ``self._pick_fitted_model_to_gen_from``) and generates candidates
+        from it. Uses the ``model_gen_kwargs`` set on the selected ``GeneratorSpec``
+        alongside any kwargs passed in to this function (with local kwargs)
+        taking precedent.
+
+        Args:
+            experiment: The experiment to generate candidates for.
+            data: The experiment data used to generate candidates (usually determined
+                via ``experiment.lookup_data()`` in ``GenerationStrategy.gen``, but
+                could be manually specified by a user).
+            n: Optional integer representing how many arms should be in the generator
+                run produced by this method. When this is ``None``, ``n`` will be
+                determined by the ``GeneratorSpec`` that we are generating from.
+            pending_observations: A map from metric name to pending
+                observations for that metric, used by some models to avoid
+                resuggesting points that are currently being evaluated.
+            model_gen_kwargs: Keyword arguments, passed through to
+                ``GeneratorSpec.gen``;these override any pre-specified in
+                ``GeneratorSpec.model_gen_kwargs``.
+
+        Returns:
+            A ``GeneratorRun`` containing the newly generated candidates.
+        """
+        model_spec = self.model_spec_to_gen_from
+        if n is None and model_spec.model_gen_kwargs:
+            # If `n` is not specified, ensure that the `None` value does not
+            # override the one set in `model_spec.model_gen_kwargs`.
+            n = model_spec.model_gen_kwargs.get("n", None)
+        return model_spec.gen(
+            experiment=experiment,
+            data=data,
+            n=n,
+            # For `pending_observations`, prefer the input to this function, as
+            # `pending_observations` are dynamic throughout the experiment and thus
+            # unlikely to be specified in `model_spec.model_gen_kwargs`.
+            pending_observations=pending_observations,
+            **model_gen_kwargs,
+        )
+
+    def _gen_maybe_deduplicate(
+        self,
+        experiment: Experiment,
+        n: int | None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None,
+        data: Data | None,
+        **model_gen_kwargs: Any,
+    ) -> GeneratorRun:
+        """Attempts to generate candidates from the main ``GeneratorSpec``
+        on this ``GenerationNode``, with deduplication if
+        ``self.should_deduplicate=True``. If maximum number of deduplication
+        attempts is exceeded, raises ``GenerationStrategyRepeatedPoints``.
+
+        NOTE: Should only ever be called from ``GenerationNode.gen``.
+        """
+        n_gen_draws = 0
+        dedup_against_arms = experiment.arms_by_signature_for_deduplication
+        # Keep generating until each of `generator_run.arms` is not a duplicate
+        # of a previous arm, if `should_deduplicate is True`
+        while n_gen_draws < MAX_GEN_ATTEMPTS:
+            n_gen_draws += 1
+            gr = self._gen(
+                experiment=experiment,
+                data=data,
+                n=n,
+                pending_observations=pending_observations,
+                **model_gen_kwargs,
+            )
+            if not self.should_deduplicate or not dedup_against_arms:
+                return gr  # Not deduplicationg.
+            if all(arm.signature not in dedup_against_arms for arm in gr.arms):
+                return gr  # Generated a set of all-non-duplicate arms.
+            logger.info(
+                "The generator run produced duplicate arms. Re-running the "
+                "generation step in an attempt to deduplicate. Candidates "
+                f"produced in the last generator run: {gr.arms}."
+            )
+
+        raise GenerationStrategyRepeatedPoints(MAX_GEN_ATTEMPTS_EXCEEDED_MESSAGE)
+
+    def _try_gen_with_fallback(
+        self,
+        exception: Exception,
+        experiment: Experiment,
+        n: int | None,
+        data: Data | None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None,
+        **model_gen_kwargs: Any,
+    ) -> GeneratorRun:
+        """Attempts to generate candidates from the fallback ``GeneratorSpec``
+        on this ``GenerationNode``. Identifies the correct fallback based on the
+        type of ``Exception`` thrown by ``_gen_maybe_deduplicate``.
+
+        NOTE: Should only ever be called from ``GenerationNode.gen``.
+        """
+        error_type = type(exception)
+        if error_type not in self.fallback_specs:
+            raise exception
+
+        # identify fallback model to use
+        fallback_model = self.fallback_specs[error_type]
+        logger.warning(
+            f"gen failed with error {exception}, "
+            "switching to fallback model with model_enum "
+            f"{fallback_model.model_enum}"
+        )
+
+        # fit fallback model using information from `self.experiment`
+        # as ground truth
+        fallback_model.fit(
+            experiment=self.experiment,
+            data=self.experiment.lookup_data(),
+            **self._get_model_state_from_last_generator_run(model_spec=fallback_model),
+        )
+        # Switch _model_spec_to_gen_from to a fallback spec
+        self._model_spec_to_gen_from = fallback_model
+        gr = self._gen(
+            experiment=experiment,
+            data=data,
+            n=n,
+            pending_observations=pending_observations,
+            **model_gen_kwargs,
+        )
+        return gr
 
     def _get_model_state_from_last_generator_run(
         self, model_spec: GeneratorSpec
@@ -372,174 +612,13 @@ class GenerationNode(SerializationMixin, SortableBase):
                 gr._generation_node_name == self.node_name
                 and gr._model_key == model_spec.model_key
             ):
-                break
-        else:
-            # No previous GR from this model.
-            return {}
-        # Extract the fit args from the GR.
-        return _extract_model_state_after_gen(
-            # pyre-ignore [61]: Local variable `gr` is undefined, or not always defined.
-            # Pyre is wrong here. If we reach this line, `gr` must be defined.
-            generator_run=gr,
-            model_class=curr_model.model_class,
-        )
-
-    # TODO [drfreund]: Move this up to `GenerationNodeInterface` once implemented.
-    def gen(
-        self,
-        n: int | None = None,
-        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        max_gen_attempts_for_deduplication: int = MAX_GEN_ATTEMPTS,
-        arms_by_signature_for_deduplication: dict[str, Arm] | None = None,
-        **model_gen_kwargs: Any,
-    ) -> GeneratorRun:
-        """This method generates candidates using `self._gen` and handles deduplication
-        of generated candidates if `self.should_deduplicate=True`.
-
-        NOTE: Generators must have been fit prior to calling ``gen``.
-        NOTE: Some underlying models may ignore the ``n`` argument and produce a
-            model-determined number of arms. In that case this method will also output
-            a generator run with number of arms that may differ from ``n``.
-
-        Args:
-            n: Optional integer representing how many arms should be in the generator
-                run produced by this method. When this is ``None``, ``n`` will be
-                determined by the ``ModelSpec`` that we are generating from.
-            pending_observations: A map from metric name to pending
-                observations for that metric, used by some models to avoid
-                resuggesting points that are currently being evaluated.
-            max_gen_attempts_for_deduplication: Maximum number of attempts for
-                generating new candidates without duplicates. If non-duplicate
-                candidates are not generated with these attempts, a
-                ``GenerationStrategyRepeatedPoints`` exception will be raised.
-            arms_by_signature_for_deduplication: A dictionary mapping arm signatures to
-                the arms, to be used for deduplicating newly generated arms.
-            model_gen_kwargs: Keyword arguments, passed through to
-                ``ModelSpec.gen``; these override any pre-specified in
-                ``ModelSpec.model_gen_kwargs``.
-
-        Returns:
-            A ``GeneratorRun`` containing the newly generated candidates.
-        """
-        generator_run = None
-        n_gen_draws = 0
-        try:
-            # Keep generating until each of `generator_run.arms` is not a duplicate
-            # of a previous arm, if `should_deduplicate is True`
-            while n_gen_draws < max_gen_attempts_for_deduplication:
-                n_gen_draws += 1
-                generator_run = self._gen(
-                    n=n,
-                    pending_observations=pending_observations,
-                    **model_gen_kwargs,
+                # Extract the fit args from the GR.
+                return _extract_model_state_after_gen(
+                    generator_run=gr,
+                    model_class=curr_model.model_class,
                 )
-                if not (
-                    self.should_deduplicate
-                    and arms_by_signature_for_deduplication
-                    and any(
-                        arm.signature in arms_by_signature_for_deduplication
-                        for arm in generator_run.arms
-                    )
-                ):  # Not deduplicating or generated a non-duplicate arm.
-                    break
-
-                logger.info(
-                    "The generator run produced duplicate arms. Re-running the "
-                    "generation step in an attempt to deduplicate. Candidates "
-                    f"produced in the last generator run: {generator_run.arms}."
-                )
-
-            if n_gen_draws >= max_gen_attempts_for_deduplication:
-                raise GenerationStrategyRepeatedPoints(
-                    MAX_GEN_ATTEMPTS_EXCEEDED_MESSAGE
-                )
-        except Exception as e:
-            error_type = type(e)
-            if error_type not in self.fallback_specs:
-                raise e
-
-            # identify fallback model to use
-            fallback_model = self.fallback_specs[error_type]
-            logger.warning(
-                f"gen failed with error {e}, "
-                "switching to fallback model with model_enum "
-                f"{fallback_model.model_enum}"
-            )
-
-            # fit fallback model using information from `self.experiment`
-            # as ground truth
-            fallback_model.fit(
-                experiment=self.experiment,
-                data=self.experiment.lookup_data(),
-                search_space=self.experiment.search_space,
-                optimization_config=self.experiment.optimization_config,
-                **self._get_model_state_from_last_generator_run(
-                    model_spec=fallback_model
-                ),
-            )
-            # Switch _model_spec_to_gen_from to a fallback spec
-            self._model_spec_to_gen_from = fallback_model
-            generator_run = self._gen(
-                n=n,
-                pending_observations=pending_observations,
-                **model_gen_kwargs,
-            )
-
-        assert generator_run is not None, (
-            "The GeneratorRun is None which is an unexpected state of this"
-            " GenerationStrategy. This occurred on GenerationNode: {self.node_name}."
-        )
-        generator_run._generation_node_name = self.node_name
-        # TODO: @mgarrard determine a more refined way to indicate trial type
-        if self._trial_type is not None:
-            gen_metadata = (
-                generator_run.gen_metadata
-                if generator_run.gen_metadata is not None
-                else {}
-            )
-            gen_metadata["trial_type"] = self._trial_type
-            generator_run._gen_metadata = gen_metadata
-        return generator_run
-
-    def _gen(
-        self,
-        n: int | None = None,
-        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        **model_gen_kwargs: Any,
-    ) -> GeneratorRun:
-        """Picks a fitted model, from which to generate candidates (via
-        ``self._pick_fitted_model_to_gen_from``) and generates candidates
-        from it. Uses the ``model_gen_kwargs`` set on the selected ``GeneratorSpec``
-        alongside any kwargs passed in to this function (with local kwargs)
-        taking precedent.
-
-        Args:
-            n: Optional integer representing how many arms should be in the generator
-                run produced by this method. When this is ``None``, ``n`` will be
-                determined by the ``GeneratorSpec`` that we are generating from.
-            pending_observations: A map from metric name to pending
-                observations for that metric, used by some models to avoid
-                resuggesting points that are currently being evaluated.
-            model_gen_kwargs: Keyword arguments, passed through to
-                ``GeneratorSpec.gen``;these override any pre-specified in
-                ``GeneratorSpec.model_gen_kwargs``.
-
-        Returns:
-            A ``GeneratorRun`` containing the newly generated candidates.
-        """
-        model_spec = self.model_spec_to_gen_from
-        if n is None and model_spec.model_gen_kwargs:
-            # If `n` is not specified, ensure that the `None` value does not
-            # override the one set in `model_spec.model_gen_kwargs`.
-            n = model_spec.model_gen_kwargs.get("n", None)
-        return model_spec.gen(
-            n=n,
-            # For `pending_observations`, prefer the input to this function, as
-            # `pending_observations` are dynamic throughout the experiment and thus
-            # unlikely to be specified in `model_spec.model_gen_kwargs`.
-            pending_observations=pending_observations,
-            **model_gen_kwargs,
-        )
+        # No previous GR from this model.
+        return {}
 
     # ------------------------- Model selection logic helpers. -------------------------
 
@@ -640,49 +719,54 @@ class GenerationNode(SerializationMixin, SortableBase):
         if len(self.transition_criteria) == 0:
             return False, self.node_name
 
-        # for each edge in node DAG, check if the transition criterion are met, if so
+        # For each "transition edge" (set of all transition criteria that lead from
+        # current node (e.g. "node A") to another specific node ("e.g. "node B")
+        # in the node DAG:
+        # I. Check if all of the transition criteria along that edge are met; if so,
         # transition to the next node defined by that edge.
+        # II. If we did not transition along this edge, but the edge has some
+        # "generation blocking" transition criteria (ex `MaxGenerationParallelism`)
+        # that are met, raise the error associated with that criterion.
         for next_node, all_tc in self.transition_edges.items():
+            # I. Check if there are any TCs that block transition and whether all
+            # of them are met. If all fo them are met, then we should transition.
             transition_blocking = [tc for tc in all_tc if tc.block_transition_if_unmet]
-            transition_blocking_met = all(
+            all_transition_blocking_met_should_transition = transition_blocking and all(
                 tc.is_met(
                     experiment=self.experiment,
                     curr_node=self,
                 )
                 for tc in transition_blocking
             )
+            if all_transition_blocking_met_should_transition:
+                return True, next_node
 
-            # Raise any necessary generation errors: for any met criterion,
+            # II. Raise any necessary generation errors: for any met criterion,
             # call its `block_continued_generation_error` method if not all
             # transition-blocking criteria are met. The method might not raise an
             # error, depending on its implementation on given criterion, so the error
             # from the first met one that does block continued generation, will raise.
-            # TODO: @mgarrard see if we can replace MaxGenerationParallelism with a
-            # transition to self and rework this error block.
-            if not transition_blocking_met:
-                for tc in all_tc:
-                    if (
-                        tc.is_met(
-                            self.experiment,
-                            curr_node=self,
-                        )
-                        and raise_data_required_error
-                    ):
+            if raise_data_required_error:
+                generation_blocking = [tc for tc in all_tc if tc.block_gen_if_met]
+                for tc in generation_blocking:
+                    if tc.is_met(self.experiment, curr_node=self):
                         tc.block_continued_generation_error(
                             node_name=self.node_name,
-                            model_name=self.model_to_gen_from_name,
                             experiment=self.experiment,
                             trials_from_node=self.trials_from_node,
                         )
-            if len(transition_blocking) > 0 and transition_blocking_met:
-                return True, next_node
+                # TODO[@mgarrard, @drfreund] Try replacing `block_gen_if_met` with
+                # a self-transition and rework this error block.
 
         return False, self.node_name
 
-    def generator_run_limit(self, raise_generation_errors: bool = False) -> int:
-        """How many generator runs can this generation strategy generate right now,
-        assuming each one of them becomes its own trial. Only considers
-        `transition_criteria` that are TrialBasedCriterion.
+    def new_trial_limit(self, raise_generation_errors: bool = False) -> int:
+        """How many trials can this generation strategy can currently produce
+        ``GeneratorRun``-s for (with potentially multiple generator runs produced for
+        each intended trial).
+
+        NOTE: Only considers transition criteria that inherit from
+        ``TrialBasedCriterion``.
 
         Returns:
             The number of generator runs that can currently be produced, with -1
@@ -716,7 +800,6 @@ class GenerationNode(SerializationMixin, SortableBase):
                 ):
                     criterion.block_continued_generation_error(
                         node_name=self.node_name,
-                        model_name=self.model_to_gen_from_name,
                         experiment=self.experiment,
                         trials_from_node=self.trials_from_node,
                     )
@@ -741,25 +824,149 @@ class GenerationNode(SerializationMixin, SortableBase):
         )
         return f"[{tc_list}]"
 
-    def __repr__(self) -> str:
-        "String representation of this GenerationNode"
-        # add model specs
-        str_rep = f"{self.__class__.__name__}"
-        str_rep += f"(node_name='{self.node_name}'"
+    def apply_input_constructors(
+        self,
+        experiment: Experiment,
+        gen_kwargs: dict[str, Any],
+    ) -> dict[str, Union[int, ObservationFeatures | None]]:
+        # NOTE: In the future we might have to add new types ot the `Union` above
+        # or allow `Any` for the value type, but until we have more different types
+        # of input constructors, this provides a bit of additional typechecking.
+        return {
+            "n": self._determine_arms_from_node(
+                experiment=experiment,
+                gen_kwargs=gen_kwargs,
+            ),
+            "fixed_features": self._determine_fixed_features_from_node(
+                experiment=experiment,
+                gen_kwargs=gen_kwargs,
+            ),
+            "status_quo_features": self._determine_sq_features_from_node(
+                experiment=experiment,
+                gen_kwargs=gen_kwargs,
+            ),
+        }
 
-        str_rep += ", model_specs="
-        model_spec_str = (
-            ", ".join([spec._brief_repr() for spec in self.model_specs])
-            .replace("\n", " ")
-            .replace("\t", "")
+    def _determine_arms_from_node(
+        self,
+        experiment: Experiment,
+        gen_kwargs: dict[str, Any],
+    ) -> int:
+        """Calculates the number of arms to generate from the node that will be used
+        during generation.
+
+        Args:
+            gen_kwargs: The kwargs passed to the ``GenerationStrategy``'s
+                gen call, including arms_per_node: an optional map from node name to
+                the number of arms to generate from that node. If not provided, will
+                default to the number of arms specified in the node's
+                ``InputConstructors`` or n if no``InputConstructors`` are defined on
+                the node.
+
+        Returns:
+            The number of arms to generate from the node that will be used during this
+            generation via ``_gen_multiple``.
+        """
+        arms_per_node = gen_kwargs.get("arms_per_node")
+        purpose_N = (
+            gs_module.generation_node_input_constructors.InputConstructorPurpose.N
         )
-        str_rep += f"[{model_spec_str}]"
+        if arms_per_node is not None:
+            # arms_per_node provides a way to manually override input
+            # constructors. This should be used with caution, and only
+            # if you really know what you're doing. :)
+            arms_from_node = arms_per_node[self.node_name]
+        elif purpose_N not in self.input_constructors:
+            # if the node does not have an input constructor for N, then we
+            # assume a default of generating n arms from this node.
+            arms_from_node = gen_kwargs.get("n")
+            if arms_from_node is None:
+                # TODO[@mgarrard, @drfreund]: We can remove this check if we
+                # decide that generation nodes can only be used within a
+                # generation strategy; then we will need to refactor some tests.
+                if self._generation_strategy is not None:
+                    arms_from_node = self._generation_strategy.DEFAULT_N
+                else:
+                    arms_from_node = 1
+        else:
+            arms_from_node = self.input_constructors[purpose_N](
+                previous_node=self.previous_node,
+                next_node=self,
+                gs_gen_call_kwargs=gen_kwargs,
+                experiment=experiment,
+            )
 
-        str_rep += (
-            f", transition_criteria={str(self._brief_transition_criteria_repr())}"
+        return arms_from_node
+
+    def _determine_fixed_features_from_node(
+        self,
+        experiment: Experiment,
+        gen_kwargs: dict[str, Any],
+    ) -> ObservationFeatures | None:
+        """Uses the ``InputConstructors`` on the node to determine the fixed features
+        to pass into the model. If fixed_features are provided, they will take
+        precedence over the fixed_features from the node.
+
+        Args:
+            node_to_gen_from: The node from which to generate from
+            gen_kwargs: The kwargs passed to the ``GenerationStrategy``'s
+                gen call, including the fixed features passed to the ``gen`` method if
+                any.
+
+        Returns:
+            An object of ObservationFeatures that represents the fixed features to
+            pass into the model.
+        """
+        # passed_fixed_features represents the fixed features that were passed by the
+        # user to the gen method as overrides.
+        passed_fixed_features = gen_kwargs.get("fixed_features")
+        if passed_fixed_features is not None:
+            return passed_fixed_features
+
+        node_fixed_features = None
+        input_constructors_module = gs_module.generation_node_input_constructors
+        purpose_fixed_features = (
+            input_constructors_module.InputConstructorPurpose.FIXED_FEATURES
         )
+        if purpose_fixed_features in self.input_constructors:
+            node_fixed_features = self.input_constructors[purpose_fixed_features](
+                previous_node=self.previous_node,
+                next_node=self,
+                gs_gen_call_kwargs=gen_kwargs,
+                experiment=experiment,
+            )
+        return node_fixed_features
 
-        return f"{str_rep})"
+    def _determine_sq_features_from_node(
+        self,
+        experiment: Experiment,
+        gen_kwargs: dict[str, Any],
+    ) -> ObservationFeatures | None:
+        """Uses the ``InputConstructors`` on the node to determine the status quo
+        features to pass into the model.
+
+        Args:
+            node_to_gen_from: The node from which to generate from
+            gen_kwargs: The kwargs passed to the ``GenerationStrategy``'s
+                gen call.
+
+        Returns:
+            An object of ObservationFeatures that represents the status quo features
+            to pass into the model.
+        """
+        node_sq_features = None
+        input_constructors_module = gs_module.generation_node_input_constructors
+        purpose_sq_features = (
+            input_constructors_module.InputConstructorPurpose.STATUS_QUO_FEATURES
+        )
+        if purpose_sq_features in self.input_constructors:
+            node_sq_features = self.input_constructors[purpose_sq_features](
+                previous_node=self.previous_node,
+                next_node=self,
+                gs_gen_call_kwargs=gen_kwargs,
+                experiment=experiment,
+            )
+        return node_sq_features
 
 
 class GenerationStep(GenerationNode, SortableBase):
@@ -934,10 +1141,11 @@ class GenerationStep(GenerationNode, SortableBase):
                     block_transition_if_unmet=True,
                 )
             )
-        if self.max_parallelism is not None:
+        max_parallelism = self.max_parallelism
+        if max_parallelism is not None:
             transition_criteria.append(
                 MaxGenerationParallelism(
-                    threshold=self.max_parallelism,
+                    threshold=max_parallelism,
                     only_in_statuses=[TrialStatus.RUNNING],
                     block_gen_if_met=True,
                     block_transition_if_unmet=False,
@@ -975,18 +1183,27 @@ class GenerationStep(GenerationNode, SortableBase):
 
     def gen(
         self,
+        *,
+        experiment: Experiment,
         n: int | None = None,
-        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        max_gen_attempts_for_deduplication: int = MAX_GEN_ATTEMPTS,
-        arms_by_signature_for_deduplication: dict[str, Arm] | None = None,
-        **model_gen_kwargs: Any,
-    ) -> GeneratorRun:
+        pending_observations: dict[str, list[ObservationFeatures]] | None,
+        skip_fit: bool = False,
+        data: Data | None = None,
+        **gs_gen_kwargs: Any,
+    ) -> GeneratorRun | None:
         gr = super().gen(
+            experiment=experiment,
             n=n,
             pending_observations=pending_observations,
-            max_gen_attempts_for_deduplication=max_gen_attempts_for_deduplication,
-            arms_by_signature_for_deduplication=arms_by_signature_for_deduplication,
-            **model_gen_kwargs,
+            data=data,
+            skip_fit=skip_fit,
+            **gs_gen_kwargs,
         )
+        if gr is None:
+            raise AxError(
+                "This `GenerationStep`'s underlying `GenerationNode` returned "
+                "`None` from `gen`. This is an unexpected state for a "
+                "`GenerationStep`-based generation strategy."
+            )
         gr._generation_step_index = self.index
         return gr

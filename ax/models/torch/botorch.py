@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from logging import Logger
 from typing import Any, Optional
@@ -292,7 +292,7 @@ class LegacyBoTorchGenerator(TorchGenerator):
     @copy_doc(TorchGenerator.fit)
     def fit(
         self,
-        datasets: list[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
@@ -470,7 +470,7 @@ class LegacyBoTorchGenerator(TorchGenerator):
     @copy_doc(TorchGenerator.cross_validate)
     def cross_validate(
         self,
-        datasets: list[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
         use_posterior_predictive: bool = False,

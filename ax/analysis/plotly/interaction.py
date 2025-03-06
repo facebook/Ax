@@ -10,7 +10,7 @@ from logging import Logger
 
 import pandas as pd
 import torch
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 
@@ -259,6 +259,7 @@ class InteractionPlot(PlotlyAnalysis):
             level=AnalysisCardLevel.MID,
             df=sensitivity_df,
             fig=fig,
+            category=AnalysisCardCategory.INSIGHT,
         )
 
     def _get_oak_model(self, experiment: Experiment, metric_name: str) -> TorchAdapter:

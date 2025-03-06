@@ -8,7 +8,7 @@
 import json
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
@@ -57,4 +57,5 @@ class ShouldGenerateCandidates(HealthcheckAnalysis):
             ),
             level=AnalysisCardLevel.CRITICAL,
             attributes=self.attributes,
+            category=AnalysisCardCategory.DIAGNOSTIC,
         )

@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import select_metric
@@ -61,6 +61,7 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
             level=AnalysisCardLevel.HIGH,
             df=df,
             fig=fig,
+            category=AnalysisCardCategory.INSIGHT,
         )
 
 
@@ -79,6 +80,7 @@ def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:
         }
         for trial in experiment.trials.values()
         for arm in trial.arms
+        if trial.status.is_completed  # Only include completed trials
     ]
 
     return pd.DataFrame.from_records(records).dropna()

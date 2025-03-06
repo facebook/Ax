@@ -181,6 +181,7 @@ def get_benchmark_result() -> BenchmarkResult:
         ),
         inference_trace=np.ones(4),
         oracle_trace=np.zeros(4),
+        cost_trace=np.zeros(4),
         optimization_trace=np.array([3, 2, 1, 0.1]),
         score_trace=np.array([3, 2, 1, 0.1]),
         fit_time=0.1,

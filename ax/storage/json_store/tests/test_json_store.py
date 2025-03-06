@@ -14,6 +14,7 @@ from functools import partial
 import numpy as np
 import torch
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.runner import Runner
@@ -794,7 +795,7 @@ class JSONStoreTest(TestCase):
         self.assertTrue(objective_loaded.metric.lower_is_better)
 
     def test_generation_step_backwards_compatibility(self) -> None:
-        # Test that we can load a generation step with fit_on_update.
+        # Test that we can load a generation step with deprecated kwargs.
         json = {
             "__type": "GenerationStep",
             "model": {"__type": "Generators", "name": "BOTORCH_MODULAR"},
@@ -804,7 +805,12 @@ class JSONStoreTest(TestCase):
             "max_parallelism": None,
             "use_update": False,
             "enforce_num_trials": True,
-            "model_kwargs": {"fit_on_update": False, "other_kwarg": 5},
+            "model_kwargs": {
+                "fit_on_update": False,
+                "torch_dtype": torch.double,
+                "status_quo_name": "status_quo",
+                "other_kwarg": 5,
+            },
             "model_gen_kwargs": {},
             "index": -1,
             "should_deduplicate": False,
@@ -812,6 +818,74 @@ class JSONStoreTest(TestCase):
         generation_step = object_from_json(json)
         self.assertIsInstance(generation_step, GenerationStep)
         self.assertEqual(generation_step.model_kwargs, {"other_kwarg": 5})
+
+    def test_generator_run_backwards_compatibility(self) -> None:
+        # Test that we can load a generator run with deprecated kwargs.
+        json = {
+            "__type": "GeneratorRun",
+            "arms": [
+                {
+                    "__type": "Arm",
+                    "parameters": {"x1": 0.17783968150615692, "x2": 0.8026256756857038},
+                    "name": None,
+                }
+            ],
+            "weights": [1.0],
+            "optimization_config": None,
+            "search_space": None,
+            "time_created": {
+                "__type": "datetime",
+                "value": "2025-02-27 07:06:36.675760",
+            },
+            "model_predictions": None,
+            "best_arm_predictions": None,
+            "generator_run_type": None,
+            "index": None,
+            "fit_time": 0.00037617841735482216,
+            "gen_time": 0.00448690727353096,
+            "model_key": "Sobol",
+            "model_kwargs": {
+                "deduplicate": False,
+                "seed": None,
+                "torch_dtype": None,
+            },
+            "bridge_kwargs": {
+                "transforms": {},
+                "transform_configs": None,
+                "status_quo_name": None,
+                "status_quo_features": None,
+                "optimization_config": None,
+                "fit_on_update": False,
+                "fit_out_of_design": False,
+                "fit_abandoned": False,
+                "fit_tracking_metrics": True,
+                "fit_on_init": True,
+            },
+            "gen_metadata": {},
+            "model_state_after_gen": None,
+            "generation_step_index": None,
+            "candidate_metadata_by_arm_signature": None,
+            "generation_node_name": None,
+        }
+        generator_run = object_from_json(json)
+        self.assertIsInstance(generator_run, GeneratorRun)
+        self.assertEqual(
+            generator_run._model_kwargs,
+            {"deduplicate": False, "seed": None},
+        )
+        self.assertEqual(
+            generator_run._bridge_kwargs,
+            {
+                "transforms": {},
+                "transform_configs": None,
+                "status_quo_features": None,
+                "optimization_config": None,
+                "fit_out_of_design": False,
+                "fit_abandoned": False,
+                "fit_tracking_metrics": True,
+                "fit_on_init": True,
+            },
+        )
 
     def test_SobolQMCNormalSampler(self) -> None:
         # This fails default equality checks, so testing it separately.

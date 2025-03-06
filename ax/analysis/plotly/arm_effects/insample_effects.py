@@ -9,7 +9,7 @@ from itertools import chain
 from logging import Logger
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.arm_effects.utils import (
     get_predictions_by_arm,
     prepare_arm_effects_plot,
@@ -44,7 +44,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
     experiments.
 
     The DataFrame computed will contain one row per arm and the following columns:
-        - source: In-sample or model key that geneerated the candidate
+        - source: In-sample or model key that generated the candidate
         - arm_name: The name of the arm
         - mean: The observed or predicted mean of the metric specified
         - sem: The observed or predicted sem of the metric specified
@@ -106,7 +106,6 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             outcome_constraints=outcome_constraints,
             metric_name=self.metric_name,
             trial_index=self.trial_index,
-            use_modeled_effects=self.use_modeled_effects,
         )
         fig = prepare_arm_effects_plot(
             df=df, metric_name=self.metric_name, outcome_constraints=outcome_constraints
@@ -114,6 +113,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
 
         nudge = 0
         level = AnalysisCardLevel.MID
+        # Nudge the priority if the metric is important to the experiment
         if experiment.optimization_config is not None:
             if (
                 self.metric_name
@@ -123,10 +123,9 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             elif self.metric_name in experiment.optimization_config.metrics:
                 nudge = 1
 
-        level = AnalysisCardLevel.MID
         if self.use_modeled_effects:
             nudge += 1
-
+        # most recent trials should have highest priority
         max_trial_index = max(experiment.trial_indices_expecting_data, default=0)
         nudge -= min(max_trial_index - self.trial_index, 9)
 
@@ -144,6 +143,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             level=level + nudge,
             df=df,
             fig=fig,
+            category=AnalysisCardCategory.INSIGHT,
         )
         return card
 
@@ -154,21 +154,6 @@ class InSampleEffectsPlot(PlotlyAnalysis):
     @property
     def _plot_type_string(self) -> str:
         return "Modeled" if self.use_modeled_effects else "Observed"
-
-
-def _get_max_observed_trial_index(model: Adapter) -> int | None:
-    """Returns the max observed trial index to appease multitask models for prediction
-    by giving fixed features. This is not necessarily accurate and should eventually
-    come from the generation strategy.
-    """
-    observed_trial_indices = [
-        obs.features.trial_index
-        for obs in model.get_training_data()
-        if obs.features.trial_index is not None
-    ]
-    if len(observed_trial_indices) == 0:
-        return None
-    return max(observed_trial_indices)
 
 
 def _get_model(
@@ -202,28 +187,32 @@ def _get_model(
             "because it has no data.  Either the data is not available yet, "
             "or we encountered an error fetching it."
         )
-    if use_modeled_effects:
-        model = None
-        if isinstance(generation_strategy, GenerationStrategy):
-            if generation_strategy.model is None:
-                generation_strategy._fit_current_model(data=experiment.lookup_data())
-
-            model = none_throws(generation_strategy.model)
-
-        if model is None or not is_predictive(model=model):
-            logger.info("Using empirical Bayes for predictions.")
-            return Generators.EMPIRICAL_BAYES_THOMPSON(
-                experiment=experiment, data=trial_data
-            )
-
-        return model
-    else:
-        # This model just predicts observed data
+    # If we're not using modeled effects, we just want to predict observed data
+    if not use_modeled_effects:
         return Generators.THOMPSON(
             data=trial_data,
             search_space=experiment.search_space,
             experiment=experiment,
         )
+
+    model = None
+    if generation_strategy is not None:
+        if generation_strategy.model is None:
+            generation_strategy._fit_current_model(data=experiment.lookup_data())
+
+        model = none_throws(generation_strategy.model)
+
+    if model is None or not is_predictive(model=model):
+        logger.info(
+            "Using Empirical Bayes to predict effects because we were unable to find "
+            + " a suitable model on the current Generation Strategy. Current "
+            + f" Generation Strategy is: {generation_strategy} and model is: {model}"
+        )
+        return Generators.EMPIRICAL_BAYES_THOMPSON(
+            experiment=experiment, data=trial_data
+        )
+
+    return model
 
 
 def _prepare_data(
@@ -232,10 +221,9 @@ def _prepare_data(
     outcome_constraints: list[OutcomeConstraint],
     metric_name: str,
     trial_index: int,
-    use_modeled_effects: bool,
 ) -> pd.DataFrame:
     """Prepare data for plotting.  Data should include columns for:
-    - source: In-sample or model key that geneerated the candidate
+    - source: In-sample or model key that generated the candidate
     - arm_name: Name of the arm
     - mean: Predicted metric value
     - error_margin: 1.96 * predicted sem for plotting 95% CI

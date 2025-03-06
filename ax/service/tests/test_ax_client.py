@@ -188,6 +188,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
 def get_branin_optimization(
     generation_strategy: GenerationStrategy | None = None,
     torch_device: torch.device | None = None,
+    support_intermediate_data: bool = False,
 ) -> AxClient:
     ax_client = AxClient(
         generation_strategy=generation_strategy, torch_device=torch_device
@@ -199,6 +200,7 @@ def get_branin_optimization(
             {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
         ],
         objectives={"branin": ObjectiveProperties(minimize=True)},
+        support_intermediate_data=support_intermediate_data,
     )
     return ax_client
 
@@ -1580,7 +1582,7 @@ class TestAxClient(TestCase):
         ax_client = get_branin_optimization()
         for _ in range(5):
             parameterization, trial_index = ax_client.get_next_trial()
-        with self.assertRaisesRegex(DataRequiredError, "All trials for current model"):
+        with self.assertRaisesRegex(DataRequiredError, "All trials for current node"):
             ax_client.get_next_trial()
         # Check that with enforce_sequential_optimization off, we can keep
         # generating.
@@ -1700,17 +1702,25 @@ class TestAxClient(TestCase):
         self.assertTrue(math.isnan(best_trial_values[1]["branin"]["branin"]))
 
     def test_update_trial_data(self) -> None:
-        ax_client = get_branin_optimization()
+        ax_client = get_branin_optimization(support_intermediate_data=True)
         params, idx = ax_client.get_next_trial()
         # Can't update before completing.
         with self.assertRaisesRegex(ValueError, ".* not in a terminal state"):
-            ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (0, 0.0)})
-        ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
+            ax_client.update_trial_data(
+                trial_index=idx, raw_data=[({"t": 0}, {"branin": (0, 0.0)})]
+            )
+        ax_client.complete_trial(
+            trial_index=idx, raw_data=[({"t": 0}, {"branin": (0, 0.0)})]
+        )
         # Cannot complete a trial twice, should use `update_trial_data`.
         with self.assertRaisesRegex(UnsupportedError, ".* already been completed"):
-            ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
+            ax_client.complete_trial(
+                trial_index=idx, raw_data=[({"t": 0}, {"branin": (0, 0.0)})]
+            )
         # Check that the update changes the data.
-        ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (1, 0.0)})
+        ax_client.update_trial_data(
+            trial_index=idx, raw_data=[({"t": 0}, {"branin": (1, 0.0)})]
+        )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(len(df), 1)
         self.assertEqual(df["mean"].item(), 1.0)
@@ -1718,10 +1728,18 @@ class TestAxClient(TestCase):
 
         # With early stopped trial.
         params, idx = ax_client.get_next_trial()
+        ax_client.update_running_trial_with_intermediate_data(
+            idx,
+            # pyre-fixme[6]: For 2nd argument expected `Union[floating[typing...
+            raw_data=[({"t": 0}, {"branin": (branin(*params.values()), 0.0)})],
+        )
+
         ax_client.stop_trial_early(trial_index=idx)
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
-        self.assertEqual(len(df), 0)
-        ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (2, 0.0)})
+        self.assertEqual(len(df), 1)
+        ax_client.update_trial_data(
+            trial_index=idx, raw_data=[({"t": 0}, {"branin": (2, 0.0)})]
+        )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(len(df), 1)
         self.assertEqual(df["mean"].item(), 2.0)
@@ -1730,13 +1748,17 @@ class TestAxClient(TestCase):
         # Failed trial.
         params, idx = ax_client.get_next_trial()
         ax_client.log_trial_failure(trial_index=idx)
-        ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (3, 0.0)})
+        ax_client.update_trial_data(
+            trial_index=idx, raw_data=[({"t": 0}, {"branin": (3, 0.0)})]
+        )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(df["mean"].item(), 3.0)
 
         # Incomplete trial fails
         params, idx = ax_client.get_next_trial()
-        ax_client.complete_trial(trial_index=idx, raw_data={"missing_metric": (1, 0.0)})
+        ax_client.complete_trial(
+            trial_index=idx, raw_data=[({"t": 0}, {"missing_metric": (0, 0.0)})]
+        )
         self.assertTrue(ax_client.get_trial(idx).status.is_failed)
 
     def test_incomplete_multi_fidelity_trial(self) -> None:
@@ -2026,7 +2048,7 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        with self.assertRaisesRegex(DataRequiredError, "All trials for current model "):
+        with self.assertRaisesRegex(DataRequiredError, "All trials for current node"):
             run_trials_using_recommended_parallelism(ax_client, [(6, 6), (-1, 3)], 20)
 
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
@@ -2104,13 +2126,14 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
+            support_intermediate_data=True,
         )
         for _ in range(5):
             parameters, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(
                 trial_index=trial_index,
                 # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
-                raw_data=branin(*parameters.values()),
+                raw_data=[({"t": 0}, {"branin": (branin(*parameters.values()), 0.0)})],
             )
         gs = ax_client.generation_strategy
         ax_client = AxClient(db_settings=db_settings)
@@ -2144,6 +2167,11 @@ class TestAxClient(TestCase):
 
         # Attach an early stopped trial.
         parameters, trial_index = ax_client.get_next_trial()
+        ax_client.update_running_trial_with_intermediate_data(
+            trial_index=trial_index,
+            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
+            raw_data=[({"t": 0}, {"branin": (branin(*parameters.values()), 0.0)})],
+        )
         ax_client.stop_trial_early(trial_index=trial_index)
 
         # Reload experiment and check that trial status is accurate.
@@ -2656,10 +2684,7 @@ class TestAxClient(TestCase):
             num_trials=20, include_objective_thresholds=False
         )
         ax_client.generation_strategy._maybe_transition_to_next_node()
-        ax_client.generation_strategy._fit_current_model(
-            data=ax_client.experiment.lookup_data()
-        )
-
+        ax_client.generation_strategy._curr._fit(experiment=ax_client.experiment)
         with with_rng_seed(seed=RANDOM_SEED):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
 
@@ -2910,7 +2935,12 @@ class TestAxClient(TestCase):
             ],
             support_intermediate_data=True,
         )
-        _, idx = ax_client.get_next_trial()
+        parameters, idx = ax_client.get_next_trial()
+        ax_client.update_running_trial_with_intermediate_data(
+            idx,
+            # pyre-fixme[6]: For 2nd argument expected `Union[floating[typing...
+            raw_data=[({"t": 0}, {"branin": (branin(*parameters.values()), 0.0)})],
+        )
         ax_client.stop_trial_early(idx)
         trial = ax_client.get_trial(idx)
         self.assertTrue(trial.status.is_early_stopped)
@@ -2925,7 +2955,7 @@ class TestAxClient(TestCase):
             support_intermediate_data=True,
         )
         _, idx = ax_client.get_next_trial()
-        ax_client.stop_trial_early(idx)
+        ax_client.experiment.trials[idx].mark_early_stopped(unsafe=True)
 
         self.assertEqual(ax_client.estimate_early_stopping_savings(), 0)
 
@@ -2939,17 +2969,14 @@ class TestAxClient(TestCase):
             support_intermediate_data=True,
         )
 
-        exception = MaxParallelismReachedException(
-            step_index=1, model_name="test", num_running=10
-        )
+        exception = MaxParallelismReachedException(step_index=1, num_running=10)
 
         # pyre-fixme[53]: Captured variable `exception` is not annotated.
         # pyre-fixme[2]: Parameter must be annotated.
         def fake_new_trial(*args, **kwargs) -> None:
             raise exception
 
-        # pyre-fixme[16]: `Optional` has no attribute `new_trial`.
-        ax_client._experiment.new_trial = fake_new_trial
+        ax_client.experiment.new_trial = fake_new_trial
 
         # Without early stopping.
         with self.assertRaises(MaxParallelismReachedException) as cm:

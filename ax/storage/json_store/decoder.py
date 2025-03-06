@@ -85,6 +85,13 @@ _DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
     "ST_MTGP_NEHVI": "ST_MTGP",
 }
 
+# Deprecated model kwargs, to be removed from GStep / GNodes.
+_DEPRECATED_MODEL_KWARGS: tuple[str, ...] = (
+    "fit_on_update",
+    "torch_dtype",
+    "status_quo_name",
+)
+
 
 @dataclass
 class RegistryKwargs:
@@ -318,6 +325,19 @@ def generator_run_from_json(
             for k, v in object_json.items()
         }
     )
+    # Remove deprecated kwargs from model kwargs & bridge kwargs.
+    if generator_run._model_kwargs is not None:
+        generator_run._model_kwargs = {
+            k: v
+            for k, v in generator_run._model_kwargs.items()
+            if k not in _DEPRECATED_MODEL_KWARGS
+        }
+    if generator_run._bridge_kwargs is not None:
+        generator_run._bridge_kwargs = {
+            k: v
+            for k, v in generator_run._bridge_kwargs.items()
+            if k not in _DEPRECATED_MODEL_KWARGS
+        }
     generator_run._time_created = object_from_json(
         time_created_json,
         decoder_registry=decoder_registry,
@@ -727,7 +747,9 @@ def generation_step_from_json(
         generation_step_json
     )
     kwargs = generation_step_json.pop("model_kwargs", None)
-    kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
+    for k in _DEPRECATED_MODEL_KWARGS:
+        # Remove deprecated kwargs.
+        kwargs.pop(k, None)
     if kwargs is not None:
         kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
     gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
@@ -788,7 +810,9 @@ def model_spec_from_json(
 ) -> GeneratorSpec:
     """Load GeneratorSpec from JSON."""
     kwargs = model_spec_json.pop("model_kwargs", None)
-    kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
+    for k in _DEPRECATED_MODEL_KWARGS:
+        # Remove deprecated model kwargs.
+        kwargs.pop(k, None)
     if kwargs is not None:
         kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
     gen_kwargs = model_spec_json.pop("model_gen_kwargs", None)

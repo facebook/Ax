@@ -10,7 +10,7 @@ import pandas as pd
 from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from IPython.display import display, Markdown
+from IPython.display import display
 from plotly import graph_objects as go, io as pio
 
 
@@ -25,7 +25,7 @@ class PlotlyAnalysisCard(AnalysisCard):
         IPython display hook. This is called when the AnalysisCard is printed in an
         IPython environment (ex. Jupyter). Here we want to display the Plotly figure.
         """
-        display(Markdown(f"## {self.title}\n\n### {self.subtitle}"))
+        self._display_header()
         display(self.get_figure())
 
 
@@ -47,6 +47,7 @@ class PlotlyAnalysis(Analysis):
         level: int,
         df: pd.DataFrame,
         fig: go.Figure,
+        category: int,
     ) -> PlotlyAnalysisCard:
         """
         Make a PlotlyAnalysisCard from this Analysis using provided fields and
@@ -60,4 +61,5 @@ class PlotlyAnalysis(Analysis):
             level=level,
             df=df,
             blob=pio.to_json(fig),
+            category=category,
         )

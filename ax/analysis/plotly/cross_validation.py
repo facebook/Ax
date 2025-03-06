@@ -7,15 +7,17 @@
 
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import select_metric
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.cross_validation import cross_validate
-from plotly import express as px, graph_objects as go
+from plotly import graph_objects as go
 from pyre_extensions import none_throws
 
 
@@ -68,9 +70,8 @@ class CrossValidationPlot(PlotlyAnalysis):
                 reflect the how good the model used for candidate generation actually
                 is.
             trial_index: Optional trial index that the model from generation_strategy
-                was used to generate.  We should therefore only have observations from
-                trials prior to this trial index in our plot.  If this is not True, we
-                should error out.
+                was used to generate. Useful card attribute to filter to only specific
+                trial.
         """
 
         self.metric_name = metric_name
@@ -89,18 +90,129 @@ class CrossValidationPlot(PlotlyAnalysis):
         metric_name = self.metric_name or select_metric(
             experiment=generation_strategy.experiment
         )
+        # If model is not fit already, fit it
+        if generation_strategy.model is None:
+            generation_strategy._fit_current_model(None)
 
-        df = _prepare_data(
-            generation_strategy=generation_strategy,
+        return self._construct_plot(
+            adapter=none_throws(generation_strategy.model),
             metric_name=metric_name,
             folds=self.folds,
             untransform=self.untransform,
             trial_index=self.trial_index,
+            experiment=experiment,
         )
+
+    def _compute_adhoc(
+        self,
+        adapter: Adapter,
+        data: Data,
+        experiment: Experiment | None = None,
+        folds: int = -1,
+        untransform: bool = True,
+        metric_name_mapping: dict[str, str] | None = None,
+    ) -> list[PlotlyAnalysisCard]:
+        """
+        Helper method to expose adhoc cross validation plotting. This overrides the
+        default assumption that the adapter from the generation strategy should be
+        used. Only for advanced users in a notebook setting.
+
+        Args:
+            adapter: The adapter that will be assessed during cross validation.
+            data: The Data that was used to fit the model. Will be used in this
+                adhoc cross validation call to compute the cross validation for all
+                metrics in the Data object.
+            experiment: Experiment associated with this analysis. Used to determine
+                the priority of the analysis based on the metric importance in the
+                optimization config.
+            folds: Number of subsamples to partition observations into. Use -1 for
+                leave-one-out cross validation.
+            untransform: Whether to untransform the model predictions before cross
+                validating. Generators are trained on transformed data, and candidate
+                generation is performed in the transformed space. Computing the model
+                quality metric based on the cross-validation results in the
+                untransformed space may not be representative of the model that
+                is actually used for candidate generation in case of non-invertible
+                transforms, e.g., Winsorize or LogY. While the model in the
+                transformed space may not be representative of the original data in
+                regions where outliers have been removed, we have found it to better
+                reflect the how good the model used for candidate generation actually
+                is.
+            metric_name_mapping: Optional mapping from default metric names to more
+                readable metric names.
+        """
+        plots = []
+        # Get all unique metric names in the data object, CVs will be computed for
+        # all metrics in the data object
+        metric_names = list(data.df["metric_name"].unique())
+        for metric_name in metric_names:
+            # replace metric name with human readable name if mapping is provided
+            refined_metric_name = (
+                metric_name_mapping.get(metric_name, metric_name)
+                if metric_name_mapping
+                else metric_name
+            )
+            plots.append(
+                self._construct_plot(
+                    adapter=adapter,
+                    metric_name=metric_name,
+                    folds=folds,
+                    untransform=untransform,
+                    # trial_index argument is used with generation strategy since this
+                    # is an adhoc plot call, this will be None.
+                    trial_index=None,
+                    experiment=experiment,
+                    refined_metric_name=refined_metric_name,
+                )
+            )
+        return plots
+
+    def _construct_plot(
+        self,
+        adapter: Adapter,
+        metric_name: str,
+        folds: int,
+        untransform: bool,
+        trial_index: int | None,
+        experiment: Experiment | None = None,
+        refined_metric_name: str | None = None,
+    ) -> PlotlyAnalysisCard:
+        """
+        Args:
+            adapter: The adapter that will be assessed during cross validation.
+            metric_name: The name of the metric to plot.
+            folds: Number of subsamples to partition observations into. Use -1 for
+                leave-one-out cross validation.
+            untransform: Whether to untransform the model predictions before cross
+                validating. Generators are trained on transformed data, and candidate
+                generation is performed in the transformed space. Computing the model
+                quality metric based on the cross-validation results in the
+                untransformed space may not be representative of the model that
+                is actually used for candidate generation in case of non-invertible
+                transforms, e.g., Winsorize or LogY. While the model in the
+                transformed space may not be representative of the original data in
+                regions where outliers have been removed, we have found it to better
+                reflect the how good the model used for candidate generation actually
+                is.
+            trial_index: Optional trial index that the model from generation_strategy
+                was used to generate. Useful card attribute to filter to only specific
+                trial.
+            experiment: Optional Experiment associated with this analysis. Used to set
+                the priority of the analysis based on the metric importance in the
+                optimization config.
+            refined_metric_name: Optional replacement for raw metric name, useful for
+                imporving readability of the plot title.
+        """
+        df = _prepare_data(
+            adapter=adapter,
+            metric_name=metric_name,
+            folds=folds,
+            untransform=untransform,
+            trial_index=trial_index,
+        )
+
         fig = _prepare_plot(df=df)
-
-        k_folds_substring = f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
-
+        k_folds_substring = f"{folds}-fold" if folds > 0 else "leave-one-out"
         # Nudge the priority if the metric is important to the experiment
         if (
             experiment is not None
@@ -118,44 +230,34 @@ class CrossValidationPlot(PlotlyAnalysis):
         else:
             nudge = 0
 
+        # If a human readable metric name is provided, use it in the title
+        metric_title = refined_metric_name if refined_metric_name else metric_name
+
         return self._create_plotly_analysis_card(
-            title=f"Cross Validation for {metric_name}",
+            title=f"Cross Validation for {metric_title}",
             subtitle=f"Out-of-sample predictions using {k_folds_substring} CV",
             level=AnalysisCardLevel.LOW.value + nudge,
             df=df,
             fig=fig,
+            category=AnalysisCardCategory.INSIGHT,
         )
 
 
 def _prepare_data(
-    generation_strategy: GenerationStrategy,
+    adapter: Adapter,
     metric_name: str,
     folds: int,
     untransform: bool,
     trial_index: int | None,
 ) -> pd.DataFrame:
-    # If model is not fit already, fit it
-    if generation_strategy.model is None:
-        generation_strategy._fit_current_model(None)
-
     cv_results = cross_validate(
-        model=none_throws(generation_strategy.model),
+        model=adapter,
         folds=folds,
         untransform=untransform,
     )
 
     records = []
     for observed, predicted in cv_results:
-        if trial_index is not None:
-            if (
-                observed.features.trial_index is not None
-                and observed.features.trial_index >= trial_index
-            ):
-                raise UserInputError(
-                    "CrossValidationPlot was specified to be for the generation of "
-                    f"trial {trial_index}, but has observations from trial "
-                    f"{observed.features.trial_index}."
-                )
         # Find the index of the metric in observed and predicted
         observed_i = next(
             (
@@ -175,42 +277,73 @@ def _prepare_data(
                 "arm_name": observed.arm_name,
                 "observed": observed.data.means[observed_i],
                 "predicted": predicted.means[predicted_i],
-                # Take the square root of the SEM to get the standard deviation
-                "observed_sem": observed.data.covariance[observed_i][observed_i] ** 0.5,
-                "predicted_sem": predicted.covariance[predicted_i][predicted_i] ** 0.5,
+                # Compute the 95% confidence intervals for plotting purposes
+                "observed_95_ci": observed.data.covariance[observed_i][observed_i]
+                ** 0.5
+                * 1.96,
+                "predicted_95_ci": predicted.covariance[predicted_i][predicted_i] ** 0.5
+                * 1.96,
             }
             records.append(record)
     return pd.DataFrame.from_records(records)
 
 
-def _prepare_plot(df: pd.DataFrame) -> go.Figure:
-    fig = px.scatter(
-        df,
-        x="observed",
-        y="predicted",
-        error_x="observed_sem",
-        error_y="predicted_sem",
-        hover_data=["arm_name", "observed", "predicted"],
+def _prepare_plot(
+    df: pd.DataFrame,
+) -> go.Figure:
+    # Create a scatter plot using Plotly Graph Objects for more control
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=df["observed"],
+            y=df["predicted"],
+            mode="markers",
+            marker={
+                "color": "rgba(0, 0, 255, 0.3)",  # partially transparent blue
+            },
+            error_x={
+                "type": "data",
+                "array": df["observed_95_ci"],
+                "visible": True,
+                "color": "rgba(0, 0, 255, 0.2)",  # partially transparent blue
+            },
+            error_y={
+                "type": "data",
+                "array": df["predicted_95_ci"],
+                "visible": True,
+                "color": "rgba(0, 0, 255, 0.2)",  # partially transparent blue
+            },
+            text=df["arm_name"],
+            hovertemplate=(
+                "<b>Arm Name: %{text}</b><br>"
+                + "Predicted: %{y}<br>"
+                + "Observed: %{x}<br>"
+                + "<extra></extra>"  # Removes the trace name from the hover
+            ),
+            hoverlabel={
+                "bgcolor": "rgba(0, 0, 255, 0.2)",  # partially transparent blue
+                "font": {"color": "black"},
+            },
+        )
     )
 
     # Add a gray dashed line at y=x starting and ending just outside of the region of
-    # interest for reference. A well fit model should have points clustered around this
-    # line.
+    # interest for reference. A well fit model should have points clustered around
+    # this line.
     lower_bound = (
         min(
-            (df["observed"] - df["observed_sem"].fillna(0)).min(),
-            (df["predicted"] - df["predicted_sem"].fillna(0)).min(),
+            (df["observed"] - df["observed_95_ci"].fillna(0)).min(),
+            (df["predicted"] - df["predicted_95_ci"].fillna(0)).min(),
         )
-        * 0.99
+        * 0.999  # tight autozoom
     )
     upper_bound = (
         max(
-            (df["observed"] + df["observed_sem"].fillna(0)).max(),
-            (df["predicted"] + df["predicted_sem"].fillna(0)).max(),
+            (df["observed"] + df["observed_95_ci"].fillna(0)).max(),
+            (df["predicted"] + df["predicted_95_ci"].fillna(0)).max(),
         )
-        * 1.01
+        * 1.001  # tight autozoom
     )
-
     fig.add_shape(
         type="line",
         x0=lower_bound,
@@ -220,11 +353,14 @@ def _prepare_plot(df: pd.DataFrame) -> go.Figure:
         line={"color": "gray", "dash": "dot"},
     )
 
-    # Force plot to display as a square
-    fig.update_xaxes(range=[lower_bound, upper_bound], constrain="domain")
+    # Update axes with tight autozoom that remains square
+    fig.update_xaxes(
+        range=[lower_bound, upper_bound], constrain="domain", title="Actual Outcome"
+    )
     fig.update_yaxes(
+        range=[lower_bound, upper_bound],
         scaleanchor="x",
         scaleratio=1,
+        title="Predicted Outcome",
     )
-
     return fig

@@ -95,6 +95,7 @@ class MapData(Data):
     `experiment.attach_data()` (this requires a description to be set.)
     """
 
+    REQUIRED_COLUMNS = {"trial_index", "arm_name", "metric_name"}
     DEDUPLICATE_BY_COLUMNS = ["trial_index", "arm_name", "metric_name"]
 
     _map_df: pd.DataFrame
@@ -213,10 +214,22 @@ class MapData(Data):
                     # not add the duplicate.
                     unique_map_key_infos.append(mki)
 
-        df = pd.concat(
-            [pd.DataFrame(columns=[mki.key for mki in unique_map_key_infos])]
-            + [datum.map_df for datum in data]
-        ).fillna(value={mki.key: mki.default_value for mki in unique_map_key_infos})
+        # Avoid concatenating empty dataframes which logs a warning.
+        non_empty_dfs = [datum.map_df for datum in data if not datum.map_df.empty]
+        df = (
+            pd.concat(non_empty_dfs).fillna(
+                value={mki.key: mki.default_value for mki in unique_map_key_infos}
+            )
+            if len(non_empty_dfs) > 0
+            else pd.DataFrame(
+                columns=[*{col for datum in data for col in datum.required_columns()}]
+            )
+        )
+
+        # Esnure that all map keys are present in the dataframe.
+        for mki in unique_map_key_infos:
+            if mki.key not in df.columns:
+                df[mki.key] = mki.default_value
 
         if subset_metrics:
             subset_metrics_mask = df["metric_name"].isin(subset_metrics)

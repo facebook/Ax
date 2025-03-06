@@ -6,7 +6,7 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.metric_summary import MetricSummary
 from ax.core.metric import Metric
 from ax.exceptions.core import UserInputError
@@ -48,6 +48,7 @@ class TestMetricSummary(TestCase):
             "High-level summary of the `Metric`-s in this `Experiment`",
         )
         self.assertEqual(card.level, AnalysisCardLevel.MID)
+        self.assertEqual(card.category, AnalysisCardCategory.INFO)
         self.assertIsNotNone(card.blob)
         self.assertEqual(card.blob_annotation, "dataframe")
 

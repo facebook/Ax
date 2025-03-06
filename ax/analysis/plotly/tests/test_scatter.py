@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.scatter import _prepare_data, ScatterPlot
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.modelbridge.registry import Generators
@@ -38,6 +38,7 @@ class TestScatterPlot(TestCase):
             "Compare arms by their observed metric values",
         )
         self.assertEqual(card.level, AnalysisCardLevel.HIGH)
+        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
             {"arm_name", "trial_index", "branin_a", "branin_b", "is_optimal"},
@@ -50,37 +51,59 @@ class TestScatterPlot(TestCase):
         experiment = get_experiment_with_observations(
             observations=observations,
         )
+        # Mark one trial as failed to ensure that it gets filtered out.
+        experiment.trials[9].mark_failed(unsafe=True)
 
-        data = _prepare_data(
-            experiment=experiment, x_metric_name="m1", y_metric_name="m2"
-        )
+        with self.subTest("Test no trial filter applied"):
+            data = _prepare_data(
+                experiment=experiment, x_metric_name="m1", y_metric_name="m2"
+            )
 
-        # Ensure that the data is in the correct shape
-        self.assertEqual(len(data), len(observations))
-        self.assertEqual(
-            {*data.columns},
-            {
-                "trial_index",
-                "arm_name",
-                "m1",
-                "m2",
-                "is_optimal",
-            },
-        )
+            # Ensure that the data is in the correct shape and only completed trials
+            # have rows in the dataframe.
+            self.assertEqual(
+                len(data),
+                len(
+                    [
+                        trial
+                        for trial in experiment.trials.values()
+                        if trial.status.is_completed
+                    ]
+                ),
+            )
+            self.assertEqual(
+                {*data.columns},
+                {
+                    "trial_index",
+                    "arm_name",
+                    "m1",
+                    "m2",
+                    "is_optimal",
+                },
+            )
 
-        # Check data is correct
-        for i in range(len(observations)):
-            row = data.iloc[i]
-            self.assertEqual(row["trial_index"], i)
-            self.assertEqual(row["arm_name"], f"{i}_0")
-            self.assertEqual(row["m1"], observations[i][0])
-            self.assertEqual(row["m2"], observations[i][1])
+            # Check data is correct, ignoring the last trial since it was failed.
+            for i in range(len(observations) - 1):
+                row = data.iloc[i]
+                self.assertEqual(row["trial_index"], i)
+                self.assertEqual(row["arm_name"], f"{i}_0")
+                self.assertEqual(row["m1"], observations[i][0])
+                self.assertEqual(row["m2"], observations[i][1])
 
-            # Ensure that the optimal point is labeled correctly
-            if i == len(observations) - 1:
-                self.assertTrue(row["is_optimal"])
-            else:
-                self.assertFalse(row["is_optimal"])
+                # Ensure that the optimal point is labeled correctly
+                if i == len(observations) - 2:
+                    self.assertTrue(row["is_optimal"])
+                else:
+                    self.assertFalse(row["is_optimal"])
+        with self.subTest("Test trial filter applied"):
+            data = _prepare_data(
+                experiment=experiment,
+                x_metric_name="m1",
+                y_metric_name="m2",
+                trial_index=3,
+            )
+            self.assertEqual(len(data), 1)
+            self.assertEqual(data["trial_index"].item(), 3)
 
     def test_it_only_has_observations_with_data_for_both_metrics(self) -> None:
         # GIVEN an experiment with multiple trials and metrics

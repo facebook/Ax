@@ -156,3 +156,36 @@ class MapKeyToFloatTransformTest(TestCase):
             obsf,
             ObservationFeatures(parameters={MapKeyToFloat.DEFAULT_MAP_KEY: p.upper}),
         )
+
+    def test_with_different_map_key(self) -> None:
+        observations = [
+            Observation(
+                features=ObservationFeatures(
+                    trial_index=0,
+                    parameters={"width": width, "height": height},
+                    metadata={"timestamp": timestamp},
+                ),
+                data=ObservationData(
+                    metric_names=[], means=np.array([]), covariance=np.empty((0, 0))
+                ),
+            )
+            for width, height, timestamp in (
+                (0.0, 1.0, 12345.0),
+                (0.1, 0.9, 12346.0),
+            )
+        ]
+        t = MapKeyToFloat(
+            observations=observations,
+            config={"parameters": {"timestamp": {"log_scale": False}}},
+        )
+        self.assertEqual(t.parameters, {"timestamp": {"log_scale": False}})
+        self.assertEqual(len(t._parameter_list), 1)
+        tf_obs_ft = t.transform_observation_features(
+            [obs.features for obs in observations]
+        )
+        self.assertEqual(
+            tf_obs_ft[0].parameters, {"width": 0.0, "height": 1.0, "timestamp": 12345.0}
+        )
+        self.assertEqual(
+            tf_obs_ft[1].parameters, {"width": 0.1, "height": 0.9, "timestamp": 12346.0}
+        )

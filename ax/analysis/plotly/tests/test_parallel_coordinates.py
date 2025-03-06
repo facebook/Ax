@@ -6,7 +6,7 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.parallel_coordinates import (
     _get_parameter_dimension,
     ParallelCoordinatesPlot,
@@ -37,6 +37,7 @@ class TestParallelCoordinatesPlot(TestCase):
             "View arm parameterizations with their respective metric values",
         )
         self.assertEqual(card.level, AnalysisCardLevel.HIGH)
+        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual({*card.df.columns}, {"arm_name", "branin", "x1", "x2"})
         self.assertIsNotNone(card.blob)
         self.assertEqual(card.blob_annotation, "plotly")
@@ -44,7 +45,7 @@ class TestParallelCoordinatesPlot(TestCase):
         analysis_no_metric = ParallelCoordinatesPlot()
         _ = analysis_no_metric.compute(experiment=experiment)
 
-    def testselect_metric(self) -> None:
+    def test_select_metric(self) -> None:
         experiment = get_branin_experiment()
         experiment_no_optimization_config = get_branin_experiment(
             has_optimization_config=False
