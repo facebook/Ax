@@ -6,8 +6,8 @@
 
 # pyre-strict
 
-from ax.preview.api.client import Client
-from ax.preview.api.configs import (
+from ax.api.client import Client
+from ax.api.configs import (
     ChoiceParameterConfig,
     ExperimentConfig,
     GenerationStrategyConfig,
@@ -17,7 +17,7 @@ from ax.preview.api.configs import (
     RangeParameterConfig,
     StorageConfig,
 )
-from ax.preview.api.types import TOutcome, TParameterization
+from ax.api.types import TOutcome, TParameterization
 
 __all__ = [
     "Client",

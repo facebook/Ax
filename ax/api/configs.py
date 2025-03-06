@@ -10,9 +10,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from ax.generation_strategy.dispatch_utils import GenerationMethod
+from ax.api.types import TParameterValue
 
-from ax.preview.api.types import TParameterValue
+from ax.generation_strategy.dispatch_utils import GenerationMethod
 from ax.storage.registry_bundle import RegistryBundleBase
 
 
