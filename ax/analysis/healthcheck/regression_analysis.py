@@ -20,6 +20,7 @@ from ax.analysis.healthcheck.regression_detection_utils import (
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from pyre_extensions import none_throws
 
 
@@ -41,7 +42,6 @@ class RegressionAnalysis(HealthcheckAnalysis):
                 Regressions are defined as the arms that have a probability of
                 regression above this threshold.
 
-        Returns None
         """
         self.prob_threshold = prob_threshold
 
@@ -49,6 +49,7 @@ class RegressionAnalysis(HealthcheckAnalysis):
         self,
         experiment: Experiment | None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> HealthcheckAnalysisCard:
         r"""
         Detect the regressing arms for all trials that have data.
@@ -56,6 +57,7 @@ class RegressionAnalysis(HealthcheckAnalysis):
         Args:
             experiment: Ax experiment.
             generation_strategy: Ax generation strategy.
+            adapter: Ax modelbridge adapter
 
         Returns:
             A HealthcheckAnalysisCard object with the information on regressing arms

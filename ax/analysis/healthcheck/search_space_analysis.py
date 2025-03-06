@@ -25,6 +25,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from pyre_extensions import assert_is_instance
 
 
@@ -55,17 +56,8 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> HealthcheckAnalysisCard:
-        r"""
-        Args:
-            experiment: Ax experiment.
-            generation_strategy: Ax generation strategy.
-
-        Returns:
-            A HealthcheckAnalysisCard object with the information on the parameters
-            and parameter constraints whose boundaries are recommended to be expanded.
-        """
-
         if experiment is None:
             raise UserInputError("SearchSpaceAnalysis requires an Experiment.")
 
