@@ -35,6 +35,7 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
 )
 from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.preview.api.configs import (
     ExperimentConfig,
@@ -50,7 +51,6 @@ from ax.preview.api.utils.instantiation.from_string import (
     optimization_config_from_string,
 )
 from ax.preview.api.utils.storage import db_settings_from_storage_config
-from ax.preview.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
@@ -179,7 +179,21 @@ class Client(WithDBSettingsBase):
         """
 
         generation_strategy = choose_generation_strategy(
-            gs_config=generation_strategy_config
+            method=generation_strategy_config.method,
+            initialization_budget=generation_strategy_config.initialization_budget,
+            initialization_random_seed=(
+                generation_strategy_config.initialization_random_seed
+            ),
+            use_existing_trials_for_initialization=(
+                generation_strategy_config.use_existing_trials_for_initialization
+            ),
+            min_observed_initialization_trials=(
+                generation_strategy_config.min_observed_initialization_trials
+            ),
+            allow_exceeding_initialization_budget=(
+                generation_strategy_config.allow_exceeding_initialization_budget
+            ),
+            torch_device=generation_strategy_config.torch_device,
         )
 
         # Necessary for storage implications, may be removed in the future
