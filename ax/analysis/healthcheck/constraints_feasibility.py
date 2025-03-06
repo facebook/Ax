@@ -111,7 +111,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         )
 
         if generation_strategy.model is None:
-            generation_strategy._fit_current_model(data=experiment.lookup_data())
+            generation_strategy._curr._fit(experiment=experiment)
 
         model = none_throws(generation_strategy.model)
         if not is_predictive(model=model):
