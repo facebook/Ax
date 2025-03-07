@@ -192,7 +192,7 @@ def object_attribute_dicts_find_unequal_fields(
         if field == "_experiment":
             # Prevent infinite loop when checking equality of Trials (on Experiment,
             # with back-pointer), GenSteps (on GenerationStrategy), AnalysisRun-s
-            # (on AnalysisScheduler).
+            # (on AnalysisOrchestrator).
             if one_val is None or other_val is None:
                 equal = one_val is None and other_val is None
             else:
@@ -201,14 +201,14 @@ def object_attribute_dicts_find_unequal_fields(
         elif field == "_generation_strategy":
             # Prevent infinite loop when checking equality of Trials (on Experiment,
             # with back-pointer), GenSteps (on GenerationStrategy), AnalysisRun-s
-            # (on AnalysisScheduler).
+            # (on AnalysisOrchestrator).
             if one_val is None or other_val is None:
                 equal = one_val is None and other_val is None
             else:
                 # We compare `name` because it is set dynimically in
                 # some cases (see `GenerationStrategy.name` attribute).
                 equal = one_val.name == other_val.name
-        elif field == "analysis_scheduler":
+        elif field == "analysis_orchestrator":
             # prevent infinite loop when checking equality of analysis runs
             equal = one_val is other_val is None or (one_val.db_id == other_val.db_id)
         elif field == "_db_id":

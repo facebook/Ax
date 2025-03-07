@@ -36,7 +36,7 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     "_model",
     "_seen_trial_indices_by_status",
     "_steps",
-    "analysis_scheduler",
+    "analysis_orchestrator",
     "_nodes",
     # For auxiliary experiments, we don't expect any updates, so we
     # don't need to recur into them during `copy_db_ids`.

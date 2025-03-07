@@ -245,10 +245,10 @@ Model Fit Metrics
 Testing
 -------
 
-Backend Scheduler
+Backend Orchestrator
 ~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.utils.testing.backend_scheduler
+.. automodule:: ax.utils.testing.backend_orchestrator
     :members:
     :undoc-members:
     :show-inheritance:
