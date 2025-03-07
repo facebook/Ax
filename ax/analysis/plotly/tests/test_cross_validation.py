@@ -6,7 +6,10 @@
 # pyre-strict
 
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
-from ax.analysis.plotly.cross_validation import CrossValidationPlot
+from ax.analysis.plotly.cross_validation import (
+    cross_validation_adhoc_compute,
+    CrossValidationPlot,
+)
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.registry import Generators
@@ -78,6 +81,21 @@ class TestCrossValidationPlot(TestCase):
                 card.df["arm_name"].unique(),
             )
 
+    def test_raises_if_no_metric_name_and_no_exp(self) -> None:
+        analysis = CrossValidationPlot()
+        with self.subTest("raises if no metric name and no experiment"):
+            with self.assertRaisesRegex(
+                UserInputError, "attempting to infer metric name"
+            ):
+                analysis.compute(generation_strategy=self.client.generation_strategy)
+        with self.subTest("infer from experiment"):
+            card = analysis.compute(
+                generation_strategy=self.client.generation_strategy,
+                experiment=self.client.experiment,
+            )
+            # validates that metric name was successfully inferred from exp
+            self.assertEqual(card.title, "Cross Validation for bar")
+
     def test_it_can_specify_trial_index_correctly(self) -> None:
         analysis = CrossValidationPlot(metric_name="bar", trial_index=9)
         card = analysis.compute(generation_strategy=self.client.generation_strategy)
@@ -99,7 +117,7 @@ class TestCrossValidationPlot(TestCase):
         adapter = Generators.BOTORCH_MODULAR(
             experiment=self.client.experiment, data=data
         )
-        analysis = CrossValidationPlot()._compute_adhoc(
+        analysis = cross_validation_adhoc_compute(
             adapter=adapter, data=data, metric_name_mapping=metric_mapping
         )
         self.assertEqual(len(analysis), 1)
