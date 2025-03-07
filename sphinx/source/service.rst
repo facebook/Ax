@@ -33,15 +33,15 @@ Interactive Loop
     :show-inheritance:
 
 
-Scheduler
+Orchestrator
 ~~~~~~~~~
 
-.. automodule:: ax.service.scheduler
+.. automodule:: ax.service.orchestrator
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. automodule:: ax.service.utils.scheduler_options
+.. automodule:: ax.service.utils.orchestrator_options
     :members:
     :undoc-members:
     :show-inheritance:

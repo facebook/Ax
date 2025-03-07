@@ -166,7 +166,7 @@ class BenchmarkRunner(Runner):
             (in ``TParameterization`` format) and returns the runtime of a step.
         max_concurrency: The maximum number of trials that can be running at a
             given time. Typically, this is ``max_pending_trials`` from the
-            ``scheduler_options`` on the ``BenchmarkMethod``.
+            ``orchestrator_options`` on the ``BenchmarkMethod``.
     """
 
     test_function: BenchmarkTestFunction

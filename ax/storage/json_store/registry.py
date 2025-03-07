@@ -107,7 +107,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
+from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.storage.json_store.decoders import (
     class_from_json,
     default_from_json,
@@ -370,6 +370,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Objective": Objective,
     "ObjectiveThreshold": ObjectiveThreshold,
     "OptimizationConfig": OptimizationConfig,
+    "OrchestratorOptions": OrchestratorOptions,
     "OrEarlyStoppingStrategy": OrEarlyStoppingStrategy,
     "OrderConstraint": OrderConstraint,
     "OutcomeConstraint": OutcomeConstraint,
@@ -390,7 +391,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "RobustSearchSpace": RobustSearchSpace,
     "Round": Round,
     "ScalarizedObjective": ScalarizedObjective,
-    "SchedulerOptions": SchedulerOptions,
+    "SchedulerOptions": OrchestratorOptions,
     "SearchSpace": SearchSpace,
     "SimTrial": SimTrial,
     "SingleDiagnosticBestModelSelector": SingleDiagnosticBestModelSelector,

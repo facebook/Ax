@@ -27,7 +27,11 @@ from ax.modelbridge.cross_validation import (
 )
 from ax.modelbridge.registry import Generators
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.scheduler import get_fitted_model_bridge, Scheduler, SchedulerOptions
+from ax.service.orchestrator import (
+    get_fitted_model_bridge,
+    Orchestrator,
+    OrchestratorOptions,
+)
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import _entropy_via_kde, entropy_of_observations
@@ -68,18 +72,18 @@ class TestAdapterFitMetrics(TestCase):
         )
 
     def test_model_fit_metrics(self) -> None:
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=self.branin_experiment,
             generation_strategy=self.generation_strategy,
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
         # need to run some trials to initialize the Adapter
-        scheduler.run_n_trials(max_trials=NUM_SOBOL + 1)
+        orchestrator.run_n_trials(max_trials=NUM_SOBOL + 1)
 
-        model_bridge = get_fitted_model_bridge(scheduler)
+        model_bridge = get_fitted_model_bridge(orchestrator)
         self.assertEqual(len(model_bridge.get_training_data()), NUM_SOBOL)
 
-        model_bridge = get_fitted_model_bridge(scheduler, force_refit=True)
+        model_bridge = get_fitted_model_bridge(orchestrator, force_refit=True)
         self.assertEqual(len(model_bridge.get_training_data()), NUM_SOBOL + 1)
 
         # testing compute_model_fit_metrics_from_modelbridge with default metrics
