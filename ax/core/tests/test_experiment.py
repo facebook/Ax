@@ -1326,24 +1326,19 @@ class ExperimentTest(TestCase):
         experiment = get_experiment_with_observations(
             observations=[[1.0, 2.0], [3.0, 4.0]]
         )
+        experiment.new_trial(generator_run=experiment.trials[0].generator_runs[0])
         df = experiment.to_df()
-        xs = [
-            experiment.trials[0].arms[0].parameters["x"],
-            experiment.trials[1].arms[0].parameters["x"],
-        ]
-        ys = [
-            experiment.trials[0].arms[0].parameters["y"],
-            experiment.trials[1].arms[0].parameters["y"],
-        ]
+        xs = [experiment.trials[i].arms[0].parameters["x"] for i in range(3)]
+        ys = [experiment.trials[i].arms[0].parameters["y"] for i in range(3)]
         expected_df = pd.DataFrame.from_dict(
             {
-                "trial_index": [0, 1],
-                "arm_name": ["0_0", "1_0"],
-                "trial_status": ["COMPLETED", "COMPLETED"],
-                "generation_method": ["Sobol", "Sobol"],
-                "name": ["0", "1"],  # the metadata
-                "m1": [1.0, 3.0],
-                "m2": [2.0, 4.0],
+                "trial_index": [0, 1, 2],
+                "arm_name": ["0_0", "1_0", "0_0"],
+                "trial_status": ["COMPLETED", "COMPLETED", "CANDIDATE"],
+                "generation_method": ["Sobol", "Sobol", "Sobol"],
+                "name": ["0", "1", None],  # the metadata
+                "m1": [1.0, 3.0, None],
+                "m2": [2.0, 4.0, None],
                 "x": xs,
                 "y": ys,
             }
