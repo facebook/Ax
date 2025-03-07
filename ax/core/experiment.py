@@ -1856,10 +1856,13 @@ class Experiment(Base):
                 for metric in self.metrics.keys():
                     try:
                         observed_means[metric] = data_df[
-                            (data_df["arm_name"] == arm.name)
+                            (data_df["trial_index"] == index)
+                            & (data_df["arm_name"] == arm.name)
                             & (data_df["metric_name"] == metric)
                         ]["mean"].item()
-                    except ValueError:
+                    except (ValueError, KeyError):
+                        # ValueError if there is no row for the (trial, arm, metric).
+                        # KeyError if the df is empty and missing one of the columns.
                         observed_means[metric] = None
 
                 # Find the arm's associated generation method from the trial via the
