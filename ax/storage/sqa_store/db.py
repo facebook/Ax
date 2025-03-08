@@ -268,3 +268,58 @@ def session_scope() -> Generator[Session, None, None]:
         raise
     finally:
         session.close()
+
+
+@contextmanager
+def session_context(
+    url: str | None = None,
+    creator: Callable | None = None,
+    echo: bool = False,
+    **kwargs: Any,
+) -> Generator[None, None, None]:
+    """
+    Context manager that sets up a temporary session factory.
+
+    Args:
+        url: a database url that can include username, password, hostname, database name
+            as well as optional keyword arguments for additional configuration.
+            e.g. `dialect+driver://username:password@host:port/database`.
+            Either this argument or `creator` argument must be specified.
+        creator: a callable which returns a DBAPI connection.
+            Either this argument or `url` argument must be specified.
+        echo: if True, logging for engine is enabled.
+        **kwargs: keyword arguments passed to `create_mysql_engine_from_creator`
+
+    Yields:
+        None
+    """
+    global SESSION_FACTORY
+
+    # Preserve old session factory so we can restore it after the context manager
+    old_session = SESSION_FACTORY
+
+    # Create a new session factory for the test tier
+    if url is not None:
+        engine = create_mysql_engine_from_url(url=url, echo=echo, **kwargs)
+    elif creator is not None:
+        engine = create_mysql_engine_from_creator(creator=creator, echo=echo, **kwargs)
+    else:
+        raise ValueError("Must specify either `url` or `creator`.")
+
+    # Overwrite the old session factory with a new one for the test tier
+    session_factory = scoped_session(
+        sessionmaker(bind=engine, expire_on_commit=EXPIRE_ON_COMMIT)
+    )
+    SESSION_FACTORY = session_factory
+
+    try:
+        yield
+        session_factory.commit()
+    except Exception:
+        session_factory.rollback()
+        raise
+    finally:
+        # Restore the old session factory
+        session_factory.close()
+        session_factory.bind.dispose()
+        SESSION_FACTORY = old_session
