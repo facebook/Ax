@@ -1096,7 +1096,9 @@ class Encoder:
             name=analysis_card.name,
             title=analysis_card.title,
             subtitle=analysis_card.subtitle,
-            level=analysis_card.level,
+            # AnalysisCard.level is an int, but is also set as an AnalysisCardLevel
+            # enum. Directly saving the enum leads to MySQL warnings.
+            level=int(analysis_card.level),
             dataframe_json=analysis_card.df.to_json(),
             blob=analysis_card.blob,
             blob_annotation=analysis_card.blob_annotation,
