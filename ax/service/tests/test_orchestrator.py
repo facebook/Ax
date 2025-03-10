@@ -16,8 +16,8 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.registry import Generators
-from ax.service.tests.scheduler_test_utils import (
-    AxSchedulerTestCase,
+from ax.service.tests.orchestrator_test_utils import (
+    AxOrchestratorTestCase,
     BrokenRunnerRuntimeError,
     BrokenRunnerValueError,
     InfinitePollRunner,
@@ -39,24 +39,24 @@ from ax.utils.testing.core_stubs import (
 )
 
 
-class TestAxScheduler(AxSchedulerTestCase):
-    """IMPORTANT! This class inherits AxSchedulerTestCase and will also
+class TestAxOrchestrator(AxOrchestratorTestCase):
+    """IMPORTANT! This class inherits AxOrchestratorTestCase and will also
     run its associated tests.
     """
 
     pass
 
 
-class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
-    """IMPORTANT! This class inherits AxSchedulerTestCase and will also
+class TestAxOrchestratorMultiTypeExperiment(AxOrchestratorTestCase):
+    """IMPORTANT! This class inherits AxOrchestratorTestCase and will also
     run its associated tests.
     """
 
-    EXPECTED_SCHEDULER_REPR: str = (
-        "Scheduler(experiment=MultiTypeExperiment(branin_test_experiment), "
+    EXPECTED_orchestrator_REPR: str = (
+        "Orchestrator(experiment=MultiTypeExperiment(branin_test_experiment), "
         "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
         "steps=[Sobol for 5 trials, BoTorch for subsequent trials]), "
-        "options=SchedulerOptions(max_pending_trials=10, "
+        "options=OrchestratorOptions(max_pending_trials=10, "
         "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
         "total_trials=0, tolerated_trial_failure_rate=0.2, "
         "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "
@@ -107,7 +107,7 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
             search_space=get_branin_search_space()
         )
         self.two_sobol_steps_GS = GenerationStrategy(  # Contrived GS to ensure
-            steps=[  # that `DataRequiredError` is property handled in scheduler.
+            steps=[  # that `DataRequiredError` is property handled in orchestrator.
                 GenerationStep(  # This error is raised when not enough trials
                     model=Generators.SOBOL,  # have been observed to proceed to next
                     num_trials=5,  # geneneration step.
@@ -119,13 +119,13 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
                 ),
             ]
         )
-        # GS to force the scheduler to poll completed trials after each ran trial.
+        # GS to force the Orchestrator to poll completed trials after each ran trial.
         self.sobol_GS_no_parallelism = GenerationStrategy(
             steps=[
                 GenerationStep(model=Generators.SOBOL, num_trials=-1, max_parallelism=1)
             ]
         )
-        self.scheduler_options_kwargs: dict[str, str | None] = {
+        self.orchestrator_options_kwargs: dict[str, str | None] = {
             "mt_experiment_trial_type": "type1"
         }
 
@@ -161,11 +161,11 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
         super().test_run_trials_and_yield_results_with_early_stopper()
 
-    def test_scheduler_with_metric_with_new_data_after_completion(self) -> None:
+    def test_orchestrator_with_metric_with_new_data_after_completion(self) -> None:
         self.branin_experiment.update_runner(
             "type1", SyntheticRunnerWithPredictableStatusPolling()
         )
-        super().test_scheduler_with_metric_with_new_data_after_completion()
+        super().test_orchestrator_with_metric_with_new_data_after_completion()
 
     def test_poll_and_process_results_with_reasons(self) -> None:
         self.branin_experiment.update_runner(
@@ -177,11 +177,11 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
         super().test_generate_candidates_works_for_iteration()
 
-    def test_scheduler_with_odd_index_early_stopping_strategy(self) -> None:
+    def test_orchestrator_with_odd_index_early_stopping_strategy(self) -> None:
         self.branin_timestamp_map_metric_experiment.update_runner(
             "type1", RunnerWithEarlyStoppingStrategy()
         )
-        super().test_scheduler_with_odd_index_early_stopping_strategy()
+        super().test_orchestrator_with_odd_index_early_stopping_strategy()
 
     def test_fetch_and_process_trials_data_results_failed_non_objective(
         self,
@@ -196,7 +196,7 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
         self, msg: str | None = None
     ) -> None:
         # test if a MultiTypeExperiment with `mt_experiment_trial_type=None`
-        self.scheduler_options_kwargs["mt_experiment_trial_type"] = None
+        self.orchestrator_options_kwargs["mt_experiment_trial_type"] = None
         super().test_validate_options_not_none_mt_trial_type(
             msg="Must specify `mt_experiment_trial_type` for MultiTypeExperiment."
         )

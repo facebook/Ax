@@ -41,9 +41,9 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TParamValue
 from ax.core.utils import get_model_times
-from ax.service.scheduler import Scheduler
+from ax.service.orchestrator import Orchestrator
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
+from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
 from pyre_extensions import assert_is_instance
@@ -94,7 +94,7 @@ def get_benchmark_runner(
             (used to generate data) and ``step_runtime_function`` (used to
             determine timing for the simulator).
         max_concurrency: The maximum number of trials that can be run concurrently.
-            Typically, ``max_pending_trials`` from ``SchedulerOptions``, which are
+            Typically, ``max_pending_trials`` from ``OrchestratorOptions``, which are
             stored on the ``BenchmarkMethod``.
     """
 
@@ -173,26 +173,26 @@ def get_oracle_experiment_from_params(
     return experiment
 
 
-def get_benchmark_scheduler_options(
+def get_benchmark_orchestrator_options(
     method: BenchmarkMethod,
     include_sq: bool = False,
     logging_level: int = DEFAULT_LOG_LEVEL,
-) -> SchedulerOptions:
+) -> OrchestratorOptions:
     """
-    Get the ``SchedulerOptions`` for the given ``BenchmarkMethod``.
+    Get the ``OrchestratorOptions`` for the given ``BenchmarkMethod``.
 
     Args:
         method: The ``BenchmarkMethod``.
         include_sq: Whether to include the status quo in each trial.
 
     Returns:
-        ``SchedulerOptions``
+        ``OrchestratorOptions``
     """
     if method.batch_size is None or method.batch_size > 1 or include_sq:
         trial_type = TrialType.BATCH_TRIAL
     else:
         trial_type = TrialType.TRIAL
-    return SchedulerOptions(
+    return OrchestratorOptions(
         # No new candidates can be generated while any are pending.
         # If batched, an entire batch must finish before the next can be
         # generated.
@@ -372,7 +372,7 @@ def benchmark_replication(
     method: BenchmarkMethod,
     seed: int,
     strip_runner_before_saving: bool = True,
-    scheduler_logging_level: int = DEFAULT_LOG_LEVEL,
+    orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> BenchmarkResult:
     """
     Run one benchmarking replication (equivalent to one optimization loop).
@@ -389,7 +389,7 @@ def benchmark_replication(
         seed: The seed to use for this replication.
         strip_runner_before_saving: Whether to strip the runner from the
             experiment before saving it. This enables serialization.
-        scheduler_logging_level: If >INFO, logs will only appear when unexpected
+        orchestrator_logging_level: If >INFO, logs will only appear when unexpected
             things happen. If INFO, logs will update when a trial is completed
             and when an early stopping strategy, if present, decides whether or
             not to continue a trial. If DEBUG, logs additionaly include
@@ -403,13 +403,13 @@ def benchmark_replication(
         if problem.status_quo_params is None
         else Arm(name="status_quo", parameters=problem.status_quo_params)
     )
-    scheduler_options = get_benchmark_scheduler_options(
+    orchestrator_options = get_benchmark_orchestrator_options(
         method=method,
         include_sq=sq_arm is not None,
-        logging_level=scheduler_logging_level,
+        logging_level=orchestrator_logging_level,
     )
     runner = get_benchmark_runner(
-        problem=problem, max_concurrency=scheduler_options.max_pending_trials
+        problem=problem, max_concurrency=orchestrator_options.max_pending_trials
     )
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",
@@ -420,10 +420,10 @@ def benchmark_replication(
         auxiliary_experiments_by_purpose=problem.auxiliary_experiments_by_purpose,
     )
 
-    scheduler = Scheduler(
+    orchestrator = Orchestrator(
         experiment=experiment,
         generation_strategy=method.generation_strategy.clone_reset(),
-        options=scheduler_options,
+        options=orchestrator_options,
     )
 
     # Each of these lists is added to when a trial completes or stops early.
@@ -447,11 +447,11 @@ def benchmark_replication(
         )
         start = monotonic()
         # These next several lines do the same thing as
-        # `scheduler.run_n_trials`, but
+        # `orchestrator.run_n_trials`, but
         # decrement the timeout with each step, so that the timeout refers to
         # the total time spent in the optimization loop, not time per trial.
-        scheduler.poll_and_process_results()
-        for _ in scheduler.run_trials_and_yield_results(
+        orchestrator.poll_and_process_results()
+        for _ in orchestrator.run_trials_and_yield_results(
             max_trials=problem.num_trials,
             timeout_hours=remaining_hours,
         ):
@@ -472,7 +472,7 @@ def benchmark_replication(
                     logger.warning("The optimization loop timed out.")
                     break
 
-        scheduler.summarize_final_result()
+        orchestrator.summarize_final_result()
 
     inference_trace = _get_inference_trace_from_params(
         best_params_list=best_params_list,
@@ -500,9 +500,9 @@ def benchmark_replication(
         experiment.runner = None
 
     return BenchmarkResult(
-        name=scheduler.experiment.name,
+        name=orchestrator.experiment.name,
         seed=seed,
-        experiment=scheduler.experiment,
+        experiment=orchestrator.experiment,
         oracle_trace=oracle_trace,
         inference_trace=inference_trace,
         optimization_trace=optimization_trace,
@@ -565,7 +565,7 @@ def compute_baseline_value_from_sobol(
             problem=dummy_problem,
             method=method,
             seed=i,
-            scheduler_logging_level=WARNING,
+            orchestrator_logging_level=WARNING,
         )
         values[i] = result.optimization_trace[-1]
 
@@ -576,7 +576,7 @@ def benchmark_one_method_problem(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seeds: Iterable[int],
-    scheduler_logging_level: int = DEFAULT_LOG_LEVEL,
+    orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> AggregatedBenchmarkResult:
     return AggregatedBenchmarkResult.from_benchmark_results(
         results=[
@@ -584,7 +584,7 @@ def benchmark_one_method_problem(
                 problem=problem,
                 method=method,
                 seed=seed,
-                scheduler_logging_level=scheduler_logging_level,
+                orchestrator_logging_level=orchestrator_logging_level,
             )
             for seed in seeds
         ]
@@ -595,7 +595,7 @@ def benchmark_multiple_problems_methods(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
     seeds: Iterable[int],
-    scheduler_logging_level: int = DEFAULT_LOG_LEVEL,
+    orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> list[AggregatedBenchmarkResult]:
     """
     For each `problem` and `method` in the Cartesian product of `problems` and
@@ -608,7 +608,7 @@ def benchmark_multiple_problems_methods(
             problem=p,
             method=m,
             seeds=seeds,
-            scheduler_logging_level=scheduler_logging_level,
+            orchestrator_logging_level=orchestrator_logging_level,
         )
         for p, m in product(problems, methods)
     ]

@@ -51,7 +51,7 @@ from ax.preview.api.utils.instantiation.from_string import (
 )
 from ax.preview.api.utils.storage import db_settings_from_storage_config
 from ax.preview.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.service.scheduler import Scheduler, SchedulerOptions
+from ax.service.orchestrator import Orchestrator, OrchestratorOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.decoder import (
@@ -578,17 +578,17 @@ class Client(WithDBSettingsBase):
 
     def run_trials(self, maximum_trials: int, options: OrchestrationConfig) -> None:
         """
-        Run maximum_trials trials in a loop by creating an ephemeral Scheduler under
+        Run maximum_trials trials in a loop by creating an ephemeral Orchestrator under
         the hood using the Experiment, GenerationStrategy, Metrics, and Runner attached
         to this AxClient along with the provided OrchestrationConfig.
 
         Saves to database on completion if storage_config is present.
         """
 
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=self._experiment,
             generation_strategy=self._generation_strategy_or_choose(),
-            options=SchedulerOptions(
+            options=OrchestratorOptions(
                 max_pending_trials=options.parallelism,
                 tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
                 init_seconds_between_polls=options.initial_seconds_between_polls,
@@ -598,8 +598,8 @@ class Client(WithDBSettingsBase):
             else None,
         )
 
-        # Note: This scheduler call will handle storage internally
-        scheduler.run_n_trials(max_trials=maximum_trials)
+        # Note: This Orchestrator call will handle storage internally
+        orchestrator.run_n_trials(max_trials=maximum_trials)
 
     # -------------------- Section 3. Analyze ---------------------------------------
     def compute_analyses(

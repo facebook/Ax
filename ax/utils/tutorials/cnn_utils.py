@@ -221,7 +221,7 @@ def train(
         momentum=parameters.get("momentum", 0.0),
         weight_decay=parameters.get("weight_decay", 0.0),
     )
-    scheduler = optim.lr_scheduler.StepLR(
+    orchestrator = optim.lr_orchestrator.StepLR(
         optimizer,
         step_size=int(parameters.get("step_size", 30)),
         gamma=parameters.get("gamma", 1.0),  # default is no learning rate decay
@@ -244,7 +244,7 @@ def train(
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            orchestrator.step()
     return net
 
 
