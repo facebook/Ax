@@ -240,7 +240,7 @@ class TestModelBasedEarlyStoppingStrategy(TestCase):
                 return {}
 
         experiment = get_test_map_data_experiment(
-            num_trials=3, num_fetches=2, num_complete=3
+            num_trials=3, num_fetches=4, num_complete=3
         )
         training_data = FakeStrategy().get_training_data(
             experiment,
@@ -252,6 +252,8 @@ class TestModelBasedEarlyStoppingStrategy(TestCase):
         # check that the default Ax transform is applied, i.e., that the
         # parameters are normalized to [0, 1]
         self.assertTrue(np.all((X[:, :2] >= 0.0) & (X[:, :2] <= 1.0)))
+        # Check that the map dimension is also normalized to [0, 1].
+        self.assertTrue(np.all((X[:, 2] >= 0.0) & (X[:, 2] <= 1.0)))
 
 
 class TestPercentileEarlyStoppingStrategy(TestCase):
