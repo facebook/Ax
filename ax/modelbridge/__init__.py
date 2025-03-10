@@ -16,11 +16,9 @@ from ax.modelbridge.factory import (
     get_thompson,
     get_uniform,
 )
-from ax.modelbridge.map_torch import MapTorchAdapter
 from ax.modelbridge.torch import TorchAdapter
 
 __all__ = [
-    "MapTorchAdapter",
     "Adapter",
     "Generators",
     "TorchAdapter",
