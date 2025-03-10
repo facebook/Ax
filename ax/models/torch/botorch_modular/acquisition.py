@@ -14,7 +14,7 @@ from collections.abc import Callable
 from functools import partial, reduce
 from itertools import product
 from logging import Logger
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -62,6 +62,78 @@ MAX_CARDINALITY_FOR_LOCAL_SEARCH = 100
 ALTERNATING_OPTIMIZER_THRESHOLD = 10
 
 logger: Logger = get_logger(__name__)
+
+
+def determine_optimizer(
+    search_space_digest: SearchSpaceDigest,
+    discrete_choices: Mapping[int, Sequence[float]] | None = None,
+) -> str:
+    """Determine the optimizer to use for a given search space.
+
+    Args:
+        search_space_digest: A SearchSpaceDigest object containing search space
+            properties, e.g. ``bounds`` for optimization.
+       discrete_choices: A dictionary mapping indices of discrete (ordinal
+            or categorical) parameters to their respective sets of values
+            provided as a list. This excludes fixed features.
+
+    Returns:
+        The name of the optimizer to use for the given search space.
+    """
+    ssd = search_space_digest
+    discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
+    if discrete_choices is None:
+        discrete_choices = {}
+
+    if len(discrete_features) == 0:
+        optimizer = "optimize_acqf"
+    else:
+        fully_discrete = len(discrete_choices) == len(ssd.feature_names)
+        if fully_discrete:
+            # One of the three optimizers may be used depending on the number of
+            # discrete choices and the cardinality of individual parameters.
+            # If there are less than `MAX_CHOICES_ENUMERATE` choices, we will
+            # evaluate all of them and pick the best.
+            # If there are less than `MAX_CARDINALITY_FOR_LOCAL_SEARCH` choices
+            # for all parameters, if there are any categorical features, or if
+            # any of the parameters has non-integer valued choices, we will use
+            # local search.  Otherwise, we will use the mixed alternating optimizer,
+            # which may use continuous relaxation for the high cardinality
+            # parameters, while using local search for the remaining parameters.
+            cardinalities = [len(c) for c in discrete_choices.values()]
+            max_cardinality = max(cardinalities)
+            total_discrete_choices = reduce(operator.mul, cardinalities)
+            if total_discrete_choices > MAX_CHOICES_ENUMERATE:
+                if (
+                    max_cardinality <= MAX_CARDINALITY_FOR_LOCAL_SEARCH
+                    or len(ssd.categorical_features) > 0
+                    or not all_ordinal_features_are_integer_valued(ssd=ssd)
+                ):
+                    optimizer = "optimize_acqf_discrete_local_search"
+                else:
+                    optimizer = "optimize_acqf_mixed_alternating"
+            else:
+                optimizer = "optimize_acqf_discrete"
+        else:
+            n_combos = math.prod([len(v) for v in discrete_choices.values()])
+            # If there are
+            # - any categorical features (except for those handled by transforms),
+            # - any ordinal features with non-integer choices,
+            # - or less than `ALTERNATING_OPTIMIZER_THRESHOLD` combinations
+            # of discrete choices, we will use `optimize_acqf_mixed`, which
+            # enumerates all discrete combinations and optimizes the continuous
+            # features with discrete features being fixed. Otherwise, we will
+            # use `optimize_acqf_mixed_alternating`, which alternates between
+            # continuous and discrete optimization steps.
+            if (
+                n_combos <= ALTERNATING_OPTIMIZER_THRESHOLD
+                or len(ssd.categorical_features) > 0
+                or not all_ordinal_features_are_integer_valued(ssd=ssd)
+            ):
+                optimizer = "optimize_acqf_mixed"
+            else:
+                optimizer = "optimize_acqf_mixed_alternating"
+    return optimizer
 
 
 class Acquisition(Base):
@@ -294,62 +366,15 @@ class Acquisition(Base):
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
         ssd = search_space_digest
         bounds = _tensorize(ssd.bounds).t()
-        discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
         discrete_choices = mk_discrete_choices(ssd=ssd, fixed_features=fixed_features)
-
-        if len(discrete_features) == 0:
-            optimizer = "optimize_acqf"
-        else:
-            fully_discrete = len(discrete_choices) == len(ssd.feature_names)
-            if fully_discrete:
-                # One of the three optimizers may be used depending on the number of
-                # discrete choices and the cardinality of individual parameters.
-                # If there are less than `MAX_CHOICES_ENUMERATE` choices, we will
-                # evaluate all of them and pick the best.
-                # If there are less than `MAX_CARDINALITY_FOR_LOCAL_SEARCH` choices
-                # for all parameters, if there are any categorical features, or if
-                # any of the parameters has non-integer valued choices, we will use
-                # local search.  Otherwise, we will use the mixed alternating optimizer,
-                # which may use continuous relaxation for the high cardinality
-                # parameters, while using local search for the remaining parameters.
-                cardinalities = [len(c) for c in discrete_choices.values()]
-                max_cardinality = max(cardinalities)
-                total_discrete_choices = reduce(operator.mul, cardinalities)
-                if total_discrete_choices > MAX_CHOICES_ENUMERATE:
-                    if (
-                        max_cardinality <= MAX_CARDINALITY_FOR_LOCAL_SEARCH
-                        or len(ssd.categorical_features) > 0
-                        or not all_ordinal_features_are_integer_valued(ssd=ssd)
-                    ):
-                        optimizer = "optimize_acqf_discrete_local_search"
-                    else:
-                        optimizer = "optimize_acqf_mixed_alternating"
-                else:
-                    optimizer = "optimize_acqf_discrete"
-                    # `raw_samples` and `num_restarts` are not supported by
-                    # `optimize_acqf_discrete`.
-                    if optimizer_options is not None:
-                        optimizer_options.pop("raw_samples", None)
-                        optimizer_options.pop("num_restarts", None)
-            else:
-                n_combos = math.prod([len(v) for v in discrete_choices.values()])
-                # If there are
-                # - any categorical features (except for those handled by transforms),
-                # - any ordinal features with non-integer choices,
-                # - or less than `ALTERNATING_OPTIMIZER_THRESHOLD` combinations
-                # of discrete choices, we will use `optimize_acqf_mixed`, which
-                # enumerates all discrete combinations and optimizes the continuous
-                # features with discrete features being fixed. Otherwise, we will
-                # use `optimize_acqf_mixed_alternating`, which alternates between
-                # continuous and discrete optimization steps.
-                if (
-                    n_combos <= ALTERNATING_OPTIMIZER_THRESHOLD
-                    or len(ssd.categorical_features) > 0
-                    or not all_ordinal_features_are_integer_valued(ssd=ssd)
-                ):
-                    optimizer = "optimize_acqf_mixed"
-                else:
-                    optimizer = "optimize_acqf_mixed_alternating"
+        optimizer = determine_optimizer(
+            search_space_digest=ssd, discrete_choices=discrete_choices
+        )
+        # `raw_samples` and `num_restarts` are not supported by
+        # `optimize_acqf_discrete`.
+        if optimizer == "optimize_acqf_discrete" and optimizer_options is not None:
+            optimizer_options.pop("raw_samples", None)
+            optimizer_options.pop("num_restarts", None)
 
         # Prepare arguments for optimizer
         optimizer_options_with_defaults = optimizer_argparse(

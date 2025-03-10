@@ -48,7 +48,10 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.parego import qLogNParEGO
-from botorch.acquisition.preference import AnalyticExpectedUtilityOfBestOption
+from botorch.acquisition.preference import (
+    AnalyticExpectedUtilityOfBestOption,
+    qExpectedUtilityOfBestOption,
+)
 from botorch.models import SaasFullyBayesianSingleTaskGP
 from botorch.models.contextual import LCEAGP
 from botorch.models.fully_bayesian import FullyBayesianLinearSingleTaskGP
@@ -127,6 +130,7 @@ Mapping of Botorch `AcquisitionFunction` classes to class name strings.
 ACQUISITION_FUNCTION_REGISTRY: dict[type[AcquisitionFunction], str] = {
     ExpectedImprovement: "ExpectedImprovement",
     AnalyticExpectedUtilityOfBestOption: "AnalyticExpectedUtilityOfBestOption",
+    qExpectedUtilityOfBestOption: "qExpectedUtilityOfBestOption",
     NoisyExpectedImprovement: "NoisyExpectedImprovement",
     qExpectedHypervolumeImprovement: "qExpectedHypervolumeImprovement",
     qNoisyExpectedHypervolumeImprovement: "qNoisyExpectedHypervolumeImprovement",
