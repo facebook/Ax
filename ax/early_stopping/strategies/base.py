@@ -14,23 +14,22 @@ from logging import Logger
 
 import numpy.typing as npt
 import pandas as pd
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import estimate_early_stopping_savings
-from ax.modelbridge.map_torch import MapTorchAdapter
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.modelbridge_utils import (
     _unpack_observations,
     observation_data_to_array,
     observation_features_to_array,
 )
 from ax.modelbridge.registry import Cont_X_trans, Y_trans
+from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.map_unit_x import MapUnitX
-
 from ax.models.torch_base import TorchGenerator
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
@@ -496,12 +495,8 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         transform_model = get_transform_helper_model(
             experiment=experiment, data=map_data
         )
-        observations_raw = transform_model.get_training_data()
-        observations, _ = transform_model._transform_data(
-            observations=observations_raw,
-            search_space=transform_model._model_space,
-            transforms=transform_model._raw_transforms,
-            transform_configs=None,
+        observations, _ = transform_model._process_and_transform_data(
+            experiment=experiment, data=map_data
         )
         obs_features, obs_data, arm_names = _unpack_observations(observations)
         X = observation_features_to_array(parameters=parameters, obsf=obs_features)
@@ -513,9 +508,9 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
 def get_transform_helper_model(
     experiment: Experiment,
-    data: Data,
+    data: MapData,
     transforms: Sequence[type[Transform]] | None = None,
-) -> MapTorchAdapter:
+) -> TorchAdapter:
     """
     Constructs a TorchAdapter, to be used as a helper for transforming parameters.
     We perform the default `Cont_X_trans` for parameters but do not perform any
@@ -529,11 +524,16 @@ def get_transform_helper_model(
     """
     if transforms is None:
         transforms = Cont_X_trans + [MapUnitX] + Y_trans
-    return MapTorchAdapter(
+    return TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
         data=data,
         model=TorchGenerator(),
         transforms=transforms,
-        fit_out_of_design=True,
+        data_loader_config=DataLoaderConfig(
+            fit_out_of_design=True,
+            latest_rows_per_group=None,
+            fit_only_completed_map_metrics=False,
+        ),
+        fit_on_init=False,  # Since we're only using it to extract data.
     )
