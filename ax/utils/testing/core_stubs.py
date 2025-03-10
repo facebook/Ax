@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from logging import Logger
 from math import prod
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, Union
 
 import numpy as np
 import pandas as pd
@@ -649,11 +649,13 @@ def get_branin_experiment_with_multi_objective(
     with_completed_trial: bool = False,
     with_relative_constraint: bool = False,
     with_absolute_constraint: bool = False,
+    with_choice_parameter: bool = False,
 ) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(
-            with_fidelity_parameter=with_fidelity_parameter
+            with_fidelity_parameter=with_fidelity_parameter,
+            with_choice_parameter=with_choice_parameter,
         ),
         optimization_config=(
             get_branin_multi_objective_optimization_config(
@@ -671,7 +673,8 @@ def get_branin_experiment_with_multi_objective(
 
     if with_status_quo:
         # Experiment chooses the name "status_quo" by default
-        exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+        sq_parameters: dict[str, Union[float, str]] = {"x1": 0.0, "x2": 0.0}
+        exp.status_quo = Arm(parameters=sq_parameters)
 
     if with_batch:
         sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
