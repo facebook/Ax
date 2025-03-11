@@ -1884,7 +1884,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(trial.generator_runs[0]._generation_node_name, "sobol_4")
 
     def test_gs_with_fixed_features_constructor(self) -> None:
-        exp = get_branin_experiment(with_completed_batch=True)
+        exp = get_branin_experiment(with_completed_batch=True, with_status_quo=True)
         exp.fetch_data()
         sobol_criterion = [
             MinTrials(

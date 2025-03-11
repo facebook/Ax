@@ -430,13 +430,13 @@ def extend_pending_observations(
 def get_target_trial_index(experiment: Experiment) -> int | None:
     """Get the index of the target trial in the ``Experiment``.
 
-    Find the target trial (among those with data) giving priority in the following
-    order:
+    Find the target trial, among the trials with data for status quo arm, giving
+    priority in the following order:
         1. a running long-run trial. Note if there is a running long-run trial on the
             experiment without data, or if there is no data on the experiment, then
             this will return None.
         2. Most recent trial expecting data with running trials be considered the most
-            recent
+            recent.
 
     In the event of any ties, the tie breaking order is:
         a. longest running trial by duration
@@ -453,8 +453,11 @@ def get_target_trial_index(experiment: Experiment) -> int | None:
     # takes into account the age of the trial, and consider more heavily weighting
     # long run trials.
     df = experiment.lookup_data().df
-    if df.empty:
+    status_quo = experiment.status_quo
+    if df.empty or status_quo is None:
         return None
+    # Filter to only trials with data for status quo arm.
+    df = df[df["arm_name"] == status_quo.name]
     trial_indices_with_data = set(df.trial_index.unique())
     # only consider running trials with data
     running_trials = [

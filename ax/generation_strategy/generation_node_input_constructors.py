@@ -15,10 +15,10 @@ from ax.core.experiment import Experiment
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.generation_strategy import AxGenerationException
-
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.constants import Keys
 from ax.utils.common.func_enum import FuncEnum
+from pyre_extensions import none_throws
 
 
 @unique
@@ -98,24 +98,24 @@ def get_status_quo(
         An ``ObservationFeatures`` object that defines the status quo observation
         features for fitting the model in the next node.
     """
-    target_trial_idx = get_target_trial_index(experiment=experiment)
-    if target_trial_idx is None:
-        raise AxGenerationException(
-            f"Attempting to construct status quo input into {next_node} but couldn't "
-            "identify the target trial. Often this could be due to no trials on the "
-            f"experiment that are in status {STATUSES_EXPECTING_DATA} "
-            f"and have data. The trials on this experiment are: "
-            f"{experiment.trials} and trials with data are: "
-            f"{experiment.lookup_data().df.trial_index.unique()}."
-        )
     if experiment.status_quo is None:
         raise AxGenerationException(
             f"Attempting to construct status quo input into {next_node} but the "
             "experiment has no status quo. Please set a status quo before "
             "generating."
         )
+    target_trial_idx = get_target_trial_index(experiment=experiment)
+    if target_trial_idx is None:
+        raise AxGenerationException(
+            f"Attempting to construct status quo input into {next_node} but couldn't "
+            "identify the target trial. Often this could be due to no trials on the "
+            f"experiment that have status quo arm and are in status "
+            f"{STATUSES_EXPECTING_DATA} and have data. The trials on this experiment "
+            f"are: {experiment.trials} and trials with data are: "
+            f"{experiment.lookup_data().df.trial_index.unique()}."
+        )
     return ObservationFeatures(
-        parameters=experiment.status_quo.parameters,
+        parameters=none_throws(experiment.status_quo).parameters,
         trial_index=target_trial_idx,
     )
 
@@ -147,8 +147,9 @@ def set_target_trial(
         raise AxGenerationException(
             f"Attempting to construct for input into {next_node} but no trials match "
             "the expected conditions. Often this could be due to no trials on the "
-            f"experiment that are in status {STATUSES_EXPECTING_DATA} on the "
-            f"experiment. The trials on this experiment are: {experiment.trials}."
+            "experiment that have status quo arm and are in status "
+            f"{STATUSES_EXPECTING_DATA} on the experiment. The trials on this "
+            f"experiment are: {experiment.trials}."
         )
     return ObservationFeatures(
         parameters={},

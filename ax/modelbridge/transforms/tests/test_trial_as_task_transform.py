@@ -23,16 +23,18 @@ from ax.utils.testing.core_stubs import get_branin_experiment, get_robust_search
 class TrialAsTaskTransformTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.exp = get_branin_experiment()
+        self.exp = get_branin_experiment(with_status_quo=True, with_batch=True)
         self.modelbridge = Adapter(
             search_space=self.exp.search_space,
             model=Generator(),
             experiment=self.exp,
         )
-        self.exp.new_trial().add_arm(Arm(parameters={"x1": 1, "x2": 1}))
-        self.exp.new_trial().add_arm(Arm(parameters={"x1": 2, "x2": 2}))
-        self.exp.new_trial().add_arm(Arm(parameters={"x1": 3, "x2": 3}))
-        self.exp.new_trial().add_arm(Arm(parameters={"x1": 4, "x2": 4}))
+        self.exp.new_batch_trial().add_arm(
+            Arm(parameters={"x1": 0, "x2": 0}, name="status_quo")
+        ).add_arm(Arm(parameters={"x1": 1, "x2": 1}))
+        self.exp.new_batch_trial().add_arm(
+            Arm(parameters={"x1": 0, "x2": 0}, name="status_quo")
+        ).add_arm(Arm(parameters={"x1": 3, "x2": 3}))
         for t in self.exp.trials.values():
             t.mark_running(no_runner_required=True)
         self.exp.trials[0].mark_completed()
