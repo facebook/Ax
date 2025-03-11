@@ -71,7 +71,7 @@ class TransformUtilsTest(TestCase):
         modelbridge = Adapter(
             experiment=Experiment(
                 search_space=dummy_search_space,
-                status_quo=Arm(parameters={"x": 1.0, "y": 1.0}, name="1_1"),
+                status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
             ),
             model=Generator(),
             optimization_config=optimization_config,

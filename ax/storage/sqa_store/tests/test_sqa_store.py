@@ -573,7 +573,7 @@ class SQAStoreTest(TestCase):
 
     def test_load_and_save_reduced_state_does_not_lose_abandoned_arms(self) -> None:
         exp = get_experiment_with_batch_trial(constrain_search_space=False)
-        exp.trials[0].mark_arm_abandoned(arm_name="0_0", reason="for this test")
+        self.assertEqual(len(exp.trials[0].abandoned_arms), 1)
         save_experiment(exp)
         loaded_experiment = load_experiment(
             exp.name, reduced_state=True, skip_runners_and_metrics=True
@@ -584,10 +584,7 @@ class SQAStoreTest(TestCase):
             reloaded_experiment.trials[0].abandoned_arms,
             exp.trials[0].abandoned_arms,
         )
-        self.assertEqual(
-            len(reloaded_experiment.trials[0].abandoned_arms),
-            1,
-        )
+        self.assertEqual(len(reloaded_experiment.trials[0].abandoned_arms), 1)
 
     def test_ExperimentSaveAndLoadGRWithOptConfig(self) -> None:
         exp = get_experiment_with_batch_trial(constrain_search_space=False)
