@@ -22,6 +22,7 @@ from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -2121,8 +2122,11 @@ class TestAxScheduler(TestCase):
             ]
         )
 
+        experiment = self.branin_experiment
+        experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+
         scheduler = Scheduler(
-            experiment=self.branin_experiment,  # Has runner and metrics.
+            experiment=experiment,
             generation_strategy=gs,
             options=SchedulerOptions(
                 total_trials=3,
@@ -2131,11 +2135,17 @@ class TestAxScheduler(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        scheduler.run_n_trials(max_trials=3)
+        # Mock to have Sobol return SQ arm, to have a valid target trial index
+        # for the MTGP step.
+        with patch(
+            "ax.modelbridge.random.RandomAdapter.gen",
+            return_value=GeneratorRun(arms=[experiment.status_quo]),
+        ):
+            scheduler.run_n_trials(max_trials=3)
 
         # This is to ensure it generated from all nodes
         self.assertTrue(scheduler.generation_strategy.optimization_complete)
-        self.assertEqual(len(self.branin_experiment.trials), 3)
+        self.assertEqual(len(experiment.trials), 3)
 
     def test_update_options_with_validate_metrics(self) -> None:
         experiment = self.branin_experiment_no_impl_runner_or_metrics
