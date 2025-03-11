@@ -314,15 +314,16 @@ def get_branin_experiment_with_status_quo_trials(
             with_status_quo=True,
         )
     else:
-        exp = get_branin_experiment()
+        exp = get_branin_experiment(with_status_quo=True)
     sobol = get_sobol(search_space=exp.search_space)
     for _ in range(num_sobol_trials):
         sobol_run = sobol.gen(n=1)
         t = exp.new_batch_trial().add_generator_run(sobol_run)
-        t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
+        t.set_status_quo_with_weight(status_quo=exp.status_quo, weight=0.5)
+        exp.attach_data(get_branin_data_batch(batch=t))
         t.run().mark_completed()
     status_quo_features = ObservationFeatures(
-        parameters=exp.trials[0].status_quo.parameters,  # pyre-fixme [16]
+        parameters=none_throws(exp.status_quo).parameters,
         trial_index=0,
     )
     return exp, status_quo_features
