@@ -17,7 +17,7 @@ from ax.analysis.plotly.arm_effects.utils import (
 )
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import is_predictive
+from ax.analysis.plotly.utils import get_nudge_value, is_predictive
 from ax.core import OutcomeConstraint
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
@@ -129,22 +129,12 @@ class PredictedEffectsPlot(PlotlyAnalysis):
         fig = prepare_arm_effects_plot(
             df=df, metric_name=self.metric_name, outcome_constraints=outcome_constraints
         )
-
-        level = AnalysisCardLevel.HIGH
-        nudge = -2
-        if experiment.optimization_config is not None:
-            if (
-                self.metric_name
-                in experiment.optimization_config.objective.metric_names
-            ):
-                nudge = 0
-            elif self.metric_name in experiment.optimization_config.metrics:
-                nudge = -1
+        nudge = get_nudge_value(metric_name=self.metric_name, experiment=experiment)
 
         return self._create_plotly_analysis_card(
             title=f"Predicted Effects for {self.metric_name}",
             subtitle="View a candidate trial and its arms' predicted metric values",
-            level=level + nudge,
+            level=AnalysisCardLevel.HIGH + nudge,
             df=df,
             fig=fig,
             category=AnalysisCardCategory.ACTIONABLE,
