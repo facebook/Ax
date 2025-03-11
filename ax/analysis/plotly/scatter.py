@@ -5,22 +5,30 @@
 
 # pyre-strict
 
-
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.utils import (
+    CANDIDATE_CI_RED,
+    CANDIDATE_RED,
+    CONFIDENCE_INTERVAL_BLUE,
+    MARKER_BLUE,
+)
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
+from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
+from ax.modelbridge.prediction_utils import predict_at_point
 from plotly import graph_objects as go
 
 
 class ScatterPlot(PlotlyAnalysis):
     """
-    Plotly Scatter plot for any two metrics. Each arm is represented by a single point,
-    whose color indicates the arm's trial index. Only completed trials are shown.
+    Plotly Scatter plot for any two metrics. Each arm is represented by a single point.
+    Only completed trials are shown.
 
     Optionally, the Pareto frontier can be shown. This plot is useful for understanding
     the relationship and/or tradeoff between two metrics.
@@ -39,6 +47,8 @@ class ScatterPlot(PlotlyAnalysis):
         y_metric_name: str,
         show_pareto_frontier: bool = False,
         trial_index: int | None = None,
+        arms_to_predict_with_adapter: list[Arm] | None = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> None:
         """
         Args:
@@ -48,12 +58,19 @@ class ScatterPlot(PlotlyAnalysis):
                 metrics. Optimization direction is inferred from the Experiment.
             trial_index: Optional trial index to filter the data to. If not specified,
                 all trials will be included.
+            arms_to_predict_with_adapter: Optional list of Arm objects that were used
+                to generate predictions. If specified, these points will be plotted
+                alongside insample points
+            fixed_features: Optional fixed features to project to trials (e.g.
+                relativization), and offers further adhoc flexibility.
         """
 
         self.x_metric_name = x_metric_name
         self.y_metric_name = y_metric_name
         self.show_pareto_frontier = show_pareto_frontier
         self.trial_index = trial_index
+        self._arms_to_predict_with_adapter = arms_to_predict_with_adapter
+        self._fixed_features = fixed_features
 
     def compute(
         self,
@@ -69,6 +86,9 @@ class ScatterPlot(PlotlyAnalysis):
             x_metric_name=self.x_metric_name,
             y_metric_name=self.y_metric_name,
             trial_index=self.trial_index,
+            adapter=adapter,
+            arms_to_predict_with_adapter=self._arms_to_predict_with_adapter,
+            fixed_features=self._fixed_features,
         )
         fig = _prepare_plot(
             df=df,
@@ -77,7 +97,6 @@ class ScatterPlot(PlotlyAnalysis):
             show_pareto_frontier=self.show_pareto_frontier,
             x_lower_is_better=experiment.metrics[self.x_metric_name].lower_is_better
             or False,
-            trial_index=self.trial_index,
         )
 
         return self._create_plotly_analysis_card(
@@ -90,11 +109,57 @@ class ScatterPlot(PlotlyAnalysis):
         )
 
 
+def scatter_plot(
+    adapter: Adapter,
+    experiment: Experiment,
+    x_metric_name: str,
+    y_metric_name: str,
+    trial_index: int | None = None,
+    arms_to_predict_with_adapter: list[Arm] | None = None,
+    fixed_features: ObservationFeatures | None = None,
+) -> list[PlotlyAnalysisCard]:
+    """
+    Exposes scatter plot for adhoc functionality, only to be used in notebook
+    setting, and not within Ax code.
+
+    Args:
+        adapter: The adapter that will be assessed during cross validation.
+        experiment: Experiment associated with this analysis. Used to extract
+            the data.
+        x_metric_name: The name of the metric to plot on the x-axis.
+        y_metric_name: The name of the metric to plot on the y-axis.
+        trial_index: Optional trial index to filter the data to. If not specified,
+            all trials will be included.
+        arms_to_predict_with_adapter: Optional list of Arm objects that were used
+                to generate predictions. If specified, these points will be plotted
+                alongside insample points
+        fixed_features: Optional fixed features to pass with custom arms during
+            generation of predictions. This is useful for relativization, etc.
+    """
+    # returning as a list enables easier UX for displaying the cards in a notebook
+    return [
+        ScatterPlot(
+            x_metric_name=x_metric_name,
+            y_metric_name=y_metric_name,
+            show_pareto_frontier=False,  # Not supported for adhoc use
+            trial_index=trial_index,
+            arms_to_predict_with_adapter=arms_to_predict_with_adapter,
+            fixed_features=fixed_features,
+        ).compute(
+            experiment=experiment,
+            adapter=adapter,
+        )
+    ]
+
+
 def _prepare_data(
     experiment: Experiment,
     x_metric_name: str,
     y_metric_name: str,
     trial_index: int | None = None,
+    adapter: Adapter | None = None,
+    arms_to_predict_with_adapter: list[Arm] | None = None,
+    fixed_features: ObservationFeatures | None = None,
 ) -> pd.DataFrame:
     """
     Extract the relevant data from the experiment and prepare it into a dataframe
@@ -105,7 +170,7 @@ def _prepare_data(
         x_metric_name: The name of the metric to plot on the x-axis.
         y_metric_name: The name of the metric to plot on the y-axis.
         trial_index: Optional trial index to filter the data to. If not specified,
-                all trials will be included.
+            all trials will be included.
     """
     # Lookup the data that has already been fetched and attached to the experiment
     data = experiment.lookup_data().df
@@ -122,6 +187,41 @@ def _prepare_data(
     # filter data to trial index if specified
     if trial_index is not None:
         filtered = filtered[filtered["trial_index"] == trial_index]
+
+    # If custom adapter and custom GeneratorRun are provided, plot the
+    # predicted values for metric x and y given the custom adapter alongside
+    # the observed values.
+    if adapter is not None and arms_to_predict_with_adapter is not None:
+        new_rows = []
+        for arm in arms_to_predict_with_adapter:
+            obsf = ObservationFeatures.from_arm(arm)
+            if fixed_features is not None:
+                obsf.update_features(fixed_features)
+            # Make a prediction
+            try:
+                pred_y, pred_se = predict_at_point(
+                    adapter, obsf, {x_metric_name, y_metric_name}
+                )
+            except Exception:
+                # Check if it is an out-of-design arm.
+                if not adapter.model_space.check_membership(obsf.parameters):
+                    # Skip this point
+                    continue
+                else:
+                    # It should have worked
+                    raise
+            for metric in pred_y:
+                new_rows.append(
+                    {
+                        "trial_index": -1,  # indidcates this is a candidate point
+                        "arm_name": arm.name_or_short_signature,
+                        "metric_name": metric,
+                        "mean": pred_y[metric],
+                        "sem": pred_se[metric],
+                    }
+                )
+        new_rows_df = pd.DataFrame(new_rows)
+        filtered = pd.concat([filtered, new_rows_df], ignore_index=True)
 
     # Pivot the data so that each row is an arm and the columns are the metric names
     # and the SEMs for each metric.
@@ -174,7 +274,6 @@ def _prepare_plot(
     y_metric_name: str,
     show_pareto_frontier: bool,
     x_lower_is_better: bool,
-    trial_index: int | None = None,
 ) -> go.Figure:
     """
     Prepare a scatter plot for the given DataFrame.
@@ -194,44 +293,35 @@ def _prepare_plot(
         show_pareto_frontier: Whether to draw the Pareto frontier for the two metrics
         x_lower_is_better: Whether the metric on the x-axis is being minimized (only
             relevant if show_pareto_frontier=True)
-        trial_index: Optional trial index to filter the data to. If not specified,
-                all trials will be included.
     """
+    # Define hover text with conditional trial index display
+    hover_text = df.apply(
+        lambda row: (
+            "Trial: Candidate<br>"
+            if row["trial_index"] == -1
+            else f"Trial: {row['trial_index']}<br>"
+        )
+        + f"Arm: {row['arm_name']}<br>"
+        + f"{x_metric_name}: {row[x_metric_name]}"
+        + f" ±{1.96 * row[f'{x_metric_name}_sem']:.2f}<br>"
+        + f"{y_metric_name}: {row[y_metric_name]}"
+        + f" ±{1.96 * row[f'{y_metric_name}_sem']:.2f}",
+        axis=1,
+    )
+    # Create a mask for each category
+    candidate_mask = df["trial_index"] == -1
+    insample_mask = ~candidate_mask
+
     fig = go.Figure(
-        go.Scatter(
-            x=df[x_metric_name],
-            y=df[y_metric_name],
-            mode="markers",
-            marker={
-                "color": "rgba(0, 0, 255, 0.3)",  # partially transparent blue
-            },
-            error_x={
-                "type": "data",
-                "array": df[f"{x_metric_name}_sem"] * 1.96,
-                "visible": True,
-                "color": "rgba(0, 0, 255, 0.2)",  # Semi-transparent blue
-            },
-            error_y={
-                "type": "data",
-                "array": df[f"{y_metric_name}_sem"] * 1.96,
-                "visible": True,
-                "color": "rgba(0, 0, 255, 0.2)",  # Semi-transparent blue
-            },
-            hoverlabel={
-                "bgcolor": "rgba(0, 0, 255, 0.2)",  # partially transparent blue
-                "font": {"color": "black"},
-            },
-            hoverinfo="text",
-            text=df.apply(
-                lambda row: (
-                    f"Trial: {row['trial_index']}<br>"
-                    + f"Arm: {row['arm_name']}<br>"
-                    + f"{x_metric_name}: {row[x_metric_name]}<br>"
-                    + f"{y_metric_name}: {row[y_metric_name]}"
-                ),
-                axis=1,
-            ),
-            showlegend=False,
+        # always plot insample points
+        _create_scatter_trace(
+            df=df,
+            mask=insample_mask,
+            x_metric_name=x_metric_name,
+            y_metric_name=y_metric_name,
+            marker_color=MARKER_BLUE,
+            ci_color=CONFIDENCE_INTERVAL_BLUE,
+            hover_text=hover_text,
         )
     )
 
@@ -239,7 +329,6 @@ def _prepare_plot(
         # Must sort to ensure we draw the line through optimal points in the correct
         # order.
         frontier_df = df[df["is_optimal"]].sort_values(by=x_metric_name)
-
         fig.add_trace(
             go.Scatter(
                 x=frontier_df[x_metric_name],
@@ -250,4 +339,60 @@ def _prepare_plot(
             )
         )
 
+    # Add trace for candidate points (red), will only add points if they exist
+    fig.add_trace(
+        _create_scatter_trace(
+            df=df,
+            mask=candidate_mask,
+            x_metric_name=x_metric_name,
+            y_metric_name=y_metric_name,
+            marker_color=CANDIDATE_RED,
+            ci_color=CANDIDATE_CI_RED,
+            hover_text=hover_text,
+            name_for_legend="Candidate",
+        )
+    )
+    # Update layout to add axis labels
+    fig.update_layout(xaxis_title=x_metric_name, yaxis_title=y_metric_name)
+
     return fig
+
+
+def _create_scatter_trace(
+    df: pd.DataFrame,
+    mask: pd.DataFrame,
+    x_metric_name: str,
+    y_metric_name: str,
+    marker_color: str,
+    ci_color: str,
+    hover_text: str,
+    name_for_legend: str | None = None,
+) -> go.Scatter:
+    """
+    Helper to create scatter traces for the scatter plot. Allows for customization
+    of multiple types of data (insample and candidate) with standardization of the
+    look across data types.
+    """
+    return go.Scatter(
+        x=df.loc[mask, x_metric_name],
+        y=df.loc[mask, y_metric_name],
+        mode="markers",
+        marker={"color": marker_color},
+        error_x={
+            "type": "data",
+            "array": df.loc[mask, f"{x_metric_name}_sem"] * 1.96,
+            "visible": True,
+            "color": ci_color,
+        },
+        error_y={
+            "type": "data",
+            "array": df.loc[mask, f"{y_metric_name}_sem"] * 1.96,
+            "visible": True,
+            "color": ci_color,
+        },
+        hoverlabel={"bgcolor": ci_color, "font": {"color": "black"}},
+        hoverinfo="text",
+        text=hover_text[mask],
+        name=name_for_legend,
+        showlegend=True if name_for_legend is not None else False,
+    )
