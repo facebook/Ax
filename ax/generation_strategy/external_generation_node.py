@@ -127,7 +127,6 @@ class ExternalGenerationNode(GenerationNode, ABC):
         self,
         experiment: Experiment,
         data: Data | None = None,
-        status_quo_features: ObservationFeatures | None = None,
         **kwargs: Any,
     ) -> None:
         """A method used to initialize or update the experiment state / data
@@ -141,17 +140,13 @@ class ExternalGenerationNode(GenerationNode, ABC):
             data: The experiment data used to fit the model.
             search_space: UNSUPPORTED. An optional override for the experiment
                 search space.
-            status_quo_features: UNSUPPORTED. An optional specification of which
-                status quo (aka "control") features should be used. Currently not
-                yet used in ``ExternalGenerationNode``.
             kwargs: UNSUPPORTED. Additional keyword arguments for model fitting.
         """
-        if status_quo_features is not None or kwargs:
+        if kwargs:
             raise UnsupportedError(
                 "Unexpected arguments encountered. `ExternalGenerationNode._fit` only "
                 "supports `experiment` and `data` arguments. "
-                "Each of the following arguments should be None / empty. "
-                f"{status_quo_features=}, {kwargs=}."
+                f"Each of the following arguments should be None / empty. {kwargs=}."
             )
         t_fit_start = time.monotonic()
         self.update_generator_state(

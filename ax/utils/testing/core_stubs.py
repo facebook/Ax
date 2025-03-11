@@ -307,7 +307,7 @@ def get_branin_experiment(
 def get_branin_experiment_with_status_quo_trials(
     num_sobol_trials: int = 5,
     multi_objective: bool = False,
-) -> tuple[Experiment, ObservationFeatures]:
+) -> Experiment:
     if multi_objective:
         exp = get_branin_experiment_with_multi_objective(
             with_batch=True,
@@ -322,11 +322,7 @@ def get_branin_experiment_with_status_quo_trials(
         t.set_status_quo_with_weight(status_quo=exp.status_quo, weight=0.5)
         exp.attach_data(get_branin_data_batch(batch=t))
         t.run().mark_completed()
-    status_quo_features = ObservationFeatures(
-        parameters=none_throws(exp.status_quo).parameters,
-        trial_index=0,
-    )
-    return exp, status_quo_features
+    return exp
 
 
 def get_robust_branin_experiment(
