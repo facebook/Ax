@@ -17,6 +17,7 @@ from ax.modelbridge.transforms.choice_encode import (
 )
 
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
+from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
 
 from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
 
@@ -35,15 +36,27 @@ class TestTransformEncode(unittest.TestCase):
         ]
 
     def test_encode_and_decode_transform(self) -> None:
-        registry_index = 2
+        with self.subTest("IntRangeToChoice"):
+            registry_index = 2
 
-        transform_dict = transform_type_to_dict(IntRangeToChoice)
-        self.assertEqual(transform_dict["__type"], "Type[Transform]")
-        self.assertEqual(transform_dict["index_in_registry"], registry_index)
-        self.assertIn("IntRangeToChoice", transform_dict["transform_type"])
+            transform_dict = transform_type_to_dict(IntRangeToChoice)
+            self.assertEqual(transform_dict["__type"], "Type[Transform]")
+            self.assertEqual(transform_dict["index_in_registry"], registry_index)
+            self.assertIn("IntRangeToChoice", transform_dict["transform_type"])
 
-        decoded_transform_type = transform_type_from_json(transform_dict)
-        self.assertEqual(decoded_transform_type, IntRangeToChoice)
+            decoded_transform_type = transform_type_from_json(transform_dict)
+            self.assertEqual(decoded_transform_type, IntRangeToChoice)
+
+        with self.subTest("MapKeyToFloat"):
+            registry_index = 31
+
+            transform_dict = transform_type_to_dict(MapKeyToFloat)
+            self.assertEqual(transform_dict["__type"], "Type[Transform]")
+            self.assertEqual(transform_dict["index_in_registry"], registry_index)
+            self.assertIn("MapKeyToFloat", transform_dict["transform_type"])
+
+            decoded_transform_type = transform_type_from_json(transform_dict)
+            self.assertEqual(decoded_transform_type, MapKeyToFloat)
 
     def test_encode_and_decode_deprecated_transforms(self) -> None:
         for deprecated_type, current_type, registry_index in self.deprecatedTestCases:
