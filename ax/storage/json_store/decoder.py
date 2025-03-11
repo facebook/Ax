@@ -92,6 +92,9 @@ _DEPRECATED_MODEL_KWARGS: tuple[str, ...] = (
     "status_quo_name",
 )
 
+# Deprecated node input constructors, removed from GNodes.
+_DEPRECATED_NODE_INPUT_CONSTRUCTORS: tuple[str, ...] = ("status_quo_features",)
+
 
 @dataclass
 class RegistryKwargs:
@@ -661,14 +664,16 @@ def generation_node_from_json(
     # recursively decode dictionary key values.
     decoded_input_constructors = None
     if "input_constructors" in generation_node_json.keys():
-        decoded_input_constructors = {
-            InputConstructorPurpose[key]: object_from_json(
+        decoded_input_constructors = {}
+        for key, value in generation_node_json.pop("input_constructors").items():
+            if key in _DEPRECATED_NODE_INPUT_CONSTRUCTORS:
+                # Skip deprecated input constructors.
+                continue
+            decoded_input_constructors[InputConstructorPurpose[key]] = object_from_json(
                 value,
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
-            for key, value in generation_node_json.pop("input_constructors").items()
-        }
 
     return GenerationNode(
         node_name=generation_node_json.pop("node_name"),
