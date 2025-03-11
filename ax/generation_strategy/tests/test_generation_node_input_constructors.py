@@ -287,7 +287,6 @@ class TestGenerationNodeInputConstructors(TestCase):
                 trial_type=trial_type,
                 complete=False,
                 num_arms=num_arms,
-                with_status_quo=True,
             )
         self.experiment.fetch_data()
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
@@ -310,6 +309,7 @@ class TestGenerationNodeInputConstructors(TestCase):
             trial_type=Keys.SHORT_RUN,
             complete=False,
             num_arms=1,
+            with_status_quo=False,
         )
         self.experiment.fetch_data()
         with self.assertRaisesRegex(
@@ -330,7 +330,6 @@ class TestGenerationNodeInputConstructors(TestCase):
                 trial_type=Keys.LONG_RUN,
                 complete=False,
                 num_arms=num_arms,
-                with_status_quo=True,
             )
         self.experiment.fetch_data()
         sq_ft = NodeInputConstructors.STATUS_QUO_FEATURES(
@@ -578,7 +577,7 @@ class TestGenerationNodeInputConstructors(TestCase):
         trial_type: str | None = None,
         complete: bool = True,
         num_arms: int = 1,
-        with_status_quo: bool = False,
+        with_status_quo: bool = True,
     ) -> BatchTrial:
         """Helper function to add a trial to an experiment, takes a trial type and
         whether or not the trial is complete, and number of arms"""
