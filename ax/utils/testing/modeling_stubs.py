@@ -118,24 +118,6 @@ def get_observation_status_quo0(
     )
 
 
-def get_observation_status_quo1(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
-) -> Observation:
-    return Observation(
-        features=ObservationFeatures(
-            parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
-            trial_index=1,
-        ),
-        data=ObservationData(
-            means=np.array([2.0, 4.0]),
-            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
-        ),
-        arm_name="0_0",
-    )
-
-
 def get_observation1trans(
     first_metric_name: str = "a",
     second_metric_name: str = "b",

@@ -127,9 +127,5 @@ class RandomAdapter(Adapter):
     ) -> list[ObservationData]:
         raise NotImplementedError
 
-    def _set_status_quo(
-        self,
-        experiment: Experiment | None,
-        status_quo_features: ObservationFeatures | None,
-    ) -> None:
+    def _set_status_quo(self, experiment: Experiment) -> None:
         pass

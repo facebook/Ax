@@ -38,6 +38,7 @@ from ax.core.types import (
     TModelPredict,
     TParameterization,
 )
+from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError
 from ax.modelbridge.transforms.base import Transform
@@ -264,9 +265,7 @@ class Adapter:
 
         # Set model status quo.
         # NOTE: training data must be set before setting the status quo.
-        self._set_status_quo(
-            experiment=experiment, status_quo_features=status_quo_features
-        )
+        self._set_status_quo(experiment=experiment)
 
         # Save model, apply terminal transform, and fit.
         self.model = model
@@ -314,12 +313,16 @@ class Adapter:
         observations and the search space. This packages the following methods:
         * self._prepare_observations
         * self._set_training_data
+        * self._set_status_quo
         * self._transform_data
         """
         observations = self._prepare_observations(experiment=experiment, data=data)
         observations_raw = self._set_training_data(
             observations=observations, search_space=self._model_space
         )
+        # This ensures that SQ is up to date when we re-fit the existing Adapter
+        # in GeneratorSpec.fit.
+        self._set_status_quo(experiment=experiment)
         return self._transform_data(
             observations=observations_raw,
             search_space=self._model_space,
@@ -480,64 +483,48 @@ class Adapter:
         # Remove parameter constraints from the model space.
         self._model_space.set_parameter_constraints([])
 
-    def _set_status_quo(
-        self,
-        experiment: Experiment,
-        status_quo_features: ObservationFeatures | None,
-    ) -> None:
-        """Set model status quo by matching status_quo_features or
-        extracting from the experiment.
+    def _set_status_quo(self, experiment: Experiment) -> None:
+        """Set the status quo by extracting it from the experiment.
+        The ``experiment.status_quo`` is an Arm that contains the parameterization
+        and the name of the status quo arm. This method extracts the target
+        trial index from the experiment, then matches the parameterization and
+        trial index to the training data to make a status quo ``Observation``,
+        complete with the parameterization, trial index, and data.
 
-        First checks for status quo in inputs status_quo_features. If not provided,
-        checks the experiment for a status quo. If either one exists, looks through
-        the training data for an observation with the same name or features.
+        NOTE: The status quo will not be set if the target trial index is None,
+        or if there are multiple observations for the status quo arm in the
+        training data for the target trial index.
 
         Args:
-            experiment: Experiment that will be checked for status quo.
-            status_quo_features: Features for status quo.
+            experiment: The experiment to extract the status quo from.
         """
-        self._status_quo: Observation | None = None
-        sq_obs = None
-
-        if status_quo_features is None and experiment.status_quo is not None:
-            status_quo_name = experiment.status_quo.name
-            sq_obs = [
-                obs for obs in self._training_data if obs.arm_name == status_quo_name
-            ]
-        elif status_quo_features is not None:
-            sq_obs = [
-                obs
-                for obs in self._training_data
-                if (obs.features.parameters == status_quo_features.parameters)
-                and (obs.features.trial_index == status_quo_features.trial_index)
-            ]
-            status_quo_name = sq_obs[0].arm_name if sq_obs else None
-        else:
-            status_quo_name = None
-
-        # If a status quo was found in the training data.
-        if sq_obs is not None:
-            if len(sq_obs) == 0:
-                logger.warning(f"Status quo {status_quo_name} not present in data")
-            elif len(sq_obs) >= 1:
-                # status quo name (not features as trial index is part of the
-                # observation features) should be consistent even if we have multiple
-                # observations of the status quo.
-                # This is useful for getting status_quo_data_by_trial
-                self._status_quo_name = status_quo_name
-                if (
-                    len(sq_obs) > 1
-                    and self._data_loader_config.fit_only_completed_map_metrics
-                ):
-                    # it is expected to have multiple obserations for map data
-                    logger.warning(
-                        f"Status quo {status_quo_name} found in data with multiple "
-                        "observations. Use status_quo_features to specify which to use."
-                    )
-                else:
-                    # if there is a unique status_quo, set it
-                    # unique features verified in _set_training_data.
-                    self._status_quo = sq_obs[0]
+        self._status_quo: Observation | None = None  # reset the SQ.
+        status_quo_arm = experiment.status_quo
+        if status_quo_arm is None:
+            self._status_quo_name = None
+            return
+        self._status_quo_name = status_quo_arm.name
+        target_trial_index = get_target_trial_index(experiment=experiment)
+        status_quo_observations = [
+            obs
+            for obs in self._training_data
+            if (obs.features.parameters == status_quo_arm.parameters)
+            and (obs.features.trial_index == target_trial_index)
+        ]
+        if len(status_quo_observations) == 0:
+            logger.warning(
+                f"Status quo {self._status_quo_name} is not present in the "
+                "training data."
+            )
+            return
+        elif len(status_quo_observations) > 1:
+            logger.warning(
+                f"Status quo {self._status_quo_name} was found in the data with "
+                "multiple observations. This typically happens when there is MapData "
+                "attached to the experiment. `Adapter.status_quo` will not be set."
+            )
+            return
+        self._status_quo = status_quo_observations[-1]
 
     @property
     def status_quo_data_by_trial(self) -> dict[int, ObservationData] | None:
@@ -564,9 +551,6 @@ class Adapter:
     @property
     def status_quo_name(self) -> str | None:
         """Name of status quo, if any."""
-        if self._status_quo is not None:
-            if self._status_quo.arm_name is not None:
-                return self._status_quo.arm_name
         return self._status_quo_name
 
     @property

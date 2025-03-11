@@ -619,7 +619,7 @@ class WinsorizeTransformTest(TestCase):
         modelbridge = Adapter(
             experiment=Experiment(
                 search_space=search_space,
-                status_quo=Arm(parameters={"x": 1.0, "y": 1.0}, name="1_1"),
+                status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
             ),
             model=Generator(),
             transforms=[],
@@ -656,8 +656,11 @@ class WinsorizeTransformTest(TestCase):
                 Winsorize(search_space=None, observations=observations, config=config)
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_transform(observation_data, config=None, optimization_config=None) -> Winsorize:
+def get_transform(
+    observation_data: list[ObservationData],
+    config: dict[str, Any] | None = None,
+    optimization_config: OptimizationConfig | None = None,
+) -> Winsorize:
     observations = [
         Observation(features=ObservationFeatures({}), data=obsd)
         for obsd in observation_data
