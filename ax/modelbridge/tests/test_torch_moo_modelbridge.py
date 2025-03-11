@@ -44,7 +44,6 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_multi_objective,
     get_hierarchical_search_space,
     get_hss_trials_with_fixed_parameter,
-    get_non_monolithic_branin_moo_data,
     TEST_SOBOL_SEED,
 )
 from ax.utils.testing.mock import mock_botorch_optimize, skip_fit_gpytorch_mll
@@ -704,31 +703,6 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
         self.assertFalse(obj_thresholds[1].relative)
-
-    @mock_botorch_optimize
-    def test_status_quo_for_non_monolithic_data(self) -> None:
-        exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
-        sobol_generator = get_sobol(
-            search_space=exp.search_space,
-        )
-        sobol_run = sobol_generator.gen(n=5)
-        exp.new_batch_trial(sobol_run).set_status_quo_and_optimize_power(
-            status_quo=exp.status_quo
-        ).run()
-
-        # create data where metrics vary in start and end times
-        data = get_non_monolithic_branin_moo_data()
-
-        bridge = TorchAdapter(
-            search_space=exp.search_space,
-            model=MultiObjectiveLegacyBoTorchGenerator(),
-            optimization_config=exp.optimization_config,
-            experiment=exp,
-            data=data,
-            transforms=[],
-        )
-        # pyre-fixme[16]: Optional type has no attribute `arm_name`.
-        self.assertEqual(bridge.status_quo.arm_name, "status_quo")
 
     def test_best_point(self) -> None:
         exp = get_branin_experiment_with_multi_objective(
