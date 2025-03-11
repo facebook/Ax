@@ -578,9 +578,44 @@ def get_factorial_experiment(
     return exp
 
 
-def get_experiment_with_repeated_arms(num_repeated_arms: int) -> Experiment:
-    batch_trial = get_batch_trial_with_repeated_arms(num_repeated_arms)
-    return batch_trial.experiment
+def get_experiment_with_repeated_arms(with_data: bool = False) -> Experiment:
+    batch_trial = get_batch_trial_with_repeated_arms(num_repeated_arms=2)
+    experiment = batch_trial.experiment
+    if with_data:
+        data = Data(
+            df=pd.DataFrame.from_records(
+                [
+                    {
+                        "arm_name": arm_name,
+                        "metric_name": metric_name,
+                        "mean": mean,
+                        "sem": sem,
+                        "trial_index": trial_index,
+                    }
+                    for arm_name, metric_name, mean, sem, trial_index in (
+                        ("0_0", "a", 2.0, 1.0, 0),
+                        ("0_0", "b", 4.0, 4.0, 0),
+                        ("0_0", "a", 2.0, 1.0, 1),
+                        ("0_0", "b", 4.0, 4.0, 1),
+                        ("0_1", "a", 2.0, 1.0, 0),
+                        ("0_1", "b", 4.0, 4.0, 0),
+                        ("0_1", "a", 2.0, 1.0, 1),
+                        ("0_1", "b", 1.0, 5.0, 1),
+                    )
+                ]
+            )
+        )
+        experiment.attach_data(data)
+        # Also add optimization config to prevent data from being thrown out.
+        experiment.optimization_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(Metric(name="a", lower_is_better=True)),
+                    Objective(Metric(name="b", lower_is_better=True)),
+                ]
+            )
+        )
+    return experiment
 
 
 def get_experiment_with_trial() -> Experiment:
@@ -1283,7 +1318,7 @@ def get_batch_trial(
     weights = get_weights_from_dict(get_arm_weights1())
     batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=0.75)
     if abandon_arm:
-        batch.mark_arm_abandoned(batch.arms[0].name, "abandoned reason")
+        batch.mark_arm_abandoned(batch.arms[2].name, "abandoned reason")
     batch.runner = SyntheticRunner()
     batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
     batch._generation_step_index = 0

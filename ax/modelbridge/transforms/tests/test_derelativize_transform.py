@@ -122,7 +122,7 @@ class DerelativizeTransformTest(TestCase):
         g = Adapter(
             experiment=Experiment(
                 search_space=search_space,
-                status_quo=Arm(parameters={"x": 1.0, "y": 1.0}, name="1_1"),
+                status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
             ),
             model=Generator(),
         )
@@ -204,7 +204,7 @@ class DerelativizeTransformTest(TestCase):
         g = Adapter(
             experiment=Experiment(
                 search_space=search_space,
-                status_quo=Arm(parameters={"x": 1.0, "y": 1.0}, name="1_2"),
+                status_quo=Arm(parameters={"x": None, "y": None}, name="1_2"),
             ),
             model=Generator(),
         )
@@ -253,7 +253,7 @@ class DerelativizeTransformTest(TestCase):
         g = Adapter(
             experiment=Experiment(
                 search_space=search_space,
-                status_quo=Arm(parameters={"x": 1.0, "y": 1.0}, name="1_1"),
+                status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
             ),
             model=Generator(),
         )
