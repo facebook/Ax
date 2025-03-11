@@ -13,6 +13,7 @@ from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.metadata_to_float import MetadataToFloat
 from ax.models.types import TConfig
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -58,8 +59,12 @@ class MapKeyToFloat(MetadataToFloat):
         )
 
     def _transform_observation_feature(self, obsf: ObservationFeatures) -> None:
-        if not obsf.parameters:
+        if len(obsf.parameters) == 0:
             for p in self._parameter_list:
                 obsf.parameters[p.name] = p.upper
             return
+        metadata = none_throws(obsf.metadata)
+        if len(metadata) == 0:
+            for p in self._parameter_list:
+                metadata[p.name] = p.upper
         super()._transform_observation_feature(obsf)
