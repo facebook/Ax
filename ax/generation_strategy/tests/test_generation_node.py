@@ -469,9 +469,7 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
                 self.model_selection_node.model_to_gen_from_name, gr._model_key
             )
         mock_fit.assert_called_with(
-            experiment=self.branin_experiment,
-            data=self.branin_experiment.lookup_data(),
-            status_quo_features=None,
+            experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()
         )
         # Check that the metric aggregation function is called twice, once for each
         # model spec.

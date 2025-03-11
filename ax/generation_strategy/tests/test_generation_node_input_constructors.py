@@ -91,10 +91,6 @@ class TestGenerationNodeInputConstructors(TestCase):
                 parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
                 return_annotation="ObservationFeatures | None",
             ),
-            InputConstructorPurpose.STATUS_QUO_FEATURES: inspect.Signature(
-                parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
-                return_annotation="ObservationFeatures | None",
-            ),
         }
 
     def test_all_constructors_have_expected_signature_for_purpose(self) -> None:
@@ -301,46 +297,6 @@ class TestGenerationNodeInputConstructors(TestCase):
                 parameters={},
                 trial_index=0,
             ),
-        )
-
-    def test_status_quo_features_no_sq(self) -> None:
-        self._add_sobol_trial(
-            experiment=self.experiment,
-            trial_type=Keys.SHORT_RUN,
-            complete=False,
-            num_arms=1,
-            with_status_quo=False,
-        )
-        self.experiment.fetch_data()
-        with self.assertRaisesRegex(
-            AxGenerationException,
-            "experiment has no status quo",
-        ):
-            NodeInputConstructors.STATUS_QUO_FEATURES(
-                previous_node=None,
-                next_node=self.sobol_generation_node,
-                gs_gen_call_kwargs={},
-                experiment=self.experiment,
-            )
-
-    def test_status_quo_features(self) -> None:
-        for num_arms in (1, 3):
-            self._add_sobol_trial(
-                experiment=self.experiment,
-                trial_type=Keys.LONG_RUN,
-                complete=False,
-                num_arms=num_arms,
-            )
-        self.experiment.fetch_data()
-        sq_ft = NodeInputConstructors.STATUS_QUO_FEATURES(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={},
-            experiment=self.experiment,
-        )
-        self.assertEqual(
-            sq_ft,
-            ObservationFeatures(parameters={"x1": 0, "x2": 0}, trial_index=1),
         )
 
     def test_set_target_trial_most_arms_long_run_wins(self) -> None:
