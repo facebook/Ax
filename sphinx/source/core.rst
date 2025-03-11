@@ -61,14 +61,6 @@ Core Classes
     :undoc-members:
     :show-inheritance:
 
-`GenerationStrategyInterface`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.core.generation_strategy_interface
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 `GeneratorRun`
 ~~~~~~~~~~~~~~
 

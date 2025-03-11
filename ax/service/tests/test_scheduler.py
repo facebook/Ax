@@ -1892,7 +1892,7 @@ class TestAxScheduler(TestCase):
         self.assertIsInstance(empty_metrics, dict)
         self.assertTrue(len(empty_metrics) == 0)
 
-    def test_standard_generation_strategy(self) -> None:
+    def test_generation_strategy(self) -> None:
         with self.subTest("with a `GenerationStrategy"):
             # Tests standard GS creation.
             scheduler = Scheduler(
@@ -1903,7 +1903,7 @@ class TestAxScheduler(TestCase):
                 ),
                 db_settings=self.db_settings_if_always_needed,
             )
-            self.assertEqual(scheduler.standard_generation_strategy, self.sobol_MBM_GS)
+            self.assertEqual(scheduler.generation_strategy, self.sobol_MBM_GS)
 
     def test_get_improvement_over_baseline(self) -> None:
         n_total_trials = 8
@@ -1927,7 +1927,7 @@ class TestAxScheduler(TestCase):
         )
         percent_improvement = scheduler.get_improvement_over_baseline(
             experiment=scheduler.experiment,
-            generation_strategy=scheduler.standard_generation_strategy,
+            generation_strategy=scheduler.generation_strategy,
             baseline_arm_name=first_trial_name,
         )
 
@@ -1955,7 +1955,7 @@ class TestAxScheduler(TestCase):
         with self.assertRaises(NotImplementedError):
             scheduler.get_improvement_over_baseline(
                 experiment=scheduler.experiment,
-                generation_strategy=scheduler.standard_generation_strategy,
+                generation_strategy=scheduler.generation_strategy,
                 baseline_arm_name=None,
             )
 
@@ -1980,7 +1980,7 @@ class TestAxScheduler(TestCase):
         with self.assertRaises(ValueError):
             scheduler.get_improvement_over_baseline(
                 experiment=scheduler.experiment,
-                generation_strategy=scheduler.standard_generation_strategy,
+                generation_strategy=scheduler.generation_strategy,
                 baseline_arm_name=None,
             )
 
@@ -1997,7 +1997,7 @@ class TestAxScheduler(TestCase):
         with self.assertRaises(ValueError):
             scheduler.get_improvement_over_baseline(
                 experiment=scheduler.experiment,
-                generation_strategy=scheduler.standard_generation_strategy,
+                generation_strategy=scheduler.generation_strategy,
                 baseline_arm_name="baseline",
             )
 
@@ -2134,7 +2134,7 @@ class TestAxScheduler(TestCase):
         scheduler.run_n_trials(max_trials=3)
 
         # This is to ensure it generated from all nodes
-        self.assertTrue(scheduler.standard_generation_strategy.optimization_complete)
+        self.assertTrue(scheduler.generation_strategy.optimization_complete)
         self.assertEqual(len(self.branin_experiment.trials), 3)
 
     def test_update_options_with_validate_metrics(self) -> None:

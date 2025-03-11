@@ -490,21 +490,6 @@ class Scheduler(AnalysisBase, BestPointMixin):
             )
         return runner
 
-    @property
-    def standard_generation_strategy(self) -> GenerationStrategy:
-        """Used for operations in the scheduler that can only be done with
-        and instance of ``GenerationStrategy``.
-        """
-        gs = self.generation_strategy
-        if not isinstance(gs, GenerationStrategy):
-            raise NotImplementedError(
-                "This functionality is only supported with instances of "
-                "`GenerationStrategy` (one that uses `GenerationStrategy` "
-                "class) and not yet with other types of "
-                "`GenerationStrategyInterface`."
-            )
-        return gs
-
     def __repr__(self) -> str:
         """Short user-friendly string representation."""
         if not hasattr(self, "experiment"):
@@ -1266,7 +1251,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
         return self._get_best_trial(
             experiment=self.experiment,
-            generation_strategy=self.standard_generation_strategy,
+            generation_strategy=self.generation_strategy,
             optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
@@ -1281,7 +1266,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,
-            generation_strategy=self.standard_generation_strategy,
+            generation_strategy=self.generation_strategy,
             optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
@@ -1296,7 +1281,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     ) -> float:
         return BestPointMixin._get_hypervolume(
             experiment=self.experiment,
-            generation_strategy=self.standard_generation_strategy,
+            generation_strategy=self.generation_strategy,
             optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
@@ -2152,7 +2137,7 @@ def get_fitted_model_bridge(scheduler: Scheduler, force_refit: bool = False) -> 
     Returns:
         A Adapter object fitted to the observations of the scheduler's experiment.
     """
-    gs = scheduler.standard_generation_strategy
+    gs = scheduler.generation_strategy
     model_bridge = gs.model  # Optional[Adapter]
     if model_bridge is None or force_refit:  # Need to re-fit the model.
         gs._curr._fit(experiment=scheduler.experiment)
