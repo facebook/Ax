@@ -133,7 +133,6 @@ class Adapter:
         data: Data | None = None,
         transforms: Sequence[type[Transform]] | None = None,
         transform_configs: Mapping[str, TConfig] | None = None,
-        status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
         expand_model_space: bool = True,
         fit_tracking_metrics: bool = True,
@@ -168,8 +167,6 @@ class Adapter:
                 the reverse order.
             transform_configs: A dictionary from transform name to the
                 transform config dictionary.
-            status_quo_features: ObservationFeatures to use as status quo. If None,
-                the status quo will be extracted from the experiment, if it exists.
             optimization_config: An optional ``OptimizationConfig`` defining how to
                 optimize the model. Defaults to `experiment.optimization_config`.
             expand_model_space: If True, expand range parameter bounds in model
@@ -532,6 +529,7 @@ class Adapter:
 
         If status quo does not exist, return None.
         """
+        # tODO: extract from experiment
         # Status quo name will be set if status quo exists. We can just filter by name.
         if self.status_quo_name is None:
             return None

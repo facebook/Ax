@@ -160,7 +160,6 @@ class ModelRegistryTest(TestCase):
             {
                 "transform_configs": None,
                 "torch_device": None,
-                "status_quo_features": None,
                 "optimization_config": None,
                 "transforms": Cont_X_trans + Y_trans,
                 "expand_model_space": True,
@@ -265,7 +264,6 @@ class ModelRegistryTest(TestCase):
                     "optimization_config": None,
                     "transforms": Cont_X_trans,
                     "transform_configs": None,
-                    "status_quo_features": None,
                     "fit_out_of_design": False,
                     "fit_abandoned": False,
                     "fit_tracking_metrics": True,
@@ -287,7 +285,6 @@ class ModelRegistryTest(TestCase):
                     "experiment",
                     "data",
                     "transform_configs",
-                    "status_quo_features",
                     "expand_model_space",
                     "fit_out_of_design",
                     "fit_abandoned",
@@ -313,7 +310,7 @@ class ModelRegistryTest(TestCase):
     def test_ST_MTGP(self, use_saas: bool = False) -> None:
         """Tests single type MTGP via Modular BoTorch instantiation
         with both single & multi objective optimization."""
-        for exp, status_quo_features in [
+        for exp in [
             get_branin_experiment_with_status_quo_trials(num_sobol_trials=2),
             get_branin_experiment_with_status_quo_trials(
                 num_sobol_trials=2, multi_objective=True
@@ -346,7 +343,6 @@ class ModelRegistryTest(TestCase):
                 mtgp = constructor(
                     experiment=exp,
                     data=exp.fetch_data(),
-                    status_quo_features=status_quo_features,
                     surrogate=surrogate,
                 )
                 self.assertIsInstance(mtgp, TorchAdapter)

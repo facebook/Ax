@@ -152,9 +152,7 @@ class TestGenerationNode(TestCase):
                 data=self.branin_data,
             )
         mock_model_spec_fit.assert_called_with(
-            experiment=self.branin_experiment,
-            data=self.branin_data,
-            status_quo_features=None,
+            experiment=self.branin_experiment, data=self.branin_data
         )
 
     def test_gen(self) -> None:
@@ -175,9 +173,7 @@ class TestGenerationNode(TestCase):
             self.assertIsNotNone(model_kwargs)
             self.assertEqual(model_kwargs.get("init_position"), 3)
         mock_model_spec_fit.assert_called_with(
-            experiment=self.branin_experiment,
-            data=self.branin_experiment.lookup_data(),
-            status_quo_features=None,
+            experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()
         )
         mock_model_spec_gen.assert_called_with(
             experiment=self.branin_experiment,

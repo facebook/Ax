@@ -572,7 +572,6 @@ class TestGenerationStrategy(TestCase):
                     g._bridge_kwargs,
                     {
                         "optimization_config": None,
-                        "status_quo_features": None,
                         "transform_configs": None,
                         "transforms": Cont_X_trans,
                         "fit_out_of_design": False,
@@ -1557,7 +1556,6 @@ class TestGenerationStrategy(TestCase):
                     g._bridge_kwargs,
                     {
                         "optimization_config": None,
-                        "status_quo_features": None,
                         "transform_configs": None,
                         "transforms": Cont_X_trans,
                         "fit_out_of_design": False,

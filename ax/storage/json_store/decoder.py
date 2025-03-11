@@ -90,6 +90,7 @@ _DEPRECATED_MODEL_KWARGS: tuple[str, ...] = (
     "fit_on_update",
     "torch_dtype",
     "status_quo_name",
+    "status_quo_features",
 )
 
 # Deprecated node input constructors, removed from GNodes.

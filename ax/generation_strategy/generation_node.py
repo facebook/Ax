@@ -323,7 +323,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         self,
         experiment: Experiment,
         data: Data | None = None,
-        status_quo_features: ObservationFeatures | None = None,
         **kwargs: Any,
     ) -> None:
         """Fits the specified models to the given experiment + data using
@@ -340,7 +339,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             experiment: The experiment to fit the model to.
             data: The experiment data used to fit the model, optional (if not specified
                 will use ``experiment.lookup_data()``, extracted in ``Adapter``).
-            status_quo_features: The features of the status quo arm, if it exists.
             kwargs: Additional keyword arguments to pass to the model's
                 ``fit`` method. NOTE: Local kwargs take precedence over the ones
                 stored in ``GeneratorSpec.model_kwargs``.
@@ -350,7 +348,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
                 experiment=experiment,
                 data=data,
-                status_quo_features=status_quo_features,
                 **{
                     **self._get_model_state_from_last_generator_run(
                         model_spec=model_spec
