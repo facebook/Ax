@@ -16,6 +16,7 @@ from typing import Any, Protocol
 import pandas as pd
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
@@ -146,6 +147,7 @@ class Analysis(Protocol):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> AnalysisCard:
         # Note: when implementing compute always prefer experiment.lookup_data() to
         # experiment.fetch_data() to avoid unintential data fetching within the report

@@ -14,15 +14,17 @@ from unittest.mock import Mock
 import numpy as np
 import torch
 from ax.core.arm import Arm
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import SumConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.base import (
     Adapter,
@@ -32,7 +34,7 @@ from ax.modelbridge.base import (
     unwrap_observation_data,
 )
 from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.registry import Generators, Y_trans
+from ax.modelbridge.registry import Y_trans
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.models.base import Generator
 from ax.utils.common.constants import Keys
@@ -58,13 +60,12 @@ from ax.utils.testing.modeling_stubs import (
     get_observation2,
     get_observation2trans,
     get_observation_status_quo0,
-    get_observation_status_quo1,
     transform_1,
     transform_2,
 )
 from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.utils.assorted import validate_input_scaling
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class BaseAdapterTest(TestCase):
@@ -464,118 +465,86 @@ class BaseAdapterTest(TestCase):
         gr = adapter.gen(n=1)
         self.assertEqual(gr.arms[0].parameters, {"x": 1.0})
 
-    @mock.patch(
-        "ax.modelbridge.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1()]),
-    )
-    @mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
-    def test_SetStatusQuo(self, _, __) -> None:
+    def test_set_status_quo(self) -> None:
         exp = get_experiment_for_value()
-        # Specify through the experiment.
-        exp.status_quo = Arm(parameters={"x": 3.0}, name="1_1")
-        adapter = Adapter(experiment=exp, model=Generator())
-        self.assertEqual(adapter.status_quo, get_observation1())
-        self.assertEqual(adapter.status_quo_name, "1_1")
-
-        # Alternatively, we can specify by features
-        exp = get_experiment_for_value()
-        adapter = Adapter(
-            experiment=exp,
-            model=Generator(),
-            status_quo_features=get_observation1().features,
+        exp._status_quo = Arm(parameters={"x": 3.0}, name="0_0")
+        with self.assertLogs(logger="ax", level="WARNING") as logs:
+            adapter = Adapter(experiment=exp, model=Generator())
+        self.assertTrue(
+            any("is not present in the training data" in log for log in logs.output)
         )
-        self.assertEqual(adapter.status_quo, get_observation1())
-        self.assertEqual(adapter.status_quo_name, "1_1")
-
-        # Alternatively, we can specify on experiment.
-        # Put a dummy arm with SQ name 1_1 on the dummy experiment.
-        sq = Arm(name="1_1", parameters={"x": 3.0})
-        exp._status_quo = sq
-        # Check that we set SQ to arm 1_1
-        adapter = Adapter(experiment=exp, model=Generator())
-        self.assertEqual(adapter.status_quo, get_observation1())
-        self.assertEqual(adapter.status_quo_name, "1_1")
-
-        # Left as None if features or name don't exist in the data.
-        exp = get_experiment_for_value()
-        exp.status_quo = Arm(parameters={"x": 3.0}, name="1_0")
-        adapter = Adapter(experiment=exp, model=Generator())
-        self.assertIsNone(adapter.status_quo)
-        self.assertIsNone(adapter.status_quo_name)
-        adapter = Adapter(
-            experiment=exp,
-            model=Generator(),
-            status_quo_features=ObservationFeatures(parameters={"x": 3.0, "y": 10.0}),
-        )
+        # Status quo name is set but status quo itself is not, since there is no data.
+        self.assertEqual(adapter.status_quo_name, "0_0")
         self.assertIsNone(adapter.status_quo)
 
-    @mock.patch(
-        "ax.modelbridge.base.Adapter._gen",
-        autospec=True,
-    )
-    def test_status_quo_for_non_monolithic_data(self, mock_gen: Mock) -> None:
-        mock_gen.return_value = GenResults(
-            observation_features=[
-                ObservationFeatures(
-                    parameters={"x1": float(i), "x2": float(i)}, trial_index=1
-                )
-                for i in range(5)
-            ],
-            weights=[1] * 5,
-        )
+        for num_batch_trial in (1, 2):
+            # Experiment with status quo in num_batch_trial trials. Only one completed.
+            exp = get_branin_experiment(
+                with_batch=True,
+                with_status_quo=True,
+                num_batch_trial=num_batch_trial,
+                with_completed_batch=True,
+            )
+            adapter = Adapter(experiment=exp, model=Generator())
+            # Status quo is set with the target trial index.
+            self.assertEqual(
+                none_throws(adapter.status_quo).features.trial_index,
+                get_target_trial_index(experiment=exp),
+            )
+            # Status quo data by trial extracts the data from all trials.
+            self.assertEqual(
+                set(none_throws(adapter.status_quo_data_by_trial).keys()),
+                set(range(num_batch_trial)),
+            )
+            # Status quo name is set.
+            self.assertEqual(adapter._status_quo_name, none_throws(exp.status_quo).name)
+
+    def test_status_quo_for_non_monolithic_data(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
-        sobol = Generators.SOBOL(experiment=exp)
-        exp.new_batch_trial(sobol.gen(5)).set_status_quo_and_optimize_power(
+        sobol_generator = get_sobol(
+            search_space=exp.search_space,
+        )
+        sobol_run = sobol_generator.gen(n=5)
+        exp.new_batch_trial(sobol_run).set_status_quo_and_optimize_power(
             status_quo=exp.status_quo
         ).run()
 
         # create data where metrics vary in start and end times
         data = get_non_monolithic_branin_moo_data()
-        with warnings.catch_warnings(record=True) as ws:
-            bridge = Adapter(
-                experiment=exp,
-                model=Generator(),
-                data=data,
-                search_space=exp.search_space,
-            )
-        # just testing it doesn't error
-        bridge.gen(5)
+        with warnings.catch_warnings(record=True) as ws, mock.patch.object(
+            exp, "lookup_data", return_value=data
+        ):
+            adapter = Adapter(experiment=exp, model=Generator(), data=data)
+        # Check that we get warnings about start and end time columns being discarded.
         self.assertTrue(any("start_time" in str(w.message) for w in ws))
         self.assertTrue(any("end_time" in str(w.message) for w in ws))
-        self.assertEqual(none_throws(bridge.status_quo).arm_name, "status_quo")
+        # Check that SQ is set.
+        self.assertEqual(adapter.status_quo_name, "status_quo")
+        self.assertIsNotNone(adapter.status_quo)
 
-    @mock.patch(
-        "ax.modelbridge.base.observations_from_data",
-        autospec=True,
-        return_value=(
-            [
-                get_observation_status_quo0(),
-                get_observation_status_quo1(),
-                get_observation1(),
-                get_observation2(),
-            ]
-        ),
-    )
     @mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
-    def test_SetStatusQuoMultipleObs(self, _, __) -> None:
-        exp = get_experiment_with_repeated_arms(2)
-
-        trial_index = 1
-        status_quo_features = ObservationFeatures(
-            # pyre-fixme[16]: `BaseTrial` has no attribute `status_quo`.
-            parameters=exp.trials[trial_index].status_quo.parameters,
-            trial_index=trial_index,
-        )
-        adapter = Adapter(
-            experiment=exp,
-            model=Generator(),
-            status_quo_features=status_quo_features,
-        )
+    def test_set_status_quo_with_repeated_observations(self, _) -> None:
+        exp = get_experiment_with_repeated_arms(with_data=True)
+        exp.status_quo = assert_is_instance(exp.trials[1], BatchTrial).status_quo
+        adapter = Adapter(experiment=exp, model=Generator())
         # Check that for experiments with many trials the status quo is set
         # to the value of the status quo of the last trial.
-        if len(exp.trials) >= 1:
-            self.assertEqual(adapter.status_quo, get_observation_status_quo1())
+        self.assertEqual(
+            adapter.status_quo,
+            Observation(
+                features=ObservationFeatures(
+                    parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
+                    trial_index=1,
+                    metadata={},
+                ),
+                data=ObservationData(
+                    means=np.array([2.0, 4.0]),
+                    covariance=np.array([[1.0, 0.0], [0.0, 16.0]]),
+                    metric_names=["a", "b"],
+                ),
+                arm_name="0_0",
+            ),
+        )
 
     def test_transform_observations(self) -> None:
         """
@@ -691,55 +660,6 @@ class BaseAdapterTest(TestCase):
         self.assertIsNone(gr.optimization_config)
         self.assertIsNone(gr.search_space)
 
-    def test_set_status_quo(self) -> None:
-        # experiment with single status quo in trial
-        exp = get_branin_experiment(
-            with_batch=True,
-            with_status_quo=True,
-            num_batch_trial=1,
-            with_completed_batch=True,
-        )
-        adapter = Adapter(experiment=exp, model=Generator())
-
-        # we are able to set status_quo_data_by_trial when multiple
-        # status_quos present in each trial
-        self.assertIsNotNone(adapter.status_quo_data_by_trial)
-        # status_quo is set
-        self.assertIsNotNone(adapter.status_quo)
-        # Status quo name is logged
-        self.assertEqual(adapter._status_quo_name, none_throws(exp.status_quo).name)
-
-        # experiment with multiple status quos in different trials
-        exp = get_branin_experiment(
-            with_batch=True,
-            with_status_quo=True,
-            num_batch_trial=2,
-            with_completed_batch=True,
-        )
-        adapter = Adapter(experiment=exp, model=Generator())
-        # we are able to set status_quo_data_by_trial when multiple
-        # status_quos present in each trial
-        self.assertIsNotNone(adapter.status_quo_data_by_trial)
-        # status_quo is not set
-        self.assertIsNone(adapter.status_quo)
-        # Status quo name can still be logged
-        self.assertEqual(adapter._status_quo_name, none_throws(exp.status_quo).name)
-
-        # a unique status_quo can be identified (by trial index)
-        # if status_quo_features is specified
-        status_quo_features = ObservationFeatures(
-            parameters=none_throws(exp.status_quo).parameters,
-            trial_index=0,
-        )
-        adapter = Adapter(
-            experiment=exp,
-            model=Generator(),
-            status_quo_features=status_quo_features,
-        )
-        self.assertIsNotNone(adapter.status_quo)
-
-
-class testClampObservationFeatures(TestCase):
     def test_ClampObservationFeaturesNearBounds(self) -> None:
         cases = [
             (

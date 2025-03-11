@@ -30,12 +30,14 @@ from ax.core.utils import (
     get_model_trace_of_times,
     get_pending_observation_features,
     get_pending_observation_features_based_on_trial_status as get_pending_status,
+    get_target_trial_index,
     MissingMetrics,
 )
-
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_data,
+    get_branin_experiment,
     get_experiment,
     get_hierarchical_search_space_experiment,
     get_robust_branin_experiment,
@@ -661,3 +663,18 @@ class UtilsTest(TestCase):
             mock_pending_ts.assert_called_once_with(
                 experiment=exp_with_many_trials, include_out_of_design_points=True
             )
+
+    def test_get_target_trial_index_non_batch(self) -> None:
+        # Testing with non-BatchTrial. Should only return the index of the
+        # SQ trial if it exists and has data.
+        experiment = get_branin_experiment(with_completed_trial=True)
+        self.assertIsNone(get_target_trial_index(experiment=experiment))
+        # Add SQ but it is doesn't have data yet.
+        experiment.status_quo = Arm(
+            name="status_quo", parameters={"x1": 0.0, "x2": 0.0}
+        )
+        self.assertIsNone(get_target_trial_index(experiment=experiment))
+        # Add data to SQ.
+        trial = experiment.new_trial().add_arm(experiment.status_quo)
+        experiment.attach_data(get_branin_data(trials=[trial]))
+        self.assertEqual(get_target_trial_index(experiment=experiment), trial.index)

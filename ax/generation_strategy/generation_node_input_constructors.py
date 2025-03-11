@@ -15,7 +15,6 @@ from ax.core.experiment import Experiment
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.generation_strategy import AxGenerationException
-
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.constants import Keys
 from ax.utils.common.func_enum import FuncEnum
@@ -34,7 +33,6 @@ class InputConstructorPurpose(Enum):
 
     N = "n"
     FIXED_FEATURES = "fixed_features"
-    STATUS_QUO_FEATURES = "status_quo_features"
 
 
 class NodeInputConstructors(FuncEnum):
@@ -51,7 +49,6 @@ class NodeInputConstructors(FuncEnum):
     REPEAT_N = "repeat_arm_n"
     REMAINING_N = "remaining_n"
     TARGET_TRIAL_FIXED_FEATURES = "set_target_trial"
-    STATUS_QUO_FEATURES = "get_status_quo"
 
     # pyre-ignore[3]: Input constructors will be used to make different inputs,
     # so we need to allow `Any` return type here.
@@ -75,49 +72,6 @@ class NodeInputConstructors(FuncEnum):
 
 
 # ------------------------- Purpose: `fixed_features` ------------------------- #
-
-
-def get_status_quo(
-    previous_node: GenerationNode | None,
-    next_node: GenerationNode,
-    gs_gen_call_kwargs: dict[str, Any],
-    experiment: Experiment,
-) -> ObservationFeatures | None:
-    """Get the status quo features to pass to the fit of the next node, if applicable.
-
-    Args:
-        previous_node: The previous node in the ``GenerationStrategy``. This is the node
-            that is being transition away from, and is provided for easy access to
-            properties of this node.
-        next_node: The next node in the ``GenerationStrategy``. This is the node that
-            will leverage the inputs defined by this input constructor.
-        gs_gen_call_kwargs: The kwargs passed to the ``GenerationStrategy``'s
-            gen call.
-        experiment: The experiment associated with this ``GenerationStrategy``.
-    Returns:
-        An ``ObservationFeatures`` object that defines the status quo observation
-        features for fitting the model in the next node.
-    """
-    target_trial_idx = get_target_trial_index(experiment=experiment)
-    if target_trial_idx is None:
-        raise AxGenerationException(
-            f"Attempting to construct status quo input into {next_node} but couldn't "
-            "identify the target trial. Often this could be due to no trials on the "
-            f"experiment that are in status {STATUSES_EXPECTING_DATA} "
-            f"and have data. The trials on this experiment are: "
-            f"{experiment.trials} and trials with data are: "
-            f"{experiment.lookup_data().df.trial_index.unique()}."
-        )
-    if experiment.status_quo is None:
-        raise AxGenerationException(
-            f"Attempting to construct status quo input into {next_node} but the "
-            "experiment has no status quo. Please set a status quo before "
-            "generating."
-        )
-    return ObservationFeatures(
-        parameters=experiment.status_quo.parameters,
-        trial_index=target_trial_idx,
-    )
 
 
 def set_target_trial(
@@ -147,8 +101,9 @@ def set_target_trial(
         raise AxGenerationException(
             f"Attempting to construct for input into {next_node} but no trials match "
             "the expected conditions. Often this could be due to no trials on the "
-            f"experiment that are in status {STATUSES_EXPECTING_DATA} on the "
-            f"experiment. The trials on this experiment are: {experiment.trials}."
+            "experiment that have status quo arm and are in status "
+            f"{STATUSES_EXPECTING_DATA} on the experiment. The trials on this "
+            f"experiment are: {experiment.trials}."
         )
     return ObservationFeatures(
         parameters={},

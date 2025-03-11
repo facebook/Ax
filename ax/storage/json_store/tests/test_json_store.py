@@ -233,12 +233,6 @@ TEST_CASES = [
     ),
     (
         "GenerationStrategy",
-        partial(
-            sobol_gpei_generation_node_gs, with_input_constructors_sq_features=True
-        ),
-    ),
-    (
-        "GenerationStrategy",
         partial(sobol_gpei_generation_node_gs, with_unlimited_gen_mbm=True),
     ),
     (
@@ -809,6 +803,7 @@ class JSONStoreTest(TestCase):
                 "fit_on_update": False,
                 "torch_dtype": torch.double,
                 "status_quo_name": "status_quo",
+                "status_quo_features": None,
                 "other_kwarg": 5,
             },
             "model_gen_kwargs": {},
@@ -878,7 +873,6 @@ class JSONStoreTest(TestCase):
             {
                 "transforms": {},
                 "transform_configs": None,
-                "status_quo_features": None,
                 "optimization_config": None,
                 "fit_out_of_design": False,
                 "fit_abandoned": False,

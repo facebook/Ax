@@ -118,24 +118,6 @@ def get_observation_status_quo0(
     )
 
 
-def get_observation_status_quo1(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
-) -> Observation:
-    return Observation(
-        features=ObservationFeatures(
-            parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
-            trial_index=1,
-        ),
-        data=ObservationData(
-            means=np.array([2.0, 4.0]),
-            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
-        ),
-        arm_name="0_0",
-    )
-
-
 def get_observation1trans(
     first_metric_name: str = "a",
     second_metric_name: str = "b",
@@ -230,7 +212,6 @@ def sobol_gpei_generation_node_gs(
     with_input_constructors_remaining_n: bool = False,
     with_input_constructors_repeat_n: bool = False,
     with_input_constructors_target_trial: bool = False,
-    with_input_constructors_sq_features: bool = False,
     with_unlimited_gen_mbm: bool = False,
     with_trial_type: bool = False,
     with_is_SOO_transition: bool = False,
@@ -253,7 +234,6 @@ def sobol_gpei_generation_node_gs(
                 with_input_constructors_remaining_n,
                 with_input_constructors_repeat_n,
                 with_input_constructors_target_trial,
-                with_input_constructors_sq_features,
             ]
         )
         > 1
@@ -386,11 +366,6 @@ def sobol_gpei_generation_node_gs(
         purpose = InputConstructorPurpose.FIXED_FEATURES
         sobol_node._input_constructors = {
             purpose: NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES,
-        }
-    elif with_input_constructors_sq_features:
-        purpose = InputConstructorPurpose.STATUS_QUO_FEATURES
-        sobol_node._input_constructors = {
-            purpose: NodeInputConstructors.STATUS_QUO_FEATURES,
         }
 
     sobol_mbm_GS_nodes = GenerationStrategy(

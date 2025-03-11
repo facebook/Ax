@@ -77,6 +77,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("InSampleEffectsPlot requires an Experiment.")
@@ -198,7 +199,7 @@ def _get_model(
     model = None
     if generation_strategy is not None:
         if generation_strategy.model is None:
-            generation_strategy._fit_current_model(data=experiment.lookup_data())
+            generation_strategy._curr._fit(experiment=experiment)
 
         model = none_throws(generation_strategy.model)
 

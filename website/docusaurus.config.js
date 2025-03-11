@@ -96,10 +96,11 @@ module.exports={
           "position": "left"
         },
         {
-          "type": "docSidebar",
+          "type": "custom-docSidebar",
           "sidebarId": "recipes",
           "label": "Recipes",
-          "position": "left"
+          "position": "left",
+          "ignoreVersions": ["0.5.0"],
         },
         {
           "href": "https://ax.readthedocs.io/",

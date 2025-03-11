@@ -37,9 +37,8 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
     def __init__(self, prob_threshold: float = 0.95) -> None:
         r"""
         Args:
-            prob_theshold: The threshold for the probability of constraint violation.
+            prob_threhshold: Threshold for the probability of constraint violation.
 
-        Returns None
         """
         self.prob_threshold = prob_threshold
 
@@ -47,6 +46,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> HealthcheckAnalysisCard:
         r"""
         Compute the feasibility of the constraints for the experiment.
@@ -54,9 +54,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         Args:
             experiment: Ax experiment.
             generation_strategy: Ax generation strategy.
-            prob_threhshold: Threshold for the probability of constraint violation.
-                Constraints are considered feasible if the probability of constraint
-                violation is below the threshold for at least one arm.
+            adapter: Ax modelbridge adapter
 
         Returns:
             A HealthcheckAnalysisCard object with the information on infeasible metrics,
@@ -111,7 +109,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         )
 
         if generation_strategy.model is None:
-            generation_strategy._fit_current_model(data=experiment.lookup_data())
+            generation_strategy._curr._fit(experiment=experiment)
 
         model = none_throws(generation_strategy.model)
         if not is_predictive(model=model):

@@ -49,6 +49,7 @@ from ax.storage.sqa_store.db import (
     get_session,
     init_engine_and_session_factory,
     init_test_engine_and_session_factory,
+    session_context,
     session_scope,
 )
 from ax.storage.sqa_store.decoder import Decoder
@@ -169,17 +170,17 @@ class SQAStoreTest(TestCase):
     def test_ConnectionToDBWithURL(self) -> None:
         init_engine_and_session_factory(url="sqlite://", force_init=True)
 
+    def MockDBAPI(self) -> MagicMock:
+        connection = Mock()
+
+        # pyre-fixme[53]: Captured variable `connection` is not annotated.
+        def connect(*args: Any, **kwargs: Any) -> Mock:
+            return connection
+
+        return MagicMock(connect=Mock(side_effect=connect))
+
     def test_ConnectionToDBWithCreator(self) -> None:
-        def MockDBAPI() -> MagicMock:
-            connection = Mock()
-
-            # pyre-fixme[53]: Captured variable `connection` is not annotated.
-            def connect(*args: Any, **kwargs: Any) -> Mock:
-                return connection
-
-            return MagicMock(connect=Mock(side_effect=connect))
-
-        mocked_dbapi = MockDBAPI()
+        mocked_dbapi = self.MockDBAPI()
         init_engine_and_session_factory(
             creator=lambda: mocked_dbapi.connect(),
             force_init=True,
@@ -194,6 +195,31 @@ class SQAStoreTest(TestCase):
             self.assertEqual(mocked_dbapi.connect.call_count, 1)
             self.assertTrue(engine.echo)
             self.assertEqual(engine.pool.size(), 2)
+
+    def test_ConnectionToDBWithSessionContext(self) -> None:
+        mocked_dbapi: MagicMock = self.MockDBAPI()
+
+        def creator() -> Mock:
+            return mocked_dbapi.connect()
+
+        init_engine_and_session_factory(
+            creator=creator,
+            force_init=True,
+            module=mocked_dbapi,
+        )
+        session_before = get_session()
+
+        with session_context(
+            creator=creator,
+            module=mocked_dbapi,
+        ):
+            in_context_session = get_session()
+            # Inside context we should have a new session
+            self.assertNotEqual(session_before, in_context_session)
+
+        # After context we should have the same session as before
+        session_after = get_session()
+        self.assertEqual(session_after, session_before)
 
     def test_GeneratorRunTypeValidation(self) -> None:
         experiment = get_experiment_with_batch_trial()
@@ -509,7 +535,7 @@ class SQAStoreTest(TestCase):
             self.assertEqual(len(mkw), 6)
             bkw = gr._bridge_kwargs
             self.assertIsNotNone(bkw)
-            self.assertEqual(len(bkw), 8)
+            self.assertEqual(len(bkw), 7)
             # This has seed, generated points and init position.
             ms = gr._model_state_after_gen
             self.assertIsNotNone(ms)
@@ -547,7 +573,7 @@ class SQAStoreTest(TestCase):
 
     def test_load_and_save_reduced_state_does_not_lose_abandoned_arms(self) -> None:
         exp = get_experiment_with_batch_trial(constrain_search_space=False)
-        exp.trials[0].mark_arm_abandoned(arm_name="0_0", reason="for this test")
+        self.assertEqual(len(exp.trials[0].abandoned_arms), 1)
         save_experiment(exp)
         loaded_experiment = load_experiment(
             exp.name, reduced_state=True, skip_runners_and_metrics=True
@@ -558,10 +584,7 @@ class SQAStoreTest(TestCase):
             reloaded_experiment.trials[0].abandoned_arms,
             exp.trials[0].abandoned_arms,
         )
-        self.assertEqual(
-            len(reloaded_experiment.trials[0].abandoned_arms),
-            1,
-        )
+        self.assertEqual(len(reloaded_experiment.trials[0].abandoned_arms), 1)
 
     def test_ExperimentSaveAndLoadGRWithOptConfig(self) -> None:
         exp = get_experiment_with_batch_trial(constrain_search_space=False)

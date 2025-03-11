@@ -13,7 +13,8 @@ from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCar
 from ax.core.experiment import Experiment
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from plotly import express as px, graph_objects as go
+from ax.modelbridge.base import Adapter
+from plotly import graph_objects as go
 
 
 class ScatterPlot(PlotlyAnalysis):
@@ -58,6 +59,7 @@ class ScatterPlot(PlotlyAnalysis):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ScatterPlot requires an Experiment")
@@ -105,7 +107,6 @@ def _prepare_data(
         trial_index: Optional trial index to filter the data to. If not specified,
                 all trials will be included.
     """
-
     # Lookup the data that has already been fetched and attached to the experiment
     data = experiment.lookup_data().df
 
@@ -115,7 +116,7 @@ def _prepare_data(
         lambda trial_index: experiment.trials[trial_index].status.is_completed
     )
     filtered = data[metric_name_mask & status_mask][
-        ["trial_index", "arm_name", "metric_name", "mean"]
+        ["trial_index", "arm_name", "metric_name", "mean", "sem"]
     ]
 
     # filter data to trial index if specified
@@ -123,9 +124,14 @@ def _prepare_data(
         filtered = filtered[filtered["trial_index"] == trial_index]
 
     # Pivot the data so that each row is an arm and the columns are the metric names
-    pivoted: pd.DataFrame = filtered.pivot_table(
+    # and the SEMs for each metric.
+    pivoted_mean: pd.DataFrame = filtered.pivot_table(
         index=["trial_index", "arm_name"], columns="metric_name", values="mean"
     ).dropna()
+    pivoted_sem: pd.DataFrame = filtered.pivot_table(
+        index=["trial_index", "arm_name"], columns="metric_name", values="sem"
+    ).dropna()
+    pivoted = pivoted_mean.join(pivoted_sem, rsuffix="_sem")
     pivoted.reset_index(inplace=True)
     pivoted.columns.name = None
 
@@ -143,21 +149,19 @@ def _prepare_data(
     x_lower_is_better: bool = experiment.metrics[x_metric_name].lower_is_better or False
     y_lower_is_better: bool = experiment.metrics[y_metric_name].lower_is_better or False
 
-    def is_optimal(row: pd.Series) -> bool:
-        x_mask = (
-            (pivoted[x_metric_name] < row[x_metric_name])
-            if x_lower_is_better
-            else (pivoted[x_metric_name] > row[x_metric_name])
-        )
-        y_mask = (
-            (pivoted[y_metric_name] < row[y_metric_name])
-            if y_lower_is_better
-            else (pivoted[y_metric_name] > row[y_metric_name])
-        )
-        return not (x_mask & y_mask).any()
-
     pivoted["is_optimal"] = pivoted.apply(
-        is_optimal,
+        lambda row: not (
+            (
+                (pivoted[x_metric_name] < row[x_metric_name])
+                if x_lower_is_better
+                else (pivoted[x_metric_name] > row[x_metric_name])
+            )
+            & (
+                (pivoted[y_metric_name] < row[y_metric_name])
+                if y_lower_is_better
+                else (pivoted[y_metric_name] > row[y_metric_name])
+            )
+        ).any(),
         axis=1,
     )
 
@@ -181,6 +185,8 @@ def _prepare_plot(
             - arm_name: The name of the arm
             - X_METRIC_NAME: The observed mean of some metric to plot on the x-axis
             - Y_METRIC_NAME: The observed mean of the metric to plot on the y-axis
+            - X_METRIC_NAME_SEM: The SEM of the observed mean of the x-axis metric
+            - Y_METRIC_NAME_SEM: The SEM of the observed mean of the y-axis metric
             - is_optimal: Whether the arm is on the Pareto frontier (this can be
                 omitted if show_pareto_frontier=False)
         x_metric_name: The name of the metric to plot on the x-axis
@@ -191,14 +197,42 @@ def _prepare_plot(
         trial_index: Optional trial index to filter the data to. If not specified,
                 all trials will be included.
     """
-    fig = px.scatter(
-        df,
-        x=x_metric_name,
-        y=y_metric_name,
-        # only show legend + multiple colors if trial index is not specified
-        # indicating all trials are being shown
-        color="trial_index" if trial_index is None else None,
-        hover_data=["trial_index", "arm_name", x_metric_name, y_metric_name],
+    fig = go.Figure(
+        go.Scatter(
+            x=df[x_metric_name],
+            y=df[y_metric_name],
+            mode="markers",
+            marker={
+                "color": "rgba(0, 0, 255, 0.3)",  # partially transparent blue
+            },
+            error_x={
+                "type": "data",
+                "array": df[f"{x_metric_name}_sem"] * 1.96,
+                "visible": True,
+                "color": "rgba(0, 0, 255, 0.2)",  # Semi-transparent blue
+            },
+            error_y={
+                "type": "data",
+                "array": df[f"{y_metric_name}_sem"] * 1.96,
+                "visible": True,
+                "color": "rgba(0, 0, 255, 0.2)",  # Semi-transparent blue
+            },
+            hoverlabel={
+                "bgcolor": "rgba(0, 0, 255, 0.2)",  # partially transparent blue
+                "font": {"color": "black"},
+            },
+            hoverinfo="text",
+            text=df.apply(
+                lambda row: (
+                    f"Trial: {row['trial_index']}<br>"
+                    + f"Arm: {row['arm_name']}<br>"
+                    + f"{x_metric_name}: {row[x_metric_name]}<br>"
+                    + f"{y_metric_name}: {row[y_metric_name]}"
+                ),
+                axis=1,
+            ),
+            showlegend=False,
+        )
     )
 
     if show_pareto_frontier:

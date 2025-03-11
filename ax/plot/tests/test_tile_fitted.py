@@ -119,7 +119,7 @@ class TileObservationsTest(TestCase):
         exp.search_space = SearchSpace(
             parameters=list(exp.search_space.parameters.values())
         )
-        config = tile_observations(experiment=exp, arm_names=["0_1", "0_2"], rel=False)
+        config = tile_observations(experiment=exp, arm_names=["0_0", "0_1"], rel=False)
 
         for key in ["layout", "data"]:
             self.assertIn(key, config.data)
@@ -142,13 +142,13 @@ class TileObservationsTest(TestCase):
         )
 
         # Data
-        self.assertEqual(config.data["data"][0]["x"], ["0_1", "0_2"])
-        self.assertEqual(config.data["data"][0]["y"], [2.0, 2.25])
+        self.assertEqual(config.data["data"][0]["x"], ["0_0", "0_1"])
+        self.assertEqual(config.data["data"][0]["y"], [3.0, 2.0])
         self.assertEqual(config.data["data"][0]["type"], "scatter")
-        self.assertIn("Arm 0_1", config.data["data"][0]["text"][0])
+        self.assertIn("Arm 0_0", config.data["data"][0]["text"][0])
 
         label_dict = {"ax_test_metric": "mapped_name"}
         config = tile_observations(
-            experiment=exp, arm_names=["0_1", "0_2"], rel=False, label_dict=label_dict
+            experiment=exp, arm_names=["0_0", "0_1"], rel=False, label_dict=label_dict
         )
         self.assertEqual(config.data["layout"]["annotations"][0]["text"], "mapped_name")

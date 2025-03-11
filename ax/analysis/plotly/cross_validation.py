@@ -50,6 +50,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         folds: int = -1,
         untransform: bool = True,
         trial_index: int | None = None,
+        refined_metric_name: str | None = None,
     ) -> None:
         """
         Args:
@@ -78,141 +79,39 @@ class CrossValidationPlot(PlotlyAnalysis):
         self.folds = folds
         self.untransform = untransform
         self.trial_index = trial_index
+        self._refined_metric_name = refined_metric_name
 
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
-        if generation_strategy is None:
-            raise UserInputError("CrossValidation requires a GenerationStrategy")
-
-        metric_name = self.metric_name or select_metric(
-            experiment=generation_strategy.experiment
+        adapter_for_analysis = _get_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
         )
-        # If model is not fit already, fit it
-        if generation_strategy.model is None:
-            generation_strategy._fit_current_model(None)
 
-        return self._construct_plot(
-            adapter=none_throws(generation_strategy.model),
+        # If metric name is not provided, try to infer it from the experiment
+        metric_name = self.metric_name
+        if metric_name is None:
+            if experiment is None:
+                raise UserInputError(
+                    "No metric name is provided, attempting to infer metric name "
+                    "from the Experiment object, but no Experiment is provided."
+                )
+            metric_name = select_metric(experiment=experiment)
+
+        df = _prepare_data(
+            adapter=adapter_for_analysis,
             metric_name=metric_name,
             folds=self.folds,
             untransform=self.untransform,
-            trial_index=self.trial_index,
-            experiment=experiment,
-        )
-
-    def _compute_adhoc(
-        self,
-        adapter: Adapter,
-        data: Data,
-        experiment: Experiment | None = None,
-        folds: int = -1,
-        untransform: bool = True,
-        metric_name_mapping: dict[str, str] | None = None,
-    ) -> list[PlotlyAnalysisCard]:
-        """
-        Helper method to expose adhoc cross validation plotting. This overrides the
-        default assumption that the adapter from the generation strategy should be
-        used. Only for advanced users in a notebook setting.
-
-        Args:
-            adapter: The adapter that will be assessed during cross validation.
-            data: The Data that was used to fit the model. Will be used in this
-                adhoc cross validation call to compute the cross validation for all
-                metrics in the Data object.
-            experiment: Experiment associated with this analysis. Used to determine
-                the priority of the analysis based on the metric importance in the
-                optimization config.
-            folds: Number of subsamples to partition observations into. Use -1 for
-                leave-one-out cross validation.
-            untransform: Whether to untransform the model predictions before cross
-                validating. Generators are trained on transformed data, and candidate
-                generation is performed in the transformed space. Computing the model
-                quality metric based on the cross-validation results in the
-                untransformed space may not be representative of the model that
-                is actually used for candidate generation in case of non-invertible
-                transforms, e.g., Winsorize or LogY. While the model in the
-                transformed space may not be representative of the original data in
-                regions where outliers have been removed, we have found it to better
-                reflect the how good the model used for candidate generation actually
-                is.
-            metric_name_mapping: Optional mapping from default metric names to more
-                readable metric names.
-        """
-        plots = []
-        # Get all unique metric names in the data object, CVs will be computed for
-        # all metrics in the data object
-        metric_names = list(data.df["metric_name"].unique())
-        for metric_name in metric_names:
-            # replace metric name with human readable name if mapping is provided
-            refined_metric_name = (
-                metric_name_mapping.get(metric_name, metric_name)
-                if metric_name_mapping
-                else metric_name
-            )
-            plots.append(
-                self._construct_plot(
-                    adapter=adapter,
-                    metric_name=metric_name,
-                    folds=folds,
-                    untransform=untransform,
-                    # trial_index argument is used with generation strategy since this
-                    # is an adhoc plot call, this will be None.
-                    trial_index=None,
-                    experiment=experiment,
-                    refined_metric_name=refined_metric_name,
-                )
-            )
-        return plots
-
-    def _construct_plot(
-        self,
-        adapter: Adapter,
-        metric_name: str,
-        folds: int,
-        untransform: bool,
-        trial_index: int | None,
-        experiment: Experiment | None = None,
-        refined_metric_name: str | None = None,
-    ) -> PlotlyAnalysisCard:
-        """
-        Args:
-            adapter: The adapter that will be assessed during cross validation.
-            metric_name: The name of the metric to plot.
-            folds: Number of subsamples to partition observations into. Use -1 for
-                leave-one-out cross validation.
-            untransform: Whether to untransform the model predictions before cross
-                validating. Generators are trained on transformed data, and candidate
-                generation is performed in the transformed space. Computing the model
-                quality metric based on the cross-validation results in the
-                untransformed space may not be representative of the model that
-                is actually used for candidate generation in case of non-invertible
-                transforms, e.g., Winsorize or LogY. While the model in the
-                transformed space may not be representative of the original data in
-                regions where outliers have been removed, we have found it to better
-                reflect the how good the model used for candidate generation actually
-                is.
-            trial_index: Optional trial index that the model from generation_strategy
-                was used to generate. Useful card attribute to filter to only specific
-                trial.
-            experiment: Optional Experiment associated with this analysis. Used to set
-                the priority of the analysis based on the metric importance in the
-                optimization config.
-            refined_metric_name: Optional replacement for raw metric name, useful for
-                imporving readability of the plot title.
-        """
-        df = _prepare_data(
-            adapter=adapter,
-            metric_name=metric_name,
-            folds=folds,
-            untransform=untransform,
-            trial_index=trial_index,
         )
 
         fig = _prepare_plot(df=df)
-        k_folds_substring = f"{folds}-fold" if folds > 0 else "leave-one-out"
+        k_folds_substring = f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
         # Nudge the priority if the metric is important to the experiment
         if (
             experiment is not None
@@ -231,7 +130,7 @@ class CrossValidationPlot(PlotlyAnalysis):
             nudge = 0
 
         # If a human readable metric name is provided, use it in the title
-        metric_title = refined_metric_name if refined_metric_name else metric_name
+        metric_title = self._refined_metric_name or metric_name
 
         return self._create_plotly_analysis_card(
             title=f"Cross Validation for {metric_title}",
@@ -243,12 +142,96 @@ class CrossValidationPlot(PlotlyAnalysis):
         )
 
 
+def cross_validation_adhoc_compute(
+    adapter: Adapter,
+    data: Data,
+    experiment: Experiment | None = None,
+    folds: int = -1,
+    untransform: bool = True,
+    metric_name_mapping: dict[str, str] | None = None,
+) -> list[PlotlyAnalysisCard]:
+    """
+    Helper method to expose adhoc cross validation plotting. This overrides the
+    default assumption that the adapter from the generation strategy should be
+    used. Only for advanced users in a notebook setting.
+
+    Args:
+        adapter: The adapter that will be assessed during cross validation.
+        data: The Data that was used to fit the model. Will be used in this
+            adhoc cross validation call to compute the cross validation for all
+            metrics in the Data object.
+        experiment: Experiment associated with this analysis. Used to determine
+            the priority of the analysis based on the metric importance in the
+            optimization config.
+        folds: Number of subsamples to partition observations into. Use -1 for
+            leave-one-out cross validation.
+        untransform: Whether to untransform the model predictions before cross
+            validating. Generators are trained on transformed data, and candidate
+            generation is performed in the transformed space. Computing the model
+            quality metric based on the cross-validation results in the
+            untransformed space may not be representative of the model that
+            is actually used for candidate generation in case of non-invertible
+            transforms, e.g., Winsorize or LogY. While the model in the
+            transformed space may not be representative of the original data in
+            regions where outliers have been removed, we have found it to better
+            reflect the how good the model used for candidate generation actually
+            is.
+        metric_name_mapping: Optional mapping from default metric names to more
+            readable metric names.
+    """
+    plots = []
+    # Get all unique metric names in the data object, CVs will be computed for
+    # all metrics in the data object
+    metric_names = list(data.df["metric_name"].unique())
+    for metric_name in metric_names:
+        # replace metric name with human readable name if mapping is provided
+        refined_metric_name = (
+            metric_name_mapping.get(metric_name, metric_name)
+            if metric_name_mapping
+            else metric_name
+        )
+        plots.append(
+            CrossValidationPlot(
+                metric_name=metric_name,
+                folds=folds,
+                untransform=untransform,
+                refined_metric_name=refined_metric_name,
+            ).compute(experiment=experiment, generation_strategy=None, adapter=adapter)
+        )
+    return plots
+
+
+def _get_adapter(
+    experiment: Experiment | None = None,
+    generation_strategy: GenerationStrategy | None = None,
+    adapter: Adapter | None = None,
+) -> Adapter:
+    # If adapter is provided, it will take precendence, otherwise use the current
+    # adapter from the generation strategy
+    if adapter is None:
+        if generation_strategy is None:
+            raise UserInputError(
+                "CrossValidation requires a GenerationStrategy if no custom "
+                "adapter is provided."
+            )
+
+        # If model is not fit already, fit it
+        if generation_strategy.model is None:
+            if experiment is None:
+                raise UserInputError(
+                    "Unable to find a model on the GenerationStrategy,"
+                    " so Experiment must be provided to fit the model."
+                )
+            generation_strategy._curr._fit(experiment=experiment)
+        adapter = none_throws(generation_strategy.model)  # model should be fit now
+    return adapter
+
+
 def _prepare_data(
     adapter: Adapter,
     metric_name: str,
     folds: int,
     untransform: bool,
-    trial_index: int | None,
 ) -> pd.DataFrame:
     cv_results = cross_validate(
         model=adapter,

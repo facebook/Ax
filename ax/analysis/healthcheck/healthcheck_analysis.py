@@ -10,6 +10,7 @@ from enum import IntEnum
 from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 
 
 class HealthcheckStatus(IntEnum):
@@ -34,4 +35,5 @@ class HealthcheckAnalysis(Analysis):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> HealthcheckAnalysisCard: ...

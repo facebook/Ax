@@ -323,7 +323,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         self,
         experiment: Experiment,
         data: Data | None = None,
-        status_quo_features: ObservationFeatures | None = None,
         **kwargs: Any,
     ) -> None:
         """Fits the specified models to the given experiment + data using
@@ -340,7 +339,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             experiment: The experiment to fit the model to.
             data: The experiment data used to fit the model, optional (if not specified
                 will use ``experiment.lookup_data()``, extracted in ``Adapter``).
-            status_quo_features: The features of the status quo arm, if it exists.
             kwargs: Additional keyword arguments to pass to the model's
                 ``fit`` method. NOTE: Local kwargs take precedence over the ones
                 stored in ``GeneratorSpec.model_kwargs``.
@@ -350,7 +348,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
                 experiment=experiment,
                 data=data,
-                status_quo_features=status_quo_features,
                 **{
                     **self._get_model_state_from_last_generator_run(
                         model_spec=model_spec
@@ -410,15 +407,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             return None
 
         if not skip_fit:
-            self._fit(
-                experiment=experiment,
-                data=data,
-                # pyre-ignore[6] TODO: Handle extracting SQ features differently in a
-                # follow-up commit
-                status_quo_features=input_constructor_values.pop(
-                    "status_quo_features", None
-                ),
-            )
+            self._fit(experiment=experiment, data=data)
         model_gen_kwargs = gs_gen_kwargs.copy()
         model_gen_kwargs.update(input_constructor_values)
         try:
@@ -841,10 +830,6 @@ class GenerationNode(SerializationMixin, SortableBase):
                 experiment=experiment,
                 gen_kwargs=gen_kwargs,
             ),
-            "status_quo_features": self._determine_sq_features_from_node(
-                experiment=experiment,
-                gen_kwargs=gen_kwargs,
-            ),
         }
 
     def _determine_arms_from_node(
@@ -936,37 +921,6 @@ class GenerationNode(SerializationMixin, SortableBase):
                 experiment=experiment,
             )
         return node_fixed_features
-
-    def _determine_sq_features_from_node(
-        self,
-        experiment: Experiment,
-        gen_kwargs: dict[str, Any],
-    ) -> ObservationFeatures | None:
-        """Uses the ``InputConstructors`` on the node to determine the status quo
-        features to pass into the model.
-
-        Args:
-            node_to_gen_from: The node from which to generate from
-            gen_kwargs: The kwargs passed to the ``GenerationStrategy``'s
-                gen call.
-
-        Returns:
-            An object of ObservationFeatures that represents the status quo features
-            to pass into the model.
-        """
-        node_sq_features = None
-        input_constructors_module = gs_module.generation_node_input_constructors
-        purpose_sq_features = (
-            input_constructors_module.InputConstructorPurpose.STATUS_QUO_FEATURES
-        )
-        if purpose_sq_features in self.input_constructors:
-            node_sq_features = self.input_constructors[purpose_sq_features](
-                previous_node=self.previous_node,
-                next_node=self,
-                gs_gen_call_kwargs=gen_kwargs,
-                experiment=experiment,
-            )
-        return node_sq_features
 
 
 class GenerationStep(GenerationNode, SortableBase):

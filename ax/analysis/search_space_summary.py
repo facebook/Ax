@@ -14,6 +14,7 @@ from ax.analysis.analysis import (
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 
 
 class SearchSpaceSummary(Analysis):
@@ -36,6 +37,7 @@ class SearchSpaceSummary(Analysis):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> AnalysisCard:
         if experiment is None:
             raise UserInputError(
