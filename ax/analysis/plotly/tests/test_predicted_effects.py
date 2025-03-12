@@ -43,7 +43,7 @@ class TestPredictedEffectsPlot(TestCase):
 
     def test_compute_for_requires_a_gs(self) -> None:
         analysis = PredictedEffectsPlot(metric_name="branin")
-        experiment = get_branin_experiment()
+        experiment = get_branin_experiment(with_batch=True, with_completed_batch=True)
         with self.assertRaisesRegex(UserInputError, "requires a GenerationStrategy"):
             analysis.compute(experiment=experiment)
 

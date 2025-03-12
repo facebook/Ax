@@ -12,6 +12,7 @@ from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import (
     CONFIDENCE_INTERVAL_BLUE,
+    get_adapter,
     get_nudge_value,
     MARKER_BLUE,
     select_metric,
@@ -23,7 +24,6 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.cross_validation import cross_validate
 from plotly import graph_objects as go
-from pyre_extensions import none_throws
 
 
 class CrossValidationPlot(PlotlyAnalysis):
@@ -92,7 +92,8 @@ class CrossValidationPlot(PlotlyAnalysis):
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
-        adapter_for_analysis = _get_adapter(
+        adapter_for_analysis = get_adapter(
+            analysis_name=self.name,
             experiment=experiment,
             generation_strategy=generation_strategy,
             adapter=adapter,
@@ -189,32 +190,6 @@ def cross_validation_adhoc_compute(
             ).compute(experiment=experiment, generation_strategy=None, adapter=adapter)
         )
     return plots
-
-
-def _get_adapter(
-    experiment: Experiment | None = None,
-    generation_strategy: GenerationStrategy | None = None,
-    adapter: Adapter | None = None,
-) -> Adapter:
-    # If adapter is provided, it will take precendence, otherwise use the current
-    # adapter from the generation strategy
-    if adapter is None:
-        if generation_strategy is None:
-            raise UserInputError(
-                "CrossValidation requires a GenerationStrategy if no custom "
-                "adapter is provided."
-            )
-
-        # If model is not fit already, fit it
-        if generation_strategy.model is None:
-            if experiment is None:
-                raise UserInputError(
-                    "Unable to find a model on the GenerationStrategy,"
-                    " so Experiment must be provided to fit the model."
-                )
-            generation_strategy._curr._fit(experiment=experiment)
-        adapter = none_throws(generation_strategy.model)  # model should be fit now
-    return adapter
 
 
 def _prepare_data(
