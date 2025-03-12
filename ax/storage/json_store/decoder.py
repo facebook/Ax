@@ -94,7 +94,7 @@ _DEPRECATED_MODEL_KWARGS: tuple[str, ...] = (
 )
 
 # Deprecated node input constructors, removed from GNodes.
-_DEPRECATED_NODE_INPUT_CONSTRUCTORS: tuple[str, ...] = ("status_quo_features",)
+_DEPRECATED_NODE_INPUT_CONSTRUCTORS: tuple[str, ...] = ("STATUS_QUO_FEATURES",)
 
 
 @dataclass
