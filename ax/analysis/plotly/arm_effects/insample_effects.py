@@ -16,7 +16,7 @@ from ax.analysis.plotly.arm_effects.utils import (
 )
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import is_predictive
+from ax.analysis.plotly.utils import get_nudge_value, is_predictive
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -111,24 +111,11 @@ class InSampleEffectsPlot(PlotlyAnalysis):
         fig = prepare_arm_effects_plot(
             df=df, metric_name=self.metric_name, outcome_constraints=outcome_constraints
         )
-
-        nudge = 0
-        level = AnalysisCardLevel.MID
-        # Nudge the priority if the metric is important to the experiment
-        if experiment.optimization_config is not None:
-            if (
-                self.metric_name
-                in experiment.optimization_config.objective.metric_names
-            ):
-                nudge = 2
-            elif self.metric_name in experiment.optimization_config.metrics:
-                nudge = 1
-
-        if self.use_modeled_effects:
-            nudge += 1
-        # most recent trials should have highest priority
-        max_trial_index = max(experiment.trial_indices_expecting_data, default=0)
-        nudge -= min(max_trial_index - self.trial_index, 9)
+        nudge = get_nudge_value(
+            metric_name=self.metric_name,
+            experiment=experiment,
+            use_modeled_effects=self.use_modeled_effects,
+        )
 
         subtitle = (
             "View a trial and its arms' "
@@ -141,7 +128,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
                 f"on trial {self.trial_index}"
             ),
             subtitle=subtitle,
-            level=level + nudge,
+            level=AnalysisCardLevel.MID + nudge,
             df=df,
             fig=fig,
             category=AnalysisCardCategory.INSIGHT,
