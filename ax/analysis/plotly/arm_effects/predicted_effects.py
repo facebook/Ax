@@ -17,7 +17,7 @@ from ax.analysis.plotly.arm_effects.utils import (
 )
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import get_nudge_value, is_predictive
+from ax.analysis.plotly.utils import get_adapter, get_nudge_value, is_predictive
 from ax.core import OutcomeConstraint
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
@@ -25,7 +25,7 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.derelativize import Derelativize
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 
 class PredictedEffectsPlot(PlotlyAnalysis):
@@ -72,14 +72,6 @@ class PredictedEffectsPlot(PlotlyAnalysis):
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("PredictedEffectsPlot requires an Experiment.")
-        try:
-            generation_strategy = assert_is_instance(
-                generation_strategy, GenerationStrategy
-            )
-        except TypeError as e:
-            raise UserInputError(
-                "PredictedEffectsPlot requires a GenerationStrategy."
-            ) from e
 
         try:
             trial_indices = [
@@ -95,18 +87,18 @@ class PredictedEffectsPlot(PlotlyAnalysis):
                 f"PredictedEffectsPlot cannot be used for {experiment} "
                 "because it has no trials."
             )
+        adapter = get_adapter(
+            analysis_name=self.name,
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
 
-        if generation_strategy.model is None:
-            generation_strategy._curr._fit(
-                experiment=experiment, data=experiment.lookup_data()
-            )
-
-        model = none_throws(generation_strategy.model)
-        if not is_predictive(model=model):
+        if not is_predictive(model=adapter):
             raise UserInputError(
                 "PredictedEffectsPlot requires a GenerationStrategy which is "
                 "in a state where the current model supports prediction.  The current "
-                f"model is {model._model_key} and does not support prediction."
+                f"model is {adapter._model_key} and does not support prediction."
             )
 
         outcome_constraints = (
@@ -116,12 +108,12 @@ class PredictedEffectsPlot(PlotlyAnalysis):
             .transform_optimization_config(
                 # TODO[T203521207]: move cloning into transform_optimization_config
                 optimization_config=none_throws(experiment.optimization_config).clone(),
-                modelbridge=model,
+                modelbridge=adapter,
             )
             .outcome_constraints
         )
         df = _prepare_data(
-            model=model,
+            adapter=adapter,
             metric_name=self.metric_name,
             candidate_trial=candidate_trial,
             outcome_constraints=outcome_constraints,
@@ -142,7 +134,7 @@ class PredictedEffectsPlot(PlotlyAnalysis):
 
 
 def _prepare_data(
-    model: Adapter,
+    adapter: Adapter,
     metric_name: str,
     candidate_trial: BaseTrial,
     outcome_constraints: list[OutcomeConstraint],
@@ -165,7 +157,7 @@ def _prepare_data(
         candidate_trial: Trial to plot candidates for by generator run
     """
     predictions_for_observed_arms: list[dict[str, Any]] = get_predictions_by_arm(
-        model=model,
+        model=adapter,
         metric_name=metric_name,
         outcome_constraints=outcome_constraints,
     )
@@ -174,7 +166,7 @@ def _prepare_data(
         if candidate_trial is None
         else [
             get_predictions_by_arm(
-                model=model,
+                model=adapter,
                 metric_name=metric_name,
                 outcome_constraints=outcome_constraints,
                 gr=gr,
