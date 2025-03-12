@@ -12,6 +12,7 @@ from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.base import Adapter
+
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from numpy.typing import NDArray
 
@@ -19,6 +20,12 @@ from numpy.typing import NDArray
 # probability of violating the constraint. But below a certain threshold, we
 # consider probability of violation to be negligible.
 MINIMUM_CONTRAINT_VIOLATION_THRESHOLD = 0.01
+
+# Plotting style constants
+CONFIDENCE_INTERVAL_BLUE = "rgba(0, 0, 255, 0.2)"
+MARKER_BLUE = "rgba(0, 0, 255, 0.3)"  # slightly more opaque than the CI blue
+CANDIDATE_RED = "rgba(220, 20, 60, 0.3)"
+CANDIDATE_CI_RED = "rgba(220, 20, 60, 0.2)"
 
 
 def get_constraint_violated_probabilities(
