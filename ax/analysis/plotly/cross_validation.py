@@ -10,7 +10,11 @@ import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import select_metric
+from ax.analysis.plotly.utils import (
+    CONFIDENCE_INTERVAL_BLUE,
+    MARKER_BLUE,
+    select_metric,
+)
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
@@ -282,19 +286,19 @@ def _prepare_plot(
             y=df["predicted"],
             mode="markers",
             marker={
-                "color": "rgba(0, 0, 255, 0.3)",  # partially transparent blue
+                "color": MARKER_BLUE,
             },
             error_x={
                 "type": "data",
                 "array": df["observed_95_ci"],
                 "visible": True,
-                "color": "rgba(0, 0, 255, 0.2)",  # partially transparent blue
+                "color": CONFIDENCE_INTERVAL_BLUE,
             },
             error_y={
                 "type": "data",
                 "array": df["predicted_95_ci"],
                 "visible": True,
-                "color": "rgba(0, 0, 255, 0.2)",  # partially transparent blue
+                "color": CONFIDENCE_INTERVAL_BLUE,
             },
             text=df["arm_name"],
             hovertemplate=(
@@ -304,7 +308,7 @@ def _prepare_plot(
                 + "<extra></extra>"  # Removes the trace name from the hover
             ),
             hoverlabel={
-                "bgcolor": "rgba(0, 0, 255, 0.2)",  # partially transparent blue
+                "bgcolor": CONFIDENCE_INTERVAL_BLUE,
                 "font": {"color": "black"},
             },
         )
