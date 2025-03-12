@@ -49,6 +49,7 @@ class ScatterPlot(PlotlyAnalysis):
         trial_index: int | None = None,
         arms_to_predict_with_adapter: list[Arm] | None = None,
         fixed_features: ObservationFeatures | None = None,
+        metric_name_mapping: dict[str, str] | None = None,
     ) -> None:
         """
         Args:
@@ -63,6 +64,8 @@ class ScatterPlot(PlotlyAnalysis):
                 alongside insample points
             fixed_features: Optional fixed features to project to trials (e.g.
                 relativization), and offers further adhoc flexibility.
+            metric_name_mapping: Optional mapping from default metric names to more
+                readable metric names.
         """
 
         self.x_metric_name = x_metric_name
@@ -71,6 +74,7 @@ class ScatterPlot(PlotlyAnalysis):
         self.trial_index = trial_index
         self._arms_to_predict_with_adapter = arms_to_predict_with_adapter
         self._fixed_features = fixed_features
+        self._metric_name_mapping = metric_name_mapping
 
     def compute(
         self,
@@ -89,18 +93,30 @@ class ScatterPlot(PlotlyAnalysis):
             adapter=adapter,
             arms_to_predict_with_adapter=self._arms_to_predict_with_adapter,
             fixed_features=self._fixed_features,
+            metric_name_mapping=self._metric_name_mapping,
+        )
+        # replace metric name with human readable names if provided
+        x_metric_name = (
+            self._metric_name_mapping.get(self.x_metric_name, self.x_metric_name)
+            if self._metric_name_mapping is not None
+            else self.x_metric_name
+        )
+        y_metric_name = (
+            self._metric_name_mapping.get(self.y_metric_name, self.y_metric_name)
+            if self._metric_name_mapping is not None
+            else self.y_metric_name
         )
         fig = _prepare_plot(
             df=df,
-            x_metric_name=self.x_metric_name,
-            y_metric_name=self.y_metric_name,
+            x_metric_name=x_metric_name,
+            y_metric_name=y_metric_name,
             show_pareto_frontier=self.show_pareto_frontier,
             x_lower_is_better=experiment.metrics[self.x_metric_name].lower_is_better
             or False,
         )
 
         return self._create_plotly_analysis_card(
-            title=f"Observed {self.x_metric_name} vs. {self.y_metric_name}",
+            title=f"Observed {x_metric_name} vs. {y_metric_name}",
             subtitle="Compare arms by their observed metric values",
             level=AnalysisCardLevel.HIGH,
             df=df,
@@ -117,6 +133,7 @@ def scatter_plot(
     trial_index: int | None = None,
     arms_to_predict_with_adapter: list[Arm] | None = None,
     fixed_features: ObservationFeatures | None = None,
+    metric_name_mapping: dict[str, str] | None = None,
 ) -> list[PlotlyAnalysisCard]:
     """
     Exposes scatter plot for adhoc functionality, only to be used in notebook
@@ -135,6 +152,8 @@ def scatter_plot(
                 alongside insample points
         fixed_features: Optional fixed features to pass with custom arms during
             generation of predictions. This is useful for relativization, etc.
+        metric_name_mapping: Optional mapping from default metric names to more
+            readable metric names.
     """
     # returning as a list enables easier UX for displaying the cards in a notebook
     return [
@@ -145,6 +164,7 @@ def scatter_plot(
             trial_index=trial_index,
             arms_to_predict_with_adapter=arms_to_predict_with_adapter,
             fixed_features=fixed_features,
+            metric_name_mapping=metric_name_mapping,
         ).compute(
             experiment=experiment,
             adapter=adapter,
@@ -160,6 +180,7 @@ def _prepare_data(
     adapter: Adapter | None = None,
     arms_to_predict_with_adapter: list[Arm] | None = None,
     fixed_features: ObservationFeatures | None = None,
+    metric_name_mapping: dict[str, str] | None = None,
 ) -> pd.DataFrame:
     """
     Extract the relevant data from the experiment and prepare it into a dataframe
@@ -171,6 +192,14 @@ def _prepare_data(
         y_metric_name: The name of the metric to plot on the y-axis.
         trial_index: Optional trial index to filter the data to. If not specified,
             all trials will be included.
+        arms_to_predict_with_adapter: Optional list of Arm objects that were used
+                to generate predictions. If specified, these points will be plotted
+                alongside insample points
+        fixed_features: Optional fixed features to pass with custom arms during
+            generation of predictions. This is useful for relativization, etc.
+        metric_name_mapping: Optional mapping from default metric names to more
+            readable metric names.
+
     """
     # Lookup the data that has already been fetched and attached to the experiment
     data = experiment.lookup_data().df
@@ -264,6 +293,19 @@ def _prepare_data(
         ).any(),
         axis=1,
     )
+
+    # replace metric name with more human readable name if provided
+    if metric_name_mapping is not None:
+        new_x_name = metric_name_mapping.get(x_metric_name, x_metric_name)
+        new_y_name = metric_name_mapping.get(y_metric_name, y_metric_name)
+        pivoted = pivoted.rename(
+            columns={
+                x_metric_name: new_x_name,
+                y_metric_name: new_y_name,
+                f"{x_metric_name}_sem": f"{new_x_name}_sem",
+                f"{y_metric_name}_sem": f"{new_y_name}_sem",
+            }
+        )
 
     return pivoted
 

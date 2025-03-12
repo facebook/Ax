@@ -97,7 +97,24 @@ class TestScatterPlot(TestCase):
             )
             # candidate points are given an index of -1, check that exists
             self.assertTrue((adhoc_card.df["trial_index"] == -1).any())
-        return
+        with self.subTest("human readable metric names provided"):
+            metric_name_mapping = {
+                self.x_metric_name: "spunky",
+                self.y_metric_name: "sneaky",
+            }
+            adhoc_cards = scatter_plot(
+                adapter=adapter,
+                experiment=self.exp_w_trial_complete,
+                x_metric_name=self.x_metric_name,
+                y_metric_name=self.y_metric_name,
+                metric_name_mapping=metric_name_mapping,
+            )
+            self.assertEqual(len(adhoc_cards), 1)
+            adhoc_card = adhoc_cards[0]
+            self.assertEqual(
+                adhoc_card.title,
+                "Observed spunky vs. sneaky",
+            )
 
     def test_prepare_data(self) -> None:
         observations = [[float(i), float(i + 1)] for i in range(10)]
