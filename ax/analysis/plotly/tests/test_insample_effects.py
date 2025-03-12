@@ -430,7 +430,6 @@ class TestInsampleEffectsPlot(TestCase):
             with self.subTest("objective is high"):
                 # WHEN we compute the analysis for an objective
                 analysis = InSampleEffectsPlot(
-                    # trial_index and use_modeled_effects don't affect the level
                     metric_name=metric,
                     trial_index=0,
                     use_modeled_effects=False,

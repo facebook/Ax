@@ -133,6 +133,33 @@ def format_constraint_violated_probabilities(
     return constraints_violated_str
 
 
+def get_nudge_value(
+    metric_name: str,
+    experiment: Experiment | None = None,
+    use_modeled_effects: bool = False,
+) -> int:
+    """Get the amount to nudge the level of the plot. Deteremined by metric
+    importance and whether modeled effects are used.
+    """
+    # without an experiment or optimization config, we can't tell if this plot is
+    # relatively more important
+    if experiment is None or experiment.optimization_config is None:
+        return 0
+
+    nudge = 0
+    # More important metrics have a higher nudge
+    if metric_name in experiment.optimization_config.objective.metric_names:
+        nudge += 2
+    elif metric_name in experiment.optimization_config.metrics:
+        nudge += 1
+
+    # Relevant for plots where observed effects and modeled effects can both be shown
+    if use_modeled_effects:
+        nudge += 1
+
+    return nudge
+
+
 def is_predictive(model: Adapter) -> bool:
     """Check if a model is predictive.  Basically, we're checking if
     predict() is implemented.
