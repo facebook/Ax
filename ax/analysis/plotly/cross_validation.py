@@ -12,6 +12,7 @@ from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import (
     CONFIDENCE_INTERVAL_BLUE,
+    get_nudge_value,
     MARKER_BLUE,
     select_metric,
 )
@@ -116,22 +117,7 @@ class CrossValidationPlot(PlotlyAnalysis):
 
         fig = _prepare_plot(df=df)
         k_folds_substring = f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
-        # Nudge the priority if the metric is important to the experiment
-        if (
-            experiment is not None
-            and (optimization_config := experiment.optimization_config) is not None
-            and (objective := optimization_config.objective) is not None
-            and metric_name in objective.metric_names
-        ):
-            nudge = 2
-        elif (
-            experiment is not None
-            and (optimization_config := experiment.optimization_config) is not None
-            and metric_name in optimization_config.outcome_constraints
-        ):
-            nudge = 1
-        else:
-            nudge = 0
+        nudge = get_nudge_value(metric_name=metric_name, experiment=experiment)
 
         # If a human readable metric name is provided, use it in the title
         metric_title = self._refined_metric_name or metric_name

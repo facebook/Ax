@@ -117,12 +117,12 @@ class TestPredictedEffectsPlot(TestCase):
                 self.assertEqual(
                     card.level,
                     (
-                        AnalysisCardLevel.HIGH
+                        AnalysisCardLevel.HIGH + 2
                         if metric == "branin"
                         else (
-                            AnalysisCardLevel.HIGH - 1
+                            AnalysisCardLevel.HIGH + 1
                             if metric == "constraint_branin"
-                            else AnalysisCardLevel.HIGH - 2
+                            else AnalysisCardLevel.HIGH
                         )
                     ),
                 )
