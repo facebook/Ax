@@ -168,6 +168,7 @@ def _get_model(
         If use_modeled_effects is True, returns the current model on the generation
         strategy if it is predictive.  Otherwise, returns an empirical Bayes model.
     """
+    # TODO: merge this method into get_adapter helper in the utils file
     trial_data = experiment.lookup_data(trial_indices=[trial_index])
     if trial_data.filter(metric_names=[metric_name]).df.empty:
         raise DataRequiredError(
@@ -183,24 +184,24 @@ def _get_model(
             experiment=experiment,
         )
 
-    model = None
+    adapter = None
     if generation_strategy is not None:
         if generation_strategy.model is None:
             generation_strategy._curr._fit(experiment=experiment)
 
-        model = none_throws(generation_strategy.model)
+        adapter = none_throws(generation_strategy.model)
 
-    if model is None or not is_predictive(model=model):
+    if adapter is None or not is_predictive(adapter=adapter):
         logger.info(
             "Using Empirical Bayes to predict effects because we were unable to find "
-            + " a suitable model on the current Generation Strategy. Current "
-            + f" Generation Strategy is: {generation_strategy} and model is: {model}"
+            + " a suitable adapter on the current Generation Strategy. Current "
+            + f" Generation Strategy is: {generation_strategy} and model is: {adapter}"
         )
         return Generators.EMPIRICAL_BAYES_THOMPSON(
             experiment=experiment, data=trial_data
         )
 
-    return model
+    return adapter
 
 
 def _prepare_data(
