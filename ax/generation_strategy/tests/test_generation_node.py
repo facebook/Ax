@@ -279,7 +279,7 @@ class TestGenerationNode(TestCase):
                 ),
             ],
         )
-        self.assertIsNone(node.model_to_gen_from_name)
+        self.assertEqual(node.model_to_gen_from_name, "BoTorch")
         node._fit(
             experiment=self.branin_experiment,
             data=self.branin_data,

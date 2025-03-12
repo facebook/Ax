@@ -183,6 +183,10 @@ class GenerationNode(SerializationMixin, SortableBase):
                 f"Trial type must be either {Keys.SHORT_RUN} or {Keys.LONG_RUN},"
                 f" got {trial_type}."
             )
+        # If possible, assign `_model_spec_to_gen_from` right away, for use in
+        # `__repr__`
+        if len(model_specs) == 1:
+            self._model_spec_to_gen_from = model_specs[0]
         self.model_specs = model_specs
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
