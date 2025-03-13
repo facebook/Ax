@@ -299,7 +299,9 @@ class SQAStoreTest(TestCase):
         self.assertEqual(experiment_w_aux_exp, loaded_experiment)
         self.assertEqual(len(loaded_experiment.auxiliary_experiments_by_purpose), 1)
 
-    def test_saving_and_loading_experiment_with_cross_referencing_aux_exp(self) -> None:
+    def test_saving_and_loading_experiment_with_cross_referencing_aux_exp(
+        self,
+    ) -> None:
         exp1_name = "test_aux_exp_in_SQAStoreTest1"
         exp2_name = "test_aux_exp_in_SQAStoreTest2"
         # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
@@ -535,7 +537,7 @@ class SQAStoreTest(TestCase):
             self.assertEqual(len(mkw), 6)
             bkw = gr._bridge_kwargs
             self.assertIsNotNone(bkw)
-            self.assertEqual(len(bkw), 7)
+            self.assertEqual(len(bkw), 8)
             # This has seed, generated points and init position.
             ms = gr._model_state_after_gen
             self.assertIsNotNone(ms)

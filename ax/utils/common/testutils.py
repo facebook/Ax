@@ -382,7 +382,7 @@ class TestCase(fake_filesystem_unittest.TestCase):
         if (
             not first._eq_skip_db_id_check(other=second)
             if skip_db_id_check
-            else first != second
+            else not (first == second)
         ):
             raise self.failureException(
                 "Encountered unequal objects. This Ax utility will now attempt an "
