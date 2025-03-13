@@ -20,7 +20,7 @@ from ax.core.objective import Objective
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
-from ax.generation_strategy.generation_node import GenerationStep
+from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
@@ -28,6 +28,7 @@ from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoder import (
     _DEPRECATED_MODEL_TO_REPLACEMENT,
+    generation_node_from_json,
     generation_strategy_from_json,
     object_from_json,
 )
@@ -880,6 +881,58 @@ class JSONStoreTest(TestCase):
                 "fit_on_init": True,
             },
         )
+
+    def test_generation_node_backwards_compatibility(self) -> None:
+        # Checks that deprecated input constructors are discarded gracefully.
+        json = {
+            "node_name": "Test",
+            "model_specs": [
+                {
+                    "__type": "GeneratorSpec",
+                    "model_enum": {"__type": "Generators", "name": "BOTORCH_MODULAR"},
+                    "model_kwargs": {},
+                    "model_gen_kwargs": {
+                        "model_gen_options": {
+                            "optimizer_kwargs": {"num_restarts": 10},
+                            "acquisition_function_kwargs": {},
+                        }
+                    },
+                }
+            ],
+            "best_model_selector": None,
+            "should_deduplicate": False,
+            "transition_criteria": [
+                {
+                    "transition_to": "BOTORCH_MODULAR",
+                    "auxiliary_experiment_purposes_to_include": None,
+                    "auxiliary_experiment_purposes_to_exclude": [],
+                    "block_transition_if_unmet": True,
+                    "block_gen_if_met": False,
+                    "continue_trial_generation": False,
+                    "__type": "AuxiliaryExperimentCheck",
+                }
+            ],
+            "model_spec_to_gen_from": None,
+            "previous_node_name": None,
+            "trial_type": {"__type": "Keys", "name": "SHORT_RUN"},
+            "input_constructors": {
+                "N": {"__type": "NodeInputConstructors", "name": "REMAINING_N"},
+                "FIXED_FEATURES": {
+                    "__type": "NodeInputConstructors",
+                    "name": "TARGET_TRIAL_FIXED_FEATURES",
+                },
+                "STATUS_QUO_FEATURES": {
+                    "__type": "NodeInputConstructors",
+                    "name": "STATUS_QUO_FEATURES",
+                },
+            },
+        }
+        node = generation_node_from_json(json)
+        self.assertIsInstance(node, GenerationNode)
+        self.assertEqual(node.node_name, "Test")
+        self.assertEqual(len(node.transition_criteria), 1)
+        # Status quo is discarded, so we have 2 input constructors left.
+        self.assertEqual(len(node.input_constructors), 2)
 
     def test_SobolQMCNormalSampler(self) -> None:
         # This fails default equality checks, so testing it separately.
