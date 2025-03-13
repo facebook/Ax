@@ -174,15 +174,8 @@ def get_generation_strategy(
 ) -> GenerationStrategy:
     if with_generation_nodes:
         gs = sobol_gpei_generation_node_gs()
-        gs._nodes[0]._model_spec_to_gen_from = GeneratorSpec(
-            model_enum=Generators.SOBOL,
-            model_kwargs={"init_position": 3},
-            model_gen_kwargs={"some_gen_kwarg": "some_value"},
-        )
         if with_callable_model_kwarg:
-            # pyre-ignore[16]: testing hack to test serialization of callable kwargs
-            # in generation steps.
-            gs._nodes[0]._model_spec_to_gen_from.model_kwargs["model_constructor"] = (
+            gs._curr.model_spec_to_gen_from.model_kwargs["model_constructor"] = (
                 get_sobol
             )
     else:

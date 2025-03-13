@@ -1671,8 +1671,7 @@ class SQAStoreTest(TestCase):
         save_generation_strategy(generation_strategy=generation_strategy)
         # Also try restoring this generation strategy by its ID in the DB.
         new_generation_strategy = load_generation_strategy_by_id(
-            # pyre-fixme[6]: For 1st param expected `int` but got `Optional[int]`.
-            gs_id=generation_strategy._db_id
+            gs_id=none_throws(generation_strategy._db_id)
         )
         # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
@@ -1689,9 +1688,9 @@ class SQAStoreTest(TestCase):
 
         # Check that we can encode and decode the generation strategy *after*
         # it has generated some trials and been updated with some data.
-        # Since we now need to `gen`, we remove the fake callable kwarg we added,
-        # since model does not expect it.
-        generation_strategy = get_generation_strategy(with_generation_nodes=True)
+        generation_strategy = get_generation_strategy(
+            with_generation_nodes=True, with_callable_model_kwarg=False
+        )
         experiment.new_trial(generation_strategy.gen(experiment=experiment))
         generation_strategy.gen(experiment, data=get_branin_data())
         save_experiment(experiment)

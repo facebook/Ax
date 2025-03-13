@@ -482,10 +482,11 @@ class GenerationStrategy(Base):
         of the fields should be identical.
         """
         self._model = None
-        for s in self._nodes:
-            s._model_spec_to_gen_from = None
+        for n in self._nodes:
+            if len(n.model_specs) > 1:
+                n._model_spec_to_gen_from = None
             if not self.is_node_based:
-                s._previous_node_name = None
+                n._previous_node_name = None
 
     @step_based_gs_only
     def _validate_and_set_step_sequence(self, steps: list[GenerationStep]) -> None:
@@ -631,9 +632,10 @@ class GenerationStrategy(Base):
                 ):
                     num_trials = criterion.threshold
 
-            try:
-                model_name = step.model_spec_to_gen_from.model_key
-            except TypeError:
+            model_spec = step._model_spec_to_gen_from
+            if model_spec is not None:
+                model_name = model_spec.model_key
+            else:
                 model_name = "model with unknown name"
 
             step_str_rep += f"{model_name} for {num_trials} trials, "
