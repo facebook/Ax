@@ -22,6 +22,7 @@ from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
@@ -171,6 +172,8 @@ TEST_CASES = [
     ("BraninMetric", get_branin_metric),
     ("ChainedInputTransform", get_chained_input_transform),
     ("ChoiceParameter", get_choice_parameter),
+    # testing with non-default argument
+    ("DataLoaderConfig", partial(DataLoaderConfig, fit_out_of_design=True)),
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("Experiment", get_experiment_with_trial_with_ttl),
     ("Experiment", get_experiment_with_data),

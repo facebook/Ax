@@ -29,6 +29,7 @@ from ax.core.outcome_constraint import (
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.modelbridge_utils import (
     _get_modelbridge_training_data,
     get_pareto_frontier_and_configs,
@@ -337,7 +338,9 @@ def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchAdapt
         data=data,
         model=TorchGenerator(),
         transforms=[SearchSpaceToFloat],
-        fit_out_of_design=True,
+        data_loader_config=DataLoaderConfig(
+            fit_out_of_design=True,
+        ),
     )
 
 

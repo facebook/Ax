@@ -203,6 +203,9 @@ class GenerationNode(SerializationMixin, SortableBase):
             fallback_specs if fallback_specs is not None else DEFAULT_FALLBACK
         )
 
+    def __eq__(self, other: SortableBase) -> bool:
+        return SortableBase.__eq__(self, other)
+
     @property
     def node_name(self) -> str:
         """Returns the unique name of this GenerationNode"""
