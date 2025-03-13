@@ -336,6 +336,7 @@ def _prepare_surface_plot(
             log_y=is_axis_log_scale(
                 parameter=experiment.search_space.parameters[y_parameter_name]
             ),
+            display_sampled=True,
         )
 
     # If the feature is a first-order component, plot a slice plot.
@@ -353,4 +354,5 @@ def _prepare_surface_plot(
         log_x=is_axis_log_scale(
             parameter=experiment.search_space.parameters[feature_name]
         ),
+        display_sampled=True,
     )
