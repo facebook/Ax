@@ -17,14 +17,14 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckStatus,
 )
 from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
-from ax.analysis.plotly.utils import is_predictive
+from ax.analysis.plotly.utils import get_adapter
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.derelativize import Derelativize
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import assert_is_instance
 
 
 class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
@@ -100,31 +100,20 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
                 category=category,
             )
 
-        if generation_strategy is None:
-            raise UserInputError(
-                "ConstraintsFeasibilityAnalysis requires a GenerationStrategy."
-            )
-        generation_strategy = assert_is_instance(
-            generation_strategy, GenerationStrategy
+        adapter = get_adapter(
+            analysis_name=self.name,
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+            enforce_supports_predictions=True,
         )
 
-        if generation_strategy.model is None:
-            generation_strategy._curr._fit(experiment=experiment)
-
-        model = none_throws(generation_strategy.model)
-        if not is_predictive(model=model):
-            raise UserInputError(
-                "ConstraintsFeasibility requires a GenerationStrategy which is "
-                "in a state where the current model supports prediction. "
-                f"The current model is {model._model_key} and does not support "
-                "prediction."
-            )
         optimization_config = assert_is_instance(
             experiment.optimization_config, OptimizationConfig
         )
         constraints_feasible, df = constraints_feasibility(
             optimization_config=optimization_config,
-            model=model,
+            model=adapter,
             prob_threshold=self.prob_threshold,
         )
         df["status"] = status

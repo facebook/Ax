@@ -167,6 +167,7 @@ def get_adapter(
     experiment: Experiment | None = None,
     generation_strategy: GenerationStrategy | None = None,
     adapter: Adapter | None = None,
+    enforce_supports_predictions: bool = False,
 ) -> Adapter:
     """
     Select the appropriate adapter for the analysis being performed.
@@ -197,17 +198,28 @@ def get_adapter(
                 )
             generation_strategy._curr._fit(experiment=experiment)
         adapter = none_throws(generation_strategy.model)  # model should be fit now
+
+    # if the adapter requested must support predictions, but does not, raise an error
+    if enforce_supports_predictions and not is_predictive(adapter=adapter):
+        raise UserInputError(
+            f"{analysis_name} requires a GenerationStrategy which is "
+            "in a state where the current model supports prediction. "
+            f"The current model is {adapter._model_key} and does not support "
+            "prediction."
+        )
+
     return adapter
 
 
-def is_predictive(model: Adapter) -> bool:
-    """Check if a model is predictive.  Basically, we're checking if
+def is_predictive(adapter: Adapter) -> bool:
+    # TODO: Improve this logic and move it to base adapter class
+    """Check if a adapter is predictive.  Basically, we're checking if
     predict() is implemented.
 
     NOTE: This does not mean it's capable of out of sample prediction.
     """
     try:
-        model.predict(observation_features=[])
+        adapter.predict(observation_features=[])
     except NotImplementedError:
         return False
     except Exception:

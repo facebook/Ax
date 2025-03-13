@@ -17,7 +17,7 @@ from ax.analysis.plotly.arm_effects.utils import (
 )
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import get_adapter, get_nudge_value, is_predictive
+from ax.analysis.plotly.utils import get_adapter, get_nudge_value
 from ax.core import OutcomeConstraint
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
@@ -92,14 +92,8 @@ class PredictedEffectsPlot(PlotlyAnalysis):
             experiment=experiment,
             generation_strategy=generation_strategy,
             adapter=adapter,
+            enforce_supports_predictions=True,
         )
-
-        if not is_predictive(model=adapter):
-            raise UserInputError(
-                "PredictedEffectsPlot requires a GenerationStrategy which is "
-                "in a state where the current model supports prediction.  The current "
-                f"model is {adapter._model_key} and does not support prediction."
-            )
 
         outcome_constraints = (
             []
