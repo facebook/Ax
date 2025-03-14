@@ -11,6 +11,7 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from ax.analysis.analysis import (  # Used as a return type
     Analysis,
@@ -20,6 +21,7 @@ from ax.analysis.analysis import (  # Used as a return type
 from ax.analysis.markdown.markdown_analysis import (
     markdown_analysis_card_from_analysis_e,
 )
+from ax.analysis.summary import Summary
 from ax.analysis.utils import choose_analyses
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
@@ -661,6 +663,33 @@ class Client(WithDBSettingsBase):
         )
 
         return cards
+
+    def summarize(self) -> pd.DataFrame:
+        """
+        Special convenience method for producing the DataFrame produced by the Summary
+        Analysis.
+
+        The DataFrame computed will contain one row per arm and the following columns:
+            - trial_index: The trial index of the arm
+            - arm_name: The name of the arm
+            - trial_status: The status of the trial (e.g. RUNNING, SUCCEDED, FAILED)
+            - failure_reason: The reason for the failure, if applicable
+            - generation_method: The model_key of the model that generated the arm
+            - generation_node: The name of the ``GenerationNode`` that generated the arm
+            - **METADATA: Any metadata associated with the trial, as specified by the
+                Experiment's runner.run_metadata_report_keys field
+            - **METRIC_NAME: The observed mean of the metric specified, for each metric
+            - **PARAMETER_NAME: The parameter value for the arm, for each parameter
+        """
+
+        return (
+            Summary(omit_empty_columns=False)
+            .compute(
+                experiment=self._experiment,
+                generation_strategy=self._generation_strategy,
+            )
+            .df
+        )
 
     def get_best_parameterization(
         self, use_model_predictions: bool = True
