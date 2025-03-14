@@ -922,7 +922,7 @@ def predicted_pareto_frontier(
     """
     if observation_features is None:
         observation_features, _, arm_names = _get_modelbridge_training_data(
-            modelbridge=modelbridge
+            modelbridge=modelbridge, in_design_only=True
         )
     else:
         arm_names = None
@@ -963,7 +963,7 @@ def observed_pareto_frontier(
     """
     # Get observation_data from current training data
     obs_feats, obs_data, arm_names = _get_modelbridge_training_data(
-        modelbridge=modelbridge
+        modelbridge=modelbridge, in_design_only=True
     )
 
     pareto_observations = pareto_frontier(
@@ -1300,9 +1300,16 @@ def _array_to_tensor(
 
 
 def _get_modelbridge_training_data(
-    modelbridge: modelbridge_module.torch.TorchAdapter,
+    modelbridge: modelbridge_module.torch.TorchAdapter, in_design_only: bool = False
 ) -> tuple[list[ObservationFeatures], list[ObservationData], list[str | None]]:
+    """
+    Get training data for modelbridge, optionally filtering out out-of-design points.
+    """
     obs = modelbridge.get_training_data()
+
+    if in_design_only:
+        obs = [obs[i] for i in range(len(obs)) if modelbridge.training_in_design[i]]
+
     return _unpack_observations(obs=obs)
 
 
