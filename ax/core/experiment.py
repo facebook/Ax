@@ -1563,7 +1563,20 @@ class Experiment(Base):
 
         # Validate search space membership for all parameterizations
         for parameterization in parameterizations:
-            self.search_space.validate_membership(parameters=parameterization)
+            try:
+                self.search_space.validate_membership(parameters=parameterization)
+            except ValueError as e:
+                # To not raise on out-of-design parameterizations
+                if "is not a valid value for parameter" in str(e):
+                    warnings.warn(
+                        f"Parameterization {parameterization} is in out-of-design. "
+                        "Ax will still attach the trial for use in candidate "
+                        "generation.",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+                else:
+                    raise e
 
         # Validate number of arm names if any arm names are provided.
         named_arms = False
