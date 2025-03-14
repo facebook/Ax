@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from logging import Logger
 from math import prod
 from pathlib import Path
-from typing import Any, cast, Union
+from typing import Any, cast, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -816,6 +816,7 @@ def get_experiment_with_observations(
     constrained: bool = False,
     with_tracking_metrics: bool = False,
     search_space: SearchSpace | None = None,
+    parameterizations: Sequence[TParameterization] | None = None,
     with_sem: bool = False,
 ) -> Experiment:
     if observations:
@@ -892,8 +893,13 @@ def get_experiment_with_observations(
     )
     sobol_generator = get_sobol(search_space=search_space)
     for i, obs in enumerate(observations):
-        # Create a dummy trial to add the observation.
-        trial = exp.new_trial(generator_run=sobol_generator.gen(n=1))
+        if parameterizations is not None:
+            trial = exp.new_trial(
+                generator_run=GeneratorRun(arms=[Arm(parameters=parameterizations[i])])
+            )
+        else:
+            trial = exp.new_trial(generator_run=sobol_generator.gen(1))
+
         data = Data(
             df=pd.DataFrame.from_records(
                 [
