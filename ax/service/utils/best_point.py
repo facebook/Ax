@@ -117,6 +117,17 @@ def get_best_raw_objective_point_with_trial_index(
         )
     feasible_df = completed_df.loc[is_feasible]
 
+    is_in_design = feasible_df["arm_name"].apply(
+        lambda arm_name: experiment.search_space.check_membership(
+            parameterization=experiment.arms_by_name[arm_name].parameters
+        )
+    )
+
+    if not is_in_design.any():
+        raise ValueError("No feasible points are in the search space.")
+
+    in_design_df = feasible_df.loc[is_in_design]
+
     objective = optimization_config.objective
     best_row_helper = (
         _get_best_row_for_scalarized_objective
@@ -124,7 +135,7 @@ def get_best_raw_objective_point_with_trial_index(
         else _get_best_row_for_single_objective
     )
     # pyre-ignore Incompatible parameter type [6]
-    best_row = best_row_helper(df=feasible_df, objective=objective)
+    best_row = best_row_helper(df=in_design_df, objective=objective)
     best_arm = experiment.arms_by_name[best_row["arm_name"]]
     best_trial_index = int(best_row["trial_index"])
     objective_rows = dat.df.loc[

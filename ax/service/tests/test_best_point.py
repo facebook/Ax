@@ -190,6 +190,20 @@ class TestBestPointMixin(TestCase):
         )
         self.assertEqual(get_best(exp), 6)
 
+        # Exclude out of design arms
+        exp = get_experiment_with_observations(
+            observations=[[11], [10], [9], [15], [5]],
+            parameterizations=[
+                {"x": 0.0, "y": 0.0},
+                {"x": 0.1, "y": 0.0},
+                {"x": 10.0, "y": 10.0},  # out of design
+                {"x": 0.2, "y": 0.0},
+                {"x": 10.1, "y": 10.0},  # out of design
+            ],
+            minimize=True,
+        )
+        self.assertEqual(get_best(exp), 10)  # 5 and 9 are out of design
+
     def test_extract_Y_from_data(self) -> None:
         # Single objective, minimize.
         exp = get_experiment_with_observations(
