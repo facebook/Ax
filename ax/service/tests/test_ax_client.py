@@ -2900,9 +2900,7 @@ class TestAxClient(TestCase):
         ax_client.attach_trial(
             {"model": "Linear", "learning_rate": 0.001, "l2_reg_weight": 0.0001}
         )
-        with self.assertRaisesRegex(
-            ValueError, "1 is not a valid value for parameter RangeParameter"
-        ):
+        with self.assertWarnsRegex(RuntimeWarning, "out-of-design"):
             ax_client.attach_trial(
                 {"model": "Linear", "learning_rate": 1, "l2_reg_weight": 0.0001}
             )
