@@ -354,6 +354,30 @@ class SQAAnalysisCard(Base):
     category: Column[int] = Column(Integer, nullable=False)
 
 
+class SQAAuxiliaryExperiment(Base):
+    __tablename__: str = "auxiliary_experiments"
+
+    source_experiment_id: Column[int] = Column(
+        Integer, ForeignKey("experiment_v2.id"), primary_key=True
+    )
+    target_experiment_id: Column[int] = Column(
+        Integer, ForeignKey("experiment_v2.id"), primary_key=True
+    )
+    purpose: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), primary_key=True)
+    is_active: Column[bool] = Column(Boolean, nullable=False)
+    properties: Column[dict[str, Any] | None] = Column(JSONEncodedTextDict)
+    time: Column[datetime] = Column(IntTimestamp, nullable=False, default=datetime.now)
+    source_experiment: SQAExperiment = relationship(
+        "SQAExperiment",
+        foreign_keys=[source_experiment_id],
+        back_populates="auxiliary_experiments",
+    )
+    target_experiment: SQAExperiment = relationship(
+        "SQAExperiment",
+        foreign_keys=[target_experiment_id],
+    )
+
+
 class SQAExperiment(Base):
     __tablename__: str = "experiment_v2"
 
@@ -409,4 +433,11 @@ class SQAExperiment(Base):
     )
     analysis_cards: list[SQAAnalysisCard] = relationship(
         "SQAAnalysisCard", cascade="all, delete-orphan", lazy="selectin"
+    )
+    auxiliary_experiments: list[SQAAuxiliaryExperiment] = relationship(
+        "SQAAuxiliaryExperiment",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        foreign_keys=[SQAAuxiliaryExperiment.source_experiment_id],
+        back_populates="source_experiment",
     )
