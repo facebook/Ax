@@ -352,6 +352,23 @@ def _get_experiment_id(experiment_name: str, config: SQAConfig) -> int | None:
     return sqa_experiment_id[0]
 
 
+def _get_experiment_name(experiment_id: int, config: SQAConfig) -> str | None:
+    """Get name of the experiment by the given DB ID if its in DB,
+    return None otherwise.
+    """
+    exp_sqa_class = config.class_to_sqa_class[Experiment]
+    with session_scope() as session:
+        sqa_experiment_name = (
+            session.query(exp_sqa_class.name)  # pyre-ignore
+            .filter_by(id=experiment_id)
+            .one_or_none()
+        )
+
+    if sqa_experiment_name is None:
+        return None
+    return sqa_experiment_name[0]
+
+
 # ------------------------ Loading `GenerationStrategy`. -----------------------
 
 
