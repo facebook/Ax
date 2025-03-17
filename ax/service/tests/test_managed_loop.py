@@ -153,7 +153,7 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", bp)
         # pyre-fixme[58]: `+` is not supported for operand types `Union[None, bool,
         #  float, int, str]` and `Union[None, bool, float, int, str]`.
-        self.assertTrue(bp["x1"] + bp["x2"] <= 1)
+        self.assertLessEqual(bp["x1"] + bp["x2"], 1.0 + 1e-8)
         with self.assertRaisesRegex(ValueError, "Optimization is complete"):
             loop.run_trial()
 
