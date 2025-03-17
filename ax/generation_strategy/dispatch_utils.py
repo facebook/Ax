@@ -7,7 +7,6 @@
 # pyre-strict
 
 import logging
-import warnings
 from math import ceil
 from typing import Any, cast
 
@@ -31,7 +30,6 @@ from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.torch.botorch_modular.model import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
-from ax.models.types import TConfig
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.deprecation import _validate_force_random_search
 from ax.utils.common.logger import get_logger
@@ -90,25 +88,11 @@ def _make_botorch_step(
     verbose: bool | None = None,
     disable_progbar: bool | None = None,
     jit_compile: bool | None = None,
-    derelativize_with_raw_status_quo: bool = False,
     fit_out_of_design: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
     model_kwargs = model_kwargs or {}
-
-    winsorization_transform_config = _get_winsorization_transform_config(
-        winsorization_config=winsorization_config,
-        no_winsorization=no_winsorization,
-        derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
-    )
-
-    derelativization_transform_config = {
-        "use_raw_status_quo": derelativize_with_raw_status_quo
-    }
     model_kwargs["transform_configs"] = model_kwargs.get("transform_configs", {})
-    model_kwargs["transform_configs"]["Derelativize"] = (
-        derelativization_transform_config
-    )
     model_kwargs["data_loader_config"] = DataLoaderConfig(
         fit_out_of_design=fit_out_of_design
     )
@@ -118,10 +102,10 @@ def _make_botorch_step(
         default_transforms = default_bridge_kwargs["transforms"]
         transforms = model_kwargs.get("transforms", default_transforms)
         model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
-        if winsorization_transform_config is not None:
-            model_kwargs["transform_configs"]["Winsorize"] = (
-                winsorization_transform_config
-            )
+        if winsorization_config is not None:
+            model_kwargs["transform_configs"]["Winsorize"] = {
+                "winsorization_config": winsorization_config
+            }
 
     if MODEL_KEY_TO_MODEL_SETUP[model.value].model_class != ModularBoTorchGenerator:
         if verbose is not None:
@@ -152,7 +136,6 @@ def _make_botorch_step(
 def _suggest_gp_model(
     search_space: SearchSpace,
     num_trials: int | None = None,
-    optimization_config: OptimizationConfig | None = None,
     use_saasbo: bool = False,
 ) -> None | ModelRegistryBase:
     """Suggest a model based on the search space. None means we use Sobol.
@@ -307,7 +290,6 @@ def choose_generation_strategy(
     no_winsorization: bool = False,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
-    derelativize_with_raw_status_quo: bool = False,
     no_bayesian_optimization: bool | None = None,
     force_random_search: bool = False,
     num_trials: int | None = None,
@@ -356,11 +338,6 @@ def choose_generation_strategy(
         winsorization_config: Explicit winsorization settings, if winsorizing. Usually
             only `upper_quantile_margin` is set when minimizing, and only
             `lower_quantile_margin` when maximizing.
-        derelativize_with_raw_status_quo: Whether to derelativize using the raw status
-            quo values in any transforms. This argument is primarily to allow automatic
-            Winsorization when relative constraints are present. Note: automatic
-            Winsorization will fail if this is set to `False` (or unset) and there
-            are relative constraints present.
         no_bayesian_optimization: Deprecated. Use `force_random_search`.
         force_random_search: If True, quasi-random generation strategy will be used
             rather than Bayesian optimization.
@@ -433,10 +410,7 @@ def choose_generation_strategy(
         optimization_config = experiment.optimization_config
 
     suggested_model = suggested_model_override or _suggest_gp_model(
-        search_space=search_space,
-        num_trials=num_trials,
-        optimization_config=optimization_config,
-        use_saasbo=use_saasbo,
+        search_space=search_space, num_trials=num_trials, use_saasbo=use_saasbo
     )
     # Determine max parallelism for the generation steps.
     if max_parallelism_override == -1:
@@ -550,7 +524,6 @@ def choose_generation_strategy(
             _make_botorch_step(
                 model=suggested_model,
                 winsorization_config=winsorization_config,
-                derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
                 no_winsorization=no_winsorization,
                 max_parallelism=bo_parallelism,
                 model_kwargs=model_kwargs,
@@ -586,21 +559,3 @@ def choose_generation_strategy(
     if experiment:
         gs.experiment = experiment
     return gs
-
-
-def _get_winsorization_transform_config(
-    winsorization_config: None | (WinsorizationConfig | dict[str, WinsorizationConfig]),
-    derelativize_with_raw_status_quo: bool,
-    no_winsorization: bool,
-) -> TConfig | None:
-    if no_winsorization:
-        if winsorization_config is not None:
-            warnings.warn(
-                "`no_winsorization = True` but `winsorization_config` has been set. "
-                "Not winsorizing.",
-                stacklevel=2,
-            )
-        return None
-    if winsorization_config:
-        return {"winsorization_config": winsorization_config}
-    return {"derelativize_with_raw_status_quo": derelativize_with_raw_status_quo}
