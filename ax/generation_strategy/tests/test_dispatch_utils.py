@@ -7,7 +7,6 @@
 # pyre-strict
 
 import logging
-import warnings
 from typing import Any
 
 import torch
@@ -43,13 +42,8 @@ from pyre_extensions import assert_is_instance, none_throws
 class TestDispatchUtils(TestCase):
     """Tests that dispatching utilities correctly select generation strategies."""
 
-    @mock_botorch_optimize
     def test_choose_generation_strategy(self) -> None:
         expected_transforms = [Winsorize] + MBM_X_trans + Y_trans
-        expected_transform_configs = {
-            "Winsorize": {"derelativize_with_raw_status_quo": False},
-            "Derelativize": {"use_raw_status_quo": False},
-        }
         with self.subTest("GPEI"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space()
@@ -60,7 +54,7 @@ class TestDispatchUtils(TestCase):
             expected_model_kwargs: dict[str, Any] = {
                 "torch_device": None,
                 "transforms": expected_transforms,
-                "transform_configs": expected_transform_configs,
+                "transform_configs": {},
                 "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
@@ -204,7 +198,7 @@ class TestDispatchUtils(TestCase):
             expected_model_kwargs = {
                 "torch_device": None,
                 "transforms": [Winsorize] + Mixed_transforms + Y_trans,
-                "transform_configs": expected_transform_configs,
+                "transform_configs": {},
                 "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
@@ -219,7 +213,7 @@ class TestDispatchUtils(TestCase):
             expected_model_kwargs = {
                 "torch_device": None,
                 "transforms": [Winsorize] + Mixed_transforms + Y_trans,
-                "transform_configs": expected_transform_configs,
+                "transform_configs": {},
                 "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
@@ -343,8 +337,6 @@ class TestDispatchUtils(TestCase):
             none_throws(bo_step.model_kwargs)["transform_configs"],
             {
                 "LogY": {"metrics": ["metric_1"]},
-                "Derelativize": {"use_raw_status_quo": False},
-                "Winsorize": {"derelativize_with_raw_status_quo": False},
             },
         )
 
@@ -516,38 +508,13 @@ class TestDispatchUtils(TestCase):
                 )
             },
         )
-        self.assertIn("Derelativize", tc)
-        self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": False})
-
-        winsorized = choose_generation_strategy(
-            search_space=get_branin_search_space(),
-            derelativize_with_raw_status_quo=True,
-        )
-        tc = none_throws(winsorized._steps[1].model_kwargs).get("transform_configs")
-        self.assertIn(
-            "Winsorize",
-            tc,
-        )
-        self.assertDictEqual(
-            tc["Winsorize"],
-            {"derelativize_with_raw_status_quo": True},
-        )
-        self.assertIn(
-            "Derelativize",
-            tc,
-        )
-        self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": True})
 
     def test_no_winzorization_wins(self) -> None:
-        with warnings.catch_warnings(record=True) as w:
-            unwinsorized = choose_generation_strategy(
-                search_space=get_branin_search_space(),
-                winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
-                no_winsorization=True,
-            )
-            self.assertEqual(len(w), 1)
-            self.assertIn("Not winsorizing", str(w[-1].message))
-
+        unwinsorized = choose_generation_strategy(
+            search_space=get_branin_search_space(),
+            winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
+            no_winsorization=True,
+        )
         self.assertNotIn(
             "Winsorize",
             none_throws(unwinsorized._steps[1].model_kwargs)["transform_configs"],

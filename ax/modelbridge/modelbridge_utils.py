@@ -48,9 +48,6 @@ from ax.core.utils import (  # noqa F402: Temporary import for backward compatib
 )
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.utils import (
-    derelativize_optimization_config_with_raw_status_quo,
-)
 from ax.models.torch.botorch_moo_defaults import (
     get_weighted_mc_objective_and_objective_thresholds,
     pareto_frontier_evaluator,
@@ -760,13 +757,10 @@ def get_pareto_frontier_and_configs(
     # Transform optimization config.
 
     # de-relativize outcome constraints and objective thresholds
-    observations = modelbridge.get_training_data()
-
     optimization_config = assert_is_instance(
-        derelativize_optimization_config_with_raw_status_quo(
+        modelbridge._derelativize_optimization_config(
             optimization_config=optimization_config,
-            modelbridge=modelbridge,
-            observations=observations,
+            with_raw_status_quo=True,
         ),
         MultiObjectiveOptimizationConfig,
     )

@@ -9,16 +9,12 @@
 from logging import Logger
 from typing import Optional, TYPE_CHECKING
 
-import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
-from ax.exceptions.core import DataRequiredError
-from ax.modelbridge.base import unwrap_observation_data
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.ivw import ivw_metric_merge
 from ax.utils.common.logger import get_logger
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance
 
 
 if TYPE_CHECKING:
@@ -56,58 +52,12 @@ class Derelativize(Transform):
         )
         if not has_relative_constraint:
             return optimization_config
-        # Else, we have at least one relative constraint.
-        # Estimate the value at the status quo.
         if modelbridge is None:
             raise ValueError("Adapter not supplied to transform.")
-        # Unobserved status quo corresponds to a modelbridge.status_quo of None.
-        if modelbridge.status_quo is None:
-            raise DataRequiredError(
-                "Optimization config has relative constraint, but model was "
-                "not fit with status quo."
-            )
-
-        sq = none_throws(modelbridge.status_quo)
-        # Only use model predictions if the status quo is in the search space (including
-        # parameter constraints) and `use_raw_sq` is false.
-        if not use_raw_sq and modelbridge.model_space.check_membership(
-            sq.features.parameters
-        ):
-            f, _ = modelbridge.predict([sq.features])
-        else:
-            sq_data = ivw_metric_merge(obsd=sq.data, conflicting_noiseless="raise")
-            f, _ = unwrap_observation_data([sq_data])
-
-        # Plug in the status quo value to each relative constraint.
-        for c in optimization_config.all_constraints:
-            if c.relative:
-                if isinstance(c, ScalarizedOutcomeConstraint):
-                    missing_metrics = {
-                        metric.name for metric in c.metrics if metric.name not in f
-                    }
-                    if len(missing_metrics) > 0:
-                        raise DataRequiredError(
-                            f"Status-quo metric value not yet available for metric(s) "
-                            f"{missing_metrics}."
-                        )
-                    # The sq_val of scalarized outcome is the weighted
-                    # sum of its component metrics
-                    sq_val = np.sum(
-                        [
-                            c.weights[i] * f[metric.name][0]
-                            for i, metric in enumerate(c.metrics)
-                        ]
-                    )
-                elif c.metric.name in f:
-                    sq_val = f[c.metric.name][0]
-                else:
-                    raise DataRequiredError(
-                        f"Status-quo metric value not yet available for metric "
-                        f"{c.metric.name}."
-                    )
-                c.bound = derelativize_bound(bound=c.bound, sq_val=sq_val)
-                c.relative = False
-        return optimization_config
+        return modelbridge._derelativize_optimization_config(
+            optimization_config=optimization_config,
+            with_raw_status_quo=assert_is_instance(use_raw_sq, bool),
+        )
 
     def untransform_outcome_constraints(
         self,
@@ -117,31 +67,3 @@ class Derelativize(Transform):
         # We intentionally leave outcome constraints derelativized when
         # untransforming.
         return outcome_constraints
-
-
-def derelativize_bound(
-    bound: float,
-    sq_val: float,
-) -> float:
-    """Derelativize a bound. Note that a positive `bound` makes the derelativized bound
-    larger than `sq_val`, i.e. `bound < sq_val`, regardless of the sign of `sq_val`.
-
-    Args:
-        bound: The bound to derelativize in percentage terms, so a bound of 1
-            corresponds to a 1% increase compared to the status quo.
-        sq_val: The status quo value.
-
-    Returns:
-        The derelativized bound.
-
-    Examples:
-        >>> derelativize_bound(bound=1.0, sq_val=10.0)
-        10.1
-        >>> derelativize_bound(bound=-1.0, sq_val=10.0)
-        9.9
-        >>> derelativize_bound(bound=1.0, sq_val=-10.0)
-        -9.9
-        >>> derelativize_bound(bound=-1.0, sq_val=-10.0)
-        -10.1
-    """
-    return (1 + np.sign(sq_val) * bound / 100.0) * sq_val

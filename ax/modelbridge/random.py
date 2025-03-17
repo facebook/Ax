@@ -129,3 +129,11 @@ class RandomAdapter(Adapter):
 
     def _set_status_quo(self, experiment: Experiment) -> None:
         pass
+
+    def _derelativize_optimization_config(
+        self, optimization_config: OptimizationConfig, with_raw_status_quo: bool = False
+    ) -> OptimizationConfig:
+        """Skip derelativization, since the optimization config is not used by the
+        random adapter and the checks done by this method are not relevant.
+        """
+        return optimization_config.clone()

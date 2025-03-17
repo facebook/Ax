@@ -302,7 +302,7 @@ class TestBestPointUtils(TestCase):
         self.assertEqual(parameterization, params)
 
     @patch(
-        f"{best_point_module}.derelativize_optimization_config_with_raw_status_quo",
+        f"{best_point_module}.Adapter._derelativize_optimization_config",
         return_value=DUMMY_OPTIMIZATION_CONFIG,
     )
     def test_derel_opt_config_wrapper(self, mock_derelativize: MagicMock) -> None:
@@ -350,12 +350,10 @@ class TestBestPointUtils(TestCase):
         returned_value = _derel_opt_config_wrapper(
             optimization_config=input_optimization_config,
             modelbridge=test_modelbridge_1,
-            observations=test_observations_1,
         )
         mock_derelativize.assert_called_with(
             optimization_config=input_optimization_config,
-            modelbridge=test_modelbridge_1,
-            observations=test_observations_1,
+            with_raw_status_quo=True,
         )
         with patch(
             f"{best_point_module}.get_tensor_converter_model",
@@ -370,8 +368,7 @@ class TestBestPointUtils(TestCase):
         self.assertEqual(returned_value, DUMMY_OPTIMIZATION_CONFIG)
         mock_derelativize.assert_called_with(
             optimization_config=input_optimization_config,
-            modelbridge=test_modelbridge_1,
-            observations=test_observations_1,
+            with_raw_status_quo=True,
         )
 
         # Observations and Adapter are not constructed from other inputs when
@@ -392,7 +389,6 @@ class TestBestPointUtils(TestCase):
                 optimization_config=input_optimization_config,
                 experiment=exp,
                 modelbridge=test_modelbridge_1,
-                observations=test_observations_1,
             )
             self.assertTrue(
                 any(
@@ -405,8 +401,7 @@ class TestBestPointUtils(TestCase):
         self.assertEqual(returned_value, DUMMY_OPTIMIZATION_CONFIG)
         mock_derelativize.assert_called_with(
             optimization_config=input_optimization_config,
-            modelbridge=test_modelbridge_1,
-            observations=test_observations_1,
+            with_raw_status_quo=True,
         )
 
     def test_extract_Y_from_data(self) -> None:

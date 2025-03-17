@@ -15,12 +15,10 @@ from numbers import Number
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.observation import ObservationData
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.modelbridge.transforms.derelativize import Derelativize
 from scipy.stats import norm
 
 
@@ -160,19 +158,29 @@ def construct_new_search_space(
     return search_space.__class__(**new_kwargs)
 
 
-def derelativize_optimization_config_with_raw_status_quo(
-    optimization_config: OptimizationConfig,
-    modelbridge: modelbridge_module.base.Adapter,
-    observations: list[Observation] | None,
-) -> OptimizationConfig:
-    """Derelativize optimization_config using raw status-quo values"""
-    tf = Derelativize(
-        search_space=modelbridge.model_space.clone(),
-        observations=observations,
-        config={"use_raw_status_quo": True},
-    )
-    return tf.transform_optimization_config(
-        optimization_config=optimization_config.clone(),
-        modelbridge=modelbridge,
-        fixed_features=ObservationFeatures(parameters={}),
-    )
+def derelativize_bound(
+    bound: float,
+    sq_val: float,
+) -> float:
+    """Derelativize a bound. Note that a positive `bound` makes the derelativized bound
+    larger than `sq_val`, i.e. `bound < sq_val`, regardless of the sign of `sq_val`.
+
+    Args:
+        bound: The bound to derelativize in percentage terms, so a bound of 1
+            corresponds to a 1% increase compared to the status quo.
+        sq_val: The status quo value.
+
+    Returns:
+        The derelativized bound.
+
+    Examples:
+        >>> derelativize_bound(bound=1.0, sq_val=10.0)
+        10.1
+        >>> derelativize_bound(bound=-1.0, sq_val=10.0)
+        9.9
+        >>> derelativize_bound(bound=1.0, sq_val=-10.0)
+        -9.9
+        >>> derelativize_bound(bound=-1.0, sq_val=-10.0)
+        -10.1
+    """
+    return (1 + np.sign(sq_val) * bound / 100.0) * sq_val

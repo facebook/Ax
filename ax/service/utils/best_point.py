@@ -19,7 +19,6 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.observation import Observation
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -41,9 +40,6 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.registry import Generators
 from ax.modelbridge.torch import TorchAdapter
-from ax.modelbridge.transforms.utils import (
-    derelativize_optimization_config_with_raw_status_quo,
-)
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.logger import get_logger
 from numpy import nan
@@ -573,7 +569,6 @@ def _derel_opt_config_wrapper(
     optimization_config: OptimizationConfig,
     modelbridge: Adapter | None = None,
     experiment: Experiment | None = None,
-    observations: list[Observation] | None = None,
 ) -> OptimizationConfig:
     """Derelativize optimization_config using raw status-quo values"""
 
@@ -601,11 +596,9 @@ def _derel_opt_config_wrapper(
             "`modelbridge` must have status quo if specified. If `modelbridge` is "
             "unspecified, `experiment` must have a status quo."
         )
-    observations = observations or modelbridge.get_training_data()
-    return derelativize_optimization_config_with_raw_status_quo(
+    return modelbridge._derelativize_optimization_config(
         optimization_config=optimization_config,
-        modelbridge=modelbridge,
-        observations=observations,
+        with_raw_status_quo=True,
     )
 
 

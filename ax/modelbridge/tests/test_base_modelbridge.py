@@ -21,11 +21,12 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import ComparisonOp, ScalarizedOutcomeConstraint
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import SumConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.modelbridge.base import (
     Adapter,
     clamp_observation_features,
@@ -45,8 +46,10 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_branin_optimization_config,
+    get_branin_search_space,
     get_experiment,
     get_experiment_with_repeated_arms,
+    get_multi_objective_optimization_config,
     get_non_monolithic_branin_moo_data,
     get_optimization_config_no_constraints,
     get_search_space_for_range_value,
@@ -902,3 +905,106 @@ class BaseAdapterTest(TestCase):
         adapter = Adapter(experiment=exp, model=Generator(), data=MapData())
         adapter._process_and_transform_data(experiment=exp, data=MapData())
         lookup_patch.assert_not_called()
+
+    def test__derelativize_optimization_config(
+        self, with_negative_metrics: bool = False
+    ) -> None:
+        metric_sign = -1.0 if with_negative_metrics else 1.0
+        optimization_config = get_multi_objective_optimization_config(
+            relative=True, outcome_constraint=True
+        )
+        observation = Observation(
+            features=ObservationFeatures(parameters={"x1": 2.0, "x2": 10.0}),
+            data=ObservationData(
+                means=np.array([1.0, 2.0, 6.0]) * metric_sign,
+                covariance=np.array(
+                    [[1.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
+                ),
+                metric_names=["m1", "m2", "m3"],
+            ),
+            arm_name="1_1",
+        )
+        with mock.patch(
+            "ax.modelbridge.base.observations_from_data",
+            autospec=True,
+            return_value=[observation],
+        ):
+            adapter = Adapter(
+                experiment=Experiment(
+                    search_space=get_branin_search_space(),
+                    optimization_config=optimization_config,
+                    status_quo=Arm(parameters={"x1": 2.0, "x2": 10.0}, name="1_1"),
+                ),
+                model=Generator(),
+            )
+        # With raw SQ.
+        new_opt_config = adapter._derelativize_optimization_config(
+            optimization_config=optimization_config,
+            with_raw_status_quo=True,
+        )
+        if with_negative_metrics:
+            expected_bound_values = {"m1": -1.0025, "m2": -2.005, "m3": -6.015}
+        else:
+            expected_bound_values = {"m1": 0.9975, "m2": 1.995, "m3": 5.985}
+        for oc in new_opt_config.all_constraints:
+            self.assertFalse(oc.relative)
+            expected_bound_value = expected_bound_values[oc.metric.name]
+            self.assertEqual(oc.bound, expected_bound_value)
+        # Error with no SQ.
+        sq = adapter._status_quo
+        adapter._status_quo = None
+        with self.assertRaisesRegex(DataRequiredError, "has a relative constraint"):
+            adapter._derelativize_optimization_config(
+                optimization_config=optimization_config
+            )
+        adapter._status_quo = sq
+        # With model predictions.
+        values = np.array([3.0, 4.0, 5.0]) * metric_sign
+        with mock.patch.object(
+            adapter,
+            "predict",
+            return_value=[
+                {"m1": [values[0]], "m2": [values[1]], "m3": [values[2]]},
+                None,
+            ],
+        ):
+            new_opt_config = adapter._derelativize_optimization_config(
+                optimization_config=optimization_config
+            )
+        if with_negative_metrics:
+            expected_bound_values = {"m1": -3.0075, "m2": -4.01, "m3": -5.0125}
+        else:
+            expected_bound_values = {"m1": 2.9925, "m2": 3.99, "m3": 4.9875}
+        for oc in new_opt_config.all_constraints:
+            self.assertFalse(oc.relative)
+            expected_bound_value = expected_bound_values[oc.metric.name]
+            self.assertAlmostEqual(oc.bound, expected_bound_value)
+        # With scalarized outcome constraint.
+        optimization_config = OptimizationConfig(
+            objective=Objective(Metric("m3"), minimize=False),
+            outcome_constraints=[
+                ScalarizedOutcomeConstraint(
+                    metrics=[Metric("m1"), Metric("m2")],
+                    weights=[2.0, 1.0],
+                    op=ComparisonOp.LEQ,
+                    bound=-10,
+                    relative=True,
+                ),
+            ],
+        )
+        new_opt_config = adapter._derelativize_optimization_config(
+            optimization_config=optimization_config,
+            with_raw_status_quo=True,
+        )
+        if with_negative_metrics:
+            expected_bound_value = -4.4
+        else:
+            expected_bound_value = 3.6
+        self.assertEqual(len(new_opt_config.outcome_constraints), 1)
+        self.assertFalse(new_opt_config.outcome_constraints[0].relative)
+        self.assertEqual(
+            new_opt_config.outcome_constraints[0].bound, expected_bound_value
+        )
+
+    def test__derelativize_optimization_config_with_negative_metrics(self) -> None:
+        self.test__derelativize_optimization_config(with_negative_metrics=True)

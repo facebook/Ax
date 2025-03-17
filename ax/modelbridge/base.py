@@ -28,6 +28,7 @@ from ax.core.observation import (
     separate_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
@@ -39,11 +40,13 @@ from ax.core.types import (
     TParameterization,
 )
 from ax.core.utils import get_target_trial_index
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
+from ax.modelbridge.transforms.ivw import ivw_metric_merge
+from ax.modelbridge.transforms.utils import derelativize_bound
 from ax.models.base import Generator
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
@@ -529,7 +532,6 @@ class Adapter:
 
         If status quo does not exist, return None.
         """
-        # tODO: extract from experiment
         # Status quo name will be set if status quo exists. We can just filter by name.
         if self.status_quo_name is None:
             return None
@@ -796,12 +798,87 @@ class Adapter:
                 if fixed_features is not None
                 else None
             )
+        if optimization_config is not None:
+            optimization_config = self._derelativize_optimization_config(
+                optimization_config=optimization_config
+            )
         return BaseGenArgs(
             search_space=search_space,
             optimization_config=optimization_config,
             pending_observations=pending_observations,
             fixed_features=fixed_features,
         )
+
+    def _derelativize_optimization_config(
+        self, optimization_config: OptimizationConfig, with_raw_status_quo: bool = False
+    ) -> OptimizationConfig:
+        """Derelativize the optimization config if it is relative.
+
+        The adapter must be constructed with a status quo for derelativization.
+
+        Args:
+            optimization_config: Optimization config to derelativize.
+            with_raw_status_quo: If True, the status quo observation data
+                will be used to derelativize the optimization config. If False,
+                the model predictions for the status quo will be used.
+
+        Returns:
+            The derelativized optimization config.
+        """
+        # Clone to avoid in-place modifications.
+        optimization_config = optimization_config.clone()
+        if not any(c.relative for c in optimization_config.all_constraints):
+            # Return as is, if not relative.
+            return optimization_config
+
+        if self.status_quo is None:
+            raise DataRequiredError(
+                "Optimization config has a relative constraint, but model was "
+                "not fit with status quo."
+            )
+        status_quo = none_throws(self.status_quo)
+        # Only use model predictions if the status quo is in the search space (including
+        # parameter constraints).
+        if not with_raw_status_quo and self.model_space.check_membership(
+            status_quo.features.parameters
+        ):
+            f, _ = self.predict([status_quo.features])
+        else:
+            sq_data = ivw_metric_merge(
+                obsd=status_quo.data, conflicting_noiseless="raise"
+            )
+            f, _ = unwrap_observation_data([sq_data])
+
+        # Plug in the status quo value to each relative constraint.
+        for c in optimization_config.all_constraints:
+            if c.relative:
+                if isinstance(c, ScalarizedOutcomeConstraint):
+                    missing_metrics = {
+                        metric.name for metric in c.metrics if metric.name not in f
+                    }
+                    if len(missing_metrics) > 0:
+                        raise DataRequiredError(
+                            f"Status-quo metric value not yet available for metric(s) "
+                            f"{missing_metrics}."
+                        )
+                    # The sq_val of scalarized outcome is the weighted
+                    # sum of its component metrics.
+                    sq_val = sum(
+                        [
+                            c.weights[i] * f[metric.name][0]
+                            for i, metric in enumerate(c.metrics)
+                        ]
+                    )
+                elif c.metric.name in f:
+                    sq_val = f[c.metric.name][0]
+                else:
+                    raise DataRequiredError(
+                        f"Status-quo metric value not yet available for metric "
+                        f"{c.metric.name}."
+                    )
+                c.bound = derelativize_bound(bound=c.bound, sq_val=sq_val)
+                c.relative = False
+        return optimization_config
 
     def _validate_gen_inputs(
         self,

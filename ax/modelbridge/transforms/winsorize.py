@@ -25,12 +25,9 @@ from ax.core.outcome_constraint import (
     ScalarizedOutcomeConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
+from ax.exceptions.core import AxWarning, DataRequiredError, UserInputError
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.utils import (
-    derelativize_optimization_config_with_raw_status_quo,
-    get_data,
-)
+from ax.modelbridge.transforms.utils import get_data
 from ax.models.types import TConfig, WinsorizationConfig
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance
@@ -42,24 +39,17 @@ if TYPE_CHECKING:
 logger: Logger = get_logger(__name__)
 
 
-OLD_KEYS = ["winsorization_lower", "winsorization_upper", "percentile_bounds"]
 AUTO_WINS_QUANTILE = -1  # This shouldn't be in the [0, 1] range
 DEFAULT_CUTOFFS: tuple[float, float] = (-float("inf"), float("inf"))
 
 
 class Winsorize(Transform):
     """Clip the mean values for each metric to lay within the limits provided in
-    the config. The config can contain either or both of two keys:
+    the config. The config can contain:
     - ``"winsorization_config"``, corresponding to either a single
         ``WinsorizationConfig``, which, if provided will be used for all metrics; or
         a mapping ``Dict[str, WinsorizationConfig]`` between each metric name and its
         ``WinsorizationConfig``.
-    - ``"derelativize_with_raw_status_quo"``, indicating whether to use the raw
-        status-quo value for any derelativization. Note this defaults to ``False``,
-        which is unsupported and simply fails if derelativization is necessary. The
-        user must specify ``derelativize_with_raw_status_quo = True`` in order for
-        derelativization to succeed. Note that this must match the `use_raw_status_quo`
-        value in the ``Derelativize`` config if used.
     For example,
     ``{"winsorization_config": WinsorizationConfig(lower_quantile_margin=0.3)}``
     will specify the same 30% winsorization from below for all metrics, whereas
@@ -87,6 +77,9 @@ class Winsorize(Transform):
     is discouraged and will eventually be deprecated as we strongly encourage
     that users allow ``Winsorize`` to automatically infer these boundaries from
     the optimization config.
+
+    NOTE: If the optimization config contains relative constraints, they are
+    derelativized using the raw status quo values before applying Winsorization.
     """
 
     cutoffs: dict[str, tuple[float, float]]
@@ -100,13 +93,6 @@ class Winsorize(Transform):
     ) -> None:
         if observations is None or len(observations) == 0:
             raise DataRequiredError("`Winsorize` transform requires non-empty data.")
-        if config is not None and config.get("optimization_config") is not None:
-            warnings.warn(
-                "Winsorization received an out-of-date `transform_config`, containing "
-                'the key `"optimization_config"`. Please update the config according '
-                "to the docs of `ax.modelbridge.transforms.winsorize.Winsorize`.",
-                DeprecationWarning,
-            )
         optimization_config = modelbridge._optimization_config if modelbridge else None
         if config is None and optimization_config is None:
             raise ValueError(
@@ -118,41 +104,19 @@ class Winsorize(Transform):
             config = {}
         observation_data = [obs.data for obs in observations]
 
-        # Check for legacy config
-        use_legacy = False
-        old_present = set(OLD_KEYS).intersection(config.keys())
-        if old_present:
-            warnings.warn(
-                "Winsorization received an out-of-date `transform_config`, containing "
-                f"the following deprecated keys: {old_present}. Please update the "
-                "config according to the docs of "
-                "`ax.modelbridge.transforms.winsorize.Winsorize`.",
-                DeprecationWarning,
-            )
-            use_legacy = True
-
         # Get config settings.
         winsorization_config = config.get("winsorization_config", {})
-        use_raw_sq = _get_and_validate_use_raw_sq(config=config)
         self.cutoffs = {}
         all_metric_values = get_data(observation_data=observation_data)
         for metric_name, metric_values in all_metric_values.items():
-            if use_legacy:
-                self.cutoffs[metric_name] = _get_cutoffs_from_legacy_transform_config(
-                    metric_name=metric_name,
-                    metric_values=metric_values,
-                    transform_config=config,
-                )
-            else:
-                self.cutoffs[metric_name] = _get_cutoffs(
-                    metric_name=metric_name,
-                    metric_values=metric_values,
-                    winsorization_config=winsorization_config,
-                    modelbridge=modelbridge,
-                    observations=observations,
-                    optimization_config=optimization_config,
-                    use_raw_sq=use_raw_sq,
-                )
+            self.cutoffs[metric_name] = _get_cutoffs(
+                metric_name=metric_name,
+                metric_values=metric_values,
+                winsorization_config=winsorization_config,
+                modelbridge=modelbridge,
+                observations=observations,
+                optimization_config=optimization_config,
+            )
 
     def _transform_observation_data(
         self,
@@ -176,7 +140,6 @@ def _get_cutoffs(
     modelbridge: Optional["modelbridge_module.base.Adapter"],
     observations: list[Observation] | None,
     optimization_config: OptimizationConfig | None,
-    use_raw_sq: bool,
 ) -> tuple[float, float]:
     # (1) Use the same config for all metrics if one WinsorizationConfig was specified
     if isinstance(winsorization_config, WinsorizationConfig):
@@ -211,16 +174,9 @@ def _get_cutoffs(
     if modelbridge is None or optimization_config is None:
         return DEFAULT_CUTOFFS
     if any(oc.relative for oc in optimization_config.all_constraints):
-        if not use_raw_sq:
-            raise UnsupportedError(
-                "Automatic winsorization doesn't support relative outcome constraints "
-                "or objective thresholds when `derelativize_with_raw_status_quo` is "
-                "not set to `True`."
-            )
-        optimization_config = derelativize_optimization_config_with_raw_status_quo(
+        optimization_config = modelbridge._derelativize_optimization_config(
             optimization_config=optimization_config,
-            modelbridge=modelbridge,
-            observations=observations,
+            with_raw_status_quo=True,
         )
 
     # Non-objective metrics - obtain cutoffs from outcome_constraints.
@@ -283,7 +239,9 @@ def _get_auto_winsorization_cutoffs_multi_objective(
         warnings.warn(
             "Encountered a `MultiObjective` without objective thresholds. We will "
             "winsorize each objective separately. We strongly recommend specifying "
-            "the objective thresholds when using multi-objective optimization."
+            "the objective thresholds when using multi-objective optimization.",
+            AxWarning,
+            stacklevel=3,
         )
         objectives = assert_is_instance(optimization_config.objective, MultiObjective)
         minimize = [
@@ -312,7 +270,9 @@ def _obtain_cutoffs_from_outcome_constraints(
         warnings.warn(
             "Automatic winsorization isn't supported for a "
             "`ScalarizedOutcomeConstraint`. Specify the winsorization settings "
-            f"manually if you want to winsorize metric {metric_name}."
+            f"manually if you want to winsorize metric {metric_name}.",
+            AxWarning,
+            stacklevel=3,
         )
     outcome_constraints = _get_non_scalarized_outcome_constraints(
         optimization_config=optimization_config, metric_name=metric_name
@@ -500,13 +460,4 @@ def _get_cutoffs_from_legacy_transform_config(
         metric_name=metric_name,
         metric_values=metric_values,
         metric_config=winsorization_config,
-    )
-
-
-def _get_and_validate_use_raw_sq(config: TConfig) -> bool:
-    use_raw_sq = config.get("derelativize_with_raw_status_quo", False)
-    if isinstance(use_raw_sq, bool):
-        return use_raw_sq
-    raise UserInputError(
-        f"`derelativize_with_raw_status_quo` must be a boolean. Got {use_raw_sq}."
     )

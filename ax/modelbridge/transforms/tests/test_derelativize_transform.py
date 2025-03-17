@@ -84,9 +84,6 @@ class DerelativizeTransformTest(TestCase):
                         return_value=predict_return_value,
                     )
                 )
-                mock_fit = es.enter_context(
-                    mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
-                )
                 mock_observations_from_data = es.enter_context(
                     mock.patch(
                         "ax.modelbridge.base.observations_from_data",
@@ -96,7 +93,6 @@ class DerelativizeTransformTest(TestCase):
                 )
                 self._test_DerelativizeTransform(
                     mock_predict=mock_predict,
-                    mock_fit=mock_fit,
                     mock_observations_from_data=mock_observations_from_data,
                     sq_b_observed=sq_b_observed,
                     sq_b_predicted=sq_b_predicted,
@@ -105,7 +101,6 @@ class DerelativizeTransformTest(TestCase):
     def _test_DerelativizeTransform(
         self,
         mock_predict: Mock,
-        mock_fit: Mock,
         mock_observations_from_data: Mock,
         sq_b_observed: float,
         sq_b_predicted: float,
@@ -281,7 +276,7 @@ class DerelativizeTransformTest(TestCase):
 
         # But not if sq arm is not available.
         with patch(
-            f"{Derelativize.__module__}.unwrap_observation_data", return_value=({}, {})
+            f"{Adapter.__module__}.unwrap_observation_data", return_value=({}, {})
         ), self.assertRaisesRegex(
             DataRequiredError, "Status-quo metric value not yet available for metric "
         ):
@@ -301,7 +296,7 @@ class DerelativizeTransformTest(TestCase):
             ],
         )
         with patch(
-            f"{Derelativize.__module__}.unwrap_observation_data", return_value=({}, {})
+            f"{Adapter.__module__}.unwrap_observation_data", return_value=({}, {})
         ), self.assertRaisesRegex(
             DataRequiredError,
             "Status-quo metric value not yet available for metric\\(s\\) ",
