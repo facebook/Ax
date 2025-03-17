@@ -117,6 +117,7 @@ from ax.utils.testing.core_stubs import (
     get_scheduler_options_batch_trial,
     get_search_space,
     get_sebo_acquisition_class,
+    get_sorted_choice_parameter,
     get_sum_constraint1,
     get_sum_constraint2,
     get_surrogate,
@@ -172,6 +173,7 @@ TEST_CASES = [
     ("BraninMetric", get_branin_metric),
     ("ChainedInputTransform", get_chained_input_transform),
     ("ChoiceParameter", get_choice_parameter),
+    ("ChoiceParameter", get_sorted_choice_parameter),
     # testing with non-default argument
     ("DataLoaderConfig", partial(DataLoaderConfig, fit_out_of_design=True)),
     ("Experiment", get_experiment_with_batch_and_single_trial),

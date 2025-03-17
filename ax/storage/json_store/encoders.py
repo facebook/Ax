@@ -189,6 +189,7 @@ def choice_parameter_to_dict(parameter: ChoiceParameter) -> dict[str, Any]:
         "is_fidelity": parameter.is_fidelity,
         "target_value": parameter.target_value,
         "dependents": parameter.dependents if parameter.is_hierarchical else None,
+        "sort_values": parameter.sort_values,
     }
 
 

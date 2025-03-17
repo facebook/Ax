@@ -1488,6 +1488,16 @@ def get_ordered_choice_parameter() -> ChoiceParameter:
     )
 
 
+def get_sorted_choice_parameter() -> ChoiceParameter:
+    return ChoiceParameter(
+        name="y",
+        parameter_type=ParameterType.STRING,
+        values=["2", "1", "3"],
+        is_ordered=True,
+        sort_values=True,
+    )
+
+
 def get_task_choice_parameter() -> ChoiceParameter:
     return ChoiceParameter(
         name="y",
