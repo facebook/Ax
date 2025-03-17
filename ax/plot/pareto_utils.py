@@ -37,8 +37,8 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.registry import Generators
 from ax.modelbridge.torch import TorchAdapter
-from ax.modelbridge.transforms.derelativize import derelativize_bound
 from ax.modelbridge.transforms.search_space_to_float import SearchSpaceToFloat
+from ax.modelbridge.transforms.utils import derelativize_bound
 from ax.models.torch_base import TorchGenerator
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize

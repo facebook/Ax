@@ -2502,9 +2502,7 @@ def get_dataset(
     )
 
 
-def get_online_sobol_mbm_generation_strategy(
-    sobol_steps: int = 1,
-) -> GenerationStrategy:
+def get_online_sobol_mbm_generation_strategy() -> GenerationStrategy:
     """Constructs a GenerationStrategy with Sobol and MBM nodes for simulating
     online optimization.
     """

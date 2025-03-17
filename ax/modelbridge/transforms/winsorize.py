@@ -27,10 +27,7 @@ from ax.core.outcome_constraint import (
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import AxWarning, DataRequiredError, UserInputError
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.utils import (
-    derelativize_optimization_config_with_raw_status_quo,
-    get_data,
-)
+from ax.modelbridge.transforms.utils import get_data
 from ax.models.types import TConfig, WinsorizationConfig
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance
@@ -177,10 +174,9 @@ def _get_cutoffs(
     if modelbridge is None or optimization_config is None:
         return DEFAULT_CUTOFFS
     if any(oc.relative for oc in optimization_config.all_constraints):
-        optimization_config = derelativize_optimization_config_with_raw_status_quo(
+        optimization_config = modelbridge._derelativize_optimization_config(
             optimization_config=optimization_config,
-            modelbridge=modelbridge,
-            observations=observations,
+            with_raw_status_quo=True,
         )
 
     # Non-objective metrics - obtain cutoffs from outcome_constraints.

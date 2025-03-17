@@ -30,6 +30,7 @@ from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.registry import MBM_X_trans
 from ax.modelbridge.torch import TorchAdapter
@@ -420,7 +421,7 @@ class TorchAdapterTest(TestCase):
 
         # test optimization config validation - raise error when
         # ScalarizedOutcomeConstraint contains a metric that is not in the outcomes
-        with self.assertRaisesRegex(ValueError, "as a relative constraint."):
+        with self.assertRaisesRegex(DataRequiredError, "has a relative constraint."):
             modelbridge.gen(
                 n=1,
                 optimization_config=OptimizationConfig(
