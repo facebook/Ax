@@ -6,8 +6,8 @@
 
 # pyre-strict
 
-from ax.preview.api.protocols.metric import IMetric
-from ax.preview.api.protocols.runner import IRunner
+from ax.api.protocols.metric import IMetric
+from ax.api.protocols.runner import IRunner
 
 __all__ = [
     "IMetric",

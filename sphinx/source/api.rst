@@ -1,20 +1,20 @@
 .. role:: hidden
     :class: hidden-section
 
-ax.preview
+ax.api
 ==========
 
 .. automodule:: ax.preview
 .. currentmodule:: ax.preview
 
-A preview of future Ax API
+The Ax API
 --------------------------
 
 
 IMetric
 ~~~~~~~
 
-.. automodule:: ax.preview.api.protocols.metric
+.. automodule:: ax.api.protocols.metric
     :members:
     :undoc-members:
     :show-inheritance:
@@ -22,7 +22,7 @@ IMetric
 IRunner
 ~~~~~~~
 
-.. automodule:: ax.preview.api.protocols.runner
+.. automodule:: ax.api.protocols.runner
     :members:
     :undoc-members:
     :show-inheritance:
@@ -31,7 +31,7 @@ IRunner
 Utils
 ~~~~~~~
 
-.. automodule:: ax.preview.api.protocols.utils
+.. automodule:: ax.api.protocols.utils
     :members:
     :undoc-members:
     :show-inheritance:
@@ -40,7 +40,7 @@ Utils
 Client
 ~~~~~~
 
-.. automodule:: ax.preview.api.client
+.. automodule:: ax.api.client
     :members:
     :undoc-members:
     :show-inheritance:
@@ -49,7 +49,7 @@ Client
 Configs
 ~~~~~~~
 
-.. automodule:: ax.preview.api.configs
+.. automodule:: ax.api.configs
     :members:
     :undoc-members:
     :show-inheritance:
@@ -57,7 +57,7 @@ Configs
 Types
 ~~~~~
 
-.. automodule:: ax.preview.api.types
+.. automodule:: ax.api.types
     :members:
     :undoc-members:
     :show-inheritance:
@@ -65,7 +65,7 @@ Types
 From Config
 ~~~~~~~~~~~
 
-.. automodule:: ax.preview.api.utils.instantiation.from_config
+.. automodule:: ax.api.utils.instantiation.from_config
     :members:
     :undoc-members:
     :show-inheritance:
@@ -73,32 +73,25 @@ From Config
 From String
 ~~~~~~~~~~~
 
-.. automodule:: ax.preview.api.utils.instantiation.from_string
+.. automodule:: ax.api.utils.instantiation.from_string
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-Adapter
+Generation Strategy Dispatch
 ~~~~~~~~~~~
 
-.. automodule:: ax.preview.modelbridge
+.. automodule:: ax.api.utils.generation_strategy_dispatch
     :members:
     :undoc-members:
     :show-inheritance:
 
-Dispatch Utils
-~~~~~~~~~~~~~~
 
-.. automodule:: ax.preview.modelbridge.dispatch_utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 Storage Utils
 ~~~~~~~~~~~~~
 
-.. automodule:: ax.preview.api.utils.storage
+.. automodule:: ax.api.utils.storage
     :members:
     :undoc-members:
     :show-inheritance:

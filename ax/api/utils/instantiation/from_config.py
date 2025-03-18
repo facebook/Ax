@@ -7,6 +7,14 @@
 
 
 import numpy as np
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    ExperimentConfig,
+    ParameterScaling,
+    ParameterType,
+    RangeParameterConfig,
+)
+from ax.api.utils.instantiation.from_string import parse_parameter_constraint
 
 from ax.core.experiment import Experiment
 
@@ -21,14 +29,6 @@ from ax.core.parameter import (
 from ax.core.parameter_constraint import validate_constraint_parameters
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
-from ax.preview.api.configs import (
-    ChoiceParameterConfig,
-    ExperimentConfig,
-    ParameterScaling,
-    ParameterType,
-    RangeParameterConfig,
-)
-from ax.preview.api.utils.instantiation.from_string import parse_parameter_constraint
 
 
 def parameter_from_config(
