@@ -4,7 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-unsafe
+# pyre-strict
+
 
 import torch
 from ax.core.trial_status import TrialStatus
@@ -131,8 +132,9 @@ def _get_mbm_node(
 def choose_generation_strategy(
     gs_config: GenerationStrategyConfig,
 ) -> GenerationStrategy:
-    """Choose a generation strategy based on the properties of the experiment
-    and the inputs provided in ``gs_config``.
+    """
+    Choose a generation strategy based on the properties of the experiment and the
+    inputs provided in ``gs_config``.
 
     NOTE: The behavior of this function is subject to change. It will be updated to
     produce best general purpose generation strategies based on benchmarking results.
