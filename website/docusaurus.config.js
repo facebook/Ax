@@ -100,7 +100,6 @@ module.exports={
           "sidebarId": "recipes",
           "label": "Recipes",
           "position": "left",
-          "ignoreVersions": ["0.5.0"],
         },
         {
           "href": "https://ax.readthedocs.io/",
