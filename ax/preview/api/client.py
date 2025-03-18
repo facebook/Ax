@@ -45,12 +45,12 @@ from ax.preview.api.configs import (
 from ax.preview.api.protocols.metric import IMetric
 from ax.preview.api.protocols.runner import IRunner
 from ax.preview.api.types import TOutcome, TParameterization
+from ax.preview.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.preview.api.utils.instantiation.from_config import experiment_from_config
 from ax.preview.api.utils.instantiation.from_string import (
     optimization_config_from_string,
 )
 from ax.preview.api.utils.storage import db_settings_from_storage_config
-from ax.preview.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
