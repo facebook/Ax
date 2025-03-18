@@ -18,7 +18,6 @@ from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions, GeneratorRun
-from ax.core.map_data import MapData
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -331,8 +330,6 @@ class Adapter:
         self, experiment: Experiment, data: Data | None = None
     ) -> list[Observation]:
         data = data if data is not None else experiment.lookup_data()
-        fit_only_completed = self._data_loader_config.fit_only_completed_map_metrics
-        map_keys_as_parameters = not fit_only_completed and isinstance(data, MapData)
         return observations_from_data(
             experiment=experiment,
             data=data,
@@ -341,7 +338,6 @@ class Adapter:
             limit_rows_per_group=self._data_loader_config.limit_rows_per_group,
             statuses_to_include=self.statuses_to_fit,
             statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
-            map_keys_as_parameters=map_keys_as_parameters,
         )
 
     def _transform_data(

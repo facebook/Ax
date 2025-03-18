@@ -14,12 +14,18 @@ from unittest.mock import Mock
 import numpy as np
 import torch
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import (
+    Observation,
+    ObservationData,
+    ObservationFeatures,
+    observations_from_data,
+)
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import SumConstraint
@@ -29,6 +35,7 @@ from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.base import (
     Adapter,
     clamp_observation_features,
+    DataLoaderConfig,
     gen_arms,
     GenResults,
     unwrap_observation_data,
@@ -852,38 +859,43 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(m.model_space.parameter_constraints, [])
 
     @mock.patch(
-        "ax.modelbridge.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1()]),
+        "ax.modelbridge.base.observations_from_data", wraps=observations_from_data
     )
     def test_fit_only_completed_map_metrics(
         self, mock_observations_from_data: Mock
     ) -> None:
         # _prepare_observations is called in the constructor and itself calls
-        # observations_from_data with map_keys_as_parameters=True
+        # observations_from_data with expanded statuses to include.
         experiment = get_experiment_for_value()
         experiment.status_quo = Arm(name="1_1", parameters={"x": 3.0})
-        Adapter(
+        adapter = Adapter(
             experiment=experiment,
             model=Generator(),
             data=MapData(),
-            fit_only_completed_map_metrics=False,
+            data_loader_config=DataLoaderConfig(
+                fit_only_completed_map_metrics=False,
+            ),
         )
         kwargs = mock_observations_from_data.call_args.kwargs
-        self.assertTrue(kwargs["map_keys_as_parameters"])
+        self.assertEqual(
+            kwargs["statuses_to_include_map_metric"], adapter.statuses_to_fit
+        )
         # assert `latest_rows_per_group` is 1
         self.assertEqual(kwargs["latest_rows_per_group"], 1)
         mock_observations_from_data.reset_mock()
 
-        # calling without map data calls observations_from_data with
-        # map_keys_as_parameters=False even if fit_only_completed_map_metrics is False
+        # With fit_only_completed_map_metrics=True, statuses to fit is limited.
         Adapter(
             experiment=experiment,
             model=Generator(),
-            fit_only_completed_map_metrics=False,
+            data_loader_config=DataLoaderConfig(
+                fit_only_completed_map_metrics=True,
+            ),
         )
         kwargs = mock_observations_from_data.call_args.kwargs
-        self.assertFalse(kwargs["map_keys_as_parameters"])
+        self.assertEqual(
+            kwargs["statuses_to_include_map_metric"], {TrialStatus.COMPLETED}
+        )
 
     def test_data_extraction_from_experiment(self) -> None:
         # Checks that data is extracted from experiment both on __init__ and
