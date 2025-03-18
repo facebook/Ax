@@ -89,6 +89,8 @@ class DataLoaderConfig:
             rows per metric is limited by this value.
         limit_rows_per_group: Subsample the map data so that the number of rows
             in the `map_key` column for each (arm, metric) is limited by this value.
+        map_keys_as_parameters: Whether map keys should be returned as part of
+            the parameters of the Observation objects.
     """
 
     fit_out_of_design: bool = False
@@ -97,6 +99,7 @@ class DataLoaderConfig:
     latest_rows_per_group: int | None = 1
     limit_rows_per_metric: int | None = None
     limit_rows_per_group: int | None = None
+    map_keys_as_parameters: bool = False
 
 
 class Adapter:
@@ -331,8 +334,10 @@ class Adapter:
         self, experiment: Experiment, data: Data | None = None
     ) -> list[Observation]:
         data = data if data is not None else experiment.lookup_data()
-        fit_only_completed = self._data_loader_config.fit_only_completed_map_metrics
-        map_keys_as_parameters = not fit_only_completed and isinstance(data, MapData)
+        map_keys_as_parameters = (
+            self._data_loader_config.map_keys_as_parameters
+            and isinstance(data, MapData)
+        )
         return observations_from_data(
             experiment=experiment,
             data=data,
