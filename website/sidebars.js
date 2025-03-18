@@ -55,6 +55,7 @@ export default {
       'recipes/tracking-metrics',
       'recipes/experiment-to-json',
       'recipes/experiment-to-sqlite',
+      'recipes/multi-objective-optimization',
     ],
   },
 };
