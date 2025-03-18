@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from ax.preview.api.types import TParameterValue
+from ax.api.types import TParameterValue
 from ax.storage.registry_bundle import RegistryBundleBase
 
 

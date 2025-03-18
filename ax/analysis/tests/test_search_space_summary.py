@@ -8,15 +8,15 @@
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.search_space_summary import SearchSpaceSummary
-from ax.exceptions.core import UserInputError
-from ax.preview.api.client import Client
-from ax.preview.api.configs import (
+from ax.api.client import Client
+from ax.api.configs import (
     ChoiceParameterConfig,
     ExperimentConfig,
     ParameterScaling,
     ParameterType,
     RangeParameterConfig,
 )
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
 

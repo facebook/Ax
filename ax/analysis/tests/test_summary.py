@@ -9,10 +9,10 @@ import numpy as np
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.summary import Summary
+from ax.api.client import Client
+from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
-from ax.preview.api.client import Client
-from ax.preview.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
 from ax.utils.common.testutils import TestCase
 from pyre_extensions import assert_is_instance, none_throws
 

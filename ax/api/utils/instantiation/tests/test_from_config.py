@@ -5,6 +5,18 @@
 
 # pyre-strict
 
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    ExperimentConfig,
+    ParameterScaling,
+    ParameterType,
+    RangeParameterConfig,
+)
+from ax.api.utils.instantiation.from_config import (
+    _parameter_type_converter,
+    experiment_from_config,
+    parameter_from_config,
+)
 from ax.core.experiment import Experiment
 from ax.core.formatting_utils import DataType
 from ax.core.parameter import (
@@ -16,18 +28,6 @@ from ax.core.parameter import (
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
-from ax.preview.api.configs import (
-    ChoiceParameterConfig,
-    ExperimentConfig,
-    ParameterScaling,
-    ParameterType,
-    RangeParameterConfig,
-)
-from ax.preview.api.utils.instantiation.from_config import (
-    _parameter_type_converter,
-    experiment_from_config,
-    parameter_from_config,
-)
 from ax.utils.common.testutils import TestCase
 
 

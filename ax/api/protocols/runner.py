@@ -9,9 +9,10 @@
 from collections.abc import Mapping
 from typing import Any
 
+from ax.api.protocols.utils import _APIRunner
+from ax.api.types import TParameterization
+
 from ax.core.trial_status import TrialStatus
-from ax.preview.api.protocols.utils import _APIRunner
-from ax.preview.api.types import TParameterization
 from pyre_extensions import override
 
 
