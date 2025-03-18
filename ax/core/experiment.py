@@ -13,6 +13,7 @@ import re
 import warnings
 from collections import defaultdict, OrderedDict
 from collections.abc import Hashable, Iterable, Mapping
+from copy import deepcopy
 from datetime import datetime
 from functools import partial, reduce
 from typing import Any, cast
@@ -153,9 +154,25 @@ class Experiment(Base):
         self._arms_by_signature: dict[str, Arm] = {}
         self._arms_by_name: dict[str, Arm] = {}
 
-        self.auxiliary_experiments_by_purpose: dict[
+        # Used to keep track of auxiliary experiments that were removed.
+        self._initial_auxiliary_experiments_by_purpose: dict[
             AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
         ] = auxiliary_experiments_by_purpose or {}
+
+        # Only tracks active auxiliary experiments.
+        self.auxiliary_experiments_by_purpose: dict[
+            AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
+        ] = {
+            purpose: [
+                auxiliary_experiment
+                for auxiliary_experiment in auxiliary_experiments
+                if auxiliary_experiment.is_active
+            ]
+            for (
+                purpose,
+                auxiliary_experiments,
+            ) in self._initial_auxiliary_experiments_by_purpose.items()
+        }
 
         self.add_tracking_metrics(tracking_metrics or [])
 
@@ -1915,6 +1932,34 @@ class Experiment(Base):
         if omit_empty_columns:
             df = df.loc[:, df.notnull().any()]
         return df
+
+    @property
+    # Tracks removed auxiliary experiments to be stored as inactive auxiliary
+    # experiments.
+    def auxiliary_experiments_by_purpose_for_storage(
+        self,
+    ) -> dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]:
+        # Start with the current active auxiliary experiments.
+        result = deepcopy(self.auxiliary_experiments_by_purpose)
+        # Iterate through the auxiliary experiments that were loaded and mark any
+        # deleted ones as inactive.
+        for (
+            purpose,
+            prev_auxiliary_experiments,
+        ) in self._initial_auxiliary_experiments_by_purpose.items():
+            # If the purpose is not in the new auxiliary experiments, mark all
+            # previous auxiliary experiments as inactive.
+            if purpose not in result:
+                for pre_experiment in prev_auxiliary_experiments:
+                    pre_experiment.is_active = False
+                result[purpose] = prev_auxiliary_experiments
+                continue
+            # Mark any removed auxiliary experiments as inactive.
+            for prev_auxiliary_experiment in prev_auxiliary_experiments:
+                if prev_auxiliary_experiment not in result[purpose]:
+                    prev_auxiliary_experiment.is_active = False
+                    result[purpose].append(prev_auxiliary_experiment)
+        return result
 
 
 def add_arm_and_prevent_naming_collision(

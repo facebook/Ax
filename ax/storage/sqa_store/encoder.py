@@ -16,6 +16,7 @@ from typing import Any, cast
 from ax.analysis.analysis import AnalysisCard
 
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
@@ -51,6 +52,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAAnalysisCard,
     SQAArm,
+    SQAAuxiliaryExperiment,
     SQAData,
     SQAExperiment,
     SQAGenerationStrategy,
@@ -176,6 +178,15 @@ class Encoder:
             value=experiment.experiment_type, enum=self.config.experiment_type_enum
         )
 
+        # New auxiliary experiments logic
+        auxiliary_experiments = self.auxiliary_experiments_by_purpose_to_sqa(
+            source_experiment=experiment,
+            auxiliary_experiments_by_purpose=(
+                experiment.auxiliary_experiments_by_purpose_for_storage
+            ),
+        )
+
+        # Legacy auxiliary experiments logic
         auxiliary_experiments_by_purpose = {}
         for (
             aux_exp_type_enum,
@@ -183,11 +194,7 @@ class Encoder:
         ) in experiment.auxiliary_experiments_by_purpose.items():
             aux_exp_type = aux_exp_type_enum.value
             aux_exp_jsons = [
-                {
-                    "__type": aux_exp.__class__.__name__,
-                    "experiment_name": aux_exp.experiment.name,
-                }
-                for aux_exp in aux_exps
+                self.encode_auxiliary_experiment(aux_exp) for aux_exp in aux_exps
             ]
             auxiliary_experiments_by_purpose[aux_exp_type] = aux_exp_jsons
 
@@ -231,6 +238,7 @@ class Encoder:
             default_trial_type=experiment.default_trial_type,
             default_data_type=experiment.default_data_type,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
+            auxiliary_experiments=auxiliary_experiments,
         )
         return exp_sqa
 
@@ -1107,3 +1115,42 @@ class Encoder:
             attributes=json.dumps(analysis_card.attributes),
             category=analysis_card.category,
         )
+
+    def encode_auxiliary_experiment(
+        self,
+        auxiliary_experiment: AuxiliaryExperiment,
+    ) -> dict[str, Any]:
+        return {"experiment_name": auxiliary_experiment.experiment.name}
+
+    def auxiliary_experiments_by_purpose_to_sqa(
+        self,
+        source_experiment: Experiment,
+        auxiliary_experiments_by_purpose: dict[
+            AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
+        ],
+    ) -> list[SQAAuxiliaryExperiment]:
+        """Convert Ax auxiliary experiments by purpose to SQLAlchemy."""
+
+        # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[AuxiliaryExperiment]`.
+        auxiliary_experiment_class: SQAAuxiliaryExperiment = (
+            self.config.class_to_sqa_class[AuxiliaryExperiment]
+        )
+
+        return [
+            # pyre-fixme[29]: `SQAAuxiliaryExperiment` is not a function.
+            auxiliary_experiment_class(
+                source_experiment_id=source_experiment.db_id,
+                target_experiment_id=none_throws(
+                    auxiliary_experiment.experiment.db_id,
+                    """Target experiment must be saved to DB before auxiliary experiment
+                    relation can be saved.""",
+                ),
+                purpose=purpose.value,
+                is_active=auxiliary_experiment.is_active,
+                properties=self.encode_auxiliary_experiment(auxiliary_experiment),
+            )
+            for purpose, auxiliary_experiments in (
+                auxiliary_experiments_by_purpose.items()
+            )
+            for auxiliary_experiment in auxiliary_experiments
+        ]
