@@ -27,7 +27,7 @@ from ax.core.types import (
 from ax.core.utils import get_pending_observation_features
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted, UserInputError
-from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.service.utils.best_point import (
@@ -75,7 +75,7 @@ class OptimizationLoop:
         self.experiment = experiment
         if generation_strategy is None:
             # pyre-fixme[4]: Attribute must be annotated.
-            self.generation_strategy = choose_generation_strategy(
+            self.generation_strategy = choose_generation_strategy_legacy(
                 search_space=experiment.search_space,
                 use_batch_trials=self.arms_per_trial > 1,
                 random_seed=self.random_seed,
