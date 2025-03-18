@@ -39,7 +39,10 @@ class MetadataToFloat(Transform):
 
     It allows the user to specify the `config` with `parameters` as the key, where
     each entry maps a metadata key to a dictionary of keyword arguments for the
-    corresponding RangeParameter constructor.
+    corresponding RangeParameter constructor. The `config` can also be used to
+    override `default_log_scale` for all parameters. Note that any parameters
+    that has lower bound <= 0 will not be set to log scale regardless of the
+    log scale setting.
 
     Transform is done in-place.
     """
@@ -64,6 +67,7 @@ class MetadataToFloat(Transform):
         self.parameters: dict[str, dict[str, Any]] = assert_is_instance(
             config.get("parameters", {}), dict
         )
+        default_log_scale = config.get("default_log_scale", self.DEFAULT_LOG_SCALE)
 
         self._parameter_list: list[RangeParameter] = []
         for name in self.parameters:
@@ -76,7 +80,7 @@ class MetadataToFloat(Transform):
             lower: float = self.parameters[name].get("lower", min(values))
             upper: float = self.parameters[name].get("upper", max(values))
 
-            log_scale = self.parameters[name].get("log_scale", self.DEFAULT_LOG_SCALE)
+            log_scale = self.parameters[name].get("log_scale", default_log_scale)
             logit_scale = self.parameters[name].get(
                 "logit_scale", self.DEFAULT_LOGIT_SCALE
             )
@@ -92,7 +96,7 @@ class MetadataToFloat(Transform):
                 parameter_type=ParameterType.FLOAT,
                 lower=lower,
                 upper=upper,
-                log_scale=log_scale,
+                log_scale=log_scale and lower > 0.0,
                 logit_scale=logit_scale,
                 digits=digits,
                 is_fidelity=is_fidelity,

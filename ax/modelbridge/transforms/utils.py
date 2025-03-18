@@ -15,6 +15,7 @@ from numbers import Number
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
+from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
@@ -176,3 +177,23 @@ def derelativize_optimization_config_with_raw_status_quo(
         modelbridge=modelbridge,
         fixed_features=ObservationFeatures(parameters={}),
     )
+
+
+def extract_map_keys_from_opt_config(
+    optimization_config: OptimizationConfig,
+) -> set[str]:
+    """Extract names of the map keys of all map metrics from the optimization config.
+
+    Args:
+        optimization_config: Optimization config.
+
+    Returns:
+        A set of map keys.
+    """
+    map_metrics = {
+        name: metric
+        for name, metric in optimization_config.metrics.items()
+        if isinstance(metric, MapMetric)
+    }
+    map_key_names = {m.map_key_info.key for m in map_metrics.values()}
+    return map_key_names

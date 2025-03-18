@@ -8,10 +8,11 @@
 
 from typing import Optional, TYPE_CHECKING
 
-from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.metadata_to_float import MetadataToFloat
+from ax.modelbridge.transforms.utils import extract_map_keys_from_opt_config
 from ax.models.types import TConfig
 
 if TYPE_CHECKING:
@@ -22,9 +23,9 @@ if TYPE_CHECKING:
 class MapKeyToFloat(MetadataToFloat):
     """
     This transform extracts the entry from the metadata field of the observation
-    features corresponding to the `parameters` specified in the transform config,
-    or the default map key (`MapMetric.map_key_info.key`) if not specified,
-    and inserts it into the parameter field.
+    features corresponding to the `parameters` specified in the transform config
+    and inserts it into the parameter field. If no parameters are specified in the
+    config, the transform will extract all map key names from the optimization config.
 
     Inheriting from the `MetadataToFloat` transform, this transform
     also adds a range (float) parameter to the search space.
@@ -36,8 +37,8 @@ class MapKeyToFloat(MetadataToFloat):
     Transform is done in-place.
     """
 
+    # NOTE: This will be ignored if the lower bound is <= 0.
     DEFAULT_LOG_SCALE: bool = True
-    DEFAULT_MAP_KEY: str = MapMetric.map_key_info.key
 
     def __init__(
         self,
@@ -47,9 +48,22 @@ class MapKeyToFloat(MetadataToFloat):
         config: TConfig | None = None,
     ) -> None:
         config = config or {}
-        # Use the default map key if nothing is specified in the config.
         if "parameters" not in config:
-            config["parameters"] = {self.DEFAULT_MAP_KEY: {}}
+            # Extract map keys from the optimization config, if no parameters is
+            # specified in the config.
+            if modelbridge is not None and modelbridge._optimization_config is not None:
+                config["parameters"] = {
+                    key: {}
+                    for key in extract_map_keys_from_opt_config(
+                        optimization_config=modelbridge._optimization_config
+                    )
+                }
+            else:
+                raise UserInputError(
+                    f"{self.__class__.__name__} requires either `parameters` to be "
+                    "specified in the transform config or a modelbridge with an "
+                    "optimization config, from which the map keys can be extracted."
+                )
         super().__init__(
             search_space=search_space,
             observations=observations,

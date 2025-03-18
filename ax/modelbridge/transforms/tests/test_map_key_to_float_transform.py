@@ -10,10 +10,17 @@ from collections.abc import Iterator
 from copy import deepcopy
 
 import numpy as np
+from ax.core.experiment import Experiment
+from ax.core.map_metric import MapMetric
+from ax.core.objective import Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
+from ax.modelbridge import Adapter
 from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
+from ax.models.base import Generator
 from ax.utils.common.testutils import TestCase
 from pyre_extensions import assert_is_instance
 
@@ -21,6 +28,7 @@ from pyre_extensions import assert_is_instance
 WIDTHS = [2.0, 4.0, 8.0]
 HEIGHTS = [4.0, 2.0, 8.0]
 STEPS_ENDS = [1, 5, 3]
+DEFAULT_MAP_KEY: str = MapMetric.map_key_info.key
 
 
 def _enumerate() -> Iterator[tuple[int, float, float, float]]:
@@ -53,6 +61,15 @@ class MapKeyToFloatTransformTest(TestCase):
                 ),
             ]
         )
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=MapMetric(name="map_metric"), minimize=True)
+        )
+        adapter = Adapter(
+            experiment=Experiment(
+                search_space=self.search_space, optimization_config=optimization_config
+            ),
+            model=Generator(),
+        )
 
         self.observations = []
         for trial_index, width, height, steps in _enumerate():
@@ -61,7 +78,7 @@ class MapKeyToFloatTransformTest(TestCase):
                 parameters={"width": width, "height": height},
                 metadata={
                     "foo": 42,
-                    MapKeyToFloat.DEFAULT_MAP_KEY: steps,
+                    DEFAULT_MAP_KEY: steps,
                 },
             )
             obs_data = ObservationData(
@@ -70,16 +87,17 @@ class MapKeyToFloatTransformTest(TestCase):
             self.observations.append(Observation(features=obs_feat, data=obs_data))
 
         # does not require explicitly specifying `config`
-        self.t = MapKeyToFloat(
-            observations=self.observations,
-        )
+        self.t = MapKeyToFloat(observations=self.observations, modelbridge=adapter)
 
     def test_Init(self) -> None:
+        # Check for error if adapter & parameters are not provided.
+        with self.assertRaisesRegex(UserInputError, "optimization config"):
+            MapKeyToFloat(observations=self.observations)
+
+        # Check for default initialization
         self.assertEqual(len(self.t._parameter_list), 1)
-
         p = self.t._parameter_list[0]
-
-        self.assertEqual(p.name, MapKeyToFloat.DEFAULT_MAP_KEY)
+        self.assertEqual(p.name, DEFAULT_MAP_KEY)
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 1.0)
         self.assertEqual(p.upper, 5.0)
@@ -89,9 +107,7 @@ class MapKeyToFloatTransformTest(TestCase):
         with self.subTest(msg="override default config"):
             t = MapKeyToFloat(
                 observations=self.observations,
-                config={
-                    "parameters": {MapKeyToFloat.DEFAULT_MAP_KEY: {"log_scale": False}}
-                },
+                config={"parameters": {DEFAULT_MAP_KEY: {"log_scale": False}}},
             )
             self.assertDictEqual(t.parameters, {"step": {"log_scale": False}})
 
@@ -99,7 +115,7 @@ class MapKeyToFloatTransformTest(TestCase):
 
             p = t._parameter_list[0]
 
-            self.assertEqual(p.name, MapKeyToFloat.DEFAULT_MAP_KEY)
+            self.assertEqual(p.name, DEFAULT_MAP_KEY)
             self.assertEqual(p.parameter_type, ParameterType.FLOAT)
             self.assertEqual(p.lower, 1.0)
             self.assertEqual(p.upper, 5.0)
@@ -111,14 +127,12 @@ class MapKeyToFloatTransformTest(TestCase):
 
         self.assertSetEqual(
             set(ss2.parameters),
-            {"height", "width", MapKeyToFloat.DEFAULT_MAP_KEY},
+            {"height", "width", DEFAULT_MAP_KEY},
         )
 
-        p = assert_is_instance(
-            ss2.parameters[MapKeyToFloat.DEFAULT_MAP_KEY], RangeParameter
-        )
+        p = assert_is_instance(ss2.parameters[DEFAULT_MAP_KEY], RangeParameter)
 
-        self.assertEqual(p.name, MapKeyToFloat.DEFAULT_MAP_KEY)
+        self.assertEqual(p.name, DEFAULT_MAP_KEY)
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 1.0)
         self.assertEqual(p.upper, 5.0)
@@ -137,7 +151,7 @@ class MapKeyToFloatTransformTest(TestCase):
                     parameters={
                         "width": width,
                         "height": height,
-                        MapKeyToFloat.DEFAULT_MAP_KEY: steps,
+                        DEFAULT_MAP_KEY: steps,
                     },
                     metadata={"foo": 42},
                 )
@@ -154,7 +168,7 @@ class MapKeyToFloatTransformTest(TestCase):
         p = self.t._parameter_list[0]
         self.assertEqual(
             obsf,
-            ObservationFeatures(parameters={MapKeyToFloat.DEFAULT_MAP_KEY: p.upper}),
+            ObservationFeatures(parameters={DEFAULT_MAP_KEY: p.upper}),
         )
 
     def test_with_different_map_key(self) -> None:
