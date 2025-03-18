@@ -6,20 +6,22 @@
  */
 
 import React from "react";
-import { useActiveDocContext } from '@docusaurus/plugin-content-docs/client';
+import { useDocsVersionCandidates } from '@docusaurus/plugin-content-docs/client';
 import DocSidebarNavbarItem from '@theme-original/NavbarItem/DocSidebarNavbarItem';
 
 
-/* Custom implementation of DocSidebarNavbarItem that supports conditionally
- * rendering based on the currently selected docs version.
+/**
+ * Custom implementation of DocSidebarNavbarItem that only renders if the
+ * sidebar exists in the current version context.
+ *
+ * DocSidebarNavbarItem assumes that the provided sidebarId exists in every
+ * version of the docs but this is not true in our case since we have added new
+ * sidebars not present in previous versions.
  */
 export default function ConditionalDocSidebarNavbarItem(props) {
-  const { ignoreVersions, ...restOfProps } = props;
-
-  const { activeVersion } = useActiveDocContext(props.docsPluginId);
-  if (activeVersion === undefined || ignoreVersions.indexOf(activeVersion.name) !== -1) {
+  const docsVersionCandidates = useDocsVersionCandidates(props.docsPluginId);
+  if (docsVersionCandidates?.length > 0 && !docsVersionCandidates[0]?.sidebars?.hasOwnProperty(props.sidebarId)) {
     return null;
   }
-
-  return <DocSidebarNavbarItem {...restOfProps} />;
+  return <DocSidebarNavbarItem {...props} />;
 }
