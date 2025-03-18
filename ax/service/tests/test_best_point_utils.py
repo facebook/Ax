@@ -24,7 +24,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
-from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Generators
 from ax.modelbridge.torch import TorchAdapter
@@ -65,7 +65,7 @@ class TestBestPointUtils(TestCase):
     @mock_botorch_optimize
     def test_best_from_model_prediction(self) -> None:
         exp = get_branin_experiment()
-        gs = choose_generation_strategy(
+        gs = choose_generation_strategy_legacy(
             search_space=exp.search_space,
             num_initialization_trials=3,
             suggested_model_override=Generators.BOTORCH_MODULAR,
@@ -255,7 +255,7 @@ class TestBestPointUtils(TestCase):
 
     def test_best_raw_objective_point_scalarized(self) -> None:
         exp = get_branin_experiment()
-        gs = choose_generation_strategy(search_space=exp.search_space)
+        gs = choose_generation_strategy_legacy(search_space=exp.search_space)
         exp.optimization_config = OptimizationConfig(
             ScalarizedObjective(metrics=[get_branin_metric()], minimize=True)
         )
@@ -277,7 +277,7 @@ class TestBestPointUtils(TestCase):
 
     def test_best_raw_objective_point_scalarized_multi(self) -> None:
         exp = get_branin_experiment()
-        gs = choose_generation_strategy(search_space=exp.search_space)
+        gs = choose_generation_strategy_legacy(search_space=exp.search_space)
         exp.optimization_config = OptimizationConfig(
             ScalarizedObjective(
                 metrics=[get_branin_metric(), get_branin_metric(lower_is_better=False)],

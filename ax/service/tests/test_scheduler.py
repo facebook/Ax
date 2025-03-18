@@ -1,4 +1,5 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
+
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
@@ -42,7 +43,7 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.exceptions.generation_strategy import AxGenerationException
-from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
@@ -185,7 +186,7 @@ class TestAxScheduler(TestCase):
             ),
             name="branin_experiment_no_impl_runner_or_metrics",
         )
-        self.sobol_MBM_GS = choose_generation_strategy(
+        self.sobol_MBM_GS = choose_generation_strategy_legacy(
             search_space=get_branin_search_space()
         )
         self.two_sobol_steps_GS = GenerationStrategy(  # Contrived GS to ensure
@@ -2693,7 +2694,7 @@ class TestAxSchedulerMultiTypeExperiment(TestAxScheduler):
             default_runner=None,
             name="branin_experiment_no_impl_runner_or_metrics",
         )
-        self.sobol_MBM_GS = choose_generation_strategy(
+        self.sobol_MBM_GS = choose_generation_strategy_legacy(
             search_space=get_branin_search_space()
         )
         self.two_sobol_steps_GS = GenerationStrategy(  # Contrived GS to ensure

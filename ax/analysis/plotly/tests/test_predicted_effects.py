@@ -15,7 +15,7 @@ from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
 from ax.core.observation import ObservationFeatures
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
-from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.modelbridge.prediction_utils import predict_at_point
 from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
@@ -50,7 +50,7 @@ class TestPredictedEffectsPlot(TestCase):
     def test_compute_for_requires_trials(self) -> None:
         analysis = PredictedEffectsPlot(metric_name="branin")
         experiment = get_branin_experiment()
-        generation_strategy = choose_generation_strategy(
+        generation_strategy = choose_generation_strategy_legacy(
             search_space=experiment.search_space,
             experiment=experiment,
         )
@@ -62,7 +62,7 @@ class TestPredictedEffectsPlot(TestCase):
     def test_compute_for_requires_a_model_that_predicts(self) -> None:
         analysis = PredictedEffectsPlot(metric_name="branin")
         experiment = get_branin_experiment(with_batch=True, with_completed_batch=True)
-        generation_strategy = choose_generation_strategy(
+        generation_strategy = choose_generation_strategy_legacy(
             search_space=experiment.search_space,
             experiment=experiment,
         )
@@ -311,7 +311,7 @@ class TestPredictedEffectsPlot(TestCase):
     def test_it_works_for_non_batch_experiments(self) -> None:
         # GIVEN an experiment with the default generation strategy
         experiment = get_branin_experiment(with_batch=False)
-        generation_strategy = choose_generation_strategy(
+        generation_strategy = choose_generation_strategy_legacy(
             search_space=experiment.search_space,
             experiment=experiment,
         )

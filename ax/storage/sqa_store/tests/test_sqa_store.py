@@ -34,7 +34,7 @@ from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
-from ax.generation_strategy.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
@@ -1891,7 +1891,7 @@ class SQAStoreTest(TestCase):
 
     def test_UpdateGenerationStrategyIncrementally(self) -> None:
         experiment = get_branin_experiment()
-        generation_strategy = choose_generation_strategy(experiment.search_space)
+        generation_strategy = choose_generation_strategy_legacy(experiment.search_space)
         save_experiment(experiment=experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
 
@@ -2282,7 +2282,7 @@ class SQAStoreTest(TestCase):
     def test_delete_generation_strategy(self) -> None:
         # GIVEN an experiment with a generation strategy
         experiment = get_branin_experiment()
-        generation_strategy = choose_generation_strategy(experiment.search_space)
+        generation_strategy = choose_generation_strategy_legacy(experiment.search_space)
         generation_strategy.experiment = experiment
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
@@ -2290,7 +2290,9 @@ class SQAStoreTest(TestCase):
         # AND GIVEN another experiment with a generation strategy
         experiment2 = get_branin_experiment()
         experiment2.name = "experiment2"
-        generation_strategy2 = choose_generation_strategy(experiment2.search_space)
+        generation_strategy2 = choose_generation_strategy_legacy(
+            experiment2.search_space
+        )
         generation_strategy2.experiment = experiment2
         save_experiment(experiment2)
         save_generation_strategy(generation_strategy=generation_strategy2)
@@ -2312,7 +2314,7 @@ class SQAStoreTest(TestCase):
     def test_delete_generation_strategy_max_gs_to_delete(self) -> None:
         # GIVEN an experiment with a generation strategy
         experiment = get_branin_experiment()
-        generation_strategy = choose_generation_strategy(experiment.search_space)
+        generation_strategy = choose_generation_strategy_legacy(experiment.search_space)
         generation_strategy.experiment = experiment
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)

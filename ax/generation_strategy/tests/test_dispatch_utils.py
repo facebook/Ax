@@ -16,7 +16,7 @@ from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.generation_strategy.dispatch_utils import (
     _make_botorch_step,
     calculate_num_initialization_trials,
-    choose_generation_strategy,
+    choose_generation_strategy_legacy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
 from ax.modelbridge.base import DataLoaderConfig
@@ -44,14 +44,14 @@ class TestDispatchUtils(TestCase):
     """Tests that dispatching utilities correctly select generation strategies."""
 
     @mock_botorch_optimize
-    def test_choose_generation_strategy(self) -> None:
+    def test_choose_generation_strategy_legacy(self) -> None:
         expected_transforms = [Winsorize] + MBM_X_trans + Y_trans
         expected_transform_configs = {
             "Winsorize": {"derelativize_with_raw_status_quo": False},
             "Derelativize": {"use_raw_status_quo": False},
         }
         with self.subTest("GPEI"):
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space()
             )
             self.assertEqual(sobol_gpei._steps[0].model, Generators.SOBOL)
@@ -65,7 +65,7 @@ class TestDispatchUtils(TestCase):
             }
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
             device = torch.device("cpu")
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 verbose=True,
                 torch_device=device,
@@ -76,7 +76,7 @@ class TestDispatchUtils(TestCase):
                 generation_strategy=sobol_gpei
             )
         with self.subTest("max initialization trials"):
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 max_initialization_trials=2,
             )
@@ -84,7 +84,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].num_trials, 2)
             self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("min sobol trials"):
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 min_sobol_trials_observed=1,
             )
@@ -92,7 +92,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].min_trials_observed, 1)
             self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("num_initialization_trials > max_initialization_trials"):
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 max_initialization_trials=2,
                 num_initialization_trials=3,
@@ -101,7 +101,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
             self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("num_initialization_trials > max_initialization_trials"):
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 max_initialization_trials=2,
                 num_initialization_trials=3,
@@ -113,7 +113,7 @@ class TestDispatchUtils(TestCase):
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(objectives=[])
             )
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 optimization_config=optimization_config,
             )
@@ -132,22 +132,22 @@ class TestDispatchUtils(TestCase):
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("Sobol (we can try every option)"):
-            sobol = choose_generation_strategy(
+            sobol = choose_generation_strategy_legacy(
                 search_space=get_factorial_search_space(), num_trials=1000
             )
             self.assertEqual(sobol._steps[0].model, Generators.SOBOL)
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("Sobol (because of too many categories)"):
-            sobol_large = choose_generation_strategy(
+            sobol_large = choose_generation_strategy_legacy(
                 search_space=get_large_factorial_search_space(), verbose=True
             )
             self.assertEqual(sobol_large._steps[0].model, Generators.SOBOL)
             self.assertEqual(len(sobol_large._steps), 1)
         with self.subTest("Sobol (because of too many categories) with saasbo"):
             with self.assertLogs(
-                choose_generation_strategy.__module__, logging.WARNING
+                choose_generation_strategy_legacy.__module__, logging.WARNING
             ) as logger:
-                sobol_large = choose_generation_strategy(
+                sobol_large = choose_generation_strategy_legacy(
                     search_space=get_large_factorial_search_space(),
                     verbose=True,
                     use_saasbo=True,
@@ -163,7 +163,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(len(sobol_large._steps), 1)
         with self.subTest("SOBOL due to too many unordered choices"):
             # Search space with more unordered choices than ordered parameters.
-            sobol = choose_generation_strategy(
+            sobol = choose_generation_strategy_legacy(
                 search_space=get_search_space_with_choice_parameters(
                     num_ordered_parameters=5,
                     num_unordered_choices=100,
@@ -173,7 +173,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("GPEI with more unordered choices than ordered parameters"):
             # Search space with more unordered choices than ordered parameters.
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_search_space_with_choice_parameters(
                     num_ordered_parameters=5,
                     num_unordered_choices=10,
@@ -181,7 +181,7 @@ class TestDispatchUtils(TestCase):
             )
             self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("GPEI despite many unordered 2-value parameters"):
-            gs = choose_generation_strategy(
+            gs = choose_generation_strategy_legacy(
                 search_space=get_large_factorial_search_space(
                     num_levels=2, num_parameters=10
                 ),
@@ -189,13 +189,13 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(gs._steps[0].model, Generators.SOBOL)
             self.assertEqual(gs._steps[1].model, Generators.BOTORCH_MODULAR)
         with self.subTest("GPEI-Batched"):
-            sobol_gpei_batched = choose_generation_strategy(
+            sobol_gpei_batched = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 use_batch_trials=True,
             )
             self.assertEqual(sobol_gpei_batched._steps[0].num_trials, 1)
         with self.subTest("BO_MIXED (purely categorical)"):
-            bo_mixed = choose_generation_strategy(
+            bo_mixed = choose_generation_strategy_legacy(
                 search_space=get_factorial_search_space()
             )
             self.assertEqual(bo_mixed._steps[0].model, Generators.SOBOL)
@@ -212,7 +212,7 @@ class TestDispatchUtils(TestCase):
             ss = get_branin_search_space(with_choice_parameter=True)
             # pyre-fixme[16]: `Parameter` has no attribute `_is_ordered`.
             ss.parameters["x2"]._is_ordered = False
-            bo_mixed_2 = choose_generation_strategy(search_space=ss)
+            bo_mixed_2 = choose_generation_strategy_legacy(search_space=ss)
             self.assertEqual(bo_mixed_2._steps[0].model, Generators.SOBOL)
             self.assertEqual(bo_mixed_2._steps[0].num_trials, 5)
             self.assertEqual(bo_mixed_2._steps[1].model, Generators.BO_MIXED)
@@ -229,7 +229,7 @@ class TestDispatchUtils(TestCase):
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(objectives=[])
             )
-            moo_mixed = choose_generation_strategy(
+            moo_mixed = choose_generation_strategy_legacy(
                 search_space=search_space, optimization_config=optimization_config
             )
             self.assertEqual(moo_mixed._steps[0].model, Generators.SOBOL)
@@ -247,7 +247,7 @@ class TestDispatchUtils(TestCase):
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("SAASBO"):
-            sobol_fullybayesian = choose_generation_strategy(
+            sobol_fullybayesian = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 use_batch_trials=True,
                 num_initialization_trials=3,
@@ -257,7 +257,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_fullybayesian._steps[0].num_trials, 3)
             self.assertEqual(sobol_fullybayesian._steps[1].model, Generators.SAASBO)
         with self.subTest("SAASBO MOO"):
-            sobol_fullybayesianmoo = choose_generation_strategy(
+            sobol_fullybayesianmoo = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 use_batch_trials=True,
                 num_initialization_trials=3,
@@ -273,7 +273,7 @@ class TestDispatchUtils(TestCase):
                 Generators.SAASBO,
             )
         with self.subTest("SAASBO"):
-            sobol_fullybayesian_large = choose_generation_strategy(
+            sobol_fullybayesian_large = choose_generation_strategy_legacy(
                 search_space=get_large_ordinal_search_space(
                     n_ordinal_choice_parameters=5, n_continuous_range_parameters=10
                 ),
@@ -292,7 +292,7 @@ class TestDispatchUtils(TestCase):
             for _, param in ss.parameters.items():
                 param._is_ordered = True
             # 2 * len(ss.parameters) init trials are performed if num_trials is large
-            gs_12_init_trials = choose_generation_strategy(
+            gs_12_init_trials = choose_generation_strategy_legacy(
                 search_space=ss, num_trials=100
             )
             self.assertEqual(gs_12_init_trials._steps[0].model, Generators.SOBOL)
@@ -301,7 +301,9 @@ class TestDispatchUtils(TestCase):
                 gs_12_init_trials._steps[1].model, Generators.BOTORCH_MODULAR
             )
             # at least 5 initialization trials are performed
-            gs_5_init_trials = choose_generation_strategy(search_space=ss, num_trials=0)
+            gs_5_init_trials = choose_generation_strategy_legacy(
+                search_space=ss, num_trials=0
+            )
             self.assertEqual(gs_5_init_trials._steps[0].model, Generators.SOBOL)
             self.assertEqual(gs_5_init_trials._steps[0].num_trials, 5)
             self.assertEqual(
@@ -309,7 +311,7 @@ class TestDispatchUtils(TestCase):
             )
             # avoid spending >20% of budget on initialization trials if there are
             # more than 5 initialization trials
-            gs_6_init_trials = choose_generation_strategy(
+            gs_6_init_trials = choose_generation_strategy_legacy(
                 search_space=ss, num_trials=30
             )
             self.assertEqual(gs_6_init_trials._steps[0].model, Generators.SOBOL)
@@ -318,11 +320,11 @@ class TestDispatchUtils(TestCase):
                 gs_6_init_trials._steps[1].model, Generators.BOTORCH_MODULAR
             )
         with self.subTest("suggested_model_override"):
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space()
             )
             self.assertEqual(sobol_gpei._steps[1].model, Generators.BOTORCH_MODULAR)
-            sobol_saasbo = choose_generation_strategy(
+            sobol_saasbo = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 suggested_model_override=Generators.SAASBO,
             )
@@ -352,7 +354,7 @@ class TestDispatchUtils(TestCase):
     def test_disable_progbar(self) -> None:
         for disable_progbar in (True, False):
             with self.subTest(str(disable_progbar)):
-                sobol_saasbo = choose_generation_strategy(
+                sobol_saasbo = choose_generation_strategy_legacy(
                     search_space=get_branin_search_space(),
                     disable_progbar=disable_progbar,
                     use_saasbo=True,
@@ -382,7 +384,7 @@ class TestDispatchUtils(TestCase):
     def test_disable_progbar_for_non_saasbo_discards_the_model_kwarg(self) -> None:
         for disable_progbar in (True, False):
             with self.subTest(str(disable_progbar)):
-                gp_saasbo = choose_generation_strategy(
+                gp_saasbo = choose_generation_strategy_legacy(
                     search_space=get_branin_search_space(),
                     disable_progbar=disable_progbar,
                     use_saasbo=False,
@@ -403,7 +405,7 @@ class TestDispatchUtils(TestCase):
                 )
 
     def test_setting_random_seed(self) -> None:
-        sobol = choose_generation_strategy(
+        sobol = choose_generation_strategy_legacy(
             search_space=get_factorial_search_space(), random_seed=9
         )
         sobol.gen(experiment=get_experiment(), n=1)
@@ -414,9 +416,9 @@ class TestDispatchUtils(TestCase):
 
         with self.subTest("warns if use_saasbo is true"):
             with self.assertLogs(
-                choose_generation_strategy.__module__, logging.WARNING
+                choose_generation_strategy_legacy.__module__, logging.WARNING
             ) as logger:
-                sobol = choose_generation_strategy(
+                sobol = choose_generation_strategy_legacy(
                     search_space=get_factorial_search_space(),
                     random_seed=9,
                     use_saasbo=True,
@@ -431,14 +433,14 @@ class TestDispatchUtils(TestCase):
 
     def test_enforce_sequential_optimization(self) -> None:
         with self.subTest("True"):
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space()
             )
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
             self.assertTrue(sobol_gpei._steps[0].enforce_num_trials)
             self.assertIsNotNone(sobol_gpei._steps[1].max_parallelism)
         with self.subTest("False"):
-            sobol_gpei = choose_generation_strategy(
+            sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 enforce_sequential_optimization=False,
             )
@@ -447,9 +449,9 @@ class TestDispatchUtils(TestCase):
             self.assertIsNone(sobol_gpei._steps[1].max_parallelism)
         with self.subTest("False and max_parallelism_override"):
             with self.assertLogs(
-                choose_generation_strategy.__module__, logging.INFO
+                choose_generation_strategy_legacy.__module__, logging.INFO
             ) as logger:
-                choose_generation_strategy(
+                choose_generation_strategy_legacy(
                     search_space=get_branin_search_space(),
                     enforce_sequential_optimization=False,
                     max_parallelism_override=5,
@@ -463,9 +465,9 @@ class TestDispatchUtils(TestCase):
                 )
         with self.subTest("False and max_parallelism_cap"):
             with self.assertLogs(
-                choose_generation_strategy.__module__, logging.INFO
+                choose_generation_strategy_legacy.__module__, logging.INFO
             ) as logger:
-                choose_generation_strategy(
+                choose_generation_strategy_legacy(
                     search_space=get_branin_search_space(),
                     enforce_sequential_optimization=False,
                     max_parallelism_cap=5,
@@ -485,7 +487,7 @@ class TestDispatchUtils(TestCase):
                     "`max_parallelism_cap`."
                 ),
             ):
-                choose_generation_strategy(
+                choose_generation_strategy_legacy(
                     search_space=get_branin_search_space(),
                     enforce_sequential_optimization=False,
                     max_parallelism_override=5,
@@ -493,13 +495,13 @@ class TestDispatchUtils(TestCase):
                 )
 
     def test_max_parallelism_override(self) -> None:
-        sobol_gpei = choose_generation_strategy(
+        sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(), max_parallelism_override=10
         )
         self.assertTrue(all(s.max_parallelism == 10 for s in sobol_gpei._steps))
 
     def test_winsorization(self) -> None:
-        winsorized = choose_generation_strategy(
+        winsorized = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
         )
@@ -519,7 +521,7 @@ class TestDispatchUtils(TestCase):
         self.assertIn("Derelativize", tc)
         self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": False})
 
-        winsorized = choose_generation_strategy(
+        winsorized = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             derelativize_with_raw_status_quo=True,
         )
@@ -540,7 +542,7 @@ class TestDispatchUtils(TestCase):
 
     def test_no_winzorization_wins(self) -> None:
         with warnings.catch_warnings(record=True) as w:
-            unwinsorized = choose_generation_strategy(
+            unwinsorized = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
                 no_winsorization=True,
@@ -558,18 +560,20 @@ class TestDispatchUtils(TestCase):
         with self.subTest(
             "with budget that is lower than exhaustive, BayesOpt is used"
         ):
-            sobol_gpei = choose_generation_strategy(search_space=ss, num_trials=23)
+            sobol_gpei = choose_generation_strategy_legacy(
+                search_space=ss, num_trials=23
+            )
             self.assertEqual(sobol_gpei._steps[0].model, Generators.SOBOL)
             self.assertEqual(sobol_gpei._steps[1].model, Generators.BO_MIXED)
         with self.subTest("with budget that is exhaustive, Sobol is used"):
-            sobol = choose_generation_strategy(search_space=ss, num_trials=36)
+            sobol = choose_generation_strategy_legacy(search_space=ss, num_trials=36)
             self.assertEqual(sobol._steps[0].model, Generators.SOBOL)
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("with budget that is exhaustive and use_saasbo, it warns"):
             with self.assertLogs(
-                choose_generation_strategy.__module__, logging.WARNING
+                choose_generation_strategy_legacy.__module__, logging.WARNING
             ) as logger:
-                sobol = choose_generation_strategy(
+                sobol = choose_generation_strategy_legacy(
                     search_space=ss,
                     num_trials=36,
                     use_saasbo=True,
@@ -585,13 +589,13 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(len(sobol._steps), 1)
 
     def test_use_batch_trials(self) -> None:
-        sobol_gpei = choose_generation_strategy(
+        sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(), use_batch_trials=True
         )
         self.assertEqual(sobol_gpei._steps[0].num_trials, 1)
 
     def test_fixed_num_initialization_trials(self) -> None:
-        sobol_gpei = choose_generation_strategy(
+        sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             use_batch_trials=True,
             num_initialization_trials=3,
@@ -600,13 +604,15 @@ class TestDispatchUtils(TestCase):
 
     def test_max_parallelism_adjustments(self) -> None:
         # No adjustment.
-        sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
+        sobol_gpei = choose_generation_strategy_legacy(
+            search_space=get_branin_search_space()
+        )
         self.assertIsNone(sobol_gpei._steps[0].max_parallelism)
         self.assertEqual(
             sobol_gpei._steps[1].max_parallelism, DEFAULT_BAYESIAN_PARALLELISM
         )
         # Impose a cap of 1 on max parallelism for all steps.
-        sobol_gpei = choose_generation_strategy(
+        sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(), max_parallelism_cap=1
         )
         self.assertEqual(
@@ -618,20 +624,20 @@ class TestDispatchUtils(TestCase):
             1,
         )
         # Disable enforcing max parallelism for all steps.
-        sobol_gpei = choose_generation_strategy(
+        sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(), max_parallelism_override=-1
         )
         self.assertIsNone(sobol_gpei._steps[0].max_parallelism)
         self.assertIsNone(sobol_gpei._steps[1].max_parallelism)
         # Override max parallelism for all steps.
-        sobol_gpei = choose_generation_strategy(
+        sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(), max_parallelism_override=10
         )
         self.assertEqual(sobol_gpei._steps[0].max_parallelism, 10)
         self.assertEqual(sobol_gpei._steps[1].max_parallelism, 10)
 
     def test_set_should_deduplicate(self) -> None:
-        sobol_gpei = choose_generation_strategy(
+        sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             use_batch_trials=True,
             num_initialization_trials=3,
@@ -639,7 +645,7 @@ class TestDispatchUtils(TestCase):
         self.assertListEqual(
             [s.should_deduplicate for s in sobol_gpei._steps], [False] * 2
         )
-        sobol_gpei = choose_generation_strategy(
+        sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             use_batch_trials=True,
             num_initialization_trials=3,
@@ -651,19 +657,23 @@ class TestDispatchUtils(TestCase):
 
     def test_setting_experiment_attribute(self) -> None:
         exp = get_experiment()
-        gs = choose_generation_strategy(search_space=exp.search_space, experiment=exp)
+        gs = choose_generation_strategy_legacy(
+            search_space=exp.search_space, experiment=exp
+        )
         self.assertEqual(gs._experiment, exp)
 
     def test_setting_num_completed_initialization_trials(self) -> None:
         default_initialization_num_trials = 5
-        sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
+        sobol_gpei = choose_generation_strategy_legacy(
+            search_space=get_branin_search_space()
+        )
 
         self.assertEqual(
             sobol_gpei._steps[0].num_trials, default_initialization_num_trials
         )
 
         num_completed_initialization_trials = 2
-        sobol_gpei = choose_generation_strategy(
+        sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             num_completed_initialization_trials=num_completed_initialization_trials,
         )
@@ -738,7 +748,7 @@ class TestDispatchUtils(TestCase):
     def test_jit_compile(self) -> None:
         for jit_compile in (True, False):
             with self.subTest(str(jit_compile)):
-                sobol_saasbo = choose_generation_strategy(
+                sobol_saasbo = choose_generation_strategy_legacy(
                     search_space=get_branin_search_space(),
                     jit_compile=jit_compile,
                     use_saasbo=True,
@@ -768,7 +778,7 @@ class TestDispatchUtils(TestCase):
     def test_jit_compile_for_non_saasbo_discards_the_model_kwarg(self) -> None:
         for jit_compile in (True, False):
             with self.subTest(str(jit_compile)):
-                gp_saasbo = choose_generation_strategy(
+                gp_saasbo = choose_generation_strategy_legacy(
                     search_space=get_branin_search_space(),
                     jit_compile=jit_compile,
                     use_saasbo=False,
