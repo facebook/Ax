@@ -176,6 +176,14 @@ Interaction
     :show-inheritance:
 
 
+OptimizationTrace
+~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.arm_effects.optimization_trace
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Contour
 ~~~~~~~
 

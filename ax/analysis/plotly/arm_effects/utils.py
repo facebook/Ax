@@ -38,7 +38,10 @@ def format_parameters_for_effects_by_arm_plot(
 
 
 def prepare_arm_effects_plot(
-    df: pd.DataFrame, metric_name: str, outcome_constraints: list[OutcomeConstraint]
+    df: pd.DataFrame,
+    metric_name: str,
+    outcome_constraints: list[OutcomeConstraint],
+    plot_status_quo_line: bool = True,
 ) -> go.Figure:
     """Prepare a plotly figure for the predicted effects based on the data in df.
 
@@ -126,7 +129,11 @@ def prepare_arm_effects_plot(
         fig.add_trace(legend_trace)
 
     _add_style_to_effects_by_arm_plot(
-        fig=fig, df=df, metric_name=metric_name, outcome_constraints=outcome_constraints
+        fig=fig,
+        df=df,
+        metric_name=metric_name,
+        outcome_constraints=outcome_constraints,
+        plot_status_quo_line=plot_status_quo_line,
     )
     return fig
 
@@ -144,6 +151,7 @@ def _add_style_to_effects_by_arm_plot(
     df: pd.DataFrame,
     metric_name: str,
     outcome_constraints: list[OutcomeConstraint],
+    plot_status_quo_line: bool = True,
 ) -> None:
     """Add style to a plotly figure for predicted or insample effects.
 
@@ -152,7 +160,7 @@ def _add_style_to_effects_by_arm_plot(
         bound.
     - Make the x-axis (arm name) tick angle 45 degrees.
     """
-    if "status_quo" in df["arm_name"].values:
+    if plot_status_quo_line is True and "status_quo" in df["arm_name"].values:
         fig.add_hline(
             y=df[df["arm_name"] == "status_quo"]["mean"].iloc[0],
             line_width=1,
