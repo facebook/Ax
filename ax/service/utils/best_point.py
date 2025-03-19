@@ -112,7 +112,7 @@ def get_best_raw_objective_point_with_trial_index(
     )
     if not is_feasible.any():
         raise ValueError(
-            "No points satisfied all outcome constraints within 95 percent"
+            "No points satisfied all outcome constraints within 95 percent "
             "confidence interval."
         )
     feasible_df = completed_df.loc[is_feasible]
