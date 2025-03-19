@@ -20,9 +20,46 @@ from ax.modelbridge.base import Adapter
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
-from IPython.display import display, Markdown
+from IPython.display import display, HTML
 
 logger: Logger = get_logger(__name__)
+
+# Simple HTML template for rendering a card with a title, subtitle, and body with
+# scrollable overflow.
+html_card_template = """
+<style>
+.card {{
+    overflow: auto;
+}}
+</style>
+<div class="card">
+    <div class="card-header">
+        <b>
+        {title_str}
+        </b>
+        <p>
+        {subtitle_str}
+        </p>
+    </div>
+    <div class="card-body">
+        {body_html}
+    </div>
+</div>
+"""
+
+# HTML template for putting cards into a 2 x N CSS grid.
+html_grid_template = """
+<style>
+    .grid-container {{
+        display: grid;
+        grid-template-columns: repeat(2, 2fr);
+        gap: 10px;
+    }}
+</style>
+<div class="grid-container">
+    {card_divs}
+</div>
+"""
 
 
 class AnalysisCardLevel(IntEnum):
@@ -90,23 +127,33 @@ class AnalysisCard(Base):
         self.attributes = {} if attributes is None else attributes
         self.category = category
 
-    def _ipython_display_(self) -> None:
+    def _repr_html_(self) -> str:
         """
-        IPython display hook. This is called when the AnalysisCard is printed in an
-        IPython environment (ex. Jupyter). This method should be implemented by
-        subclasses of Analysis to display the AnalysisCard in a useful way.
+        IPython HTML representation hook. This is called when the AnalysisCard is
+        rendered in an IPython environment (ex. Jupyter). This method should be
+        implemented by subclasses of Analysis to display the AnalysisCard in a useful
+        way.
 
         By default, this method displays the raw data in a pandas DataFrame.
         """
-        self._display_header()
-        display(self.df)
 
-    def _display_header(self) -> None:
+        return html_card_template.format(
+            title_str=self.title,
+            subtitle_str=self.subtitle,
+            body_html=self._body_html(),
+        )
+
+    def _body_html(self) -> str:
         """
-        Display the title and subtitle of the AnalysisCard. Used in _ipython_display_
-        across all subclasses of AnalysisCard to ensure a uniform look and feel.
+        Return the HTML body of the AnalysisCard (the dataframe, plot, etc.). This is
+        used by the AnalysisCard._repr_html_ method to render the AnalysisCard in an
+        IPython environment (ex. Jupyter).
+
+        This, not _repr_html_, should be implemented by subclasses of AnalysisCard in
+        most cases.
         """
-        display(Markdown(f"**{self.title}**\n\n{self.subtitle}"))
+
+        return f"<div class='content'>{self.df.to_html()}</div>"
 
 
 def display_cards(
@@ -119,9 +166,42 @@ def display_cards(
         cards: Collection of AnalysisCards to display.
         minimum_level: Minimum level of cards to display.
     """
-    for card in sorted(cards, key=lambda x: x.level, reverse=True):
-        if card.level >= minimum_level:
-            display(card)
+    # Group cards by name, filter out cards with level less than minimum_level, and
+    # sort the resulting groups by level, descending.
+    card_groups = [
+        sorted(
+            [
+                card
+                for card in cards
+                if card.name == name and card.level >= minimum_level
+            ],
+            key=lambda card: card.level,
+            reverse=True,
+        )
+        for name in {card.name for card in cards}
+    ]
+
+    # Sort the groups by maximum level, descending, then flatten the groups into a
+    # single list.
+    sorted_cards = [
+        card
+        for group in sorted(
+            card_groups,
+            key=lambda group: max([card.level for card in group])
+            if len(group) > 0
+            else 0,
+            reverse=True,
+        )
+        for card in group
+    ]
+
+    display(
+        HTML(
+            html_grid_template.format(
+                card_divs="".join([card._repr_html_() for card in sorted_cards])
+            )
+        )
+    )
 
 
 class Analysis(Protocol):
