@@ -668,13 +668,8 @@ def transform_callback(
             observation_features = t.transform_observation_features(
                 observation_features
             )
-        # parameters are guaranteed to be float compatible here, but pyre doesn't know
         new_x: list[float] = [
-            # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
-            #  typing.SupportsFloat]` for 1st param but got `Union[None, bool, float,
-            #  int, str]`.
-            float(observation_features[0].parameters[p])
-            for p in param_names
+            float(observation_features[0].parameters[p]) for p in param_names
         ]
         # turn it back into an array
         return np.array(new_x)

@@ -29,7 +29,7 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.registry import Cont_X_trans, Y_trans
 from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.map_unit_x import MapUnitX
+from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
 from ax.models.torch_base import TorchGenerator
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
@@ -523,13 +523,14 @@ def get_transform_helper_model(
     Returns: A torch modelbridge.
     """
     if transforms is None:
-        transforms = Cont_X_trans + [MapUnitX] + Y_trans
+        transforms = [MapKeyToFloat] + Cont_X_trans + Y_trans
     return TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
         data=data,
         model=TorchGenerator(),
         transforms=transforms,
+        transform_configs={"MapKeyToFloat": {"default_log_scale": False}},
         data_loader_config=DataLoaderConfig(
             fit_out_of_design=True,
             latest_rows_per_group=None,
