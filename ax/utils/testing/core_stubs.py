@@ -298,7 +298,9 @@ def get_branin_experiment(
 
         if with_completed_trial:
             trial.mark_running(no_runner_required=True)
-            exp.attach_data(get_branin_data(trials=[trial]))  # Add data for one trial
+            exp.attach_data(
+                get_branin_data(trials=[trial], metrics=exp.metrics)
+            )  # Add data for one trial
             trial.mark_completed()
 
     return exp
@@ -2100,14 +2102,17 @@ def get_map_key_info() -> MapKeyInfo:
 def get_branin_data(
     trial_indices: Iterable[int] | None = None,
     trials: Iterable[Trial] | None = None,
+    metrics: Iterable[str] | None = None,
 ) -> Data:
     if trial_indices and trials:
         raise ValueError("Expected `trial_indices` or `trials`, not both.")
+    if metrics is None:
+        metrics = ["branin"]
     if trials:
         df_dicts = [
             {
                 "trial_index": trial.index,
-                "metric_name": "branin",
+                "metric_name": metric,
                 "arm_name": none_throws(assert_is_instance(trial, Trial).arm).name,
                 "mean": branin(
                     float(none_throws(none_throws(trial.arm).parameters["x1"])),
@@ -2116,17 +2121,19 @@ def get_branin_data(
                 "sem": 0.0,
             }
             for trial in trials
+            for metric in metrics
         ]
     else:
         df_dicts = [
             {
                 "trial_index": trial_index,
-                "metric_name": "branin",
+                "metric_name": metric,
                 "arm_name": f"{trial_index}_0",
                 "mean": 5.0,
                 "sem": 0.0,
             }
             for trial_index in (trial_indices or [0])
+            for metric in metrics
         ]
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
