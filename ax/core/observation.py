@@ -263,7 +263,6 @@ def _observations_from_dataframe(
     map_keys: Iterable[str],
     statuses_to_include: set[TrialStatus],
     statuses_to_include_map_metric: set[TrialStatus],
-    map_keys_as_parameters: bool = False,
 ) -> list[Observation]:
     """Helper method for extracting observations grouped by `cols` from `df`.
 
@@ -278,8 +277,6 @@ def _observations_from_dataframe(
             with statuses in this set.
         statuses_to_include_map_metric: data from MapMetrics will only be included for
             trials with statuses in this set.
-        map_keys_as_parameters: Whether map_keys should be returned as part of
-            the parameters of the Observation objects.
 
     Returns:
         List of Observation objects.
@@ -337,10 +334,7 @@ def _observations_from_dataframe(
             obs_parameters.update(json.loads(fidelities))
 
         for map_key in map_keys:
-            if map_key in obs_parameters or map_keys_as_parameters:
-                obs_parameters[map_key] = features[map_key]
-            else:
-                obs_kwargs[Keys.METADATA][map_key] = features[map_key]
+            obs_kwargs[Keys.METADATA][map_key] = features[map_key]
         d = _filter_data_on_status(
             df=d,
             experiment=experiment,
@@ -460,7 +454,6 @@ def observations_from_data(
     data: Data,
     statuses_to_include: set[TrialStatus] | None = None,
     statuses_to_include_map_metric: set[TrialStatus] | None = None,
-    map_keys_as_parameters: bool = False,
     latest_rows_per_group: int | None = None,
     limit_rows_per_metric: int | None = None,
     limit_rows_per_group: int | None = None,
@@ -480,8 +473,6 @@ def observations_from_data(
             with statuses in this set. Defaults to all statuses except abandoned.
         statuses_to_include_map_metric: data from MapMetrics will only be included for
             trials with statuses in this set. Defaults to all statuses except abandoned.
-        map_keys_as_parameters: Whether map_keys should be returned as part of
-            the parameters of the Observation objects.
         latest_rows_per_group: If specified and data is an instance of MapData,
             uses MapData.latest() with `rows_per_group=latest_rows_per_group` to
             retrieve the most recent rows for each group. Useful in cases where
@@ -527,7 +518,6 @@ def observations_from_data(
         map_keys=map_keys,
         statuses_to_include=statuses_to_include,
         statuses_to_include_map_metric=statuses_to_include_map_metric,
-        map_keys_as_parameters=map_keys_as_parameters,
     )
 
 
