@@ -245,3 +245,35 @@ def select_metric(experiment: Experiment) -> str:
             "specify a metric"
         )
     return experiment.optimization_config.objective.metric.name
+
+
+def get_autoset_axis_limits(
+    y: np.typing.NDArray,
+    optimization_direction: str,
+    force_include_value: float | None = None,
+) -> list[float]:
+    """Provides automatic axis limits based on the data and optimization direction.
+    All best points are included in this range, and by default the worst points are
+    truncated at some distance below the median, where that distance is given by
+    1.5 * (the distance between the median and the best quartile).
+
+    If `force_include_value` is provided, the worst points will be truncated at this
+    value if it is worse than the truncation point described above.
+    """
+    q1 = np.percentile(y, q=25, method="lower").min()
+    q2_min = np.percentile(y, q=50, method="linear").min()
+    q2_max = np.percentile(y, q=50, method="linear").max()
+    q3 = np.percentile(y, q=75, method="higher").max()
+    if optimization_direction == "minimize":
+        y_lower = y.min()
+        y_upper = q2_max + 1.5 * (q2_max - q1)
+        if force_include_value is not None:
+            y_upper = max(y_upper, force_include_value)
+    else:
+        y_lower = q2_min - 1.5 * (q3 - q2_min)
+        y_upper = y.max()
+        if force_include_value is not None:
+            y_lower = min(y_lower, force_include_value)
+    y_padding = 0.1 * (y_upper - y_lower)
+    y_lower, y_upper = y_lower - y_padding, y_upper + y_padding
+    return [y_lower, y_upper]

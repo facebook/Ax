@@ -11,6 +11,8 @@ from collections.abc import Iterable, Mapping
 from functools import reduce
 from logging import Logger
 
+import numpy as np
+
 import pandas as pd
 import torch
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -27,7 +29,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import BestPointValueError, UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.cross_validation import (
@@ -87,7 +89,9 @@ def get_best_raw_objective_point_with_trial_index(
 
     dat = experiment.lookup_data(trial_indices=trial_indices)
     if dat.df.empty:
-        raise ValueError("Cannot identify best point if experiment contains no data.")
+        raise BestPointValueError(
+            "Cannot identify best point if experiment contains no data."
+        )
     if any(oc.relative for oc in optimization_config.all_constraints):
         if experiment.status_quo is not None:
             optimization_config = _derel_opt_config_wrapper(
@@ -104,14 +108,16 @@ def get_best_raw_objective_point_with_trial_index(
         t.index for t in experiment.trials_by_status[TrialStatus.COMPLETED]
     }
     if len(completed_indices) == 0:
-        raise ValueError("Cannot identify best point if no trials are completed.")
+        raise BestPointValueError(
+            "Cannot identify best point if no trials are completed."
+        )
     completed_df = dat.df[dat.df["trial_index"].isin(completed_indices)]
 
     is_feasible = _is_row_feasible(
         df=completed_df, optimization_config=optimization_config
     )
     if not is_feasible.any():
-        raise ValueError(
+        raise BestPointValueError(
             "No points satisfied all outcome constraints within 95 percent "
             "confidence interval."
         )
@@ -221,7 +227,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
     """
     optimization_config = optimization_config or experiment.optimization_config
     if optimization_config is None:
-        raise ValueError(
+        raise BestPointValueError(
             "Cannot identify the best point without an optimization config, but no "
             "optimization config was provided on the experiment or as an argument."
         )
@@ -322,7 +328,7 @@ def get_best_by_raw_objective_with_trial_index(
             optimization_config=optimization_config,
             trial_indices=trial_indices,
         )
-    except ValueError as err:
+    except BestPointValueError as err:
         logger.error(
             "Encountered error while trying to identify the best point: "
             f"'{err}'. Returning None."
@@ -375,7 +381,7 @@ def get_pareto_optimal_parameters(
     """
     optimization_config = optimization_config or experiment.optimization_config
     if optimization_config is None:
-        raise ValueError(
+        raise BestPointValueError(
             "Cannot identify the best point without an optimization config, but no "
             "optimization config was provided on the experiment or as an argument."
         )
@@ -477,7 +483,7 @@ def _get_best_row_for_scalarized_objective(
         .dropna()
     )
     if groupby_df.empty:
-        raise ValueError("No data has been logged for scalarized objective.")
+        raise BestPointValueError("No data has been logged for scalarized objective.")
     return (
         groupby_df.loc[groupby_df["weighted_mean"].idxmin()]
         if objective.minimize
@@ -491,7 +497,9 @@ def _get_best_row_for_single_objective(
     objective_name = objective.metric.name
     objective_rows = df.loc[df["metric_name"] == objective_name]
     if objective_rows.empty:
-        raise ValueError(f'No data has been logged for objective "{objective_name}".')
+        raise BestPointValueError(
+            f'No data has been logged for objective "{objective_name}".'
+        )
     return (
         objective_rows.loc[objective_rows["mean"].idxmin()]
         if objective.minimize
@@ -749,3 +757,44 @@ def fill_missing_thresholds_from_nadir(
         for objective in objectives
     ]
     return objective_thresholds
+
+
+def is_trial_arm_feasible(
+    experiment: Experiment, trial_index: int, arm_name: str
+) -> bool:
+    """Compute whether the given trial/arm pair is feasible given the experiment data,
+    i.e., do they satisfy all outcome constraints with a 95% probability.
+
+    Args:
+        experiment: The experiment. Must contain an optimization config with outcome
+            constraints for any calculation to occur.
+        trial_index: The trial index for which to calculate feasibility.
+        arm_name: The arm name for which to calculate feasibility.
+
+    Returns:
+        Feasibility (boolean) or None if there are no outcome constraints or if the
+            computation fails.
+    """
+    df = experiment.lookup_data().df
+    if (
+        experiment.optimization_config is None
+        or len(none_throws(experiment.optimization_config).all_constraints) < 1
+    ):
+        return True
+    df = df[(df["arm_name"] == arm_name) & (df["trial_index"] == trial_index)]
+    optimization_config = none_throws(experiment.optimization_config)
+    if any(oc.relative for oc in optimization_config.all_constraints):
+        try:
+            optimization_config = _derel_opt_config_wrapper(
+                optimization_config=optimization_config,
+                experiment=experiment,
+            )
+        except ValueError as err:
+            raise BestPointValueError(
+                "Error derelativizing optimization config."
+            ) from err
+    feasible_column = _is_row_feasible(
+        df=df,
+        optimization_config=optimization_config,
+    )
+    return assert_is_instance(feasible_column.all(), np.bool_).item()
