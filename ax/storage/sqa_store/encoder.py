@@ -1105,5 +1105,8 @@ class Encoder:
             time_created=timestamp,
             experiment_id=experiment_id,
             attributes=json.dumps(analysis_card.attributes),
-            category=analysis_card.category,
+            # AnalysisCard.category is an int, but is also set as an
+            # AnalysisCardCategory enum. Directly saving the enum leads to MySQL
+            # warnings.
+            category=int(analysis_card.category),
         )
