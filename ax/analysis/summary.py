@@ -28,7 +28,6 @@ class Summary(Analysis):
         - arm_name: The name of the arm
         - trial_status: The status of the trial (e.g. RUNNING, SUCCEDED, FAILED)
         - failure_reason: The reason for the failure, if applicable
-        - generation_method: The model_key of the model that generated the arm
         - generation_node: The name of the ``GenerationNode`` that generated the arm
         - **METADATA: Any metadata associated with the trial, as specified by the
             Experiment's runner.run_metadata_report_keys field
