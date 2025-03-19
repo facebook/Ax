@@ -1335,7 +1335,6 @@ class ExperimentTest(TestCase):
                 "trial_index": [0, 1, 2],
                 "arm_name": ["0_0", "1_0", "0_0"],
                 "trial_status": ["COMPLETED", "COMPLETED", "CANDIDATE"],
-                "generation_method": ["Sobol", "Sobol", "Sobol"],
                 "name": ["0", "1", None],  # the metadata
                 "m1": [1.0, 3.0, None],
                 "m2": [2.0, 4.0, None],
@@ -1353,7 +1352,6 @@ class ExperimentTest(TestCase):
                 "arm_name",
                 "trial_status",
                 "fail_reason",
-                "generation_method",
                 "generation_node",
                 "name",
                 "m1",
