@@ -138,11 +138,17 @@ class TorchGenerator(BaseGenerator):
         """
         pass
 
-    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
+    def predict(
+        self, X: Tensor, use_posterior_predictive: bool = False
+    ) -> tuple[Tensor, Tensor]:
         """Predict
 
         Args:
             X: (j x d) tensor of the j points at which to make predictions.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
+                This option is only supported by the ``BoTorchGenerator``.
 
         Returns:
             2-element tuple containing

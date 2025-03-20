@@ -35,11 +35,17 @@ class TorchGeneratorLike(Protocol):
     have a ``predict`` method.
     """
 
-    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
+    def predict(
+        self, X: Tensor, use_posterior_predictive: bool = False
+    ) -> tuple[Tensor, Tensor]:
         """Predicts outcomes given an input tensor.
 
         Args:
             X: A ``n x d`` tensor of input parameters.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
+                This option is only supported by the ``BoTorchGenerator``.
 
         Returns:
             Tensor: The predicted posterior mean as an ``n x o``-dim tensor.

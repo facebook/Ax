@@ -111,7 +111,9 @@ class RandomAdapter(Adapter):
         )
 
     def _predict(
-        self, observation_features: list[ObservationFeatures]
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
         """Apply terminal transform, predict, and reverse terminal transform on
         output.

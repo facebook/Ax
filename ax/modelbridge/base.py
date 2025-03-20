@@ -612,7 +612,9 @@ class Adapter:
         )
 
     def _batch_predict(
-        self, observation_features: list[ObservationFeatures]
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
         """Predict a list of ObservationFeatures together."""
         # Get modifiable version
@@ -624,7 +626,10 @@ class Adapter:
                 observation_features
             )
         # Apply terminal transform and predict
-        observation_data = self._predict(observation_features)
+        observation_data = self._predict(
+            observation_features=observation_features,
+            use_posterior_predictive=use_posterior_predictive,
+        )
 
         # Apply reverse transforms, in reverse order
         pred_observations = recombine_observations(
@@ -636,13 +641,18 @@ class Adapter:
         return [obs.data for obs in pred_observations]
 
     def _single_predict(
-        self, observation_features: list[ObservationFeatures]
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
         """Predict one ObservationFeature at a time."""
         observation_data = []
         for obsf in observation_features:
             try:
-                obsd = self._batch_predict([obsf])
+                obsd = self._batch_predict(
+                    observation_features=[obsf],
+                    use_posterior_predictive=use_posterior_predictive,
+                )
                 observation_data += obsd
             except (TypeError, ValueError) as e:
                 # If the prediction is not out of design, this is a real error.
@@ -652,7 +662,7 @@ class Adapter:
                     logger.debug(self.model_space)
                     raise e from None
                 # Prediction is out of design.
-                # Training data is untranformed already.
+                # Training data is untransformed already.
                 observation = next(
                     (
                         data
@@ -664,14 +674,16 @@ class Adapter:
                 )
                 if not observation:
                     raise ValueError(
-                        "Out-of-design point could not be transformed, and was "
+                        "Out-of-design point could not be predicted, and was "
                         "not found in the training data."
                     )
                 observation_data.append(observation.data)
         return observation_data
 
     def _predict_observation_data(
-        self, observation_features: list[ObservationFeatures]
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
         """
         Like 'predict' method, but returns results as a list of ObservationData
@@ -683,20 +695,34 @@ class Adapter:
         and return the raw value.
 
         Args:
-            observation_features: observation features
+            observation_features: A list of observation features to predict.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
+                This option is only supported by the ``BoTorchGenerator``.
 
         Returns:
             List of `ObservationData`
         """
         # Predict in single batch.
         try:
-            observation_data = self._batch_predict(observation_features)
+            observation_data = self._batch_predict(
+                observation_features=observation_features,
+                use_posterior_predictive=use_posterior_predictive,
+            )
         # Predict one by one.
         except (TypeError, ValueError):
-            observation_data = self._single_predict(observation_features)
+            observation_data = self._single_predict(
+                observation_features=observation_features,
+                use_posterior_predictive=use_posterior_predictive,
+            )
         return observation_data
 
-    def predict(self, observation_features: list[ObservationFeatures]) -> TModelPredict:
+    def predict(
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
+    ) -> TModelPredict:
         """Make model predictions (mean and covariance) for the given
         observation features.
 
@@ -707,7 +733,11 @@ class Adapter:
         and return the raw value.
 
         Args:
-            observation_features: observation features
+            observation_features: A list of observation features to predict.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
+                This option is only supported by the ``BoTorchGenerator``.
 
         Returns:
             2-element tuple containing
@@ -726,13 +756,16 @@ class Adapter:
                 "Input to predict must be a list of `ObservationFeatures`."
             )
         observation_data = self._predict_observation_data(
-            observation_features=observation_features
+            observation_features=observation_features,
+            use_posterior_predictive=use_posterior_predictive,
         )
         f, cov = unwrap_observation_data(observation_data)
         return f, cov
 
     def _predict(
-        self, observation_features: list[ObservationFeatures]
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
         """Apply terminal transform, predict, and reverse terminal transform on
         output.

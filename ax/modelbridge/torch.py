@@ -758,13 +758,18 @@ class TorchAdapter(Adapter):
         )
 
     def _predict(
-        self, observation_features: list[ObservationFeatures]
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
         if not self.parameters:
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_predict"))
         # Convert observation features to array
         X = observation_features_to_array(self.parameters, observation_features)
-        f, cov = self.model.predict(X=self._array_to_tensor(X))
+        f, cov = self.model.predict(
+            X=self._array_to_tensor(X),
+            use_posterior_predictive=use_posterior_predictive,
+        )
         f = f.detach().cpu().clone().numpy()
         cov = cov.detach().cpu().clone().numpy()
         if f.shape[-2] != X.shape[-2]:

@@ -193,7 +193,7 @@ class DerelativizeTransformTest(TestCase):
                 ),
             ]
         )
-        obsf = mock_predict.mock_calls[0][1][1][0]
+        obsf = mock_predict.call_args.kwargs["observation_features"][0]
         obsf2 = ObservationFeatures(parameters={"x": 2.0, "y": 10.0})
         self.assertTrue(obsf == obsf2)
         self.assertEqual(mock_predict.call_count, 1)

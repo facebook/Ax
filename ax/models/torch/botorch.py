@@ -18,7 +18,7 @@ import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import AxWarning, DataRequiredError
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     get_qLogNEI,
@@ -327,7 +327,16 @@ class LegacyBoTorchGenerator(TorchGenerator):
         )
 
     @copy_doc(TorchGenerator.predict)
-    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
+    def predict(
+        self, X: Tensor, use_posterior_predictive: bool = False
+    ) -> tuple[Tensor, Tensor]:
+        if use_posterior_predictive:
+            warnings.warn(
+                f"{self.__class__.__name__} does not support posterior-predictive "
+                "predictions. Ignoring `use_posterior_predictive`. ",
+                AxWarning,
+                stacklevel=2,
+            )
         return self.model_predictor(model=self.model, X=X)  # pyre-ignore [28]
 
     @copy_doc(TorchGenerator.gen)
