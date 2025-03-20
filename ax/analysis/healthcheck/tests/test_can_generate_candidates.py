@@ -32,7 +32,13 @@ class TestCanGenerateCandidates(TestCase):
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
         self.assertEqual(card.name, "CanGenerateCandidates")
         self.assertEqual(card.title, "Ax Candidate Generation Success")
-        self.assertEqual(card.subtitle, "No problems found.")
+        self.assertEqual(
+            card.subtitle,
+            (
+                "The candidate generation health check notifies users if key "
+                "criteria for candidate generation are missing. No problems found."
+            ),
+        )
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
         pdt.assert_frame_equal(
@@ -64,6 +70,8 @@ class TestCanGenerateCandidates(TestCase):
         self.assertEqual(
             card.subtitle,
             (
+                "The candidate generation health check notifies users if key "
+                "criteria for candidate generation are missing. "
                 f"{CanGenerateCandidatesAnalysis.REASON_PREFIX}"
                 "The data is borked.\n\n"
                 "LAST TRIAL RUN: 1 day(s) ago"
@@ -97,7 +105,11 @@ class TestCanGenerateCandidates(TestCase):
         self.assertEqual(card.title, "Ax Candidate Generation Failure")
         self.assertEqual(
             card.subtitle,
-            f"{CanGenerateCandidatesAnalysis.REASON_PREFIX}The data is gone.",
+            (
+                "The candidate generation health check notifies users if key "
+                "criteria for candidate generation are missing. "
+                f"{CanGenerateCandidatesAnalysis.REASON_PREFIX}The data is gone."
+            ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.HIGH)
         pdt.assert_frame_equal(
@@ -130,6 +142,8 @@ class TestCanGenerateCandidates(TestCase):
         self.assertEqual(
             card.subtitle,
             (
+                "The candidate generation health check notifies users if key "
+                "criteria for candidate generation are missing. "
                 f"{CanGenerateCandidatesAnalysis.REASON_PREFIX}"
                 "The data is old.\n\n"
                 "LAST TRIAL RUN: 3 day(s) ago"

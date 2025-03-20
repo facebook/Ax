@@ -94,8 +94,13 @@ class SlicePlot(PlotlyAnalysis):
         return self._create_plotly_analysis_card(
             title=f"{self.parameter_name} vs. {metric_name}",
             subtitle=(
-                "1D slice of the surrogate model's predicted outcomes for "
-                f"{metric_name}"
+                "The slice plot provides a one-dimensional view of predicted "
+                f"outcomes for {metric_name} as a function of a single parameter, "
+                "while keeping all other parameters fixed at their status_quo "
+                "value (or mean value if status_quo is unavailable). "
+                "This visualization helps in understanding the sensitivity and "
+                "impact of changes in the selected parameter on the predicted "
+                "metric outcomes."
             ),
             level=AnalysisCardLevel.LOW,
             df=df,

@@ -61,7 +61,15 @@ class TestSlicePlot(TestCase):
         self.assertEqual(card.title, "x vs. bar")
         self.assertEqual(
             card.subtitle,
-            "1D slice of the surrogate model's predicted outcomes for bar",
+            (
+                "The slice plot provides a one-dimensional view of predicted "
+                "outcomes for bar as a function of a single parameter, "
+                "while keeping all other parameters fixed at their status_quo "
+                "value (or mean value if status_quo is unavailable). "
+                "This visualization helps in understanding the sensitivity and "
+                "impact of changes in the selected parameter on the predicted "
+                "metric outcomes."
+            ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)

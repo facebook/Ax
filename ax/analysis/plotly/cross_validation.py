@@ -123,9 +123,35 @@ class CrossValidationPlot(PlotlyAnalysis):
         # If a human readable metric name is provided, use it in the title
         metric_title = self._refined_metric_name or metric_name
 
+        # Define the cross-validation description based on the number of folds
+        cv_description = (
+            (
+                f"the data is split into {self.folds} subsets and the model is "
+                f"trained on {self.folds - 1} subsets while the remaining subset "
+                "is used for validation"
+            )
+            if self.folds > 0
+            else (
+                "the model is trained on all data except one sample, which is "
+                "used for validation"
+            )
+        )
         return self._create_plotly_analysis_card(
             title=f"Cross Validation for {metric_title}",
-            subtitle=f"Out-of-sample predictions using {k_folds_substring} CV",
+            subtitle=(
+                "The cross-validation plot displays the model fit for each "
+                f"metric in the experiment. It employs a {k_folds_substring} "
+                f"approach, where {cv_description}. The plot shows the "
+                "predicted outcome for the validation set on the y-axis against "
+                "its actual value on the x-axis. Points that align closely with "
+                "the dotted diagonal line indicate a strong model fit, signifying "
+                "accurate predictions. Additionally, the plot includes 95% "
+                "confidence intervals that provide insight into the noise in "
+                "observations and the uncertainty in model predictions. A "
+                "horizontal, flat line of predictions indicates that the model "
+                "has not picked up on sufficient signal in the data, and instead "
+                "is just predicting the mean."
+            ),
             level=AnalysisCardLevel.LOW.value + nudge,
             df=df,
             fig=fig,

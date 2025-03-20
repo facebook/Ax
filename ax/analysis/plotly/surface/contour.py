@@ -107,8 +107,15 @@ class ContourPlot(PlotlyAnalysis):
                 f"{self.x_parameter_name}, {self.y_parameter_name} vs. {metric_name}"
             ),
             subtitle=(
-                "2D contour of the surrogate model's predicted outcomes for "
-                f"{metric_name}"
+                "The contour plot visualizes the predicted outcomes "
+                f"for {metric_name} across a two-dimensional parameter space, "
+                "with other parameters held fixed at their status_quo value "
+                "(or mean value if status_quo is unavailable). This plot helps "
+                "in identifying regions of optimal performance and understanding "
+                "how changes in the selected parameters influence the predicted "
+                "outcomes. Contour lines represent levels of constant predicted "
+                "values, providing insights into the gradient and potential optima "
+                "within the parameter space."
             ),
             level=AnalysisCardLevel.LOW,
             df=df,

@@ -247,17 +247,26 @@ class InteractionPlot(PlotlyAnalysis):
             width=1000,
         )
 
-        subtitle_substring = (
-            "one- or two-dimensional" if self.fit_interactions else "one-dimensional"
+        params_substring = (
+            "both parameters and parameter interactions"
+            if self.fit_interactions
+            else "different parameters"
+        )
+        addtional_substring = (
+            " (or parameter interactions)" if self.fit_interactions else ""
+        )
+        subtitle = (
+            "The interaction plot shows the ranked importance of "
+            f"{params_substring} for moving a specified metric. The parameters"
+            f"{addtional_substring} with the most significant impact on predicted "
+            "metric outcomes are visualized through slice or contour plots, "
+            "providing deeper understanding into the underlying dynamics driving "
+            "the experiment's results."
         )
 
         return self._create_plotly_analysis_card(
             title=f"Interaction Analysis for {metric_name}",
-            subtitle=(
-                f"Understand an Experiment's data as {subtitle_substring} additive "
-                "components with sparsity. Important components are visualized through "
-                "slice or contour plots"
-            ),
+            subtitle=subtitle,
             level=AnalysisCardLevel.MID,
             df=sensitivity_df,
             fig=fig,

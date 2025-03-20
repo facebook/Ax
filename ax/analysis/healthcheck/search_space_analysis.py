@@ -62,7 +62,11 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
             raise UserInputError("SearchSpaceAnalysis requires an Experiment.")
 
         status = HealthcheckStatus.PASS
-        subtitle = "Search space does not need to be updated."
+        subtitle_base = (
+            "The search space analysis health check is designed "
+            "to notify users that would likely see from a search space expansion "
+            "in the form of increased optimization performance.\n\n"
+        )
         title_status = "Success"
         level = AnalysisCardLevel.LOW
         df = pd.DataFrame({"status": [status]})
@@ -82,17 +86,19 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
                 boundary_proportion_threshold=self.boundary_proportion_threshold,
             )
             status = HealthcheckStatus.WARNING
-            subtitle = msg
+            additional_subtitle = msg
             title_status = "Warning"
             level = AnalysisCardLevel.LOW
             df = boundary_proportions_df[["boundary", "proportion", "bound"]]
             df["status"] = status
+        else:
+            additional_subtitle = "Search space does not need to be updated."
 
         return HealthcheckAnalysisCard(
             name="SearchSpaceAnalysis",
             title=f"Ax Search Space Analysis {title_status}",
             blob=json.dumps({"status": status}),
-            subtitle=subtitle,
+            subtitle=subtitle_base + additional_subtitle,
             df=df,
             level=level,
             attributes={"trial_index": self.trial_index},

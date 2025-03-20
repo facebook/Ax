@@ -67,9 +67,15 @@ class TestInteractionPlot(TestCase):
         self.assertEqual(card.title, "Interaction Analysis for bar")
         self.assertEqual(
             card.subtitle,
-            "Understand an Experiment's data as one- or two-dimensional additive "
-            "components with sparsity. Important components are visualized through "
-            "slice or contour plots",
+            (
+                "The interaction plot shows the ranked importance of "
+                "both parameters and parameter interactions for moving a "
+                "specified metric. The parameters (or parameter interactions) "
+                "with the most significant impact on predicted metric outcomes are "
+                "visualized through slice or contour plots, providing deeper "
+                "understanding into the underlying dynamics driving "
+                "the experiment's results."
+            ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.MID)
         self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)

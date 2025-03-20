@@ -43,7 +43,14 @@ class TestScatterPlot(TestCase):
         )
         self.assertEqual(
             card.subtitle,
-            "Compare arms by their observed metric values",
+            (
+                "The scatter plot displays individual data points "
+                "representing either observed or predicted values "
+                "from the model for two selected metrics. Each point on the plot "
+                "corresponds to an arm in a Trial. This visualization is particularly "
+                "useful for understanding the trade-off between two metrics in the "
+                "experiment."
+            ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.HIGH)
         self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)

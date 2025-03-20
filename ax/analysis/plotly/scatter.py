@@ -117,7 +117,14 @@ class ScatterPlot(PlotlyAnalysis):
 
         return self._create_plotly_analysis_card(
             title=f"Observed {x_metric_name} vs. {y_metric_name}",
-            subtitle="Compare arms by their observed metric values",
+            subtitle=(
+                "The scatter plot displays individual data points "
+                "representing either observed or predicted values "
+                "from the model for two selected metrics. Each point on the plot "
+                "corresponds to an arm in a Trial. This visualization is particularly "
+                "useful for understanding the trade-off between two metrics in the "
+                "experiment."
+            ),
             level=AnalysisCardLevel.HIGH,
             df=df,
             fig=fig,

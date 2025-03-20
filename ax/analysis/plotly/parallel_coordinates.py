@@ -59,7 +59,17 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
 
         return self._create_plotly_analysis_card(
             title=f"Parallel Coordinates for {metric_name}",
-            subtitle="View arm parameterizations with their respective metric values",
+            subtitle=(
+                "The parallel coordinates plot displays multi-dimensional "
+                "data by representing each parameter as a parallel axis. This "
+                "plot helps in assessing how thoroughly the search space has "
+                "been explored and in identifying patterns or clusterings associated "
+                "with high-performing (good) or low-performing (bad) arms. By "
+                "tracing lines across the axes, one can observe correlations and "
+                "interactions between parameters, gaining insights into the "
+                "relationships that contribute to the success or failure of "
+                "different configurations within the experiment."
+            ),
             level=AnalysisCardLevel.HIGH,
             df=df,
             fig=fig,

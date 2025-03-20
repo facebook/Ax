@@ -137,7 +137,13 @@ class ProgressionPlot(PlotlyAnalysis):
 
         return self._create_plotly_analysis_card(
             title=f"{metric_name} by {x_axis_name.replace('_', ' ')}",
-            subtitle="Observe how the metric changes as each trial progresses",
+            subtitle=(
+                "The progression plot tracks the evolution of each metric "
+                "over the course of the experiment. This visualization is "
+                "typically used to monitor the improvement of metrics over "
+                "Trial iterations, but can also be useful in informing decisions "
+                "about early stopping for Trials."
+            ),
             level=AnalysisCardLevel.MID,
             df=df,
             fig=fig,

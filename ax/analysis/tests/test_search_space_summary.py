@@ -55,7 +55,14 @@ class TestSearchSpaceSummary(TestCase):
         self.assertEqual(card.title, "SearchSpaceSummary for `test_experiment`")
         self.assertEqual(
             card.subtitle,
-            "High-level summary of the `Parameter`-s in this `Experiment`",
+            (
+                "The search space summary provides an overview of all "
+                "parameters, including their names, types, and ranges or "
+                "categories. This holistic view provides quick understanding "
+                "on the parameters being optimized, allowing one to verify "
+                "and adjust the search space configuration for effective "
+                "exploration."
+            ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.MID)
         self.assertEqual(card.category, AnalysisCardCategory.INFO)
