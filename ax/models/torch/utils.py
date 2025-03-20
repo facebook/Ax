@@ -234,27 +234,6 @@ def _generate_sobol_points(
     return torch.from_numpy(array_X).to(device)
 
 
-def normalize_indices(indices: list[int], d: int) -> list[int]:
-    r"""Normalize a list of indices to ensure that they are positive.
-
-    Args:
-        indices: A list of indices (may contain negative indices for indexing
-            "from the back").
-        d: The dimension of the tensor to index.
-
-    Returns:
-        A normalized list of indices such that each index is between `0` and `d-1`.
-    """
-    normalized_indices = []
-    for i in indices:
-        if i < 0:
-            i = i + d
-        if i < 0 or i > d - 1:
-            raise ValueError(f"Index {i} out of bounds for tensor or length {d}.")
-        normalized_indices.append(i)
-    return normalized_indices
-
-
 def subset_model(
     model: Model,
     objective_weights: Tensor,

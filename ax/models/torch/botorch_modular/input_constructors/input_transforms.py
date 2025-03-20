@@ -12,7 +12,6 @@ from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.models.torch.utils import normalize_indices
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models.transforms.input import (
     InputPerturbation,
@@ -22,6 +21,8 @@ from botorch.models.transforms.input import (
 )
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
+from botorch.utils.transforms import normalize_indices
+from pyre_extensions import none_throws
 
 
 input_transform_argparse = Dispatcher(
@@ -117,7 +118,9 @@ def _input_transform_argparse_warp(
     input_transform_options = input_transform_options or {}
     d = len(dataset.feature_names)
     indices = list(range(d))
-    task_features = normalize_indices(search_space_digest.task_features, d=d)
+    task_features = none_throws(
+        normalize_indices(search_space_digest.task_features, d=d)
+    )
 
     for task_feature in sorted(task_features, reverse=True):
         del indices[task_feature]
@@ -172,7 +175,9 @@ def _input_transform_argparse_normalize(
     ):
         input_transform_options["indices"] = indices
     else:
-        task_features = normalize_indices(search_space_digest.task_features, d=d)
+        task_features = none_throws(
+            normalize_indices(search_space_digest.task_features, d=d)
+        )
         for task_feature in sorted(task_features, reverse=True):
             del indices[task_feature]
 

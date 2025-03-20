@@ -30,7 +30,6 @@ from ax.models.torch.utils import (
     _datasets_to_legacy_inputs,
     _get_X_pending_and_observed,
     _to_inequality_constraints,
-    normalize_indices,
     predict_from_model,
     subset_model,
 )
@@ -43,8 +42,8 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models import ModelList
 from botorch.models.model import Model
 from botorch.utils.datasets import SupervisedDataset
-from botorch.utils.transforms import is_ensemble
-from pyre_extensions import assert_is_instance
+from botorch.utils.transforms import is_ensemble, normalize_indices
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 from torch.nn import ModuleList  # @manual
 
@@ -306,11 +305,13 @@ class LegacyBoTorchGenerator(TorchGenerator):
         self._search_space_digest = search_space_digest
         self.dtype = self.Xs[0].dtype
         self.device = self.Xs[0].device
-        self.task_features = normalize_indices(
-            search_space_digest.task_features, d=self.Xs[0].size(-1)
+        self.task_features = none_throws(
+            normalize_indices(search_space_digest.task_features, d=self.Xs[0].size(-1))
         )
-        self.fidelity_features = normalize_indices(
-            search_space_digest.fidelity_features, d=self.Xs[0].size(-1)
+        self.fidelity_features = none_throws(
+            normalize_indices(
+                search_space_digest.fidelity_features, d=self.Xs[0].size(-1)
+            )
         )
         extra_kwargs = {} if self.prior is None else {"prior": self.prior}
         self._model = self.model_constructor(  # pyre-ignore [28]
