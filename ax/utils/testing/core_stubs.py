@@ -257,6 +257,7 @@ def get_branin_experiment(
     with_completed_trial: bool = False,
     num_arms_per_trial: int = 15,
     with_relative_constraint: bool = False,
+    with_absolute_constraint: bool = False,
 ) -> Experiment:
     search_space = search_space or get_branin_search_space(
         with_fidelity_parameter=with_fidelity_parameter,
@@ -270,7 +271,9 @@ def get_branin_experiment(
         search_space=search_space,
         optimization_config=(
             get_branin_optimization_config(
-                minimize=minimize, with_relative_constraint=with_relative_constraint
+                minimize=minimize,
+                with_relative_constraint=with_relative_constraint,
+                with_absolute_constraint=with_absolute_constraint,
             )
             if has_optimization_config or with_relative_constraint
             else None
@@ -1786,13 +1789,21 @@ def get_optimization_config_no_constraints(
 
 
 def get_branin_optimization_config(
-    minimize: bool = False, with_relative_constraint: bool = False
+    minimize: bool = False,
+    with_relative_constraint: bool = False,
+    with_absolute_constraint: bool = False,
 ) -> OptimizationConfig:
     outcome_constraint = []
     if with_relative_constraint:
         outcome_constraint.append(
             get_outcome_constraint(
                 metric=get_branin_metric(name="branin_d"), relative=True
+            )
+        )
+    if with_absolute_constraint:
+        outcome_constraint.append(
+            get_outcome_constraint(
+                metric=get_branin_metric(name="branin_e"), relative=False
             )
         )
     return OptimizationConfig(
