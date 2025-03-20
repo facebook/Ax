@@ -148,12 +148,18 @@ class BaseAdapterTest(TestCase):
         adapter._predict = mock_predict
         adapter.predict([get_observation2().features])
         # Observation features sent to _predict are un-transformed afterwards
-        mock_predict.assert_called_with([get_observation2().features])
+        mock_predict.assert_called_with(
+            observation_features=[get_observation2().features],
+            use_posterior_predictive=False,
+        )
 
         # Check that _single_predict is equivalent here.
         adapter._single_predict([get_observation2().features])
         # Observation features sent to _predict are un-transformed afterwards
-        mock_predict.assert_called_with([get_observation2().features])
+        mock_predict.assert_called_with(
+            observation_features=[get_observation2().features],
+            use_posterior_predictive=False,
+        )
 
         # Test transforms applied on gen
         adapter._gen = mock.MagicMock(

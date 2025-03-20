@@ -84,7 +84,9 @@ class PairwiseAdapter(TorchAdapter):
         return datasets, outcomes, candidate_metadata
 
     def _predict(
-        self, observation_features: list[ObservationFeatures]
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
         # TODO: Implement `_predict` to enable examining predicted effects
         raise NotImplementedError

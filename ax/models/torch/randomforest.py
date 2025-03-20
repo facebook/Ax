@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Sequence
 
 import numpy as np
@@ -15,6 +16,7 @@ import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
+from ax.exceptions.core import AxWarning
 from ax.models.torch.utils import _datasets_to_legacy_inputs
 from ax.models.torch_base import TorchGenerator
 from ax.utils.common.docutils import copy_doc
@@ -64,7 +66,16 @@ class RandomForest(TorchGenerator):
             )
 
     @copy_doc(TorchGenerator.predict)
-    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
+    def predict(
+        self, X: Tensor, use_posterior_predictive: bool = False
+    ) -> tuple[Tensor, Tensor]:
+        if use_posterior_predictive:
+            warnings.warn(
+                f"{self.__class__.__name__} does not support posterior-predictive "
+                "predictions. Ignoring `use_posterior_predictive`. ",
+                AxWarning,
+                stacklevel=2,
+            )
         return _rf_predict(self.models, X)
 
     @copy_doc(TorchGenerator.cross_validate)

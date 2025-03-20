@@ -116,14 +116,18 @@ class DiscreteAdapter(Adapter):
         )
 
     def _predict(
-        self, observation_features: list[ObservationFeatures]
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
         # Convert observations to array
         X = [
             [of.parameters[param] for param in self.parameters]
             for of in observation_features
         ]
-        f, cov = self.model.predict(X=X)
+        f, cov = self.model.predict(
+            X=X, use_posterior_predictive=use_posterior_predictive
+        )
         # Convert arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
 

@@ -863,3 +863,21 @@ class TorchAdapterTest(TestCase):
         # Generate candidates.
         gr = modelbridge.gen(n=3)
         self.assertEqual(sum(gr.weights), 3)
+
+    @mock_botorch_optimize
+    def test_predict_with_posterior_predictive(self) -> None:
+        # Checks that noise is added when using posterior predictive.
+        exp = get_experiment_with_observations([[1.0], [1.5], [2.0]])
+        adapter = TorchAdapter(
+            experiment=exp,
+            model=BoTorchGenerator(),
+        )
+        obs_ft = ObservationFeatures(parameters={"x": 0.0, "y": 0.0})
+        mean_default, cov_default = adapter.predict(observation_features=[obs_ft])
+        mean_predictive, cov_predictive = adapter.predict(
+            observation_features=[obs_ft], use_posterior_predictive=True
+        )
+        # Check that means are close.
+        self.assertAlmostEqual(mean_default["m1"][0], mean_predictive["m1"][0])
+        # Check that variance is larger.
+        self.assertGreater(cov_predictive["m1"]["m1"], cov_default["m1"]["m1"])
