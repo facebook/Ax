@@ -8,6 +8,7 @@
 
 
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.bilog_y import BilogY
 from ax.modelbridge.transforms.choice_encode import (
     ChoiceEncode,
     ChoiceToNumericChoice,
@@ -98,6 +99,7 @@ TRANSFORM_REGISTRY: dict[type[Transform], int] = {
     FillMissingParameters: 29,
     LogIntToFloat: 30,
     MapKeyToFloat: 31,
+    BilogY: 32,
 }
 
 """
