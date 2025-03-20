@@ -10,6 +10,7 @@ import warnings
 from collections import OrderedDict
 
 import numpy as np
+
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError
@@ -202,8 +203,8 @@ class BoTorchGeneratorUtilsTest(TestCase):
         acquisition_function_kwargs = {Keys.CURRENT_VALUE: torch.tensor([1.0])}
         optimizer_kwargs = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
         model_gen_options = {
-            Keys.ACQF_KWARGS: acquisition_function_kwargs,
-            Keys.OPTIMIZER_KWARGS: optimizer_kwargs,
+            Keys.ACQF_KWARGS.value: acquisition_function_kwargs,
+            Keys.OPTIMIZER_KWARGS.value: optimizer_kwargs,
         }
 
         (
@@ -229,6 +230,21 @@ class BoTorchGeneratorUtilsTest(TestCase):
             {Keys.NUM_FANTASIES: 64, Keys.CURRENT_VALUE: torch.tensor([1.0])},
         )
         self.assertEqual(final_opt_options, optimizer_kwargs)
+
+        with self.assertRaisesRegex(
+            ValueError, "Found forbidden keys in `model_gen_options`"
+        ):
+            construct_acquisition_and_optimizer_options(
+                # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, Dict[str,
+                #  typing.Any], OptimizationConfig, AcquisitionFunction, float, int,
+                #  str]]` but got `Dict[Keys, int]`.
+                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
+                #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction,
+                #  float, int, str]]]` but got `Dict[Keys, Union[Dict[Keys, int],
+                #  Dict[Keys, Tensor]]]`.
+                acqf_options=acqf_options,
+                model_gen_options={**model_gen_options, "extra": "key"},
+            )
 
     def test_use_model_list(self) -> None:
         self.assertFalse(

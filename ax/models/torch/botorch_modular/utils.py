@@ -260,12 +260,27 @@ def construct_acquisition_and_optimizer_options(
     opt_options = {}
 
     if model_gen_options:
+        # Define the allowed paths
+
+        if (
+            len(
+                extra_keys_in_model_gen_options := set(model_gen_options.keys())
+                - {Keys.OPTIMIZER_KWARGS.value, Keys.ACQF_KWARGS.value}
+            )
+            > 0
+        ):
+            raise ValueError(
+                "Found forbidden keys in `model_gen_options`: "
+                f"{extra_keys_in_model_gen_options}."
+            )
+
         acq_options.update(
             assert_is_instance(
                 model_gen_options.get(Keys.ACQF_KWARGS, {}),
                 dict,
             )
         )
+
         # TODO: Add this if all acq. functions accept the `subset_model`
         # kwarg or opt for kwarg filtering.
         # acq_options[SUBSET_MODEL] = model_gen_options.get(SUBSET_MODEL)

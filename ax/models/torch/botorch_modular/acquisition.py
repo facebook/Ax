@@ -363,6 +363,22 @@ class Acquisition(Base):
             candidates, a tensor with the associated acquisition values, and a tensor
             with the weight for each candidate.
         """
+        if optimizer_options is not None:
+            forbidden_optimizer_options = [
+                "equality_constraints",
+                "inequality_constraints",
+                "nonlinear_inequality_constraints",
+                "batch_initial_conditions",
+                "return_best_only",
+            ]
+
+            for kw in optimizer_options:
+                if kw in forbidden_optimizer_options:
+                    raise ValueError(
+                        f"Argument {kw} is not allowed in {Keys.OPTIMIZER_KWARGS} "
+                        "within `model_gen_options`."
+                    )
+
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
         ssd = search_space_digest
         bounds = _tensorize(ssd.bounds).t()
