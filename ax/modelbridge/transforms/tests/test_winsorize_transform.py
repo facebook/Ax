@@ -30,7 +30,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.winsorize import (
     _get_auto_winsorization_cutoffs_outcome_constraint,
@@ -160,19 +160,6 @@ class WinsorizeTransformTest(TestCase):
             },
         )
 
-    def test_PrintDeprecationWarning(self) -> None:
-        expected_warning = (
-            "Winsorization received an out-of-date `transform_config`, containing "
-            'the key `"optimization_config"`. Please update the config according '
-            "to the docs of `ax.modelbridge.transforms.winsorize.Winsorize`."
-        )
-        with self.assertWarnsRegex(DeprecationWarning, expected_warning):
-            Winsorize(
-                search_space=None,
-                observations=deepcopy(self.observations),
-                config={"optimization_config": "dummy_val"},
-            )
-
     def test_Init(self) -> None:
         self.assertEqual(self.t.cutoffs["m1"], (-INF, 2.0))
         self.assertEqual(self.t.cutoffs["m2"], (-INF, 2.0))
@@ -193,15 +180,6 @@ class WinsorizeTransformTest(TestCase):
             Winsorize(
                 search_space=None,
                 observations=deepcopy(self.observations[:1]),
-            )
-        with self.assertRaisesRegex(
-            UserInputError,
-            "`derelativize_with_raw_status_quo` must be a boolean. Got 1234.",
-        ):
-            Winsorize(
-                search_space=None,
-                observations=deepcopy(self.observations[:1]),
-                config={"derelativize_with_raw_status_quo": 1234},
             )
 
     def test_TransformObservations(self) -> None:
@@ -461,16 +439,6 @@ class WinsorizeTransformTest(TestCase):
             objective=Objective(metric=m2, minimize=True),
             outcome_constraints=[outcome_constraint],
         )
-        with self.assertRaisesRegex(
-            UnsupportedError,
-            "Automatic winsorization doesn't support relative outcome constraints "
-            "or objective thresholds when `derelativize_with_raw_status_quo` is not "
-            "set to `True`.",
-        ):
-            get_transform(
-                observation_data=deepcopy(all_obsd),
-                optimization_config=optimization_config,
-            )
         # Make the constraint absolute, which should trigger winsorization
         optimization_config.outcome_constraints[0].relative = False
         transform = get_transform(
@@ -535,16 +503,6 @@ class WinsorizeTransformTest(TestCase):
             objective_thresholds=objective_thresholds,
             outcome_constraints=[],
         )
-        with self.assertRaisesRegex(
-            UnsupportedError,
-            "Automatic winsorization doesn't support relative outcome constraints or "
-            "objective thresholds when `derelativize_with_raw_status_quo` is not set "
-            "to `True`.",
-        ):
-            get_transform(
-                observation_data=deepcopy(all_obsd),
-                optimization_config=optimization_config,
-            )
         # Make the objective thresholds absolute (should trigger winsorization)
         optimization_config.objective_thresholds[0].relative = False
         optimization_config.objective_thresholds[1].relative = False
@@ -613,7 +571,6 @@ class WinsorizeTransformTest(TestCase):
                 search_space=search_space,
                 observations=OBSERVATION_DATA,
                 modelbridge=modelbridge,
-                config={"derelativize_with_raw_status_quo": True},
             )
 
         modelbridge = Adapter(
@@ -626,19 +583,10 @@ class WinsorizeTransformTest(TestCase):
             data=Data(),
             optimization_config=oc,
         )
-        with self.assertRaisesRegex(
-            UnsupportedError, "`derelativize_with_raw_status_quo` is not set to `True`"
-        ):
-            Winsorize(
-                search_space=search_space,
-                observations=OBSERVATION_DATA,
-                modelbridge=modelbridge,
-            )
         t = Winsorize(
             search_space=search_space,
             observations=OBSERVATION_DATA,
             modelbridge=modelbridge,
-            config={"derelativize_with_raw_status_quo": True},
         )
         self.assertDictEqual(t.cutoffs, {"a": (-INF, 3.5), "b": (-INF, 12.0)})
 
