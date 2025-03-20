@@ -25,7 +25,6 @@ from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.logit import Logit
 from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
-from ax.modelbridge.transforms.map_unit_x import MapUnitX
 from ax.modelbridge.transforms.merge_repeated_measurements import (
     MergeRepeatedMeasurements,
 )
@@ -88,7 +87,7 @@ TRANSFORM_REGISTRY: dict[type[Transform], int] = {
     ChoiceEncode: 19,  # TO BE DEPRECATED
     ChoiceToNumericChoice: 19,
     Logit: 20,
-    MapUnitX: 21,
+    # MapUnitX: 21, DEPRECATED
     MetricsAsTask: 22,
     LogY: 23,
     Relativize: 24,
