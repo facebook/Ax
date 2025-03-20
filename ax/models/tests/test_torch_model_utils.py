@@ -12,7 +12,6 @@ import numpy as np
 import torch
 from ax.models.torch.utils import (
     _generate_sobol_points,
-    normalize_indices,
     subset_model,
     tensor_callable_to_array_callable,
 )
@@ -27,20 +26,6 @@ from torch import Tensor
 
 
 class TorchUtilsTest(TestCase):
-    def test_NormalizeIndices(self) -> None:
-        indices = [0, 2]
-        nlzd_indices = normalize_indices(indices, 3)
-        self.assertEqual(nlzd_indices, indices)
-        nlzd_indices = normalize_indices(indices, 4)
-        self.assertEqual(nlzd_indices, indices)
-        indices = [0, -1]
-        nlzd_indices = normalize_indices(indices, 3)
-        self.assertEqual(nlzd_indices, [0, 2])
-        with self.assertRaises(ValueError):
-            nlzd_indices = normalize_indices([3], 3)
-        with self.assertRaises(ValueError):
-            nlzd_indices = normalize_indices([-4], 3)
-
     def test_GenerateSobolPoints(self) -> None:
         bounds = [(0.0, 1.0) for _ in range(3)]
         linear_constraints = (

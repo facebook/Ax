@@ -43,7 +43,6 @@ from ax.models.torch.botorch_modular.utils import (
 )
 from ax.models.torch.utils import (
     _to_inequality_constraints,
-    normalize_indices,
     pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
 )
@@ -78,6 +77,7 @@ from botorch.settings import validate_input_scaling
 from botorch.utils.containers import SliceContainer
 from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
+from botorch.utils.transforms import normalize_indices
 from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
@@ -228,8 +228,8 @@ def _construct_default_input_transforms(
     bounds = torch.tensor(search_space_digest.bounds, dtype=torch.get_default_dtype()).T
     indices = list(range(bounds.shape[-1]))
     # Remove task features.
-    for task_feature in normalize_indices(
-        search_space_digest.task_features, d=bounds.shape[-1]
+    for task_feature in none_throws(
+        normalize_indices(search_space_digest.task_features, d=bounds.shape[-1])
     ):
         indices.remove(task_feature)
     # Skip the Normalize transform if the bounds are [0, 1].
