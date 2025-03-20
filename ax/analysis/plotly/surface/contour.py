@@ -54,10 +54,6 @@ class ContourPlot(PlotlyAnalysis):
             display_sampled: If True, plot "x"s at x coordinates which have been
                 sampled in at least one trial.
         """
-        # TODO: Add a flag to specify whether or not to plot markers at the (x, y)
-        # coordinates of arms (with hover text). This is fine to exlude for now because
-        # this Analysis is only used in the InteractionPlot, but when we want to use it
-        # a-la-carte we should add this feature.
         self.x_parameter_name = x_parameter_name
         self.y_parameter_name = y_parameter_name
         self.metric_name = metric_name
