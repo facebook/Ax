@@ -9,10 +9,10 @@ import itertools
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
-from ax.analysis.plotly.interaction import InteractionPlot
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.analysis.plotly.progression import ProgressionPlot
 from ax.analysis.plotly.scatter import ScatterPlot
+from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 from ax.analysis.summary import Summary
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
@@ -45,7 +45,7 @@ def choose_analyses(experiment: Experiment) -> list[Analysis]:
         other_scatters = []
 
         interactions = [
-            InteractionPlot(metric_name=name)
+            TopSurfacesAnalysis(metric_name=name, order="second")
             for name in optimization_config.objective.metric_names
         ]
     # In the single-objective case plot ParallelCoordinates and up to six ScatterPlots
@@ -73,7 +73,7 @@ def choose_analyses(experiment: Experiment) -> list[Analysis]:
             if name != objective_name
         ][:6]
 
-        interactions = [InteractionPlot(metric_name=objective_name)]
+        interactions = [TopSurfacesAnalysis(metric_name=objective_name, order="second")]
 
     # If any number of objectives are timeseries-like plot their progression.
     data = experiment.lookup_data()
