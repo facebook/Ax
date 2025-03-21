@@ -72,8 +72,9 @@ class MapKeyToFloat(MetadataToFloat):
         )
 
     def _transform_observation_feature(self, obsf: ObservationFeatures) -> None:
-        if not obsf.parameters:
-            for p in self._parameter_list:
-                obsf.parameters[p.name] = p.upper
+        if len(obsf.parameters) == 0:
+            obsf.parameters = {p.name: p.upper for p in self._parameter_list}
             return
+        if obsf.metadata is None or len(obsf.metadata) == 0:
+            obsf.metadata = {p.name: p.upper for p in self._parameter_list}
         super()._transform_observation_feature(obsf)
