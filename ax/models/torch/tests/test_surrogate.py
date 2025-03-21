@@ -44,6 +44,7 @@ from ax.utils.stats.model_fit_stats import DIAGNOSTIC_FNS
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
+from botorch.exceptions.errors import ModelFittingError
 from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP, SingleTaskGP
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
@@ -100,6 +101,7 @@ class SurrogateInputConstructorsTest(TestCase):
             ):
                 _extract_model_kwargs(
                     search_space_digest=search_space_digest,
+                    botorch_model_class=SingleTaskGP,
                 )
 
         with self.subTest("Multiple task features not supported"):
@@ -113,6 +115,21 @@ class SurrogateInputConstructorsTest(TestCase):
             ):
                 _extract_model_kwargs(
                     search_space_digest=search_space_digest,
+                    botorch_model_class=SingleTaskGP,
+                )
+
+        with self.subTest("Cannot fit MultiTaskGP without task feature."):
+            search_space_digest = SearchSpaceDigest(
+                feature_names=feature_names,
+                bounds=bounds,
+                task_features=[],
+            )
+            with self.assertRaisesRegex(
+                ModelFittingError, "Cannot fit MultiTaskGP without task feature."
+            ):
+                _extract_model_kwargs(
+                    search_space_digest=search_space_digest,
+                    botorch_model_class=MultiTaskGP,
                 )
 
         with self.subTest("Task feature provided, fidelity and categorical not"):
@@ -123,6 +140,7 @@ class SurrogateInputConstructorsTest(TestCase):
             )
             model_kwargs = _extract_model_kwargs(
                 search_space_digest=search_space_digest,
+                botorch_model_class=SingleTaskGP,
             )
             self.assertSetEqual(set(model_kwargs.keys()), {"task_feature"})
             self.assertEqual(model_kwargs["task_feature"], 1)
@@ -134,6 +152,7 @@ class SurrogateInputConstructorsTest(TestCase):
             )
             model_kwargs = _extract_model_kwargs(
                 search_space_digest=search_space_digest,
+                botorch_model_class=SingleTaskGP,
             )
             self.assertEqual(len(model_kwargs.keys()), 0)
 
@@ -146,6 +165,7 @@ class SurrogateInputConstructorsTest(TestCase):
             )
             model_kwargs = _extract_model_kwargs(
                 search_space_digest=search_space_digest,
+                botorch_model_class=SingleTaskGP,
             )
             self.assertSetEqual(
                 set(model_kwargs.keys()), {"fidelity_features", "categorical_features"}
@@ -820,6 +840,80 @@ class SurrogateTest(TestCase):
         # test model use model_configs for the third metric
         # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(surrogate.model.models[2].covar_module, LinearKernel)
+
+    def test_construct_model_remove_task_features(self) -> None:
+        self.search_space_digest.task_features.append(-1)
+        self.search_space_digest.feature_names.append("task_feat")
+        self.search_space_digest.bounds.append((0.0, 1.0))
+        X = self.Xs[0]
+        dataset = MultiTaskDataset(
+            datasets=[
+                SupervisedDataset(
+                    X=torch.cat(
+                        [
+                            X,
+                            torch.ones(X.shape[0], 1, dtype=X.dtype, device=X.device),
+                        ],
+                        dim=-1,
+                    ),
+                    # Note: using 1d Y does not match the 2d TorchOptConfig
+                    Y=self.Ys[0],
+                    feature_names=self.search_space_digest.feature_names,
+                    outcome_names=self.metric_names,
+                )
+            ],
+            target_outcome_name=self.metric_names[0],
+            task_feature_index=-1,
+        )
+        botorch_model_class = SingleTaskGP
+        for remove_task_features in (False, True):
+            # Don't use an outcome transform here because the
+            # botorch_model_class will change to one that is not compatible with
+            # outcome transforms below
+            surrogate, _ = self._get_surrogate(
+                botorch_model_class=botorch_model_class, use_outcome_transform=False
+            )
+            model_config = ModelConfig(
+                covar_module_class=ScaleMaternKernel,
+                covar_module_options={"remove_task_features": remove_task_features},
+            )
+
+            with patch.object(
+                botorch_model_class,
+                "construct_inputs",
+                wraps=botorch_model_class.construct_inputs,
+            ), patch.object(
+                botorch_model_class, "__init__", return_value=None, autospec=True
+            ) as mock_init, patch(f"{SURROGATE_PATH}.fit_botorch_model") as mock_fit:
+                surrogate._construct_model(
+                    dataset=dataset,
+                    search_space_digest=self.search_space_digest,
+                    model_config=model_config,
+                    default_botorch_model_class=botorch_model_class,
+                    state_dict=None,
+                    refit=True,
+                )
+            mock_init.assert_called_once()
+            mock_fit.assert_called_once()
+            call_kwargs = mock_init.call_args.kwargs
+            self.assertTrue(torch.equal(call_kwargs["train_X"], dataset.X))
+            self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
+            covar_module = call_kwargs["covar_module"]
+            self.assertIsInstance(covar_module, ScaleMaternKernel)
+            self.assertIsInstance(call_kwargs["input_transform"], Normalize)
+            self.assertIsNone(call_kwargs["outcome_transform"])
+            self.assertEqual(len(call_kwargs), 5)
+            # check that active_dims is set to omit task feature
+            if remove_task_features:
+                self.assertTrue(
+                    torch.equal(covar_module.active_dims, torch.tensor([0, 1, 2]))
+                )
+            else:
+                self.assertIsNone(covar_module.active_dims)
+            # check ard_num_dims excludes task feature
+            self.assertEqual(
+                covar_module.base_kernel.ard_num_dims, 3 if remove_task_features else 4
+            )
 
     @mock_botorch_optimize
     @patch(
