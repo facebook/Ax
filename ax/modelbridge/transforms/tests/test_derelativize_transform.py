@@ -25,7 +25,7 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.torch import TorchAdapter
-from ax.modelbridge.transforms.derelativize import Derelativize
+from ax.modelbridge.transforms.derelativize import Derelativize, logger
 from ax.models.base import Generator
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.utils.common.testutils import TestCase
@@ -406,3 +406,34 @@ class DerelativizeTransformTest(TestCase):
                         DataRequiredError, "was not fit with status quo"
                     ):
                         adapter.gen(n=1)
+
+    @mock_botorch_optimize
+    def test_warning_if_raw_sq_is_out_of_CI(self) -> None:
+        # This test checks that a warning is raised if the raw status quo values
+        # are outside of the CI for the predictions.
+
+        exp = get_branin_experiment(
+            with_status_quo=True,
+            with_completed_trial=True,
+            with_relative_constraint=True,
+        )
+        # Add data for SQ.
+        trial = exp.new_trial().add_arm(exp.status_quo).run().mark_completed()
+        exp.attach_data(get_branin_data(trials=[trial], metrics=exp.metrics))
+
+        adapter = TorchAdapter(
+            experiment=exp, model=BoTorchGenerator(), transforms=[Derelativize]
+        )
+        # Shouldn't log in regular usage here.
+        with self.assertNoLogs(logger=logger):
+            adapter.gen(n=1)
+        # With if we mock the predictions, we should get a log.
+        mock_predictions = [
+            {m: [10.0] for m in exp.metrics},
+            {m: {m: [0.0]} for m in exp.metrics},
+        ]
+        with mock.patch.object(
+            adapter, "predict", return_value=mock_predictions
+        ), self.assertLogs(logger=logger) as mock_logs:
+            adapter.gen(n=1)
+        self.assertIn("deviate more than", mock_logs.records[0].getMessage())
