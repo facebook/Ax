@@ -121,9 +121,13 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         if not constraints_feasible:
             status = HealthcheckStatus.WARNING
             subtitle = (
-                "Constraints are infeasible for all test groups (arms) with respect "
-                f"to the probability threshold {self.prob_threshold}. "
-                "We suggest relaxing the constraint bounds for the constraints."
+                "The constraints feasibility health check utilizes "
+                "samples drawn during the optimization process to assess the "
+                "feasibility of constraints set on the experiment. Given these "
+                "samples, the model beleives there is at least a "
+                f"{self.prob_threshold} probability that the constraints will be "
+                "violated. We suggest relaxing the bounds for the constraints "
+                "on this Experiment."
             )
             title_status = "Warning"
             df.loc[

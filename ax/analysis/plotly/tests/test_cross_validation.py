@@ -58,7 +58,21 @@ class TestCrossValidationPlot(TestCase):
         self.assertEqual(card.title, "Cross Validation for bar")
         self.assertEqual(
             card.subtitle,
-            "Out-of-sample predictions using leave-one-out CV",
+            (
+                "The cross-validation plot displays the model fit for each "
+                "metric in the experiment. It employs a leave-one-out "
+                "approach, where the model is trained on all data except one "
+                "sample, which is used for validation. The plot shows the "
+                "predicted outcome for the validation set on the y-axis against "
+                "its actual value on the x-axis. Points that align closely with "
+                "the dotted diagonal line indicate a strong model fit, signifying "
+                "accurate predictions. Additionally, the plot includes 95% "
+                "confidence intervals that provide insight into the noise in "
+                "observations and the uncertainty in model predictions. A "
+                "horizontal, flat line of predictions indicates that the model "
+                "has not picked up on sufficient signal in the data, and instead "
+                "is just predicting the mean."
+            ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)

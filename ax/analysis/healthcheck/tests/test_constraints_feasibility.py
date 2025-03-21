@@ -198,9 +198,13 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         self.assertEqual(card.title, "Ax Constraints Feasibility Warning")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         subtitle = (
-            "Constraints are infeasible for all test groups (arms) with respect "
-            "to the probability threshold 0.95. "
-            "We suggest relaxing the constraint bounds for the constraints."
+            "The constraints feasibility health check utilizes "
+            "samples drawn during the optimization process to assess the "
+            "feasibility of constraints set on the experiment. Given these "
+            "samples, the model beleives there is at least a "
+            "0.95 probability that the constraints will be "
+            "violated. We suggest relaxing the bounds for the constraints "
+            "on this Experiment."
         )
         self.assertEqual(card.subtitle, subtitle)
         self.assertEqual(json.loads(card.blob), {"status": HealthcheckStatus.WARNING})

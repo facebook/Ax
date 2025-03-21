@@ -130,7 +130,16 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(card.name, "ModeledEffectsPlot")
         self.assertEqual(card.title, "Modeled Effects for branin on trial 0")
         self.assertEqual(
-            card.subtitle, "View a trial and its arms' modeled metric values"
+            card.subtitle,
+            (
+                "The in-sample effects plot visualizes the modeled effects from "
+                "previously-run arms on a specific metric, providing insights into "
+                "their performance. This plot allows one to compare and contrast the "
+                "effectiveness of different arms, highlighting which configurations "
+                "have yielded the most favorable outcomes. Note, this plot applies "
+                "Empirical Bayes shrinkage by default, so metric effects may not "
+                "perfectly match raw observations."
+            ),
         )
         # +2 because it's on objective, +1 because it's modeled
         self.assertEqual(card.level, AnalysisCardLevel.MID + 3)
@@ -177,7 +186,16 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(card.name, "ModeledEffectsPlot")
         self.assertEqual(card.title, "Modeled Effects for branin on trial 0")
         self.assertEqual(
-            card.subtitle, "View a trial and its arms' modeled metric values"
+            card.subtitle,
+            (
+                "The in-sample effects plot visualizes the modeled effects from "
+                "previously-run arms on a specific metric, providing insights into "
+                "their performance. This plot allows one to compare and contrast the "
+                "effectiveness of different arms, highlighting which configurations "
+                "have yielded the most favorable outcomes. Note, this plot applies "
+                "Empirical Bayes shrinkage by default, so metric effects may not "
+                "perfectly match raw observations."
+            ),
         )
         # +2 because it's on objective, +1 because it's modeled
         self.assertEqual(card.level, AnalysisCardLevel.MID + 3)
@@ -246,7 +264,16 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(card.name, "ObservedEffectsPlot")
         self.assertEqual(card.title, "Observed Effects for branin on trial 0")
         self.assertEqual(
-            card.subtitle, "View a trial and its arms' observed metric values"
+            card.subtitle,
+            (
+                "The in-sample effects plot visualizes the observed effects from "
+                "previously-run arms on a specific metric, providing insights into "
+                "their performance. This plot allows one to compare and contrast the "
+                "effectiveness of different arms, highlighting which configurations "
+                "have yielded the most favorable outcomes. Note, this plot applies "
+                "Empirical Bayes shrinkage by default, so metric effects may not "
+                "perfectly match raw observations."
+            ),
         )
         # +2 because it's on objective
         self.assertEqual(card.level, AnalysisCardLevel.MID + 2)

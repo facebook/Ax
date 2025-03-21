@@ -119,7 +119,15 @@ class PredictedEffectsPlot(PlotlyAnalysis):
 
         return self._create_plotly_analysis_card(
             title=f"Predicted Effects for {self.metric_name}",
-            subtitle="View a candidate trial and its arms' predicted metric values",
+            subtitle=(
+                "The predicted effects plot provides a visualization of the "
+                "estimated metric effects for each arm in the upcoming trial. "
+                "This plot helps in anticipating the potential outcomes and "
+                "performance of different arms based on the model's predictions. "
+                "Note that flat predictions across arms indicate that the model "
+                "has not picked up on sufficient signal in the data, and instead "
+                "is just predicting the mean."
+            ),
             level=AnalysisCardLevel.HIGH + nudge,
             df=df,
             fig=fig,

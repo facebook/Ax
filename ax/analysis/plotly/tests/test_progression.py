@@ -33,7 +33,13 @@ class TestProgression(TestCase):
         self.assertEqual(card.title, "branin_map by progression")
         self.assertEqual(
             card.subtitle,
-            "Observe how the metric changes as each trial progresses",
+            (
+                "The progression plot tracks the evolution of each metric "
+                "over the course of the experiment. This visualization is typically "
+                "used to monitor the improvement of metrics over Trial iterations, "
+                "but can also be useful in informing decisions about early stopping "
+                "for Trials."
+            ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.MID)
         self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)

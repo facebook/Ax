@@ -118,10 +118,16 @@ class InSampleEffectsPlot(PlotlyAnalysis):
         )
 
         subtitle = (
-            "View a trial and its arms' "
-            f"{self._plot_type_string.lower()} "
-            "metric values"
+            "The in-sample effects plot visualizes the "
+            f"{self._plot_type_string.lower()} effects from previously-run "
+            "arms on a specific metric, providing insights into their "
+            "performance. This plot allows one to compare and contrast the "
+            "effectiveness of different arms, highlighting which configurations "
+            "have yielded the most favorable outcomes. Note, this plot applies "
+            "Empirical Bayes shrinkage by default, so metric effects may not "
+            "perfectly match raw observations."
         )
+
         card = self._create_plotly_analysis_card(
             title=(
                 f"{self._plot_type_string} Effects for {self.metric_name} "

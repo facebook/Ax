@@ -34,7 +34,17 @@ class TestParallelCoordinatesPlot(TestCase):
         self.assertEqual(card.title, "Parallel Coordinates for branin")
         self.assertEqual(
             card.subtitle,
-            "View arm parameterizations with their respective metric values",
+            (
+                "The parallel coordinates plot displays multi-dimensional "
+                "data by representing each parameter as a parallel axis. This "
+                "plot helps in assessing how thoroughly the search space has "
+                "been explored and in identifying patterns or clusterings associated "
+                "with high-performing (good) or low-performing (bad) arms. By "
+                "tracing lines across the axes, one can observe correlations and "
+                "interactions between parameters, gaining insights into the "
+                "relationships that contribute to the success or failure of "
+                "different configurations within the experiment."
+            ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.HIGH)
         self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)

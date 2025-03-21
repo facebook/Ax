@@ -110,7 +110,15 @@ class TestPredictedEffectsPlot(TestCase):
                 self.assertEqual(card.title, f"Predicted Effects for {metric}")
                 self.assertEqual(
                     card.subtitle,
-                    "View a candidate trial and its arms' predicted metric values",
+                    (
+                        "The predicted effects plot provides a visualization of the "
+                        "estimated metric effects for each arm in the upcoming trial. "
+                        "This plot helps in anticipating the potential outcomes and "
+                        "performance of different arms based on the model's "
+                        "predictions. Note that flat predictions across arms indicate "
+                        "that the model has not picked up on sufficient signal in "
+                        "the data, and instead is just predicting the mean."
+                    ),
                 )
                 # AND THEN it has an appropriate level based on whether we're
                 # optimizing for the metric

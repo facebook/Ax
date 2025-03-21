@@ -51,11 +51,14 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
         adapter: Adapter | None = None,
     ) -> HealthcheckAnalysisCard:
         status = HealthcheckStatus.PASS
-        subtitle = self.reason
+        subtitle = (
+            "The candidate generation health check notifies users "
+            "if key criteria for candidate generation are missing. "
+        )
         title_status = "Success"
         level = AnalysisCardLevel.LOW
         if not self.can_generate_candidates:
-            subtitle = f"{self.REASON_PREFIX}{self.reason}"
+            subtitle += f"{self.REASON_PREFIX}{self.reason}"
             most_recent_run_time = max(
                 [
                     t.time_run_started
@@ -79,6 +82,8 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
                     level = AnalysisCardLevel.MID
                     title_status = "Warning"
                 subtitle += self.LAST_RUN_TEMPLATE.format(days=days_since_last_run)
+        else:
+            subtitle += f"{self.reason}"
 
         return HealthcheckAnalysisCard(
             name="CanGenerateCandidates",

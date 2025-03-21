@@ -45,7 +45,14 @@ class SearchSpaceSummary(Analysis):
             )
         return self._create_analysis_card(
             title=f"SearchSpaceSummary for `{experiment.name}`",
-            subtitle="High-level summary of the `Parameter`-s in this `Experiment`",
+            subtitle=(
+                "The search space summary provides an overview of all "
+                "parameters, including their names, types, and ranges or "
+                "categories. This holistic view provides quick understanding "
+                "on the parameters being optimized, allowing one to verify "
+                "and adjust the search space configuration for effective "
+                "exploration."
+            ),
             level=AnalysisCardLevel.MID,
             df=experiment.search_space.summary_df,
             category=AnalysisCardCategory.INFO,
