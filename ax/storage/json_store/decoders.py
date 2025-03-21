@@ -34,7 +34,11 @@ from ax.storage.botorch_modular_registry import (
     REVERSE_INPUT_TRANSFORM_REGISTRY,
     REVERSE_OUTCOME_TRANSFORM_REGISTRY,
 )
-from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
+from ax.storage.transform_registry import (
+    DEPRECATED_TRANSFORMS,
+    REMOVED_TRANSFORMS,
+    REVERSE_TRANSFORM_REGISTRY,
+)
 from ax.utils.common.kwargs import warn_on_kwargs
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils_torch import torch_type_from_str
@@ -172,10 +176,26 @@ def trial_from_json(
 
 def transform_type_from_json(object_json: dict[str, Any]) -> type[Transform]:
     """Load the transform type from JSON."""
-    index_in_registry = object_json.pop("index_in_registry")
-    if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:
-        raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
-    return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
+    transform_type = object_json.pop("transform_type")
+    # As the encoder is implemented, this transform type will just be the
+    # name of the transform. However, the previous implementation utilized
+    # the str(transform_type), which produces a string including the
+    # module path. If this is the case, first we need to extract the class name.
+    if transform_type.startswith("<class '"):
+        # The string is "<class 'ax.modelbridge.transforms.transform_type'>".
+        transform_type = transform_type[:-2].split(".")[-1]
+    # Handle deprecated & removed transforms.
+    if transform_type in DEPRECATED_TRANSFORMS:
+        return DEPRECATED_TRANSFORMS[transform_type]
+    if transform_type in REMOVED_TRANSFORMS:
+        logger.exception(
+            f"Transform {transform_type} has been deprecated and removed from Ax. "
+            "We are unable to load this transform and will return the base "
+            "`Transform` class instead. The models on the loaded generation strategy "
+            "may not work correctly!"
+        )
+        return Transform
+    return REVERSE_TRANSFORM_REGISTRY[transform_type]
 
 
 def input_transform_type_from_json(object_json: dict[str, Any]) -> type[InputTransform]:

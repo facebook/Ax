@@ -61,7 +61,6 @@ from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
-from ax.storage.transform_registry import TRANSFORM_REGISTRY
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from ax.utils.testing.backend_simulator import (
@@ -415,8 +414,7 @@ def transform_type_to_dict(transform_type: type[Transform]) -> dict[str, Any]:
     """Convert a transform class to a dictionary."""
     return {
         "__type": "Type[Transform]",
-        "index_in_registry": TRANSFORM_REGISTRY[transform_type],
-        "transform_type": f"{transform_type}",
+        "transform_type": transform_type.__name__,
     }
 
 

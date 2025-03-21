@@ -24,6 +24,8 @@ from ax.generation_strategy.generation_node import GenerationNode, GenerationSte
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.registry import Generators
+from ax.modelbridge.transforms.log import Log
+from ax.modelbridge.transforms.one_hot import OneHot
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
@@ -895,7 +897,25 @@ class JSONStoreTest(TestCase):
                 {
                     "__type": "GeneratorSpec",
                     "model_enum": {"__type": "Generators", "name": "BOTORCH_MODULAR"},
-                    "model_kwargs": {},
+                    "model_kwargs": {
+                        "transforms": [
+                            {
+                                "__type": "Type[Transform]",
+                                "index_in_registry": 6,
+                                "transform_type": (
+                                    "<class 'ax.modelbridge.transforms"
+                                    ".one_hot.OneHot'>"
+                                ),
+                            },
+                            {
+                                "__type": "Type[Transform]",
+                                "index_in_registry": 5,
+                                "transform_type": (
+                                    "<class 'ax.modelbridge.transforms.log.Log'>"
+                                ),
+                            },
+                        ]
+                    },
                     "model_gen_kwargs": {
                         "model_gen_options": {
                             "optimizer_kwargs": {"num_restarts": 10},
@@ -938,6 +958,11 @@ class JSONStoreTest(TestCase):
         self.assertEqual(len(node.transition_criteria), 1)
         # Status quo is discarded, so we have 2 input constructors left.
         self.assertEqual(len(node.input_constructors), 2)
+        # Check that transforms got correctly deserialized.
+        self.assertEqual(
+            node.model_specs[0].model_kwargs["transforms"],
+            [OneHot, Log],
+        )
 
     def test_SobolQMCNormalSampler(self) -> None:
         # This fails default equality checks, so testing it separately.

@@ -30,39 +30,32 @@ class TestTransformEncode(unittest.TestCase):
         super().setUp()
 
         self.deprecatedTestCases = [
-            (OrderedChoiceEncode, OrderedChoiceToIntegerRange, 7),
-            (ChoiceEncode, ChoiceToNumericChoice, 19),
-            (TaskEncode, TaskChoiceToIntTaskChoice, 13),
+            (OrderedChoiceEncode, OrderedChoiceToIntegerRange),
+            (ChoiceEncode, ChoiceToNumericChoice),
+            (TaskEncode, TaskChoiceToIntTaskChoice),
         ]
 
     def test_encode_and_decode_transform(self) -> None:
         with self.subTest("IntRangeToChoice"):
-            registry_index = 2
-
             transform_dict = transform_type_to_dict(IntRangeToChoice)
             self.assertEqual(transform_dict["__type"], "Type[Transform]")
-            self.assertEqual(transform_dict["index_in_registry"], registry_index)
             self.assertIn("IntRangeToChoice", transform_dict["transform_type"])
 
             decoded_transform_type = transform_type_from_json(transform_dict)
             self.assertEqual(decoded_transform_type, IntRangeToChoice)
 
         with self.subTest("MapKeyToFloat"):
-            registry_index = 31
-
             transform_dict = transform_type_to_dict(MapKeyToFloat)
             self.assertEqual(transform_dict["__type"], "Type[Transform]")
-            self.assertEqual(transform_dict["index_in_registry"], registry_index)
             self.assertIn("MapKeyToFloat", transform_dict["transform_type"])
 
             decoded_transform_type = transform_type_from_json(transform_dict)
             self.assertEqual(decoded_transform_type, MapKeyToFloat)
 
     def test_encode_and_decode_deprecated_transforms(self) -> None:
-        for deprecated_type, current_type, registry_index in self.deprecatedTestCases:
+        for deprecated_type, current_type in self.deprecatedTestCases:
             transform_dict = transform_type_to_dict(deprecated_type)
             self.assertEqual(transform_dict["__type"], "Type[Transform]")
-            self.assertEqual(transform_dict["index_in_registry"], registry_index)
             self.assertIn(deprecated_type.__name__, transform_dict["transform_type"])
 
             decoded_transform_type = transform_type_from_json(transform_dict)
