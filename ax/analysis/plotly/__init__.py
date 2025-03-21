@@ -14,6 +14,7 @@ from ax.analysis.plotly.scatter import ScatterPlot
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
 from ax.analysis.plotly.surface.contour import ContourPlot
 from ax.analysis.plotly.surface.slice import SlicePlot
+from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 
 __all__ = [
     "ContourPlot",
@@ -26,4 +27,5 @@ __all__ = [
     "ScatterPlot",
     "SensitivityAnalysisPlot",
     "SlicePlot",
+    "TopSurfacesAnalysis",
 ]
