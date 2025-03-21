@@ -56,7 +56,7 @@ class TestInteractionPlot(TestCase):
         with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
             analysis.compute()
 
-        card = analysis.compute(
+        (card,) = analysis.compute(
             experiment=self.client.experiment,
             generation_strategy=self.client.generation_strategy,
         )

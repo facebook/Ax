@@ -6,11 +6,13 @@
 # pyre-strict
 import json
 from enum import IntEnum
+from typing import Sequence
 
 from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
+from pyre_extensions import override
 
 
 class HealthcheckStatus(IntEnum):
@@ -31,9 +33,10 @@ class HealthcheckAnalysis(Analysis):
     An analysis that performs a health check.
     """
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> HealthcheckAnalysisCard: ...
+    ) -> Sequence[HealthcheckAnalysisCard]: ...

@@ -6,6 +6,7 @@
 # pyre-strict
 
 import json
+from typing import Sequence
 
 import pandas as pd
 
@@ -24,7 +25,7 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.derelativize import Derelativize
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, override
 
 
 class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
@@ -42,12 +43,13 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         """
         self.prob_threshold = prob_threshold
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> HealthcheckAnalysisCard:
+    ) -> Sequence[HealthcheckAnalysisCard]:
         r"""
         Compute the feasibility of the constraints for the experiment.
 
@@ -75,30 +77,34 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
 
         if experiment.optimization_config is None:
             subtitle = "No optimization config is specified."
-            return HealthcheckAnalysisCard(
-                name="ConstraintsFeasibility",
-                title=f"Ax Constraints Feasibility {title_status}",
-                blob=json.dumps({"status": status}),
-                subtitle=subtitle,
-                df=df,
-                level=level,
-                category=category,
-            )
+            return [
+                HealthcheckAnalysisCard(
+                    name="ConstraintsFeasibility",
+                    title=f"Ax Constraints Feasibility {title_status}",
+                    blob=json.dumps({"status": status}),
+                    subtitle=subtitle,
+                    df=df,
+                    level=level,
+                    category=category,
+                )
+            ]
 
         if (
             experiment.optimization_config.outcome_constraints is None
             or len(experiment.optimization_config.outcome_constraints) == 0
         ):
             subtitle = "No constraints are specified."
-            return HealthcheckAnalysisCard(
-                name="ConstraintsFeasibility",
-                title=f"Ax Constraints Feasibility {title_status}",
-                blob=json.dumps({"status": status}),
-                subtitle=subtitle,
-                df=df,
-                level=level,
-                category=category,
-            )
+            return [
+                HealthcheckAnalysisCard(
+                    name="ConstraintsFeasibility",
+                    title=f"Ax Constraints Feasibility {title_status}",
+                    blob=json.dumps({"status": status}),
+                    subtitle=subtitle,
+                    df=df,
+                    level=level,
+                    category=category,
+                )
+            ]
 
         adapter = get_adapter(
             analysis_name=self.name,
@@ -135,15 +141,17 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
                 "status",
             ] = status
 
-        return HealthcheckAnalysisCard(
-            name="ConstraintsFeasibility",
-            title=f"Ax Constraints Feasibility {title_status}",
-            blob=json.dumps({"status": status}),
-            subtitle=subtitle,
-            df=df,
-            level=level,
-            category=category,
-        )
+        return [
+            HealthcheckAnalysisCard(
+                name="ConstraintsFeasibility",
+                title=f"Ax Constraints Feasibility {title_status}",
+                blob=json.dumps({"status": status}),
+                subtitle=subtitle,
+                df=df,
+                level=level,
+                category=category,
+            )
+        ]
 
 
 def constraints_feasibility(

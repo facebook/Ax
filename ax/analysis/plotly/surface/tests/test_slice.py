@@ -50,7 +50,7 @@ class TestSlicePlot(TestCase):
         with self.assertRaisesRegex(UserInputError, "requires a GenerationStrategy"):
             analysis.compute(experiment=self.client.experiment)
 
-        card = analysis.compute(
+        (card,) = analysis.compute(
             experiment=self.client.experiment,
             generation_strategy=self.client.generation_strategy,
         )

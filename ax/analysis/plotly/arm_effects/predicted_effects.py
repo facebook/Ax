@@ -6,7 +6,7 @@
 # pyre-unsafe
 
 from itertools import chain
-from typing import Any
+from typing import Any, Sequence
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
@@ -25,7 +25,7 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.derelativize import Derelativize
-from pyre_extensions import none_throws
+from pyre_extensions import none_throws, override
 
 
 class PredictedEffectsPlot(PlotlyAnalysis):
@@ -64,12 +64,13 @@ class PredictedEffectsPlot(PlotlyAnalysis):
         """
         self.metric_name = metric_name
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> PlotlyAnalysisCard:
+    ) -> Sequence[PlotlyAnalysisCard]:
         if experiment is None:
             raise UserInputError("PredictedEffectsPlot requires an Experiment.")
 
@@ -117,22 +118,24 @@ class PredictedEffectsPlot(PlotlyAnalysis):
         )
         nudge = get_nudge_value(metric_name=self.metric_name, experiment=experiment)
 
-        return self._create_plotly_analysis_card(
-            title=f"Predicted Effects for {self.metric_name}",
-            subtitle=(
-                "The predicted effects plot provides a visualization of the "
-                "estimated metric effects for each arm in the upcoming trial. "
-                "This plot helps in anticipating the potential outcomes and "
-                "performance of different arms based on the model's predictions. "
-                "Note that flat predictions across arms indicate that the model "
-                "has not picked up on sufficient signal in the data, and instead "
-                "is just predicting the mean."
-            ),
-            level=AnalysisCardLevel.HIGH + nudge,
-            df=df,
-            fig=fig,
-            category=AnalysisCardCategory.ACTIONABLE,
-        )
+        return [
+            self._create_plotly_analysis_card(
+                title=f"Predicted Effects for {self.metric_name}",
+                subtitle=(
+                    "The predicted effects plot provides a visualization of the "
+                    "estimated metric effects for each arm in the upcoming trial. "
+                    "This plot helps in anticipating the potential outcomes and "
+                    "performance of different arms based on the model's predictions. "
+                    "Note that flat predictions across arms indicate that the model "
+                    "has not picked up on sufficient signal in the data, and instead "
+                    "is just predicting the mean."
+                ),
+                level=AnalysisCardLevel.HIGH + nudge,
+                df=df,
+                fig=fig,
+                category=AnalysisCardCategory.ACTIONABLE,
+            )
+        ]
 
 
 def _prepare_data(

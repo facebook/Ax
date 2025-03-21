@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import Sequence
+
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
@@ -23,6 +25,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.prediction_utils import predict_at_point
 from plotly import graph_objects as go
+from pyre_extensions import override
 
 
 class ScatterPlot(PlotlyAnalysis):
@@ -76,12 +79,13 @@ class ScatterPlot(PlotlyAnalysis):
         self._fixed_features = fixed_features
         self._metric_name_mapping = metric_name_mapping
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> PlotlyAnalysisCard:
+    ) -> Sequence[PlotlyAnalysisCard]:
         if experiment is None:
             raise UserInputError("ScatterPlot requires an Experiment")
 
@@ -115,21 +119,23 @@ class ScatterPlot(PlotlyAnalysis):
             or False,
         )
 
-        return self._create_plotly_analysis_card(
-            title=f"Observed {x_metric_name} vs. {y_metric_name}",
-            subtitle=(
-                "The scatter plot displays individual data points "
-                "representing either observed or predicted values "
-                "from the model for two selected metrics. Each point on the plot "
-                "corresponds to an arm in a Trial. This visualization is particularly "
-                "useful for understanding the trade-off between two metrics in the "
-                "experiment."
-            ),
-            level=AnalysisCardLevel.HIGH,
-            df=df,
-            fig=fig,
-            category=AnalysisCardCategory.INSIGHT,
-        )
+        return [
+            self._create_plotly_analysis_card(
+                title=f"Observed {x_metric_name} vs. {y_metric_name}",
+                subtitle=(
+                    "The scatter plot displays individual data points "
+                    "representing either observed or predicted values "
+                    "from the model for two selected metrics. Each point on the plot "
+                    "corresponds to an arm in a Trial. This visualization is "
+                    "particularly useful for understanding the trade-off between two "
+                    "metrics in the experiment."
+                ),
+                level=AnalysisCardLevel.HIGH,
+                df=df,
+                fig=fig,
+                category=AnalysisCardCategory.INSIGHT,
+            )
+        ]
 
 
 def scatter_plot(
@@ -164,7 +170,7 @@ def scatter_plot(
     """
     # returning as a list enables easier UX for displaying the cards in a notebook
     return [
-        ScatterPlot(
+        *ScatterPlot(
             x_metric_name=x_metric_name,
             y_metric_name=y_metric_name,
             show_pareto_frontier=False,  # Not supported for adhoc use

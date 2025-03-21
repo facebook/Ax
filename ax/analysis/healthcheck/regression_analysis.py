@@ -6,6 +6,7 @@
 # pyre-strict
 
 import json
+from typing import Sequence
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
@@ -21,7 +22,7 @@ from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from pyre_extensions import none_throws
+from pyre_extensions import none_throws, override
 
 
 class RegressionAnalysis(HealthcheckAnalysis):
@@ -45,12 +46,13 @@ class RegressionAnalysis(HealthcheckAnalysis):
         """
         self.prob_threshold = prob_threshold
 
+    @override
     def compute(
         self,
         experiment: Experiment | None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> HealthcheckAnalysisCard:
+    ) -> Sequence[HealthcheckAnalysisCard]:
         r"""
         Detect the regressing arms for all trials that have data.
 
@@ -110,15 +112,17 @@ class RegressionAnalysis(HealthcheckAnalysis):
             subtitle = subtitle_base + "No metric regessions detected."
             title_status = "Success"
 
-        return HealthcheckAnalysisCard(
-            name="RegressionAnalysis",
-            title=f"Ax Regression Analysis {title_status}",
-            blob=json.dumps({"status": status}),
-            subtitle=subtitle,
-            df=df,
-            level=AnalysisCardLevel.LOW,
-            category=AnalysisCardCategory.DIAGNOSTIC,
-        )
+        return [
+            HealthcheckAnalysisCard(
+                name="RegressionAnalysis",
+                title=f"Ax Regression Analysis {title_status}",
+                blob=json.dumps({"status": status}),
+                subtitle=subtitle,
+                df=df,
+                level=AnalysisCardLevel.LOW,
+                category=AnalysisCardCategory.DIAGNOSTIC,
+            )
+        ]
 
 
 def process_regression_dict(

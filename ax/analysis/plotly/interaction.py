@@ -7,6 +7,7 @@
 
 
 from logging import Logger
+from typing import Sequence
 
 import pandas as pd
 import torch
@@ -40,7 +41,7 @@ from gpytorch.kernels import RBFKernel
 from gpytorch.priors import LogNormalPrior
 from plotly import express as px, graph_objects as go
 from plotly.subplots import make_subplots
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, override
 
 logger: Logger = get_logger(__name__)
 
@@ -87,12 +88,13 @@ class InteractionPlot(PlotlyAnalysis):
         self.seed = seed
         self.torch_device = torch_device
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> PlotlyAnalysisCard:
+    ) -> Sequence[PlotlyAnalysisCard]:
         """
         Compute Sobol index sensitivity for one metric of an experiment. Sensitivity
         is comptuted by component, where a compoent may be either one variable
@@ -264,14 +266,16 @@ class InteractionPlot(PlotlyAnalysis):
             "the experiment's results."
         )
 
-        return self._create_plotly_analysis_card(
-            title=f"Interaction Analysis for {metric_name}",
-            subtitle=subtitle,
-            level=AnalysisCardLevel.MID,
-            df=sensitivity_df,
-            fig=fig,
-            category=AnalysisCardCategory.INSIGHT,
-        )
+        return [
+            self._create_plotly_analysis_card(
+                title=f"Interaction Analysis for {metric_name}",
+                subtitle=subtitle,
+                level=AnalysisCardLevel.MID,
+                df=sensitivity_df,
+                fig=fig,
+                category=AnalysisCardCategory.INSIGHT,
+            )
+        ]
 
     def _get_oak_model(self, experiment: Experiment, metric_name: str) -> TorchAdapter:
         """
