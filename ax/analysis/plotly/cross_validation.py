@@ -6,6 +6,8 @@
 # pyre-strict
 
 
+from typing import Sequence
+
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
@@ -91,7 +93,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> PlotlyAnalysisCard:
+    ) -> Sequence[PlotlyAnalysisCard]:
         adapter_for_analysis = get_adapter(
             analysis_name=self.name,
             experiment=experiment,
@@ -136,27 +138,29 @@ class CrossValidationPlot(PlotlyAnalysis):
                 "used for validation"
             )
         )
-        return self._create_plotly_analysis_card(
-            title=f"Cross Validation for {metric_title}",
-            subtitle=(
-                "The cross-validation plot displays the model fit for each "
-                f"metric in the experiment. It employs a {k_folds_substring} "
-                f"approach, where {cv_description}. The plot shows the "
-                "predicted outcome for the validation set on the y-axis against "
-                "its actual value on the x-axis. Points that align closely with "
-                "the dotted diagonal line indicate a strong model fit, signifying "
-                "accurate predictions. Additionally, the plot includes 95% "
-                "confidence intervals that provide insight into the noise in "
-                "observations and the uncertainty in model predictions. A "
-                "horizontal, flat line of predictions indicates that the model "
-                "has not picked up on sufficient signal in the data, and instead "
-                "is just predicting the mean."
-            ),
-            level=AnalysisCardLevel.LOW.value + nudge,
-            df=df,
-            fig=fig,
-            category=AnalysisCardCategory.INSIGHT,
-        )
+        return [
+            self._create_plotly_analysis_card(
+                title=f"Cross Validation for {metric_title}",
+                subtitle=(
+                    "The cross-validation plot displays the model fit for each "
+                    f"metric in the experiment. It employs a {k_folds_substring} "
+                    f"approach, where {cv_description}. The plot shows the "
+                    "predicted outcome for the validation set on the y-axis against "
+                    "its actual value on the x-axis. Points that align closely with "
+                    "the dotted diagonal line indicate a strong model fit, signifying "
+                    "accurate predictions. Additionally, the plot includes 95% "
+                    "confidence intervals that provide insight into the noise in "
+                    "observations and the uncertainty in model predictions. A "
+                    "horizontal, flat line of predictions indicates that the model "
+                    "has not picked up on sufficient signal in the data, and instead "
+                    "is just predicting the mean."
+                ),
+                level=AnalysisCardLevel.LOW.value + nudge,
+                df=df,
+                fig=fig,
+                category=AnalysisCardCategory.INSIGHT,
+            )
+        ]
 
 
 def cross_validation_adhoc_compute(
@@ -208,7 +212,7 @@ def cross_validation_adhoc_compute(
             else metric_name
         )
         plots.append(
-            CrossValidationPlot(
+            *CrossValidationPlot(
                 metric_name=metric_name,
                 folds=folds,
                 untransform=untransform,

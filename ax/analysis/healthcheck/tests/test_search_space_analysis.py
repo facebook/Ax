@@ -32,7 +32,7 @@ class TestSearchSpaceAnalysis(TestCase):
         ]
         experiment.new_batch_trial(generator_run=GeneratorRun(arms=arms))
         ssa = SearchSpaceAnalysis(trial_index=0)
-        card = ssa.compute(experiment=experiment)
+        (card,) = ssa.compute(experiment=experiment)
 
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
@@ -56,7 +56,7 @@ class TestSearchSpaceAnalysis(TestCase):
         ]
         experiment.new_batch_trial(generator_run=GeneratorRun(arms=arms))
         ssa = SearchSpaceAnalysis(trial_index=1)
-        card = ssa.compute(experiment=experiment)
+        (card,) = ssa.compute(experiment=experiment)
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.name, "SearchSpaceAnalysis")
         self.assertEqual(card.title, "Ax Search Space Analysis Success")
@@ -77,7 +77,7 @@ class TestSearchSpaceAnalysis(TestCase):
         ]
         experiment.new_batch_trial(generator_run=GeneratorRun(arms=arms))
         ssa = SearchSpaceAnalysis(trial_index=2)
-        card = ssa.compute(experiment=experiment)
+        (card,) = ssa.compute(experiment=experiment)
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.name, "SearchSpaceAnalysis")
         self.assertEqual(card.title, "Ax Search Space Analysis Warning")

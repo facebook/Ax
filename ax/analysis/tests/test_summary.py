@@ -50,7 +50,7 @@ class TestSummary(TestCase):
             analysis.compute()
 
         experiment = client._experiment
-        card = analysis.compute(experiment=experiment)
+        (card,) = analysis.compute(experiment=experiment)
 
         # Test metadata
         self.assertEqual(card.name, "Summary")
@@ -107,7 +107,7 @@ class TestSummary(TestCase):
 
         # Test without omitting empty columns
         analysis_no_omit = Summary(omit_empty_columns=False)
-        card_no_omit = analysis_no_omit.compute(experiment=experiment)
+        (card_no_omit,) = analysis_no_omit.compute(experiment=experiment)
         self.assertEqual(
             {*card_no_omit.df.columns},
             {

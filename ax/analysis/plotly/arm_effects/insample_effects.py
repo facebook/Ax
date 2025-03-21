@@ -7,6 +7,7 @@
 
 from itertools import chain
 from logging import Logger
+from typing import Sequence
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
@@ -26,7 +27,7 @@ from ax.modelbridge.base import Adapter
 from ax.modelbridge.registry import Generators
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.utils.common.logger import get_logger
-from pyre_extensions import none_throws
+from pyre_extensions import none_throws, override
 
 logger: Logger = get_logger(__name__)
 
@@ -73,12 +74,13 @@ class InSampleEffectsPlot(PlotlyAnalysis):
         self.trial_index = trial_index
         self.use_modeled_effects = use_modeled_effects
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> PlotlyAnalysisCard:
+    ) -> Sequence[PlotlyAnalysisCard]:
         if experiment is None:
             raise UserInputError("InSampleEffectsPlot requires an Experiment.")
 
@@ -128,18 +130,19 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             "perfectly match raw observations."
         )
 
-        card = self._create_plotly_analysis_card(
-            title=(
-                f"{self._plot_type_string} Effects for {self.metric_name} "
-                f"on trial {self.trial_index}"
-            ),
-            subtitle=subtitle,
-            level=AnalysisCardLevel.MID + nudge,
-            df=df,
-            fig=fig,
-            category=AnalysisCardCategory.INSIGHT,
-        )
-        return card
+        return [
+            self._create_plotly_analysis_card(
+                title=(
+                    f"{self._plot_type_string} Effects for {self.metric_name} "
+                    f"on trial {self.trial_index}"
+                ),
+                subtitle=subtitle,
+                level=AnalysisCardLevel.MID + nudge,
+                df=df,
+                fig=fig,
+                category=AnalysisCardCategory.INSIGHT,
+            )
+        ]
 
     @property
     def name(self) -> str:

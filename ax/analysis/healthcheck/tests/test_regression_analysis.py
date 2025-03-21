@@ -33,7 +33,7 @@ class TestRegressionAnalysis(TestCase):
 
         experiment.attach_data(Data(df=df))
         ra = RegressionAnalysis(prob_threshold=0.90)
-        card = ra.compute(experiment=experiment, generation_strategy=None)
+        (card,) = ra.compute(experiment=experiment, generation_strategy=None)
         self.assertEqual(card.name, "RegressionAnalysis")
         self.assertEqual(card.title, "Ax Regression Analysis Warning")
         self.assertTrue(
@@ -55,7 +55,7 @@ class TestRegressionAnalysis(TestCase):
         )
         experiment.attach_data(Data(df=df))
         ra = RegressionAnalysis(prob_threshold=0.90)
-        card = ra.compute(experiment=experiment, generation_strategy=None)
+        (card,) = ra.compute(experiment=experiment, generation_strategy=None)
         self.assertEqual(card.name, "RegressionAnalysis")
         self.assertEqual(card.title, "Ax Regression Analysis Success")
         self.assertEqual(

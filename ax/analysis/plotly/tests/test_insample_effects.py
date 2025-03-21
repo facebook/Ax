@@ -63,7 +63,7 @@ class TestInsampleEffectsPlot(TestCase):
             f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
-            card = analysis.compute(
+            (card,) = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
         # THEN it uses the model from the GS
@@ -106,7 +106,7 @@ class TestInsampleEffectsPlot(TestCase):
             f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
-            card = analysis.compute(
+            (card,) = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
         # THEN it uses the empirical bayes model
@@ -164,7 +164,7 @@ class TestInsampleEffectsPlot(TestCase):
             f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
-            card = analysis.compute(experiment=experiment, generation_strategy=None)
+            (card,) = analysis.compute(experiment=experiment, generation_strategy=None)
         # THEN it uses the empirical bayes model
         models_used_for_prediction = [
             call[1]["model"]._model_key for call in predict_at_point_spy.call_args_list
@@ -227,7 +227,7 @@ class TestInsampleEffectsPlot(TestCase):
             f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
-            card = analysis.compute(
+            (card,) = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
         # THEN it uses the thompson model
@@ -382,7 +382,7 @@ class TestInsampleEffectsPlot(TestCase):
                 f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
                 side_effect=lambda t: torch.as_tensor([[0.25]] * t.size()[0]).log(),
             ):
-                card = analysis.compute(
+                (card,) = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
             # THEN it marks that constraints are violated for the non-SQ arms
@@ -416,7 +416,7 @@ class TestInsampleEffectsPlot(TestCase):
                 f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
                 side_effect=lambda t: torch.as_tensor([[1]] * t.size()[0]).log(),
             ):
-                card = analysis.compute(
+                (card,) = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
             # THEN it marks that constraints are not violated
@@ -461,6 +461,6 @@ class TestInsampleEffectsPlot(TestCase):
                     trial_index=0,
                     use_modeled_effects=False,
                 )
-                card = analysis.compute(experiment=experiment)
+                (card,) = analysis.compute(experiment=experiment)
                 # THEN the card has the correct level
                 self.assertEqual(card.level, level)

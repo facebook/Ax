@@ -36,7 +36,7 @@ class TestScatterPlot(TestCase):
         with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
             analysis.compute()
 
-        card = analysis.compute(experiment=self.exp_w_trial_complete)
+        (card,) = analysis.compute(experiment=self.exp_w_trial_complete)
         self.assertEqual(card.name, "ScatterPlot")
         self.assertEqual(
             card.title, f"Observed {self.x_metric_name} vs. {self.y_metric_name}"
@@ -217,7 +217,7 @@ class TestScatterPlot(TestCase):
             y_metric_name=self.y_metric_name,
             show_pareto_frontier=True,
         )
-        card = analysis.compute(experiment=self.experiment)
+        (card,) = analysis.compute(experiment=self.experiment)
 
         # THEN it only has observations with data for both metrics
         self.assertEqual(

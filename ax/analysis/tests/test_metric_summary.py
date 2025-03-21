@@ -38,7 +38,7 @@ class TestMetricSummary(TestCase):
             analysis.compute()
 
         experiment = client._experiment
-        card = analysis.compute(experiment=experiment)
+        (card,) = analysis.compute(experiment=experiment)
 
         # Test metadata
         self.assertEqual(card.name, "MetricSummary")

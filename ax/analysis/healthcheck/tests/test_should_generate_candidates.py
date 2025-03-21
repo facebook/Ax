@@ -16,7 +16,7 @@ from ax.utils.common.testutils import TestCase
 class TestShouldGenerateCandidates(TestCase):
     def test_should(self) -> None:
         trial_index = randint(0, 10)
-        card = ShouldGenerateCandidates(
+        (card,) = ShouldGenerateCandidates(
             should_generate=True,
             reason="Something reassuring",
             trial_index=trial_index,
@@ -29,7 +29,7 @@ class TestShouldGenerateCandidates(TestCase):
 
     def test_should_not(self) -> None:
         trial_index = randint(0, 10)
-        card = ShouldGenerateCandidates(
+        (card,) = ShouldGenerateCandidates(
             should_generate=False,
             reason="Something concerning",
             trial_index=trial_index,

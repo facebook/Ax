@@ -50,7 +50,7 @@ class TestCrossValidationPlot(TestCase):
         with self.assertRaisesRegex(UserInputError, "requires a GenerationStrategy"):
             analysis.compute()
 
-        card = analysis.compute(generation_strategy=self.client.generation_strategy)
+        (card,) = analysis.compute(generation_strategy=self.client.generation_strategy)
         self.assertEqual(
             card.name,
             "CrossValidationPlot",
@@ -103,7 +103,7 @@ class TestCrossValidationPlot(TestCase):
             ):
                 analysis.compute(generation_strategy=self.client.generation_strategy)
         with self.subTest("infer from experiment"):
-            card = analysis.compute(
+            (card,) = analysis.compute(
                 generation_strategy=self.client.generation_strategy,
                 experiment=self.client.experiment,
             )
@@ -112,7 +112,7 @@ class TestCrossValidationPlot(TestCase):
 
     def test_it_can_specify_trial_index_correctly(self) -> None:
         analysis = CrossValidationPlot(metric_name="bar", trial_index=9)
-        card = analysis.compute(generation_strategy=self.client.generation_strategy)
+        (card,) = analysis.compute(generation_strategy=self.client.generation_strategy)
         for t in self.client.experiment.trials.values():
             # Skip the last trial because the model was used to generate it
             # and therefore hasn't observed it

@@ -23,7 +23,7 @@ class TestCanGenerateCandidates(TestCase):
     def test_passes_if_can_generate(self) -> None:
         # GIVEN we can generate candidates
         # WHEN we run the healthcheck
-        card = CanGenerateCandidatesAnalysis(
+        (card,) = CanGenerateCandidatesAnalysis(
             can_generate_candidates=True,
             reason="No problems found.",
             days_till_fail=0,
@@ -58,7 +58,7 @@ class TestCanGenerateCandidates(TestCase):
         trial.mark_running(no_runner_required=True)
         trial._time_run_started = datetime.now() - timedelta(days=1)
         # WHEN we run the healthcheck
-        card = CanGenerateCandidatesAnalysis(
+        (card,) = CanGenerateCandidatesAnalysis(
             can_generate_candidates=False,
             reason="The data is borked.",
             days_till_fail=2,
@@ -94,7 +94,7 @@ class TestCanGenerateCandidates(TestCase):
         trial = experiment.trials[0]
         self.assertEqual(trial.status, TrialStatus.CANDIDATE)
         # WHEN we run the healthcheck
-        card = CanGenerateCandidatesAnalysis(
+        (card,) = CanGenerateCandidatesAnalysis(
             can_generate_candidates=False,
             reason="The data is gone.",
             days_till_fail=2,
@@ -130,7 +130,7 @@ class TestCanGenerateCandidates(TestCase):
         trial._time_run_started = datetime.now() - timedelta(days=3)
         trial.mark_completed()
         # WHEN we run the healthcheck
-        card = CanGenerateCandidatesAnalysis(
+        (card,) = CanGenerateCandidatesAnalysis(
             can_generate_candidates=False,
             reason="The data is old.",
             days_till_fail=1,

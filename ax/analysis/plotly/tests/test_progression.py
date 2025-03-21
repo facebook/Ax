@@ -27,7 +27,7 @@ class TestProgression(TestCase):
             num_trials=2, num_fetches=5, num_complete=2
         )
 
-        card = analysis.compute(experiment=experiment)
+        (card,) = analysis.compute(experiment=experiment)
 
         self.assertEqual(card.name, "ProgressionPlot")
         self.assertEqual(card.title, "branin_map by progression")

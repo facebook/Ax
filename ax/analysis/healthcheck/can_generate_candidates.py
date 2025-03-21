@@ -7,6 +7,7 @@
 
 import json
 from datetime import datetime
+from typing import Sequence
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
@@ -19,7 +20,7 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from pyre_extensions import none_throws
+from pyre_extensions import none_throws, override
 
 
 class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
@@ -44,12 +45,13 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
         self.reason = reason
         self.days_till_fail = days_till_fail
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> HealthcheckAnalysisCard:
+    ) -> Sequence[HealthcheckAnalysisCard]:
         status = HealthcheckStatus.PASS
         subtitle = (
             "The candidate generation health check notifies users "
@@ -85,21 +87,23 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
         else:
             subtitle += f"{self.reason}"
 
-        return HealthcheckAnalysisCard(
-            name="CanGenerateCandidates",
-            title=f"Ax Candidate Generation {title_status}",
-            blob=json.dumps(
-                {
-                    "status": status,
-                }
-            ),
-            subtitle=subtitle,
-            df=pd.DataFrame(
-                {
-                    "status": [status],
-                    "reason": [self.reason],
-                }
-            ),
-            level=level,
-            category=AnalysisCardCategory.DIAGNOSTIC,
-        )
+        return [
+            HealthcheckAnalysisCard(
+                name="CanGenerateCandidates",
+                title=f"Ax Candidate Generation {title_status}",
+                blob=json.dumps(
+                    {
+                        "status": status,
+                    }
+                ),
+                subtitle=subtitle,
+                df=pd.DataFrame(
+                    {
+                        "status": [status],
+                        "reason": [self.reason],
+                    }
+                ),
+                level=level,
+                category=AnalysisCardCategory.DIAGNOSTIC,
+            )
+        ]
