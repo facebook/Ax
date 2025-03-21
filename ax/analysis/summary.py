@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import Sequence
+
 from ax.analysis.analysis import (
     Analysis,
     AnalysisCard,
@@ -15,6 +17,7 @@ from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
+from pyre_extensions import override
 
 
 class Summary(Analysis):
@@ -38,18 +41,22 @@ class Summary(Analysis):
     def __init__(self, omit_empty_columns: bool = True) -> None:
         self.omit_empty_columns = omit_empty_columns
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> AnalysisCard:
+    ) -> Sequence[AnalysisCard]:
         if experiment is None:
             raise UserInputError("`Summary` analysis requires an `Experiment` input")
-        return self._create_analysis_card(
-            title=f"Summary for {experiment.name}",
-            subtitle="High-level summary of the `Trial`-s in this `Experiment`",
-            level=AnalysisCardLevel.MID,
-            df=experiment.to_df(omit_empty_columns=self.omit_empty_columns),
-            category=AnalysisCardCategory.INFO,
-        )
+
+        return [
+            self._create_analysis_card(
+                title=f"Summary for {experiment.name}",
+                subtitle="High-level summary of the `Trial`-s in this `Experiment`",
+                level=AnalysisCardLevel.MID,
+                df=experiment.to_df(omit_empty_columns=self.omit_empty_columns),
+                category=AnalysisCardCategory.INFO,
+            )
+        ]

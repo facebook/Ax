@@ -85,8 +85,9 @@ class AnalysisBase(WithDBSettingsBase):
 
         # Turn Exceptions into MarkdownAnalysisCards with the traceback as the message
         cards = [
-            result.unwrap_or_else(markdown_analysis_card_from_analysis_e)
+            card
             for result in results
+            for card in result.unwrap_or_else(markdown_analysis_card_from_analysis_e)
         ]
 
         # Display the AnalysisCards if requested and if the user is in a notebook

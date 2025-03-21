@@ -5,6 +5,7 @@
 
 # pyre-strict
 from logging import Logger
+from typing import Sequence
 
 import numpy as np
 import plotly.express as px
@@ -20,7 +21,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.utils.common.logger import get_logger
 from plotly import graph_objects as go
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, override
 
 logger: Logger = get_logger(__name__)
 
@@ -55,12 +56,13 @@ class ProgressionPlot(PlotlyAnalysis):
         self._metric_name = metric_name
         self._by_wallclock_time = by_wallclock_time
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> PlotlyAnalysisCard:
+    ) -> Sequence[PlotlyAnalysisCard]:
         if experiment is None:
             raise UserInputError("ProgressionPlot requires an Experiment")
 
@@ -135,20 +137,22 @@ class ProgressionPlot(PlotlyAnalysis):
                 )
             )
 
-        return self._create_plotly_analysis_card(
-            title=f"{metric_name} by {x_axis_name.replace('_', ' ')}",
-            subtitle=(
-                "The progression plot tracks the evolution of each metric "
-                "over the course of the experiment. This visualization is "
-                "typically used to monitor the improvement of metrics over "
-                "Trial iterations, but can also be useful in informing decisions "
-                "about early stopping for Trials."
-            ),
-            level=AnalysisCardLevel.MID,
-            df=df,
-            fig=fig,
-            category=AnalysisCardCategory.INSIGHT,
-        )
+        return [
+            self._create_plotly_analysis_card(
+                title=f"{metric_name} by {x_axis_name.replace('_', ' ')}",
+                subtitle=(
+                    "The progression plot tracks the evolution of each metric "
+                    "over the course of the experiment. This visualization is "
+                    "typically used to monitor the improvement of metrics over "
+                    "Trial iterations, but can also be useful in informing decisions "
+                    "about early stopping for Trials."
+                ),
+                level=AnalysisCardLevel.MID,
+                df=df,
+                fig=fig,
+                category=AnalysisCardCategory.INSIGHT,
+            )
+        ]
 
 
 def _calculate_wallclock_timeseries(

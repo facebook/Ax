@@ -647,8 +647,9 @@ class Client(WithDBSettingsBase):
 
         # Turn Exceptions into MarkdownAnalysisCards with the traceback as the message
         cards = [
-            result.unwrap_or_else(markdown_analysis_card_from_analysis_e)
+            card
             for result in results
+            for card in result.unwrap_or_else(markdown_analysis_card_from_analysis_e)
         ]
 
         # Display the AnalysisCards if requested and if the user is in a notebook
@@ -683,14 +684,12 @@ class Client(WithDBSettingsBase):
             - **PARAMETER_NAME: The parameter value for the arm, for each parameter
         """
 
-        return (
-            Summary(omit_empty_columns=True)
-            .compute(
-                experiment=self._experiment,
-                generation_strategy=self._generation_strategy,
-            )
-            .df
+        (card,) = Summary(omit_empty_columns=True).compute(
+            experiment=self._experiment,
+            generation_strategy=self._generation_strategy,
         )
+
+        return card.df
 
     def get_best_parameterization(
         self, use_model_predictions: bool = True

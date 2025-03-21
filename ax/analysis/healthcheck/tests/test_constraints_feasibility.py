@@ -163,7 +163,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
     def test_compute(self) -> None:
         self.setUp()
         cfa = ConstraintsFeasibilityAnalysis()
-        card = cfa.compute(
+        (card,) = cfa.compute(
             experiment=self.experiment, generation_strategy=self.generation_strategy
         )
         self.assertEqual(card.name, "ConstraintsFeasibility")
@@ -191,7 +191,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         generation_strategy.experiment = experiment
         generation_strategy._curr._fit(experiment=experiment)
         cfa = ConstraintsFeasibilityAnalysis()
-        card = cfa.compute(
+        (card,) = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
         self.assertEqual(card.name, "ConstraintsFeasibility")
@@ -215,7 +215,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             outcome_constraints=[],
         )
         cfa = ConstraintsFeasibilityAnalysis()
-        card = cfa.compute(
+        (card,) = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
         self.assertEqual(card.name, "ConstraintsFeasibility")
@@ -227,7 +227,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
     def test_no_optimization_config(self) -> None:
         experiment = get_branin_experiment(has_optimization_config=False)
         cfa = ConstraintsFeasibilityAnalysis()
-        card = cfa.compute(experiment=experiment, generation_strategy=None)
+        (card,) = cfa.compute(experiment=experiment, generation_strategy=None)
         self.assertEqual(card.name, "ConstraintsFeasibility")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)

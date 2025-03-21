@@ -6,6 +6,7 @@
 # pyre-unsafe
 
 import json
+from typing import Sequence
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
@@ -18,6 +19,7 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
+from pyre_extensions import override
 
 
 class ShouldGenerateCandidates(HealthcheckAnalysis):
@@ -31,33 +33,36 @@ class ShouldGenerateCandidates(HealthcheckAnalysis):
         self.reason = reason
         self.trial_index = trial_index
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> HealthcheckAnalysisCard:
+    ) -> Sequence[HealthcheckAnalysisCard]:
         status = (
             HealthcheckStatus.PASS
             if self.should_generate
             else HealthcheckStatus.WARNING
         )
-        return HealthcheckAnalysisCard(
-            name=self.name,
-            title=f"Ready to Generate Candidates for Trial {self.trial_index}",
-            blob=json.dumps(
-                {
-                    "status": status,
-                }
-            ),
-            subtitle=self.reason,
-            df=pd.DataFrame(
-                {
-                    "status": [status],
-                    "reason": [self.reason],
-                }
-            ),
-            level=AnalysisCardLevel.CRITICAL,
-            attributes=self.attributes,
-            category=AnalysisCardCategory.DIAGNOSTIC,
-        )
+        return [
+            HealthcheckAnalysisCard(
+                name=self.name,
+                title=f"Ready to Generate Candidates for Trial {self.trial_index}",
+                blob=json.dumps(
+                    {
+                        "status": status,
+                    }
+                ),
+                subtitle=self.reason,
+                df=pd.DataFrame(
+                    {
+                        "status": [status],
+                        "reason": [self.reason],
+                    }
+                ),
+                level=AnalysisCardLevel.CRITICAL,
+                attributes=self.attributes,
+                category=AnalysisCardCategory.DIAGNOSTIC,
+            )
+        ]

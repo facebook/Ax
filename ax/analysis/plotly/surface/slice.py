@@ -6,6 +6,7 @@
 # pyre-strict
 
 import math
+from typing import Sequence
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
@@ -23,7 +24,7 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from plotly import express as px, graph_objects as go
-from pyre_extensions import none_throws
+from pyre_extensions import none_throws, override
 
 
 class SlicePlot(PlotlyAnalysis):
@@ -57,12 +58,13 @@ class SlicePlot(PlotlyAnalysis):
         self.metric_name = metric_name
         self._display_sampled = display_sampled
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> PlotlyAnalysisCard:
+    ) -> Sequence[PlotlyAnalysisCard]:
         if experiment is None:
             raise UserInputError("SlicePlot requires an Experiment")
 
@@ -91,22 +93,24 @@ class SlicePlot(PlotlyAnalysis):
             display_sampled=self._display_sampled,
         )
 
-        return self._create_plotly_analysis_card(
-            title=f"{self.parameter_name} vs. {metric_name}",
-            subtitle=(
-                "The slice plot provides a one-dimensional view of predicted "
-                f"outcomes for {metric_name} as a function of a single parameter, "
-                "while keeping all other parameters fixed at their status_quo "
-                "value (or mean value if status_quo is unavailable). "
-                "This visualization helps in understanding the sensitivity and "
-                "impact of changes in the selected parameter on the predicted "
-                "metric outcomes."
-            ),
-            level=AnalysisCardLevel.LOW,
-            df=df,
-            fig=fig,
-            category=AnalysisCardCategory.INSIGHT,
-        )
+        return [
+            self._create_plotly_analysis_card(
+                title=f"{self.parameter_name} vs. {metric_name}",
+                subtitle=(
+                    "The slice plot provides a one-dimensional view of predicted "
+                    f"outcomes for {metric_name} as a function of a single parameter, "
+                    "while keeping all other parameters fixed at their status_quo "
+                    "value (or mean value if status_quo is unavailable). "
+                    "This visualization helps in understanding the sensitivity and "
+                    "impact of changes in the selected parameter on the predicted "
+                    "metric outcomes."
+                ),
+                level=AnalysisCardLevel.LOW,
+                df=df,
+                fig=fig,
+                category=AnalysisCardCategory.INSIGHT,
+            )
+        ]
 
 
 def _prepare_data(

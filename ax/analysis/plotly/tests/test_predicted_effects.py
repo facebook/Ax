@@ -102,7 +102,7 @@ class TestPredictedEffectsPlot(TestCase):
             with self.subTest(metric=metric):
                 # WHEN we compute the analysis for a metric
                 analysis = PredictedEffectsPlot(metric_name=metric)
-                card = analysis.compute(
+                (card,) = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
                 # THEN it makes a card with the right name, title, and subtitle
@@ -185,7 +185,7 @@ class TestPredictedEffectsPlot(TestCase):
                 experiment.optimization_config
             ).objective.metric.name
         )
-        card = analysis.compute(
+        (card,) = analysis.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
         # THEN it has the right arms
@@ -240,7 +240,7 @@ class TestPredictedEffectsPlot(TestCase):
             f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
-            card = analysis.compute(
+            (card,) = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
         # THEN it has the right rows for arms with data, as well as the latest trial
@@ -297,7 +297,7 @@ class TestPredictedEffectsPlot(TestCase):
         arms_with_data = set(experiment.lookup_data().df["arm_name"].unique())
         # WHEN we compute the analysis
         analysis = PredictedEffectsPlot(metric_name="branin")
-        card = analysis.compute(
+        (card,) = analysis.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
         # THEN it has the right rows for arms with data, as well as the latest
@@ -341,7 +341,7 @@ class TestPredictedEffectsPlot(TestCase):
 
         # WHEN we compute the analysis
         analysis = PredictedEffectsPlot(metric_name="branin")
-        card = analysis.compute(
+        (card,) = analysis.compute(
             experiment=experiment,
             generation_strategy=generation_strategy,
         )
@@ -382,7 +382,7 @@ class TestPredictedEffectsPlot(TestCase):
                 f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
                 side_effect=lambda t: torch.as_tensor([[0.25]] * t.size()[0]).log(),
             ):
-                card = analysis.compute(
+                (card,) = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
             # THEN it marks that constraints are violated for the non-SQ arms
@@ -416,7 +416,7 @@ class TestPredictedEffectsPlot(TestCase):
                 f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
                 side_effect=lambda t: torch.as_tensor([[1]] * t.size()[0]).log(),
             ):
-                card = analysis.compute(
+                (card,) = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
             # THEN it marks that constraints are not violated

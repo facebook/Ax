@@ -6,7 +6,7 @@
 # pyre-strict
 
 import json
-from typing import Union
+from typing import Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -26,7 +26,7 @@ from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, override
 
 
 class SearchSpaceAnalysis(HealthcheckAnalysis):
@@ -52,12 +52,13 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
         self.trial_index = trial_index
         self.boundary_proportion_threshold = boundary_proportion_threshold
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> HealthcheckAnalysisCard:
+    ) -> Sequence[HealthcheckAnalysisCard]:
         if experiment is None:
             raise UserInputError("SearchSpaceAnalysis requires an Experiment.")
 
@@ -94,16 +95,18 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
         else:
             additional_subtitle = "Search space does not need to be updated."
 
-        return HealthcheckAnalysisCard(
-            name="SearchSpaceAnalysis",
-            title=f"Ax Search Space Analysis {title_status}",
-            blob=json.dumps({"status": status}),
-            subtitle=subtitle_base + additional_subtitle,
-            df=df,
-            level=level,
-            attributes={"trial_index": self.trial_index},
-            category=AnalysisCardCategory.DIAGNOSTIC,
-        )
+        return [
+            HealthcheckAnalysisCard(
+                name="SearchSpaceAnalysis",
+                title=f"Ax Search Space Analysis {title_status}",
+                blob=json.dumps({"status": status}),
+                subtitle=subtitle_base + additional_subtitle,
+                df=df,
+                level=level,
+                attributes={"trial_index": self.trial_index},
+                category=AnalysisCardCategory.DIAGNOSTIC,
+            )
+        ]
 
 
 def search_space_boundary_proportions(

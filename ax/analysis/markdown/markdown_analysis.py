@@ -7,6 +7,7 @@
 
 
 import traceback
+from typing import Sequence
 
 import pandas as pd
 from ax.analysis.analysis import (
@@ -20,6 +21,7 @@ from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from IPython.display import display, Markdown
+from pyre_extensions import override
 
 
 class MarkdownAnalysisCard(AnalysisCard):
@@ -42,12 +44,13 @@ class MarkdownAnalysis(Analysis):
     An Analysis that computes a paragraph of Markdown formatted text.
     """
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> MarkdownAnalysisCard: ...
+    ) -> Sequence[MarkdownAnalysisCard]: ...
 
     def _create_markdown_analysis_card(
         self,
@@ -76,20 +79,22 @@ class MarkdownAnalysis(Analysis):
 
 def markdown_analysis_card_from_analysis_e(
     analysis_e: AnalysisE,
-) -> MarkdownAnalysisCard:
-    return MarkdownAnalysisCard(
-        name=analysis_e.analysis.name,
-        title=f"{analysis_e.analysis.name} Error",
-        subtitle=f"An error occurred while computing {analysis_e.analysis}",
-        attributes=analysis_e.analysis.attributes,
-        blob="".join(
-            traceback.format_exception(
-                type(analysis_e.exception),
-                analysis_e.exception,
-                analysis_e.exception.__traceback__,
-            )
-        ),
-        df=pd.DataFrame(),
-        level=AnalysisCardLevel.DEBUG,
-        category=AnalysisCardCategory.ERROR,
-    )
+) -> list[MarkdownAnalysisCard]:
+    return [
+        MarkdownAnalysisCard(
+            name=analysis_e.analysis.name,
+            title=f"{analysis_e.analysis.name} Error",
+            subtitle=f"An error occurred while computing {analysis_e.analysis}",
+            attributes=analysis_e.analysis.attributes,
+            blob="".join(
+                traceback.format_exception(
+                    type(analysis_e.exception),
+                    analysis_e.exception,
+                    analysis_e.exception.__traceback__,
+                )
+            ),
+            df=pd.DataFrame(),
+            level=AnalysisCardLevel.DEBUG,
+            category=AnalysisCardCategory.ERROR,
+        )
+    ]

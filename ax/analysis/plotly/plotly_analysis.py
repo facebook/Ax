@@ -6,6 +6,8 @@
 # pyre-strict
 
 
+from typing import Sequence
+
 import pandas as pd
 from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
@@ -13,6 +15,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from IPython.display import display
 from plotly import graph_objects as go, io as pio
+from pyre_extensions import override
 
 
 class PlotlyAnalysisCard(AnalysisCard):
@@ -35,12 +38,13 @@ class PlotlyAnalysis(Analysis):
     An Analysis that computes a Plotly figure.
     """
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> PlotlyAnalysisCard: ...
+    ) -> Sequence[PlotlyAnalysisCard]: ...
 
     def _create_plotly_analysis_card(
         self,

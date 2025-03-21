@@ -11,7 +11,7 @@ import json
 from collections.abc import Iterable
 from enum import IntEnum
 from logging import Logger
-from typing import Any, Protocol
+from typing import Any, Protocol, Sequence
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -148,7 +148,7 @@ class Analysis(Protocol):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> AnalysisCard:
+    ) -> Sequence[AnalysisCard]:
         # Note: when implementing compute always prefer experiment.lookup_data() to
         # experiment.fetch_data() to avoid unintential data fetching within the report
         # generation.
@@ -158,7 +158,7 @@ class Analysis(Protocol):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
-    ) -> Result[AnalysisCard, AnalysisE]:
+    ) -> Result[Sequence[AnalysisCard], AnalysisE]:
         """
         Utility method to compute an AnalysisCard as a Result. This can be useful for
         computing many Analyses at once and handling Exceptions later.
