@@ -28,15 +28,6 @@ IRunner
     :show-inheritance:
 
 
-Utils
-~~~~~~~
-
-.. automodule:: ax.api.protocols.utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
 Client
 ~~~~~~
 
@@ -66,32 +57,6 @@ From Config
 ~~~~~~~~~~~
 
 .. automodule:: ax.api.utils.instantiation.from_config
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-From String
-~~~~~~~~~~~
-
-.. automodule:: ax.api.utils.instantiation.from_string
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Generation Strategy Dispatch
-~~~~~~~~~~~
-
-.. automodule:: ax.api.utils.generation_strategy_dispatch
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-
-Storage Utils
-~~~~~~~~~~~~~
-
-.. automodule:: ax.api.utils.storage
     :members:
     :undoc-members:
     :show-inheritance:

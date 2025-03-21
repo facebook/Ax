@@ -8,25 +8,7 @@ API Reference
 
 .. toctree::
    :maxdepth: 2
-
-   analysis
-   ax
-   benchmark
-   core
-   early_stopping
-   exceptions
-   global_stopping
-   health_check
-   metrics
-   modelbridge
-   models
-   plot
-   preview
-   runners
-   service
-   storage
-   telemetry
-   utils
+   api
 
 
 Indices and tables
