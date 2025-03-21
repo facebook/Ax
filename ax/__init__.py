@@ -6,70 +6,29 @@
 
 # pyre-strict
 
-from ax.core import (
-    Arm,
-    BatchTrial,
-    ChoiceParameter,
-    ComparisonOp,
-    Data,
-    Experiment,
-    FixedParameter,
-    GeneratorRun,
-    Metric,
-    MultiObjective,
-    MultiObjectiveOptimizationConfig,
-    Objective,
-    ObjectiveThreshold,
-    OptimizationConfig,
-    OrderConstraint,
-    OutcomeConstraint,
-    Parameter,
-    ParameterConstraint,
+from ax.api.client import Client
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    ExperimentConfig,
+    GenerationStrategyConfig,
+    OrchestrationConfig,
+    ParameterScaling,
     ParameterType,
-    RangeParameter,
-    Runner,
-    SearchSpace,
-    SumConstraint,
-    Trial,
+    RangeParameterConfig,
+    StorageConfig,
 )
-from ax.modelbridge import Generators
-from ax.service import OptimizationLoop, optimize
-from ax.storage import json_load, json_save
-
-try:
-    pass
-except Exception:  # pragma: no cover
-    __version__ = "Unknown"
-
+from ax.api.types import TOutcome, TParameterization
 
 __all__ = [
-    "Arm",
-    "BatchTrial",
-    "ChoiceParameter",
-    "ComparisonOp",
-    "Data",
-    "Experiment",
-    "FixedParameter",
-    "GeneratorRun",
-    "Metric",
-    "Generators",
-    "MultiObjective",
-    "MultiObjectiveOptimizationConfig",
-    "Objective",
-    "ObjectiveThreshold",
-    "OptimizationConfig",
-    "OptimizationLoop",
-    "OrderConstraint",
-    "OutcomeConstraint",
-    "Parameter",
-    "ParameterConstraint",
+    "Client",
+    "ChoiceParameterConfig",
+    "ExperimentConfig",
+    "GenerationStrategyConfig",
+    "OrchestrationConfig",
+    "ParameterScaling",
     "ParameterType",
-    "RangeParameter",
-    "Runner",
-    "SearchSpace",
-    "SumConstraint",
-    "Trial",
-    "optimize",
-    "json_save",
-    "json_load",
+    "RangeParameterConfig",
+    "StorageConfig",
+    "TOutcome",
+    "TParameterization",
 ]
