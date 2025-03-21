@@ -12,6 +12,9 @@ import inspect
 import logging
 from collections.abc import Iterable
 
+# Manual import to avoid strange error, see Diff for details.
+import ax.generation_strategy.generation_node_input_constructors  # noqa
+
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
