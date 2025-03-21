@@ -27,17 +27,17 @@ from pyre_extensions import assert_is_instance
 
 WIDTHS = [2.0, 4.0, 8.0]
 HEIGHTS = [4.0, 2.0, 8.0]
-STEPS_ENDS = [1, 5, 3]
+STEP_ENDS = [1, 5, 3]
 DEFAULT_MAP_KEY: str = MapMetric.map_key_info.key
 
 
 def _enumerate() -> Iterator[tuple[int, float, float, float]]:
     yield from (
         (trial_index, width, height, float(i + 1))
-        for trial_index, (width, height, steps_end) in enumerate(
-            zip(WIDTHS, HEIGHTS, STEPS_ENDS)
+        for trial_index, (width, height, step_end) in enumerate(
+            zip(WIDTHS, HEIGHTS, STEP_ENDS)
         )
-        for i in range(steps_end)
+        for i in range(step_end)
     )
 
 
@@ -72,13 +72,13 @@ class MapKeyToFloatTransformTest(TestCase):
         )
 
         self.observations = []
-        for trial_index, width, height, steps in _enumerate():
+        for trial_index, width, height, step in _enumerate():
             obs_feat = ObservationFeatures(
                 trial_index=trial_index,
                 parameters={"width": width, "height": height},
                 metadata={
                     "foo": 42,
-                    DEFAULT_MAP_KEY: steps,
+                    DEFAULT_MAP_KEY: step,
                 },
             )
             obs_data = ObservationData(
@@ -151,15 +151,55 @@ class MapKeyToFloatTransformTest(TestCase):
                     parameters={
                         "width": width,
                         "height": height,
-                        DEFAULT_MAP_KEY: steps,
+                        DEFAULT_MAP_KEY: step,
                     },
                     metadata={"foo": 42},
                 )
-                for trial_index, width, height, steps in _enumerate()
+                for trial_index, width, height, step in _enumerate()
             ],
         )
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
+
+    def test_TransformObservationFeaturesWithEmptyMetadata(self) -> None:
+        # undefined metadata
+        obsf = ObservationFeatures(
+            trial_index=42,
+            parameters={"width": 1.0, "height": 2.0},
+            metadata=None,
+        )
+        self.t.transform_observation_features([obsf])
+        self.assertEqual(
+            obsf,
+            ObservationFeatures(
+                trial_index=42,
+                parameters={
+                    "width": 1.0,
+                    "height": 2.0,
+                    DEFAULT_MAP_KEY: 5.0,
+                },
+                metadata={},
+            ),
+        )
+        # empty metadata
+        obsf = ObservationFeatures(
+            trial_index=42,
+            parameters={"width": 1.0, "height": 2.0},
+            metadata={},
+        )
+        self.t.transform_observation_features([obsf])
+        self.assertEqual(
+            obsf,
+            ObservationFeatures(
+                trial_index=42,
+                parameters={
+                    "width": 1.0,
+                    "height": 2.0,
+                    DEFAULT_MAP_KEY: 5.0,
+                },
+                metadata={},
+            ),
+        )
 
     def test_TransformObservationFeaturesWithEmptyParameters(self) -> None:
         obsf = ObservationFeatures(parameters={})
