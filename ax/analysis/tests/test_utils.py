@@ -20,7 +20,7 @@ class TestUtils(TestCase):
             {analysis.name for analysis in analyses},
             {
                 "ParallelCoordinatesPlot",
-                "InteractionPlot",
+                "TopSurfacesAnalysis",
                 "Summary",
                 "CrossValidationPlot",
             },
@@ -32,5 +32,5 @@ class TestUtils(TestCase):
         )
         self.assertEqual(
             {analysis.name for analysis in analyses},
-            {"InteractionPlot", "ScatterPlot", "Summary", "CrossValidationPlot"},
+            {"TopSurfacesAnalysis", "ScatterPlot", "Summary", "CrossValidationPlot"},
         )
