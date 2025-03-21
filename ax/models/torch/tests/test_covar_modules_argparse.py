@@ -92,6 +92,7 @@ class CovarModuleArgparseTest(TestCase):
                 "outputscale_prior_concentration": 2.0,
                 "outputscale_prior_rate": 0.15,
                 "batch_shape": torch.Size([2]),
+                "active_dims": None,
             },
             {
                 "ard_num_dims": 9,
@@ -100,6 +101,7 @@ class CovarModuleArgparseTest(TestCase):
                 "outputscale_prior_concentration": 2.0,
                 "outputscale_prior_rate": 0.15,
                 "batch_shape": torch.Size([]),
+                "active_dims": None,
             },
         ]
 

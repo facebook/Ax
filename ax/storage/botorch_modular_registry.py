@@ -76,6 +76,7 @@ from botorch.models.transforms.outcome import (
     ChainedOutcomeTransform,
     OutcomeTransform,
     Standardize,
+    StratifiedStandardize,
 )
 from botorch.sampling.normal import SobolQMCNormalSampler
 
@@ -194,6 +195,7 @@ Mapping of BoTorch `OutcomeTransform` classes to class name strings.
 OUTCOME_TRANSFORM_REGISTRY: dict[type[OutcomeTransform], str] = {
     ChainedOutcomeTransform: "ChainedOutcomeTransform",
     Standardize: "Standardize",
+    StratifiedStandardize: "StratifiedStandardize",
 }
 
 """

@@ -96,7 +96,7 @@ logger: Logger = get_logger(__name__)
 
 
 def _extract_model_kwargs(
-    search_space_digest: SearchSpaceDigest,
+    search_space_digest: SearchSpaceDigest, botorch_model_class: type[Model]
 ) -> dict[str, list[int] | int]:
     """
     Extracts keyword arguments that are passed to the `construct_inputs`
@@ -104,6 +104,7 @@ def _extract_model_kwargs(
 
     Args:
         search_space_digest: A `SearchSpaceDigest`.
+        botorch_model_class: The BoTorch model class to extract kwargs for.
 
     Returns:
         A dict of fidelity features, categorical features, and, if present, task
@@ -118,6 +119,10 @@ def _extract_model_kwargs(
         )
     if len(task_features) > 1:
         raise NotImplementedError("Multiple task features are not supported.")
+    elif len(task_features) == 0 and issubclass(botorch_model_class, MultiTaskGP):
+        # This is handled in Surrogate.model_selection and the MTGP will be
+        # skipped if there is no task feature.
+        raise ModelFittingError("Cannot fit MultiTaskGP without task feature.")
 
     kwargs: dict[str, list[int] | int] = {}
     if len(search_space_digest.categorical_features) > 0:
@@ -1401,8 +1406,17 @@ def _submodel_input_constructor_base(
         A dictionary of inputs for constructing the model.
     """
     model_kwargs_from_ss = _extract_model_kwargs(
-        search_space_digest=search_space_digest
+        search_space_digest=search_space_digest, botorch_model_class=botorch_model_class
     )
+    # pop task feature if this is not a multi-task model
+    task_feature = model_kwargs_from_ss.get("task_feature", None)
+    if not issubclass(botorch_model_class, MultiTaskGP):
+        if task_feature is not None:
+            model_kwargs_from_ss.pop("task_feature")
+            logger.debug(
+                f"Removing task feature for {botorch_model_class.__name__}",
+                stacklevel=5,
+            )
     formatted_model_inputs: dict[str, Any] = botorch_model_class.construct_inputs(
         training_data=dataset,
         **model_config.model_options,
