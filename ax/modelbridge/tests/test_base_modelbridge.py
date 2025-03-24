@@ -206,7 +206,7 @@ class BaseAdapterTest(TestCase):
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             optimization_config=None,
             pending_observations={},
-            fixed_features=None,
+            fixed_features=ObservationFeatures(parameters={}),
             model_gen_options=None,
         )
 
@@ -224,7 +224,7 @@ class BaseAdapterTest(TestCase):
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             optimization_config=oc2,
             pending_observations={},
-            fixed_features=None,
+            fixed_features=ObservationFeatures(parameters={}),
             model_gen_options=None,
         )
 
@@ -646,7 +646,7 @@ class BaseAdapterTest(TestCase):
             adapter,
             n=1,
             search_space=ss,
-            fixed_features=None,
+            fixed_features=ObservationFeatures(parameters={}),
             model_gen_options=None,
             optimization_config=OptimizationConfig(
                 objective=Objective(metric=Metric("test_metric"), minimize=False),
