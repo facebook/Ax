@@ -57,7 +57,7 @@ class BaseGenArgs:
     search_space: SearchSpace
     optimization_config: OptimizationConfig | None
     pending_observations: dict[str, list[ObservationFeatures]]
-    fixed_features: ObservationFeatures | None
+    fixed_features: ObservationFeatures
 
 
 @dataclass(frozen=True)
@@ -804,9 +804,12 @@ class Adapter:
                     )
             optimization_config = optimization_config.clone()
 
-        # TODO(T34225037): replace deepcopy with native clone() in Ax
         pending_observations = deepcopy(pending_observations)
-        fixed_features = deepcopy(fixed_features)
+        fixed_features = (
+            ObservationFeatures(parameters={})
+            if fixed_features is None
+            else fixed_features.clone()
+        )
         search_space = search_space.clone()
 
         # Transform
@@ -820,11 +823,7 @@ class Adapter:
                 )
             for metric, po in pending_observations.items():
                 pending_observations[metric] = t.transform_observation_features(po)
-            fixed_features = (
-                t.transform_observation_features([fixed_features])[0]
-                if fixed_features is not None
-                else None
-            )
+            (fixed_features,) = t.transform_observation_features([fixed_features])
         return BaseGenArgs(
             search_space=search_space,
             optimization_config=optimization_config,
