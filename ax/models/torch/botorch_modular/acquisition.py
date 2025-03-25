@@ -363,6 +363,28 @@ class Acquisition(Base):
             candidates, a tensor with the associated acquisition values, and a tensor
             with the weight for each candidate.
         """
+        # Options that would need to be passed in the transformed space are
+        # disallowed, since this would be very difficult for an end user to do
+        # directly, and someone who uses BoTorch at this level of detail would
+        # probably be better off using BoTorch directly.
+        # `return_best_only` and `return_full_tree` are disallowed because
+        # Ax expects `optimize_acqf` to return tensors of a certain shape.
+        if optimizer_options is not None:
+            forbidden_optimizer_options = [
+                "equality_constraints",
+                "inequality_constraints",
+                "nonlinear_inequality_constraints",
+                "batch_initial_conditions",
+                "return_best_only",
+                "return_full_tree",
+            ]
+
+            for kw in optimizer_options:
+                if kw in forbidden_optimizer_options:
+                    raise ValueError(
+                        f"Argument {kw} is not allowed in `optimizer_options`."
+                    )
+
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
         ssd = search_space_digest
         bounds = _tensorize(ssd.bounds).t()

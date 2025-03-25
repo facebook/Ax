@@ -394,6 +394,17 @@ class AcquisitionTest(TestCase):
                     optimizer_options=optimizer_options,
                 )
 
+        optimizer_options = {"batch_initial_conditions": None}
+        with self.subTest(optimizer_options=None), self.assertRaisesRegex(
+            ValueError, "Argument "
+        ):
+            acquisition.optimize(
+                n=n,
+                search_space_digest=ssd1,
+                rounding_func=self.rounding_func,
+                optimizer_options=optimizer_options,
+            )
+
         # check this works without any fixed_feature specified
         # 2 candidates have acqf value 8, but [1, 3, 4] is pending and thus should
         # not be selected. [2, 3, 4] is the best point, but has already been picked
