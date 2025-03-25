@@ -172,3 +172,7 @@ class AxStorageWarning(AxWarning):
 
 class AxParameterWarning(AxWarning):
     """Ax warning used for concerns related to parameter setups."""
+
+
+class BestPointValueError(AxError, ValueError):
+    """Raised for ValueErrors during best point determination."""

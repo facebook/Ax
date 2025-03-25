@@ -6,6 +6,7 @@
 # pyre-unsafe
 
 from ax.analysis.plotly.arm_effects.insample_effects import InSampleEffectsPlot
+from ax.analysis.plotly.arm_effects.optimization_trace import OptimizationTrace
 from ax.analysis.plotly.arm_effects.predicted_effects import PredictedEffectsPlot
 
-__all__ = ["PredictedEffectsPlot", "InSampleEffectsPlot"]
+__all__ = ["PredictedEffectsPlot", "InSampleEffectsPlot", "OptimizationTrace"]
