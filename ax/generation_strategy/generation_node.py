@@ -560,11 +560,9 @@ class GenerationNode(SerializationMixin, SortableBase):
             f"{fallback_model.model_enum}"
         )
 
-        # fit fallback model using information from `self.experiment`
-        # as ground truth
+        # Fit fallback model using information from the experiment as ground truth.
         fallback_model.fit(
-            experiment=self.experiment,
-            data=self.experiment.lookup_data(),
+            experiment=experiment,
             **self._get_model_state_from_last_generator_run(model_spec=fallback_model),
         )
         # Switch _model_spec_to_gen_from to a fallback spec
