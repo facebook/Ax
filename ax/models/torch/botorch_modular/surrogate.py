@@ -77,6 +77,7 @@ from botorch.settings import validate_input_scaling
 from botorch.utils.containers import SliceContainer
 from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
+from botorch.utils.evaluation import AIC, BIC, compute_in_sample_model_fit_metric, MLL
 from botorch.utils.transforms import normalize_indices
 from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels import Kernel
@@ -93,6 +94,12 @@ NOT_YET_FIT_MSG = (
 )
 
 logger: Logger = get_logger(__name__)
+MODEL_SELECTION_METRIC_DIRECTIONS: dict[str, ModelFitMetricDirection] = {
+    **DIAGNOSTIC_FN_DIRECTIONS,
+    MLL: ModelFitMetricDirection.MAXIMIZE,
+    AIC: ModelFitMetricDirection.MINIMIZE,
+    BIC: ModelFitMetricDirection.MINIMIZE,
+}
 
 
 def _extract_model_kwargs(
@@ -1080,10 +1087,13 @@ class Surrogate(Base):
             )
         # loop over model configs, fit model for each config, perform LOOCV, select
         # best model according to specified criterion
-        maximize = (
-            DIAGNOSTIC_FN_DIRECTIONS[self.surrogate_spec.eval_criterion]
-            == ModelFitMetricDirection.MAXIMIZE
-        )
+        if self.surrogate_spec.eval_criterion == "Joint log likelihood":
+            maximize = True
+        else:
+            maximize = (
+                MODEL_SELECTION_METRIC_DIRECTIONS[self.surrogate_spec.eval_criterion]
+                == ModelFitMetricDirection.MAXIMIZE
+            )
         prefix = "-" if maximize else ""
         best_eval_metric = float(f"{prefix}inf")
         best_model = None
@@ -1103,18 +1113,23 @@ class Surrogate(Base):
                 )
                 state_dict = model.state_dict()
                 # perform LOOCV
-                eval_metric = self.cross_validate(
-                    dataset=dataset,
-                    search_space_digest=search_space_digest,
-                    model_config=model_config,
-                    default_botorch_model_class=none_throws(
-                        default_botorch_model_class
-                    ),
-                    # pyre-fixme [6]: In call `Surrogate.cross_validate`, for argument
-                    # `state_dict`, expected `Optional[OrderedDict[str, Tensor]]` but
-                    # got `Dict[str, typing.Any]`.
-                    state_dict=state_dict,
-                )
+                if self.surrogate_spec.eval_criterion in (AIC, BIC, MLL):
+                    eval_metric = compute_in_sample_model_fit_metric(
+                        model=model, criterion=self.surrogate_spec.eval_criterion
+                    )
+                else:
+                    eval_metric = self.cross_validate(
+                        dataset=dataset,
+                        search_space_digest=search_space_digest,
+                        model_config=model_config,
+                        default_botorch_model_class=none_throws(
+                            default_botorch_model_class
+                        ),
+                        # pyre-fixme [6]: In call `Surrogate.cross_validate`, for
+                        # argument  `state_dict`, expected `Optional[OrderedDict[str,
+                        # Tensor]]` but got `Dict[str, typing.Any]`.
+                        state_dict=state_dict,
+                    )
             except ModelFittingError as e:
                 logger.info(
                     f"Model {model_config} failed to fit with error {e}. Skipping."
