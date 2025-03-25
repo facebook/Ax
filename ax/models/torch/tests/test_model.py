@@ -615,7 +615,6 @@ class BoTorchGeneratorTest(TestCase):
             torch.equal(ckwargs["X_baseline"], none_throws(expected_X_baseline))
         )
 
-        # Assert `construct_acquisition_and_optimizer_options` called with kwargs
         mock_construct_options.assert_called_with(
             acqf_options=self.acquisition_options,
             model_gen_options=self.model_gen_options,
