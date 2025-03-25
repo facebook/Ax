@@ -7,7 +7,12 @@
 
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 from ax.api.client import Client
-from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    ExperimentConfig,
+    ParameterType,
+    RangeParameterConfig,
+)
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -49,10 +54,13 @@ class TestTopSurfacesAnalysis(TestCase):
 
         analysis = TopSurfacesAnalysis(metric_name="bar", order="first")
 
+        with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
+            analysis.compute()
+
         with self.assertRaisesRegex(
             UserInputError, "requires either a TorchAdapter or a GenerationStrategy"
         ):
-            analysis.compute()
+            analysis.compute(experiment=client._experiment)
 
         cards = analysis.compute(
             experiment=client._experiment,
@@ -94,3 +102,47 @@ class TestTopSurfacesAnalysis(TestCase):
         self.assertIn("vs. bar", with_contours[1].title)
         self.assertIn("vs. bar", with_contours[2].title)
         self.assertIn("vs. bar", with_contours[3].title)
+
+    def test_compute_categorical_parameters(self) -> None:
+        client = Client()
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                name="foo",
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1",
+                        parameter_type=ParameterType.FLOAT,
+                        bounds=(0, 1),
+                    ),
+                    ChoiceParameterConfig(
+                        name="x2",
+                        parameter_type=ParameterType.INT,
+                        values=[*range(10)],
+                        is_ordered=False,
+                    ),
+                ],
+            )
+        )
+        client.configure_optimization(objective="bar")
+
+        for _ in range(6):
+            for trial_index, parameterization in client.get_next_trials().items():
+                client.complete_trial(
+                    trial_index=trial_index,
+                    raw_data={
+                        "bar": assert_is_instance(parameterization["x1"], float)
+                        - 2 * assert_is_instance(parameterization["x2"], int)
+                    },
+                )
+
+        analysis = TopSurfacesAnalysis(metric_name="bar")
+
+        cards = analysis.compute(
+            experiment=client._experiment,
+            generation_strategy=client._generation_strategy,
+        )
+
+        # Only plot x1 vs bar since x2 is categorical.
+        self.assertEqual(len(cards), 2)
+        self.assertEqual(cards[0].title, "Sensitivity Analysis for bar")
+        self.assertEqual(cards[1].title, "x1 vs. bar")
