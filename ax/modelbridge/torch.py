@@ -801,8 +801,6 @@ class TorchAdapter(Adapter):
         try:
             tobfs = np.array(
                 [
-                    # pyre-ignore[6]: Except statement below should catch wrongly
-                    # typed parameters.
                     [float(of.parameters[p]) for p in self.parameters]
                     for of in observation_features
                 ]
