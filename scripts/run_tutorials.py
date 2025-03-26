@@ -54,7 +54,9 @@ def run_tutorials(
         if len(tutorial_configs) == 0:
             raise RuntimeError(f"No tutorial found with name {name}.")
     # prepare paths for converted tutorials & files
-    env = {"SMOKE_TEST": "True"} if smoke_test else None
+    env = {"RUNNING_IN_PAPERMILL": "True"}
+    if smoke_test:
+        env["SMOKE_TEST"] = "True"
 
     for config in tutorial_configs:
         tid = config["id"]
