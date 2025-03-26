@@ -57,6 +57,12 @@ class PlotlyAnalysisCard(AnalysisCard):
             )
         )
 
+    def _body_papermill(self) -> go.Figure:
+        """
+        Return the Plotly figure directly to use the default renderer.
+        """
+        return self.get_figure()
+
 
 class PlotlyAnalysis(Analysis):
     """

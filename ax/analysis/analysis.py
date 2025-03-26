@@ -20,7 +20,9 @@ from ax.modelbridge.base import Adapter
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
-from IPython.display import display, HTML
+from ax.utils.tutorials.environment import is_running_in_papermill
+from IPython.display import display, DisplayObject, HTML, Markdown, TextDisplayObject
+from plotly import graph_objects as go
 
 logger: Logger = get_logger(__name__)
 
@@ -127,14 +129,27 @@ class AnalysisCard(Base):
         self.attributes = {} if attributes is None else attributes
         self.category = category
 
+    def _ipython_display_(self) -> None:
+        """
+        IPython display hook. This is called when the AnalysisCard is rendered in an
+        IPython environment (ex. Jupyter). This method should not be implemented by
+        subclasses; instead they should implement the representation-specific helpers
+        such as _body_html_ and _body_papermill_.
+        """
+
+        if is_running_in_papermill():
+            display(Markdown(f"**{self.title}**\n\n{self.subtitle}"))
+            display(self._body_papermill())
+            return
+
+        display(HTML(self._repr_html_()))
+
     def _repr_html_(self) -> str:
         """
         IPython HTML representation hook. This is called when the AnalysisCard is
         rendered in an IPython environment (ex. Jupyter). This method should be
         implemented by subclasses of Analysis to display the AnalysisCard in a useful
         way.
-
-        By default, this method displays the raw data in a pandas DataFrame.
         """
 
         return html_card_template.format(
@@ -151,9 +166,21 @@ class AnalysisCard(Base):
 
         This, not _repr_html_, should be implemented by subclasses of AnalysisCard in
         most cases.
+
+        By default, this method displays the raw data in a pandas DataFrame.
         """
 
         return f"<div class='content'>{self.df.to_html()}</div>"
+
+    def _body_papermill(self) -> DisplayObject | go.Figure:
+        """
+        Return the body of the AnalysisCard in a simplified format for when html is
+        undesirable.
+
+        By default, this method displays the raw data in a pandas DataFrame.
+        """
+
+        return TextDisplayObject(self.df)
 
 
 def display_cards(
@@ -194,6 +221,11 @@ def display_cards(
         )
         for card in group
     ]
+
+    if is_running_in_papermill():
+        for card in sorted_cards:
+            display(card)
+        return
 
     display(
         HTML(

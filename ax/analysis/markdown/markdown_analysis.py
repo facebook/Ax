@@ -22,6 +22,7 @@ from ax.analysis.analysis import (
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
+from IPython.display import Markdown
 from pyre_extensions import override
 
 
@@ -33,6 +34,9 @@ class MarkdownAnalysisCard(AnalysisCard):
 
     def _body_html(self) -> str:
         return f"<div class='content'>{markdown.markdown(self.get_markdown())}<div>"
+
+    def _body_papermill(self) -> Markdown:
+        return Markdown(self.get_markdown())
 
 
 class MarkdownAnalysis(Analysis):
