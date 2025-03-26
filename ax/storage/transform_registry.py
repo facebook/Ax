@@ -130,4 +130,4 @@ def register_transform(transform: type[Transform]) -> None:
     the core library should be added to the TRANSFORM_REGISTRY directly.
     """
     TRANSFORM_REGISTRY.add(transform)
-    REVERSE_TRANSFORM_REGISTRY[transform.__class__.__name__] = transform
+    REVERSE_TRANSFORM_REGISTRY[transform.__name__] = transform
