@@ -200,25 +200,6 @@ class AnalysisCard(Base):
         return TextDisplayObject(self.df)
 
 
-def display_cards(
-    cards: Iterable[AnalysisCard], minimum_level: int = AnalysisCardLevel.LOW
-) -> None:
-    """
-    Display a collection of AnalysisCards in IPython environments (ex. Jupyter).
-
-    Args:
-        cards: Collection of AnalysisCards to display.
-        minimum_level: Minimum level of cards to display.
-    """
-    # If we are running in papermill, display the cards one by one. Otherwise, generate
-    # and display the full HTML
-    if is_running_in_papermill():
-        for card in _group_and_sort_cards(cards=cards, minimum_level=minimum_level):
-            display(card)
-    else:
-        display(HTML(_generate_cards_html(cards, minimum_level)))
-
-
 def _group_and_sort_cards(
     cards: Iterable[AnalysisCard], minimum_level: int = AnalysisCardLevel.LOW
 ) -> list[AnalysisCard]:
