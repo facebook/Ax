@@ -9,6 +9,8 @@
 import traceback
 from typing import Sequence
 
+import markdown
+
 import pandas as pd
 from ax.analysis.analysis import (
     Analysis,
@@ -20,7 +22,6 @@ from ax.analysis.analysis import (
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from IPython.display import display, Markdown
 from pyre_extensions import override
 
 
@@ -30,13 +31,8 @@ class MarkdownAnalysisCard(AnalysisCard):
     def get_markdown(self) -> str:
         return self.blob
 
-    def _ipython_display_(self) -> None:
-        """
-        IPython display hook. This is called when the AnalysisCard is printed in an
-        IPython environment (ex. Jupyter). Here we want to render the Markdown.
-        """
-        self._display_header()
-        display(Markdown(self.blob))
+    def _body_html(self) -> str:
+        return f"<div class='content'>{markdown.markdown(self.get_markdown())}<div>"
 
 
 class MarkdownAnalysis(Analysis):
