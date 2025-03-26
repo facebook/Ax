@@ -22,7 +22,9 @@ from ax.benchmark.benchmark import (
     benchmark_replication,
     compute_baseline_value_from_sobol,
     compute_score_trace,
+    get_benchmark_result_with_cumulative_steps,
     get_benchmark_scheduler_options,
+    get_opt_trace_by_steps,
     get_oracle_experiment_from_params,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
@@ -1099,3 +1101,111 @@ class TestBenchmark(TestCase):
                 for params in best_params_list
             ]
             self.assertEqual(result.tolist(), expected_trace)
+
+    def test_get_opt_trace_by_cumulative_epochs(self) -> None:
+        # Time  | trial 0 | trial 1 | trial 2 | trial 3 | new steps
+        #  t=0  |   ..    |  start  |         |         |   0, 0
+        #  t=1  |         |    .    |  start  |         |   1
+        #  t=2  |         |    ..   |         |  start  |   1
+        #  t=3  |         |         |    .    |         |   2
+        #  t=4  |         |         |         |         |
+        #  t=5  |         |         |    ..   |    .    |   3, 2
+
+        # ...
+        problem = get_async_benchmark_problem(
+            map_data=True,
+            n_steps=2,
+            # Ensure we don't have two finishing at the same time, for
+            # determinism
+            step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
+        )
+        method = get_async_benchmark_method()
+
+        with self.subTest("Without early stopping"):
+            result = benchmark_replication(
+                problem=problem,
+                method=method,
+                seed=0,
+                scheduler_logging_level=WARNING,
+            )
+            new_opt_trace = get_opt_trace_by_steps(
+                experiment=none_throws(result.experiment)
+            )
+
+            self.assertEqual(
+                list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0]
+            )
+
+        with self.subTest("With early stopping"):
+            es_method = get_async_benchmark_method(
+                early_stopping_strategy=ThresholdEarlyStoppingStrategy(
+                    metric_threshold=10.0, min_progression=0, min_curves=2
+                )
+            )
+            result = benchmark_replication(
+                problem=problem,
+                method=es_method,
+                seed=0,
+                scheduler_logging_level=WARNING,
+            )
+            new_opt_trace = get_opt_trace_by_steps(
+                experiment=none_throws(result.experiment)
+            )
+            self.assertEqual(list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0])
+        return
+
+        with self.subTest("MOO"):
+            problem = get_multi_objective_benchmark_problem()
+            result = benchmark_replication(
+                problem=problem,
+                method=method,
+                seed=0,
+                scheduler_logging_level=WARNING,
+            )
+            with self.assertRaisesRegex(
+                NotImplementedError, "only supported for single objective"
+            ):
+                get_opt_trace_by_steps(experiment=none_throws(result.experiment))
+
+        with self.subTest("Constrained"):
+            problem = get_problem("constrained_gramacy_observed_noise")
+            result = benchmark_replication(
+                problem=problem,
+                method=method,
+                seed=0,
+                scheduler_logging_level=WARNING,
+            )
+            with self.assertRaisesRegex(
+                NotImplementedError,
+                "not supported for problems with outcome constraints",
+            ):
+                get_opt_trace_by_steps(experiment=none_throws(result.experiment))
+
+    def test_get_benchmark_result_with_cumulative_steps(self) -> None:
+        """See test_get_opt_trace_by_cumulative_epochs for more info."""
+        problem = get_async_benchmark_problem(
+            map_data=True,
+            n_steps=2,
+            # Ensure we don't have two finishing at the same time, for
+            # determinism
+            step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
+        )
+        method = get_async_benchmark_method()
+        result = benchmark_replication(problem=problem, method=method, seed=0)
+        transformed = get_benchmark_result_with_cumulative_steps(
+            result=result,
+            optimal_value=problem.optimal_value,
+            baseline_value=problem.baseline_value,
+        )
+        map_df = assert_is_instance(
+            none_throws(result.experiment).lookup_data(), MapData
+        ).map_df
+        self.assertEqual(len(map_df), len(transformed.optimization_trace))
+        self.assertEqual(
+            list(transformed.optimization_trace),
+            [0.0, 0.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0],
+        )
+        self.assertTrue(np.isnan(transformed.oracle_trace).all())
+        self.assertTrue(np.isnan(transformed.inference_trace).all())
+        self.assertEqual(transformed.score_trace.max(), result.score_trace.max())
+        self.assertLessEqual(transformed.score_trace.min(), result.score_trace.min())

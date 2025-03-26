@@ -21,12 +21,14 @@ Key terms used:
 
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import replace
 from itertools import product
 from logging import Logger, WARNING
 from time import monotonic, time
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
@@ -35,9 +37,11 @@ from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.methods.sobol import get_sobol_generation_strategy
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
+from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
+from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TParamValue
 from ax.core.utils import get_model_times
@@ -46,7 +50,7 @@ from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -612,3 +616,102 @@ def benchmark_multiple_problems_methods(
         )
         for p, m in product(problems, methods)
     ]
+
+
+def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
+    """
+    Transform an optimization trace in the standard format produced by
+    `benchmark_replication`, with one element per trial completion, into a trace
+    that is in terms of steps, with one element added each time a step
+    completes.
+
+    Args:
+        experiment: An experiment produced by `benchmark_replication`; it must
+            have `BenchmarkTrialMetadata` (as produced by `BenchmarkRunner`) for
+            each trial, and its data must be `MapData`.
+    """
+    optimization_config = none_throws(experiment.optimization_config)
+
+    if optimization_config.is_moo_problem:
+        raise NotImplementedError(
+            "Cumulative epochs only supported for single objective problems."
+        )
+    if len(optimization_config.outcome_constraints) > 0:
+        raise NotImplementedError(
+            "Cumulative epochs not supported for problems with outcome constraints."
+        )
+
+    objective_name = optimization_config.objective.metric.name
+    data = assert_is_instance(experiment.lookup_data(), MapData)
+    map_key = data.map_key_infos[0].key
+    map_df = data.map_df
+    if len(data.map_key_infos) > 1:
+        raise ValueError("Multiple map keys are not supported")
+
+    # Has timestamps; needs to be merged with map_df because it contains
+    # data on epochs that didn't actually run due to early stopping, and we need
+    # to know which actually ran
+    def _get_df(trial: Trial) -> pd.DataFrame:
+        """
+        Get the (virtual) time each epoch finished at.
+        """
+        metadata = trial.run_metadata["benchmark_metadata"]
+        backend_simulator = none_throws(metadata.backend_simulator)
+        # Data for the first metric, which is the only metric
+        df = next(iter(metadata.dfs.values()))
+        start_time = backend_simulator.get_sim_trial_by_index(
+            trial.index
+        ).sim_start_time
+        df["time"] = df["virtual runtime"] + start_time
+        return df
+
+    with_timestamps = pd.concat(
+        (
+            _get_df(trial=assert_is_instance(trial, Trial))
+            for trial in experiment.trials.values()
+        ),
+        axis=0,
+        ignore_index=True,
+    )[["trial_index", map_key, "time"]]
+
+    df = (
+        map_df.loc[
+            map_df["metric_name"] == objective_name,
+            ["trial_index", "arm_name", "mean", map_key],
+        ]
+        .merge(with_timestamps, how="left")
+        .sort_values("time", ignore_index=True)
+    )
+    return (
+        df["mean"].cummin()
+        if optimization_config.objective.minimize
+        else df["mean"].cummax()
+    ).to_numpy()
+
+
+def get_benchmark_result_with_cumulative_steps(
+    result: BenchmarkResult,
+    optimal_value: float,
+    baseline_value: float,
+) -> BenchmarkResult:
+    """
+    Replaces the cost trace with the cumulative number of steps run and
+    recomputes the optimization trace accordingly, using
+    `get_opt_trace_by_steps`.
+    """
+
+    experiment = none_throws(result.experiment)
+    opt_trace = get_opt_trace_by_steps(experiment=experiment)
+    return replace(
+        result,
+        optimization_trace=opt_trace,
+        cost_trace=np.arange(1, len(opt_trace) + 1, dtype=int),
+        # Empty
+        oracle_trace=np.full(len(opt_trace), np.nan),
+        inference_trace=np.full(len(opt_trace), np.nan),
+        score_trace=compute_score_trace(
+            optimization_trace=opt_trace,
+            baseline_value=baseline_value,
+            optimal_value=optimal_value,
+        ),
+    )
