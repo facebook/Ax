@@ -43,6 +43,11 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> Sequence[PlotlyAnalysisCard]:
+        if experiment is None:
+            raise UserInputError("TopSurfacesAnalysis requires an Experiment.")
+
+        # Choose the relevant Adapter. Prefer the passed in Adapter, or fall back to
+        # the generation strategy's current Adapter.
         if adapter is not None:
             relevant_adapter = adapter
 
@@ -78,13 +83,21 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
             adapter=adapter,
         )
 
-        top_surfaces = (
-            sensitivity_analysis_card.df.sort_values(
-                by="sensitivity", key=abs, ascending=False
+        # Process the sensitivity analysis card to find the top K surfaces which
+        # consist exclusively of tunable parameters (i.e. no fixed parameters, task
+        # parameters, or OneHot parameters).
+        sensitivity_df = sensitivity_analysis_card.df.copy()
+        filtered_df = sensitivity_df[
+            sensitivity_df["parameter_name"].apply(
+                lambda x: all(
+                    name in experiment.search_space.tunable_parameters
+                    for name in x.split(" & ")
+                )
             )
-            .head(self.top_k)["parameter_name"]
-            .to_list()
-        )
+        ]
+        sorted_df = filtered_df.sort_values(by="sensitivity", key=abs, ascending=False)
+        top_k = sorted_df.head(self.top_k)
+        top_surfaces = top_k["parameter_name"].to_list()
 
         surface_cards = [
             _compute_surface_plot(
