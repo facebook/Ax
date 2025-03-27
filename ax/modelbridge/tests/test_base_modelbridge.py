@@ -569,17 +569,6 @@ class BaseAdapterTest(TestCase):
         with self.assertRaises(NotImplementedError):
             adapter.transform_observations([])
 
-    @mock.patch(
-        "ax.modelbridge.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1(), get_observation1()]),
-    )
-    @mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
-    def test_SetTrainingDataDupFeatures(self, _: Mock, __: Mock) -> None:
-        # Throws an error if repeated features in observations.
-        with self.assertRaises(ValueError):
-            Adapter(experiment=get_experiment_for_value(), model=Generator())
-
     def test_UnwrapObservationData(self) -> None:
         observation_data = [get_observation1().data, get_observation2().data]
         f, cov = unwrap_observation_data(observation_data)

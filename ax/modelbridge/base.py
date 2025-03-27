@@ -24,7 +24,6 @@ from ax.core.observation import (
     ObservationFeatures,
     observations_from_data,
     recombine_observations,
-    separate_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
@@ -369,17 +368,6 @@ class Adapter:
 
         return observations, search_space
 
-    def _prepare_training_data(
-        self, observations: list[Observation]
-    ) -> list[Observation]:
-        observation_features, observation_data = separate_observations(observations)
-        if len(observation_features) != len(set(observation_features)):
-            raise ValueError(
-                "Observation features are not unique. "
-                "Something went wrong constructing training data..."
-            )
-        return observations
-
     def _set_training_data(
         self, observations: list[Observation], search_space: SearchSpace
     ) -> list[Observation]:
@@ -388,7 +376,6 @@ class Adapter:
         If the modelbridge specifies _fit_out_of_design, all training data is
         returned. Otherwise, only in design points are returned.
         """
-        observations = self._prepare_training_data(observations=observations)
         self._training_data = deepcopy(observations)
         self._metric_names: set[str] = set()
         for obs in observations:
