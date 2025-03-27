@@ -687,12 +687,14 @@ def get_branin_experiment_with_multi_objective(
     with_relative_constraint: bool = False,
     with_absolute_constraint: bool = False,
     with_choice_parameter: bool = False,
+    with_fixed_parameter: bool = False,
 ) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(
             with_fidelity_parameter=with_fidelity_parameter,
             with_choice_parameter=with_choice_parameter,
+            with_fixed_parameter=with_fixed_parameter,
         ),
         optimization_config=(
             get_branin_multi_objective_optimization_config(
@@ -711,6 +713,8 @@ def get_branin_experiment_with_multi_objective(
     if with_status_quo:
         # Experiment chooses the name "status_quo" by default
         sq_parameters: dict[str, Union[float, str]] = {"x1": 0.0, "x2": 0.0}
+        if with_fixed_parameter:
+            sq_parameters["z"] = True
         exp.status_quo = Arm(parameters=sq_parameters)
 
     if with_batch:
@@ -1007,8 +1011,9 @@ def get_branin_search_space(
     with_choice_parameter: bool = False,
     with_str_choice_param: bool = False,
     with_parameter_constraint: bool = False,
+    with_fixed_parameter: bool = False,
 ) -> SearchSpace:
-    parameters = [
+    parameters: list[Parameter] = [
         RangeParameter(
             name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
         ),
@@ -1043,6 +1048,10 @@ def get_branin_search_space(
                 target_value=1.0,
             )
         )
+
+    if with_fixed_parameter:
+        parameters.append(get_fixed_parameter())
+
     if with_parameter_constraint:
         constraints = [
             ParameterConstraint(constraint_dict={"x1": 1, "x2": 1}, bound=15.0)
@@ -1050,9 +1059,7 @@ def get_branin_search_space(
     else:
         constraints = None
 
-    return SearchSpace(
-        parameters=cast(list[Parameter], parameters), parameter_constraints=constraints
-    )
+    return SearchSpace(parameters=parameters, parameter_constraints=constraints)
 
 
 def get_factorial_search_space() -> SearchSpace:
