@@ -9,12 +9,10 @@
 import json
 from datetime import datetime
 from enum import Enum
-
 from logging import Logger
 from typing import Any, cast
 
 from ax.analysis.analysis import AnalysisCard
-
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
@@ -47,6 +45,7 @@ from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
+from ax.storage.sqa_store.load import _get_experiment_id
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAAnalysisCard,
@@ -182,13 +181,26 @@ class Encoder:
             aux_exps,
         ) in experiment.auxiliary_experiments_by_purpose.items():
             aux_exp_type = aux_exp_type_enum.value
-            aux_exp_jsons = [
-                {
-                    "__type": aux_exp.__class__.__name__,
-                    "experiment_name": aux_exp.experiment.name,
-                }
-                for aux_exp in aux_exps
-            ]
+            aux_exp_jsons = []
+            for aux_exp in aux_exps:
+                name = aux_exp.experiment.name
+                if (
+                    name is None
+                    or _get_experiment_id(experiment_name=name, config=self.config)
+                    is None
+                ):
+                    raise SQAEncodeError(
+                        f"Cannot save experiment {experiment.name} because it has an "
+                        f"auxiliary experiment {name} that does not exist in the "
+                        "database. Make sure that all auxiliary experiments are "
+                        "available in the database before saving the main experiment."
+                    )
+                aux_exp_jsons.append(
+                    {
+                        "__type": aux_exp.__class__.__name__,
+                        "experiment_name": name,
+                    }
+                )
             auxiliary_experiments_by_purpose[aux_exp_type] = aux_exp_jsons
 
         properties = experiment._properties
