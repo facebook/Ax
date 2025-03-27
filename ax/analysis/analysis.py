@@ -21,7 +21,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
 from ax.utils.tutorials.environment import is_running_in_papermill
-from IPython.display import display, DisplayObject, HTML, Markdown, TextDisplayObject
+from IPython.display import display, DisplayObject, HTML, Markdown
 from plotly import graph_objects as go
 
 logger: Logger = get_logger(__name__)
@@ -172,7 +172,7 @@ class AnalysisCard(Base):
 
         return f"<div class='content'>{self.df.to_html()}</div>"
 
-    def _body_papermill(self) -> DisplayObject | go.Figure:
+    def _body_papermill(self) -> DisplayObject | go.Figure | pd.DataFrame:
         """
         Return the body of the AnalysisCard in a simplified format for when html is
         undesirable.
@@ -180,7 +180,7 @@ class AnalysisCard(Base):
         By default, this method displays the raw data in a pandas DataFrame.
         """
 
-        return TextDisplayObject(self.df)
+        return self.df
 
 
 def display_cards(
