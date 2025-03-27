@@ -10,7 +10,6 @@ from math import ceil
 from typing import Any, cast
 
 from ax.analysis.analysis import AnalysisCard
-
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -32,7 +31,6 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-
 from ax.storage.utils import MetricIntent
 from ax.utils.common.constants import Keys
 from pyre_extensions import assert_is_instance, none_throws

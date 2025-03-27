@@ -299,6 +299,24 @@ class SQAStoreTest(TestCase):
         self.assertEqual(experiment_w_aux_exp, loaded_experiment)
         self.assertEqual(len(loaded_experiment.auxiliary_experiments_by_purpose), 1)
 
+    def test_saving_with_aux_exp_not_in_db(self) -> None:
+        aux_experiment = Experiment(
+            name="aux_experiment_not_in_db", search_space=get_search_space()
+        )
+        experiment_w_aux_exp = Experiment(
+            name="test_experiment_w_aux_exp",
+            search_space=get_search_space(),
+            is_test=True,
+            auxiliary_experiments_by_purpose={
+                # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
+                self.config.auxiliary_experiment_purpose_enum.MyAuxExpPurpose: [
+                    AuxiliaryExperiment(experiment=aux_experiment)
+                ]
+            },
+        )
+        with self.assertRaisesRegex(SQAEncodeError, "that does not exist in"):
+            save_experiment(experiment_w_aux_exp, config=self.config)
+
     def test_saving_and_loading_experiment_with_cross_referencing_aux_exp(
         self,
     ) -> None:
