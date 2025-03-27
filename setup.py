@@ -29,6 +29,7 @@ REQUIRES = [
     "plotly>=5.12.0",
     "pyre-extensions",
     "sympy",
+    "markdown",
 ]
 
 # pytest-cov requires pytest >= 3.6
