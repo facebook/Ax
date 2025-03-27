@@ -9,20 +9,21 @@
 
 import unittest
 
+from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.choice_encode import (
     ChoiceEncode,
     ChoiceToNumericChoice,
     OrderedChoiceEncode,
     OrderedChoiceToIntegerRange,
 )
-
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
-
 from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
-
+from ax.storage.json_store.decoder import object_from_json
 from ax.storage.json_store.decoders import transform_type_from_json
+from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.encoders import transform_type_to_dict
+from ax.storage.transform_registry import register_transform
 
 
 class TestTransformEncode(unittest.TestCase):
@@ -62,3 +63,13 @@ class TestTransformEncode(unittest.TestCase):
             # Deprecated type is decoded into the current type.
             self.assertNotEqual(decoded_transform_type, deprecated_type)
             self.assertEqual(decoded_transform_type, current_type)
+
+    def test_register_transform(self) -> None:
+        class DummyTransform(Transform):
+            pass
+
+        with self.assertRaisesRegex(KeyError, "DummyTransform"):
+            object_from_json(object_to_json(DummyTransform))
+
+        register_transform(DummyTransform)
+        self.assertIs(object_from_json(object_to_json(DummyTransform)), DummyTransform)
