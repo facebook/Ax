@@ -369,6 +369,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         self._set_generation_strategy(
             choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
         )
+        self._save_experiment_to_db_if_possible(
+            experiment=self.experiment,
+        )
         self._save_generation_strategy_to_db_if_possible()
 
     @property
@@ -1157,6 +1160,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             self._set_generation_strategy(
                 choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
             )
+            self._save_experiment_to_db_if_possible(experiment=self.experiment)
             self._save_generation_strategy_to_db_if_possible()
         else:
             self._generation_strategy = generation_strategy
