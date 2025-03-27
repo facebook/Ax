@@ -6,12 +6,7 @@
 # pyre-strict
 from collections.abc import Iterable
 
-from ax.analysis.analysis import (
-    Analysis,
-    AnalysisCard,
-    AnalysisCardCategory,
-    display_cards,
-)
+from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardCategory
 from ax.analysis.markdown.markdown_analysis import (
     markdown_analysis_card_from_analysis_e,
 )
@@ -47,7 +42,6 @@ class AnalysisBase(WithDBSettingsBase):
     def compute_analyses(
         self,
         analyses: Iterable[Analysis] | None = None,
-        display: bool = True,
     ) -> list[AnalysisCard]:
         """
         Compute AnalysisCards (data about the optimization for end-user consumption)
@@ -64,9 +58,6 @@ class AnalysisBase(WithDBSettingsBase):
         Args:
             analyses: A list of Analysis classes to run. If None Ax will choose which
                 analyses to run based on the state of the experiment.
-            display: Whether to display the AnalysisCards if executed in an interactive
-                environment (e.g. Jupyter). Defaults to True. If not in an interactive
-                environment this setting has no effect.
         Returns:
             A list of AnalysisCards.
         """
@@ -89,10 +80,6 @@ class AnalysisBase(WithDBSettingsBase):
             for result in results
             for card in result.unwrap_or_else(markdown_analysis_card_from_analysis_e)
         ]
-
-        # Display the AnalysisCards if requested and if the user is in a notebook
-        if display:
-            display_cards(cards=cards)
 
         # Save the AnalysisCards to the database if possible
         self._save_analysis_cards_to_db_if_possible(

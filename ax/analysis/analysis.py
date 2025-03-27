@@ -21,6 +21,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
 from ax.utils.tutorials.environment import is_running_in_papermill
+from IPython import get_ipython
 from IPython.display import display, DisplayObject, HTML, Markdown, TextDisplayObject
 from plotly import graph_objects as go
 
@@ -109,6 +110,11 @@ class AnalysisCard(Base):
     # How to interpret the blob (ex. "dataframe", "plotly", "markdown")
     blob_annotation = "dataframe"
 
+    # Singleton for tracking whether this is the first time the AnalysisCard is being
+    # initialized. This is used to control whether the custom IPython Formatter
+    # needs to be registered.
+    _first_initialization: bool = True
+
     def __init__(
         self,
         name: str,
@@ -128,6 +134,17 @@ class AnalysisCard(Base):
         self.blob = blob
         self.attributes = {} if attributes is None else attributes
         self.category = category
+
+        if AnalysisCard._first_initialization:
+            AnalysisCard._first_initialization = False
+
+            # Register a custom IPython Formatter for lists of AnalysisCard objects.
+            # This allows the result of Analysis.compute(...) to be displayed in a
+            # useful way in IPython environments (ex. Jupyter).
+            ip = get_ipython()
+            if ip is not None:
+                html_formatter = ip.display_formatter.formatters["text/html"]
+                html_formatter.for_type(list, _analysis_card_list_html_formatter)
 
     def _ipython_display_(self) -> None:
         """
@@ -183,11 +200,12 @@ class AnalysisCard(Base):
         return TextDisplayObject(self.df)
 
 
-def display_cards(
+def _group_and_sort_cards(
     cards: Iterable[AnalysisCard], minimum_level: int = AnalysisCardLevel.LOW
-) -> None:
+) -> list[AnalysisCard]:
     """
-    Display a collection of AnalysisCards in IPython environments (ex. Jupyter).
+    Group like cards together, filter out cards with level less than minimum_level,
+    and sort by level.
 
     Args:
         cards: Collection of AnalysisCards to display.
@@ -210,7 +228,7 @@ def display_cards(
 
     # Sort the groups by maximum level, descending, then flatten the groups into a
     # single list.
-    sorted_cards = [
+    return [
         card
         for group in sorted(
             card_groups,
@@ -222,18 +240,48 @@ def display_cards(
         for card in group
     ]
 
-    if is_running_in_papermill():
-        for card in sorted_cards:
-            display(card)
-        return
 
-    display(
-        HTML(
-            html_grid_template.format(
-                card_divs="".join([card._repr_html_() for card in sorted_cards])
-            )
-        )
+def _generate_cards_html(
+    cards: Iterable[AnalysisCard], minimum_level: int = AnalysisCardLevel.LOW
+) -> str:
+    """
+    Generate HTML for a collection of AnalysisCards, grouping like cards together,
+    filtering out cards with level less than minimum_level, and sorting by level.
+
+    Args:
+        cards: Collection of AnalysisCards to display.
+        minimum_level: Minimum level of cards to display.
+    """
+    sorted_cards = _group_and_sort_cards(cards=cards, minimum_level=minimum_level)
+
+    return html_grid_template.format(
+        card_divs="".join([card._repr_html_() for card in sorted_cards])
     )
+
+
+# pyre-ignore[2]: IPython formatter for can truly take in any object.
+def _analysis_card_list_html_formatter(obj: Any) -> str | None:
+    """
+    IPython HTML formatter for lists of AnalysisCards. This is used to conveniently
+    display the return values from Analysis.compute(...) or
+    Client.compute_analyses(...).
+
+    Will either return the HTML representation of the list of AnalysisCards, or None
+    if the default IPython formatter should be used instead.
+    """
+
+    if not isinstance(obj, list):
+        return None
+
+    # Do not use the custom formatter if we are running in papermill.
+    if is_running_in_papermill():
+        return None
+
+    # Intentionally using generator expression to avoid materializing the list.
+    if not all(isinstance(card, AnalysisCard) for card in obj):
+        return None
+
+    return _generate_cards_html(obj)
 
 
 class Analysis(Protocol):
