@@ -14,7 +14,6 @@ from typing import Callable, TYPE_CHECKING
 import numpy as np
 import numpy.typing as npt
 from ax.core.observation import Observation, ObservationData
-from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.base import Transform
@@ -64,17 +63,11 @@ class BilogY(Transform):
         if observations is None or len(observations) == 0:
             raise DataRequiredError("BilogY requires observations.")
         if modelbridge is not None and modelbridge._optimization_config is not None:
-            ocs: list[OutcomeConstraint] = (
-                modelbridge._optimization_config.outcome_constraints
-                if modelbridge
-                else []
-            )
-            if any(oc.relative for oc in ocs):
-                raise ValueError(
-                    "BilogY cannot be used with relative outcome constraints."
-                )
+            # TODO @deriksson: Add support for relative outcome constraints
             self.metric_to_bound: dict[str, float] = {
-                oc.metric.name: oc.bound for oc in ocs
+                oc.metric.name: oc.bound
+                for oc in modelbridge._optimization_config.outcome_constraints
+                if not oc.relative
             }
         else:
             self.metric_to_bound = {}

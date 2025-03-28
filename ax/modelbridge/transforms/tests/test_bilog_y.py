@@ -29,6 +29,7 @@ class BilogYTest(TestCase):
             with_status_quo=True,
             with_completed_batch=True,
             with_absolute_constraint=True,
+            with_relative_constraint=True,
         )
         self.data = self.exp.fetch_data()
 
@@ -90,15 +91,21 @@ class BilogYTest(TestCase):
         )
         for obs, transform_obs in zip(observations, transformed_data):
             # Non-constraints should be the same
-            self.assertEqual(transform_obs.metric_names, ["branin", "branin_e"])
-            self.assertEqual(transform_obs.means[0], obs.data.means[0])
-            self.assertEqual(transform_obs.covariance[0, 0], obs.data.covariance[0, 0])
+            self.assertEqual(
+                transform_obs.metric_names, ["branin", "branin_d", "branin_e"]
+            )
+            self.assertTrue((transform_obs.means[0:2] == obs.data.means[0:2]).all())
+            self.assertTrue(
+                (
+                    transform_obs.covariance[0:2, 0:2] == obs.data.covariance[0:2, 0:2]
+                ).all()
+            )
             # Make sure the bilog transform with ci width matching was applied
             self.assertAlmostEqual(
-                transform_obs.means[1], bilog_transform(obs.data.means[1], bound=bound)
+                transform_obs.means[2], bilog_transform(obs.data.means[2], bound=bound)
             )
             self.assertTrue(  # The transformed variance should be smaller
-                (transform_obs.covariance[1, 1] < obs.data.covariance[1, 1]).all()
+                transform_obs.covariance[2, 2] < obs.data.covariance[2, 2]
             )
 
         # Untransform
@@ -107,23 +114,28 @@ class BilogYTest(TestCase):
             observations, untransformed_data, transformed_data
         ):
             # Non-constraints should be the same
-            self.assertEqual(untransform_obs.metric_names, ["branin", "branin_e"])
-            self.assertEqual(untransform_obs.means[0], obs.data.means[0])
             self.assertEqual(
-                untransform_obs.covariance[0, 0], obs.data.covariance[0, 0]
+                untransform_obs.metric_names, ["branin", "branin_d", "branin_e"]
+            )
+            self.assertTrue((untransform_obs.means[0:2] == obs.data.means[0:2]).all())
+            self.assertTrue(
+                (
+                    untransform_obs.covariance[0:2, 0:2]
+                    == obs.data.covariance[0:2, 0:2]
+                ).all()
             )
             # Make sure the inverse bilog transform with ci width matching was applied
             self.assertAlmostEqual(
-                untransform_obs.means[1],
-                inv_bilog_transform(transform_obs.means[1], bound=bound),
+                untransform_obs.means[2],
+                inv_bilog_transform(transform_obs.means[2], bound=bound),
             )
             # And that we are back where we started as invf(f(x)) = x
             self.assertAlmostEqual(
-                obs.data.means[1],
-                inv_bilog_transform(transform_obs.means[1], bound=bound),
+                obs.data.means[2],
+                inv_bilog_transform(transform_obs.means[2], bound=bound),
             )
             self.assertAlmostEqual(
-                untransform_obs.covariance[1, 1], obs.data.covariance[1, 1]
+                untransform_obs.covariance[2, 2], obs.data.covariance[2, 2]
             )
 
     def test_TransformOptimizationConfig(self) -> None:
@@ -177,18 +189,3 @@ class BilogYTest(TestCase):
             with_completed_batch=True,
             with_relative_constraint=True,
         )
-        with self.assertRaisesRegex(
-            ValueError, "BilogY cannot be used with relative outcome constraints."
-        ):
-            BilogY(
-                search_space=exp.search_space,
-                observations=observations_from_data(
-                    experiment=exp, data=exp.lookup_data()
-                ),
-                modelbridge=Adapter(
-                    search_space=exp.search_space,
-                    model=Generator(),
-                    experiment=exp,
-                    data=exp.lookup_data(),
-                ),
-            )
