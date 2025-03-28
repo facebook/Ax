@@ -25,6 +25,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import AxError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
+from ax.exceptions.model import ModelError
 from ax.generation_strategy.best_model_selector import BestModelSelector
 
 if TYPE_CHECKING:
@@ -352,16 +353,28 @@ class GenerationNode(SerializationMixin, SortableBase):
         """
         self._model_spec_to_gen_from = None
         for model_spec in self.model_specs:
-            model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
-                experiment=experiment,
-                data=data,
-                **{
-                    **self._get_model_state_from_last_generator_run(
-                        model_spec=model_spec
-                    ),
-                    **kwargs,
-                },
-            )
+            try:
+                model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
+                    experiment=experiment,
+                    data=data,
+                    **{
+                        **self._get_model_state_from_last_generator_run(
+                            model_spec=model_spec
+                        ),
+                        **kwargs,
+                    },
+                )
+            except Exception as e:
+                if len(self.model_specs) == 1:
+                    # If no other model specs, raise.
+                    raise
+                # If there are other model specs, try to handle gracefully.
+                logger.exception(
+                    f"Model fitting failed for `GeneratorSpec` {model_spec.model_key}. "
+                    f"Original error message: {e}"
+                )
+                # Discard any previously fitted models for this spec.
+                model_spec._fitted_model = None
 
     def gen(
         self,
@@ -632,8 +645,20 @@ class GenerationNode(SerializationMixin, SortableBase):
                 raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
             return self.model_specs[0]
 
+        fitted_specs = [
+            # Only select between models that were successfully fit.
+            spec
+            for spec in self.model_specs
+            if spec._fitted_model is not None
+        ]
+        if len(fitted_specs) == 0:
+            raise ModelError(
+                "No fitted models were found on the `GeneratorSpec`s. "
+                "This can be caused by model fitting errors, which should be "
+                "diagnosed by following the exception logs produced earlier."
+            )
         best_model = none_throws(self.best_model_selector).best_model(
-            model_specs=self.model_specs,
+            model_specs=fitted_specs,
         )
         return best_model
 
