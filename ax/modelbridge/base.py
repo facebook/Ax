@@ -810,7 +810,8 @@ class Adapter:
                 )
             for metric, po in pending_observations.items():
                 pending_observations[metric] = t.transform_observation_features(po)
-            (fixed_features,) = t.transform_observation_features([fixed_features])
+            if not isinstance(t, FillMissingParameters):
+                (fixed_features,) = t.transform_observation_features([fixed_features])
         return BaseGenArgs(
             search_space=search_space,
             optimization_config=optimization_config,
