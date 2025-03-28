@@ -4,10 +4,18 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.api.configs import StorageConfig
-from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.encoder import Encoder
-from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.sqa_store.structs import DBSettings
+
+# Allow Ax to be used without SQLAlchemy.
+try:
+    from ax.storage.sqa_store.decoder import Decoder
+    from ax.storage.sqa_store.encoder import Encoder
+    from ax.storage.sqa_store.sqa_config import SQAConfig
+    from ax.storage.sqa_store.structs import DBSettings
+except (ModuleNotFoundError, TypeError):
+    Decoder = None
+    Encoder = None
+    SQAConfig = None
+    DBSettings = None
 
 
 def db_settings_from_storage_config(
