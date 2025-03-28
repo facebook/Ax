@@ -30,6 +30,7 @@ from ax.modelbridge.discrete import DiscreteAdapter
 from ax.modelbridge.random import RandomAdapter
 from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.bilog_y import BilogY
 from ax.modelbridge.transforms.choice_encode import (
     ChoiceToNumericChoice,
     OrderedChoiceToIntegerRange,
@@ -147,7 +148,7 @@ Mixed_transforms: list[type[Transform]] = [
     UnitX,
 ]
 
-Y_trans: list[type[Transform]] = [IVW, Derelativize, StandardizeY]
+Y_trans: list[type[Transform]] = [IVW, Derelativize, BilogY, StandardizeY]
 
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
