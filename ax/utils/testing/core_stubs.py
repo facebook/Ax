@@ -128,6 +128,7 @@ from pyre_extensions import assert_is_instance, none_throws
 logger: Logger = get_logger(__name__)
 
 TEST_SOBOL_SEED = 1234
+DEFAULT_USER = "foo-user"
 
 ##############################
 # Experiments
@@ -137,7 +138,7 @@ TEST_SOBOL_SEED = 1234
 def get_experiment(
     with_status_quo: bool = True, constrain_search_space: bool = True
 ) -> Experiment:
-    return Experiment(
+    experiment = Experiment(
         name="test",
         search_space=get_search_space(constrain_search_space=constrain_search_space),
         optimization_config=get_optimization_config(),
@@ -146,10 +147,12 @@ def get_experiment(
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
+    return experiment
 
 
 def get_experiment_with_map_data_type() -> Experiment:
-    return Experiment(
+    experiment = Experiment(
         name="test_map_data",
         search_space=get_search_space(),
         optimization_config=get_map_optimization_config(),
@@ -159,6 +162,8 @@ def get_experiment_with_map_data_type() -> Experiment:
         is_test=True,
         default_data_type=DataType.MAP_DATA,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
+    return experiment
 
 
 def get_trial_based_criterion() -> list[TrialBasedCriterion]:
@@ -207,6 +212,7 @@ def get_experiment_with_custom_runner_and_metric(
         runner=CustomTestRunner(test_attribute="test"),
         is_test=True,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
 
     # Create a trial, set its runner and complete it.
     for _ in range(num_trials):
@@ -282,6 +288,7 @@ def get_branin_experiment(
         is_test=True,
         status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}) if with_status_quo else None,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     if with_batch or with_completed_batch:
         for _ in range(num_batch_trial):
@@ -320,6 +327,7 @@ def get_branin_experiment_with_status_quo_trials(
         )
     else:
         exp = get_branin_experiment(with_status_quo=True)
+    exp._properties = {"owners": [DEFAULT_USER]}
     sobol = get_sobol(search_space=exp.search_space)
     for _ in range(num_sobol_trials):
         sobol_run = sobol.gen(n=1)
@@ -372,6 +380,7 @@ def get_robust_branin_experiment(
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     sobol = get_sobol(search_space=exp.search_space)
     for _ in range(num_sobol_trials):
@@ -430,6 +439,7 @@ def get_branin_experiment_with_timestamp_map_metric(
         runner=SyntheticRunner(),
         default_data_type=DataType.MAP_DATA,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     if with_status_quo:
         exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
@@ -452,6 +462,7 @@ def run_branin_experiment_with_generation_strategy(
         trial.mark_running(no_runner_required=True)
         exp.attach_data(get_branin_data(trials=[trial]))
         trial.mark_completed()
+    exp._properties = {"owners": [DEFAULT_USER]}
     return exp
 
 
@@ -464,6 +475,7 @@ def get_test_map_data_experiment(
     experiment = get_branin_experiment_with_timestamp_map_metric(
         rate=0.5, map_tracking_metric=map_tracking_metric
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
     for i in range(num_trials):
         trial = experiment.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
         trial.run()
@@ -486,6 +498,7 @@ def get_multi_type_experiment(
         default_runner=SyntheticRunner(dummy_metadata="dummy1"),
         optimization_config=oc,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.add_trial_type(
         trial_type="type2", runner=SyntheticRunner(dummy_metadata="dummy2")
     )
@@ -518,6 +531,7 @@ def get_multi_type_experiment_with_multi_objective(
         default_runner=SyntheticRunner(dummy_metadata="dummy1"),
         optimization_config=oc,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.add_trial_type(
         trial_type="type2", runner=SyntheticRunner(dummy_metadata="dummy2")
     )
@@ -554,6 +568,7 @@ def get_factorial_experiment(
         is_test=True,
         tracking_metrics=[get_factorial_metric("secondary_metric")],
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     if with_status_quo:
         exp.status_quo = Arm(
@@ -653,6 +668,7 @@ def get_experiment_with_data() -> Experiment:
 
 def get_experiment_with_map_data() -> Experiment:
     experiment = get_experiment_with_map_data_type()
+    experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.new_trial()
     experiment.add_tracking_metric(MapMetric("ax_test_metric"))
     experiment.attach_data(data=get_map_data())
@@ -671,6 +687,7 @@ def get_experiment_with_multi_objective() -> Experiment:
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     return exp
 
@@ -709,6 +726,7 @@ def get_branin_experiment_with_multi_objective(
         runner=SyntheticRunner(),
         is_test=True,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     if with_status_quo:
         # Experiment chooses the name "status_quo" by default
@@ -753,6 +771,7 @@ def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment
         runner=SyntheticRunner(),
         is_test=True,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0}, name="status_quo")
 
@@ -775,7 +794,7 @@ def get_experiment_with_scalarized_objective_and_outcome_constraint() -> Experim
     optimization_config = OptimizationConfig(
         objective=objective, outcome_constraints=outcome_constraints
     )
-    return Experiment(
+    experiment = Experiment(
         name="test_experiment_scalarized_objective and outcome constraint",
         search_space=get_search_space(),
         optimization_config=optimization_config,
@@ -784,6 +803,8 @@ def get_experiment_with_scalarized_objective_and_outcome_constraint() -> Experim
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
+    return experiment
 
 
 def get_hierarchical_search_space_experiment(
@@ -795,6 +816,7 @@ def get_hierarchical_search_space_experiment(
         search_space=get_hierarchical_search_space(),
         optimization_config=get_optimization_config(),
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
     sobol_generator = get_sobol(search_space=experiment.search_space)
     for i in range(num_observations):
         trial = experiment.new_trial(generator_run=sobol_generator.gen(1))
@@ -900,6 +922,7 @@ def get_experiment_with_observations(
         runner=SyntheticRunner(),
         is_test=True,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
     sobol_generator = get_sobol(search_space=search_space)
     for i, obs in enumerate(observations):
         if parameterizations is not None:
@@ -970,6 +993,7 @@ def get_high_dimensional_branin_experiment(
         runner=SyntheticRunner(),
         status_quo=Arm(sq_parameters) if with_status_quo else None,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
     if with_batch:
         sobol_generator = get_sobol(search_space=exp.search_space)
         sobol_run = sobol_generator.gen(n=15)
