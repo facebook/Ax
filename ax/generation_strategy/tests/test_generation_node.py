@@ -6,14 +6,13 @@
 
 # pyre-strict
 
-from logging import Logger
 from unittest.mock import MagicMock, patch
 
 import torch
 from ax.core.observation import ObservationFeatures
-
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
+from ax.exceptions.model import ModelError
 from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
@@ -21,6 +20,7 @@ from ax.generation_strategy.best_model_selector import (
 from ax.generation_strategy.generation_node import (
     GenerationNode,
     GenerationStep,
+    logger,
     MISSING_MODEL_SELECTOR_MESSAGE,
 )
 from ax.generation_strategy.generation_node_input_constructors import (
@@ -35,14 +35,11 @@ from ax.generation_strategy.transition_criterion import MinTrials
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.registry import Generators
 from ax.utils.common.constants import Keys
-from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.sampling.normal import SobolQMCNormalSampler
 from pyre_extensions import none_throws
-
-logger: Logger = get_logger(__name__)
 
 
 class TestGenerationNode(TestCase):
@@ -429,15 +426,15 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         self.branin_experiment = get_branin_experiment(
             with_batch=True, with_completed_batch=True
         )
-        ms_mixed = GeneratorSpec(model_enum=Generators.BO_MIXED)
-        ms_botorch = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
+        self.ms_mixed = GeneratorSpec(model_enum=Generators.BO_MIXED)
+        self.ms_botorch = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
 
         self.mock_aggregation = MagicMock(
             side_effect=ReductionCriterion.MEAN, spec=ReductionCriterion
         )
         self.model_selection_node = GenerationNode(
             node_name="test",
-            model_specs=[ms_mixed, ms_botorch],
+            model_specs=[self.ms_mixed, self.ms_botorch],
             best_model_selector=SingleDiagnosticBestModelSelector(
                 diagnostic="Fisher exact test p",
                 metric_aggregation=self.mock_aggregation,
@@ -458,15 +455,38 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
                 n=1,
                 pending_observations={"branin": []},
             )
-            # The model specs are practically identical for this example.
-            # May pick either one.
-            self.assertIsNotNone(gr)
-            self.assertEqual(
-                self.model_selection_node.model_to_gen_from_name, gr._model_key
-            )
+        # The model specs are practically identical for this example.
+        # May pick either one.
+        self.assertIsNotNone(gr)
+        self.assertEqual(
+            self.model_selection_node.model_to_gen_from_name, gr._model_key
+        )
         mock_fit.assert_called_with(
             experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()
         )
         # Check that the metric aggregation function is called twice, once for each
         # model spec.
         self.assertEqual(self.mock_aggregation.call_count, 2)
+
+    @mock_botorch_optimize
+    def test_pick_fitted_model_with_fit_errors(self) -> None:
+        # Make model fitting error out for both specs. We should get an error.
+        with patch(
+            "ax.generation_strategy.model_spec.GeneratorSpec.fit",
+            side_effect=RuntimeError,
+        ), self.assertLogs(logger=logger, level="ERROR") as mock_logs:
+            self.model_selection_node._fit(experiment=self.branin_experiment)
+        self.assertEqual(len(mock_logs.records), 2)
+        with self.assertRaisesRegex(ModelError, "No fitted models were found"):
+            self.model_selection_node.model_spec_to_gen_from
+
+        # Only one spec errors out.
+        with patch.object(
+            self.ms_mixed, "fit", side_effect=RuntimeError
+        ), self.assertLogs(logger=logger, level="ERROR") as mock_logs:
+            self.model_selection_node._fit(experiment=self.branin_experiment)
+        self.assertEqual(len(mock_logs.records), 1)
+        # Picks the model that didn't error out.
+        self.assertEqual(
+            self.model_selection_node.model_spec_to_gen_from, self.ms_botorch
+        )
