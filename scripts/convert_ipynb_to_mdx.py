@@ -577,6 +577,9 @@ def handle_plain(
     """
     Handle how to plain cell output should be displayed in MDX.
 
+    Stdout streams are chunked during execution, we merge adjacent streams here into
+    single cell output blocks.
+
     Args:
         values (List[Dict[str, Union[int, str, NotebookNode]]]): Bokeh tagged cell
             outputs.
@@ -587,6 +590,28 @@ def handle_plain(
             the tuple is the MDX formatted string.
     """
     output = []
+    adjacent_outputs = []
+    previous_index = -1
+
+    def append_to_output() -> None:
+        if not adjacent_outputs:
+            return
+        adjacent_outputs_str = "\n".join(adjacent_outputs)
+        output.append(
+            (
+                previous_index,
+                "\n".join(
+                    [
+                        "<CellOutput>",
+                        "{",
+                        f"`{adjacent_outputs_str}`",
+                        "}",
+                        "</CellOutput>\n\n",
+                    ]
+                ),
+            ),
+        )
+
     for value in values:
         index = int(value["index"])
         data = str(value["data"])
@@ -596,9 +621,16 @@ def handle_plain(
             data = "\n".join([line for line in str(value["data"]).splitlines() if line])
             # Remove backticks to make the text MDX compatible.
             data = data.replace("`", "")
-            output.append(
-                (index, f"<CellOutput>\n{{\n  `{data}`\n}}\n</CellOutput>\n\n"),
-            )
+            if previous_index in [-1, index - 1]:
+                # store in cache until we reach nonconsecutive index
+                adjacent_outputs.append(data)
+            else:
+                # flush cache to output and start a new one
+                append_to_output()
+                adjacent_outputs = [data]
+            previous_index = index
+    # flush the remaining cache to output
+    append_to_output()
     return output
 
 
