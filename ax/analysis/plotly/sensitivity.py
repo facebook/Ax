@@ -10,19 +10,14 @@ import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.torch import TorchAdapter
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from plotly import express as px, graph_objects as go
-from pyre_extensions import override
-
-NO_ADAPTER_ERROR_MSG = (
-    "SensitivityAnalysisPlot requires either a TorchAdapter or a GenerationStrategy "
-    "where the current GenerationNode has a fitted TorchAdapter."
-)
+from pyre_extensions import assert_is_instance, override
 
 
 class SensitivityAnalysisPlot(PlotlyAnalysis):
@@ -43,23 +38,14 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> Sequence[PlotlyAnalysisCard]:
-        if adapter is not None:
-            relevant_adapter = adapter
-
-            if not isinstance(relevant_adapter, TorchAdapter):
-                raise UserInputError(NO_ADAPTER_ERROR_MSG)
-
-        elif generation_strategy is not None:
-            relevant_adapter = generation_strategy.model
-
-            if not isinstance(relevant_adapter, TorchAdapter):
-                raise UserInputError(NO_ADAPTER_ERROR_MSG)
-
-        else:
-            raise UserInputError(NO_ADAPTER_ERROR_MSG)
+        relevant_adapter = extract_relevant_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
 
         data = _prepare_data(
-            adapter=relevant_adapter,
+            adapter=assert_is_instance(relevant_adapter, TorchAdapter),
             metric_names=self.metric_names,
             order=self.order,
         )

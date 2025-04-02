@@ -17,7 +17,8 @@ from ax.analysis.plotly.arm_effects.utils import (
 )
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import get_adapter, get_nudge_value
+from ax.analysis.plotly.utils import get_nudge_value, is_predictive
+from ax.analysis.utils import extract_relevant_adapter
 from ax.core import OutcomeConstraint
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
@@ -88,13 +89,17 @@ class PredictedEffectsPlot(PlotlyAnalysis):
                 f"PredictedEffectsPlot cannot be used for {experiment} "
                 "because it has no trials."
             )
-        adapter = get_adapter(
-            analysis_name=self.name,
+
+        relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
             generation_strategy=generation_strategy,
             adapter=adapter,
-            enforce_supports_predictions=True,
         )
+
+        if not is_predictive(adapter=relevant_adapter):
+            raise UserInputError(
+                "PredictedEffectsPlot requires a predictive model to compute."
+            )
 
         outcome_constraints = (
             []
@@ -103,12 +108,12 @@ class PredictedEffectsPlot(PlotlyAnalysis):
             .transform_optimization_config(
                 # TODO[T203521207]: move cloning into transform_optimization_config
                 optimization_config=none_throws(experiment.optimization_config).clone(),
-                modelbridge=adapter,
+                modelbridge=relevant_adapter,
             )
             .outcome_constraints
         )
         df = _prepare_data(
-            adapter=adapter,
+            adapter=relevant_adapter,
             metric_name=self.metric_name,
             candidate_trial=candidate_trial,
             outcome_constraints=outcome_constraints,

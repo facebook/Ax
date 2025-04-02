@@ -18,6 +18,7 @@ from ax.analysis.plotly.surface.utils import (
     select_fixed_value,
 )
 from ax.analysis.plotly.utils import select_metric
+from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
@@ -68,17 +69,17 @@ class SlicePlot(PlotlyAnalysis):
         if experiment is None:
             raise UserInputError("SlicePlot requires an Experiment")
 
-        if not isinstance(generation_strategy, GenerationStrategy):
-            raise UserInputError("SlicePlot requires a GenerationStrategy")
-
-        if generation_strategy.model is None:
-            generation_strategy._curr._fit(experiment=experiment)
+        relevant_adapter = extract_relevant_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
 
         metric_name = self.metric_name or select_metric(experiment=experiment)
 
         df = _prepare_data(
             experiment=experiment,
-            model=none_throws(generation_strategy.model),
+            model=relevant_adapter,
             parameter_name=self.parameter_name,
             metric_name=metric_name,
         )

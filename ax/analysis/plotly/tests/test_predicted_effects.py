@@ -44,7 +44,9 @@ class TestPredictedEffectsPlot(TestCase):
     def test_compute_for_requires_a_gs(self) -> None:
         analysis = PredictedEffectsPlot(metric_name="branin")
         experiment = get_branin_experiment(with_batch=True, with_completed_batch=True)
-        with self.assertRaisesRegex(UserInputError, "requires a GenerationStrategy"):
+        with self.assertRaisesRegex(
+            UserInputError, "Must provide either a GenerationStrategy or an Adapter"
+        ):
             analysis.compute(experiment=experiment)
 
     def test_compute_for_requires_trials(self) -> None:
@@ -66,9 +68,7 @@ class TestPredictedEffectsPlot(TestCase):
             search_space=experiment.search_space,
             experiment=experiment,
         )
-        with self.assertRaisesRegex(
-            UserInputError, "where the current model supports prediction"
-        ):
+        with self.assertRaisesRegex(UserInputError, "requires a predictive model."):
             analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
