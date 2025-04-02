@@ -23,11 +23,11 @@ from pyre_extensions import assert_is_instance, override
 class SensitivityAnalysisPlot(PlotlyAnalysis):
     def __init__(
         self,
-        metric_names: Sequence[str] | None = None,
+        metric_name: str | None = None,
         order: Literal["first", "second", "total"] = "total",
         top_k: int | None = None,
     ) -> None:
-        self.metric_names = metric_names
+        self.metric_name = metric_name
         self.order = order
         self.top_k = top_k
 
@@ -46,7 +46,7 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
 
         data = _prepare_data(
             adapter=assert_is_instance(relevant_adapter, TorchAdapter),
-            metric_names=self.metric_names,
+            metric_name=self.metric_name,
             order=self.order,
         )
 
@@ -75,12 +75,12 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
 
 def _prepare_data(
     adapter: TorchAdapter,
-    metric_names: Sequence[str] | None,
+    metric_name: str | None,
     order: Literal["first", "second", "total"],
 ) -> pd.DataFrame:
     sensitivities = ax_parameter_sens(
         model_bridge=adapter,
-        metrics=[*metric_names] if metric_names is not None else None,
+        metrics=[metric_name] if metric_name is not None else None,
         order=order,
     )
 

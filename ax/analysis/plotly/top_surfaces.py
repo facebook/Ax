@@ -48,7 +48,7 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
             metric_name = select_metric(experiment=experiment)
 
         (sensitivity_analysis_card,) = SensitivityAnalysisPlot(
-            metric_names=[metric_name],
+            metric_name=metric_name,
             order=self.order,
             top_k=self.top_k,
         ).compute(
