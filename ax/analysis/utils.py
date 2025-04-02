@@ -3,99 +3,53 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-unsafe
+# pyre-safe
 
-import itertools
-
-from ax.analysis.analysis import Analysis
-from ax.analysis.plotly.cross_validation import CrossValidationPlot
-from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
-from ax.analysis.plotly.progression import ProgressionPlot
-from ax.analysis.plotly.scatter import ScatterPlot
-from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
-from ax.analysis.summary import Summary
 from ax.core.experiment import Experiment
-from ax.core.objective import MultiObjective, ScalarizedObjective
+from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
+from pyre_extensions import none_throws
 
 
-def choose_analyses(experiment: Experiment) -> list[Analysis]:
+def extract_relevant_adapter(
+    experiment: Experiment | None,
+    generation_strategy: GenerationStrategy | None,
+    adapter: Adapter | None,
+) -> Adapter:
     """
-    Choose a default set of Analyses to compute based on the current state of the
-    Experiment.
+    Analysis.compute(...) takes in both a GenerationStrategy and an Adapter as optional
+    arguments. To keep consistency we always want use the same logic for extracting the
+    relevant adapter across all Analysis classes.
+
+    * If a GenerationStrategy is provided, return the Adapter from the current
+        GenerationNode. Additionally, if it has not been fit, fit it using the
+        Experiment.
+    * If an Adapter is provided, return it.
+    * If both are provided prefer the Adapter.
+    * If neither are provided, raise an Exception.
     """
-    # If there is no optimization config choose to plot just the Summary.
-    if (optimization_config := experiment.optimization_config) is None:
-        return [Summary()]
 
-    # In the multi-objective case plot Scatters showing the Pareto frontier for each
-    # pair of objectives and Interactions for each objective.
-    if isinstance(optimization_config.objective, MultiObjective) or isinstance(
-        optimization_config.objective, ScalarizedObjective
-    ):
-        # Pareto frontiers for each objective
-        objective_plots = [
-            *[
-                ScatterPlot(x_metric_name=x, y_metric_name=y, show_pareto_frontier=True)
-                for x, y in itertools.combinations(
-                    optimization_config.objective.metric_names, 2
-                )
-            ],
-        ]
+    if generation_strategy is None and adapter is None:
+        raise UserInputError(
+            "Must provide either a GenerationStrategy or an Adapter to compute this "
+            "Analysis."
+        )
 
-        other_scatters = []
+    if adapter is not None:
+        return adapter
 
-        interactions = [
-            TopSurfacesAnalysis(metric_name=name, order="second")
-            for name in optimization_config.objective.metric_names
-        ]
-    # In the single-objective case plot ParallelCoordinates and up to six ScatterPlots
-    # for the objective versus other metrics.
-    else:
-        objective_name = optimization_config.objective.metric.name
-        # ParallelCoorindates and leave-one-out cross validation
-        objective_plots = [
-            ParallelCoordinatesPlot(metric_name=objective_name),
-        ]
+    generation_strategy = none_throws(generation_strategy)
 
-        # Up to six ScatterPlots for other metrics versus the objective,
-        # prioritizing optimization config metrics over tracking metrics
-        tracking_metric_names = [metric.name for metric in experiment.tracking_metrics]
-        other_scatters = [
-            ScatterPlot(
-                x_metric_name=objective_name,
-                y_metric_name=name,
-                show_pareto_frontier=False,
-            )
-            for name in [
-                *optimization_config.metrics,
-                *tracking_metric_names,
-            ]
-            if name != objective_name
-        ][:6]
+    if (model := generation_strategy.model) is not None:
+        return model
 
-        interactions = [TopSurfacesAnalysis(metric_name=objective_name, order="second")]
+    if experiment is None:
+        raise UserInputError(
+            "Provided GenerationStrategy has no model, but no Experiment was provided "
+            "to source data to fit the model."
+        )
 
-    # If any number of objectives are timeseries-like plot their progression.
-    data = experiment.lookup_data()
-    progressions = [
-        ProgressionPlot(metric_name=metric)
-        for metric in optimization_config.metrics
-        # Only include the progression plot if the metric is timeseries-like, i.e. the
-        # true_df has more rows then the condensed df.
-        if sum(data.df["metric_name"] == metric)
-        != sum(data.true_df["metric_name"] == metric)
-    ]
+    generation_strategy.current_node._fit(experiment=experiment)
 
-    # Leave-one-out cross validation for each objective and outcome constraint
-    cv_plots = [
-        CrossValidationPlot(metric_name=name) for name in optimization_config.metrics
-    ]
-
-    return [
-        *objective_plots,
-        *other_scatters,
-        *progressions,
-        *interactions,
-        *cv_plots,
-        Summary(),
-    ]
+    return none_throws(generation_strategy.model)
