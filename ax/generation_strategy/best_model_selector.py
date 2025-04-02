@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from enum import Enum
-from functools import partial
 from typing import Any, Union
 
 import numpy as np
@@ -19,6 +17,7 @@ import numpy.typing as npt
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.utils.common.base import Base
+from ax.utils.common.func_enum import FuncEnum
 from pyre_extensions import none_throws
 
 # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
@@ -37,23 +36,28 @@ class BestModelSelector(ABC, Base):
         """
 
 
-class ReductionCriterion(Enum):
+# Functions used in ReductionCriterion. They're looked up from the same module.
+mean: Callable[[ARRAYLIKE], npt.NDArray] = np.mean
+min: Callable[[ARRAYLIKE], npt.NDArray] = np.min
+max: Callable[[ARRAYLIKE], npt.NDArray] = np.max
+
+
+class ReductionCriterion(FuncEnum):
     """An enum for callables that are used for aggregating diagnostics over metrics
     and selecting the best diagnostic in ``SingleDiagnosticBestModelSelector``.
 
     NOTE: This is used to ensure serializability of the callables.
     """
 
-    # NOTE: Callables need to be wrapped in `partial` to be registered as members.
-    # pyre-fixme[35]: Target cannot be annotated.
-    MEAN: Callable[[ARRAYLIKE], npt.NDArray] = partial(np.mean)
-    # pyre-fixme[35]: Target cannot be annotated.
-    MIN: Callable[[ARRAYLIKE], npt.NDArray] = partial(np.min)
-    # pyre-fixme[35]: Target cannot be annotated.
-    MAX: Callable[[ARRAYLIKE], npt.NDArray] = partial(np.max)
+    MEAN = "mean"
+    MIN = "min"
+    MAX = "max"
 
     def __call__(self, array_like: ARRAYLIKE) -> npt.NDArray:
-        return self.value(array_like)
+        """This will look up the corresponding function in the same module and
+        call it with the given arguments.
+        """
+        return self._get_function_for_value()(array_like)
 
 
 class SingleDiagnosticBestModelSelector(BestModelSelector):
