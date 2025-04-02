@@ -224,9 +224,11 @@ def handle_image_attachments(
         str: The markdown content with images converted to base64 format.
     """
     markdown_image_pattern = re.compile(
-        r"""!\[([^\]]*)\]\(attachment:(.*?)(?=\"|\))(\".*\")?\)"""
+        r"""!\[([^\]]*)\]\(attachment:(.*?)\s*?(\".*\")?\)"""
     )
-    searches = re.finditer(markdown_image_pattern, markdown)
+    # go through searches in reverse order so that each replacement doesn't affect the
+    # start/end indices for the next replacements
+    searches = reversed(list(re.finditer(markdown_image_pattern, markdown)))
     for search in searches:
         alt_text, attachment_name, _ = search.groups()
         mime_type, base64 = next(iter(attachments[attachment_name].items()))
