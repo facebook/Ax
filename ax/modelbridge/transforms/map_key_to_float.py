@@ -10,9 +10,9 @@ from typing import Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
+from ax.core.utils import extract_map_keys_from_opt_config
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.metadata_to_float import MetadataToFloat
-from ax.modelbridge.transforms.utils import extract_map_keys_from_opt_config
 from ax.models.types import TConfig
 
 if TYPE_CHECKING:

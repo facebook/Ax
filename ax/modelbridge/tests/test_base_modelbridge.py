@@ -38,6 +38,7 @@ from ax.modelbridge.base import (
     DataLoaderConfig,
     gen_arms,
     GenResults,
+    logger,
     unwrap_observation_data,
 )
 from ax.modelbridge.factory import get_sobol
@@ -51,6 +52,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
+    get_branin_experiment_with_timestamp_map_metric,
     get_branin_optimization_config,
     get_experiment,
     get_experiment_with_repeated_arms,
@@ -402,8 +404,7 @@ class BaseAdapterTest(TestCase):
         autospec=True,
         return_value=([Arm(parameters={"x1": 0.0, "x2": 0.0})], None),
     )
-    @mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
-    def test_with_status_quo(self, mock_fit: Mock, mock_gen_arms: Mock) -> None:
+    def test_with_status_quo(self, _: Mock) -> None:
         # Test init with a status quo.
         exp = get_branin_experiment(
             with_trial=True,
@@ -535,19 +536,18 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(adapter.status_quo_name, "status_quo")
         self.assertIsNotNone(adapter.status_quo)
 
-    @mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
-    def test_set_status_quo_with_repeated_observations(self, _) -> None:
+    def test_set_status_quo_with_multiple_trials_with_status_quo(self) -> None:
         exp = get_experiment_with_repeated_arms(with_data=True)
         exp.status_quo = assert_is_instance(exp.trials[1], BatchTrial).status_quo
         adapter = Adapter(experiment=exp, model=Generator())
         # Check that for experiments with many trials the status quo is set
-        # to the value of the status quo of the last trial.
+        # to the value of the status quo of the last trial (target trial).
         self.assertEqual(
             adapter.status_quo,
             Observation(
                 features=ObservationFeatures(
                     parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
-                    trial_index=1,
+                    trial_index=get_target_trial_index(experiment=exp),
                     metadata={},
                 ),
                 data=ObservationData(
@@ -557,6 +557,64 @@ class BaseAdapterTest(TestCase):
                 ),
                 arm_name="0_0",
             ),
+        )
+
+    def test_set_status_quo_with_multiple_observations(self) -> None:
+        # Test for the case where the status quo arm has multiple observations
+        # for the target trial. This happens with MapData.
+
+        # Prevent data from being filtered down.
+        data_loader_config = DataLoaderConfig(latest_rows_per_group=None)
+
+        # Case 1: Experiment has an optimization config with single map key.
+        exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
+        # Attach a trial with status quo & fetch some data.
+        t = exp.new_trial().add_arm(exp.status_quo).run()
+        for _ in range(3):
+            exp.fetch_data()
+        t.mark_completed()
+        with self.assertNoLogs(logger=logger, level="WARN"):
+            adapter = Adapter(
+                experiment=exp, model=Generator(), data_loader_config=data_loader_config
+            )
+        self.assertIsNotNone(adapter.status_quo)
+        # 2.0 is the largest timestamp since we fetched 3 times.
+        self.assertEqual(
+            none_throws(adapter.status_quo.features.metadata)["timestamp"], 2.0
+        )
+
+        # Case 2: Experiment has an optimization config with multiple map keys.
+        with mock.patch(
+            "ax.modelbridge.base.extract_map_keys_from_opt_config",
+            return_value={"timestamp", "step"},
+        ) as mock_extract, self.assertLogs(logger=logger, level="WARN") as mock_logs:
+            adapter = Adapter(
+                experiment=exp, model=Generator(), data_loader_config=data_loader_config
+            )
+        mock_extract.assert_called_once()
+        self.assertIsNone(adapter.status_quo)
+        self.assertTrue(
+            any(
+                "optimization config includes multiple map keys" in log
+                for log in mock_logs.output
+            )
+        )
+
+        # Case 3: Experiment doesn't have an optimization config.
+        (opt_metric,) = none_throws(exp.optimization_config).metrics.values()
+        exp._optimization_config = None
+        # Attach as tracking metric to prevent data filtering.
+        exp.add_tracking_metric(opt_metric)
+        with self.assertLogs(logger=logger, level="WARN") as mock_logs:
+            adapter = Adapter(
+                experiment=exp, model=Generator(), data_loader_config=data_loader_config
+            )
+        self.assertIsNone(adapter.status_quo)
+        self.assertTrue(
+            any(
+                "the Adapter does not have an optimization config" in log
+                for log in mock_logs.output
+            )
         )
 
     def test_transform_observations(self) -> None:

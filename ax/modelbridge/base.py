@@ -36,7 +36,7 @@ from ax.core.types import (
     TModelPredict,
     TParameterization,
 )
-from ax.core.utils import get_target_trial_index
+from ax.core.utils import extract_map_keys_from_opt_config, get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError
 from ax.modelbridge.transforms.base import Transform
@@ -471,9 +471,12 @@ class Adapter:
         trial index to the training data to make a status quo ``Observation``,
         complete with the parameterization, trial index, and data.
 
-        NOTE: The status quo will not be set if the target trial index is None,
-        or if there are multiple observations for the status quo arm in the
-        training data for the target trial index.
+        NOTE: The status quo will not be set if the target trial index is None.
+        If there are multiple observations for the status quo arm in the training
+        data for the target trial index, we check for the map keys of the map
+        metrics in the optimization config. If there is a single map key, the
+        observation with the maximal map key value in the metadata will be used.
+        If there are multiple map keys, the status quo will not be set.
 
         Args:
             experiment: The experiment to extract the status quo from.
@@ -498,12 +501,29 @@ class Adapter:
             )
             return
         elif len(status_quo_observations) > 1:
-            logger.warning(
-                f"Status quo {self._status_quo_name} was found in the data with "
-                "multiple observations. This typically happens when there is MapData "
-                "attached to the experiment. `Adapter.status_quo` will not be set."
+            if self._optimization_config is None:
+                logger.warning(
+                    f"Status quo {self._status_quo_name} was found in the data with "
+                    "multiple observations, and the Adapter does not have an "
+                    "optimization config. `Adapter.status_quo` will not be set."
+                )
+                return
+            map_keys = extract_map_keys_from_opt_config(
+                optimization_config=self._optimization_config
             )
-            return
+            if len(map_keys) > 1:
+                logger.warning(
+                    f"Status quo {self._status_quo_name} was found in the data with "
+                    "multiple observations, and the optimization config includes "
+                    "multiple map keys. `Adapter.status_quo` will not be set."
+                )
+                return
+            map_key = map_keys.pop()
+            # Pick the observation with maximal map key value.
+            self._status_quo = max(
+                status_quo_observations, key=lambda obs: obs.features.metadata[map_key]
+            )
+
         self._status_quo = status_quo_observations[-1]
 
     @property

@@ -19,6 +19,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -581,3 +582,26 @@ def _time_trial_completed_safe(trial: BatchTrial) -> datetime:
         if trial.time_completed is not None
         else datetime.fromtimestamp(0)
     )
+
+
+# -------------------- MapMetric related utils. ---------------------
+
+
+def extract_map_keys_from_opt_config(
+    optimization_config: OptimizationConfig,
+) -> set[str]:
+    """Extract names of the map keys of all map metrics from the optimization config.
+
+    Args:
+        optimization_config: Optimization config.
+
+    Returns:
+        A set of map keys.
+    """
+    map_metrics = {
+        name: metric
+        for name, metric in optimization_config.metrics.items()
+        if isinstance(metric, MapMetric)
+    }
+    map_key_names = {m.map_key_info.key for m in map_metrics.values()}
+    return map_key_names

@@ -149,6 +149,11 @@ def get_experiment(
 
 
 def get_experiment_with_map_data_type() -> Experiment:
+    """Returns an experiment with the search space including parameters
+    (with mixture of types) ["w", "x", "y", "z"], a status quo, a single
+    objective optimization config with MapMetric "m1", and a tracking
+    MapMetric "tracking", both using the default MapKeyInfo.
+    """
     return Experiment(
         name="test_map_data",
         search_space=get_search_space(),
@@ -652,6 +657,10 @@ def get_experiment_with_data() -> Experiment:
 
 
 def get_experiment_with_map_data() -> Experiment:
+    # WARNING: The data for this experiment uses map key "epoch"
+    # but the metrics on the experiment use the default map key "step".
+    # The attached data only includes "ax_test_metric" and ignores
+    # the other two metrics.
     experiment = get_experiment_with_map_data_type()
     experiment.new_trial()
     experiment.add_tracking_metric(MapMetric("ax_test_metric"))
@@ -2112,8 +2121,7 @@ def get_observations_with_invalid_value(invalid_value: float) -> list[Observatio
     return observations
 
 
-# pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
-def get_map_key_info() -> MapKeyInfo:
+def get_map_key_info() -> MapKeyInfo[float]:
     return MapKeyInfo(key="epoch", default_value=0.0)
 
 
