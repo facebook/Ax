@@ -373,9 +373,13 @@ BOTORCH_BASELINE_VALUES: Mapping[tuple[str, int | None], float] = {
     ("Hartmann", 30): -0.8359462084890045,
     ("Levy", 4): 14.198811442165178,
     ("Powell", 4): 932.3102865964689,
+    ("PressureVessel", None): float("inf"),
     ("Rosenbrock", 4): 30143.767857949348,
     ("SixHumpCamel", None): 0.45755007063109004,
+    ("SpeedReducer", None): float("inf"),
+    ("TensionCompressionString", None): float("inf"),
     ("ThreeHumpCamel", None): 3.7321680621434155,
+    ("WeldedBeamSO", None): float("inf"),
 }
 
 

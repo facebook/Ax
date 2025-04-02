@@ -296,6 +296,38 @@ BENCHMARK_PROBLEM_REGISTRY = {
     "Discrete Rosenbrock": BenchmarkProblemRegistryEntry(
         factory_fn=get_discrete_rosenbrock, factory_kwargs={}
     ),
+    "PressureVessel": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.PressureVessel,
+            "test_problem_kwargs": {},
+            "num_trials": 50,
+        },
+    ),
+    "TensionCompressionString": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.TensionCompressionString,
+            "test_problem_kwargs": {},
+            "num_trials": 50,
+        },
+    ),
+    "WeldedBeamSO": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.WeldedBeamSO,
+            "test_problem_kwargs": {},
+            "num_trials": 50,
+        },
+    ),
+    "SpeedReducer": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.SpeedReducer,
+            "test_problem_kwargs": {},
+            "num_trials": 50,
+        },
+    ),
 }
 
 
