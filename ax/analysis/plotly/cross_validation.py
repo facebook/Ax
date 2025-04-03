@@ -14,11 +14,11 @@ from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import (
     CONFIDENCE_INTERVAL_BLUE,
-    get_adapter,
     get_nudge_value,
     MARKER_BLUE,
     select_metric,
 )
+from ax.analysis.utils import extract_relevant_adapter
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
@@ -94,8 +94,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> Sequence[PlotlyAnalysisCard]:
-        adapter_for_analysis = get_adapter(
-            analysis_name=self.name,
+        relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
             generation_strategy=generation_strategy,
             adapter=adapter,
@@ -112,7 +111,7 @@ class CrossValidationPlot(PlotlyAnalysis):
             metric_name = select_metric(experiment=experiment)
 
         df = _prepare_data(
-            adapter=adapter_for_analysis,
+            adapter=relevant_adapter,
             metric_name=metric_name,
             folds=self.folds,
             untransform=self.untransform,
