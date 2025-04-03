@@ -103,7 +103,7 @@ class Decoder:
             raise SQADecodeError(f"Value {value} is invalid for enum {enum}.")
 
     def _auxiliary_experiments_by_purpose_from_experiment_sqa(
-        self, experiment_sqa: SQAExperiment
+        self, experiment_sqa: SQAExperiment, reduced_state: bool = False
     ) -> dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None:
         auxiliary_experiments_by_purpose = None
         if experiment_sqa.auxiliary_experiments_by_purpose:
@@ -122,7 +122,9 @@ class Decoder:
                     if isinstance(aux_exp_json, str):
                         aux_exp_json = {"experiment_name": aux_exp_json}
                     aux_experiment = auxiliary_experiment_from_json(
-                        json=aux_exp_json, config=self.config
+                        json=aux_exp_json,
+                        config=self.config,
+                        reduced_state=reduced_state,
                     )
                     auxiliary_experiments_by_purpose[aux_exp_purpose].append(
                         aux_experiment
@@ -133,6 +135,7 @@ class Decoder:
         self,
         experiment_sqa: SQAExperiment,
         load_auxiliary_experiments: bool = True,
+        reduced_state: bool = False,
     ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
@@ -170,7 +173,8 @@ class Decoder:
         auxiliary_experiments_by_purpose = (
             (
                 self._auxiliary_experiments_by_purpose_from_experiment_sqa(
-                    experiment_sqa=experiment_sqa
+                    experiment_sqa=experiment_sqa,
+                    reduced_state=reduced_state,
                 )
             )
             if load_auxiliary_experiments
@@ -281,6 +285,7 @@ class Decoder:
             experiment = self._init_experiment_from_sqa(
                 experiment_sqa,
                 load_auxiliary_experiments=load_auxiliary_experiments,
+                reduced_state=reduced_state,
             )
         trials = [
             self.trial_from_sqa(
@@ -1333,7 +1338,9 @@ def _get_scalarized_outcome_constraint_children_metrics(
 
 
 def auxiliary_experiment_from_json(
-    json: dict[str, Any], config: SQAConfig
+    json: dict[str, Any],
+    config: SQAConfig,
+    reduced_state: bool = False,
 ) -> AuxiliaryExperiment:
     """
     Load an ``AuxiliaryExperiment`` from JSON.
@@ -1353,5 +1360,6 @@ def auxiliary_experiment_from_json(
         config=config,
         skip_runners_and_metrics=True,
         load_auxiliary_experiments=False,
+        reduced_state=reduced_state,
     )
     return AuxiliaryExperiment(experiment)
