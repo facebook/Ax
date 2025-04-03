@@ -38,7 +38,10 @@ def format_parameters_for_effects_by_arm_plot(
 
 
 def prepare_arm_effects_plot(
-    df: pd.DataFrame, metric_name: str, outcome_constraints: list[OutcomeConstraint]
+    df: pd.DataFrame,
+    metric_name: str,
+    outcome_constraints: list[OutcomeConstraint],
+    plot_status_quo_line: bool = True,
 ) -> go.Figure:
     """Prepare a plotly figure for the predicted effects based on the data in df.
 
@@ -48,7 +51,7 @@ def prepare_arm_effects_plot(
             determine if the metric is a constraint, and if so, what the bound is
             so the bound can be rendered in the plot.
         df: A dataframe of data to plot with the following columns:
-            - source: In-sample or model key that geneerated the candidate
+            - source (optional): In-sample or model key that geneerated the candidate
             - arm_name: The name of the arm
             - mean: The observed or predicted mean of the metric specified
             - sem: The observed or predicted sem of the metric specified
@@ -66,7 +69,7 @@ def prepare_arm_effects_plot(
         x="arm_name",
         y="mean",
         error_y="error_margin",
-        color="source",
+        color="source" if "source" in df.columns else None,
         # TODO: can we format this by callable or string template?
         hover_data=_get_parameter_columns(df),
         # avoid red because it will match the constraint violation indicator
@@ -82,7 +85,10 @@ def prepare_arm_effects_plot(
     for trace in fig.data:
         # there is a trace per source, so get the rows of df
         # pertaining to this trace
-        indices = df["source"] == trace.name
+        if "source" in df.columns:
+            indices = df["source"] == trace.name
+        else:
+            indices = df.apply(lambda x: True, axis=1)
         trace.marker.line.color = [
             # raising the alpha to a power < 1 makes the colors more
             # visible when there is a lower chance of constraint violation
@@ -126,7 +132,11 @@ def prepare_arm_effects_plot(
         fig.add_trace(legend_trace)
 
     _add_style_to_effects_by_arm_plot(
-        fig=fig, df=df, metric_name=metric_name, outcome_constraints=outcome_constraints
+        fig=fig,
+        df=df,
+        metric_name=metric_name,
+        outcome_constraints=outcome_constraints,
+        plot_status_quo_line=plot_status_quo_line,
     )
     return fig
 
@@ -144,6 +154,7 @@ def _add_style_to_effects_by_arm_plot(
     df: pd.DataFrame,
     metric_name: str,
     outcome_constraints: list[OutcomeConstraint],
+    plot_status_quo_line: bool = True,
 ) -> None:
     """Add style to a plotly figure for predicted or insample effects.
 
@@ -152,7 +163,7 @@ def _add_style_to_effects_by_arm_plot(
         bound.
     - Make the x-axis (arm name) tick angle 45 degrees.
     """
-    if "status_quo" in df["arm_name"].values:
+    if plot_status_quo_line is True and "status_quo" in df["arm_name"].values:
         fig.add_hline(
             y=df[df["arm_name"] == "status_quo"]["mean"].iloc[0],
             line_width=1,
