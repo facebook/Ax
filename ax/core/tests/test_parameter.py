@@ -334,14 +334,6 @@ class ChoiceParameterTest(TestCase):
         self.assertTrue(self.param1.validate("bar"))
         self.assertFalse(self.param1.validate("foo"))
 
-    def test_SingleValue(self) -> None:
-        with self.assertRaises(UserInputError):
-            ChoiceParameter(
-                name="x", parameter_type=ParameterType.STRING, values=["foo"]
-            )
-        with self.assertRaises(UserInputError):
-            self.param1.set_values(["foo"])
-
     def test_Clone(self) -> None:
         param_clone = self.param1.clone()
         self.assertEqual(len(self.param1.values), len(param_clone.values))

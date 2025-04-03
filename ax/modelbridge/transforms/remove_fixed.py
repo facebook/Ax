@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Union
 
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
@@ -21,9 +21,12 @@ if TYPE_CHECKING:
 
 
 class RemoveFixed(Transform):
-    """Remove fixed parameters.
+    """Remove fixed parameters and single-choice choice parameters from
+    the search space.
 
-    Fixed parameters should not be included in the SearchSpace.
+    Fixed parameters and single-choice choice parameters should not be included
+    in the SearchSpace.
+
     This transform removes these parameters, leaving only tunable parameters.
 
     Transform is done in-place for observation features.
@@ -38,24 +41,25 @@ class RemoveFixed(Transform):
     ) -> None:
         assert search_space is not None, "RemoveFixed requires search space"
         # Identify parameters that should be transformed
-        self.fixed_parameters: dict[str, FixedParameter] = {
+        self.single_choice_params: dict[str, Union[FixedParameter, ChoiceParameter]] = {
             p_name: p
             for p_name, p in search_space.parameters.items()
             if isinstance(p, FixedParameter)
+            or (isinstance(p, ChoiceParameter) and len(p.values) == 1)
         }
 
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in self.fixed_parameters:
+            for p_name in self.single_choice_params:
                 obsf.parameters.pop(p_name, None)
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         tunable_parameters: list[ChoiceParameter | RangeParameter] = []
         for p in search_space.parameters.values():
-            if p.name not in self.fixed_parameters:
+            if p.name not in self.single_choice_params:
                 # If it's not in fixed_parameters, it must be a tunable param.
                 # pyre: p_ is declared to have type `Union[ChoiceParameter,
                 # pyre: RangeParameter]` but is used as type `ax.core.
@@ -75,6 +79,9 @@ class RemoveFixed(Transform):
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name, p in self.fixed_parameters.items():
-                obsf.parameters[p_name] = p.value
+            for p_name, p in self.single_choice_params.items():
+                if isinstance(p, FixedParameter):
+                    obsf.parameters[p_name] = p.value
+                else:
+                    obsf.parameters[p_name] = p.values[0]
         return observation_features
