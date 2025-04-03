@@ -328,6 +328,22 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "num_trials": 50,
         },
     ),
+    "KeaneBumpFunction2": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.KeaneBumpFunction,
+            "test_problem_kwargs": {"dim": 2},
+            "num_trials": 30,
+        },
+    ),
+    "KeaneBumpFunction10": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.KeaneBumpFunction,
+            "test_problem_kwargs": {"dim": 10},
+            "num_trials": 50,
+        },
+    ),
 }
 
 
