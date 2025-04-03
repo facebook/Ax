@@ -30,6 +30,7 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
+from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import ObjectNotFoundError
@@ -275,6 +276,8 @@ class SQAStoreTest(TestCase):
             is_test=True,
         )
         save_experiment(aux_experiment, config=self.config)
+        # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
+        purpose = self.config.auxiliary_experiment_purpose_enum.MyAuxExpPurpose
 
         experiment_w_aux_exp = Experiment(
             name="test_experiment_w_aux_exp_in_SQAStoreTest",
@@ -284,10 +287,7 @@ class SQAStoreTest(TestCase):
             tracking_metrics=[Metric(name="tracking")],
             is_test=True,
             auxiliary_experiments_by_purpose={
-                # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-                self.config.auxiliary_experiment_purpose_enum.MyAuxExpPurpose: [
-                    AuxiliaryExperiment(experiment=aux_experiment)
-                ]
+                purpose: [AuxiliaryExperiment(experiment=aux_experiment)]
             },
         )
         self.assertIsNone(experiment_w_aux_exp.db_id)
@@ -298,6 +298,66 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(experiment_w_aux_exp, loaded_experiment)
         self.assertEqual(len(loaded_experiment.auxiliary_experiments_by_purpose), 1)
+
+    def test_saving_and_loading_experiment_with_aux_exp_reduced_state(self) -> None:
+        aux_exp = Experiment(
+            name="test_aux_exp_in_SQAStoreTest_reduced_state",
+            search_space=get_search_space(),
+            optimization_config=get_optimization_config(),
+            description="test description",
+            tracking_metrics=[Metric(name="tracking")],
+            is_test=True,
+        )
+        aux_exp_gs = get_generation_strategy(with_callable_model_kwarg=False)
+        aux_exp.new_trial(aux_exp_gs.gen(experiment=aux_exp))
+        save_experiment(aux_exp, config=self.config)
+        # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
+        purpose = self.config.auxiliary_experiment_purpose_enum.MyAuxExpPurpose
+
+        target_exp = Experiment(
+            name="test_experiment_w_aux_exp_in_SQAStoreTest_reduced_state",
+            search_space=get_search_space(),
+            optimization_config=get_optimization_config(),
+            description="test description",
+            tracking_metrics=[Metric(name="tracking")],
+            is_test=True,
+            auxiliary_experiments_by_purpose={
+                purpose: [AuxiliaryExperiment(experiment=aux_exp)]
+            },
+        )
+        target_exp_gs = get_generation_strategy(with_callable_model_kwarg=False)
+        target_exp.new_trial(target_exp_gs.gen(experiment=target_exp))
+        self.assertIsNone(target_exp.db_id)
+        save_experiment(target_exp, config=self.config)
+        self.assertIsNotNone(target_exp.db_id)
+        loaded_target_exp = load_experiment(
+            target_exp.name, config=self.config, reduced_state=True
+        )
+        self.assertNotEqual(target_exp, loaded_target_exp)
+        self.assertIsNotNone(  # State of the original aux experiment is not reduced.
+            none_throws(
+                assert_is_instance(aux_exp.trials[0], Trial).generator_run
+            ).gen_metadata
+        )
+        self.assertIsNotNone(  # State of the original target experiment is not reduced.
+            none_throws(
+                assert_is_instance(target_exp.trials[0], Trial).generator_run
+            ).gen_metadata
+        )
+        self.assertIsNone(  # State of the loaded target experiment *is reduced*.
+            none_throws(
+                assert_is_instance(loaded_target_exp.trials[0], Trial).generator_run
+            ).gen_metadata
+        )
+        loaded_aux_exp = loaded_target_exp.auxiliary_experiments_by_purpose[purpose][0]
+        self.assertIsNone(  # State of the loaded target experiment *is reduced*.
+            none_throws(
+                assert_is_instance(
+                    loaded_aux_exp.experiment.trials[0], Trial
+                ).generator_run
+            ).gen_metadata
+        )
+        self.assertEqual(len(loaded_target_exp.auxiliary_experiments_by_purpose), 1)
 
     def test_saving_with_aux_exp_not_in_db(self) -> None:
         aux_experiment = Experiment(
