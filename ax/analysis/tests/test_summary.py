@@ -72,6 +72,7 @@ class TestSummary(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "generation_method",
                 "foo",
                 "bar",
                 "x1",
@@ -91,6 +92,7 @@ class TestSummary(TestCase):
                 "arm_name": {0: "0_0", 1: "1_0"},
                 "trial_status": {0: "COMPLETED", 1: "FAILED"},
                 "generation_node": {0: "Sobol", 1: "Sobol"},
+                "generation_method": {0: "Sobol", 1: "Sobol"},
                 "foo": {0: 1.0, 1: np.nan},  # NaN because trial 1 failed
                 "bar": {0: 2.0, 1: np.nan},
                 "x1": {
@@ -116,6 +118,7 @@ class TestSummary(TestCase):
                 "trial_status",
                 "fail_reason",
                 "generation_node",
+                "generation_method",
                 "foo",
                 "bar",
                 "x1",
