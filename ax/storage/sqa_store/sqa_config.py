@@ -14,7 +14,7 @@ from typing import Any
 from ax.analysis.analysis import AnalysisCard
 
 from ax.core.arm import Arm
-from ax.core.auxiliary import AuxiliaryExperimentPurpose
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import AbandonedArm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -39,6 +39,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAAnalysisCard,
     SQAArm,
+    SQAAuxiliaryExperiment,
     SQAData,
     SQAExperiment,
     SQAGenerationStrategy,
@@ -81,6 +82,7 @@ class SQAConfig:
             Runner: SQARunner,
             Trial: SQATrial,
             AnalysisCard: SQAAnalysisCard,
+            AuxiliaryExperiment: SQAAuxiliaryExperiment,
         }
 
     class_to_sqa_class: dict[type[Base], type[SQABase]] = field(
