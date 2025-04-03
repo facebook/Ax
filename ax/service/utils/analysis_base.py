@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+from abc import abstractmethod
 from collections.abc import Iterable
 
 from ax.analysis.analysis import (
@@ -15,7 +16,6 @@ from ax.analysis.analysis import (
 from ax.analysis.markdown.markdown_analysis import (
     markdown_analysis_card_from_analysis_e,
 )
-from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
@@ -34,15 +34,14 @@ class AnalysisBase(WithDBSettingsBase):
     # is never initialized
     generation_strategy: GenerationStrategy
 
+    @abstractmethod
     def _choose_analyses(
         self, categories: list[AnalysisCardCategory] | None = None
     ) -> list[Analysis]:
         """
         Choose Analyses to compute based on the Experiment, GenerationStrategy, etc.
         """
-
-        # TODO Create a useful heuristic for choosing analyses
-        return [ParallelCoordinatesPlot()]
+        pass
 
     def compute_analyses(
         self,
