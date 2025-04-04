@@ -30,6 +30,7 @@ from ax.benchmark.benchmark import (
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
+    BenchmarkProblem,
     create_problem_from_botorch,
     get_moo_opt_config,
     get_soo_opt_config,
@@ -91,6 +92,26 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestBenchmark(TestCase):
+    def benchmark_replication(
+        self,
+        problem: BenchmarkProblem,
+        method: BenchmarkMethod,
+        seed: int,
+        strip_runner_before_saving: bool = True,
+    ) -> BenchmarkResult:
+        """
+        Run benchmark_replication with logs set to WARNING.
+
+        Suppresses voluminous INFO logs from the scheduler.
+        """
+        return benchmark_replication(
+            problem=problem,
+            method=method,
+            seed=seed,
+            strip_runner_before_saving=strip_runner_before_saving,
+            scheduler_logging_level=WARNING,
+        )
+
     @mock_botorch_optimize
     def test_batch(self) -> None:
         batch_size = 5
@@ -129,9 +150,7 @@ class TestBenchmark(TestCase):
     def _test_storage(self, map_data: bool) -> None:
         problem = get_async_benchmark_problem(map_data=map_data)
         method = get_async_benchmark_method()
-        res = benchmark_replication(
-            problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
-        )
+        res = self.benchmark_replication(problem=problem, method=method, seed=0)
         # Experiment is not in storage yet
         self.assertTrue(res.experiment is not None)
         self.assertEqual(res.experiment_storage_id, None)
@@ -195,9 +214,7 @@ class TestBenchmark(TestCase):
             get_problem("jenatton", num_trials=6),
         ]
         for problem in problems:
-            res = benchmark_replication(
-                problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
-            )
+            res = self.benchmark_replication(problem=problem, method=method, seed=0)
 
             self.assertEqual(
                 problem.num_trials, len(none_throws(res.experiment).trials)
@@ -248,12 +265,7 @@ class TestBenchmark(TestCase):
             ("moo", get_moo_surrogate()),
         ]:
             with self.subTest(name, problem=problem):
-                res = benchmark_replication(
-                    problem=problem,
-                    method=method,
-                    seed=0,
-                    scheduler_logging_level=WARNING,
-                )
+                res = self.benchmark_replication(problem=problem, method=method, seed=0)
 
                 self.assertEqual(
                     problem.num_trials,
@@ -359,12 +371,11 @@ class TestBenchmark(TestCase):
                     ),
                     original_method=ExternalGenerationNode._gen,
                 ) as mock_gen:
-                    result = benchmark_replication(
+                    result = self.benchmark_replication(
                         problem=problem,
                         method=method,
                         seed=0,
                         strip_runner_before_saving=False,
-                        scheduler_logging_level=WARNING,
                     )
                 pending_in_each_gen = [
                     [
@@ -538,12 +549,11 @@ class TestBenchmark(TestCase):
             n_steps=progression_length_if_not_stopped,
             lower_is_better=True,
         )
-        result = benchmark_replication(
+        result = self.benchmark_replication(
             problem=problem,
             method=method,
             seed=0,
             strip_runner_before_saving=False,
-            scheduler_logging_level=WARNING,
         )
         data = assert_is_instance(none_throws(result.experiment).lookup_data(), MapData)
         expected_n_steps = {
@@ -596,11 +606,10 @@ class TestBenchmark(TestCase):
                 early_stopping_strategy=early_stopping_strategy,
                 max_pending_trials=1,
             )
-            result = benchmark_replication(
+            result = self.benchmark_replication(
                 problem=problem,
                 method=method,
                 seed=0,
-                scheduler_logging_level=WARNING,
                 strip_runner_before_saving=False,
             )
             experiment = none_throws(result.experiment)
@@ -636,11 +645,10 @@ class TestBenchmark(TestCase):
                     map_data=map_data,
                     step_runtime_fn=lambda params: params["x0"] + 1,
                 )
-                result = benchmark_replication(
+                result = self.benchmark_replication(
                     problem=problem,
                     method=method,
                     seed=0,
-                    scheduler_logging_level=WARNING,
                     strip_runner_before_saving=False,
                 )
                 simulated_backend_runner = assert_is_instance(
@@ -689,9 +697,7 @@ class TestBenchmark(TestCase):
             report_inference_value_as_trace=report_inference_value_as_trace,
             noise_std=100.0,
         )
-        res = benchmark_replication(
-            problem=problem, method=method, seed=seed, scheduler_logging_level=WARNING
-        )
+        res = self.benchmark_replication(problem=problem, method=method, seed=seed)
         # The inference trace could coincide with the oracle trace, but it won't
         # happen in this example with high noise and a seed
         self.assertEqual(
@@ -816,12 +822,7 @@ class TestBenchmark(TestCase):
             ),
         ]:
             with self.subTest(method=method, problem=problem):
-                res = benchmark_replication(
-                    problem=problem,
-                    method=method,
-                    seed=0,
-                    scheduler_logging_level=WARNING,
-                )
+                res = self.benchmark_replication(problem=problem, method=method, seed=0)
                 self.assertEqual(
                     problem.num_trials,
                     len(none_throws(res.experiment).trials),
@@ -833,11 +834,10 @@ class TestBenchmark(TestCase):
     def test_replication_moo_sobol(self) -> None:
         problem = get_multi_objective_benchmark_problem()
 
-        res = benchmark_replication(
+        res = self.benchmark_replication(
             problem=problem,
             method=get_sobol_benchmark_method(distribute_replications=False),
             seed=0,
-            scheduler_logging_level=WARNING,
         )
 
         self.assertEqual(
@@ -860,7 +860,10 @@ class TestBenchmark(TestCase):
         method = get_sobol_benchmark_method(distribute_replications=False)
         with self.assertNoLogs(level="INFO"):
             agg = benchmark_one_method_problem(
-                problem=problem, method=method, seeds=(0, 1)
+                problem=problem,
+                method=method,
+                seeds=(0, 1),
+                scheduler_logging_level=WARNING,
             )
 
         self.assertEqual(len(agg.results), 2)
@@ -958,7 +961,7 @@ class TestBenchmark(TestCase):
         )
         problem = get_single_objective_benchmark_problem()
         with self.assertNoLogs(logger=get_logger("ax.core.experiment"), level="INFO"):
-            res = benchmark_replication(problem=problem, method=method, seed=0)
+            res = self.benchmark_replication(problem=problem, method=method, seed=0)
 
         # Check that logger level has been reset
         self.assertEqual(get_logger("ax.core.experiment").level, logging.INFO)
@@ -1107,9 +1110,7 @@ class TestBenchmark(TestCase):
         problem = get_single_objective_benchmark_problem(
             status_quo_params={"x0": 0.0, "x1": 0.0}
         )
-        res = benchmark_replication(
-            problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
-        )
+        res = self.benchmark_replication(problem=problem, method=method, seed=0)
 
         self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
         for t in none_throws(res.experiment).trials.values():
@@ -1232,12 +1233,7 @@ class TestBenchmark(TestCase):
         method = get_async_benchmark_method()
 
         with self.subTest("Without early stopping"):
-            result = benchmark_replication(
-                problem=problem,
-                method=method,
-                seed=0,
-                scheduler_logging_level=WARNING,
-            )
+            result = self.benchmark_replication(problem=problem, method=method, seed=0)
             new_opt_trace = get_opt_trace_by_steps(
                 experiment=none_throws(result.experiment)
             )
@@ -1252,11 +1248,8 @@ class TestBenchmark(TestCase):
                     metric_threshold=10.0, min_progression=0, min_curves=2
                 )
             )
-            result = benchmark_replication(
-                problem=problem,
-                method=es_method,
-                seed=0,
-                scheduler_logging_level=WARNING,
+            result = self.benchmark_replication(
+                problem=problem, method=es_method, seed=0
             )
             new_opt_trace = get_opt_trace_by_steps(
                 experiment=none_throws(result.experiment)
@@ -1266,12 +1259,7 @@ class TestBenchmark(TestCase):
 
         with self.subTest("MOO"):
             problem = get_multi_objective_benchmark_problem()
-            result = benchmark_replication(
-                problem=problem,
-                method=method,
-                seed=0,
-                scheduler_logging_level=WARNING,
-            )
+            result = self.benchmark_replication(problem=problem, method=method, seed=0)
             with self.assertRaisesRegex(
                 NotImplementedError, "only supported for single objective"
             ):
@@ -1279,12 +1267,7 @@ class TestBenchmark(TestCase):
 
         with self.subTest("Constrained"):
             problem = get_problem("constrained_gramacy_observed_noise")
-            result = benchmark_replication(
-                problem=problem,
-                method=method,
-                seed=0,
-                scheduler_logging_level=WARNING,
-            )
+            result = self.benchmark_replication(problem=problem, method=method, seed=0)
             with self.assertRaisesRegex(
                 NotImplementedError,
                 "not supported for problems with outcome constraints",
@@ -1301,7 +1284,7 @@ class TestBenchmark(TestCase):
             step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
         )
         method = get_async_benchmark_method()
-        result = benchmark_replication(problem=problem, method=method, seed=0)
+        result = self.benchmark_replication(problem=problem, method=method, seed=0)
         transformed = get_benchmark_result_with_cumulative_steps(
             result=result,
             optimal_value=problem.optimal_value,
