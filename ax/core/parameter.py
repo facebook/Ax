@@ -17,7 +17,7 @@ from typing import cast, Union
 from warnings import warn
 
 from ax.core.types import TNumeric, TParamValue, TParamValueList
-from ax.exceptions.core import AxParameterWarning, UserInputError
+from ax.exceptions.core import AxParameterWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
@@ -94,7 +94,7 @@ class Parameter(SortableBase, metaclass=ABCMeta):
 
     def cast(self, value: TParamValue) -> TParamValue:
         if value is None:
-            return None
+            raise UnsupportedError("None values are not supported.")
         return self.python_type(value)
 
     @abstractmethod
@@ -282,7 +282,9 @@ class RangeParameter(Parameter):
         self._log_scale = log_scale
         self._logit_scale = logit_scale
         self._is_fidelity = is_fidelity
-        self._target_value: TNumeric | None = self.cast(target_value)
+        self._target_value: TNumeric | None = (
+            self.cast(target_value) if target_value is not None else None
+        )
 
         self._validate_range_param(
             parameter_type=parameter_type,
@@ -494,12 +496,11 @@ class RangeParameter(Parameter):
             target_value=self._target_value,
         )
 
-    def cast(self, value: TParamValue) -> TNumeric | None:
-        if value is None:
-            return None
+    def cast(self, value: TParamValue) -> TNumeric:
+        value = super().cast(value=value)
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
             return round(float(value), none_throws(self._digits))
-        return assert_is_instance(self.python_type(value), TNumeric)
+        return assert_is_instance(value, TNumeric)
 
     def __repr__(self) -> str:
         ret_val = self._base_repr()
@@ -565,7 +566,9 @@ class ChoiceParameter(Parameter):
         self._parameter_type = parameter_type
         self._is_task = is_task
         self._is_fidelity = is_fidelity
-        self._target_value: TParamValue = self.cast(target_value)
+        self._target_value: TParamValue = (
+            self.cast(target_value) if target_value is not None else None
+        )
         # A choice parameter with only one value is a FixedParameter.
         if not len(values) > 1:
             raise UserInputError(f"{self._name}({values}): {FIXED_CHOICE_PARAM_ERROR}")
@@ -790,7 +793,9 @@ class FixedParameter(Parameter):
         self._parameter_type = parameter_type
         self._value: TParamValue = self.cast(value)
         self._is_fidelity = is_fidelity
-        self._target_value: TParamValue = self.cast(target_value)
+        self._target_value: TParamValue = (
+            self.cast(target_value) if target_value is not None else None
+        )
         # NOTE: We don't need to check that dependent parameters actually exist as
         # that is done in `HierarchicalSearchSpace` constructor.
         if dependents:

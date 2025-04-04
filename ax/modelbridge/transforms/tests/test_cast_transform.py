@@ -247,3 +247,39 @@ class CastTransformTest(TestCase):
             obsf.metadata.get(Keys.FULL_PARAMETERIZATION),
             self.obs_feats_hss_2.parameters,
         )
+
+    def test_cast_parameter_type_and_none(self) -> None:
+        # This test covers removal of observations with Nones, casting
+        # to correct parameter type and rounding to digits for RangeParameters.
+        search_space = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="choice",
+                    parameter_type=ParameterType.STRING,
+                    values=["1", "2", "3"],
+                ),
+                RangeParameter(
+                    name="range",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=5.0,
+                    digits=1,
+                ),
+            ]
+        )
+        t = Cast(search_space=search_space)
+        obs_features = [
+            ObservationFeatures(parameters={"choice": None, "range": 5.0}),
+            ObservationFeatures(parameters={"choice": 1, "range": 3}),
+            ObservationFeatures(parameters={"choice": "2", "range": 3.567}),
+        ]
+        tf_obs_features = t.transform_observation_features(
+            observation_features=obs_features
+        )
+        self.assertEqual(
+            tf_obs_features,
+            [
+                ObservationFeatures(parameters={"choice": "1", "range": 3.0}),
+                ObservationFeatures(parameters={"choice": "2", "range": 3.6}),
+            ],
+        )
