@@ -11,12 +11,10 @@ from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from numpy.typing import NDArray
-from pyre_extensions import none_throws
 
 # Because normal distributions have long tails, every arm has a non-zero
 # probability of violating the constraint. But below a certain threshold, we
@@ -160,55 +158,6 @@ def get_nudge_value(
         nudge += 1
 
     return nudge
-
-
-def get_adapter(
-    analysis_name: str,
-    experiment: Experiment | None = None,
-    generation_strategy: GenerationStrategy | None = None,
-    adapter: Adapter | None = None,
-    enforce_supports_predictions: bool = False,
-) -> Adapter:
-    """
-    Select the appropriate adapter for the analysis being performed.
-
-    Args:
-        analysis_name: The name of the analysis card for error logging
-        experiment: The experiment associated with this analysis
-        generation_strategy: The generation strategy associated with this analysis
-        adapter: A custom adapter that can be passed in during adhoc computation. This
-            will always take precedence.
-    """
-    # If adapter is provided, it will take precedence, otherwise use the current
-    # adapter from the generation strategy
-    if adapter is None:
-        if generation_strategy is None:
-            raise UserInputError(
-                f"{analysis_name} requires a GenerationStrategy if no custom "
-                "adapter is provided."
-            )
-
-        # If model is not fit already, fit it
-        if generation_strategy.model is None:
-            if experiment is None:
-                raise UserInputError(
-                    "Unable to find a model on the GenerationStrategy,"
-                    " so Experiment must be provided to fit the model"
-                    f" to compute {analysis_name}."
-                )
-            generation_strategy._curr._fit(experiment=experiment)
-        adapter = none_throws(generation_strategy.model)  # model should be fit now
-
-    # if the adapter requested must support predictions, but does not, raise an error
-    if enforce_supports_predictions and not is_predictive(adapter=adapter):
-        raise UserInputError(
-            f"{analysis_name} requires a GenerationStrategy which is "
-            "in a state where the current model supports prediction. "
-            f"The current model is {adapter._model_key} and does not support "
-            "prediction."
-        )
-
-    return adapter
 
 
 def is_predictive(adapter: Adapter) -> bool:
