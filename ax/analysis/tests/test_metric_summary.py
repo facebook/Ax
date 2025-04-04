@@ -13,6 +13,7 @@ from ax.api.configs import ExperimentConfig
 from ax.core.metric import Metric
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 
 
 class TestMetricSummary(TestCase):
@@ -85,3 +86,19 @@ class TestMetricSummary(TestCase):
             }
         )
         pd.testing.assert_frame_equal(card.df, expected)
+
+    def test_online(self) -> None:
+        # Test MetricSummary can be computed for a variety of experiments which
+        # resemble those we see in an online setting.
+
+        analysis = MetricSummary()
+        for experiment in get_online_experiments():
+            _ = analysis.compute(experiment=experiment)
+
+    def test_offline(self) -> None:
+        # Test MetricSummary can be computed for a variety of experiments which
+        # resemble those we see in an offline setting.
+
+        analysis = MetricSummary()
+        for experiment in get_offline_experiments():
+            _ = analysis.compute(experiment=experiment)
