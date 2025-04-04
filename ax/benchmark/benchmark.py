@@ -110,7 +110,9 @@ def compute_score_trace(
 
 
 def get_benchmark_runner(
-    problem: BenchmarkProblem, max_concurrency: int = 1
+    problem: BenchmarkProblem,
+    max_concurrency: int = 1,
+    force_use_simulated_backend: bool = False,
 ) -> BenchmarkRunner:
     """
     Construct a ``BenchmarkRunner`` for the given problem and concurrency.
@@ -126,6 +128,10 @@ def get_benchmark_runner(
         max_concurrency: The maximum number of trials that can be run concurrently.
             Typically, ``max_pending_trials`` from ``SchedulerOptions``, which are
             stored on the ``BenchmarkMethod``.
+        force_use_simulated_backend: Whether to use a simulated backend even if
+            ``max_concurrency`` is 1 and ``problem.step_runtime_function`` is
+            None. Recommended for use with a ``BenchmarkMethod`` that uses early
+            stopping.
     """
 
     return BenchmarkRunner(
@@ -133,6 +139,7 @@ def get_benchmark_runner(
         noise_std=problem.noise_std,
         step_runtime_function=problem.step_runtime_function,
         max_concurrency=max_concurrency,
+        force_use_simulated_backend=force_use_simulated_backend,
     )
 
 
@@ -439,7 +446,9 @@ def benchmark_replication(
         logging_level=scheduler_logging_level,
     )
     runner = get_benchmark_runner(
-        problem=problem, max_concurrency=scheduler_options.max_pending_trials
+        problem=problem,
+        max_concurrency=scheduler_options.max_pending_trials,
+        force_use_simulated_backend=method.early_stopping_strategy is not None,
     )
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",

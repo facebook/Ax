@@ -591,6 +591,81 @@ class TestBenchmark(TestCase):
         }
         self.assertEqual(start_times, expected_start_times)
 
+        with self.subTest("max_pending_trials = 1"):
+            method = get_async_benchmark_method(
+                early_stopping_strategy=early_stopping_strategy,
+                max_pending_trials=1,
+            )
+            result = benchmark_replication(
+                problem=problem,
+                method=method,
+                seed=0,
+                scheduler_logging_level=WARNING,
+                strip_runner_before_saving=False,
+            )
+            experiment = none_throws(result.experiment)
+            simulated_backend_runner = assert_is_instance(
+                experiment.runner, BenchmarkRunner
+            ).simulated_backend_runner
+            self.assertIsNotNone(simulated_backend_runner)
+            expected_start_times = {
+                0: 0,
+                1: 5,  # Early-stopped at t=8
+                2: 9,  # Early-stopped at t=11
+                3: 13,  # Early-stopped at t=16
+            }
+            simulator = none_throws(simulated_backend_runner).simulator
+            trials = {
+                trial_index: none_throws(simulator.get_sim_trial_by_index(trial_index))
+                for trial_index in range(4)
+            }
+            start_times = {
+                trial_index: sim_trial.sim_start_time
+                for trial_index, sim_trial in trials.items()
+            }
+            self.assertEqual(start_times, expected_start_times)
+            map_df = assert_is_instance(experiment.lookup_data(), MapData).map_df
+            max_run = map_df.groupby("trial_index")["step"].max().to_dict()
+            self.assertEqual(max_run, {0: 4, 1: 2, 2: 2, 3: 2})
+
+    def test_replication_variable_runtime(self) -> None:
+        method = get_async_benchmark_method(max_pending_trials=1)
+        for map_data in [False, True]:
+            with self.subTest(map_data=map_data):
+                problem = get_async_benchmark_problem(
+                    map_data=map_data,
+                    step_runtime_fn=lambda params: params["x0"] + 1,
+                )
+                result = benchmark_replication(
+                    problem=problem,
+                    method=method,
+                    seed=0,
+                    scheduler_logging_level=WARNING,
+                    strip_runner_before_saving=False,
+                )
+                simulated_backend_runner = assert_is_instance(
+                    none_throws(result.experiment).runner, BenchmarkRunner
+                ).simulated_backend_runner
+                self.assertIsNotNone(simulated_backend_runner)
+                expected_start_times = {
+                    0: 0,
+                    1: 1,
+                    2: 3,
+                    3: 6,
+                }
+                simulator = none_throws(simulated_backend_runner).simulator
+                trials = {
+                    trial_index: none_throws(
+                        simulator.get_sim_trial_by_index(trial_index)
+                    )
+                    for trial_index in range(4)
+                }
+                start_times = {
+                    trial_index: sim_trial.sim_start_time
+                    for trial_index, sim_trial in trials.items()
+                }
+                self.assertEqual(start_times, expected_start_times)
+
     @mock_botorch_optimize
     def _test_replication_with_inference_value(
         self,
