@@ -18,6 +18,7 @@ from ax.api.configs import (
 )
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 
 
 class TestSearchSpaceSummary(TestCase):
@@ -84,3 +85,19 @@ class TestSearchSpaceSummary(TestCase):
             }
         )
         pd.testing.assert_frame_equal(card.df, expected)
+
+    def test_online(self) -> None:
+        # Test SearchSpaceSummary can be computed for a variety of experiments which
+        # resemble those we see in an online setting.
+
+        analysis = SearchSpaceSummary()
+        for experiment in get_online_experiments():
+            _ = analysis.compute(experiment=experiment)
+
+    def test_offline(self) -> None:
+        # Test SearchSpaceSummary can be computed for a variety of experiments which
+        # resemble those we see in an offline setting.
+
+        analysis = SearchSpaceSummary()
+        for experiment in get_offline_experiments():
+            _ = analysis.compute(experiment=experiment)
