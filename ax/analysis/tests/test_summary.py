@@ -14,6 +14,7 @@ from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -123,3 +124,23 @@ class TestSummary(TestCase):
             },
         )
         self.assertEqual(len(card_no_omit.df), len(experiment.arms_by_name))
+
+    def test_online(self) -> None:
+        # Test MetricSummary can be computed for a variety of experiments which
+        # resemble those we see in an online setting.
+
+        for omit_empty_columns in [True, False]:
+            analysis = Summary(omit_empty_columns=omit_empty_columns)
+
+            for experiment in get_online_experiments():
+                _ = analysis.compute(experiment=experiment)
+
+    def test_offline(self) -> None:
+        # Test MetricSummary can be computed for a variety of experiments which
+        # resemble those we see in an offline setting.
+
+        for omit_empty_columns in [True, False]:
+            analysis = Summary(omit_empty_columns=omit_empty_columns)
+
+            for experiment in get_offline_experiments():
+                _ = analysis.compute(experiment=experiment)
