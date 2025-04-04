@@ -51,7 +51,7 @@ class TestSensitivityAnalysisPlot(TestCase):
         analysis = SensitivityAnalysisPlot(metric_names=["bar"], order="first")
 
         with self.assertRaisesRegex(
-            UserInputError, "requires either a TorchAdapter or a GenerationStrategy"
+            UserInputError, "Must provide either a GenerationStrategy or an Adapter"
         ):
             analysis.compute()
 
