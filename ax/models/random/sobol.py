@@ -80,6 +80,7 @@ class SobolGenerator(RandomGenerator):
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
         rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
+        generated_points: npt.NDArray | None = None,
     ) -> tuple[npt.NDArray, npt.NDArray]:
         """Generate new candidates.
 
@@ -93,7 +94,8 @@ class SobolGenerator(RandomGenerator):
                 should be fixed to a particular value during generation.
             rounding_func: A function that rounds an optimization result
                 appropriately (e.g., according to `round-trip` transformations).
-
+            generated_points: A numpy array of shape `n x d` containing the
+                previously generated points to deduplicate against.
         Returns:
             2-element tuple containing
 
@@ -113,6 +115,7 @@ class SobolGenerator(RandomGenerator):
             fixed_features=fixed_features,
             model_gen_options=model_gen_options,
             rounding_func=rounding_func,
+            generated_points=generated_points,
         )
         if self.engine:
             self.init_position = none_throws(self.engine).num_generated

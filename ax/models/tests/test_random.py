@@ -29,7 +29,7 @@ class RandomGeneratorTest(TestCase):
         for model in (self.random_model, RandomGenerator(seed=5)):
             state = model._get_state()
             self.assertEqual(state["seed"], model.seed)
-            self.assertEqual(state["generated_points"], model.generated_points)
+            self.assertEqual(state["init_position"], model.init_position)
 
     def test_RandomGeneratorGenSamples(self) -> None:
         with self.assertRaises(NotImplementedError):
@@ -79,12 +79,3 @@ class RandomGeneratorTest(TestCase):
         # pyre-fixme[6]: For 1st param expected `List[Tuple[float, float]]` but got
         #  `None`.
         self.assertEqual(self.random_model._convert_bounds(None), None)
-
-    def test_GetLastPoint(self) -> None:
-        generated_points = np.array([[1, 2, 3], [4, 5, 6]])
-        RandomGeneratorWithPoints = RandomGenerator(generated_points=generated_points)
-        result = RandomGeneratorWithPoints._get_last_point()
-        expected = torch.tensor([[4], [5], [6]])
-        comparison = result == expected
-        # pyre-fixme[16]: `bool` has no attribute `any`.
-        self.assertEqual(comparison.any(), True)

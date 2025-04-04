@@ -11,7 +11,6 @@ from typing import cast
 from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
-import numpy as np
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -22,7 +21,12 @@ from ax.core.trial_status import TrialStatus
 from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status as get_pending,
 )
-from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
+from ax.exceptions.core import (
+    DataRequiredError,
+    SearchSpaceExhausted,
+    UnsupportedError,
+    UserInputError,
+)
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
@@ -549,15 +553,6 @@ class TestGenerationStrategy(TestCase):
                 self.assertEqual(g._model_key, "Sobol")
                 mkw = g._model_kwargs
                 self.assertIsNotNone(mkw)
-                if i > 0:
-                    # Generated points are randomized, so checking that they're there.
-                    self.assertIsNotNone(mkw.get("generated_points"))
-                else:
-                    # This is the first GR, there should be no generated points yet.
-                    self.assertIsNone(mkw.get("generated_points"))
-                # Remove the randomized generated points to compare the rest.
-                mkw = mkw.copy()
-                del mkw["generated_points"]
                 self.assertEqual(
                     mkw,
                     {
@@ -566,6 +561,7 @@ class TestGenerationStrategy(TestCase):
                         "init_position": i,
                         "scramble": True,
                         "fallback_to_sample_polytope": False,
+                        "generated_points": None,
                     },
                 )
                 self.assertEqual(
@@ -585,12 +581,6 @@ class TestGenerationStrategy(TestCase):
                 # Compare the model state to Sobol state.
                 sobol_model = assert_is_instance(
                     none_throws(gs.model).model, SobolGenerator
-                )
-                self.assertTrue(
-                    np.array_equal(
-                        ms.pop("generated_points"),
-                        none_throws(sobol_model.generated_points),
-                    )
                 )
                 # Replace expected seed with the one generated in __init__.
                 expected_seed = sobol_model.seed
@@ -780,7 +770,17 @@ class TestGenerationStrategy(TestCase):
         # None uses default fallback, which catches
         # GenerationStrategyRepeatedPoints and re-generate with sobol
         # {} will not have a fallback model and will raise the exception
-        for fallback_specs in [{}, None]:
+        for fallback_specs in [
+            {},
+            None,
+            {
+                GenerationStrategyRepeatedPoints: GeneratorSpec(
+                    model_enum=Generators.SOBOL,
+                    model_key_override="Fallback_Sobol",
+                    model_kwargs={"deduplicate": False},
+                )
+            },
+        ]:
             tiny_parameters = [
                 FixedParameter(
                     name="x1",
@@ -810,7 +810,7 @@ class TestGenerationStrategy(TestCase):
                         ],
                         # Disable model-level deduplication.
                         should_deduplicate=True,
-                        fallback_specs=fallback_specs,
+                        fallback_specs=fallback_specs,  # pyre-ignore[6]
                     ),
                 ],
             )
@@ -820,7 +820,15 @@ class TestGenerationStrategy(TestCase):
 
             self.assertEqual(len(exp.arms_by_signature), 2)
 
-            if fallback_specs is not None:
+            if fallback_specs is None:
+                # With default fallback model. It tries to deduplicate but the
+                # search space is exhaused and errors out.
+                with self.assertRaisesRegex(
+                    SearchSpaceExhausted, "Rejection sampling error"
+                ):
+                    g = sobol.gen(exp)
+            elif len(fallback_specs) == 0:
+                # With no fallback specs.
                 with self.assertRaisesRegex(
                     GenerationStrategyRepeatedPoints, "exceeded `MAX_GEN_ATTEMPTS`"
                 ), mock.patch(
@@ -828,7 +836,7 @@ class TestGenerationStrategy(TestCase):
                 ) as mock_logger:
                     g = sobol.gen(exp)
             else:
-                # generation with a fallback model
+                # With Sobol fallback without generator level deduplication.
                 with self.assertLogs(GenerationNode.__module__, logging.WARNING) as cm:
                     g = sobol.gen(exp)
                 self.assertTrue(
@@ -1533,16 +1541,6 @@ class TestGenerationStrategy(TestCase):
             else:
                 self.assertEqual(g._model_key, "Sobol")
                 mkw = g._model_kwargs
-                self.assertIsNotNone(mkw)
-                if i > 0:
-                    # Generated points are randomized, so checking that they're there.
-                    self.assertIsNotNone(mkw.get("generated_points"))
-                else:
-                    # This is the first GR, there should be no generated points yet.
-                    self.assertIsNone(mkw.get("generated_points"))
-                # Remove the randomized generated points to compare the rest.
-                mkw = mkw.copy()
-                del mkw["generated_points"]
                 self.assertEqual(
                     mkw,
                     {
@@ -1551,6 +1549,7 @@ class TestGenerationStrategy(TestCase):
                         "init_position": i,
                         "scramble": True,
                         "fallback_to_sample_polytope": False,
+                        "generated_points": None,
                     },
                 )
                 self.assertEqual(
@@ -1570,12 +1569,6 @@ class TestGenerationStrategy(TestCase):
                 # Compare the model state to Sobol state.
                 sobol_model = assert_is_instance(
                     none_throws(self.sobol_MBM_GS_nodes.model).model, SobolGenerator
-                )
-                self.assertTrue(
-                    np.array_equal(
-                        ms.pop("generated_points"),
-                        none_throws(sobol_model.generated_points),
-                    )
                 )
                 # Replace expected seed with the one generated in __init__.
                 expected_seed = sobol_model.seed
@@ -2011,6 +2004,7 @@ class TestGenerationStrategy(TestCase):
                     passed_fixed_features,
                 )
 
+    @TestCase.ax_long_test("debug")
     def test_gs_with_input_constructor(self) -> None:
         """Test a ``GenerationStrategy`` that uses ``InputConstructors`` to determine
         breakdown of arms per node. This GS consists of a 3 sobol nodes for simplicity.

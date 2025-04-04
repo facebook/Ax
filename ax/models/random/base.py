@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import warnings
 from collections.abc import Callable
 from logging import Logger
 from typing import Any
@@ -79,9 +80,16 @@ class RandomGenerator(Generator):
         )
         self.init_position = init_position
         # Used for deduplication.
-        self.generated_points = generated_points
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
         self.attempted_draws: int = 0
+        if generated_points is not None:
+            warnings.warn(
+                "The `generated_points` argument is deprecated and will be removed "
+                "in a future version of Ax. It is being ignored in favor of "
+                "extracting the generated points directly from the experiment.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     def gen(
         self,
@@ -91,6 +99,7 @@ class RandomGenerator(Generator):
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
         rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
+        generated_points: npt.NDArray | None = None,
     ) -> tuple[npt.NDArray, npt.NDArray]:
         """Generate new candidates.
 
@@ -107,6 +116,8 @@ class RandomGenerator(Generator):
                 model.
             rounding_func: A function that rounds an optimization result
                 appropriately (e.g., according to `round-trip` transformations).
+            generated_points: A numpy array of shape `n x d` containing the
+                previously generated points to deduplicate against.
 
         Returns:
             2-element tuple containing
@@ -144,7 +155,7 @@ class RandomGenerator(Generator):
                 max_draws=max_draws,
                 fixed_features=fixed_features,
                 rounding_func=rounding_func,
-                existing_points=self.generated_points,
+                existing_points=generated_points,
             )
         except SearchSpaceExhausted as e:
             if self.fallback_to_sample_polytope:
@@ -155,9 +166,12 @@ class RandomGenerator(Generator):
                 )
                 # If rejection sampling fails, try polytope sampler.
                 num_generated = (
-                    len(self.generated_points)
-                    if self.generated_points is not None
-                    else 0
+                    len(generated_points) if generated_points is not None else 0
+                )
+                interior_point = (  # A feasible point of shape `d x 1`.
+                    torch.from_numpy(generated_points[-1].reshape((-1, 1))).double()
+                    if generated_points is not None
+                    else None
                 )
                 polytope_sampler = HitAndRunPolytopeSampler(
                     inequality_constraints=self._convert_inequality_constraints(
@@ -168,7 +182,7 @@ class RandomGenerator(Generator):
                         fixed_features=fixed_features,
                     ),
                     bounds=self._convert_bounds(bounds),
-                    interior_point=self._get_last_point(),
+                    interior_point=interior_point,
                     n_burnin=100,
                     n_thinning=20,
                     seed=self.seed + num_generated,
@@ -179,11 +193,6 @@ class RandomGenerator(Generator):
                 raise e
 
         self.attempted_draws = attempted_draws
-        if self.deduplicate:
-            if self.generated_points is None:
-                self.generated_points = points
-            else:
-                self.generated_points = np.vstack([self.generated_points, points])
         return points, np.ones(len(points))
 
     @copy_doc(Generator._get_state)
@@ -193,7 +202,6 @@ class RandomGenerator(Generator):
             {
                 "seed": self.seed,
                 "init_position": self.init_position,
-                "generated_points": self.generated_points,
             }
         )
         return state
@@ -305,11 +313,3 @@ class RandomGenerator(Generator):
             return None
         else:
             return torch.tensor(bounds, dtype=torch.double).transpose(-1, -2)
-
-    def _get_last_point(self) -> Tensor | None:
-        # Return the last sampled point when points have been sampled
-        if self.generated_points is None:
-            return None
-        else:
-            last_point = self.generated_points[-1, :].reshape((-1, 1))
-            return torch.from_numpy(last_point).double()
