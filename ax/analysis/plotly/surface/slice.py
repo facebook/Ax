@@ -123,6 +123,11 @@ def _prepare_data(
         arm.parameters[parameter_name]
         for trial in experiment.trials.values()
         for arm in trial.arms
+        # Exclude parameter values which are not valid (ex. None when the parameter is
+        # not known in a status quo arm).
+        if experiment.search_space.parameters[parameter_name].validate(
+            arm.parameters[parameter_name]
+        )
     ]
     # Choose which parameter values to predict points for.
     unsampled_xs = get_parameter_values(
