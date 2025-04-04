@@ -205,6 +205,9 @@ class Adapter:
         t_fit_start = time.monotonic()
         transforms = transforms or []
         transforms = [Cast] + list(transforms)
+        transform_configs = {} if transform_configs is None else transform_configs
+        if "FillMissingParameters" in transform_configs:
+            transforms = [FillMissingParameters] + transforms
 
         self.fit_time: float = 0.0
         self.fit_time_since_gen: float = 0.0
@@ -226,7 +229,7 @@ class Adapter:
         # space to cover training data.
         self._model_space: SearchSpace = search_space.clone()
         self._raw_transforms = transforms
-        self._transform_configs: Mapping[str, TConfig] | None = transform_configs
+        self._transform_configs: Mapping[str, TConfig] = transform_configs
         self._data_loader_config: DataLoaderConfig = data_loader_config
         self._fit_tracking_metrics = fit_tracking_metrics
         self.outcomes: list[str] = []
@@ -344,16 +347,13 @@ class Adapter:
         observations: list[Observation],
         search_space: SearchSpace,
         transforms: Sequence[type[Transform]] | None,
-        transform_configs: Mapping[str, TConfig] | None,
+        transform_configs: Mapping[str, TConfig],
         assign_transforms: bool = True,
     ) -> tuple[list[Observation], SearchSpace]:
         """Initialize transforms and apply them to provided data."""
         # Initialize transforms
         search_space = search_space.clone()
         if transforms is not None:
-            if transform_configs is None:
-                transform_configs = {}
-
             for t in transforms:
                 t_instance = t(
                     search_space=search_space,
@@ -415,10 +415,7 @@ class Adapter:
         """Compute in-design status for each observation, after filling missing
         values if FillMissingParameters transform is used."""
         observation_features = [obs.features for obs in observations]
-        if (
-            self._transform_configs is not None
-            and "FillMissingParameters" in self._transform_configs
-        ):
+        if "FillMissingParameters" in self._transform_configs:
             t = FillMissingParameters(
                 config=self._transform_configs["FillMissingParameters"]
             )
@@ -434,10 +431,7 @@ class Adapter:
         """Set model space, possibly expanding range parameters to cover data."""
         # If fill for missing values, include those in expansion.
         fill_values: TParameterization | None = None
-        if (
-            self._transform_configs is not None
-            and "FillMissingParameters" in self._transform_configs
-        ):
+        if "FillMissingParameters" in self._transform_configs:
             fill_values = self._transform_configs[  # pyre-ignore[9]
                 "FillMissingParameters"
             ].get("fill_values", None)
