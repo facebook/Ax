@@ -36,7 +36,6 @@ from ax.modelbridge.transforms.choice_encode import (
     OrderedChoiceToIntegerRange,
 )
 from ax.modelbridge.transforms.derelativize import Derelativize
-from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.modelbridge.transforms.int_to_float import IntToFloat, LogIntToFloat
 from ax.modelbridge.transforms.ivw import IVW
@@ -86,7 +85,6 @@ logger: Logger = get_logger(__name__)
 # candidates are rounded to fit the original search space. This is can be
 # suboptimal when there are discrete parameters with a small number of options.
 Cont_X_trans: list[type[Transform]] = [
-    FillMissingParameters,
     RemoveFixed,
     OrderedChoiceToIntegerRange,
     OneHot,
@@ -104,7 +102,6 @@ Cont_X_trans: list[type[Transform]] = [
 # optimize_acqf_mixed_alternating, which is a more efficient acquisition function
 # optimizer for mixed discrete/continuous problems.
 MBM_X_trans: list[type[Transform]] = [
-    FillMissingParameters,
     RemoveFixed,
     OrderedChoiceToIntegerRange,
     OneHot,
@@ -139,7 +136,6 @@ rel_EB_ashr_trans: list[type[Transform]] = [
 # all choice parameters as discrete, while using continuous relaxation for integer
 # valued RangeParameters.
 Mixed_transforms: list[type[Transform]] = [
-    FillMissingParameters,
     RemoveFixed,
     ChoiceToNumericChoice,
     IntToFloat,
