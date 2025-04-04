@@ -22,6 +22,7 @@ Key terms used:
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
+from datetime import datetime
 from itertools import product
 from logging import Logger, WARNING
 from time import monotonic, time
@@ -41,7 +42,7 @@ from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.trial import Trial
+from ax.core.trial import BaseTrial, Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TParamValue
 from ax.core.utils import get_model_times
@@ -50,9 +51,34 @@ from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
+from ax.utils.testing.backend_simulator import BackendSimulator
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
+
+
+def update_trials_to_use_sim_time_in_place(
+    trials: dict[int, BaseTrial], simulator: BackendSimulator
+) -> None:
+    """
+    Update the start and end times of all trials to be in simulated time
+    (represented as datetime objects -- seconds since the start of time).
+    """
+    fromtimestamp = datetime.fromtimestamp
+    for trial_index, trial in trials.items():
+        sim_trial = none_throws(
+            simulator.get_sim_trial_by_index(trial_index=trial_index)
+        )
+        trial._time_created = fromtimestamp(
+            timestamp=none_throws(sim_trial.sim_queued_time)
+        )
+        trial._time_staged = fromtimestamp(
+            timestamp=none_throws(sim_trial.sim_queued_time)
+        )
+        trial._time_completed = fromtimestamp(
+            timestamp=none_throws(sim_trial.sim_completed_time)
+        )
+        trial._time_run_started = fromtimestamp(none_throws(sim_trial.sim_start_time))
 
 
 def compute_score_trace(
@@ -477,6 +503,13 @@ def benchmark_replication(
                     break
 
         scheduler.summarize_final_result()
+
+    sim_runner = runner.simulated_backend_runner
+    if sim_runner is not None:
+        simulator = sim_runner.simulator
+        update_trials_to_use_sim_time_in_place(
+            trials=experiment.trials, simulator=simulator
+        )
 
     inference_trace = _get_inference_trace_from_params(
         best_params_list=best_params_list,
