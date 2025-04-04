@@ -153,9 +153,11 @@ class BenchmarkRunner(Runner):
           conceptually clear how to benchmark such problems, so we decided to
           not over-engineer for that before such a use case arrives.
 
-    If ``max_concurrency`` is left as default (1), trials run serially and
-    complete immediately. Otherwise, a ``SimulatedBackendRunner`` is constructed
-    to track the status of trials.
+    If ``max_concurrency`` is left as default (1), ``step_runtime_function`` is
+    None, and ``force_use_simulated_backend`` is False, then trials run serially
+    and complete immediately. Otherwise, a ``SimulatedBackendRunner`` is
+    constructed to track the status of trials and the (virtual) times at which
+    they start and stop.
 
     Args:
         test_function: A ``BenchmarkTestFunction`` from which to generate
@@ -167,16 +169,26 @@ class BenchmarkRunner(Runner):
         max_concurrency: The maximum number of trials that can be running at a
             given time. Typically, this is ``max_pending_trials`` from the
             ``scheduler_options`` on the ``BenchmarkMethod``.
+        force_use_simulated_backend: If True, use the simulated backend even if
+            ``max_concurrency`` is 1 and ``step_runtime_function`` is None. This
+            is recommended when used with a ``BenchmarkMethod`` that does early
+            stopping.
     """
 
     test_function: BenchmarkTestFunction
     noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
     max_concurrency: int = 1
+    force_use_simulated_backend: bool = False
     simulated_backend_runner: SimulatedBackendRunner | None = field(init=False)
 
     def __post_init__(self) -> None:
-        if self.max_concurrency > 1:
+        use_simulated_backend = (
+            (self.max_concurrency > 1)
+            or (self.step_runtime_function is not None)
+            or self.force_use_simulated_backend
+        )
+        if use_simulated_backend:
             simulator = BackendSimulator(
                 options=BackendSimulatorOptions(
                     max_concurrency=self.max_concurrency,

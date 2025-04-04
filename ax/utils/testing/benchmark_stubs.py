@@ -320,6 +320,7 @@ def get_discrete_search_space(n_values: int = 20) -> SearchSpace:
 
 def get_async_benchmark_method(
     early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
+    max_pending_trials: int = 2,
 ) -> BenchmarkMethod:
     gs = GenerationStrategy(
         nodes=[DeterministicGenerationNode(search_space=get_discrete_search_space())]
@@ -327,7 +328,7 @@ def get_async_benchmark_method(
     return BenchmarkMethod(
         generation_strategy=gs,
         distribute_replications=False,
-        max_pending_trials=2,
+        max_pending_trials=max_pending_trials,
         batch_size=1,
         early_stopping_strategy=early_stopping_strategy,
     )
