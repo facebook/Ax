@@ -1367,7 +1367,7 @@ class ExperimentWithMapDataTest(TestCase):
         super().setUp()
         self.experiment = get_experiment_with_map_data_type()
 
-    def _setupBraninExperiment(self, n: int, incremental: bool = False) -> Experiment:
+    def _setupBraninExperiment(self, n: int) -> Experiment:
         exp = get_branin_experiment_with_timestamp_map_metric()
         batch = exp.new_batch_trial()
         batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))

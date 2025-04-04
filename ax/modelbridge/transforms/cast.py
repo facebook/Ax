@@ -93,9 +93,11 @@ class Cast(Transform):
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
-        """Transform observation features by adding parameter values that
-        were removed during casting of observation features to hierarchical
-        search space.
+        """Transform observation features by
+        - adding parameter values that were removed during casting of observation
+          features to hierarchical search space;
+        - casting parameter values to the corresponding parameter type;
+        - dropping any observations with ``None`` parameter values.
 
         Args:
             observation_features: Observation features
@@ -157,15 +159,24 @@ class Cast(Transform):
         """Cast parameter values of the given ``ObseravationFeatures`` to the
         ``ParameterType`` of the corresponding parameters in the search space.
 
-        NOTE: This is done in-place.
+        NOTE: This is done in-place. ``ObservationFeatures`` with ``None``
+        values are dropped.
 
         Args:
             observation_features: A list of ``ObservationFeatures`` to cast.
 
         Returns: observation features with casted parameter values.
         """
+        new_obsf = []
         for obsf in observation_features:
             for p_name, p_value in obsf.parameters.items():
+                if p_value is None:
+                    # Skip obsf if there are `None`s.
+                    # The else block below will not be executed.
+                    break
                 if p_name in self.search_space.parameters:
                     obsf.parameters[p_name] = self.search_space[p_name].cast(p_value)
-        return observation_features
+            else:
+                # No `None`s in the parameterization.
+                new_obsf.append(obsf)
+        return new_obsf
