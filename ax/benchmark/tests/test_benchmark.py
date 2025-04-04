@@ -7,6 +7,7 @@
 
 import logging
 import tempfile
+from datetime import datetime
 from itertools import product
 from logging import WARNING
 from math import pi
@@ -390,13 +391,20 @@ class TestBenchmark(TestCase):
                 )
                 completed_trials = backend_simulator.state().completed
                 self.assertEqual(len(completed_trials), 4)
+
+                params_dict = {
+                    idx: trial.arms[0].parameters
+                    for idx, trial in experiment.trials.items()
+                }
+                expected_runtimes = {
+                    idx: step_runtime_fn(params=params)
+                    for idx, params in params_dict.items()
+                }
                 for trial_index, expected_start_time in enumerate(
                     expected_start_times[case_name]
                 ):
-                    trial = experiment.trials[trial_index]
-                    params = trial.arms[0].parameters
-                    self.assertEqual(trial.index, params["x0"])
-                    expected_runtime = step_runtime_fn(params=params)
+                    self.assertEqual(trial_index, params_dict[trial_index]["x0"])
+                    expected_runtime = expected_runtimes[trial_index]
                     self.assertEqual(
                         backend_simulator.get_sim_trial_by_index(
                             trial_index=trial_index
@@ -431,6 +439,33 @@ class TestBenchmark(TestCase):
                     data = assert_is_instance(experiment.lookup_data(), MapData)
                     self.assertEqual(len(data.df), 4, msg=case_name)
                     self.assertEqual(len(data.map_df), 4, msg=case_name)
+
+                # Check trial start and end times
+                start_of_time = datetime.fromtimestamp(0)
+                created_times = [
+                    (trial.time_created - start_of_time).total_seconds()
+                    for i, trial in experiment.trials.items()
+                ]
+                self.assertEqual(created_times, expected_start_times[case_name])
+                queued_times = [
+                    (
+                        none_throws(experiment.trials[i].time_run_started)
+                        - start_of_time
+                    ).total_seconds()
+                    for i in range(4)
+                ]
+                self.assertEqual(queued_times, expected_start_times[case_name])
+                completed_times = [
+                    (
+                        none_throws(experiment.trials[i].time_completed) - start_of_time
+                    ).total_seconds()
+                    for i in range(4)
+                ]
+                expected_completed_times = [
+                    expected_start_times[case_name][i] + expected_runtimes[i]
+                    for i in range(4)
+                ]
+                self.assertEqual(completed_times, expected_completed_times)
 
     def test_replication_async(self) -> None:
         self._test_replication_async(map_data=False)
