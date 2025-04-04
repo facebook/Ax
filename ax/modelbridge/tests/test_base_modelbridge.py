@@ -826,11 +826,11 @@ class BaseAdapterTest(TestCase):
             experiment=experiment,
             model=Generator(),
             search_space=ss2,
-            transforms=[FillMissingParameters],
+            transforms=[],  # FillMissingParameters added by default.
             transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
         )
         self.assertEqual(
-            [t.__name__ for t in m._raw_transforms], ["Cast", "FillMissingParameters"]
+            [t.__name__ for t in m._raw_transforms], ["FillMissingParameters", "Cast"]
         )
         # All arms are in design now
         self.assertEqual(sum(m.training_in_design), 12)
