@@ -10,6 +10,8 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
+from ax.api.configs import GenerationStrategyConfig
+from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -194,6 +196,19 @@ def get_generation_strategy(
         gs._steps[0].completion_criteria = [
             MinimumPreferenceOccurances(metric_name="m1", threshold=3)
         ] * with_completion_criteria
+    return gs
+
+
+def get_default_generation_strategy_at_MBM_node(
+    experiment: Experiment,
+) -> GenerationStrategy:
+    gs = choose_generation_strategy(gs_config=GenerationStrategyConfig())
+
+    gs._experiment = experiment
+
+    mbm_node = next(node for name, node in gs.nodes_dict.items() if "MBM" in name)
+    gs._curr = mbm_node
+
     return gs
 
 
