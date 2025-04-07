@@ -48,10 +48,10 @@ class TestSensitivityAnalysisPlot(TestCase):
                     },
                 )
 
-        analysis = SensitivityAnalysisPlot(metric_names=["bar"], order="first")
+        analysis = SensitivityAnalysisPlot(metric_name="bar", order="first")
 
         with self.assertRaisesRegex(
-            UserInputError, "requires either a TorchAdapter or a GenerationStrategy"
+            UserInputError, "Must provide either a GenerationStrategy or an Adapter"
         ):
             analysis.compute()
 
@@ -76,6 +76,6 @@ class TestSensitivityAnalysisPlot(TestCase):
         self.assertIsNotNone(card.blob)
         self.assertEqual(card.blob_annotation, "plotly")
 
-        second_order = SensitivityAnalysisPlot(metric_names=["bar"], order="second")
+        second_order = SensitivityAnalysisPlot(metric_name="bar", order="second")
         (card,) = second_order.compute(generation_strategy=client._generation_strategy)
         self.assertEqual(len(card.df), 3)  # 2 first order + 1 second order
