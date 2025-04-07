@@ -55,6 +55,10 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
                 raise UserInputError(NO_ADAPTER_ERROR_MSG)
 
         elif generation_strategy is not None:
+            # Fit the current GenerationNode's Adapter if necessary
+            if generation_strategy.model is None and experiment is not None:
+                generation_strategy.current_node._fit(experiment=experiment)
+
             relevant_adapter = generation_strategy.model
 
             if not isinstance(relevant_adapter, TorchAdapter):
