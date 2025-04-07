@@ -9,13 +9,15 @@
 
 from __future__ import annotations
 
+import itertools
+
 from collections import OrderedDict
 from collections.abc import Iterable, MutableMapping
 from datetime import datetime, timedelta
 from logging import Logger
 from math import prod
 from pathlib import Path
-from typing import Any, cast, Sequence, Union
+from typing import Any, cast, Sequence
 
 import numpy as np
 import pandas as pd
@@ -250,6 +252,7 @@ def get_branin_experiment(
     with_batch: bool = False,
     with_trial: bool = False,
     with_status_quo: bool = False,
+    status_quo_unknown_parameters: bool = False,
     with_fidelity_parameter: bool = False,
     with_choice_parameter: bool = False,
     with_str_choice_param: bool = False,
@@ -271,6 +274,20 @@ def get_branin_experiment(
         with_parameter_constraint=with_parameter_constraint,
     )
 
+    if with_status_quo:
+        if status_quo_unknown_parameters:
+            status_quo = Arm(
+                parameters={"x1": None, "x2": None},
+                name="status_quo",
+            )
+        else:
+            status_quo = Arm(
+                parameters={"x1": 0.0, "x2": 0.0},
+                name="status_quo",
+            )
+    else:
+        status_quo = None
+
     exp = Experiment(
         name="branin_test_experiment" if named else None,
         search_space=search_space,
@@ -285,7 +302,7 @@ def get_branin_experiment(
         ),
         runner=SyntheticRunner(),
         is_test=True,
-        status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}) if with_status_quo else None,
+        status_quo=status_quo,
     )
 
     if with_batch or with_completed_batch:
@@ -689,6 +706,7 @@ def get_branin_experiment_with_multi_objective(
     has_objective_thresholds: bool = False,
     with_batch: bool = False,
     with_status_quo: bool = False,
+    status_quo_unknown_parameters: bool = False,
     with_fidelity_parameter: bool = False,
     num_objectives: int = 2,
     with_trial: bool = False,
@@ -720,11 +738,32 @@ def get_branin_experiment_with_multi_objective(
     )
 
     if with_status_quo:
-        # Experiment chooses the name "status_quo" by default
-        sq_parameters: dict[str, Union[float, str]] = {"x1": 0.0, "x2": 0.0}
-        if with_fixed_parameter:
-            sq_parameters["z"] = True
-        exp.status_quo = Arm(parameters=sq_parameters)
+        if status_quo_unknown_parameters:
+            if with_fixed_parameter:
+                status_quo = Arm(
+                    parameters={"x1": None, "x2": None, "z": True},
+                    name="status_quo",
+                )
+            else:
+                status_quo = Arm(
+                    parameters={"x1": None, "x2": None},
+                    name="status_quo",
+                )
+        else:
+            if with_fixed_parameter:
+                status_quo = Arm(
+                    parameters={"x1": 0.0, "x2": 0.0, "z": True},
+                    name="status_quo",
+                )
+            else:
+                status_quo = Arm(
+                    parameters={"x1": 0.0, "x2": 0.0},
+                    name="status_quo",
+                )
+
+        exp.status_quo = status_quo
+    else:
+        status_quo = None
 
     if with_batch:
         sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
@@ -988,6 +1027,167 @@ def get_high_dimensional_branin_experiment(
 
 def get_auxiliary_experiment() -> AuxiliaryExperiment:
     return AuxiliaryExperiment(experiment=get_experiment_with_data())
+
+
+def get_online_experiments() -> list[Experiment]:
+    """
+    Returns a List of Branin Experiments which resemble those we see in an online
+    context. This means BatchTrial experiments with both single- and multi-objective
+    optimization configs and with data attached and at least one trial in a CANDIDATE
+    state.
+
+    We also include combinations with and without choice parameters, fixed_parameters,
+    absolute parameter constraints, and relative parameter constraints.
+    """
+
+    single_objective = [
+        get_branin_experiment(
+            with_batch=True,
+            num_batch_trial=2,
+            num_arms_per_trial=10,
+            with_completed_batch=True,
+            with_status_quo=True,
+            status_quo_unknown_parameters=True,
+            with_choice_parameter=with_choice_parameter,
+            with_parameter_constraint=with_parameter_constraint,
+            with_relative_constraint=with_relative_constraint,
+        )
+        for (
+            with_choice_parameter,
+            with_parameter_constraint,
+            with_relative_constraint,
+        ) in itertools.product([True, False], repeat=3)
+    ]
+
+    multi_objective = [
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_batch=True,
+            with_status_quo=True,
+            has_objective_thresholds=has_objective_thresholds,
+            with_choice_parameter=with_choice_parameter,
+            with_fixed_parameter=with_fixed_parameter,
+            with_relative_constraint=with_relative_constraint,
+            with_absolute_constraint=with_absolute_constraint,
+        )
+        for (
+            has_objective_thresholds,
+            with_choice_parameter,
+            with_fixed_parameter,
+            with_relative_constraint,
+            with_absolute_constraint,
+        ) in itertools.product([True, False], repeat=5)
+    ]
+
+    experiments = [*single_objective, *multi_objective]
+
+    for experiment in experiments:
+        sobol_generator = get_sobol(search_space=experiment.search_space)
+
+        # Add a candidate to each Experiment
+        sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
+        trial = experiment.new_batch_trial(optimize_for_power=True)
+        trial.add_generator_run(sobol_run)
+
+        # Add a RUNNING trial to each Experiment
+        sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
+        trial = experiment.new_batch_trial(optimize_for_power=True)
+        trial.add_generator_run(sobol_run)
+        trial.mark_running(no_runner_required=True)
+
+        # Add a FAILED trial to each Experiment
+        sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
+        trial = experiment.new_batch_trial(optimize_for_power=True)
+        trial.add_generator_run(sobol_run)
+        trial.mark_running(no_runner_required=True)
+        trial.mark_failed()
+
+        # Add an ABANDONED trial to each Experiment
+        sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
+        trial = experiment.new_batch_trial(optimize_for_power=True)
+        trial.add_generator_run(sobol_run)
+        trial.mark_abandoned()
+
+        # Add a custom arm to each Experiment
+        sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
+        trial = experiment.new_batch_trial()
+        # Detatch the arms from the GeneratorRun so they appear as custom arms
+        trial.add_arms_and_weights(arms=sobol_run.arms)
+
+    return experiments
+
+
+def get_offline_experiments() -> list[Experiment]:
+    """
+    Returns a List of Experiments which resemble those we see in an offline context.
+    This means single-arm Trial experiments with both single- and multi-objective
+    optimization configs, with data attached.
+
+    We also include combinations with and without choice parameters, fixed_parameters,
+    absolute parameter constraints, and relative parameter constraints.
+    """
+    single_objective = [
+        get_branin_experiment(
+            with_trial=True,
+            with_completed_trial=True,
+            with_status_quo=False,
+            with_choice_parameter=with_choice_parameter,
+            with_parameter_constraint=with_parameter_constraint,
+        )
+        for (
+            with_choice_parameter,
+            with_parameter_constraint,
+        ) in itertools.product([True, False], repeat=2)
+    ]
+
+    multi_objective = [
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_trial=True,
+            with_completed_trial=True,
+            with_status_quo=False,
+            has_objective_thresholds=has_objective_thresholds,
+            with_absolute_constraint=with_absolute_constraint,
+            with_choice_parameter=with_choice_parameter,
+            with_fixed_parameter=with_fixed_parameter,
+        )
+        for (
+            has_objective_thresholds,
+            with_absolute_constraint,
+            with_choice_parameter,
+            with_fixed_parameter,
+        ) in itertools.product([True, False], repeat=4)
+    ]
+
+    experiments = [*single_objective, *multi_objective]
+
+    for experiment in experiments:
+        sobol_generator = get_sobol(search_space=experiment.search_space)
+
+        # Add a candidate to each Experiment
+        trial = experiment.new_trial(generator_run=sobol_generator.gen(n=1))
+
+        # Add a RUNNING trial to each Experiment
+        sobol_generator = get_sobol(search_space=experiment.search_space)
+
+        trial.mark_running(no_runner_required=True)
+
+        # Add a FAILED trial to each Experiment
+        trial = experiment.new_trial(generator_run=sobol_generator.gen(n=1))
+        trial.mark_running(no_runner_required=True)
+        trial.mark_failed()
+
+        # Add an ABANDONED trial to each Experiment
+        trial = experiment.new_trial(generator_run=sobol_generator.gen(n=1))
+        trial.mark_abandoned()
+
+        # Add a custom arm to each Experiment
+        sobol_run = sobol_generator.gen(n=1)
+        trial = experiment.new_trial()
+        # Detatch the arms from the GeneratorRun so they appear as custom arms
+        trial.add_arm(arm=sobol_run.arms[0])
+
+    return experiments
 
 
 ##############################
