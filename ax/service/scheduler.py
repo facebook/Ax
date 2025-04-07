@@ -1891,7 +1891,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         """Ensure that the experiment specifies runner and metrics; check that metrics
         are not base ``Metric``-s, which do not implement fetching logic.
         """
-        # this will raise an exception if no runner is set on the expeirment
+        # this will raise an exception if no runner is set on the experiment
         self.runner
         metrics_are_invalid = False
         if not experiment.metrics:

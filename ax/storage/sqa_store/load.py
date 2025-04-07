@@ -52,7 +52,7 @@ def load_experiment(
     """Load experiment by name.
 
     Args:
-        experiment_name: Name of the expeirment to load.
+        experiment_name: Name of the experiment to load.
         config: `SQAConfig`, from which to retrieve the decoder. Optional,
             defaults to base `SQAConfig`.
         reduced_state: Whether to load experiment with a slightly reduced state

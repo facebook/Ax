@@ -231,7 +231,7 @@ class Decoder:
                 if metric.trial_type
             }
             # trial_type_to_runner is instantiated to map all trial types to None,
-            # so the trial types are associated with the expeirment. This is
+            # so the trial types are associated with the experiment. This is
             # important for adding metrics.
             trial_type_to_runner.update(
                 {t_type: None for t_type in trial_types_with_metrics}
