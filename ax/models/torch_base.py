@@ -248,7 +248,7 @@ class TorchGenerator(BaseGenerator):
             search_space_digest: A dataclass used to compactly represent a search space.
             torch_opt_config: A TorchOptConfig object containing optimization
                 arguments (e.g., objective weights, constraints).
-            acq_options: Keyword arguments used to contruct the acquisition function.
+            acq_options: Keyword arguments used to construct the acquisition function.
 
         Returns:
             A single-element tensor with the acquisition value for these points.

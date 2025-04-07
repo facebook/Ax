@@ -692,7 +692,7 @@ class Adapter:
         Predictions are made for all outcomes.
         If an out-of-design observation can successfully be transformed,
         the predicted value will be returned.
-        Othwerise, we will attempt to find that observation in the training data
+        Otherwise, we will attempt to find that observation in the training data
         and return the raw value.
 
         Args:
@@ -730,7 +730,7 @@ class Adapter:
         Predictions are made for all outcomes.
         If an out-of-design observation can successfully be transformed,
         the predicted value will be returned.
-        Othwerise, we will attempt to find that observation in the training data
+        Otherwise, we will attempt to find that observation in the training data
         and return the raw value.
 
         Args:

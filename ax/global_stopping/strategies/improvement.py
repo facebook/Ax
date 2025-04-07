@@ -219,7 +219,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             experiment: The experiment to apply the strategy on.
             trial_to_check: The trial in the experiment at which we want to check
                 for stopping. If None, we check at the latest trial.
-            objective_thresholds: Custom objective thresholds to use as reference pooint
+            objective_thresholds: Custom objective thresholds to use as reference point
                 when computing hv of the pareto front against. This is used only in the
                 MOO setting. If not specified, the objective thresholds on the
                 experiment's optimization config will be used for the purpose.

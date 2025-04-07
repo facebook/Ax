@@ -992,7 +992,7 @@ class BoTorchGeneratorTest(TestCase):
         self.assertTrue(np.isnan(obj_t[2].item()))
 
         # Avoid polluting the registry for other tests; re-register correct input
-        # contructor for qLogNEHVI.
+        # constructor for qLogNEHVI.
         _register_acqf_input_constructor(
             acqf_cls=qLogNoisyExpectedHypervolumeImprovement,
             input_constructor=qLogNEHVI_input_constructor,

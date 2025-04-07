@@ -72,7 +72,7 @@ class SEBOAcquisition(Acquisition):
         self.sparsity_threshold: int = options.pop(
             "sparsity_threshold", surrogate.Xs[0].shape[-1]
         )
-        # construct determinsitic model for penalty term
+        # construct deterministic model for penalty term
         # pyre-fixme[4]: Attribute must be annotated.
         self.deterministic_model = self._construct_penalty()
         surrogate_f = deepcopy(surrogate)
