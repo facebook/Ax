@@ -29,6 +29,7 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
     clusertering for either good or bad parameterizations.
 
     The DataFrame computed will contain one row per arm and the following columns:
+        - trial_index: The trial index during which the arm was run
         - arm_name: The name of the arm
         - METRIC_NAME: The observed mean of the metric specified
         - **PARAMETER_NAME: The value of said parameter for the arm, for each parameter
@@ -90,9 +91,12 @@ def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:
 
     records = [
         {
+            "trial_index": trial.index,
             "arm_name": arm.name,
             **arm.parameters,
-            metric: _find_mean_by_arm_name(df=filtered_df, arm_name=arm.name),
+            metric: _find_mean(
+                df=filtered_df, trial_index=trial.index, arm_name=arm.name
+            ),
         }
         for trial in experiment.trials.values()
         for arm in trial.arms
@@ -128,14 +132,17 @@ def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
     )
 
 
-def _find_mean_by_arm_name(
+def _find_mean(
     df: pd.DataFrame,
+    trial_index: int,
     arm_name: str,
 ) -> float:
-    # Given a dataframe with arm_name and mean columns, find the mean for a given
-    # arm_name. If an arm_name is not found (as can happen if the arm is still running
-    # or has failed) return NaN.
-    series = df.loc[df["arm_name"] == arm_name]["mean"]
+    # Given a dataframe with trial_index, arm_name and mean columns, find the mean for
+    # a given arm_name. If an arm_name is not found (as can happen if the arm is still
+    # running or has failed) return NaN.
+    series = df.loc[(df["trial_index"] == trial_index) & (df["arm_name"] == arm_name)][
+        "mean"
+    ]
 
     if series.empty:
         return np.nan
