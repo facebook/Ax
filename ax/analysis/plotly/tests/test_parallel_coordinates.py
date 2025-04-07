@@ -18,7 +18,10 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective_and_outcome_constraint,
+    get_offline_experiments,
+    get_online_experiments,
 )
+from pyre_extensions import none_throws
 
 
 class TestParallelCoordinatesPlot(TestCase):
@@ -48,7 +51,9 @@ class TestParallelCoordinatesPlot(TestCase):
         )
         self.assertEqual(card.level, AnalysisCardLevel.HIGH)
         self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
-        self.assertEqual({*card.df.columns}, {"arm_name", "branin", "x1", "x2"})
+        self.assertEqual(
+            {*card.df.columns}, {"trial_index", "arm_name", "branin", "x1", "x2"}
+        )
         self.assertIsNotNone(card.blob)
         self.assertEqual(card.blob_annotation, "plotly")
 
@@ -100,3 +105,31 @@ class TestParallelCoordinatesPlot(TestCase):
                 "values": [2, 0, 1],
             },
         )
+
+    def test_online(self) -> None:
+        # Test ParallelCoordinatesPlot can be computed for a variety of experiments
+        # which resemble those we see in an online setting.
+
+        for experiment in get_online_experiments():
+            analysis = ParallelCoordinatesPlot(
+                # Select and arbitrary metric from the optimization config
+                metric_name=none_throws(
+                    experiment.optimization_config
+                ).objective.metric_names[0]
+            )
+
+            _ = analysis.compute(experiment=experiment)
+
+    def test_offline(self) -> None:
+        # Test ParallelCoordinatesPlot can be computed for a variety of experiments
+        # which resemble those we see in an offline setting.
+
+        for experiment in get_offline_experiments():
+            analysis = ParallelCoordinatesPlot(
+                # Select and arbitrary metric from the optimization config
+                metric_name=none_throws(
+                    experiment.optimization_config
+                ).objective.metric_names[0]
+            )
+
+            _ = analysis.compute(experiment=experiment)
