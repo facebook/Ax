@@ -26,7 +26,7 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
     Plotly Parcoords plot for a single metric, with one line per arm and dimensions for
     each parameter in the search space. This plot is useful for understanding how
     thoroughly the search space is explored as well as for identifying if there is any
-    clusertering for either good or bad parameterizations.
+    clustering for either good or bad parameterizations.
 
     The DataFrame computed will contain one row per arm and the following columns:
         - arm_name: The name of the arm
