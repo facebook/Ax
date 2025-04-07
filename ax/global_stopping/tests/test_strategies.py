@@ -53,7 +53,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertFalse(stop)
         self.assertEqual(
             message,
-            f"There are only 0 completed trials, but {gss_2} has a minumum of 2.",
+            f"There are only 0 completed trials, but {gss_2} has a minimum of 2.",
         )
 
         # Insufficient trials to stop.
@@ -62,7 +62,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertFalse(stop)
         self.assertEqual(
             message,
-            f"There are only 1 completed trials, but {gss} has a minumum of 2.",
+            f"There are only 1 completed trials, but {gss} has a minimum of 2.",
         )
 
         # Check that we properly count completed trials.
@@ -363,7 +363,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertFalse(stop)
         self.assertEqual(
             message,
-            f"There are only 0 completed trials, but {gss} has a minumum of 2.",
+            f"There are only 0 completed trials, but {gss} has a minimum of 2.",
         )
 
     def test_improvement_bar_nonnegative(self) -> None:

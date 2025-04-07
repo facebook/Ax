@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-# NOTE: Do not add `from __future__ import annotatations` to this file. Adding
+# NOTE: Do not add `from __future__ import annotations` to this file. Adding
 # `annotations` postpones evaluation of types and will break FBLearner's usage of
 # `BenchmarkResult` as return type annotation, used for serialization and rendering
 # in the UI.

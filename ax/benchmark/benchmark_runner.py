@@ -149,7 +149,7 @@ class BenchmarkRunner(Runner):
           viewing them as noiseless problems where the observed values are the
           ground truth. The observed values will be used for tracking the
           progress of optimization.
-        - If they are not deterministc, they are not supported. It is not
+        - If they are not deterministic, they are not supported. It is not
           conceptually clear how to benchmark such problems, so we decided to
           not over-engineer for that before such a use case arrives.
 
@@ -343,7 +343,7 @@ class BenchmarkRunner(Runner):
         if self.simulated_backend_runner is None:
             raise UnsupportedError(
                 "stop() is not supported for a `BenchmarkRunner` without a "
-                "`simulated_backend_runner`, becauase trials complete "
+                "`simulated_backend_runner`, because trials complete "
                 "immediately."
             )
         return self.simulated_backend_runner.stop(trial=trial, reason=reason)

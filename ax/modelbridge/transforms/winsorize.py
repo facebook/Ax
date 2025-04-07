@@ -401,7 +401,7 @@ def _get_auto_winsorization_cutoffs_outcome_constraint(
         elif oc.op == ComparisonOp.GEQ:
             lower_cutoff = min(q1, bnd) - 1.5 * (q3 - min(q1, bnd))
         else:
-            raise ValueError("Exected outcome_constraint to use operator LEQ or GEQ")
+            raise ValueError("Expected outcome_constraint to use operator LEQ or GEQ")
     return lower_cutoff, upper_cutoff
 
 
