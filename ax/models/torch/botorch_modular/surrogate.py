@@ -910,7 +910,7 @@ class Surrogate(Base):
         """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
 
         NOTE: ``state_dict`` and ``refit`` keyword arguments control how the
-        undelying BoTorch ``Model`` will be fit: whether its parameters will
+        underlying BoTorch ``Model`` will be fit: whether its parameters will
         be reoptimized and whether it will be warm-started from a given state.
 
         There are three possibilities:

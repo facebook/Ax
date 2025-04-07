@@ -39,7 +39,7 @@ class RegressionAnalysis(HealthcheckAnalysis):
     def __init__(self, prob_threshold: float = 0.95) -> None:
         r"""
         Args:
-            prob_theshold: The threshold for the probability of metric regression.
+            prob_threshold: The threshold for the probability of metric regression.
                 Regressions are defined as the arms that have a probability of
                 regression above this threshold.
 

@@ -515,7 +515,7 @@ class TorchAdapter(Adapter):
                 that metric.
             fixed_features: An ObservationFeatures object containing any features that
                 should be fixed at specified values during generation.
-            acq_options: Keyword arguments used to contruct the acquisition function.
+            acq_options: Keyword arguments used to construct the acquisition function.
 
         Returns:
             A list of acquisition function values, in the same order as the

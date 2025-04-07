@@ -184,7 +184,7 @@ def detect_regressions_single_trial(
         size_thresholds=size_thresholds,
     )
 
-    # Regressing arms along with the metrics they regresss
+    # Regressing arms along with the metrics they regress
     regressing_arms_metrics: dict[str | None, dict[str, float]] = defaultdict(dict)
 
     for i, arm_name in enumerate(arm_names):

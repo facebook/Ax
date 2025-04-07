@@ -27,7 +27,7 @@ class TestAEPsychCriterion(TestCase):
     """
     This test class tests the AEPsych usecase implementation. Previously, AEPsych
     used `CompletionCriterion` to determine when to move to the next generation.
-    However, `CompletionCriterion` is deprecrated and replaced by `TransitionCriterion`.
+    However, `CompletionCriterion` is deprecated and replaced by `TransitionCriterion`.
     We still want to test the bespoke TransitionCriterion used by AEPsych
     """
 

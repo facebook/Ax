@@ -110,7 +110,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             experiment: The experiment to apply the strategy on.
             trial_to_check: The trial in the experiment at which we want to check
                 for stopping. If None, we check at the latest trial.
-            objective_thresholds: Custom objective thresholds to use as reference pooint
+            objective_thresholds: Custom objective thresholds to use as reference point
                 when computing hv of the pareto front against. This is used only in the
                 MOO setting. If not specified, the objective thresholds on the
                 experiment's optimization config will be used for the purpose.
@@ -207,19 +207,19 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
 
         It computes the (feasible) hypervolume of the Pareto front at
         `trial_to_check` trial and `window_size` trials before, and suggest to stop the
-        optimization if the improvment in hypervolume over the past
+        optimization if the improvement in hypervolume over the past
         `window_size` trials, as a fraction of the hypervolume at the start of
         the window, is less than `self.improvement_bar`. When the hypervolume is
         zero at the beginning of the window, stopping is never recommended.
 
-        Becaues hypervolume computations are expensive, these are stored to
+        Because hypervolume computations are expensive, these are stored to
         increase the speed of future checks.
 
         Args:
             experiment: The experiment to apply the strategy on.
             trial_to_check: The trial in the experiment at which we want to check
                 for stopping. If None, we check at the latest trial.
-            objective_thresholds: Custom objective thresholds to use as reference pooint
+            objective_thresholds: Custom objective thresholds to use as reference point
                 when computing hv of the pareto front against. This is used only in the
                 MOO setting. If not specified, the objective thresholds on the
                 experiment's optimization config will be used for the purpose.

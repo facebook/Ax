@@ -288,7 +288,7 @@ def get_lcbench_early_stopping_benchmark_problem(
             based on the hyperparameters.
         noise_std: The standard deviation of the observation noise.
         observe_noise_sd: Whether to report the standard deviation of the
-            obervation noise.
+            observation noise.
         seed: The random seed used in training the surrogate model to ensure
             reproducibility and consistency of results.
 

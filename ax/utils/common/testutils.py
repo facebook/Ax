@@ -64,8 +64,8 @@ def _get_tb_lines(tb: types.TracebackType) -> list[tuple[str, int, str]]:
 class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
     """
     Attributes:
-       lineno: the line number on which the error occured
-       filename: the file in which the error occured
+       lineno: the line number on which the error occurred
+       filename: the file in which the error occurred
     """
 
     _expected_line: str | None

@@ -139,7 +139,7 @@ class TestCrossValidationPlot(TestCase):
         self.assertEqual(len(analysis), 1)
         card = analysis[0]
         self.assertEqual(card.name, "CrossValidationPlot")
-        # validate that the metric name replacement occured
+        # validate that the metric name replacement occurred
         self.assertEqual(card.title, "Cross Validation for spunky")
 
     @mock_botorch_optimize

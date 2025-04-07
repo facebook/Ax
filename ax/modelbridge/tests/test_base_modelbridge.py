@@ -447,7 +447,7 @@ class BaseAdapterTest(TestCase):
         return_value=([get_observation1(), get_observation2()]),
     )
     def test_ood_gen(self, _) -> None:
-        # Test fit_out_of_design by returning OOD candidats
+        # Test fit_out_of_design by returning OOD candidates
         ss = SearchSpace([RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0)])
         experiment = Experiment(search_space=ss)
         adapter = Adapter(

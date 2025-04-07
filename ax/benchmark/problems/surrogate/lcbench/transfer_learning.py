@@ -94,7 +94,7 @@ def get_lcbench_benchmark_problem(
         num_trials: The number of optimization trials to run.
         noise_stds: The standard deviation of the observation noise.
         observe_noise_stds: Whether to report the standard deviation of the
-            obervation noise.
+            observation noise.
 
     Returns:
         An LCBench surrogate benchmark problem.

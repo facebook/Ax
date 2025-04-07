@@ -30,7 +30,7 @@ from pyre_extensions import none_throws, override
 
 class PredictedEffectsPlot(PlotlyAnalysis):
     """
-    Plotly Predicted Effecs plot for a single metric, with one point per unique arm
+    Plotly Predicted Effects plot for a single metric, with one point per unique arm
     across all trials. It plots all observed points, as well as predictions for the
     most recently generated trial.
 
@@ -38,7 +38,7 @@ class PredictedEffectsPlot(PlotlyAnalysis):
     to perform.
 
     The DataFrame computed will contain one row per arm and the following columns:
-        - source: In-sample or model key that geneerated the candidate
+        - source: In-sample or model key that generated the candidate
         - arm_name: The name of the arm
         - mean: The observed or predicted mean of the metric specified
         - sem: The observed or predicted sem of the metric specified
@@ -145,7 +145,7 @@ def _prepare_data(
     outcome_constraints: list[OutcomeConstraint],
 ) -> pd.DataFrame:
     """Prepare data for plotting.  Data should include columns for:
-    - source: In-sample or model key that geneerated the candidate
+    - source: In-sample or model key that generated the candidate
     - arm_name: Name of the arm
     - mean: Predicted metric value
     - error_margin: 1.96 * predicted sem for plotting 95% CI

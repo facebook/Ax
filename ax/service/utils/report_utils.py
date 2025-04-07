@@ -1199,7 +1199,7 @@ def get_figure_and_callback(
 
     Args:
         plot_fn: A function for producing a Plotly figure from a scheduler.
-            If `plot_fn` raises a `RuntimeError`, the update wil be skipped
+            If `plot_fn` raises a `RuntimeError`, the update will be skipped
             and optimization will proceed.
 
     Example:
