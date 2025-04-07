@@ -374,8 +374,8 @@ class TestBenchmarkRunner(TestCase):
             self.assertEqual(res["constraint"]["sem"].item(), 0.05)
 
             with self.subTest("heterogeneous arm weights"):
-                arm_0 = Arm(name="0_0", parameters={"x0": 0.0})
-                arm_1 = Arm(name="0_1", parameters={"x0": 2.0})
+                arm_0 = Arm(name="0_0", parameters={f"x{i}": 0.0 for i in range(6)})
+                arm_1 = Arm(name="0_1", parameters={f"x{i}": 0.5 for i in range(6)})
                 trial = Mock(spec=BatchTrial)
                 trial.arms = [arm_0, arm_1]
                 trial.index = 0
