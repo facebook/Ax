@@ -783,7 +783,7 @@ class Experiment(Base):
             )
         data_type = type(data)
         data_init_args = data.deserialize_init_args(data.serialize_init_args(data))
-        if data.df.empty:
+        if data.true_df.empty:
             raise ValueError("Data to attach is empty.")
         metrics_not_on_exp = set(data.true_df["metric_name"].values) - set(
             self.metrics.keys()
@@ -820,7 +820,13 @@ class Experiment(Base):
             elif overwrite_existing_data:
                 if len(current_trial_data) > 0:
                     _, last_data = list(current_trial_data.items())[-1]
-                    last_data_metrics = set(last_data.df["metric_name"])
+                    # It may seem odd to use `true_df` here, because with
+                    # MapData, `df` is shorter, and since it is cached, it won't
+                    # be constructed too often. However, constructing MapData's
+                    # `df` is sufficiently expensive due to the groupby-apply
+                    # and sort operations needed that using `true_df` is much
+                    # faster even if repeated many times.
+                    last_data_metrics = set(last_data.true_df["metric_name"])
                     new_data_metrics = set(trial_df["metric_name"])
                     difference = last_data_metrics.difference(new_data_metrics)
                     if len(difference) > 0:

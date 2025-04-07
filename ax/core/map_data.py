@@ -132,8 +132,13 @@ class MapData(Data):
         self._map_key_infos = list(map_key_infos) if map_key_infos is not None else []
 
         if df is None:  # If df is None create an empty dataframe with appropriate cols
-            self._map_df = pd.DataFrame(
-                columns=list(self.required_columns().union(self.map_keys))
+            columns = list(self.required_columns().union(self.map_keys))
+            # Create columns with expected dtypes
+
+            # dtype_dict = self.column_data_types(extra)
+            dtype_dict = {**self.COLUMN_DATA_TYPES, **self.map_key_to_type}
+            self._map_df = pd.DataFrame.from_dict(
+                {col: pd.Series([], dtype=dtype_dict[col]) for col in columns}
             )
         elif _skip_ordering_and_validation:
             self._map_df = df
@@ -151,15 +156,25 @@ class MapData(Data):
                 raise UnsupportedError(
                     f"Columns {[mki.key for mki in extra_columns]} are not supported."
                 )
-            df = df.dropna(axis=0, how="all").reset_index(drop=True)
-            df = self._safecast_df(df=df, extra_column_types=self.map_key_to_type)
+
+            if df["trial_index"].isnull().any():
+                df = df.dropna(axis=0, how="all", ignore_index=True)
+            else:
+                # Don't do this in place so that we now have a copy, so we won't
+                # mutate the original df
+                df = df.reset_index(drop=True)
+
+            self._map_df = self._safecast_df(
+                df=df, extra_column_types=self.map_key_to_type
+            )
 
             col_order = [
                 c
-                for c in self.column_data_types(self.map_key_to_type)
+                for c in self.column_data_types(extra_column_types=self.map_key_to_type)
                 if c in df.columns
             ]
-            self._map_df = df[col_order]
+            if not (self._map_df.columns == col_order).all():
+                self._map_df = self._map_df.reindex(columns=col_order)
 
         self.description = description
 
@@ -315,7 +330,6 @@ class MapData(Data):
 
         # If map_keys is empty just return the df
         if len(self.map_keys) == 0:
-            # If map_keys is empty just return the df
             return self.map_df
 
         self._memo_df = _tail(
@@ -526,6 +540,16 @@ def _tail(
     n: int = 1,
     sort: bool = True,
 ) -> pd.DataFrame:
+    """
+    Note: Normally, a groupby-apply automatically returns a DataFrame that is
+    sorted by the group keys, but this is not true when using filtrations like
+    "tail."
+
+    Note: Optimizer beware: This is slow and it has proven difficult to speed it
+    up. `tail` takes up a large portion of the time, and so does the groupby;
+    sorting can take ~40% of the time. If you find this to be a bottleneck, it
+    may be better to avoid unnecessary calls to `.df`.
+    """
     df = map_df.sort_values(map_keys).groupby(MapData.DEDUPLICATE_BY_COLUMNS).tail(n)
     if sort:
         df.sort_values(MapData.DEDUPLICATE_BY_COLUMNS, inplace=True)
