@@ -1283,7 +1283,7 @@ class Experiment(Base):
         trial_statuses_to_copy: list[TrialStatus] | None = None,
         search_space_check_membership_raise_error: bool = True,
     ) -> list[Trial]:
-        """Copy all completed trials with data from an old Ax expeirment to this one.
+        """Copy all completed trials with data from an old Ax experiment to this one.
         This function checks that the parameters of each trial are members of the
         current experiment's search_space.
 
