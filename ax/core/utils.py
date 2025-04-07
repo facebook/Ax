@@ -34,7 +34,7 @@ TArmTrial = tuple[str, int]
 MANY_TRIALS_IN_EXPERIMENT = 100
 
 
-# --------------------------- Data intergrity utils. ---------------------------
+# --------------------------- Data integrity utils. ---------------------------
 
 
 class MissingMetrics(NamedTuple):
@@ -47,7 +47,7 @@ def get_missing_metrics(
     data: Data, optimization_config: OptimizationConfig
 ) -> MissingMetrics:
     """Return all arm_name, trial_index pairs, for which some of the
-    observatins of optimization config metrics are missing.
+    observations of optimization config metrics are missing.
 
     Args:
         data: Data to search.

@@ -117,7 +117,7 @@ def interactive_optimize(
         if response is not None:
             data_queue.put(response)
         else:
-            # if resopnse is None, it means the user has stopped
+            # if response is None, it means the user has stopped
             # abort the optimization
             optimization_completed = False
             break
