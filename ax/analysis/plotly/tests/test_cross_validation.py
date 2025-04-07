@@ -15,7 +15,9 @@ from ax.exceptions.core import UserInputError
 from ax.modelbridge.registry import Generators
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -139,3 +141,57 @@ class TestCrossValidationPlot(TestCase):
         self.assertEqual(card.name, "CrossValidationPlot")
         # validate that the metric name replacement occured
         self.assertEqual(card.title, "Cross Validation for spunky")
+
+    @mock_botorch_optimize
+    def test_online(self) -> None:
+        # Test CrossValidationPlot can be computed for a variety of experiments which
+        # resemble those we see in an online setting.
+
+        for experiment in get_online_experiments():
+            for untransform in [True, False]:
+                for refined_metric_name in [None, "foo"]:
+                    generation_strategy = get_default_generation_strategy_at_MBM_node(
+                        experiment=experiment
+                    )
+
+                    # Pick an arbitrary metric from the experiment's optimization config
+                    metric_name = none_throws(
+                        experiment.optimization_config
+                    ).objective.metric_names[0]
+
+                    analysis = CrossValidationPlot(
+                        metric_name=metric_name,
+                        untransform=untransform,
+                        refined_metric_name=refined_metric_name,
+                    )
+
+                    _ = analysis.compute(
+                        experiment=experiment, generation_strategy=generation_strategy
+                    )
+
+    @mock_botorch_optimize
+    def test_offline(self) -> None:
+        # Test CrossValidationPlot can be computed for a variety of experiments which
+        # resemble those we see in an online setting.
+
+        for experiment in get_offline_experiments():
+            for untransform in [True, False]:
+                for refined_metric_name in [None, "foo"]:
+                    generation_strategy = get_default_generation_strategy_at_MBM_node(
+                        experiment=experiment
+                    )
+
+                    # Pick an arbitrary metric from the experiment's optimization config
+                    metric_name = none_throws(
+                        experiment.optimization_config
+                    ).objective.metric_names[0]
+
+                    analysis = CrossValidationPlot(
+                        metric_name=metric_name,
+                        untransform=untransform,
+                        refined_metric_name=refined_metric_name,
+                    )
+
+                    _ = analysis.compute(
+                        experiment=experiment, generation_strategy=generation_strategy
+                    )
