@@ -389,7 +389,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         Args:
             objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints to validate.
-            objective_thesholds: Thresholds objectives must exceed.
+            objective_thresholds: Thresholds objectives must exceed.
             risk_measure: An optional risk measure to validate.
         """
         if not isinstance(objective, (MultiObjective, ScalarizedObjective)):

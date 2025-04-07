@@ -69,7 +69,7 @@ def cross_validate(
 
     The test set can be limited to a specific set of observations by passing in
     a test_selector callable. This function should take in an Observation
-    and return a boolean indiciating if it should be used in the test set or
+    and return a boolean indicating if it should be used in the test set or
     not. For example, we can limit the test set to arms with trial 0 with
     test_selector = lambda obs: obs.features.trial_index == 0
     If not provided, all observations will be available for the test set.
@@ -429,7 +429,7 @@ def get_fit_and_std_quality_and_generalization_dict(
             "model_std_generalization": _model_std_quality(np.array(gen_std)),
         }
 
-    # Do not warn if the Adapter does not implment a predict method
+    # Do not warn if the Adapter does not implement a predict method
     # (ex. RandomAdapter).
     except NotImplementedError:
         return {

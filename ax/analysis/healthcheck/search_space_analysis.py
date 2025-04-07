@@ -116,7 +116,7 @@ def search_space_boundary_proportions(
 ) -> pd.DataFrame:
     r"""
     Compute the fractions of parametrizations that landed at the parameter and
-    parameter constraint boundaies of the search space.
+    parameter constraint boundaries of the search space.
 
     Args:
         search_space: Search space.
@@ -219,7 +219,7 @@ def boundary_proportions_message(
     Construct a message explaning what parameter or parameter constraints bounds
     to change based on the proportions of the parametrizations that landed at
     the search spaces boundaries.
-    A proportion should be above the theshold in order to recommend expanding
+    A proportion should be above the threshold in order to recommend expanding
     the search space along the corresponding parameter or parameter constraint.
 
     Args:

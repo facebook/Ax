@@ -130,7 +130,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
                 "The constraints feasibility health check utilizes "
                 "samples drawn during the optimization process to assess the "
                 "feasibility of constraints set on the experiment. Given these "
-                "samples, the model beleives there is at least a "
+                "samples, the model believes there is at least a "
                 f"{self.prob_threshold} probability that the constraints will be "
                 "violated. We suggest relaxing the bounds for the constraints "
                 "on this Experiment."

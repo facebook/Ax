@@ -48,7 +48,7 @@ def prepare_arm_effects_plot(
             determine if the metric is a constraint, and if so, what the bound is
             so the bound can be rendered in the plot.
         df: A dataframe of data to plot with the following columns:
-            - source: In-sample or model key that geneerated the candidate
+            - source: In-sample or model key that generated the candidate
             - arm_name: The name of the arm
             - mean: The observed or predicted mean of the metric specified
             - sem: The observed or predicted sem of the metric specified
