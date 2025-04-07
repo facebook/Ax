@@ -168,6 +168,15 @@ def _prepare_data(
         )
         for x in xs
         for y in ys
+        # Do not create features for any out of sample points
+        if experiment.search_space.check_membership(
+            parameterization={
+                x_parameter_name: x,
+                y_parameter_name: y,
+            },
+            raise_error=False,
+            check_all_parameters_present=False,
+        )
     ]
 
     predictions = model.predict(observation_features=features)
@@ -200,8 +209,12 @@ def _prepare_plot(
     log_y: bool,
     display_sampled: bool,
 ) -> go.Figure:
-    z_grid = df.pivot(
-        index=y_parameter_name, columns=x_parameter_name, values=f"{metric_name}_mean"
+    z_grid = df.pivot_table(
+        index=y_parameter_name,
+        columns=x_parameter_name,
+        values=f"{metric_name}_mean",
+        # aggfunc is required to gracefully handle duplicate values
+        aggfunc="mean",
     )
 
     fig = go.Figure(
