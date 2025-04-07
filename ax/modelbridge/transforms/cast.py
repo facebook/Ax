@@ -8,7 +8,7 @@
 
 from typing import Optional, TYPE_CHECKING
 
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures, separate_observations
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.base import Transform
@@ -89,6 +89,40 @@ class Cast(Transform):
         if not self.flatten_hss:
             return search_space
         return assert_is_instance(search_space, HierarchicalSearchSpace).flatten()
+
+    def transform_observations(
+        self, observations: list[Observation]
+    ) -> list[Observation]:
+        """Transform observations.
+
+        Typically done in place. By default, the effort is split into separate
+        transformations of the features and the data.
+
+        NOTE: We overwrite it here, since ``transform_observation_features`` will drop
+        features with ``None`` in them, leading to errors in the base implementation.
+
+        Args:
+            observations: Observations.
+
+        Returns: transformed observations.
+        """
+        obs_feats, obs_data = separate_observations(observations=observations)
+        # NOTE: looping here is ok, since the underlying methods for Cast also process
+        # the features one by one in a loop.
+        trans_obs = []
+        for obs_ft, obs_d, obs in zip(obs_feats, obs_data, observations, strict=True):
+            tf_obs_feats = self.transform_observation_features(
+                observation_features=[obs_ft]
+            )
+            if len(tf_obs_feats) == 1:
+                # Only re-package if the observation features haven't been dropped.
+                trans_obs.append(
+                    Observation(
+                        features=tf_obs_feats[0], data=obs_d, arm_name=obs.arm_name
+                    )
+                )
+
+        return trans_obs
 
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
