@@ -9,7 +9,8 @@
 from copy import deepcopy
 from unittest.mock import patch
 
-from ax.core.observation import ObservationFeatures
+import numpy as np
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -69,12 +70,15 @@ class CastTransformTest(TestCase):
             trial_index=10,
             metadata=None,
         )
+        self.obs_data = ObservationData(
+            metric_names=["m1"], means=np.array([1.0]), covariance=np.array([[1.0]])
+        )
 
     def test_invalid_config(self) -> None:
         with self.assertRaisesRegex(UserInputError, "Unexpected config"):
             Cast(search_space=self.search_space, config={"flatten_hs": "foo"})
 
-    def test_transform_observation_features(self) -> None:
+    def test_transform_observations_and_features(self) -> None:
         # Verify running the transform on already-casted features does nothing
         observation_features = [
             ObservationFeatures(parameters={"a": 1.2345, "b": 2.34, "c": "a", "d": 2})
@@ -84,6 +88,13 @@ class CastTransformTest(TestCase):
         self.assertEqual(obs_ft2, observation_features)
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
+
+        # Test with transform_observations.
+        obs = Observation(features=obs_ft2[0], data=self.obs_data, arm_name="arm")
+        (tf_obs,) = self.t.transform_observations([obs])
+        self.assertEqual(tf_obs.features, observation_features[0])
+        self.assertEqual(tf_obs.data, self.obs_data)
+        self.assertEqual(tf_obs.arm_name, "arm")
 
         # Check that the transform casts the parameter values when necessary.
         observation_features = [
@@ -273,6 +284,12 @@ class CastTransformTest(TestCase):
             ObservationFeatures(parameters={"choice": 1, "range": 3}),
             ObservationFeatures(parameters={"choice": "2", "range": 3.567}),
         ]
+        observations = [
+            Observation(
+                features=ft.clone(), data=deepcopy(self.obs_data), arm_name=f"{i}"
+            )
+            for i, ft in enumerate(obs_features)
+        ]
         tf_obs_features = t.transform_observation_features(
             observation_features=obs_features
         )
@@ -283,3 +300,17 @@ class CastTransformTest(TestCase):
                 ObservationFeatures(parameters={"choice": "2", "range": 3.6}),
             ],
         )
+        tf_observations = t.transform_observations(observations)
+        expected = [
+            Observation(
+                features=ObservationFeatures(parameters={"choice": "1", "range": 3.0}),
+                data=self.obs_data,
+                arm_name="1",
+            ),
+            Observation(
+                features=ObservationFeatures(parameters={"choice": "2", "range": 3.6}),
+                data=self.obs_data,
+                arm_name="2",
+            ),
+        ]
+        self.assertEqual(tf_observations, expected)
