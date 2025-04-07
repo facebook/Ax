@@ -260,7 +260,9 @@ class TestCase(fake_filesystem_unittest.TestCase):
                 message += (
                     " To see a profiler output, set `TestCase.PROFILE_TESTS` to `True`."
                 )
-            if hasattr(sys, "gettrace") and sys.gettrace() is not None:
+            if (
+                hasattr(sys, "gettrace") and sys.gettrace() is not None
+            ) or sys.monitoring.get_tool(sys.monitoring.DEBUGGER_ID) is not None:
                 # If we're in a debugger session, let the test continue running.
                 return
             elif self._long_test_active_reason is None:
