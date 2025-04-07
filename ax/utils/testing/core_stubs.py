@@ -260,6 +260,7 @@ def get_branin_experiment(
     search_space: SearchSpace | None = None,
     minimize: bool = False,
     named: bool = True,
+    num_trial: int = 1,
     num_batch_trial: int = 1,
     with_completed_batch: bool = False,
     with_completed_trial: bool = False,
@@ -311,22 +312,24 @@ def get_branin_experiment(
             sobol_run = sobol_generator.gen(n=num_arms_per_trial)
             trial = exp.new_batch_trial(optimize_for_power=with_status_quo)
             trial.add_generator_run(sobol_run)
+
             if with_completed_batch:
                 trial.mark_running(no_runner_required=True)
                 exp.attach_data(get_branin_data_batch(batch=trial))
                 trial.mark_completed()
 
     if with_trial or with_completed_trial:
-        sobol_generator = get_sobol(search_space=exp.search_space)
-        sobol_run = sobol_generator.gen(n=1)
-        trial = exp.new_trial(generator_run=sobol_run)
+        for _ in range(num_trial):
+            sobol_generator = get_sobol(search_space=exp.search_space)
+            sobol_run = sobol_generator.gen(n=1)
+            trial = exp.new_trial(generator_run=sobol_run)
 
-        if with_completed_trial:
-            trial.mark_running(no_runner_required=True)
-            exp.attach_data(
-                get_branin_data(trials=[trial], metrics=exp.metrics)
-            )  # Add data for one trial
-            trial.mark_completed()
+            if with_completed_trial:
+                trial.mark_running(no_runner_required=True)
+                exp.attach_data(
+                    get_branin_data(trials=[trial], metrics=exp.metrics)
+                )  # Add data for one trial
+                trial.mark_completed()
 
     return exp
 
@@ -710,7 +713,9 @@ def get_branin_experiment_with_multi_objective(
     with_fidelity_parameter: bool = False,
     num_objectives: int = 2,
     with_trial: bool = False,
+    num_trial: int = 1,
     with_completed_trial: bool = False,
+    with_completed_batch: bool = False,
     with_relative_constraint: bool = False,
     with_absolute_constraint: bool = False,
     with_choice_parameter: bool = False,
@@ -765,24 +770,35 @@ def get_branin_experiment_with_multi_objective(
     else:
         status_quo = None
 
-    if with_batch:
+    if with_batch or with_completed_batch:
         sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
         sobol_run = sobol_generator.gen(n=5)
-        exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
-            sobol_run
-        )
+        trial = exp.new_batch_trial(
+            optimize_for_power=with_status_quo
+        ).add_generator_run(sobol_run)
+
+        if with_completed_batch:
+            trial.mark_running(no_runner_required=True)
+            exp.attach_data(
+                get_branin_data_multi_objective(
+                    trial_indices=[trial.index],
+                    arm_names=[arm.name for arm in trial.arms],
+                )
+            )  # Add data for one trial
+            trial.mark_completed()
 
     if with_trial or with_completed_trial:
         sobol_generator = get_sobol(search_space=exp.search_space)
-        sobol_run = sobol_generator.gen(n=1)
-        trial = exp.new_trial(generator_run=sobol_run)
+        for _ in range(num_trial):
+            sobol_run = sobol_generator.gen(n=1)
+            trial = exp.new_trial(generator_run=sobol_run)
 
-        if with_completed_trial:
-            trial.mark_running(no_runner_required=True)
-            exp.attach_data(
-                get_branin_data_multi_objective(trial_indices=[trial.index])
-            )  # Add data for one trial
-            trial.mark_completed()
+            if with_completed_trial:
+                trial.mark_running(no_runner_required=True)
+                exp.attach_data(
+                    get_branin_data_multi_objective(trial_indices=[trial.index])
+                )  # Add data for one trial
+                trial.mark_completed()
 
     return exp
 
@@ -1064,6 +1080,7 @@ def get_online_experiments() -> list[Experiment]:
             num_objectives=3,
             with_batch=True,
             with_status_quo=True,
+            with_completed_batch=True,
             has_objective_thresholds=has_objective_thresholds,
             with_choice_parameter=with_choice_parameter,
             with_fixed_parameter=with_fixed_parameter,
@@ -1129,6 +1146,7 @@ def get_offline_experiments() -> list[Experiment]:
     single_objective = [
         get_branin_experiment(
             with_trial=True,
+            num_trial=10,
             with_completed_trial=True,
             with_status_quo=False,
             with_choice_parameter=with_choice_parameter,
@@ -1144,6 +1162,7 @@ def get_offline_experiments() -> list[Experiment]:
         get_branin_experiment_with_multi_objective(
             num_objectives=3,
             with_trial=True,
+            num_trial=10,
             with_completed_trial=True,
             with_status_quo=False,
             has_objective_thresholds=has_objective_thresholds,
@@ -2397,7 +2416,9 @@ def get_branin_data_batch(
 
 
 def get_branin_data_multi_objective(
-    trial_indices: Iterable[int] | None = None, num_objectives: int = 2
+    trial_indices: Iterable[int] | None = None,
+    arm_names: Iterable[str] | None = None,
+    num_objectives: int = 2,
 ) -> Data:
     _validate_num_objectives(num_objectives=num_objectives)
     suffixes = ["a", "b"]
@@ -2407,11 +2428,12 @@ def get_branin_data_multi_objective(
         {
             "trial_index": trial_index,
             "metric_name": f"branin_{suffix}",
-            "arm_name": f"{trial_index}_0",
+            "arm_name": arm_name,
             "mean": 5.0,
             "sem": 0.0,
         }
         for trial_index in (trial_indices or [0])
+        for arm_name in arm_names or [f"{trial_index}_0"]
         for suffix in suffixes
     ]
     return Data(df=pd.DataFrame.from_records(df_dicts))
