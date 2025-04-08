@@ -28,7 +28,6 @@ from ax.core.observation import (
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.types import (
     TCandidateMetadata,
     TModelCov,
@@ -39,6 +38,7 @@ from ax.core.types import (
 from ax.core.utils import extract_map_keys_from_opt_config, get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError
+from ax.modelbridge.data_utils import DataLoaderConfig
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
@@ -65,36 +65,6 @@ class GenResults:
     weights: list[float]
     best_observation_features: ObservationFeatures | None = None
     gen_metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class DataLoaderConfig:
-    """This dataclass contains parameters that control the `Adapter._set_training_data`.
-
-    Args:
-        fit_out_of_design: If specified, all training data are used.
-            Otherwise, only in design points are used.
-        fit_abandoned: Whether data for abandoned arms or trials should be included in
-            model training data. If `False`, only non-abandoned points are returned.
-        fit_only_completed_map_metrics: Whether to fit a model to map metrics only when
-            the trial is completed. This is useful for applications like modeling
-            partially completed learning curves in AutoML.
-        latest_rows_per_group: If specified and data is an instance of MapData, uses
-            MapData.latest() with `latest_rows_per_group` to retrieve the most recent
-            rows for each group. Useful in cases where learning curves are frequently
-            updated, preventing an excessive number of Observation objects.
-        limit_rows_per_metric: Subsample the map data so that the total number of
-            rows per metric is limited by this value.
-        limit_rows_per_group: Subsample the map data so that the number of rows
-            in the `map_key` column for each (arm, metric) is limited by this value.
-    """
-
-    fit_out_of_design: bool = False
-    fit_abandoned: bool = False
-    fit_only_completed_map_metrics: bool = True
-    latest_rows_per_group: int | None = 1
-    limit_rows_per_metric: int | None = None
-    limit_rows_per_group: int | None = None
 
 
 class Adapter:
@@ -338,8 +308,10 @@ class Adapter:
             latest_rows_per_group=self._data_loader_config.latest_rows_per_group,
             limit_rows_per_metric=self._data_loader_config.limit_rows_per_metric,
             limit_rows_per_group=self._data_loader_config.limit_rows_per_group,
-            statuses_to_include=self.statuses_to_fit,
-            statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
+            statuses_to_include=self._data_loader_config.statuses_to_fit,
+            statuses_to_include_map_metric=(
+                self._data_loader_config.statuses_to_fit_map_metric
+            ),
         )
 
     def _transform_data(
@@ -568,22 +540,6 @@ class Adapter:
         is in-design for the model.
         """
         return self._training_in_design
-
-    @property
-    def statuses_to_fit(self) -> set[TrialStatus]:
-        """Statuses to fit the model on."""
-        if self._data_loader_config.fit_abandoned:
-            return set(TrialStatus)
-        return NON_ABANDONED_STATUSES
-
-    @property
-    def statuses_to_fit_map_metric(self) -> set[TrialStatus]:
-        """Statuses to fit the model on."""
-        return (
-            {TrialStatus.COMPLETED}
-            if self._data_loader_config.fit_only_completed_map_metrics
-            else self.statuses_to_fit
-        )
 
     @training_in_design.setter
     def training_in_design(self, training_in_design: list[bool]) -> None:
