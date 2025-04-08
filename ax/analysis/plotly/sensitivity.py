@@ -10,6 +10,7 @@ import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -18,11 +19,6 @@ from ax.modelbridge.torch import TorchAdapter
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from plotly import express as px, graph_objects as go
 from pyre_extensions import override
-
-NO_ADAPTER_ERROR_MSG = (
-    "SensitivityAnalysisPlot requires either a TorchAdapter or a GenerationStrategy "
-    "where the current GenerationNode has a fitted TorchAdapter."
-)
 
 
 class SensitivityAnalysisPlot(PlotlyAnalysis):
@@ -43,24 +39,17 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> Sequence[PlotlyAnalysisCard]:
-        if adapter is not None:
-            relevant_adapter = adapter
+        relevant_adapter = extract_relevant_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
 
-            if not isinstance(relevant_adapter, TorchAdapter):
-                raise UserInputError(NO_ADAPTER_ERROR_MSG)
-
-        elif generation_strategy is not None:
-            # Fit the current GenerationNode's Adapter if necessary
-            if generation_strategy.model is None and experiment is not None:
-                generation_strategy.current_node._fit(experiment=experiment)
-
-            relevant_adapter = generation_strategy.model
-
-            if not isinstance(relevant_adapter, TorchAdapter):
-                raise UserInputError(NO_ADAPTER_ERROR_MSG)
-
-        else:
-            raise UserInputError(NO_ADAPTER_ERROR_MSG)
+        if not isinstance(relevant_adapter, TorchAdapter):
+            raise UserInputError(
+                "SensitivityAnalysisPlot requires a TorchAdapter, found "
+                f"{type(adapter)}."
+            )
 
         data = _prepare_data(
             adapter=relevant_adapter,

@@ -18,6 +18,7 @@ from ax.analysis.plotly.arm_effects.utils import (
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import get_nudge_value, is_predictive
+from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -87,6 +88,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
         model = _get_model(
             experiment=experiment,
             generation_strategy=generation_strategy,
+            adapter=adapter,
             use_modeled_effects=self.use_modeled_effects,
             trial_index=self.trial_index,
             metric_name=self.metric_name,
@@ -156,6 +158,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
 def _get_model(
     experiment: Experiment,
     generation_strategy: GenerationStrategy | None,
+    adapter: Adapter | None,
     use_modeled_effects: bool,
     trial_index: int,
     metric_name: str,
@@ -166,6 +169,8 @@ def _get_model(
         experiment: Used to get the data for the model.
         generation_strategy: Used to get the model if we want to use modeled effects
             and the current model is predictive.
+        adapter: A custom adapter that can be passed and used in place of the current
+            model on the generation strategy.
         use_modeled_effects: Whether to use modeled effects.
         trial_index: The trial index to get data for in training the model.
         metric_name: The name of the metric we're plotting, which we validate has
@@ -193,16 +198,24 @@ def _get_model(
             experiment=experiment,
         )
 
-    adapter = None
-    if generation_strategy is not None:
-        if generation_strategy.model is None:
-            generation_strategy._curr._fit(experiment=experiment)
-
-        adapter = none_throws(generation_strategy.model)
-
-    if adapter is None or not is_predictive(adapter=adapter):
+    try:
+        relevant_adapter = extract_relevant_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
+    except UserInputError:
         logger.info(
-            "Using Empirical Bayes to predict effects because we were unable to find "
+            "Using Empirical Bayes to model effects because we were unable to find "
+            " a suitable adapter."
+        )
+        return Generators.EMPIRICAL_BAYES_THOMPSON(
+            experiment=experiment, data=trial_data
+        )
+
+    if not is_predictive(adapter=relevant_adapter):
+        logger.info(
+            "Using Empirical Bayes to model effects because we were unable to find "
             + " a suitable adapter on the current Generation Strategy. Current "
             + f" Generation Strategy is: {generation_strategy} and model is: {adapter}"
         )
@@ -210,7 +223,7 @@ def _get_model(
             experiment=experiment, data=trial_data
         )
 
-    return adapter
+    return relevant_adapter
 
 
 def _prepare_data(

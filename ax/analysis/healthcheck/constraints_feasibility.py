@@ -18,7 +18,8 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckStatus,
 )
 from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
-from ax.analysis.plotly.utils import get_adapter
+from ax.analysis.plotly.utils import is_predictive
+from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
@@ -106,20 +107,23 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
                 )
             ]
 
-        adapter = get_adapter(
-            analysis_name=self.name,
+        relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
             generation_strategy=generation_strategy,
             adapter=adapter,
-            enforce_supports_predictions=True,
         )
+
+        if not is_predictive(adapter=relevant_adapter):
+            raise UserInputError(
+                "ConstraintsFeasibilityAnalysis requires a predictive model."
+            )
 
         optimization_config = assert_is_instance(
             experiment.optimization_config, OptimizationConfig
         )
         constraints_feasible, df = constraints_feasibility(
             optimization_config=optimization_config,
-            model=adapter,
+            model=relevant_adapter,
             prob_threshold=self.prob_threshold,
         )
         df["status"] = status
