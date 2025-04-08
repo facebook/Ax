@@ -5,16 +5,22 @@
 
 # pyre-strict
 
+import math
+from typing import Sequence
+
 import numpy as np
+import pandas as pd
 import torch
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.base import Adapter
 
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from numpy.typing import NDArray
+from plotly import express as px
 
 # Because normal distributions have long tails, every arm has a non-zero
 # probability of violating the constraint. But below a certain threshold, we
@@ -26,6 +32,75 @@ CONFIDENCE_INTERVAL_BLUE = "rgba(0, 0, 255, 0.2)"
 MARKER_BLUE = "rgba(0, 0, 255, 0.3)"  # slightly more opaque than the CI blue
 CANDIDATE_RED = "rgba(220, 20, 60, 0.3)"
 CANDIDATE_CI_RED = "rgba(220, 20, 60, 0.2)"
+
+
+# Use a consistent color for each TrialStatus name, sourced from
+# the default Plotly color palette. See https://plotly.com/python/discrete-color/
+# for more details and swatches.
+TRIAL_STATUS_TO_PLOTLY_COLOR: dict[str, str] = {
+    TrialStatus.CANDIDATE.name: px.colors.qualitative.Plotly[8],  # Pink
+    TrialStatus.STAGED.name: px.colors.qualitative.Plotly[3],  # Purple
+    TrialStatus.FAILED.name: px.colors.qualitative.Plotly[4],  # Orange
+    TrialStatus.COMPLETED.name: px.colors.qualitative.Plotly[0],  # Blue
+    TrialStatus.RUNNING.name: px.colors.qualitative.Plotly[2],  # Green
+    TrialStatus.ABANDONED.name: px.colors.qualitative.Plotly[1],  # Red
+    TrialStatus.EARLY_STOPPED.name: px.colors.qualitative.Plotly[5],  # Teal
+}
+
+# Always use the same transparency factor for CI colors to improve legibility when many
+# scatter points are plotted on the same plot.
+CI_ALPHA: float = 0.5
+
+
+def trial_status_to_plotly_color(
+    trial_status: str,
+    ci_transparency: bool = False,
+) -> str:
+    """
+    Standardize the colors which correspond to a TrialStatus name across the Plotly
+    analyses.
+
+    Always use transparency for CI colors to improve legibility.
+    """
+    hex_color = TRIAL_STATUS_TO_PLOTLY_COLOR.get(
+        trial_status,
+        # Default to pink, treating unknown trial status as CANDIDATE
+        px.colors.qualitative.Plotly[8],
+    )
+
+    red, green, blue = px.colors.hex_to_rgb(hex_color)
+    alpha = CI_ALPHA if ci_transparency else 1
+
+    return f"rgba({red}, {green}, {blue}, {alpha})"
+
+
+def get_arm_tooltip(
+    row: pd.Series,
+    metric_names: Sequence[str],
+) -> str:
+    """
+    Given a row from ax.analysis.utils.prepare_arm_data return a tooltip. This should
+    be used in every Plotly analysis where we source data from prepare_arm_data.
+    """
+
+    trial_str = f"Trial: {row['trial_index']}"
+    arm_str = f"Arm: {row['arm_name']}"
+    status_str = f"Status: {row['trial_status']}"
+    generation_node_str = f"Generation Node: {row['generation_node']}"
+
+    metric_strs = [
+        (
+            (f"{metric_name}: {row[f'{metric_name}_mean']:.5f}")
+            + f"±{1.96 * row[f'{metric_name}_sem']:.5f}"
+            if not math.isnan(row[f"{metric_name}_sem"])
+            else ""
+        )
+        for metric_name in metric_names
+    ]
+
+    return "<br />".join(
+        [trial_str, arm_str, status_str, generation_node_str, *metric_strs]
+    )
 
 
 def get_constraint_violated_probabilities(
