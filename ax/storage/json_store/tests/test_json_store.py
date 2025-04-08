@@ -20,6 +20,7 @@ from ax.core.objective import Objective
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
+from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import DataLoaderConfig
@@ -173,6 +174,7 @@ TEST_CASES = [
     ("BoTorchGenerator", get_botorch_model_with_surrogate_spec),
     ("BoTorchGenerator", get_botorch_model_with_surrogate_specs),
     ("BraninMetric", get_branin_metric),
+    ("CenterGenerationNode", partial(CenterGenerationNode, next_node_name="SOBOL")),
     ("ChainedInputTransform", get_chained_input_transform),
     ("ChoiceParameter", get_choice_parameter),
     ("ChoiceParameter", get_sorted_choice_parameter),

@@ -71,6 +71,7 @@ from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
+from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
@@ -318,6 +319,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "BoTorchModel": BoTorchGenerator,
     "BraninMetric": BraninMetric,
     "BraninTimestampMapMetric": BraninTimestampMapMetric,
+    "CenterGenerationNode": CenterGenerationNode,
     "ChainedInputTransform": ChainedInputTransform,
     "ChemistryMetric": ChemistryMetric,
     "ChemistryProblemType": ChemistryProblemType,
