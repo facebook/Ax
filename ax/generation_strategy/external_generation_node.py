@@ -20,6 +20,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import TransitionCriterion
 from ax.utils.common.logger import get_logger
 
@@ -120,8 +121,8 @@ class ExternalGenerationNode(GenerationNode, ABC):
         return None
 
     @property
-    def model_spec_to_gen_from(self) -> None:
-        return None
+    def model_spec_to_gen_from(self) -> GeneratorSpec | None:
+        return self._model_spec_to_gen_from
 
     def _fit(
         self,
@@ -183,6 +184,18 @@ class ExternalGenerationNode(GenerationNode, ABC):
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
         """
+        if self._model_spec_to_gen_from is not None:
+            # This is the fallback case. Generate using base GNode logic.
+            gr = super()._gen(
+                experiment=experiment,
+                data=data,
+                n=n,
+                pending_observations=pending_observations,
+                **model_gen_kwargs,
+            )
+            # Unset self._model_spec_to_gen_from before returning.
+            self._model_spec_to_gen_from = None
+            return gr
         t_gen_start = time.monotonic()
         n = 1 if n is None else n
         pending_parameters: list[TParameterization] = []
