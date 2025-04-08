@@ -147,6 +147,11 @@ def prepare_arm_data(
 
     # Add additional columns which do not require predicting or extracting data.
     # TODO[mpolson64]: Add a column for the arm feasibility.
+    df["trial_status"] = df["trial_index"].apply(
+        lambda trial_index: experiment.trials[trial_index].status.name
+        if trial_index != -1
+        else "Additional Arm"
+    )
     df["generation_node"] = df.apply(
         lambda row: _extract_generation_node_name(
             trial=experiment.trials[row["trial_index"]],
