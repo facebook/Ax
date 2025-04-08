@@ -16,13 +16,7 @@ from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
-from ax.modelbridge.torch import TorchAdapter
 from pyre_extensions import override
-
-NO_ADAPTER_ERROR_MSG = (
-    "TopSurfacesAnalysis requires either a TorchAdapter or a GenerationStrategy "
-    "where the current GenerationNode has a fitted TorchAdapter."
-)
 
 
 class TopSurfacesAnalysis(PlotlyAnalysis):
@@ -44,38 +38,14 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
         adapter: Adapter | None = None,
     ) -> Sequence[PlotlyAnalysisCard]:
         if experiment is None:
-            raise UserInputError("TopSurfacesAnalysis requires an Experiment.")
-
-        # Choose the relevant Adapter. Prefer the passed in Adapter, or fall back to
-        # the generation strategy's current Adapter.
-        if adapter is not None:
-            relevant_adapter = adapter
-
-            if not isinstance(relevant_adapter, TorchAdapter):
-                raise UserInputError(NO_ADAPTER_ERROR_MSG)
-
-        elif generation_strategy is not None:
-            # Fit the current GenerationNode's Adapter if necessary
-            if generation_strategy.model is None and experiment is not None:
-                generation_strategy.current_node._fit(experiment=experiment)
-
-            relevant_adapter = generation_strategy.model
-
-            if not isinstance(relevant_adapter, TorchAdapter):
-                raise UserInputError(NO_ADAPTER_ERROR_MSG)
-
-        else:
-            raise UserInputError(NO_ADAPTER_ERROR_MSG)
+            raise UserInputError(
+                "TopSurfacesAnalysis requires an Experiment to compute."
+            )
 
         if self.metric_name is not None:
             metric_name = self.metric_name
-        elif experiment is not None:
-            metric_name = select_metric(experiment=experiment)
         else:
-            raise UserInputError(
-                "TopSurfacesAnalysis requires either a metric_name or an Experiment to "
-                "infer the metric_name"
-            )
+            metric_name = select_metric(experiment=experiment)
 
         (sensitivity_analysis_card,) = SensitivityAnalysisPlot(
             metric_names=[metric_name],

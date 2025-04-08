@@ -49,7 +49,9 @@ class TestCrossValidationPlot(TestCase):
         analysis = CrossValidationPlot(metric_name="bar")
 
         # Test that it fails if no GenerationStrategy is provided
-        with self.assertRaisesRegex(UserInputError, "requires a GenerationStrategy"):
+        with self.assertRaisesRegex(
+            UserInputError, "Must provide either a GenerationStrategy or an Adapter"
+        ):
             analysis.compute()
 
         (card,) = analysis.compute(generation_strategy=self.client.generation_strategy)
