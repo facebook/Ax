@@ -118,6 +118,7 @@ class TestUtils(TestCase):
             {
                 "trial_index",
                 "arm_name",
+                "trial_status",
                 "generation_node",
                 "foo_mean",
                 "foo_sem",
@@ -150,6 +151,7 @@ class TestUtils(TestCase):
             {
                 "trial_index",
                 "arm_name",
+                "trial_status",
                 "generation_node",
                 "foo_mean",
                 "foo_sem",
@@ -177,6 +179,7 @@ class TestUtils(TestCase):
             {
                 "trial_index",
                 "arm_name",
+                "trial_status",
                 "generation_node",
                 "foo_mean",
                 "foo_sem",
@@ -209,6 +212,7 @@ class TestUtils(TestCase):
             {
                 "trial_index",
                 "arm_name",
+                "trial_status",
                 "generation_node",
                 "foo_mean",
                 "foo_sem",
@@ -240,6 +244,7 @@ class TestUtils(TestCase):
             {
                 "trial_index",
                 "arm_name",
+                "trial_status",
                 "generation_node",
                 "foo_mean",
                 "foo_sem",
@@ -269,6 +274,7 @@ class TestUtils(TestCase):
             {
                 "trial_index",
                 "arm_name",
+                "trial_status",
                 "generation_node",
                 "foo_mean",
                 "foo_sem",
@@ -304,6 +310,7 @@ class TestUtils(TestCase):
             {
                 "trial_index",
                 "arm_name",
+                "trial_status",
                 "generation_node",
                 "foo_mean",
                 "foo_sem",
@@ -343,6 +350,7 @@ class TestUtils(TestCase):
             {
                 "trial_index",
                 "arm_name",
+                "trial_status",
                 "generation_node",
                 "foo_mean",
                 "foo_sem",
