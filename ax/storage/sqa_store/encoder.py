@@ -14,6 +14,7 @@ from typing import Any, cast
 
 from ax.analysis.analysis import AnalysisCard
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
@@ -50,6 +51,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAAnalysisCard,
     SQAArm,
+    SQAAuxiliaryExperiment,
     SQAData,
     SQAExperiment,
     SQAGenerationStrategy,
@@ -175,32 +177,24 @@ class Encoder:
             value=experiment.experiment_type, enum=self.config.experiment_type_enum
         )
 
+        # New auxiliary experiments logic
+        auxiliary_experiments = self.auxiliary_experiments_by_purpose_to_sqa(
+            target_experiment=experiment,
+            auxiliary_experiments_by_purpose=(
+                experiment.auxiliary_experiments_by_purpose_for_storage
+            ),
+        )
+
+        # Legacy auxiliary experiments logic
         auxiliary_experiments_by_purpose = {}
         for (
             aux_exp_type_enum,
             aux_exps,
         ) in experiment.auxiliary_experiments_by_purpose.items():
             aux_exp_type = aux_exp_type_enum.value
-            aux_exp_jsons = []
-            for aux_exp in aux_exps:
-                name = aux_exp.experiment.name
-                if (
-                    name is None
-                    or _get_experiment_id(experiment_name=name, config=self.config)
-                    is None
-                ):
-                    raise SQAEncodeError(
-                        f"Cannot save experiment {experiment.name} because it has an "
-                        f"auxiliary experiment {name} that does not exist in the "
-                        "database. Make sure that all auxiliary experiments are "
-                        "available in the database before saving the main experiment."
-                    )
-                aux_exp_jsons.append(
-                    {
-                        "__type": aux_exp.__class__.__name__,
-                        "experiment_name": name,
-                    }
-                )
+            aux_exp_jsons = [
+                self.encode_auxiliary_experiment(aux_exp) for aux_exp in aux_exps
+            ]
             auxiliary_experiments_by_purpose[aux_exp_type] = aux_exp_jsons
 
         properties = experiment._properties
@@ -243,6 +237,7 @@ class Encoder:
             default_trial_type=experiment.default_trial_type,
             default_data_type=experiment.default_data_type,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
+            auxiliary_experiments=auxiliary_experiments,
         )
         return exp_sqa
 
@@ -1122,3 +1117,59 @@ class Encoder:
             # warnings.
             category=int(analysis_card.category),
         )
+
+    def encode_auxiliary_experiment(
+        self,
+        auxiliary_experiment: AuxiliaryExperiment,
+    ) -> dict[str, Any]:
+        return {"experiment_name": auxiliary_experiment.experiment.name}
+
+    def auxiliary_experiments_by_purpose_to_sqa(
+        self,
+        target_experiment: Experiment,
+        auxiliary_experiments_by_purpose: dict[
+            AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
+        ],
+    ) -> list[SQAAuxiliaryExperiment]:
+        """Convert Ax auxiliary experiments by purpose to SQLAlchemy."""
+
+        # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[AuxiliaryExperiment]`.
+        auxiliary_experiment_class: SQAAuxiliaryExperiment = (
+            self.config.class_to_sqa_class[AuxiliaryExperiment]
+        )
+
+        def get_experiment_id(
+            target_experiment: Experiment, source_experiment: AuxiliaryExperiment
+        ) -> int:
+            source_experiment_name = source_experiment.experiment.name
+            exception = SQAEncodeError(
+                f"Cannot save experiment {target_experiment.name} because it has an "
+                f"auxiliary experiment {source_experiment_name} that does not exist "
+                "in the database. Make sure that all auxiliary experiments are "
+                "available in the database before saving the main experiment."
+            )
+            if source_experiment_name is None:
+                raise exception
+            source_experiment_id = _get_experiment_id(
+                experiment_name=source_experiment_name, config=self.config
+            )
+            if source_experiment_id is None:
+                raise exception
+            return source_experiment_id
+
+        return [
+            # pyre-fixme[29]: `SQAAuxiliaryExperiment` is not a function.
+            auxiliary_experiment_class(
+                target_experiment_id=target_experiment.db_id,
+                source_experiment_id=get_experiment_id(
+                    target_experiment, auxiliary_experiment
+                ),
+                purpose=purpose.value,
+                is_active=auxiliary_experiment.is_active,
+                properties=self.encode_auxiliary_experiment(auxiliary_experiment),
+            )
+            for purpose, auxiliary_experiments in (
+                auxiliary_experiments_by_purpose.items()
+            )
+            for auxiliary_experiment in auxiliary_experiments
+        ]
