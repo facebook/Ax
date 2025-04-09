@@ -47,11 +47,13 @@ class ArmEffectsPlot(PlotlyAnalysis):
         use_model_predictions: bool = True,
         trial_index: int | None = None,
         additional_arms: Sequence[Arm] | None = None,
+        relativize: bool = False,
     ) -> None:
         self.metric_names = metric_names
         self.use_model_predictions = use_model_predictions
         self.trial_index = trial_index
         self.additional_arms = additional_arms
+        self.relativize = relativize
 
     @override
     def compute(
@@ -81,6 +83,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
             adapter=relevant_adapter,
             trial_index=self.trial_index,
             additional_arms=self.additional_arms,
+            relativize=self.relativize,
         )
 
         return [
@@ -105,7 +108,9 @@ class ArmEffectsPlot(PlotlyAnalysis):
                         f"{metric_name}_sem",
                     ]
                 ].copy(),
-                fig=_prepare_figure(df=df, metric_name=metric_name),
+                fig=_prepare_figure(
+                    df=df, metric_name=metric_name, is_relative=self.relativize
+                ),
                 category=AnalysisCardCategory.INSIGHT,
             )
             for metric_name in metric_names
@@ -115,6 +120,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
 def _prepare_figure(
     df: pd.DataFrame,
     metric_name: str,
+    is_relative: bool,
 ) -> go.Figure:
     scatters = [
         go.Scatter(
@@ -153,7 +159,11 @@ def _prepare_figure(
     ]
 
     figure = go.Figure(data=scatters)
-    figure.update_layout(xaxis_title="Arm Name", yaxis_title=metric_name)
+    figure.update_layout(
+        xaxis_title="Arm Name",
+        yaxis_title=metric_name,
+        yaxis_tickformat=".2%" if is_relative else None,
+    )
 
     # Order arms by trial index, then by arm name. Always put additional arms last.
     arm_order = df.sort_values(by=["trial_index", "arm_name"])["arm_name"].tolist()

@@ -22,6 +22,7 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.utils.common.constants import Keys
+from ax.utils.stats.statstools import relativize
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
@@ -76,6 +77,7 @@ def prepare_arm_data(
     adapter: Adapter | None = None,
     trial_index: int | None = None,
     additional_arms: Sequence[Arm] | None = None,
+    relativize: bool = False,
 ) -> pd.DataFrame:
     """
     Create a table with one entry per arm and columns for each requested metric. This
@@ -149,6 +151,11 @@ def prepare_arm_data(
             metric_names=metric_names,
             experiment=experiment,
             trial_index=trial_index,
+        )
+
+    if relativize:
+        df = _relativize_data(
+            df=df, metric_names=metric_names, status_quo_arm=experiment.status_quo
         )
 
     # Add additional columns which do not require predicting or extracting data.
@@ -402,3 +409,59 @@ def _prepare_p_feasible(
     )
 
     return pd.Series(log_prob_feas.exp())
+
+
+def _relativize_data(
+    df: pd.DataFrame, metric_names: Sequence[str], status_quo_arm: Arm | None
+) -> pd.DataFrame:
+    """
+    Relativize the data with respect to the status quo arm for each metric within
+     each trial.
+
+    Args:
+        df: DataFrame containing the data to be relativized. Must include columns
+            'METRIC_NAME_mean' and 'METRIC_NAME_sem' for each metric, as well as a
+            column identifying the trial and a column identifying the status quo
+            arm for each trial.
+        metric_names: The names of the metrics to relativize.
+        status_quo_arm: The arm to use as the baseline for relativization. Must be
+            present in the DataFrame.
+
+
+    Returns:
+        A DataFrame with the same structure as the input, but with 'METRIC_NAME_mean'
+        and 'METRIC_NAME_sem' columns relativized to the status quo arm for each metric
+        within each trial.
+    """
+    if status_quo_arm is None:
+        raise UserInputError("Cannot relativize data without a status quo arm.")
+
+    # Group by trial and relativize data within each group
+    rel_df = df.copy()
+    for trial_idx, trial_df in rel_df.groupby("trial_index"):
+        status_quo_row = trial_df[trial_df["arm_name"] == status_quo_arm.name]
+        if status_quo_row.empty:
+            raise UserInputError(f"Status quo arm not found in trial '{trial_idx}'.")
+        if len(status_quo_row) > 1:
+            raise UserInputError(
+                f"Multiple rows found for the status quo arm in trial '{trial_idx}'."
+            )
+
+        for metric_name in metric_names:
+            mean_col = f"{metric_name}_mean"
+            sem_col = f"{metric_name}_sem"
+
+            if mean_col not in trial_df.columns or sem_col not in trial_df.columns:
+                continue
+
+            y_rel, y_se_rel = relativize(
+                means_t=trial_df[mean_col],
+                sems_t=trial_df[sem_col],
+                mean_c=status_quo_row[mean_col].values[0],
+                sem_c=status_quo_row[sem_col].values[0],
+            )
+
+            rel_df.loc[rel_df["trial_index"] == trial_idx, mean_col] = y_rel
+            rel_df.loc[rel_df["trial_index"] == trial_idx, sem_col] = y_se_rel
+
+    return rel_df

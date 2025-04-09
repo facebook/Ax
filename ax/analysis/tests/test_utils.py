@@ -6,7 +6,8 @@
 # pyre-strict
 
 import numpy as np
-from ax.analysis.utils import prepare_arm_data
+import pandas as pd
+from ax.analysis.utils import _relativize_data, prepare_arm_data
 from ax.api.client import Client
 from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
 from ax.core.arm import Arm
@@ -398,3 +399,100 @@ class TestUtils(TestCase):
         self.assertFalse(with_additional_arms_df["foo_sem"].isna().any())
         self.assertFalse(with_additional_arms_df["bar_mean"].isna().any())
         self.assertFalse(with_additional_arms_df["bar_sem"].isna().any())
+
+    def test_relativize_data(self) -> None:
+        df = pd.DataFrame(
+            {
+                "trial_index": [0, 0, 0],
+                "arm_name": ["status_quo", "arm1", "arm2"],
+                "foo_mean": [10.0, 12.0, 15.0],
+                "foo_sem": [1.0, 1.2, 1.5],
+                "bar_mean": [20.0, 22.0, 25.0],
+                "bar_sem": [2.0, 2.2, 2.5],
+            }
+        )
+        status_quo = Arm(name="status_quo", parameters={})
+
+        rel_df = _relativize_data(
+            df=df, status_quo_arm=status_quo, metric_names=["foo", "bar"]
+        )
+
+        np.testing.assert_almost_equal(
+            rel_df.loc[0, "foo_mean"], 0.0, decimal=1
+        )  # status quo
+        np.testing.assert_almost_equal(rel_df.loc[1, "foo_mean"], 0.2, decimal=1)
+        np.testing.assert_almost_equal(rel_df.loc[2, "foo_mean"], 0.5, decimal=1)
+        np.testing.assert_almost_equal(rel_df.loc[0, "foo_sem"], 0.1, decimal=1)
+        np.testing.assert_almost_equal(rel_df.loc[1, "foo_sem"], 0.2, decimal=1)
+        np.testing.assert_almost_equal(rel_df.loc[1, "bar_mean"], 0.1, decimal=1)
+        np.testing.assert_almost_equal(rel_df.loc[1, "bar_sem"], 0.2, decimal=1)
+
+    def test_relativize_data_validation(self) -> None:
+        df = pd.DataFrame(
+            {
+                "trial_index": [0, 0],
+                "arm_name": ["arm1", "arm2"],
+                "foo_mean": [12.0, 15.0],
+                "foo_sem": [1.2, 1.5],
+            }
+        )
+
+        with self.assertRaisesRegex(
+            UserInputError, "Cannot relativize data without a status quo arm."
+        ):
+            _relativize_data(df=df, status_quo_arm=None, metric_names=["foo"])
+
+        with self.assertRaisesRegex(
+            UserInputError, "Status quo arm not found in trial '0'"
+        ):
+            _relativize_data(
+                df=df,
+                status_quo_arm=Arm(name="status_quo", parameters={}),
+                metric_names=["foo"],
+            )
+
+    def test_relativize_data_multiple_trials(self) -> None:
+        df = pd.DataFrame(
+            {
+                "trial_index": [0, 0, 1, 1],
+                "arm_name": ["status_quo", "arm1", "status_quo", "arm2"],
+                "foo_mean": [10.0, 12.0, 10.0, 15.0],
+                "foo_sem": [1.0, 1.2, 1.0, 1.5],
+                "bar_mean": [20.0, 22.0, 20.0, 25.0],
+                "bar_sem": [2.0, 2.2, 2.0, 2.5],
+            }
+        )
+        status_quo = Arm(name="status_quo", parameters={})
+
+        rel_df = _relativize_data(
+            df=df, status_quo_arm=status_quo, metric_names=["foo", "bar"]
+        )
+
+        np.testing.assert_almost_equal(
+            rel_df[(rel_df["trial_index"] == 0) & (rel_df["arm_name"] == "status_quo")][
+                "foo_mean"
+            ].iloc[0],
+            0.0,
+            decimal=1,
+        )
+        np.testing.assert_almost_equal(
+            rel_df[(rel_df["trial_index"] == 0) & (rel_df["arm_name"] == "arm1")][
+                "foo_mean"
+            ].iloc[0],
+            0.2,
+            decimal=1,
+        )
+        np.testing.assert_almost_equal(
+            rel_df[(rel_df["trial_index"] == 1) & (rel_df["arm_name"] == "status_quo")][
+                "foo_mean"
+            ].iloc[0],
+            0.0,
+            decimal=1,
+        )
+        np.testing.assert_almost_equal(
+            rel_df[(rel_df["trial_index"] == 1) & (rel_df["arm_name"] == "arm2")][
+                "foo_mean"
+            ].iloc[0],
+            0.5,
+            decimal=1,
+        )

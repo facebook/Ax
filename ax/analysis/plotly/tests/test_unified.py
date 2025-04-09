@@ -10,7 +10,9 @@ from ax.api.client import Client
 from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.modeling_stubs import get_sobol_MBM_MTGP_gs
 from pyre_extensions import assert_is_instance
 
 
@@ -162,3 +164,60 @@ class TestArmEffectsPlot(TestCase):
         # Check that all SEMs are not NaN
         self.assertFalse(cards[0].df["foo_sem"].isna().any())
         self.assertFalse(cards[1].df["bar_sem"].isna().any())
+
+
+class TestArmEffectsPlotRel(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.experiment = get_branin_experiment(with_status_quo=True)
+        self.generation_strategy = get_sobol_MBM_MTGP_gs()
+        self.generation_strategy.experiment = self.experiment
+        # Run 2 trials
+        for _ in range(2):
+            self.experiment.new_batch_trial(
+                generator_runs=self.generation_strategy._gen_with_multiple_nodes(
+                    experiment=self.experiment, n=3
+                )
+            ).set_status_quo_with_weight(
+                status_quo=self.experiment.status_quo, weight=1.0
+            ).mark_completed(unsafe=True)
+            self.experiment.fetch_data()
+
+    def test_compute_with_relativize(self) -> None:
+        for use_model_predictions in [True, False]:
+            with self.subTest(use_model_predictions=use_model_predictions):
+                analysis = ArmEffectsPlot(
+                    use_model_predictions=use_model_predictions, relativize=True
+                )
+
+                cards = analysis.compute(
+                    experiment=self.experiment,
+                    generation_strategy=self.generation_strategy,
+                )
+
+                self.assertEqual(len(cards), 1)
+
+                self.assertEqual(
+                    set(cards[0].df.columns),
+                    {
+                        "trial_index",
+                        "arm_name",
+                        "trial_status",
+                        "generation_node",
+                        "branin_mean",
+                        "branin_sem",
+                    },
+                )
+
+                for card in cards:
+                    # Check that we have one row per arm and that each arm appears only
+                    # once. Exclude status_quo since that is repeated between trials
+                    card_arms = card.df[card.df.arm_name != "status_quo"].arm_name
+                    experiment_arms = self.experiment.arms_by_name.copy()
+                    experiment_arms.pop("status_quo")
+                    self.assertEqual(len(card_arms), len(experiment_arms))
+                    for arm_name in experiment_arms:
+                        self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
+
+                    self.assertFalse(card.df["branin_mean"].isna().any())
+                    self.assertFalse(card.df["branin_sem"].isna().any())
