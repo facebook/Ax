@@ -17,7 +17,7 @@ from warnings import warn
 
 import numpy as np
 import numpy.typing as npt
-from ax.core.observation import Observation, ObservationData, recombine_observations
+from ax.core.observation import Observation, ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import Adapter, unwrap_observation_data
 from ax.utils.common.logger import get_logger
@@ -562,30 +562,11 @@ def _predict_on_training_data(
         model's associated 2) predictive means and 3) predictive standard deviations.
     """
     observations = model_bridge.get_training_data()  # List[Observation]
-
-    # NOTE: the following up to the end of the untransform block could be replaced
-    # with model_bridge's public predict / private _batch_predict method, if the
-    # latter had a boolean untransform flag.
-
-    # Transform observations -- this will transform both obs data and features
-    for t in model_bridge.transforms.values():
-        observations = t.transform_observations(observations)
-
     observation_features = [obs.features for obs in observations]
-
-    # Make predictions in transformed space
-    observation_data_pred = model_bridge._predict(observation_features)
-
-    if untransform:
-        # Apply reverse transforms, in reverse order
-        pred_observations = recombine_observations(
-            observation_features=observation_features,
-            observation_data=observation_data_pred,
-        )
-        for t in reversed(list(model_bridge.transforms.values())):
-            pred_observations = t.untransform_observations(pred_observations)
-
-        observation_data_pred = [obs.data for obs in pred_observations]
+    observation_data_pred = model_bridge._predict_observation_data(
+        observation_features=observation_features,
+        untransform=untransform,
+    )
 
     mean_predicted, cov_predicted = unwrap_observation_data(observation_data_pred)
     mean_observed = [

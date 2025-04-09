@@ -572,6 +572,7 @@ class Adapter:
         self,
         observation_features: list[ObservationFeatures],
         use_posterior_predictive: bool = False,
+        untransform: bool = True,
     ) -> list[ObservationData]:
         """
         Like 'predict' method, but returns results as a list of ObservationData
@@ -582,6 +583,8 @@ class Adapter:
                 should be from the posterior predictive (i.e. including
                 observation noise).
                 This option is only supported by the ``BoTorchGenerator``.
+            untransform: Whether to untransform the predictions to the original
+                scale before returning.
 
         Returns:
             List of `ObservationData`
@@ -597,16 +600,16 @@ class Adapter:
             observation_features=observation_features,
             use_posterior_predictive=use_posterior_predictive,
         )
-        # Apply reverse transforms, in reverse order
-        # TODO: consider a flag to disable untransfrom,
-        # to support CV without untransform.
-        pred_observations = recombine_observations(
-            observation_features=observation_features, observation_data=observation_data
-        )
+        if untransform:
+            # Apply reverse transforms, in reverse order
+            pred_observations = recombine_observations(
+                observation_features=observation_features,
+                observation_data=observation_data,
+            )
 
-        for t in reversed(list(self.transforms.values())):
-            pred_observations = t.untransform_observations(pred_observations)
-        observation_data = [obs.data for obs in pred_observations]
+            for t in reversed(list(self.transforms.values())):
+                pred_observations = t.untransform_observations(pred_observations)
+            observation_data = [obs.data for obs in pred_observations]
         return observation_data
 
     def predict(
