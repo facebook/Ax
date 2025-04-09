@@ -1598,55 +1598,103 @@ class ExperimentWithMapDataTest(TestCase):
     def test_experiment_with_aux_experiments(self) -> None:
         @unique
         class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
-            MyAuxExpPurpose = "my_auxiliary_experiment_purpose"
-            MyOtherAuxExpPurpose = "my_other_auxiliary_experiment_purpose"
+            PurposeA = "PurposeA"
+            PurposeB = "PurposeB"
 
         for get_exp_func in [get_experiment, get_experiment_with_data]:
-            exp = get_exp_func()
-            data = exp.lookup_data()
+            # different names for Ax equality purposes
+            A_experiment_1 = get_exp_func()
+            A_experiment_1.name = "A_experiment_1"
+            B_experiment_1 = get_exp_func()
+            B_experiment_1.name = "B_experiment_1"
+            B_experiment_2 = get_exp_func()
+            B_experiment_2.name = "B_experiment_2"
 
-            aux_exp = AuxiliaryExperiment(experiment=exp)
-            another_aux_exp = AuxiliaryExperiment(experiment=exp, data=data)
+            A_auxiliary_experiment_1 = AuxiliaryExperiment(experiment=A_experiment_1)
+            B_auxiliary_experiment_1 = AuxiliaryExperiment(experiment=B_experiment_1)
+            B_auxiliary_experiment_2 = AuxiliaryExperiment(
+                experiment=B_experiment_2, data=B_experiment_2.lookup_data()
+            )
 
             # init experiment with auxiliary experiments
-            exp_w_aux_exp = Experiment(
+            experiment = Experiment(
                 name="test",
                 search_space=get_search_space(),
                 auxiliary_experiments_by_purpose={
-                    TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
+                    TestAuxiliaryExperimentPurpose.PurposeA: [A_auxiliary_experiment_1],
+                    TestAuxiliaryExperimentPurpose.PurposeB: [B_auxiliary_experiment_1],
                 },
             )
 
-            # in-place modification of auxiliary experiments
-            exp_w_aux_exp.auxiliary_experiments_by_purpose[
-                TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose
-            ] = [aux_exp]
-            self.assertEqual(
-                exp_w_aux_exp.auxiliary_experiments_by_purpose,
-                {
-                    TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
-                    TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose: [aux_exp],
-                },
-            )
+            with self.subTest("in-place modification of auxiliary experiments"):
+                experiment.auxiliary_experiments_by_purpose[
+                    TestAuxiliaryExperimentPurpose.PurposeB
+                ] = [B_auxiliary_experiment_2]
+                self.assertEqual(
+                    experiment.auxiliary_experiments_by_purpose,
+                    {
+                        TestAuxiliaryExperimentPurpose.PurposeA: [
+                            A_auxiliary_experiment_1
+                        ],
+                        TestAuxiliaryExperimentPurpose.PurposeB: [
+                            B_auxiliary_experiment_2
+                        ],
+                    },
+                )
 
-            # test setter
-            exp_w_aux_exp.auxiliary_experiments_by_purpose = {
-                TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
-                TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose: [
-                    aux_exp,
-                    another_aux_exp,
-                ],
-            }
-            self.assertEqual(
-                exp_w_aux_exp.auxiliary_experiments_by_purpose,
-                {
-                    TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
-                    TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose: [
-                        aux_exp,
-                        another_aux_exp,
+            with self.subTest("test setter"):
+                experiment.auxiliary_experiments_by_purpose = {
+                    TestAuxiliaryExperimentPurpose.PurposeA: [A_auxiliary_experiment_1],
+                    TestAuxiliaryExperimentPurpose.PurposeB: [
+                        B_auxiliary_experiment_1,
+                        B_auxiliary_experiment_2,
                     ],
-                },
-            )
+                }
+                self.assertEqual(
+                    experiment.auxiliary_experiments_by_purpose,
+                    {
+                        TestAuxiliaryExperimentPurpose.PurposeA: [
+                            A_auxiliary_experiment_1
+                        ],
+                        TestAuxiliaryExperimentPurpose.PurposeB: [
+                            B_auxiliary_experiment_1,
+                            B_auxiliary_experiment_2,
+                        ],
+                    },
+                )
+
+            with self.subTest("test auxiliary experiments for storage"):
+                # remove initial auxiliary experiments and add others
+                experiment.auxiliary_experiments_by_purpose = {
+                    TestAuxiliaryExperimentPurpose.PurposeB: [
+                        B_auxiliary_experiment_2,
+                    ],
+                }
+                # confirm that auxiliary experiments were set properly
+                self.assertEqual(
+                    experiment.auxiliary_experiments_by_purpose,
+                    {
+                        TestAuxiliaryExperimentPurpose.PurposeB: [
+                            B_auxiliary_experiment_2,
+                        ],
+                    },
+                )
+                # confirm that deleted auxiliary experiments are still stored as
+                # inactive auxiliary experiments
+                A_auxiliary_experiment_1.is_active = False
+                B_auxiliary_experiment_1.is_active = False
+                self.assertAxBaseEqual(
+                    experiment.auxiliary_experiments_by_purpose_for_storage[
+                        TestAuxiliaryExperimentPurpose.PurposeA
+                    ][0],
+                    A_auxiliary_experiment_1,
+                )
+                self.assertAxBaseEqual(
+                    experiment.auxiliary_experiments_by_purpose_for_storage[
+                        TestAuxiliaryExperimentPurpose.PurposeB
+                    ][1],
+                    B_auxiliary_experiment_1,
+                )
 
     def test_name_and_store_arm_if_not_exists_same_name_different_signature(
         self,
