@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Sequence
+from typing import Mapping, Sequence
 
 import pandas as pd
 
@@ -54,11 +54,30 @@ class ArmEffectsPlot(PlotlyAnalysis):
         use_model_predictions: bool = True,
         trial_index: int | None = None,
         additional_arms: Sequence[Arm] | None = None,
+        labels: Mapping[str, str] | None = None,
     ) -> None:
+        """
+        Args:
+            metric_names: The names of the metrics to include in the plot. If not
+                specified, all metrics in the experiment will be used.
+            use_model_predictions: Whether to use model predictions or observed data.
+                If ``True``, the plot will show the predicted effects of each arm based
+                on the model. If ``False``, the plot will show the observed effects of
+                each arm. The latter is often less trustworthy than the former,
+                especially when model fit is good and in high-noise settings.
+            trial_index: If present, only use arms from the trial with the given index.
+            additional_arms: If present, include these arms in the plot in addition to
+                the arms in the experiment. These arms will be marked as belonging to a
+                trial with index -1.
+            labels: A mapping from metric names to labels to use in the plot. If a label
+                is not provided for a metric, the metric name will be used.
+        """
+
         self.metric_names = metric_names
         self.use_model_predictions = use_model_predictions
         self.trial_index = trial_index
         self.additional_arms = additional_arms
+        self.labels = labels or {}
 
     @override
     def compute(
@@ -90,14 +109,21 @@ class ArmEffectsPlot(PlotlyAnalysis):
             additional_arms=self.additional_arms,
         )
 
+        # Retrieve the metric labels from the mapping provided by the user, defaulting
+        # to the metric name if no label is provided.
+        metric_labels = {
+            metric_name: self.labels.get(metric_name, metric_name)
+            for metric_name in metric_names
+        }
+
         return [
             self._create_plotly_analysis_card(
                 title=(
                     f"{'Modeled' if self.use_model_predictions else 'Observed'} Arm "
-                    f"Effects on {metric_name}"
+                    f"Effects on {metric_labels[metric_name]}"
                 ),
                 subtitle=_get_subtitle(
-                    metric_name=metric_name,
+                    metric_label=metric_labels[metric_name],
                     use_model_predictions=self.use_model_predictions,
                     trial_index=self.trial_index,
                 ),
@@ -113,7 +139,11 @@ class ArmEffectsPlot(PlotlyAnalysis):
                         f"{metric_name}_sem",
                     ]
                 ].copy(),
-                fig=_prepare_figure(df=df, metric_name=metric_name),
+                fig=_prepare_figure(
+                    df=df,
+                    metric_name=metric_name,
+                    metric_label=metric_labels[metric_name],
+                ),
                 category=AnalysisCardCategory.INSIGHT,
             )
             for metric_name in metric_names
@@ -123,6 +153,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
 def _prepare_figure(
     df: pd.DataFrame,
     metric_name: str,
+    metric_label: str,
 ) -> go.Figure:
     scatters = [
         go.Scatter(
@@ -170,7 +201,7 @@ def _prepare_figure(
     ]
 
     figure = go.Figure(data=scatters)
-    figure.update_layout(xaxis_title="Arm Name", yaxis_title=metric_name)
+    figure.update_layout(xaxis_title="Arm Name", yaxis_title=metric_label)
 
     # Order arms by trial index, then by arm name. Always put additional arms last.
     arm_order = df.sort_values(by=["trial_index", "arm_name"])["arm_name"].tolist()
@@ -225,12 +256,13 @@ def _prepare_figure(
 
 
 def _get_subtitle(
-    metric_name: str,
+    metric_label: str,
     use_model_predictions: bool,
     trial_index: int | None = None,
 ) -> str:
     first_clause = (
-        f"{'Modeled' if use_model_predictions else 'Observed'} effects on {metric_name}"
+        f"{'Modeled' if use_model_predictions else 'Observed'} effects on "
+        f"{metric_label}"
     )
     trial_clause = f" for Trial {trial_index}." if trial_index is not None else ""
     first_sentence = f"{first_clause}{trial_clause}."
