@@ -150,6 +150,41 @@ class ArmEffectsPlot(PlotlyAnalysis):
         ]
 
 
+def compute_arm_effects_adhoc(
+    experiment: Experiment,
+    generation_strategy: GenerationStrategy | None = None,
+    adapter: Adapter | None = None,
+    metric_names: Sequence[str] | None = None,
+    use_model_predictions: bool = True,
+    trial_index: int | None = None,
+    additional_arms: Sequence[Arm] | None = None,
+    labels: Mapping[str, str] | None = None,
+) -> list[PlotlyAnalysisCard]:
+    """
+    Compute ArmEffectsPlot cards for the given experiment and either Adapter or
+    GenerationStrategy.
+
+    Note that cards are not saved to the database when computed adhoc -- they are only
+    saved when computed as part of a call to ``Client.compute_analyses`` or equivalent.
+    """
+
+    analysis = ArmEffectsPlot(
+        metric_names=metric_names,
+        use_model_predictions=use_model_predictions,
+        trial_index=trial_index,
+        additional_arms=additional_arms,
+        labels=labels,
+    )
+
+    return [
+        *analysis.compute(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
+    ]
+
+
 def _prepare_figure(
     df: pd.DataFrame,
     metric_name: str,
