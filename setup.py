@@ -65,7 +65,8 @@ MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
 NOTEBOOK_REQUIRES = ["jupyter"]
 
 UNITTEST_MINIMAL_REQUIRES = [
-    "tensorboard>=2.18.0",  # For tensorboard unit tests (min req: numpy 2.0 compatibility).
+    # For tensorboard unit tests (min req: numpy 2.0 compatibility).
+    "tensorboard>=2.18.0",
     "torchvision",  # For torchvision unit tests.
     "torchx",  # For torchx unit tests.
     # Required for building RayTune tutorial notebook and
