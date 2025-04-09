@@ -568,75 +568,6 @@ class Adapter:
             f"{self.__class__.__name__} does not implement `_fit`."
         )
 
-    def _batch_predict(
-        self,
-        observation_features: list[ObservationFeatures],
-        use_posterior_predictive: bool = False,
-    ) -> list[ObservationData]:
-        """Predict a list of ObservationFeatures together."""
-        # Get modifiable version
-        observation_features = deepcopy(observation_features)
-
-        # Transform
-        for t in self.transforms.values():
-            observation_features = t.transform_observation_features(
-                observation_features
-            )
-        # Apply terminal transform and predict
-        observation_data = self._predict(
-            observation_features=observation_features,
-            use_posterior_predictive=use_posterior_predictive,
-        )
-
-        # Apply reverse transforms, in reverse order
-        pred_observations = recombine_observations(
-            observation_features=observation_features, observation_data=observation_data
-        )
-
-        for t in reversed(list(self.transforms.values())):
-            pred_observations = t.untransform_observations(pred_observations)
-        return [obs.data for obs in pred_observations]
-
-    def _single_predict(
-        self,
-        observation_features: list[ObservationFeatures],
-        use_posterior_predictive: bool = False,
-    ) -> list[ObservationData]:
-        """Predict one ObservationFeature at a time."""
-        observation_data = []
-        for obsf in observation_features:
-            try:
-                obsd = self._batch_predict(
-                    observation_features=[obsf],
-                    use_posterior_predictive=use_posterior_predictive,
-                )
-                observation_data += obsd
-            except (TypeError, ValueError) as e:
-                # If the prediction is not out of design, this is a real error.
-                # Let's re-raise.
-                if self.model_space.check_membership(obsf.parameters):
-                    logger.debug(obsf.parameters)
-                    logger.debug(self.model_space)
-                    raise e from None
-                # Prediction is out of design.
-                # Training data is untransformed already.
-                observation = next(
-                    (
-                        data
-                        for data in self.get_training_data()
-                        if obsf.parameters == data.features.parameters
-                        and obsf.trial_index == data.features.trial_index
-                    ),
-                    None,
-                )
-                if not observation:
-                    raise ValueError(
-                        "Out-of-design point could not be predicted, and was "
-                        "not found in the training data."
-                    )
-                observation_data.append(observation.data)
-        return observation_data
-
     def _predict_observation_data(
         self,
         observation_features: list[ObservationFeatures],
@@ -644,12 +575,6 @@ class Adapter:
     ) -> list[ObservationData]:
         """
         Like 'predict' method, but returns results as a list of ObservationData
-
-        Predictions are made for all outcomes.
-        If an out-of-design observation can successfully be transformed,
-        the predicted value will be returned.
-        Otherwise, we will attempt to find that observation in the training data
-        and return the raw value.
 
         Args:
             observation_features: A list of observation features to predict.
@@ -661,18 +586,27 @@ class Adapter:
         Returns:
             List of `ObservationData`
         """
-        # Predict in single batch.
-        try:
-            observation_data = self._batch_predict(
-                observation_features=observation_features,
-                use_posterior_predictive=use_posterior_predictive,
+        observation_features = deepcopy(observation_features)
+        # Transform
+        for t in self.transforms.values():
+            observation_features = t.transform_observation_features(
+                observation_features
             )
-        # Predict one by one.
-        except (TypeError, ValueError):
-            observation_data = self._single_predict(
-                observation_features=observation_features,
-                use_posterior_predictive=use_posterior_predictive,
-            )
+        # Apply terminal transform and predict
+        observation_data = self._predict(
+            observation_features=observation_features,
+            use_posterior_predictive=use_posterior_predictive,
+        )
+        # Apply reverse transforms, in reverse order
+        # TODO: consider a flag to disable untransfrom,
+        # to support CV without untransform.
+        pred_observations = recombine_observations(
+            observation_features=observation_features, observation_data=observation_data
+        )
+
+        for t in reversed(list(self.transforms.values())):
+            pred_observations = t.untransform_observations(pred_observations)
+        observation_data = [obs.data for obs in pred_observations]
         return observation_data
 
     def predict(
