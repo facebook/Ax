@@ -32,6 +32,7 @@ from ax.core.parameter_constraint import SumConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.model import ModelError
 from ax.modelbridge.base import (
     Adapter,
     clamp_observation_features,
@@ -44,6 +45,7 @@ from ax.modelbridge.base import (
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.registry import Y_trans
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
+from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.models.base import Generator
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -55,6 +57,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_timestamp_map_metric,
     get_branin_optimization_config,
     get_experiment,
+    get_experiment_with_observations,
     get_experiment_with_repeated_arms,
     get_non_monolithic_branin_moo_data,
     get_optimization_config_no_constraints,
@@ -936,3 +939,51 @@ class BaseAdapterTest(TestCase):
         adapter = Adapter(experiment=exp, model=Generator(), data=MapData())
         adapter._process_and_transform_data(experiment=exp, data=MapData())
         lookup_patch.assert_not_called()
+
+    def test_predict(self) -> None:
+        # Construct an experiment with observations having std dev = 2.0
+        np_obs = np.random.randn(5, 1)
+        np_obs = np_obs / np.std(np_obs, ddof=1) * 2.0
+        np_obs = np_obs - np.mean(np_obs)
+
+        experiment = get_experiment_with_observations(observations=np_obs.tolist())
+        adapter = Adapter(
+            experiment=experiment,
+            model=Generator(),
+            transforms=[StandardizeY],
+        )
+
+        def mock_predict(
+            observation_features: list[ObservationFeatures],
+            use_posterior_predictive: bool = False,
+        ) -> list[ObservationData]:
+            return [
+                ObservationData(
+                    metric_names=["m1"], means=np.ones((1)), covariance=np.ones((1, 1))
+                )
+                for _ in observation_features
+            ]
+
+        obs_features = [
+            ObservationFeatures(parameters={"x": 3.0, "y": 4.0}) for _ in range(3)
+        ]
+        with mock.patch.object(
+            adapter, "_predict", side_effect=mock_predict
+        ) as mock_pred:
+            f, _ = adapter.predict(observation_features=obs_features)
+        mock_pred.assert_called_once_with(
+            observation_features=obs_features, use_posterior_predictive=False
+        )
+        # Check that the predictions were un-transformed with std dev = 2.0.
+        self.assertTrue(np.allclose(f["m1"], np.ones(3) * 2.0))
+
+        # Test for error if an observation is dropped.
+        with mock.patch.object(
+            adapter, "_predict", side_effect=mock_predict
+        ), self.assertRaisesRegex(ModelError, "Predictions resulted in fewer"):
+            adapter.predict(
+                observation_features=[
+                    ObservationFeatures(parameters={"x": 3.0, "y": 4.0}),
+                    ObservationFeatures(parameters={"x": 3.0, "y": None}),
+                ]
+            )

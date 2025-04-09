@@ -37,7 +37,7 @@ from ax.core.types import (
 )
 from ax.core.utils import extract_map_keys_from_opt_config, get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.exceptions.model import AdapterMethodNotImplementedError
+from ax.exceptions.model import AdapterMethodNotImplementedError, ModelError
 from ax.modelbridge.data_utils import DataLoaderConfig
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
@@ -587,13 +587,15 @@ class Adapter:
                 scale before returning.
 
         Returns:
-            List of `ObservationData`
+            List of `ObservationData`, each representing (independent) predictions
+            for the corresponding `ObservationFeatures` input.
         """
+        input_len = len(observation_features)
         observation_features = deepcopy(observation_features)
         # Transform
         for t in self.transforms.values():
             observation_features = t.transform_observation_features(
-                observation_features
+                observation_features=observation_features
             )
         # Apply terminal transform and predict
         observation_data = self._predict(
@@ -610,6 +612,13 @@ class Adapter:
             for t in reversed(list(self.transforms.values())):
                 pred_observations = t.untransform_observations(pred_observations)
             observation_data = [obs.data for obs in pred_observations]
+        if (output_len := len(observation_data)) != input_len:
+            raise ModelError(
+                f"Predictions resulted in fewer outcomes ({output_len}) than "
+                f"expected ({input_len}). This can happen if a transform modifies "
+                "the number of observation features, such as `Cast` dropping any "
+                "observation features with `None` parameter values. "
+            )
         return observation_data
 
     def predict(
