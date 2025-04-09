@@ -59,7 +59,7 @@ class TestTopSurfacesAnalysis(TestCase):
             analysis.compute()
 
         with self.assertRaisesRegex(
-            UserInputError, "requires either a TorchAdapter or a GenerationStrategy"
+            UserInputError, "Must provide either a GenerationStrategy or an Adapter"
         ):
             analysis.compute(experiment=client._experiment)
 

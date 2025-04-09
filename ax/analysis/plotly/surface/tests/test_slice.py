@@ -47,7 +47,9 @@ class TestSlicePlot(TestCase):
         with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
             analysis.compute()
         # Test that it fails if no GenerationStrategy is provided
-        with self.assertRaisesRegex(UserInputError, "requires a GenerationStrategy"):
+        with self.assertRaisesRegex(
+            UserInputError, "Must provide either a GenerationStrategy or an Adapter"
+        ):
             analysis.compute(experiment=self.client.experiment)
 
         (card,) = analysis.compute(
