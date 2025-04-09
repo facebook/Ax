@@ -215,6 +215,20 @@ def _prepare_modeled_arm_data(
         *[(-1, arm) for arm in additional_arms or []],
     ]
 
+    # Remove arms with missing parameters since we cannot predict for them.
+    predictable_pairs = [
+        (trial_index, arm)
+        for trial_index, arm in trial_index_arm_pairs
+        if not any(
+            parameter_value is None for parameter_value in arm.parameters.values()
+        )
+    ]
+    unpredictable_pairs = [
+        (trial_index, arm)
+        for trial_index, arm in trial_index_arm_pairs
+        if any(parameter_value is None for parameter_value in arm.parameters.values())
+    ]
+
     # Batch predict for efficiency.
     predictions = adapter.predict(
         observation_features=[
@@ -224,25 +238,43 @@ def _prepare_modeled_arm_data(
                 trial_index=get_target_trial_index(experiment=experiment),
             )
             for _, arm in trial_index_arm_pairs
+            # Remove arms with missing parameters since we cannot predict for them.
+            if not any(
+                parameter_value is None for parameter_value in arm.parameters.values()
+            )
         ]
     )
 
     records = [
-        {
-            "trial_index": trial_index_arm_pairs[i][0],
-            "arm_name": trial_index_arm_pairs[i][1].name
-            if trial_index_arm_pairs[i][1].has_name
-            else f"{Keys.UNNAMED_ARM.value}_{i}",
-            **{
-                f"{metric_name}_mean": predictions[0][metric_name][i]
-                for metric_name in metric_names
-            },
-            **{
-                f"{metric_name}_sem": predictions[1][metric_name][metric_name][i] ** 0.5
-                for metric_name in metric_names
-            },
-        }
-        for i in range(len(trial_index_arm_pairs))
+        *[
+            {
+                "trial_index": predictable_pairs[i][0],
+                "arm_name": predictable_pairs[i][1].name
+                if predictable_pairs[i][1].has_name
+                else f"{Keys.UNNAMED_ARM.value}_{i}",
+                **{
+                    f"{metric_name}_mean": predictions[0][metric_name][i]
+                    for metric_name in metric_names
+                },
+                **{
+                    f"{metric_name}_sem": predictions[1][metric_name][metric_name][i]
+                    ** 0.5
+                    for metric_name in metric_names
+                },
+            }
+            for i in range(len(predictable_pairs))
+        ],
+        *[
+            {
+                "trial_index": unpredictable_pairs[i][0],
+                "arm_name": unpredictable_pairs[i][1].name
+                if unpredictable_pairs[i][1].has_name
+                else f"{Keys.UNNAMED_ARM.value}_{i}",
+                **{f"{metric_name}_mean": None for metric_name in metric_names},
+                **{f"{metric_name}_sem": None for metric_name in metric_names},
+            }
+            for i in range(len(unpredictable_pairs))
+        ],
     ]
 
     return pd.DataFrame.from_records(records)
