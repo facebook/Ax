@@ -16,6 +16,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
@@ -24,6 +25,11 @@ from ax.modelbridge.base import Adapter
 from ax.utils.common.constants import Keys
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
+
+# Warn if p_feasible is less than this threshold.
+# TODO: Move this constrant to best point utilities so that the logic for warning in
+# analyses is also gates points from being chosen during best point selection.
+POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD: float = 0.05
 
 
 def extract_relevant_adapter(
@@ -75,6 +81,7 @@ def prepare_arm_data(
     use_model_predictions: bool,
     adapter: Adapter | None = None,
     trial_index: int | None = None,
+    trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
 ) -> pd.DataFrame:
     """
@@ -94,6 +101,8 @@ def prepare_arm_data(
         trial_index: If present, only use arms from the trial with the given index.
             Otherwise include all arms on the experiment. If trial_index=-1, do not
             include any arms from the experiment.
+        trial_statuses: If present, only include arms from trials with statuses in this
+            collection. If not present, include all arms on the experiment.
         additional_arms: If present, include these arms in the table. These arms will
             be marked as belonging to a trial with index -1.
 
@@ -124,6 +133,12 @@ def prepare_arm_data(
     ):
         raise UserInputError(f"Trial with index {trial_index} not found in experiment.")
 
+    if trial_index is not None and trial_statuses is not None:
+        raise UserInputError(
+            "Cannot provide both trial_index and trial_statuses. Either provide a "
+            "trial_index to filter on or a collection of trial_statuses to filter on."
+        )
+
     if use_model_predictions:
         if adapter is None:
             raise UserInputError(
@@ -135,6 +150,7 @@ def prepare_arm_data(
             metric_names=metric_names,
             adapter=adapter,
             trial_index=trial_index,
+            trial_statuses=trial_statuses,
             additional_arms=additional_arms,
         )
     else:
@@ -149,6 +165,7 @@ def prepare_arm_data(
             metric_names=metric_names,
             experiment=experiment,
             trial_index=trial_index,
+            trial_statuses=trial_statuses,
         )
 
     # Add additional columns which do not require predicting or extracting data.
@@ -183,6 +200,7 @@ def _prepare_modeled_arm_data(
     metric_names: Sequence[str],
     adapter: Adapter,
     trial_index: int | None = None,
+    trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
 ) -> pd.DataFrame:
     """
@@ -203,11 +221,26 @@ def _prepare_modeled_arm_data(
                 arm,
             )
             for trial in experiment.trials.values()
-            if (trial.index == trial_index) or (trial_index is None)
+            if ((trial.index == trial_index) or (trial_index is None))
+            and ((trial_statuses is None) or (trial.status in trial_statuses))
             for arm in trial.arms
         ],
         # Additional arms passed in by the user
         *[(-1, arm) for arm in additional_arms or []],
+    ]
+
+    # Remove arms with missing parameters since we cannot predict for them.
+    predictable_pairs = [
+        (trial_index, arm)
+        for trial_index, arm in trial_index_arm_pairs
+        if not any(
+            parameter_value is None for parameter_value in arm.parameters.values()
+        )
+    ]
+    unpredictable_pairs = [
+        (trial_index, arm)
+        for trial_index, arm in trial_index_arm_pairs
+        if any(parameter_value is None for parameter_value in arm.parameters.values())
     ]
 
     # Batch predict for efficiency.
@@ -219,25 +252,43 @@ def _prepare_modeled_arm_data(
                 trial_index=get_target_trial_index(experiment=experiment),
             )
             for _, arm in trial_index_arm_pairs
+            # Remove arms with missing parameters since we cannot predict for them.
+            if not any(
+                parameter_value is None for parameter_value in arm.parameters.values()
+            )
         ]
     )
 
     records = [
-        {
-            "trial_index": trial_index_arm_pairs[i][0],
-            "arm_name": trial_index_arm_pairs[i][1].name
-            if trial_index_arm_pairs[i][1].has_name
-            else f"{Keys.UNNAMED_ARM.value}_{i}",
-            **{
-                f"{metric_name}_mean": predictions[0][metric_name][i]
-                for metric_name in metric_names
-            },
-            **{
-                f"{metric_name}_sem": predictions[1][metric_name][metric_name][i] ** 0.5
-                for metric_name in metric_names
-            },
-        }
-        for i in range(len(trial_index_arm_pairs))
+        *[
+            {
+                "trial_index": predictable_pairs[i][0],
+                "arm_name": predictable_pairs[i][1].name
+                if predictable_pairs[i][1].has_name
+                else f"{Keys.UNNAMED_ARM.value}_{i}",
+                **{
+                    f"{metric_name}_mean": predictions[0][metric_name][i]
+                    for metric_name in metric_names
+                },
+                **{
+                    f"{metric_name}_sem": predictions[1][metric_name][metric_name][i]
+                    ** 0.5
+                    for metric_name in metric_names
+                },
+            }
+            for i in range(len(predictable_pairs))
+        ],
+        *[
+            {
+                "trial_index": unpredictable_pairs[i][0],
+                "arm_name": unpredictable_pairs[i][1].name
+                if unpredictable_pairs[i][1].has_name
+                else f"{Keys.UNNAMED_ARM.value}_{i}",
+                **{f"{metric_name}_mean": None for metric_name in metric_names},
+                **{f"{metric_name}_sem": None for metric_name in metric_names},
+            }
+            for i in range(len(unpredictable_pairs))
+        ],
     ]
 
     return pd.DataFrame.from_records(records)
@@ -247,6 +298,7 @@ def _prepare_raw_arm_data(
     metric_names: Sequence[str],
     experiment: Experiment,
     trial_index: int | None,
+    trial_statuses: Sequence[TrialStatus] | None,
 ) -> pd.DataFrame:
     """
     Extract the raw (mean, sem) for each arm for each requested metric.
@@ -260,13 +312,16 @@ def _prepare_raw_arm_data(
     # If trial_index is -1 do not extract any data.
     if trial_index == -1:
         return pd.DataFrame()
-    # If trial_index is None, extract data from all trials.
-    elif trial_index is not None:
-        trials = [experiment.trials[trial_index]]
-        data_df = experiment.lookup_data(trial_indices=[trial_index]).df
     else:
-        trials = [*experiment.trials.values()]
-        data_df = experiment.lookup_data().df
+        trials = [
+            trial
+            for trial in experiment.trials.values()
+            if (trial.index == trial_index or trial_index is None)
+            and ((trial_statuses is None) or (trial.status in trial_statuses))
+        ]
+        data_df = experiment.lookup_data(
+            trial_indices=[trial.index for trial in trials]
+        ).df
 
     records = []
     for trial in trials:

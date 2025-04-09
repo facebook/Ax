@@ -10,10 +10,13 @@ from ax.analysis.utils import prepare_arm_data
 from ax.api.client import Client
 from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
 from ax.core.arm import Arm
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from ax.utils.testing.mock import mock_botorch_optimize
-from pyre_extensions import assert_is_instance
+from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestUtils(TestCase):
@@ -217,6 +220,24 @@ class TestUtils(TestCase):
         # Check that all SEMs are NaN
         self.assertTrue(only_trial_0_df["foo_sem"].isna().all())
 
+        only_completed_trials_df = prepare_arm_data(
+            experiment=self.client._experiment,
+            metric_names=["foo", "bar"],
+            use_model_predictions=False,
+            trial_statuses=[TrialStatus.COMPLETED],
+        )
+
+        # Check that we have two rows per arm and that each arm appears only once
+        self.assertEqual(
+            len(only_completed_trials_df), len(self.client._experiment.arms_by_name) - 1
+        )
+
+        # Check that all means are not NaN
+        self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
+
+        # Check that all SEMs are NaN
+        self.assertTrue(only_completed_trials_df["foo_sem"].isna().all())
+
     def test_prepare_arm_data_use_model_predictions(self) -> None:
         df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -398,3 +419,102 @@ class TestUtils(TestCase):
         self.assertFalse(with_additional_arms_df["foo_sem"].isna().any())
         self.assertFalse(with_additional_arms_df["bar_mean"].isna().any())
         self.assertFalse(with_additional_arms_df["bar_sem"].isna().any())
+
+        only_completed_trials_df = prepare_arm_data(
+            experiment=self.client._experiment,
+            metric_names=["foo", "bar"],
+            use_model_predictions=True,
+            adapter=self.client._generation_strategy.model,
+            trial_statuses=[TrialStatus.COMPLETED],
+        )
+
+        # Check that we have two rows per arm and that each arm appears only once
+        self.assertEqual(
+            len(only_completed_trials_df), len(self.client._experiment.arms_by_name) - 1
+        )
+
+        # Check that all means are not NaN
+        self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
+
+        # Check that all SEMs are not NaN
+        self.assertFalse(only_completed_trials_df["foo_sem"].isna().any())
+
+    @mock_botorch_optimize
+    def test_online(self) -> None:
+        # Test ArmEffectsPlot can be computed for a variety of experiments which
+        # resemble those we see in an online setting.
+
+        for experiment in get_online_experiments():
+            for use_model_predictions in [True, False]:
+                for trial_index in [None, 0]:
+                    for with_additional_arms in [True, False]:
+                        if use_model_predictions and with_additional_arms:
+                            additional_arms = [
+                                Arm(
+                                    parameters={
+                                        parameter_name: 0
+                                        for parameter_name in (
+                                            experiment.search_space.parameters.keys()
+                                        )
+                                    }
+                                )
+                            ]
+                        else:
+                            additional_arms = None
+
+                        generation_strategy = (
+                            get_default_generation_strategy_at_MBM_node(
+                                experiment=experiment
+                            )
+                        )
+                        generation_strategy.current_node._fit(experiment=experiment)
+                        adapter = none_throws(generation_strategy.model)
+
+                        _ = prepare_arm_data(
+                            experiment=experiment,
+                            metric_names=[*adapter.metric_names],
+                            use_model_predictions=use_model_predictions,
+                            adapter=adapter,
+                            trial_index=trial_index,
+                            additional_arms=additional_arms,
+                        )
+
+    @mock_botorch_optimize
+    def test_offline(self) -> None:
+        # Test ArmEffectsPlot can be computed for a variety of experiments which
+        # resemble those we see in an offline setting.
+
+        for experiment in get_offline_experiments():
+            for use_model_predictions in [True, False]:
+                for trial_index in [None, 0]:
+                    for with_additional_arms in [True, False]:
+                        if use_model_predictions and with_additional_arms:
+                            additional_arms = [
+                                Arm(
+                                    parameters={
+                                        parameter_name: 0
+                                        for parameter_name in (
+                                            experiment.search_space.parameters.keys()
+                                        )
+                                    }
+                                )
+                            ]
+                        else:
+                            additional_arms = None
+
+                        generation_strategy = (
+                            get_default_generation_strategy_at_MBM_node(
+                                experiment=experiment
+                            )
+                        )
+                        generation_strategy.current_node._fit(experiment=experiment)
+                        adapter = none_throws(generation_strategy.model)
+
+                        _ = prepare_arm_data(
+                            experiment=experiment,
+                            metric_names=[*adapter.metric_names],
+                            use_model_predictions=use_model_predictions,
+                            adapter=adapter,
+                            trial_index=trial_index,
+                            additional_arms=additional_arms,
+                        )
