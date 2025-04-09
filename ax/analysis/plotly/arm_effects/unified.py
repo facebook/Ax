@@ -11,7 +11,11 @@ from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import get_arm_tooltip, trial_status_to_plotly_color
-from ax.analysis.utils import extract_relevant_adapter, prepare_arm_data
+from ax.analysis.utils import (
+    extract_relevant_adapter,
+    POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
+    prepare_arm_data,
+)
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
@@ -30,13 +34,16 @@ class ArmEffectsPlot(PlotlyAnalysis):
 
     Each arm is represented by a point on the plot with 95% confidence intervals. The
     color of the point indicates the status of the arm's trial (e.g. RUNNING, SUCCEDED,
-    FAILED). Each arm also has a hover tooltip with additional information.
+    FAILED). Arms which are likely to violate a constraint are marked with a red
+    outline. Each arm also has a hover tooltip with additional information.
 
     The DataFrame computed will contain one row per arm and the following columns:
         - trial_index: The trial index of the arm
         - trial_status: The status of the trial
         - arm_name: The name of the arm
         - generation_node: The name of the ``GenerationNode`` that generated the arm
+        - p_feasible: The probability that the arm is feasible (does not violate any
+            constraints)
         - **METRIC_NAME_mean: The observed mean of the metric specified
         - **METRIC_NAME_sem: The observed sem of the metric specified
     """
@@ -101,6 +108,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
                         "trial_status",
                         "arm_name",
                         "generation_node",
+                        "p_feasible",
                         f"{metric_name}_mean",
                         f"{metric_name}_sem",
                     ]
@@ -140,7 +148,16 @@ def _prepare_figure(
             marker={
                 "color": trial_status_to_plotly_color(
                     trial_status=trial_status, ci_transparency=False
-                )
+                ),
+                "line": {
+                    "width": df[df["trial_status"] == trial_status].apply(
+                        lambda row: 2
+                        if row["p_feasible"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
+                        else 0,
+                        axis=1,
+                    ),
+                    "color": "red",
+                },
             },
             # Apply user-friendly name for UNKNOWN_GENERATION_NODE
             name=trial_status,
@@ -172,7 +189,6 @@ def _prepare_figure(
             if arm_name in additional_arm_names and arm_name != "status_quo"
         ],
     ]
-
     figure.update_xaxes(categoryorder="array", categoryarray=arm_order)
 
     # Add a horizontal line for the status quo.
@@ -188,6 +204,22 @@ def _prepare_figure(
             y1=y,
             line={"color": "gray", "dash": "dot"},
         )
+
+    # Add a red circle with no fill if any arms are marked as possibly infeasible.
+    if (df["p_feasible"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
+        legend_trace = go.Scatter(
+            # None here allows us to place a legend item without corresponding points
+            x=[None],
+            y=[None],
+            mode="markers",
+            marker={
+                "color": "rgba(0, 0, 0, 0)",
+                "line": {"width": 2, "color": "red"},
+            },
+            name="Possible Constraint Violation",
+        )
+
+        figure.add_trace(legend_trace)
 
     return figure
 
