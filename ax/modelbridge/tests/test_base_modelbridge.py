@@ -59,7 +59,6 @@ from ax.utils.testing.core_stubs import (
     get_non_monolithic_branin_moo_data,
     get_optimization_config_no_constraints,
     get_search_space_for_range_value,
-    get_search_space_for_range_values,
     get_search_space_for_value,
 )
 from ax.utils.testing.modeling_stubs import (
@@ -68,7 +67,6 @@ from ax.utils.testing.modeling_stubs import (
     get_observation1trans,
     get_observation2,
     get_observation2trans,
-    get_observation_status_quo0,
     transform_1,
     transform_2,
 )
@@ -112,34 +110,15 @@ class BaseAdapterTest(TestCase):
             # pyre-ignore[6]: Intentionally wrong argument type.
             adapter.predict([Arm(parameters={"x": 1.0})])
 
-        # Test prediction on out of design features.
+        # Test errors on prediction.
         adapter._predict = mock.MagicMock(
             "ax.modelbridge.base.Adapter._predict",
             autospec=True,
-            side_effect=ValueError("Out of Design"),
+            side_effect=ValueError("Predict failed"),
         )
-        # This point is in design, and thus failures in predict are legitimate.
-        with mock.patch.object(
-            Adapter, "model_space", return_value=get_search_space_for_range_values
-        ):
-            with self.assertRaises(ValueError):
-                adapter.predict([get_observation2().features])
-
-        # This point is out of design, and not in training data.
-        with self.assertRaises(ValueError):
-            adapter.predict([get_observation_status_quo0().features])
-
-        # Now it's in the training data.
-        with mock.patch.object(
-            Adapter,
-            "get_training_data",
-            return_value=[get_observation_status_quo0()],
-        ):
-            # Return raw training value.
-            self.assertEqual(
-                adapter.predict([get_observation_status_quo0().features]),
-                unwrap_observation_data([get_observation_status_quo0().data]),
-            )
+        obs_features = [get_observation2().features]
+        with self.assertRaisesRegex(ValueError, "Predict failed"):
+            adapter.predict(obs_features)
 
         # Test that transforms are applied correctly on predict
         mock_predict = mock.MagicMock(
@@ -148,19 +127,10 @@ class BaseAdapterTest(TestCase):
             return_value=[get_observation2trans().data],
         )
         adapter._predict = mock_predict
-        adapter.predict([get_observation2().features])
+        adapter.predict(obs_features)
         # Observation features sent to _predict are un-transformed afterwards
         mock_predict.assert_called_with(
-            observation_features=[get_observation2().features],
-            use_posterior_predictive=False,
-        )
-
-        # Check that _single_predict is equivalent here.
-        adapter._single_predict([get_observation2().features])
-        # Observation features sent to _predict are un-transformed afterwards
-        mock_predict.assert_called_with(
-            observation_features=[get_observation2().features],
-            use_posterior_predictive=False,
+            observation_features=obs_features, use_posterior_predictive=False
         )
 
         # Test transforms applied on gen
@@ -682,8 +652,7 @@ class BaseAdapterTest(TestCase):
             observation_features=[get_observation1trans().features], weights=[2]
         ),
     )
-    @mock.patch("ax.modelbridge.base.Adapter.predict", autospec=True, return_value=None)
-    def test_GenWithDefaults(self, _, mock_gen: Mock) -> None:
+    def test_GenWithDefaults(self, mock_gen: Mock) -> None:
         exp = get_experiment_for_value()
         exp.optimization_config = get_optimization_config_no_constraints()
         ss = get_search_space_for_range_value()
@@ -709,8 +678,7 @@ class BaseAdapterTest(TestCase):
             observation_features=[get_observation1trans().features], weights=[2]
         ),
     )
-    @mock.patch("ax.modelbridge.base.Adapter.predict", autospec=True, return_value=None)
-    def test_gen_on_experiment_with_imm_ss_and_opt_conf(self, _, __) -> None:
+    def test_gen_on_experiment_with_imm_ss_and_opt_conf(self, _) -> None:
         exp = get_experiment_for_value()
         exp._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = True
         exp.optimization_config = get_optimization_config_no_constraints()
