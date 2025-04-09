@@ -18,11 +18,11 @@ from ax.analysis.analysis import (  # Used as a return type
     AnalysisCard,
     display_cards,
 )
+from ax.analysis.dispatch import choose_analyses
 from ax.analysis.markdown.markdown_analysis import (
     markdown_analysis_card_from_analysis_e,
 )
 from ax.analysis.summary import Summary
-from ax.analysis.utils import choose_analyses
 from ax.api.configs import (
     ExperimentConfig,
     GenerationStrategyConfig,
