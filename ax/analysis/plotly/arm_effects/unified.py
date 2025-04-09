@@ -18,6 +18,7 @@ from ax.analysis.utils import (
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
@@ -53,6 +54,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
         metric_names: Sequence[str] | None = None,
         use_model_predictions: bool = True,
         trial_index: int | None = None,
+        trial_statuses: Sequence[TrialStatus] | None = None,
         additional_arms: Sequence[Arm] | None = None,
         labels: Mapping[str, str] | None = None,
     ) -> None:
@@ -76,6 +78,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
         self.metric_names = metric_names
         self.use_model_predictions = use_model_predictions
         self.trial_index = trial_index
+        self.trial_statuses = trial_statuses
         self.additional_arms = additional_arms
         self.labels = labels or {}
 
@@ -106,6 +109,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
             use_model_predictions=self.use_model_predictions,
             adapter=relevant_adapter,
             trial_index=self.trial_index,
+            trial_statuses=self.trial_statuses,
             additional_arms=self.additional_arms,
         )
 
@@ -157,6 +161,7 @@ def compute_arm_effects_adhoc(
     metric_names: Sequence[str] | None = None,
     use_model_predictions: bool = True,
     trial_index: int | None = None,
+    trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
     labels: Mapping[str, str] | None = None,
 ) -> list[PlotlyAnalysisCard]:
@@ -172,6 +177,7 @@ def compute_arm_effects_adhoc(
         metric_names=metric_names,
         use_model_predictions=use_model_predictions,
         trial_index=trial_index,
+        trial_statuses=trial_statuses,
         additional_arms=additional_arms,
         labels=labels,
     )
