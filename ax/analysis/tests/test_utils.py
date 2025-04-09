@@ -39,11 +39,16 @@ class TestUtils(TestCase):
                 ],
             )
         )
-        self.client.configure_optimization(objective="foo, bar")
+        self.client.configure_optimization(
+            objective="foo",
+            outcome_constraints=["bar >= 11", "baz <= 18", "qux >= 1998"],
+        )
 
         # Get two trials and fail one, giving us a ragged structure
         self.client.get_next_trials(maximum_trials=2)
-        self.client.complete_trial(trial_index=0, raw_data={"foo": 1.0, "bar": 2.0})
+        self.client.complete_trial(
+            trial_index=0, raw_data={"foo": 1.0, "bar": 2.0, "baz": 3.0, "qux": 4.0}
+        )
         self.client.mark_trial_failed(trial_index=1)
 
         # Complete 5 trials successfully
@@ -55,6 +60,8 @@ class TestUtils(TestCase):
                         "foo": assert_is_instance(parameterization["x1"], float),
                         "bar": assert_is_instance(parameterization["x1"], float)
                         - 2 * assert_is_instance(parameterization["x2"], float),
+                        "baz": 3.0,
+                        "qux": 4.0,
                     },
                 )
 
@@ -73,7 +80,7 @@ class TestUtils(TestCase):
         ):
             prepare_arm_data(
                 experiment=self.client._experiment,
-                metric_names=["foo", "bar", "baz"],
+                metric_names=["foo", "bar", "zed"],
                 use_model_predictions=False,
             )
 
@@ -108,7 +115,7 @@ class TestUtils(TestCase):
     def test_prepare_arm_data_raw(self) -> None:
         df = prepare_arm_data(
             experiment=self.client._experiment,
-            metric_names=["foo", "bar"],
+            metric_names=["foo", "bar", "baz", "qux"],
             use_model_predictions=False,
         )
 
@@ -120,10 +127,15 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
                 "bar_sem",
+                "baz_mean",
+                "baz_sem",
+                "qux_mean",
+                "qux_sem",
             },
         )
 
@@ -140,6 +152,11 @@ class TestUtils(TestCase):
         self.assertTrue(df["foo_sem"].isna().all())
         self.assertTrue(df["bar_sem"].isna().all())
 
+        # Check that p_feasible is NaN for the arm without data and not NaN for the
+        # other arms.
+        self.assertTrue(np.isnan(df.loc[1]["p_feasible"]))
+        self.assertFalse(df[df["arm_name"] != "1_0"]["p_feasible"].isna().any())
+
         only_foo_df = prepare_arm_data(
             experiment=self.client._experiment,
             metric_names=["foo"],
@@ -153,6 +170,7 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "foo_mean",
                 "foo_sem",
             },
@@ -181,6 +199,7 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -201,7 +220,7 @@ class TestUtils(TestCase):
     def test_prepare_arm_data_use_model_predictions(self) -> None:
         df = prepare_arm_data(
             experiment=self.client._experiment,
-            metric_names=["foo", "bar"],
+            metric_names=["foo", "bar", "baz", "qux"],
             use_model_predictions=True,
             adapter=self.client._generation_strategy.model,
         )
@@ -214,10 +233,15 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
                 "bar_sem",
+                "baz_mean",
+                "baz_sem",
+                "qux_mean",
+                "qux_sem",
             },
         )
 
@@ -231,6 +255,9 @@ class TestUtils(TestCase):
         self.assertFalse(df["foo_sem"].isna().any())
         self.assertFalse(df["bar_mean"].isna().any())
         self.assertFalse(df["bar_sem"].isna().any())
+
+        # Check that all p_feasible are not NaN
+        self.assertFalse(df["p_feasible"].isna().any())
 
         only_foo_df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -246,6 +273,7 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "foo_mean",
                 "foo_sem",
             },
@@ -276,6 +304,7 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -312,6 +341,7 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -352,6 +382,7 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",

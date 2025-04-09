@@ -7,16 +7,22 @@
 
 from typing import Sequence
 
+import numpy as np
+
 import pandas as pd
+import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
+from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.types import ComparisonOp
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.utils.common.constants import Keys
+from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
 
@@ -160,6 +166,13 @@ def prepare_arm_data(
         if row["trial_index"] in experiment.trials.keys()
         else Keys.UNKNOWN_GENERATION_NODE.value,
         axis=1,
+    )
+
+    df["p_feasible"] = _prepare_p_feasible(
+        df=df,
+        outcome_constraints=experiment.optimization_config.outcome_constraints
+        if experiment.optimization_config is not None
+        else [],
     )
 
     return df
@@ -312,3 +325,80 @@ def _extract_generation_node_name(trial: BaseTrial, arm: Arm) -> str:
             return gr._generation_node_name or Keys.UNKNOWN_GENERATION_NODE.value
 
     return Keys.UNKNOWN_GENERATION_NODE.value
+
+
+def _prepare_p_feasible(
+    df: pd.DataFrame,
+    outcome_constraints: Sequence[OutcomeConstraint],
+) -> pd.Series:
+    """
+    Compute the probability that each arm is feasible with respect to the given
+    outcome constraints (assuming normally distributed observations). Calculated in a
+    batch for efficiency.
+
+    Ensure that the df and outcome constraints are either both relative or both
+    absolute.
+
+    Args:
+        df: Result of _prepare_modeled_arm_data or _prepare_raw_arm_data.
+        outcome_constraints: The outcome constraints to use to compute the probability
+            of feasibility.
+
+    Returns:
+        A Series with one entry per row in df describing the probability that the arm
+        is feasible with respect to the given outcome constraints.
+    """
+    if len(outcome_constraints) == 0:
+        return pd.Series(np.ones(len(df)))
+
+    # If an arm is missing data for a metric leave the mean as NaN.
+    means = [
+        df[f"{constraint.metric.name}_mean"].tolist()
+        if f"{constraint.metric.name}_mean" in df.columns
+        else np.nan * np.ones(len(df))
+        for constraint in outcome_constraints
+    ]
+
+    # If an arm is missing data for a metric treat the sd as 0.
+    sigmas = [
+        (df[f"{constraint.metric.name}_sem"].fillna(0) ** 2).tolist()
+        if f"{constraint.metric.name}_sem" in df.columns
+        else [0] * len(df)
+        for constraint in outcome_constraints
+    ]
+
+    con_lower_inds = [
+        i
+        for i in range(len(outcome_constraints))
+        if outcome_constraints[i].op == ComparisonOp.GEQ
+    ]
+    con_upper_inds = [
+        i
+        for i in range(len(outcome_constraints))
+        if outcome_constraints[i].op == ComparisonOp.LEQ
+    ]
+
+    con_lower = [
+        constraint.bound
+        for constraint in outcome_constraints
+        if constraint.op == ComparisonOp.GEQ
+    ]
+
+    con_upper = [
+        constraint.bound
+        for constraint in outcome_constraints
+        if constraint.op == ComparisonOp.LEQ
+    ]
+
+    log_prob_feas = compute_log_prob_feas_from_bounds(
+        con_lower_inds=torch.tensor(con_lower_inds, dtype=torch.int),
+        con_upper_inds=torch.tensor(con_upper_inds, dtype=torch.int),
+        con_lower=torch.tensor(con_lower, dtype=torch.double),
+        con_upper=torch.tensor(con_upper, dtype=torch.double),
+        con_both_inds=torch.empty(0, dtype=torch.int),
+        con_both=torch.empty(0),
+        means=torch.tensor(means, dtype=torch.double).T,
+        sigmas=torch.tensor(sigmas, dtype=torch.double).T,
+    )
+
+    return pd.Series(log_prob_feas.exp())

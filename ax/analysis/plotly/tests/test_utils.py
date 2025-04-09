@@ -52,6 +52,7 @@ class TestUtils(TestCase):
                 "foo_sem": 0.15232,
                 "bar_sem": 0.638425,
                 "generation_node": "MBM",
+                "p_feasible": 0.1,
             }
         )
 
