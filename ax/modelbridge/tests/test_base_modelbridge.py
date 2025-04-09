@@ -931,7 +931,8 @@ class BaseAdapterTest(TestCase):
         )
         kwargs = mock_observations_from_data.call_args.kwargs
         self.assertEqual(
-            kwargs["statuses_to_include_map_metric"], adapter.statuses_to_fit
+            kwargs["statuses_to_include_map_metric"],
+            adapter._data_loader_config.statuses_to_fit,
         )
         # assert `latest_rows_per_group` is 1
         self.assertEqual(kwargs["latest_rows_per_group"], 1)
