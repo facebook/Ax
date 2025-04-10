@@ -25,6 +25,7 @@ class AuxiliaryExperiment(SortableBase):
     def __init__(
         self,
         experiment: core.experiment.Experiment,
+        is_active: bool = True,
         data: Data | None = None,
     ) -> None:
         """
@@ -33,6 +34,7 @@ class AuxiliaryExperiment(SortableBase):
         """
         self.experiment = experiment
         self.data: Data = data or experiment.lookup_data()
+        self.is_active = is_active
 
     def _unique_id(self) -> str:
         # While there can be multiple `AuxiliarySource`-s made from the same
