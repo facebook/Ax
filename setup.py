@@ -45,9 +45,6 @@ DEV_REQUIRES = [
     "torchvision>=0.5.0",
     "nbconvert",
     "jupyter-client==6.1.12",
-    # Replace with `tensorboard >= x.x` once tb cuts a release.
-    # https://github.com/tensorflow/tensorboard/issues/6869#issuecomment-2273718763
-    "numpy<2.0",
     "lxml",
     "mdformat-myst",
 ]
@@ -68,7 +65,8 @@ MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
 NOTEBOOK_REQUIRES = ["jupyter"]
 
 UNITTEST_MINIMAL_REQUIRES = [
-    "tensorboard",  # For tensorboard unit tests.
+    # For tensorboard unit tests (min req: numpy 2.0 compatibility).
+    "tensorboard>=2.18.0",
     "torchvision",  # For torchvision unit tests.
     "torchx",  # For torchx unit tests.
     # Required for building RayTune tutorial notebook and
