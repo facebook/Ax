@@ -8,15 +8,18 @@
 
 from __future__ import annotations
 
-from typing import Any
+from math import log, sqrt
+from typing import Any, Sequence
 
 import torch
 from ax.exceptions.core import AxError
 from gpytorch.constraints import Interval
+from gpytorch.constraints.constraints import GreaterThan
 from gpytorch.kernels import PeriodicKernel
 from gpytorch.kernels.matern_kernel import MaternKernel
+from gpytorch.kernels.rbf_kernel import RBFKernel
 from gpytorch.kernels.scale_kernel import ScaleKernel
-from gpytorch.priors.torch_priors import Prior
+from gpytorch.priors.torch_priors import LogNormalPrior, Prior
 
 
 class ScaleMaternKernel(ScaleKernel):
@@ -144,4 +147,34 @@ class TemporalKernel(ScaleKernel):
             outputscale_prior=outputscale_prior,
             outputscale_constraint=outputscale_constraint,
             **kwargs,
+        )
+
+
+class DefaultRBFKernel(RBFKernel):
+    """A simple wrapper around RBF kernel that integrates the dim-scaled
+    prior commonly used by default in BoTorch models.
+
+    This supports easy configuration of the kernel with options like
+    `active_dims`, while avoiding the need to explicitly specify the
+    prior for the RBF kernel.
+    """
+
+    def __init__(
+        self,
+        ard_num_dims: int,
+        active_dims: Sequence[int] | None = None,
+        batch_shape: torch.Size | None = None,
+    ) -> None:
+        lengthscale_prior = LogNormalPrior(
+            loc=sqrt(2) + log(ard_num_dims) * 0.5, scale=sqrt(3)
+        )
+        super().__init__(
+            ard_num_dims=ard_num_dims,
+            batch_shape=batch_shape,
+            lengthscale_prior=lengthscale_prior,
+            lengthscale_constraint=GreaterThan(
+                2.5e-2, transform=None, initial_value=lengthscale_prior.mode
+            ),
+            # pyre-ignore[6] GPyTorch type is unnecessarily restrictive.
+            active_dims=active_dims,
         )

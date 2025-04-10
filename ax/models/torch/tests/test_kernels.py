@@ -12,8 +12,13 @@ from itertools import product
 
 import torch
 from ax.exceptions.core import AxError
-from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel, TemporalKernel
+from ax.models.torch.botorch_modular.kernels import (
+    DefaultRBFKernel,
+    ScaleMaternKernel,
+    TemporalKernel,
+)
 from ax.utils.common.testutils import TestCase
+from botorch.models.utils.gpytorch_modules import get_covar_module_with_dim_scaled_prior
 from gpytorch.constraints import Positive
 from gpytorch.kernels import MaternKernel, PeriodicKernel
 from gpytorch.priors import GammaPrior
@@ -154,3 +159,27 @@ class KernelsTest(TestCase):
                 outputscale_constraint=os_constraint,
                 temporal_lengthscale_constraint=tls_constraint,
             )
+
+    def test_default_rbf(self) -> None:
+        # Check that this is equivalent to the BoTorch defaults.
+        for kwargs in (
+            {"ard_num_dims": 1},
+            {"ard_num_dims": 2, "active_dims": [0, 1], "batch_shape": torch.Size([2])},
+        ):
+            ax_kernel = DefaultRBFKernel(**kwargs)  # pyre-ignore
+            # pyre-ignore
+            botorch_kernel = get_covar_module_with_dim_scaled_prior(**kwargs)
+            # Compare the state dicts for underlying compotents & their shapes.
+            ax_dict = ax_kernel.state_dict()
+            botorch_dict = botorch_kernel.state_dict()
+            for k in ax_dict | botorch_dict:
+                ax_value = ax_dict[k]
+                botorch_value = botorch_dict[k]
+                self.assertTrue(torch.equal(ax_value, botorch_value))
+            # Active dims will not reflected in the state dict.
+            if ax_kernel.active_dims is None:
+                self.assertIsNone(botorch_kernel.active_dims)
+            else:
+                self.assertEqual(
+                    ax_kernel.active_dims.tolist(), botorch_kernel.active_dims.tolist()
+                )

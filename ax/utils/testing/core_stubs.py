@@ -102,10 +102,14 @@ from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, Generators, get_factorial, get_sobol
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.models.torch.botorch_modular.kernels import DefaultRBFKernel, ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
-from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
+from ax.models.torch.botorch_modular.surrogate import (
+    ModelConfig,
+    Surrogate,
+    SurrogateSpec,
+)
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
@@ -2591,7 +2595,15 @@ def get_botorch_model_with_default_acquisition_class() -> BoTorchGenerator:
 def get_botorch_model_with_surrogate_specs() -> BoTorchGenerator:
     return BoTorchGenerator(
         surrogate_specs={
-            "name": SurrogateSpec(botorch_model_kwargs={"some_option": "some_value"})
+            "name": SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        model_options={"some_option": "some_value"},
+                        covar_module_class=DefaultRBFKernel,
+                        covar_module_options={"inactive_features": []},
+                    )
+                ]
+            )
         }
     )
 
