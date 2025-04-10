@@ -604,6 +604,11 @@ def tile_cross_validation(
             se_hat.append(arm.se_hat[metric])
             y_raw.append(arm.y[metric])
             se_raw.append(arm.se[metric])
+        se_raw = (
+            [0.0 if np.isnan(se) else se for se in se_raw]
+            if se_raw is not None
+            else [0.0] * len(y_raw)
+        )
         min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw, se_hat)
         fig.append_trace(
             _diagonal_trace(min_, max_), int(np.floor(i / 2)) + 1, i % 2 + 1
