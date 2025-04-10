@@ -105,9 +105,10 @@ class Decoder:
     def _auxiliary_experiments_by_purpose_from_experiment_sqa(
         self, experiment_sqa: SQAExperiment, reduced_state: bool = False
     ) -> dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None:
-        auxiliary_experiments_by_purpose = None
+        auxiliary_experiments_by_purpose = {}
+
+        # Legacy logic
         if experiment_sqa.auxiliary_experiments_by_purpose:
-            auxiliary_experiments_by_purpose = {}
             aux_exps_dict = none_throws(experiment_sqa.auxiliary_experiments_by_purpose)
             for aux_exp_purpose_str, aux_exps_json in aux_exps_dict.items():
                 aux_exp_purpose = next(
@@ -115,7 +116,8 @@ class Decoder:
                     for member in self.config.auxiliary_experiment_purpose_enum
                     if member.value == aux_exp_purpose_str
                 )
-                auxiliary_experiments_by_purpose[aux_exp_purpose] = []
+                if aux_exp_purpose not in auxiliary_experiments_by_purpose:
+                    auxiliary_experiments_by_purpose[aux_exp_purpose] = []
                 for aux_exp_json in aux_exps_json:
                     # keeping this for backward compatibility since previously
                     # we used to save only the experiment name
@@ -129,6 +131,34 @@ class Decoder:
                     auxiliary_experiments_by_purpose[aux_exp_purpose].append(
                         aux_experiment
                     )
+
+        # New logic
+        if experiment_sqa.auxiliary_experiments:
+            for auxiliary_experiment_sqa in experiment_sqa.auxiliary_experiments:
+                purpose = self.config.auxiliary_experiment_purpose_enum(
+                    auxiliary_experiment_sqa.purpose
+                )
+                if purpose not in auxiliary_experiments_by_purpose:
+                    auxiliary_experiments_by_purpose[purpose] = []
+                # If the auxiliary experiment is already loaded, we don't need to
+                # load it again.
+                if any(
+                    auxiliary_experiment_sqa.source_experiment_id
+                    == aux_exp.experiment.db_id
+                    for aux_exp in auxiliary_experiments_by_purpose[purpose]
+                ):
+                    continue
+                source_experiment = self.experiment_from_sqa(
+                    experiment_sqa=auxiliary_experiment_sqa.source_experiment,
+                    reduced_state=True,
+                    load_auxiliary_experiments=False,
+                )
+                auxiliary_experiments_by_purpose[purpose].append(
+                    AuxiliaryExperiment(
+                        experiment=source_experiment,
+                        is_active=auxiliary_experiment_sqa.is_active,
+                    )
+                )
         return auxiliary_experiments_by_purpose
 
     def _init_experiment_from_sqa(
@@ -1362,4 +1392,4 @@ def auxiliary_experiment_from_json(
         load_auxiliary_experiments=False,
         reduced_state=reduced_state,
     )
-    return AuxiliaryExperiment(experiment)
+    return AuxiliaryExperiment(experiment, is_active=True)

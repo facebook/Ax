@@ -10,6 +10,8 @@ from math import ceil
 from typing import Any, cast
 
 from ax.analysis.analysis import AnalysisCard
+from ax.core.auxiliary import AuxiliaryExperiment
+
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -24,6 +26,7 @@ from ax.storage.sqa_store.reduced_state import (
 )
 from ax.storage.sqa_store.sqa_classes import (
     SQAAnalysisCard,
+    SQAAuxiliaryExperiment,
     SQAExperiment,
     SQAGenerationStrategy,
     SQAGeneratorRun,
@@ -34,7 +37,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import MetricIntent
 from ax.utils.common.constants import Keys
 from pyre_extensions import assert_is_instance, none_throws
-from sqlalchemy.orm import defaultload, lazyload, noload
+from sqlalchemy.orm import defaultload, joinedload, lazyload, noload
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 
@@ -106,6 +109,12 @@ def _load_experiment(
     # pyre-ignore Incompatible variable type [9]: trial_sqa_class is decl. to have type
     # `Type[SQATrial]` but is used as type `Type[ax.storage.sqa_store.db.SQABase]`
     trial_sqa_class: type[SQATrial] = decoder.config.class_to_sqa_class[Trial]
+    # pyre-ignore Incompatible variable type [9]: auxiliary_experiment_sqa_class is
+    # decl. to have type `Type[SQAAuxiliaryExperiment]` but is used as type
+    # `Type[ax.storage.sqa_store.db.SQABase]`
+    auxiliary_experiment_sqa_class: type[SQAAuxiliaryExperiment] = (
+        decoder.config.class_to_sqa_class[AuxiliaryExperiment]
+    )
     imm_OC_and_SS = _get_experiment_immutable_opt_config_and_search_space(
         experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
     )
@@ -124,6 +133,7 @@ def _load_experiment(
         experiment_name=experiment_name,
         exp_sqa_class=exp_sqa_class,
         trial_sqa_class=trial_sqa_class,
+        auxiliary_experiment_sqa_class=auxiliary_experiment_sqa_class,
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
         skip_runners_and_metrics=skip_runners_and_metrics,
     )
@@ -171,6 +181,7 @@ def _get_experiment_sqa(
     experiment_name: str,
     exp_sqa_class: type[SQAExperiment],
     trial_sqa_class: type[SQATrial],
+    auxiliary_experiment_sqa_class: type[SQAAuxiliaryExperiment],
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     trials_query_options: list[Any] | None = None,
     load_trials_in_batches_of_size: int | None = None,
@@ -181,8 +192,14 @@ def _get_experiment_sqa(
         query = (
             session.query(exp_sqa_class)
             .filter_by(name=experiment_name)
-            # Delay loading trials to a separate call to `_get_trials_sqa` below
-            .options(noload("trials"))
+            .options(
+                # Delay loading trials to a separate call to `_get_trials_sqa` below
+                noload("trials"),
+                # Eagerly load target experiment for auxiliary experiment relationships
+                joinedload(exp_sqa_class.auxiliary_experiments).joinedload(
+                    auxiliary_experiment_sqa_class.source_experiment,
+                ),
+            )
         )
 
         if skip_runners_and_metrics:
@@ -269,6 +286,7 @@ def _get_experiment_sqa_reduced_state(
     experiment_name: str,
     exp_sqa_class: type[SQAExperiment],
     trial_sqa_class: type[SQATrial],
+    auxiliary_experiment_sqa_class: type[SQAAuxiliaryExperiment],
     load_trials_in_batches_of_size: int | None = None,
     skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
@@ -283,6 +301,7 @@ def _get_experiment_sqa_reduced_state(
         experiment_name=experiment_name,
         exp_sqa_class=exp_sqa_class,
         trial_sqa_class=trial_sqa_class,
+        auxiliary_experiment_sqa_class=auxiliary_experiment_sqa_class,
         trials_query_options=options,
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
         skip_runners_and_metrics=skip_runners_and_metrics,
@@ -293,6 +312,7 @@ def _get_experiment_sqa_immutable_opt_config_and_search_space(
     experiment_name: str,
     exp_sqa_class: type[SQAExperiment],
     trial_sqa_class: type[SQATrial],
+    auxiliary_experiment_sqa_class: type[SQAAuxiliaryExperiment],
     load_trials_in_batches_of_size: int | None = None,
     skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
@@ -306,6 +326,7 @@ def _get_experiment_sqa_immutable_opt_config_and_search_space(
         experiment_name=experiment_name,
         exp_sqa_class=exp_sqa_class,
         trial_sqa_class=trial_sqa_class,
+        auxiliary_experiment_sqa_class=auxiliary_experiment_sqa_class,
         trials_query_options=get_query_options_to_defer_immutable_duplicates(),
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
         skip_runners_and_metrics=skip_runners_and_metrics,
