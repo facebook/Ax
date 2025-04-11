@@ -12,9 +12,6 @@ from ax.analysis.analysis import (
     AnalysisCardCategory,
     display_cards,
 )
-from ax.analysis.markdown.markdown_analysis import (
-    markdown_analysis_card_from_analysis_e,
-)
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -87,7 +84,7 @@ class AnalysisBase(WithDBSettingsBase):
         cards = [
             card
             for result in results
-            for card in result.unwrap_or_else(markdown_analysis_card_from_analysis_e)
+            for card in result.unwrap_or_else(lambda e: e.error_card())
         ]
 
         # Display the AnalysisCards if requested and if the user is in a notebook

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import traceback
 from collections.abc import Iterable
 from enum import Enum, IntEnum
 from logging import Logger
@@ -208,6 +209,10 @@ class AnalysisCard(Base):
         return self.df
 
 
+class ErrorAnalysisCard(AnalysisCard):
+    blob_annotation: AnalysisBlobAnnotation = AnalysisBlobAnnotation.ERROR
+
+
 def display_cards(
     cards: Iterable[AnalysisCard], minimum_level: int = AnalysisCardLevel.LOW
 ) -> None:
@@ -318,6 +323,39 @@ def _analysis_card_list_html_formatter(obj: Any) -> str | None:
     return _generate_cards_html(obj)
 
 
+class AnalysisE(ExceptionE):
+    analysis: Analysis
+
+    def __init__(
+        self,
+        message: str,
+        exception: Exception,
+        analysis: Analysis,
+    ) -> None:
+        super().__init__(message, exception)
+        self.analysis = analysis
+
+    def error_card(self) -> list[AnalysisCard]:
+        return [
+            ErrorAnalysisCard(
+                name=self.analysis.name,
+                title=f"{self.analysis.name} Error",
+                subtitle=f"An error occurred while computing {self.analysis}",
+                attributes=self.analysis.attributes,
+                blob="".join(
+                    traceback.format_exception(
+                        type(self.exception),
+                        self.exception,
+                        self.exception.__traceback__,
+                    )
+                ),
+                df=pd.DataFrame(),
+                level=AnalysisCardLevel.DEBUG,
+                category=AnalysisCardCategory.ERROR,
+            )
+        ]
+
+
 class Analysis(Protocol):
     """
     An Analysis is a class that given either and Experiment, a GenerationStrategy, or
@@ -336,6 +374,12 @@ class Analysis(Protocol):
     observed or modeled effects) in your Analyses' __init__ methods, then to consume
     these settings in the compute method.
     """
+
+    """
+    The exception class to use when computing this Analysis. This is used to
+    construct the AnalysisE when an exception is thrown during compute.
+    """
+    exception_class: type[AnalysisE] = AnalysisE
 
     def compute(
         self,
@@ -367,7 +411,7 @@ class Analysis(Protocol):
             logger.error(f"Failed to compute {self.__class__.__name__}: {e}")
 
             return Err(
-                value=AnalysisE(
+                value=self.exception_class(
                     message=f"Failed to compute {self.__class__.__name__}",
                     exception=e,
                     analysis=self,
@@ -416,16 +460,3 @@ class Analysis(Protocol):
         # in case there is logic in name or attributes that throws a json error
         except Exception:
             return self.__class__.__name__
-
-
-class AnalysisE(ExceptionE):
-    analysis: Analysis
-
-    def __init__(
-        self,
-        message: str,
-        exception: Exception,
-        analysis: Analysis,
-    ) -> None:
-        super().__init__(message, exception)
-        self.analysis = analysis

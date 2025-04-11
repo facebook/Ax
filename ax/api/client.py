@@ -19,9 +19,6 @@ from ax.analysis.analysis import (  # Used as a return type
     display_cards,
 )
 from ax.analysis.dispatch import choose_analyses
-from ax.analysis.markdown.markdown_analysis import (
-    markdown_analysis_card_from_analysis_e,
-)
 from ax.analysis.summary import Summary
 from ax.api.configs import (
     ExperimentConfig,
@@ -649,7 +646,7 @@ class Client(WithDBSettingsBase):
         cards = [
             card
             for result in results
-            for card in result.unwrap_or_else(markdown_analysis_card_from_analysis_e)
+            for card in result.unwrap_or_else(lambda e: e.error_card())
         ]
 
         # Display the AnalysisCards if requested and if the user is in a notebook
