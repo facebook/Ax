@@ -556,22 +556,27 @@ class BaseAdapterTest(TestCase):
             none_throws(adapter.status_quo.features.metadata)["timestamp"], 2.0
         )
 
-        # Case 2: Experiment has an optimization config with multiple map keys.
-        with mock.patch(
-            "ax.modelbridge.base.extract_map_keys_from_opt_config",
-            return_value={"timestamp", "step"},
-        ) as mock_extract, self.assertLogs(logger=logger, level="WARN") as mock_logs:
-            adapter = Adapter(
-                experiment=exp, model=Generator(), data_loader_config=data_loader_config
+        # Case 2: Experiment has an optimization config with !=1 map keys.
+        for num_map_keys in (0, 2):
+            with mock.patch(
+                "ax.modelbridge.base.extract_map_keys_from_opt_config",
+                return_value=set(["timestamp", "step"][:num_map_keys]),
+            ) as mock_extract, self.assertLogs(
+                logger=logger, level="WARN"
+            ) as mock_logs:
+                adapter = Adapter(
+                    experiment=exp,
+                    model=Generator(),
+                    data_loader_config=data_loader_config,
+                )
+            mock_extract.assert_called_once()
+            self.assertIsNone(adapter.status_quo)
+            self.assertTrue(
+                any(
+                    f"optimization config includes {num_map_keys} map keys" in log
+                    for log in mock_logs.output
+                )
             )
-        mock_extract.assert_called_once()
-        self.assertIsNone(adapter.status_quo)
-        self.assertTrue(
-            any(
-                "optimization config includes multiple map keys" in log
-                for log in mock_logs.output
-            )
-        )
 
         # Case 3: Experiment doesn't have an optimization config.
         (opt_metric,) = none_throws(exp.optimization_config).metrics.values()
