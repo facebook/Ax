@@ -9,7 +9,7 @@
 from typing import Sequence
 
 import pandas as pd
-from ax.analysis.analysis import Analysis, AnalysisCard
+from ax.analysis.analysis import Analysis, AnalysisBlobAnnotation, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
@@ -40,7 +40,7 @@ body_html_template = """
 
 
 class PlotlyAnalysisCard(AnalysisCard):
-    blob_annotation = "plotly"
+    blob_annotation: AnalysisBlobAnnotation = AnalysisBlobAnnotation.PLOTLY
 
     def get_figure(self) -> go.Figure:
         return pio.from_json(self.blob)

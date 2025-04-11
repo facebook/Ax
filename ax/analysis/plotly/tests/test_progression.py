@@ -6,7 +6,11 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.analysis import (
+    AnalysisBlobAnnotation,
+    AnalysisCardCategory,
+    AnalysisCardLevel,
+)
 from ax.analysis.plotly.progression import (
     _calculate_wallclock_timeseries,
     ProgressionPlot,
@@ -49,7 +53,7 @@ class TestProgression(TestCase):
         )
 
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, "plotly")
+        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
     def test_calculate_wallclock_timeseries(self) -> None:
         experiment = get_test_map_data_experiment(

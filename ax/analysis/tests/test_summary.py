@@ -7,7 +7,11 @@
 
 import numpy as np
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.analysis import (
+    AnalysisBlobAnnotation,
+    AnalysisCardCategory,
+    AnalysisCardLevel,
+)
 from ax.analysis.summary import Summary
 from ax.api.client import Client
 from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
@@ -63,7 +67,7 @@ class TestSummary(TestCase):
         self.assertEqual(card.level, AnalysisCardLevel.MID)
         self.assertEqual(card.category, AnalysisCardCategory.INFO)
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, "dataframe")
+        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.DATAFRAME)
 
         # Test dataframe for accuracy
         self.assertEqual(
