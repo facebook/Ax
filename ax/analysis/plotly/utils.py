@@ -98,8 +98,20 @@ def get_arm_tooltip(
         for metric_name in metric_names
     ]
 
+    if row["p_feasible"] < MINIMUM_CONTRAINT_VIOLATION_THRESHOLD:
+        constraints_warning_str = "[Warning] This arm is likely infeasible"
+    else:
+        constraints_warning_str = ""
+
     return "<br />".join(
-        [trial_str, arm_str, status_str, generation_node_str, *metric_strs]
+        [
+            trial_str,
+            arm_str,
+            status_str,
+            generation_node_str,
+            *metric_strs,
+            constraints_warning_str,
+        ]
     )
 
 
