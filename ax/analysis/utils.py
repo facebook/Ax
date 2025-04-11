@@ -3,8 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-unsafe
-
 # pyre-safe
 
 from typing import Sequence
@@ -18,6 +16,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
@@ -27,6 +26,11 @@ from ax.utils.common.constants import Keys
 from ax.utils.stats.statstools import relativize
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
+
+# Warn if p_feasible is less than this threshold.
+# TODO: Move this constrant to best point utilities so that the logic for warning in
+# analyses is also gates points from being chosen during best point selection.
+POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD: float = 0.05
 
 
 def extract_relevant_adapter(
@@ -78,6 +82,7 @@ def prepare_arm_data(
     use_model_predictions: bool,
     adapter: Adapter | None = None,
     trial_index: int | None = None,
+    trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
     relativize: bool = False,
 ) -> pd.DataFrame:
@@ -98,6 +103,8 @@ def prepare_arm_data(
         trial_index: If present, only use arms from the trial with the given index.
             Otherwise include all arms on the experiment. If trial_index=-1, do not
             include any arms from the experiment.
+        trial_statuses: If present, only include arms from trials with statuses in this
+            collection. If not present, include all arms on the experiment.
         additional_arms: If present, include these arms in the table. These arms will
             be marked as belonging to a trial with index -1.
 
@@ -128,6 +135,12 @@ def prepare_arm_data(
     ):
         raise UserInputError(f"Trial with index {trial_index} not found in experiment.")
 
+    if trial_index is not None and trial_statuses is not None:
+        raise UserInputError(
+            "Cannot provide both trial_index and trial_statuses. Either provide a "
+            "trial_index to filter on or a collection of trial_statuses to filter on."
+        )
+
     if use_model_predictions:
         if adapter is None:
             raise UserInputError(
@@ -139,6 +152,7 @@ def prepare_arm_data(
             metric_names=metric_names,
             adapter=adapter,
             trial_index=trial_index,
+            trial_statuses=trial_statuses,
             additional_arms=additional_arms,
         )
     else:
@@ -153,20 +167,118 @@ def prepare_arm_data(
             metric_names=metric_names,
             experiment=experiment,
             trial_index=trial_index,
+            trial_statuses=trial_statuses,
         )
 
+    # If relevant, relativize the data. Prefer to relativize each arm by the status quo
+    # arm in its trial, but if none exists relativize by the sole status quo arm on the
+    # experiment. Prefer to use the predictions (if use_model_predictions=True), but
+    # fall back on the raw data if predictions for the status quo arm are not available.
     if relativize:
+        # Use the raw status quo effects if no model predictions are available (ex. if
+        # the status quo had None in its parameters).
+        raw_df = _prepare_raw_arm_data(
+            metric_names=metric_names,
+            experiment=experiment,
+            trial_index=trial_index,
+            trial_statuses=trial_statuses,
+        )
+
+        if experiment.status_quo is None:
+            raise UserInputError(
+                "Cannot relativize data without a status quo arm on the experiment."
+            )
+
+        if experiment.status_quo.name is None:
+            raise UserInputError(
+                "Cannot relativize data without a named status quo arm on the "
+                "experiment."
+            )
+
+        status_quo_name = experiment.status_quo.name
+
+        # Use the raw status quo effects if no model predictions are available (ex. if
+        # the status quo had None in its parameters).
+        if use_model_predictions:
+            raw_df = _prepare_raw_arm_data(
+                metric_names=metric_names,
+                experiment=experiment,
+                trial_index=trial_index,
+            )
+        else:
+            # If use_model_predictions=False, the raw data is the same as the data
+            raw_df = df
+
+        # Collect the status quo effects for each trial. Relativization is calculated
+        # per-trial, per-metric.
+        status_quo_mask = df["arm_name"] == status_quo_name
+        status_quo_rows = []
+        for trial_index in df["trial_index"].unique():
+            trial_mask = (df["trial_index"] == trial_index) & status_quo_mask
+
+            # If trial_index == -1 these are additional arms, so try using the status
+            # quo effects from the target trial.
+            if trial_index == -1:
+                target_trial_index = get_target_trial_index(experiment=experiment)
+                # If all metrics have predictions use them as the status quo effects.
+                mask = (df["trial_index"] == target_trial_index) & status_quo_mask
+                if not df[mask].isnull().any().any():
+                    row = df[mask].iloc[0]
+                else:
+                    # Use observed status quo effects.
+                    row = raw_df[
+                        (raw_df["trial_index"] == target_trial_index)
+                        & (raw_df["arm_name"] == status_quo_name)
+                    ].iloc[0]
+            # If there is a status quo arm in the trial use it as the control.
+            elif trial_mask.any():
+                # If all metrics have predictions use them as the status quo effects.
+                if not df[trial_mask].isnull().any().any():
+                    row = df[trial_mask].iloc[0]
+                else:
+                    # Use observed status quo effects.
+                    row = raw_df[
+                        (raw_df["trial_index"] == trial_index)
+                        & (raw_df["arm_name"] == status_quo_name)
+                    ].iloc[0]
+
+            # If there is one status quo arm on the experiment use it as the control.
+            elif status_quo_mask.sum() == 1:
+                # If all metrics have predictions use them as the status quo effects.
+                if not df[status_quo_mask].isnull().any().any():
+                    row = df[status_quo_mask].iloc[0]
+                else:
+                    # Use observed status quo effects.
+                    row = raw_df[raw_df["arm_name"] == status_quo_name].iloc[0]
+
+            else:
+                raise UserInputError(
+                    "Failed to relativize, no status quo arm found in the experiment."
+                )
+
+            row["trial_index"] = trial_index
+            status_quo_rows.append(row)
+
+        status_quo_df = pd.DataFrame(status_quo_rows)[
+            [
+                "trial_index",
+                *[f"{name}_mean" for name in metric_names],
+                *[f"{name}_sem" for name in metric_names],
+            ]
+        ]
+
         df = _relativize_data(
-            df=df, metric_names=metric_names, status_quo_arm=experiment.status_quo
+            df=df,
+            status_quo_df=status_quo_df,
         )
 
     # Add additional columns which do not require predicting or extracting data.
-    # TODO[mpolson64]: Add a column for the arm feasibility.
     df["trial_status"] = df["trial_index"].apply(
         lambda trial_index: experiment.trials[trial_index].status.name
         if trial_index != -1
         else "Additional Arm"
     )
+
     df["generation_node"] = df.apply(
         lambda row: _extract_generation_node_name(
             trial=experiment.trials[row["trial_index"]],
@@ -192,6 +304,7 @@ def _prepare_modeled_arm_data(
     metric_names: Sequence[str],
     adapter: Adapter,
     trial_index: int | None = None,
+    trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
 ) -> pd.DataFrame:
     """
@@ -212,11 +325,26 @@ def _prepare_modeled_arm_data(
                 arm,
             )
             for trial in experiment.trials.values()
-            if (trial.index == trial_index) or (trial_index is None)
+            if ((trial.index == trial_index) or (trial_index is None))
+            and ((trial_statuses is None) or (trial.status in trial_statuses))
             for arm in trial.arms
         ],
         # Additional arms passed in by the user
         *[(-1, arm) for arm in additional_arms or []],
+    ]
+
+    # Remove arms with missing parameters since we cannot predict for them.
+    predictable_pairs = [
+        (trial_index, arm)
+        for trial_index, arm in trial_index_arm_pairs
+        if not any(
+            parameter_value is None for parameter_value in arm.parameters.values()
+        )
+    ]
+    unpredictable_pairs = [
+        (trial_index, arm)
+        for trial_index, arm in trial_index_arm_pairs
+        if any(parameter_value is None for parameter_value in arm.parameters.values())
     ]
 
     # Batch predict for efficiency.
@@ -228,25 +356,43 @@ def _prepare_modeled_arm_data(
                 trial_index=get_target_trial_index(experiment=experiment),
             )
             for _, arm in trial_index_arm_pairs
+            # Remove arms with missing parameters since we cannot predict for them.
+            if not any(
+                parameter_value is None for parameter_value in arm.parameters.values()
+            )
         ]
     )
 
     records = [
-        {
-            "trial_index": trial_index_arm_pairs[i][0],
-            "arm_name": trial_index_arm_pairs[i][1].name
-            if trial_index_arm_pairs[i][1].has_name
-            else f"{Keys.UNNAMED_ARM.value}_{i}",
-            **{
-                f"{metric_name}_mean": predictions[0][metric_name][i]
-                for metric_name in metric_names
-            },
-            **{
-                f"{metric_name}_sem": predictions[1][metric_name][metric_name][i] ** 0.5
-                for metric_name in metric_names
-            },
-        }
-        for i in range(len(trial_index_arm_pairs))
+        *[
+            {
+                "trial_index": predictable_pairs[i][0],
+                "arm_name": predictable_pairs[i][1].name
+                if predictable_pairs[i][1].has_name
+                else f"{Keys.UNNAMED_ARM.value}_{i}",
+                **{
+                    f"{metric_name}_mean": predictions[0][metric_name][i]
+                    for metric_name in metric_names
+                },
+                **{
+                    f"{metric_name}_sem": predictions[1][metric_name][metric_name][i]
+                    ** 0.5
+                    for metric_name in metric_names
+                },
+            }
+            for i in range(len(predictable_pairs))
+        ],
+        *[
+            {
+                "trial_index": unpredictable_pairs[i][0],
+                "arm_name": unpredictable_pairs[i][1].name
+                if unpredictable_pairs[i][1].has_name
+                else f"{Keys.UNNAMED_ARM.value}_{i}",
+                **{f"{metric_name}_mean": None for metric_name in metric_names},
+                **{f"{metric_name}_sem": None for metric_name in metric_names},
+            }
+            for i in range(len(unpredictable_pairs))
+        ],
     ]
 
     return pd.DataFrame.from_records(records)
@@ -256,6 +402,7 @@ def _prepare_raw_arm_data(
     metric_names: Sequence[str],
     experiment: Experiment,
     trial_index: int | None,
+    trial_statuses: Sequence[TrialStatus] | None,
 ) -> pd.DataFrame:
     """
     Extract the raw (mean, sem) for each arm for each requested metric.
@@ -269,13 +416,16 @@ def _prepare_raw_arm_data(
     # If trial_index is -1 do not extract any data.
     if trial_index == -1:
         return pd.DataFrame()
-    # If trial_index is None, extract data from all trials.
-    elif trial_index is not None:
-        trials = [experiment.trials[trial_index]]
-        data_df = experiment.lookup_data(trial_indices=[trial_index]).df
     else:
-        trials = [*experiment.trials.values()]
-        data_df = experiment.lookup_data().df
+        trials = [
+            trial
+            for trial in experiment.trials.values()
+            if (trial.index == trial_index or trial_index is None)
+            and ((trial_statuses is None) or (trial.status in trial_statuses))
+        ]
+        data_df = experiment.lookup_data(
+            trial_indices=[trial.index for trial in trials]
+        ).df
 
     records = []
     for trial in trials:
@@ -414,47 +564,34 @@ def _prepare_p_feasible(
 
 
 def _relativize_data(
-    df: pd.DataFrame, metric_names: Sequence[str], status_quo_arm: Arm | None
+    df: pd.DataFrame,
+    status_quo_df: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    Relativize the data with respect to the status quo arm for each metric within
-     each trial.
+    Relativize the data with respect to some status quo arm.
 
     Args:
         df: DataFrame containing the data to be relativized. Must include columns
             'METRIC_NAME_mean' and 'METRIC_NAME_sem' for each metric, as well as a
             column identifying the trial and a column identifying the status quo
             arm for each trial.
-        metric_names: The names of the metrics to relativize.
-        status_quo_arm: The arm to use as the baseline for relativization. Must be
-            present in the DataFrame.
-
+        status_quo_df: DataFrame containing the status quo data for each trial.
 
     Returns:
         A DataFrame with the same structure as the input, but with 'METRIC_NAME_mean'
         and 'METRIC_NAME_sem' columns relativized to the status quo arm for each metric
         within each trial.
     """
-    if status_quo_arm is None:
-        raise UserInputError("Cannot relativize data without a status quo arm.")
+    metric_names = [name[:-5] for name in df.columns if name.endswith("_mean")]
 
-    # Group by trial and relativize data within each group
     rel_df = df.copy()
+
     for trial_idx, trial_df in rel_df.groupby("trial_index"):
-        status_quo_row = trial_df[trial_df["arm_name"] == status_quo_arm.name]
-        if status_quo_row.empty:
-            raise UserInputError(f"Status quo arm not found in trial '{trial_idx}'.")
-        if len(status_quo_row) > 1:
-            raise UserInputError(
-                f"Multiple rows found for the status quo arm in trial '{trial_idx}'."
-            )
+        status_quo_row = status_quo_df[status_quo_df["trial_index"] == trial_idx]
 
         for metric_name in metric_names:
             mean_col = f"{metric_name}_mean"
             sem_col = f"{metric_name}_sem"
-
-            if mean_col not in trial_df.columns or sem_col not in trial_df.columns:
-                continue
 
             y_rel, y_se_rel = relativize(
                 means_t=trial_df[mean_col],
