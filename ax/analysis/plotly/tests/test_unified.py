@@ -14,10 +14,17 @@ from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
 from ax.core.arm import Arm
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_offline_experiments,
+    get_online_experiments,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
-from ax.utils.testing.modeling_stubs import get_sobol_MBM_MTGP_gs
-from pyre_extensions import assert_is_instance
+from ax.utils.testing.modeling_stubs import (
+    get_default_generation_strategy_at_MBM_node,
+    get_sobol_MBM_MTGP_gs,
+)
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestArmEffectsPlot(TestCase):
@@ -197,6 +204,97 @@ class TestArmEffectsPlot(TestCase):
         )
 
         self.assertEqual(cards, adhoc_cards)
+
+    @TestCase.ax_long_test(
+        reason=(
+            "Adapter.predict still too slow under @mock_botorch_optimize for this test"
+        )
+    )
+    @mock_botorch_optimize
+    def test_online(self) -> None:
+        # Test ArmEffectsPlot can be computed for a variety of experiments which
+        # resemble those we see in an online setting.
+
+        for experiment in get_online_experiments():
+            for use_model_predictions in [True, False]:
+                for trial_index in [None, 0]:
+                    for with_additional_arms in [True, False]:
+                        if use_model_predictions and with_additional_arms:
+                            additional_arms = [
+                                Arm(
+                                    parameters={
+                                        parameter_name: 0
+                                        for parameter_name in (
+                                            experiment.search_space.parameters.keys()
+                                        )
+                                    }
+                                )
+                            ]
+                        else:
+                            additional_arms = None
+
+                        generation_strategy = (
+                            get_default_generation_strategy_at_MBM_node(
+                                experiment=experiment
+                            )
+                        )
+                        generation_strategy.current_node._fit(experiment=experiment)
+                        adapter = none_throws(generation_strategy.model)
+
+                        analysis = ArmEffectsPlot(
+                            metric_names=[*adapter.metric_names],
+                            use_model_predictions=use_model_predictions,
+                            trial_index=trial_index,
+                            additional_arms=additional_arms,
+                        )
+
+                        _ = analysis.compute(
+                            experiment=experiment,
+                            adapter=adapter,
+                        )
+
+    @mock_botorch_optimize
+    def test_offline(self) -> None:
+        # Test ArmEffectsPlot can be computed for a variety of experiments which
+        # resemble those we see in an offline setting.
+
+        for experiment in get_offline_experiments():
+            for use_model_predictions in [True, False]:
+                for trial_index in [None, 0]:
+                    for with_additional_arms in [True, False]:
+                        if use_model_predictions and with_additional_arms:
+                            additional_arms = [
+                                Arm(
+                                    parameters={
+                                        parameter_name: 0
+                                        for parameter_name in (
+                                            experiment.search_space.parameters.keys()
+                                        )
+                                    }
+                                )
+                            ]
+                        else:
+                            additional_arms = None
+
+                        generation_strategy = (
+                            get_default_generation_strategy_at_MBM_node(
+                                experiment=experiment
+                            )
+                        )
+                        generation_strategy.current_node._fit(experiment=experiment)
+                        adapter = none_throws(generation_strategy.model)
+
+                        analysis = ArmEffectsPlot(
+                            metric_names=[*adapter.metric_names],
+                            use_model_predictions=use_model_predictions,
+                            trial_index=trial_index,
+                            additional_arms=additional_arms,
+                        )
+
+                        _ = analysis.compute(
+                            experiment=experiment,
+                            adapter=adapter,
+                        )
 
 
 class TestArmEffectsPlotRel(TestCase):
