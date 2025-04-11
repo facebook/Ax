@@ -5,9 +5,13 @@
 
 # pyre-unsafe
 
-from ax.analysis.plotly.arm_effects.unified import ArmEffectsPlot
+from ax.analysis.plotly.arm_effects.unified import (
+    ArmEffectsPlot,
+    compute_arm_effects_adhoc,
+)
 from ax.api.client import Client
 from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
+from ax.core.arm import Arm
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -93,6 +97,7 @@ class TestArmEffectsPlot(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "foo_mean",
                 "foo_sem",
             },
@@ -105,6 +110,7 @@ class TestArmEffectsPlot(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "bar_mean",
                 "bar_sem",
             },
@@ -138,6 +144,7 @@ class TestArmEffectsPlot(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "foo_mean",
                 "foo_sem",
             },
@@ -150,6 +157,7 @@ class TestArmEffectsPlot(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
+                "p_feasible",
                 "bar_mean",
                 "bar_sem",
             },
@@ -164,6 +172,31 @@ class TestArmEffectsPlot(TestCase):
         # Check that all SEMs are not NaN
         self.assertFalse(cards[0].df["foo_sem"].isna().any())
         self.assertFalse(cards[1].df["bar_sem"].isna().any())
+
+    def test_compute_adhoc(self) -> None:
+        # Use the same kwargs for typical and adhoc
+        kwargs = {
+            "metric_names": ["foo", "bar"],
+            "use_model_predictions": True,
+            "additional_arms": [Arm(parameters={"x1": 0, "x2": 0})],
+            "labels": {"foo": "f"},
+        }
+        # pyre-ignore[6]: Unsafe kwargs usage on purpose
+        analysis = ArmEffectsPlot(**kwargs)
+
+        cards = analysis.compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        )
+
+        adhoc_cards = compute_arm_effects_adhoc(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+            # pyre-ignore[6]: Unsafe kwargs usage on purpose
+            **kwargs,
+        )
+
+        self.assertEqual(cards, adhoc_cards)
 
 
 class TestArmEffectsPlotRel(TestCase):
@@ -204,6 +237,7 @@ class TestArmEffectsPlotRel(TestCase):
                         "arm_name",
                         "trial_status",
                         "generation_node",
+                        "p_feasible",
                         "branin_mean",
                         "branin_sem",
                     },
