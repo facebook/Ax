@@ -26,6 +26,11 @@ from ax.utils.stats.statstools import relativize
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
+# Warn if p_feasible is less than this threshold.
+# TODO: Move this constrant to best point utilities so that the logic for warning in
+# analyses is also gates points from being chosen during best point selection.
+POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD: float = 0.05
+
 
 def extract_relevant_adapter(
     experiment: Experiment | None,
