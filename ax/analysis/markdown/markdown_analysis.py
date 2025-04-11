@@ -14,6 +14,7 @@ import markdown
 import pandas as pd
 from ax.analysis.analysis import (
     Analysis,
+    AnalysisBlobAnnotation,
     AnalysisCard,
     AnalysisCardCategory,
     AnalysisCardLevel,
@@ -27,7 +28,7 @@ from pyre_extensions import override
 
 
 class MarkdownAnalysisCard(AnalysisCard):
-    blob_annotation = "markdown"
+    blob_annotation: AnalysisBlobAnnotation = AnalysisBlobAnnotation.MARKDOWN
 
     def get_markdown(self) -> str:
         return self.blob

@@ -5,7 +5,11 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.analysis import (
+    AnalysisBlobAnnotation,
+    AnalysisCardCategory,
+    AnalysisCardLevel,
+)
 from ax.analysis.plotly.cross_validation import (
     cross_validation_adhoc_compute,
     CrossValidationPlot,
@@ -85,7 +89,7 @@ class TestCrossValidationPlot(TestCase):
             {"arm_name", "observed", "observed_95_ci", "predicted", "predicted_95_ci"},
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, "plotly")
+        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
         # Assert that all arms are in the cross validation df
         # because trial index is not specified
         for t in self.client.experiment.trials.values():

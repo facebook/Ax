@@ -8,7 +8,7 @@ import json
 from enum import IntEnum
 from typing import Sequence
 
-from ax.analysis.analysis import Analysis, AnalysisCard
+from ax.analysis.analysis import Analysis, AnalysisBlobAnnotation, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
@@ -22,7 +22,7 @@ class HealthcheckStatus(IntEnum):
 
 
 class HealthcheckAnalysisCard(AnalysisCard):
-    blob_annotation = "healthcheck"
+    blob_annotation: AnalysisBlobAnnotation = AnalysisBlobAnnotation.HEALTHCHECK
 
     def get_status(self) -> HealthcheckStatus:
         return HealthcheckStatus(json.loads(self.blob)["status"])

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
-from enum import IntEnum
+from enum import Enum, IntEnum
 from logging import Logger
 from typing import Any, Protocol, Sequence
 
@@ -81,6 +81,14 @@ class AnalysisCardCategory(IntEnum):
     INFO = 4
 
 
+class AnalysisBlobAnnotation(Enum):
+    DATAFRAME = "dataframe"
+    PLOTLY = "plotly"
+    MARKDOWN = "markdown"
+    HEALTHCHECK = "healthcheck"
+    ERROR = "error"
+
+
 class AnalysisCard(Base):
     # Name of the analysis computed, usually the class name of the Analysis which
     # produced the card. Useful for grouping by when querying a large collection of
@@ -108,7 +116,7 @@ class AnalysisCard(Base):
     # grouping the cards to display only one category in notebook environments.
     category: int
     # How to interpret the blob (ex. "dataframe", "plotly", "markdown")
-    blob_annotation = "dataframe"
+    blob_annotation: AnalysisBlobAnnotation = AnalysisBlobAnnotation.DATAFRAME
 
     # Singleton for tracking whether this is the first time the AnalysisCard is being
     # initialized. This is used to control whether the custom IPython Formatter

@@ -5,7 +5,11 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.analysis import (
+    AnalysisBlobAnnotation,
+    AnalysisCardCategory,
+    AnalysisCardLevel,
+)
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
 from ax.api.client import Client
 from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
@@ -76,7 +80,7 @@ class TestSensitivityAnalysisPlot(TestCase):
         )
         self.assertEqual(len(card.df), 2)
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, "plotly")
+        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         second_order = SensitivityAnalysisPlot(metric_names=["bar"], order="second")
         (card,) = second_order.compute(generation_strategy=client._generation_strategy)

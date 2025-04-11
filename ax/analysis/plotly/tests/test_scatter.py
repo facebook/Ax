@@ -5,7 +5,11 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.analysis import (
+    AnalysisBlobAnnotation,
+    AnalysisCardCategory,
+    AnalysisCardLevel,
+)
 from ax.analysis.plotly.scatter import _prepare_data, scatter_plot, ScatterPlot
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.modelbridge.registry import Generators
@@ -67,7 +71,7 @@ class TestScatterPlot(TestCase):
             },
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, "plotly")
+        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
     @mock_botorch_optimize
     def test_adhoc_scatter(self) -> None:
@@ -86,7 +90,7 @@ class TestScatterPlot(TestCase):
                 f"Observed {self.x_metric_name} vs. {self.y_metric_name}",
             )
             self.assertIsNotNone(adhoc_card.blob)
-            self.assertEqual(adhoc_card.blob_annotation, "plotly")
+            self.assertEqual(adhoc_card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
         with self.subTest("Custom points provided"):
             gr = adapter.gen(n=3)
             adhoc_cards = scatter_plot(

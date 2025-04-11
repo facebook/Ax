@@ -9,7 +9,11 @@ from unittest.mock import patch
 
 import torch
 
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.analysis import (
+    AnalysisBlobAnnotation,
+    AnalysisCardCategory,
+    AnalysisCardLevel,
+)
 from ax.analysis.plotly.arm_effects.predicted_effects import PredictedEffectsPlot
 from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
 from ax.core.observation import ObservationFeatures
@@ -150,7 +154,7 @@ class TestPredictedEffectsPlot(TestCase):
                     },
                 )
                 self.assertIsNotNone(card.blob)
-                self.assertEqual(card.blob_annotation, "plotly")
+                self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
                 for trial in experiment.trials.values():
                     for arm in trial.arms:
                         self.assertIn(arm.name, card.df["arm_name"].unique())

@@ -1108,7 +1108,10 @@ class Encoder:
             level=int(analysis_card.level),
             dataframe_json=analysis_card.df.to_json(),
             blob=analysis_card.blob,
-            blob_annotation=analysis_card.blob_annotation,
+            # AnalysisCard.blob_annotation is a string, but is also set as an
+            # AnalysisBlobAnnotation enum. Directly saving the enum leads to MySQL
+            # warnings.
+            blob_annotation=str(analysis_card.blob_annotation),
             time_created=timestamp,
             experiment_id=experiment_id,
             attributes=json.dumps(analysis_card.attributes),
