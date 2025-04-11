@@ -11,6 +11,7 @@ from ax.analysis.utils import _relativize_data, prepare_arm_data
 from ax.api.client import Client
 from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
 from ax.core.arm import Arm
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
@@ -220,6 +221,24 @@ class TestUtils(TestCase):
         # Check that all SEMs are NaN
         self.assertTrue(only_trial_0_df["foo_sem"].isna().all())
 
+        only_completed_trials_df = prepare_arm_data(
+            experiment=self.client._experiment,
+            metric_names=["foo", "bar"],
+            use_model_predictions=False,
+            trial_statuses=[TrialStatus.COMPLETED],
+        )
+
+        # Check that we have two rows per arm and that each arm appears only once
+        self.assertEqual(
+            len(only_completed_trials_df), len(self.client._experiment.arms_by_name) - 1
+        )
+
+        # Check that all means are not NaN
+        self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
+
+        # Check that all SEMs are NaN
+        self.assertTrue(only_completed_trials_df["foo_sem"].isna().all())
+
     def test_prepare_arm_data_use_model_predictions(self) -> None:
         df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -401,6 +420,25 @@ class TestUtils(TestCase):
         self.assertFalse(with_additional_arms_df["foo_sem"].isna().any())
         self.assertFalse(with_additional_arms_df["bar_mean"].isna().any())
         self.assertFalse(with_additional_arms_df["bar_sem"].isna().any())
+
+        only_completed_trials_df = prepare_arm_data(
+            experiment=self.client._experiment,
+            metric_names=["foo", "bar"],
+            use_model_predictions=True,
+            adapter=self.client._generation_strategy.model,
+            trial_statuses=[TrialStatus.COMPLETED],
+        )
+
+        # Check that we have two rows per arm and that each arm appears only once
+        self.assertEqual(
+            len(only_completed_trials_df), len(self.client._experiment.arms_by_name) - 1
+        )
+
+        # Check that all means are not NaN
+        self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
+
+        # Check that all SEMs are not NaN
+        self.assertFalse(only_completed_trials_df["foo_sem"].isna().any())
 
     def test_relativize_data(self) -> None:
         df = pd.DataFrame(
