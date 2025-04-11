@@ -2542,7 +2542,7 @@ class TestAxClient(TestCase):
         # Check that we did not specify objective threshold overrides (because we
         # did not have to infer them)
         self.assertIsNone(
-            mock_predicted_pareto.call_args[1].get("objective_thresholds")
+            mock_predicted_pareto.call_args.kwargs.get("objective_thresholds")
         )
         # Observed Pareto values should be better than the reference point.
         for obs in observed_pareto.values():

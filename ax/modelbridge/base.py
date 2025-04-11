@@ -856,13 +856,19 @@ class Adapter:
             observation_features=observation_features,
             arms_by_signature=self._arms_by_signature,
         )
+
         # If experiment has immutable search space and metrics, no need to
         # save them on generator runs.
         immutable = getattr(
             self, "_experiment_has_immutable_search_space_and_opt_config", False
         )
         optimization_config = None if immutable else base_gen_args.optimization_config
-        gr = GeneratorRun(
+        # Remove information about the objective thresholds - we do not want to save
+        # these as `ObjectiveThreshold` objects, as this causes storage headaches.
+        gen_metadata = gen_results.gen_metadata
+        gen_metadata.pop("objective_thresholds", None)
+
+        generator_run = GeneratorRun(
             arms=arms,
             weights=gen_results.weights,
             optimization_config=optimization_config,
@@ -876,18 +882,18 @@ class Adapter:
             model_key=self._model_key,
             model_kwargs=self._model_kwargs,
             bridge_kwargs=self._bridge_kwargs,
-            gen_metadata=gen_results.gen_metadata,
+            gen_metadata=gen_metadata,
             model_state_after_gen=self._get_serialized_model_state(),
             candidate_metadata_by_arm_signature=candidate_metadata,
         )
-        if len(gr.arms) < n:
+        if len(generator_run.arms) < n:
             logger.warning(
                 f"{self} was not able to generate {n} unique candidates. "
                 "Generated arms have the following weights, as there are repeats:\n"
-                f"{gr.weights}"
+                f"{generator_run.weights}"
             )
         self.fit_time_since_gen = 0.0
-        return gr
+        return generator_run
 
     def _gen(
         self,

@@ -413,18 +413,11 @@ def get_pareto_optimal_parameters(
                 Data,
             ),
         )
-    modelbridge = assert_is_instance(
-        modelbridge,
-        TorchAdapter,
-    )
+    modelbridge = assert_is_instance(modelbridge, TorchAdapter)
 
-    # If objective thresholds are not specified in optimization config, extract
-    # the inferred ones if possible or infer them anew if not.
     objective_thresholds_override = None
+    # If objective thresholds are not specified in optimization config, infer them.
     if not moo_optimization_config.objective_thresholds:
-        lgr = generation_strategy.last_generator_run
-        if lgr and lgr.gen_metadata and "objective_thresholds" in lgr.gen_metadata:
-            objective_thresholds_override = lgr.gen_metadata["objective_thresholds"]
         objective_thresholds_override = modelbridge.infer_objective_thresholds(
             search_space=experiment.search_space,
             optimization_config=optimization_config,
