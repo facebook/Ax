@@ -6,20 +6,12 @@
 # pyre-strict
 
 
-import traceback
 from typing import Sequence
 
 import markdown
 
 import pandas as pd
-from ax.analysis.analysis import (
-    Analysis,
-    AnalysisBlobAnnotation,
-    AnalysisCard,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-    AnalysisE,
-)
+from ax.analysis.analysis import Analysis, AnalysisBlobAnnotation, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
@@ -76,26 +68,3 @@ class MarkdownAnalysis(Analysis):
             blob=message,
             category=category,
         )
-
-
-def markdown_analysis_card_from_analysis_e(
-    analysis_e: AnalysisE,
-) -> list[MarkdownAnalysisCard]:
-    return [
-        MarkdownAnalysisCard(
-            name=analysis_e.analysis.name,
-            title=f"{analysis_e.analysis.name} Error",
-            subtitle=f"An error occurred while computing {analysis_e.analysis}",
-            attributes=analysis_e.analysis.attributes,
-            blob="".join(
-                traceback.format_exception(
-                    type(analysis_e.exception),
-                    analysis_e.exception,
-                    analysis_e.exception.__traceback__,
-                )
-            ),
-            df=pd.DataFrame(),
-            level=AnalysisCardLevel.DEBUG,
-            category=AnalysisCardCategory.ERROR,
-        )
-    ]
