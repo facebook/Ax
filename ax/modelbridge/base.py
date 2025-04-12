@@ -477,20 +477,21 @@ class Adapter:
             map_keys = extract_map_keys_from_opt_config(
                 optimization_config=self._optimization_config
             )
-            if len(map_keys) > 1:
+            if len(map_keys) == 1:
+                map_key = map_keys.pop()
+                # Pick the observation with maximal map key value.
+                self._status_quo = max(
+                    status_quo_observations,
+                    key=lambda obs: obs.features.metadata[map_key],
+                )
+            else:
                 logger.warning(
                     f"Status quo {self._status_quo_name} was found in the data with "
                     "multiple observations, and the optimization config includes "
-                    "multiple map keys. `Adapter.status_quo` will not be set."
+                    f"{len(map_keys)} map keys. `Adapter.status_quo` will not be set."
                 )
-                return
-            map_key = map_keys.pop()
-            # Pick the observation with maximal map key value.
-            self._status_quo = max(
-                status_quo_observations, key=lambda obs: obs.features.metadata[map_key]
-            )
-
-        self._status_quo = status_quo_observations[-1]
+        else:
+            self._status_quo = status_quo_observations[-1]
 
     @property
     def status_quo_data_by_trial(self) -> dict[int, ObservationData] | None:
