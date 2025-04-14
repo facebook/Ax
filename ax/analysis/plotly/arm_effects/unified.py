@@ -69,7 +69,8 @@ class ArmEffectsPlot(PlotlyAnalysis):
                 each arm. The latter is often less trustworthy than the former,
                 especially when model fit is good and in high-noise settings.
             relativize: Whether to relativize the effects of each arm against the status
-                quo arm.
+                quo arm. If multiple status quo arms are present, relativize each arm
+                against the status quo arm from the same trial.
             trial_index: If present, only use arms from the trial with the given index.
             additional_arms: If present, include these arms in the plot in addition to
                 the arms in the experiment. These arms will be marked as belonging to a
@@ -156,6 +157,65 @@ class ArmEffectsPlot(PlotlyAnalysis):
             )
             for metric_name in metric_names
         ]
+
+
+def compute_arm_effects_adhoc(
+    experiment: Experiment,
+    generation_strategy: GenerationStrategy | None = None,
+    adapter: Adapter | None = None,
+    metric_names: Sequence[str] | None = None,
+    use_model_predictions: bool = True,
+    relativize: bool = False,
+    trial_index: int | None = None,
+    additional_arms: Sequence[Arm] | None = None,
+    labels: Mapping[str, str] | None = None,
+) -> list[PlotlyAnalysisCard]:
+    """
+    Compute ArmEffectsPlot cards for the given experiment and either Adapter or
+    GenerationStrategy.
+
+    Note that cards are not saved to the database when computed adhoc -- they are only
+    saved when computed as part of a call to ``Client.compute_analyses`` or equivalent.
+
+    Args:
+        experiment: The experiment to extract data from.
+        metric_names: The names of the metrics to include in the plot. If not
+            specified, all metrics in the experiment will be used.
+        generation_strategy: The GenerationStrategy to use for predictions if
+            use_model_predictions=True.
+        adapter: The adapter to use for predictions if use_model_predictions=True.
+        use_model_predictions: Whether to use model predictions or observed data.
+            If ``True``, the plot will show the predicted effects of each arm based
+            on the model. If ``False``, the plot will show the observed effects of
+            each arm. The latter is often less trustworthy than the former,
+            especially when model fit is good and in high-noise settings.
+        relativize: Whether to relativize the effects of each arm against the status
+            quo arm. If multiple status quo arms are present, relativize each arm
+            against the status quo arm from the same trial.
+        trial_index: If present, only use arms from the trial with the given index.
+        additional_arms: If present, include these arms in the plot in addition to
+            the arms in the experiment. These arms will be marked as belonging to a
+            trial with index -1.
+        labels: A mapping from metric names to labels to use in the plot. If a label
+            is not provided for a metric, the metric name will be used.
+    """
+
+    analysis = ArmEffectsPlot(
+        metric_names=metric_names,
+        use_model_predictions=use_model_predictions,
+        relativize=relativize,
+        trial_index=trial_index,
+        additional_arms=additional_arms,
+        labels=labels,
+    )
+
+    return [
+        *analysis.compute(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
+    ]
 
 
 def _prepare_figure(
