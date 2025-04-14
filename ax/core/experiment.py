@@ -1901,6 +1901,7 @@ class Experiment(Base):
 
                 # Find the arm's associated generation method from the trial via the
                 # GeneratorRuns if possible
+                generation_method = trial.generation_method_str
                 grs = [gr for gr in trial.generator_runs if arm in gr.arms]
                 generation_node = grs[0]._generation_node_name if len(grs) > 0 else None
 
@@ -1923,6 +1924,7 @@ class Experiment(Base):
                     "trial_status": trial.status.name,
                     "fail_reason": trial.run_metadata.get("fail_reason", None),
                     "generation_node": generation_node,
+                    "generation_method": generation_method,
                     **metadata,
                     **observed_means,
                     **arm.parameters,
