@@ -35,7 +35,10 @@ def choose_analyses(experiment: Experiment) -> list[Analysis]:
         # Pareto frontiers for each objective
         objective_plots = [
             *[
-                ScatterPlot(x_metric_name=x, y_metric_name=y, show_pareto_frontier=True)
+                ScatterPlot(
+                    x_metric_name=x,
+                    y_metric_name=y,
+                )
                 for x, y in itertools.combinations(
                     optimization_config.objective.metric_names, 2
                 )
@@ -64,7 +67,6 @@ def choose_analyses(experiment: Experiment) -> list[Analysis]:
             ScatterPlot(
                 x_metric_name=objective_name,
                 y_metric_name=name,
-                show_pareto_frontier=False,
             )
             for name in [
                 *optimization_config.metrics,

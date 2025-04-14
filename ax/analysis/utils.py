@@ -107,6 +107,9 @@ def prepare_arm_data(
             collection. If not present, include all arms on the experiment.
         additional_arms: If present, include these arms in the table. These arms will
             be marked as belonging to a trial with index -1.
+        relativize: Whether to relativize the effects of each arm against the status
+            quo arm. If multiple status quo arms are present, relativize each arm
+            against the status quo arm from the same trial.
 
     Returns a DataFrame with the following columns:
         - trial_index
