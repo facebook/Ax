@@ -1111,7 +1111,7 @@ class Encoder:
             # AnalysisCard.blob_annotation is a string, but is also set as an
             # AnalysisBlobAnnotation enum. Directly saving the enum leads to MySQL
             # warnings.
-            blob_annotation=str(analysis_card.blob_annotation),
+            blob_annotation=analysis_card.blob_annotation.value,
             time_created=timestamp,
             experiment_id=experiment_id,
             attributes=json.dumps(analysis_card.attributes),
