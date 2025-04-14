@@ -436,22 +436,19 @@ class UtilsTest(TestCase):
             ),
         ):
             pending = get_pending_observation_features(hss_exp)
-            self.assertEqual(
-                pending,
-                {
-                    "m1": [self.hss_obs_feat],
-                    "m2": [self.hss_obs_feat],
-                },
-            )
-            # Check that candidate metadata is property propagated for abandoned arm.
-            for p in none_throws(pending).values():
-                for pf in p:
-                    self.assertEqual(
-                        none_throws(pf.metadata),
-                        none_throws(self.hss_gr.candidate_metadata_by_arm_signature)[
-                            self.hss_arm.signature
-                        ],
-                    )
+        self.assertEqual(
+            pending,
+            {"m1": [self.hss_obs_feat], "m2": [self.hss_obs_feat]},
+        )
+        # Check that candidate metadata is property propagated for abandoned arm.
+        for p in none_throws(pending).values():
+            for pf in p:
+                self.assertEqual(
+                    none_throws(pf.metadata),
+                    none_throws(self.hss_gr.candidate_metadata_by_arm_signature)[
+                        self.hss_arm.signature
+                    ],
+                )
 
         # Checking with data for all metrics.
         with patch.object(

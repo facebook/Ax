@@ -394,14 +394,14 @@ class TestBestPointUtils(TestCase):
                 modelbridge=test_modelbridge_1,
                 observations=test_observations_1,
             )
-            self.assertTrue(
-                any(
-                    "Adapter and Experiment provided to "
-                    "`_derel_opt_config_wrapper`. Ignoring the latter." in warning
-                    for warning in lg.output
-                ),
-                msg=lg.output,
-            )
+        self.assertTrue(
+            any(
+                "Adapter and Experiment provided to "
+                "`_derel_opt_config_wrapper`. Ignoring the latter." in warning
+                for warning in lg.output
+            ),
+            msg=lg.output,
+        )
         self.assertEqual(returned_value, DUMMY_OPTIMIZATION_CONFIG)
         mock_derelativize.assert_called_with(
             optimization_config=input_optimization_config,

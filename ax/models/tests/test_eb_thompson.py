@@ -75,11 +75,11 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
                 parameter_values=self.parameter_values,
                 objective_weights=np.array([1, 0]),
             )
-            self.assertEqual(arms, [[4, 4], [3, 3], [2, 2], [1, 1]])
-            for weight, expected_weight in zip(
-                weights, [5 * i for i in [0.66, 0.25, 0.07, 0.02]]
-            ):
-                self.assertAlmostEqual(weight, expected_weight, delta=0.1)
+        self.assertEqual(arms, [[4, 4], [3, 3], [2, 2], [1, 1]])
+        for weight, expected_weight in zip(
+            weights, [5 * i for i in [0.66, 0.25, 0.07, 0.02]]
+        ):
+            self.assertAlmostEqual(weight, expected_weight, delta=0.1)
 
     def test_EmpiricalBayesThompsonSamplerWarning(self) -> None:
         set_rng_seed(0)

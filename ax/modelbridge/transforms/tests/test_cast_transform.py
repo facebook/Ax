@@ -139,11 +139,9 @@ class CastTransformTest(TestCase):
             flattened_search_space = self.t_hss.transform_search_space(
                 search_space=self.hss
             )
-            mock_hss_flatten.assert_called_once()
-            self.assertIsNot(flattened_search_space, self.hss)
-            self.assertFalse(
-                isinstance(flattened_search_space, HierarchicalSearchSpace)
-            )
+        mock_hss_flatten.assert_called_once()
+        self.assertIsNot(flattened_search_space, self.hss)
+        self.assertFalse(isinstance(flattened_search_space, HierarchicalSearchSpace))
 
     def test_transform_observation_features_HSS(self) -> None:
         # Untransform the observation features first to cast them and
@@ -159,7 +157,7 @@ class CastTransformTest(TestCase):
             transformed_obs_feats = self.t_hss.transform_observation_features(
                 observation_features=obs_feats
             )
-            mock_flatten_obsf.assert_called_once()
+        mock_flatten_obsf.assert_called_once()
 
         for obsf in transformed_obs_feats:
             # Check that transformed obs feats have all the parameters
@@ -223,7 +221,7 @@ class CastTransformTest(TestCase):
             obs_feats = self.t_hss.untransform_observation_features(
                 observation_features=[self.obs_feats_hss]
             )
-            mock_cast_obsf.assert_called_once()
+        mock_cast_obsf.assert_called_once()
 
         self.assertEqual(len(obs_feats), 1)
         obsf = obs_feats[0]

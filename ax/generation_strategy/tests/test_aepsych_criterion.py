@@ -77,17 +77,16 @@ class TestAEPsychCriterion(TestCase):
             )
         )
         with patch.object(experiment, "fetch_data", return_value=data):
-            # We have seen three "yes" and three "no"
-            self.assertTrue(
-                generation_strategy._maybe_transition_to_next_node(
-                    raise_data_required_error=False
-                )
+            move_to_next_node = generation_strategy._maybe_transition_to_next_node(
+                raise_data_required_error=False
             )
+        # We have seen three "yes" and three "no"
+        self.assertTrue(move_to_next_node)
 
-            self.assertEqual(
-                generation_strategy._curr.model_spec_to_gen_from.model_enum,
-                Generators.BOTORCH_MODULAR,
-            )
+        self.assertEqual(
+            generation_strategy._curr.model_spec_to_gen_from.model_enum,
+            Generators.BOTORCH_MODULAR,
+        )
 
     def test_many_criteria(self) -> None:
         criteria = [
@@ -131,13 +130,12 @@ class TestAEPsychCriterion(TestCase):
             )
         )
         with patch.object(experiment, "fetch_data", return_value=data):
-            # We have seen three "yes" and three "no", but not enough trials
-            # are completed
-            self.assertFalse(
-                generation_strategy._maybe_transition_to_next_node(
-                    raise_data_required_error=False
-                )
+            move_to_next_node = generation_strategy._maybe_transition_to_next_node(
+                raise_data_required_error=False
             )
+        # We have seen three "yes" and three "no", but not enough trials are
+        # completed
+        self.assertFalse(move_to_next_node)
 
         for _i in range(6):
             experiment.new_trial(generation_strategy.gen(experiment=experiment))
@@ -153,15 +151,14 @@ class TestAEPsychCriterion(TestCase):
         )
 
         with patch.object(experiment, "fetch_data", return_value=data):
-            # Enough trials are completed but we have not seen three "yes" and three
-            # "no"
-            self.assertTrue(
-                generation_strategy._maybe_transition_to_next_node(
-                    raise_data_required_error=False
-                )
+            move_to_next_node = generation_strategy._maybe_transition_to_next_node(
+                raise_data_required_error=False
             )
+        # Enough trials are completed but we have not seen three "yes" and three
+        # "no"
+        self.assertTrue(move_to_next_node)
 
-            self.assertEqual(
-                generation_strategy._curr.model_spec_to_gen_from.model_enum,
-                Generators.BOTORCH_MODULAR,
-            )
+        self.assertEqual(
+            generation_strategy._curr.model_spec_to_gen_from.model_enum,
+            Generators.BOTORCH_MODULAR,
+        )

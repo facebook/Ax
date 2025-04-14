@@ -49,8 +49,10 @@ class TimeAsFeatureTransformTest(TestCase):
             )
             for obsf in self.training_feats
         ]
+        self.time_return_value = 5.0
         time_patcher = mock.patch(
-            "ax.modelbridge.transforms.time_as_feature.time", return_value=5.0
+            "ax.modelbridge.transforms.time_as_feature.time",
+            return_value=self.time_return_value,
         )
         self.time_patcher = time_patcher.start()
         self.addCleanup(time_patcher.stop)
@@ -60,7 +62,7 @@ class TimeAsFeatureTransformTest(TestCase):
         )
 
     def test_init(self) -> None:
-        self.assertEqual(self.t.current_time, 5.0)
+        self.assertEqual(self.t.current_time, self.time_return_value)
         self.assertEqual(self.t.min_duration, 1.0)
         self.assertEqual(self.t.max_duration, 4.0)
         self.assertEqual(self.t.duration_range, 3.0)
@@ -103,7 +105,9 @@ class TimeAsFeatureTransformTest(TestCase):
         obsf_trans = self.t.transform_observation_features(obsf)
         self.assertEqual(
             obsf_trans[0],
-            ObservationFeatures({"x": 2.5, "duration": 0.5, "start_time": 5.0}),
+            ObservationFeatures(
+                {"x": 2.5, "duration": 0.5, "start_time": self.time_return_value}
+            ),
         )
         # test untransforming observation features that do not have
         # start/end time (important for fixed features in MOO when un-
