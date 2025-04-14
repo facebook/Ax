@@ -16,6 +16,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
@@ -81,6 +82,7 @@ def prepare_arm_data(
     use_model_predictions: bool,
     adapter: Adapter | None = None,
     trial_index: int | None = None,
+    trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
     relativize: bool = False,
 ) -> pd.DataFrame:
@@ -101,6 +103,8 @@ def prepare_arm_data(
         trial_index: If present, only use arms from the trial with the given index.
             Otherwise include all arms on the experiment. If trial_index=-1, do not
             include any arms from the experiment.
+        trial_statuses: If present, only include arms from trials with statuses in this
+            collection. If not present, include all arms on the experiment.
         additional_arms: If present, include these arms in the table. These arms will
             be marked as belonging to a trial with index -1.
 
@@ -131,6 +135,12 @@ def prepare_arm_data(
     ):
         raise UserInputError(f"Trial with index {trial_index} not found in experiment.")
 
+    if trial_index is not None and trial_statuses is not None:
+        raise UserInputError(
+            "Cannot provide both trial_index and trial_statuses. Either provide a "
+            "trial_index to filter on or a collection of trial_statuses to filter on."
+        )
+
     if use_model_predictions:
         if adapter is None:
             raise UserInputError(
@@ -142,6 +152,7 @@ def prepare_arm_data(
             metric_names=metric_names,
             adapter=adapter,
             trial_index=trial_index,
+            trial_statuses=trial_statuses,
             additional_arms=additional_arms,
         )
     else:
@@ -156,6 +167,7 @@ def prepare_arm_data(
             metric_names=metric_names,
             experiment=experiment,
             trial_index=trial_index,
+            trial_statuses=trial_statuses,
         )
 
     # If relevant, relativize the data. Prefer to relativize each arm by the status quo
@@ -163,6 +175,15 @@ def prepare_arm_data(
     # experiment. Prefer to use the predictions (if use_model_predictions=True), but
     # fall back on the raw data if predictions for the status quo arm are not available.
     if relativize:
+        # Use the raw status quo effects if no model predictions are available (ex. if
+        # the status quo had None in its parameters).
+        raw_df = _prepare_raw_arm_data(
+            metric_names=metric_names,
+            experiment=experiment,
+            trial_index=trial_index,
+            trial_statuses=trial_statuses,
+        )
+
         if experiment.status_quo is None:
             raise UserInputError(
                 "Cannot relativize data without a status quo arm on the experiment."
@@ -183,6 +204,7 @@ def prepare_arm_data(
                 metric_names=metric_names,
                 experiment=experiment,
                 trial_index=trial_index,
+                trial_statuses=trial_statuses,
             )
         else:
             # If use_model_predictions=False, the raw data is the same as the data
@@ -290,6 +312,7 @@ def _prepare_modeled_arm_data(
     metric_names: Sequence[str],
     adapter: Adapter,
     trial_index: int | None = None,
+    trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
 ) -> pd.DataFrame:
     """
@@ -310,7 +333,8 @@ def _prepare_modeled_arm_data(
                 arm,
             )
             for trial in experiment.trials.values()
-            if (trial.index == trial_index) or (trial_index is None)
+            if ((trial.index == trial_index) or (trial_index is None))
+            and ((trial_statuses is None) or (trial.status in trial_statuses))
             for arm in trial.arms
         ],
         # Additional arms passed in by the user
@@ -389,6 +413,7 @@ def _prepare_raw_arm_data(
     metric_names: Sequence[str],
     experiment: Experiment,
     trial_index: int | None,
+    trial_statuses: Sequence[TrialStatus] | None,
 ) -> pd.DataFrame:
     """
     Extract the raw (mean, sem) for each arm for each requested metric.
@@ -402,13 +427,16 @@ def _prepare_raw_arm_data(
     # If trial_index is -1 do not extract any data.
     if trial_index == -1:
         return pd.DataFrame()
-    # If trial_index is None, extract data from all trials.
-    elif trial_index is not None:
-        trials = [experiment.trials[trial_index]]
-        data_df = experiment.lookup_data(trial_indices=[trial_index]).df
     else:
-        trials = [*experiment.trials.values()]
-        data_df = experiment.lookup_data().df
+        trials = [
+            trial
+            for trial in experiment.trials.values()
+            if (trial.index == trial_index or trial_index is None)
+            and ((trial_statuses is None) or (trial.status in trial_statuses))
+        ]
+        data_df = experiment.lookup_data(
+            trial_indices=[trial.index for trial in trials]
+        ).df
 
     records = []
     for trial in trials:
