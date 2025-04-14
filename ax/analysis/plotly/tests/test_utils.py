@@ -60,14 +60,14 @@ class TestUtils(TestCase):
         self.assertEqual(
             foo_tooltip,
             "Trial: 5<br />Arm: 5_0<br />Status: COMPLETED<br />"
-            "Generation Node: MBM<br />foo: 0.45051±0.29855",
+            "Generation Node: MBM<br />foo: 0.45051±0.29855<br />",
         )
 
         bar_tooltip = get_arm_tooltip(row=row, metric_names=["bar"])
         self.assertEqual(
             bar_tooltip,
             "Trial: 5<br />Arm: 5_0<br />Status: COMPLETED<br />"
-            "Generation Node: MBM<br />bar: -0.22247±1.25131",
+            "Generation Node: MBM<br />bar: -0.22247±1.25131<br />",
         )
 
     def test_no_constraints_violates_none(self) -> None:
