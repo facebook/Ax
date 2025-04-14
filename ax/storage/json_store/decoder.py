@@ -320,6 +320,9 @@ def generator_run_from_json(
     time_created_json = object_json.pop("time_created")
     type_json = object_json.pop("generator_run_type")
     index_json = object_json.pop("index")
+    # Remove `objective_thresholds` to avoid issues with registries, since
+    # `ObjectiveThreshold` depend on `Metric` objects.
+    object_json.pop("objective_thresholds", None)
     generator_run = GeneratorRun(
         **{
             k: object_from_json(
