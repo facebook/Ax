@@ -213,6 +213,8 @@ class MultiTypeExperimentTest(TestCase):
         runner1 = self.experiment.runner_for_trial_type(trial_type="type1")
         runner2 = self.experiment.runner_for_trial_type(trial_type="type2")
 
+        # Mock is needed because SyntheticRunner does not implement a 'stop'
+        # method
         with patch.object(
             runner1, "stop", return_value=None
         ) as mock_runner_stop1, patch.object(
@@ -223,9 +225,9 @@ class MultiTypeExperimentTest(TestCase):
             self.experiment.stop_trial_runs(
                 trials=[self.experiment.trials[0], self.experiment.trials[1]]
             )
-            mock_runner_stop1.assert_called_once()
-            mock_runner_stop2.assert_called()
-            mock_mark_stopped.assert_called()
+        mock_runner_stop1.assert_called_once()
+        mock_runner_stop2.assert_called()
+        mock_mark_stopped.assert_called()
 
 
 class MultiTypeExperimentUtilsTest(TestCase):
