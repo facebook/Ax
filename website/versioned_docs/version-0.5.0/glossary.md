@@ -5,7 +5,7 @@ sidebar_label: Glossary
 ---
 ### Arm
 
-Mapping from [parameters](glossary.md#parameter) (i.e. a parameterization or parameter configuration) to parameter values. An arm provides the configuration to be tested in an Ax [trial](glossary.md#trial). Also known as "treatment group" or "parameterization", the name 'arm' comes from the [Multi-Armed Bandit](https://en.wikipedia.org/wiki/Multi-armed_bandit) optimization problem, in which a player facing a row of “one-armed bandit” slot machines has to choose which machines to play when and in what order. [`[Arm]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.arm)
+Mapping from [parameters](glossary.md#parameter) (i.e. a parameterization or parameter configuration) to parameter values. An arm provides the configuration to be tested in an Ax [trial](glossary.md#trial). Also known as "treatment group" or "parameterization", the name 'arm' comes from the [Multi-Armed Bandit](https://en.wikipedia.org/wiki/Multi-armed_bandit) optimization problem, in which a player facing a row of “one-armed bandit” slot machines has to choose which machines to play when and in what order. [`[Arm]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.arm)
 
 ### Bandit optimization
 
@@ -13,7 +13,7 @@ Machine learning-driven version of A/B testing that dynamically allocates traffi
 
 ### Batch trial
 
-Single step in the [experiment](glossary.md#experiment), contains multiple [arms](glossary.md#arm) that are **deployed and evaluated together**. A batch trial is not just a trial with many arms; it is a trial for which it is important that the arms are evaluated simultaneously, e.g. in an A/B test where the evaluation results are subject to nonstationarity. For cases where multiple arms are evaluated separately and independently of each other, use multiple regular [trials](glossary.md#trial) with a single arm each. [`[BatchTrial]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.batch_trial)
+Single step in the [experiment](glossary.md#experiment), contains multiple [arms](glossary.md#arm) that are **deployed and evaluated together**. A batch trial is not just a trial with many arms; it is a trial for which it is important that the arms are evaluated simultaneously, e.g. in an A/B test where the evaluation results are subject to nonstationarity. For cases where multiple arms are evaluated separately and independently of each other, use multiple regular [trials](glossary.md#trial) with a single arm each. [`[BatchTrial]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.batch_trial)
 
 ### Bayesian optimization
 
@@ -25,64 +25,64 @@ Function that takes a parameterization and an optional weight as input and outpu
 
 ### Experiment
 
-Object that keeps track of the whole optimization process. Contains a [search space](glossary.md#search-space), [optimization config](glossary.md#optimization-config), and other metadata. [`[Experiment]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.experiment)
+Object that keeps track of the whole optimization process. Contains a [search space](glossary.md#search-space), [optimization config](glossary.md#optimization-config), and other metadata. [`[Experiment]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.experiment)
 
 ### Generation strategy
 
-Abstraction that allows to declaratively specify one or multiple models to use in the course of the optimization and automate transition between them (relevant [tutorial](/docs/tutorials/scheduler)). [`[GenerationStrategy]`](https://ax.readthedocs.io/en/stable/modelbridge.html#module-ax.modelbridge.generation_strategy)
+Abstraction that allows to declaratively specify one or multiple models to use in the course of the optimization and automate transition between them (relevant [tutorial](/docs/tutorials/scheduler)). [`[GenerationStrategy]`](https://ax.readthedocs.io/en/0.5.0/modelbridge.html#module-ax.modelbridge.generation_strategy)
 
 ### Generator run
 
-Outcome of a single run of the `gen` method of a [model bridge](glossary.md#model-bridge), contains the generated [arms](glossary.md#arm), as well as possibly best [arm](glossary.md#arm) predictions, other [model](glossary.md#model) predictions, fit times etc. [`[GeneratorRun]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.generator_run)
+Outcome of a single run of the `gen` method of a [model bridge](glossary.md#model-bridge), contains the generated [arms](glossary.md#arm), as well as possibly best [arm](glossary.md#arm) predictions, other [model](glossary.md#model) predictions, fit times etc. [`[GeneratorRun]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.generator_run)
 
 ### Metric
 
-Interface for fetching data for a specific measurement on an [experiment](glossary.md#experiment) or [trial](glossary.md#trial). [`[Metric]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.metric)
+Interface for fetching data for a specific measurement on an [experiment](glossary.md#experiment) or [trial](glossary.md#trial). [`[Metric]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.metric)
 
 ### Model
 
-Algorithm that can be used to generate new points in a [search space](glossary.md#search-space). [`[Model]`](https://ax.readthedocs.io/en/stable/models.html)
+Algorithm that can be used to generate new points in a [search space](glossary.md#search-space). [`[Model]`](https://ax.readthedocs.io/en/0.5.0/models.html)
 
 ### Model bridge
 
-Adapter for interactions with a [model](glossary.md#model) within the Ax ecosystem. [`[ModelBridge]`](https://ax.readthedocs.io/en/stable/modelbridge.html)
+Adapter for interactions with a [model](glossary.md#model) within the Ax ecosystem. [`[ModelBridge]`](https://ax.readthedocs.io/en/0.5.0/modelbridge.html)
 
 ### Objective
 
-The [metric](glossary.md#metric) to be optimized, with an optimization direction (maximize/minimize). [`[Objective]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.objective)
+The [metric](glossary.md#metric) to be optimized, with an optimization direction (maximize/minimize). [`[Objective]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.objective)
 
 ### Optimization config
 
-Contains information necessary to run an optimization, i.e. [objective](glossary.md#objective) and [outcome constraints](/docs/glossary#outcome-constraint). [`[OptimizationConfig]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.optimization_config)
+Contains information necessary to run an optimization, i.e. [objective](glossary.md#objective) and [outcome constraints](/docs/glossary#outcome-constraint). [`[OptimizationConfig]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.optimization_config)
 
 ### Outcome constraint
 
-Constraint on [metric](glossary.md#metric) values, can be an order constraint or a sum constraint; violating [arms](glossary.md#arm) will be considered infeasible. [`[OutcomeConstraint]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.outcome_constraint)
+Constraint on [metric](glossary.md#metric) values, can be an order constraint or a sum constraint; violating [arms](glossary.md#arm) will be considered infeasible. [`[OutcomeConstraint]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.outcome_constraint)
 
 ### Parameter
 
-Configurable quantity that can be assigned one of multiple possible values, can be continuous ([`RangeParameter`](https://ax.readthedocs.io/en/stable/core.html#ax.core.parameter.RangeParameter)), discrete ([`ChoiceParameter`](https://ax.readthedocs.io/en/stable/core.html#ax.core.parameter.ChoiceParameter)) or fixed ([`FixedParameter`](https://ax.readthedocs.io/en/stable/core.html#ax.core.parameter.FixedParameter)). [`[Parameter]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.parameter)
+Configurable quantity that can be assigned one of multiple possible values, can be continuous ([`RangeParameter`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.parameter.RangeParameter)), discrete ([`ChoiceParameter`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.parameter.ChoiceParameter)) or fixed ([`FixedParameter`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.parameter.FixedParameter)). [`[Parameter]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.parameter)
 
 ### Parameter constraint
 
-Places restrictions on the relationships between [parameters](glossary.md#parameter).  For example `buffer_size1 < buffer_size2` or `buffer_size_1 + buffer_size_2 < 1024`. [`[ParameterConstraint]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.parameter_constraint)
+Places restrictions on the relationships between [parameters](glossary.md#parameter).  For example `buffer_size1 < buffer_size2` or `buffer_size_1 + buffer_size_2 < 1024`. [`[ParameterConstraint]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.parameter_constraint)
 
 ### Relative outcome constraint
 
-[Outcome constraint](glossary.md#outcome-constraint) evaluated relative to the [status quo](glossary.md#status-quo) instead of directly on the metric value. [`[OutcomeConstraint]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.outcome_constraint)
+[Outcome constraint](glossary.md#outcome-constraint) evaluated relative to the [status quo](glossary.md#status-quo) instead of directly on the metric value. [`[OutcomeConstraint]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.outcome_constraint)
 
 ### Runner
 
-Dispatch abstraction that defines how a given [trial](glossary.md#trial) is to be run (either locally or by dispatching to an external system). [`[Runner]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.runner)
+Dispatch abstraction that defines how a given [trial](glossary.md#trial) is to be run (either locally or by dispatching to an external system). [`[Runner]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.runner)
 
 ### Scheduler
 
 Configurable closed-loop optimization manager class, capable of conducting a full experiment by deploying trials, polling their results, and leveraging those results to generate and deploy more
-trials (relevant [tutorial](/docs/tutorials/scheduler)). [`[Scheduler]`](https://ax.readthedocs.io/en/stable/service.html#module-ax.service.scheduler)
+trials (relevant [tutorial](/docs/tutorials/scheduler)). [`[Scheduler]`](https://ax.readthedocs.io/en/0.5.0/service.html#module-ax.service.scheduler)
 
 ### Search space
 
-Continuous, discrete or mixed design space that defines the set of [parameters](glossary.md#parameter) to be tuned in the optimization, and optionally [parameter constraints](glossary.md#parameter-constraint) on these parameters. The parameters of the [arms](glossary.md#arm) to be evaluated in the optimization are drawn from a search space. [`[SearchSpace]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.search_space)
+Continuous, discrete or mixed design space that defines the set of [parameters](glossary.md#parameter) to be tuned in the optimization, and optionally [parameter constraints](glossary.md#parameter-constraint) on these parameters. The parameters of the [arms](glossary.md#arm) to be evaluated in the optimization are drawn from a search space. [`[SearchSpace]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.search_space)
 
 ### SEM
 
@@ -90,8 +90,8 @@ Continuous, discrete or mixed design space that defines the set of [parameters](
 
 ### Status quo
 
-An [arm](glossary.md#arm), usually the currently deployed configuration, which provides a baseline for comparing all other [arms](glossary.md#arm). Also known as a control [arm](glossary.md#arm). [`[StatusQuo]`](https://ax.readthedocs.io/en/stable/core.html#ax.core.experiment.Experiment.status_quo)
+An [arm](glossary.md#arm), usually the currently deployed configuration, which provides a baseline for comparing all other [arms](glossary.md#arm). Also known as a control [arm](glossary.md#arm). [`[StatusQuo]`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.experiment.Experiment.status_quo)
 
 ### Trial
 
-Single step in the [experiment](glossary.md#experiment), contains a single [arm](glossary.md#arm). In cases where the trial contains multiple [arms](glossary.md#arm) that are deployed simultaneously, we refer to it as a [batch trial](glossary.md#batch-trial). [`[Trial]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.trial), [`[BatchTrial]`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.batch_trial)
+Single step in the [experiment](glossary.md#experiment), contains a single [arm](glossary.md#arm). In cases where the trial contains multiple [arms](glossary.md#arm) that are deployed simultaneously, we refer to it as a [batch trial](glossary.md#batch-trial). [`[Trial]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.trial), [`[BatchTrial]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.batch_trial)

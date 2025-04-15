@@ -36,7 +36,7 @@ experiment = load_experiment(filepath)
 
 ### Customizing
 
-If you add a custom [`Metric`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.metric) or [`Runner`](https://ax.readthedocs.io/en/stable/core.html#ax.core.runner.Runner) and want to ensure it is saved to JSON properly, create a [`RegistryBundle`](https://ax.readthedocs.io/en/stable/storage.html#ax.storage.registry_bundle.RegistryBundle), which bundles together encoding and decoding logic for use in the various save/load functions as follows:
+If you add a custom [`Metric`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.metric) or [`Runner`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.runner.Runner) and want to ensure it is saved to JSON properly, create a [`RegistryBundle`](https://ax.readthedocs.io/en/0.5.0/storage.html#ax.storage.registry_bundle.RegistryBundle), which bundles together encoding and decoding logic for use in the various save/load functions as follows:
 
 ```py
 from ax import Experiment, Metric, Runner, SearchSpace
@@ -138,7 +138,7 @@ experiment = load_experiment(experiment_name)
 
 **Adding a new metric or runner:**
 
-If you add a custom [`Metric`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.metric) or [`Runner`](https://ax.readthedocs.io/en/stable/core.html#ax.core.runner.Runner) and want to ensure it is saved to SQL properly, create a [`RegistryBundle`](https://ax.readthedocs.io/en/stable/storage.html#ax.storage.registry_bundle.RegistryBundle), which bundles together encoding and decoding logic for use in the various save/load functions as follows:
+If you add a custom [`Metric`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.metric) or [`Runner`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.runner.Runner) and want to ensure it is saved to SQL properly, create a [`RegistryBundle`](https://ax.readthedocs.io/en/0.5.0/storage.html#ax.storage.registry_bundle.RegistryBundle), which bundles together encoding and decoding logic for use in the various save/load functions as follows:
 
 ```py
 from ax import Experiment, RangeParameter, ParameterType

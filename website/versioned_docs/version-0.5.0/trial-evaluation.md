@@ -9,14 +9,14 @@ experiment, before proceeding to trial evaluation.
 
 ## [RECOMMENDED] Service API
 
-The Service API [`AxClient`](https://ax.readthedocs.io/en/stable/service.html#module-ax.service.ax_client)
+The Service API [`AxClient`](https://ax.readthedocs.io/en/0.5.0/service.html#module-ax.service.ax_client)
 exposes
-[`get_next_trial`](https://ax.readthedocs.io/en/stable/service.html#ax.service.ax_client.AxClient.get_next_trial),
+[`get_next_trial`](https://ax.readthedocs.io/en/0.5.0/service.html#ax.service.ax_client.AxClient.get_next_trial),
 as well as
-[`complete_trial`](https://ax.readthedocs.io/en/stable/service.html#ax.service.ax_client.AxClient.complete_trial).
+[`complete_trial`](https://ax.readthedocs.io/en/0.5.0/service.html#ax.service.ax_client.AxClient.complete_trial).
 The user is responsible for evaluating the trial parameters and passing the
 results to
-[`complete_trial`](https://ax.readthedocs.io/en/stable/service.html#ax.service.ax_client.AxClient.complete_trial).
+[`complete_trial`](https://ax.readthedocs.io/en/0.5.0/service.html#ax.service.ax_client.AxClient.complete_trial).
 
 ```python
 ...
@@ -29,9 +29,9 @@ for i in range(25):
 ### Evaluating Trial Parameters
 
 In the Service API, the
-[`complete_trial`](https://ax.readthedocs.io/en/stable/service.html#ax.service.ax_client.AxClient.complete_trial)
+[`complete_trial`](https://ax.readthedocs.io/en/0.5.0/service.html#ax.service.ax_client.AxClient.complete_trial)
 method requires `raw_data` evaluated from the parameters suggested by
-[`get_next_trial`](https://ax.readthedocs.io/en/stable/service.html#ax.service.ax_client.AxClient.get_next_trial).
+[`get_next_trial`](https://ax.readthedocs.io/en/0.5.0/service.html#ax.service.ax_client.AxClient.get_next_trial).
 
 The data can be in the form of:
 
@@ -87,7 +87,7 @@ def branin_evaluation_function_unknown_sem(parameterization):
 
 ## Loop API
 
-The [`optimize`](https://ax.readthedocs.io/en/stable/service.html#ax.service.managed_loop.optimize) function
+The [`optimize`](https://ax.readthedocs.io/en/0.5.0/service.html#ax.service.managed_loop.optimize) function
 requires an `evaluation_function`, which accepts parameters and returns raw data
 in the format described above. It can also accept a `weight` parameter, a
 nullable `float` representing the fraction of available data on which the
@@ -100,12 +100,12 @@ experiments and defaults to `None`.
 ## Developer API
 
 The Developer API is supported by the
-[`Experiment`](https://ax.readthedocs.io/en/stable/core.html#module-ax.core.experiment) class. In this
+[`Experiment`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.experiment) class. In this
 paradigm, the user specifies:
 
--   [`Runner`](https://ax.readthedocs.io/en/stable/core.html#ax.core.runner.Runner): Defines how to deploy the
+-   [`Runner`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.runner.Runner): Defines how to deploy the
     experiment.
--   List of [`Metrics`](https://ax.readthedocs.io/en/stable/core.html#ax.core.metric.Metric): Each defines how
+-   List of [`Metrics`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.metric.Metric): Each defines how
     to compute/fetch data for a given objective or outcome.
 
 The experiment requires a `generator_run` to create a new trial or batch trial.
@@ -133,7 +133,7 @@ for i in range(15):
 Similar to a trial evaluation in the Service API, a custom metric computes a
 mean and SEM for each arm of a trial. However, the metric's `fetch_trial_data`
 method will be called automatically by the experiment's
-[`fetch_data`](https://ax.readthedocs.io/en/stable/core.html#ax.core.base_trial.BaseTrial.fetch_data) method.
+[`fetch_data`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.base_trial.BaseTrial.fetch_data) method.
 If there are multiple objectives or outcomes that need to be optimized for, each
 needs its own metric.
 
@@ -156,20 +156,20 @@ class MyMetric(Metric):
 ### Adding Your Own Runner
 
 In order to control how the experiment is deployed, you can add your own runner.
-To do so, subclass [`Runner`](https://ax.readthedocs.io/en/stable/core.html#ax.core.runner.Runner) and
-implement the [`run`](https://ax.readthedocs.io/en/stable/core.html#ax.core.runner.Runner.run) method and
-[`staging_required`](https://ax.readthedocs.io/en/stable/core.html#ax.core.runner.Runner.staging_required)
+To do so, subclass [`Runner`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.runner.Runner) and
+implement the [`run`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.runner.Runner.run) method and
+[`staging_required`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.runner.Runner.staging_required)
 property.
 
-The [`run`](https://ax.readthedocs.io/en/stable/core.html#ax.core.runner.Runner.run) method accepts a
-[`Trial`](https://ax.readthedocs.io/en/stable/core.html#ax.core.trial.Trial) and returns a JSON-serializable
+The [`run`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.runner.Runner.run) method accepts a
+[`Trial`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.trial.Trial) and returns a JSON-serializable
 dictionary of any necessary tracking info to fetch data later from this external
 system. A unique identifier or name for this trial in the external system should
 be stored in this dictionary with the key `"name"`, and this can later be
 accessed via `trial.deployed_name`.
 
 The
-[`staging_required`](https://ax.readthedocs.io/en/stable/core.html#ax.core.runner.Runner.staging_required)
+[`staging_required`](https://ax.readthedocs.io/en/0.5.0/core.html#ax.core.runner.Runner.staging_required)
 indicates whether the trial requires an intermediate staging period before
 evaluation begins. This property returns False by default.
 
