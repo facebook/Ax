@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-import json
 from typing import Sequence
 
 import pandas as pd
@@ -68,7 +67,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         subtitle = "All constraints are feasible."
         title_status = "Success"
         level = AnalysisCardLevel.LOW
-        df = pd.DataFrame({"status": [status]})
+        df = pd.DataFrame()
         category = AnalysisCardCategory.DIAGNOSTIC
 
         if experiment is None:
@@ -79,15 +78,14 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         if experiment.optimization_config is None:
             subtitle = "No optimization config is specified."
             return [
-                HealthcheckAnalysisCard(
-                    name="ConstraintsFeasibility",
+                self._create_healthcheck_analysis_card(
                     title=f"Ax Constraints Feasibility {title_status}",
-                    blob=json.dumps({"status": status}),
                     subtitle=subtitle,
                     df=df,
                     level=level,
+                    status=status,
                     category=category,
-                )
+                ),
             ]
 
         if (
@@ -96,13 +94,12 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         ):
             subtitle = "No constraints are specified."
             return [
-                HealthcheckAnalysisCard(
-                    name="ConstraintsFeasibility",
+                self._create_healthcheck_analysis_card(
                     title=f"Ax Constraints Feasibility {title_status}",
-                    blob=json.dumps({"status": status}),
                     subtitle=subtitle,
                     df=df,
                     level=level,
+                    status=status,
                     category=category,
                 )
             ]
@@ -126,7 +123,6 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             model=relevant_adapter,
             prob_threshold=self.prob_threshold,
         )
-        df["status"] = status
 
         if not constraints_feasible:
             status = HealthcheckStatus.WARNING
@@ -140,21 +136,16 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
                 "on this Experiment."
             )
             title_status = "Warning"
-            df.loc[
-                df["overall_probability_constraints_violated"] > self.prob_threshold,
-                "status",
-            ] = status
 
         return [
-            HealthcheckAnalysisCard(
-                name="ConstraintsFeasibility",
+            self._create_healthcheck_analysis_card(
                 title=f"Ax Constraints Feasibility {title_status}",
-                blob=json.dumps({"status": status}),
                 subtitle=subtitle,
                 df=df,
                 level=level,
+                status=status,
                 category=category,
-            )
+            ),
         ]
 
 

@@ -7,7 +7,6 @@
 
 from datetime import datetime, timedelta
 
-import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
@@ -16,7 +15,6 @@ from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
 from ax.core.trial_status import TrialStatus
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
-from pandas import testing as pdt
 
 
 class TestCanGenerateCandidates(TestCase):
@@ -30,7 +28,7 @@ class TestCanGenerateCandidates(TestCase):
         ).compute(experiment=None, generation_strategy=None)
         # THEN it is PASSES
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
-        self.assertEqual(card.name, "CanGenerateCandidates")
+        self.assertEqual(card.name, "CanGenerateCandidatesAnalysis")
         self.assertEqual(card.title, "Ax Candidate Generation Success")
         self.assertEqual(
             card.subtitle,
@@ -41,14 +39,13 @@ class TestCanGenerateCandidates(TestCase):
         )
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
-        pdt.assert_frame_equal(
-            card.df,
-            pd.DataFrame(
-                {
-                    "status": [HealthcheckStatus.PASS.value],
-                    "reason": ["No problems found."],
-                }
-            ),
+        self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
+        self.assertDictEqual(
+            card.get_aditional_attrs(),
+            {
+                "status": HealthcheckStatus.PASS,
+                "reason": "No problems found.",
+            },
         )
 
     def test_warns_if_a_trial_was_recently_run(self) -> None:
@@ -65,7 +62,7 @@ class TestCanGenerateCandidates(TestCase):
         ).compute(experiment=experiment, generation_strategy=None)
         # THEN it is a WARNING
         self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
-        self.assertEqual(card.name, "CanGenerateCandidates")
+        self.assertEqual(card.name, "CanGenerateCandidatesAnalysis")
         self.assertEqual(card.title, "Ax Candidate Generation Warning")
         self.assertEqual(
             card.subtitle,
@@ -78,14 +75,13 @@ class TestCanGenerateCandidates(TestCase):
             ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.MID)
-        pdt.assert_frame_equal(
-            card.df,
-            pd.DataFrame(
-                {
-                    "status": [HealthcheckStatus.WARNING.value],
-                    "reason": ["The data is borked."],
-                }
-            ),
+        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+        self.assertDictEqual(
+            card.get_aditional_attrs(),
+            {
+                "status": HealthcheckStatus.WARNING,
+                "reason": "The data is borked.",
+            },
         )
 
     def test_is_fail_no_trials_have_been_run(self) -> None:
@@ -101,7 +97,7 @@ class TestCanGenerateCandidates(TestCase):
         ).compute(experiment=experiment, generation_strategy=None)
         # THEN it is an ERROR
         self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
-        self.assertEqual(card.name, "CanGenerateCandidates")
+        self.assertEqual(card.name, "CanGenerateCandidatesAnalysis")
         self.assertEqual(card.title, "Ax Candidate Generation Failure")
         self.assertEqual(
             card.subtitle,
@@ -112,14 +108,13 @@ class TestCanGenerateCandidates(TestCase):
             ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.HIGH)
-        pdt.assert_frame_equal(
-            card.df,
-            pd.DataFrame(
-                {
-                    "status": [HealthcheckStatus.FAIL.value],
-                    "reason": ["The data is gone."],
-                }
-            ),
+        self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
+        self.assertDictEqual(
+            card.get_aditional_attrs(),
+            {
+                "status": HealthcheckStatus.FAIL,
+                "reason": "The data is gone.",
+            },
         )
 
     def test_is_fail_if_no_trial_was_recently_run(self) -> None:
@@ -137,7 +132,7 @@ class TestCanGenerateCandidates(TestCase):
         ).compute(experiment=experiment, generation_strategy=None)
         # THEN it is an ERROR
         self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
-        self.assertEqual(card.name, "CanGenerateCandidates")
+        self.assertEqual(card.name, "CanGenerateCandidatesAnalysis")
         self.assertEqual(card.title, "Ax Candidate Generation Failure")
         self.assertEqual(
             card.subtitle,
@@ -150,12 +145,11 @@ class TestCanGenerateCandidates(TestCase):
             ),
         )
         self.assertEqual(card.level, AnalysisCardLevel.HIGH)
-        pdt.assert_frame_equal(
-            card.df,
-            pd.DataFrame(
-                {
-                    "status": [HealthcheckStatus.FAIL.value],
-                    "reason": ["The data is old."],
-                }
-            ),
+        self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
+        self.assertDictEqual(
+            card.get_aditional_attrs(),
+            {
+                "status": HealthcheckStatus.FAIL,
+                "reason": "The data is old.",
+            },
         )

@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-import json
 from typing import Sequence
 
 import pandas as pd
@@ -96,9 +95,7 @@ class RegressionAnalysis(HealthcheckAnalysis):
         )
 
         if regressions_by_trial_df.shape[0] > 0:
-            df = regressions_by_trial_df
             status = HealthcheckStatus.WARNING
-            df["status"] = status
             subtitle = subtitle_base + (
                 "The following arms are regressing the "
                 "following metrics for the respective trials: \n"
@@ -108,20 +105,18 @@ class RegressionAnalysis(HealthcheckAnalysis):
             title_status = "Warning"
         else:
             status = HealthcheckStatus.PASS
-            df = pd.DataFrame({"status": [status]})
             subtitle = subtitle_base + "No metric regessions detected."
             title_status = "Success"
 
         return [
-            HealthcheckAnalysisCard(
-                name="RegressionAnalysis",
+            self._create_healthcheck_analysis_card(
                 title=f"Ax Regression Analysis {title_status}",
-                blob=json.dumps({"status": status}),
                 subtitle=subtitle,
-                df=df,
+                df=regressions_by_trial_df,
                 level=AnalysisCardLevel.LOW,
+                status=status,
                 category=AnalysisCardCategory.DIAGNOSTIC,
-            )
+            ),
         ]
 
 

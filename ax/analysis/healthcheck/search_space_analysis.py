@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-import json
 from typing import Sequence, Union
 
 import numpy as np
@@ -70,7 +69,6 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
         )
         title_status = "Success"
         level = AnalysisCardLevel.LOW
-        df = pd.DataFrame({"status": [status]})
 
         trial = experiment.trials[self.trial_index]
         arms = trial.arms
@@ -90,22 +88,18 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
             additional_subtitle = msg
             title_status = "Warning"
             level = AnalysisCardLevel.LOW
-            df = boundary_proportions_df[["boundary", "proportion", "bound"]]
-            df["status"] = status
         else:
             additional_subtitle = "Search space does not need to be updated."
 
         return [
-            HealthcheckAnalysisCard(
-                name="SearchSpaceAnalysis",
+            self._create_healthcheck_analysis_card(
                 title=f"Ax Search Space Analysis {title_status}",
-                blob=json.dumps({"status": status}),
                 subtitle=subtitle_base + additional_subtitle,
-                df=df,
+                df=boundary_proportions_df[["boundary", "proportion", "bound"]],
                 level=level,
-                attributes={"trial_index": self.trial_index},
+                status=status,
                 category=AnalysisCardCategory.DIAGNOSTIC,
-            )
+            ),
         ]
 
 

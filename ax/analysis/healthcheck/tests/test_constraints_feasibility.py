@@ -5,8 +5,6 @@
 
 # pyre-strict
 
-import json
-
 import numpy as np
 import pandas as pd
 
@@ -166,7 +164,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         (card,) = cfa.compute(
             experiment=self.experiment, generation_strategy=self.generation_strategy
         )
-        self.assertEqual(card.name, "ConstraintsFeasibility")
+        self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
@@ -194,7 +192,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         (card,) = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
-        self.assertEqual(card.name, "ConstraintsFeasibility")
+        self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Warning")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         subtitle = (
@@ -207,7 +205,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             "on this Experiment."
         )
         self.assertEqual(card.subtitle, subtitle)
-        self.assertEqual(json.loads(card.blob), {"status": HealthcheckStatus.WARNING})
+        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
 
         # experiment with no constraints
         experiment.optimization_config = OptimizationConfig(
@@ -218,18 +216,18 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         (card,) = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
-        self.assertEqual(card.name, "ConstraintsFeasibility")
+        self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.subtitle, "No constraints are specified.")
-        self.assertEqual(json.loads(card.blob), {"status": HealthcheckStatus.PASS})
+        self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
 
     def test_no_optimization_config(self) -> None:
         experiment = get_branin_experiment(has_optimization_config=False)
         cfa = ConstraintsFeasibilityAnalysis()
         (card,) = cfa.compute(experiment=experiment, generation_strategy=None)
-        self.assertEqual(card.name, "ConstraintsFeasibility")
+        self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.subtitle, "No optimization config is specified.")
-        self.assertEqual(json.loads(card.blob), {"status": HealthcheckStatus.PASS})
+        self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
