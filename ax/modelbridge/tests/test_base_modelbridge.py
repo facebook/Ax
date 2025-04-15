@@ -27,13 +27,16 @@ from ax.core.observation import (
     observations_from_data,
 )
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import SumConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
+from ax.metrics.branin import BraninMetric
 from ax.modelbridge.base import (
+    _combine_multiple_status_quo_observations,
     Adapter,
     clamp_observation_features,
     DataLoaderConfig,
@@ -59,6 +62,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment,
     get_experiment_with_observations,
     get_experiment_with_repeated_arms,
+    get_map_metric,
     get_non_monolithic_branin_moo_data,
     get_optimization_config_no_constraints,
     get_search_space_for_range_value,
@@ -537,24 +541,76 @@ class BaseAdapterTest(TestCase):
         # for the target trial. This happens with MapData.
 
         # Prevent data from being filtered down.
-        data_loader_config = DataLoaderConfig(latest_rows_per_group=None)
+        data_loader_config = DataLoaderConfig(
+            latest_rows_per_group=None, fit_only_completed_map_metrics=False
+        )
 
         # Case 1: Experiment has an optimization config with single map key.
         exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
+        # Add a second map metric, and a non-map metric.
+        exp.optimization_config = none_throws(exp.optimization_config).clone_with_args(
+            outcome_constraints=[
+                OutcomeConstraint(
+                    metric=get_map_metric("branin_map_constraint"),
+                    op=ComparisonOp.LEQ,
+                    bound=5.0,
+                ),
+                OutcomeConstraint(
+                    metric=BraninMetric(
+                        name="branin_constraint",
+                        param_names=["x1", "x2"],
+                        lower_is_better=True,
+                    ),
+                    op=ComparisonOp.LEQ,
+                    bound=5.0,
+                ),
+            ]
+        )
         # Attach a trial with status quo & fetch some data.
-        t = exp.new_trial().add_arm(exp.status_quo).run()
+        exp.new_trial().add_arm(exp.status_quo).run()
         for _ in range(3):
             exp.fetch_data()
-        t.mark_completed()
-        with self.assertNoLogs(logger=logger, level="WARN"):
-            adapter = Adapter(
-                experiment=exp, model=Generator(), data_loader_config=data_loader_config
+        for additional_fetch in (False, True):
+            if additional_fetch:
+                # Fetch constraint metric an additional time. This will lead to two
+                # separate observations for the status quo arm.
+                exp.fetch_data(
+                    metrics=[exp.metrics["branin_map_constraint"]],
+                    combine_with_last_data=True,
+                )
+            with self.assertNoLogs(logger=logger, level="WARN"), mock.patch(
+                "ax.modelbridge.base._combine_multiple_status_quo_observations",
+                wraps=_combine_multiple_status_quo_observations,
+            ) as mock_combine:
+                adapter = Adapter(
+                    experiment=exp,
+                    model=Generator(),
+                    data_loader_config=data_loader_config,
+                )
+            mock_combine.assert_called_once()
+            call_kwargs = mock_combine.call_args.kwargs
+            self.assertEqual(
+                len(call_kwargs["status_quo_observations"]), 3 + additional_fetch
             )
-        self.assertIsNotNone(adapter.status_quo)
-        # 2.0 is the largest timestamp since we fetched 3 times.
-        self.assertEqual(
-            none_throws(adapter.status_quo.features.metadata)["timestamp"], 2.0
-        )
+            if additional_fetch:
+                # Last observation should only include the constraint metric.
+                self.assertEqual(
+                    set(call_kwargs["status_quo_observations"][-1].data.metric_names),
+                    {"branin_map_constraint"},
+                )
+            self.assertEqual(call_kwargs["map_key"], "timestamp")
+            opt_config_metrics = set(none_throws(exp.optimization_config).metrics)
+            self.assertEqual(call_kwargs["metrics"], opt_config_metrics)
+            adapter_sq = none_throws(adapter.status_quo)
+            self.assertEqual(
+                adapter_sq.features.parameters, none_throws(exp.status_quo).parameters
+            )
+            self.assertEqual(
+                adapter_sq.features.trial_index, get_target_trial_index(experiment=exp)
+            )
+            self.assertTrue(
+                set(adapter_sq.data.metric_names).issuperset(opt_config_metrics)
+            )
 
         # Case 2: Experiment has an optimization config with !=1 map keys.
         for num_map_keys in (0, 2):
@@ -579,10 +635,11 @@ class BaseAdapterTest(TestCase):
             )
 
         # Case 3: Experiment doesn't have an optimization config.
-        (opt_metric,) = none_throws(exp.optimization_config).metrics.values()
+        metrics = none_throws(exp.optimization_config).metrics.values()
         exp._optimization_config = None
         # Attach as tracking metric to prevent data filtering.
-        exp.add_tracking_metric(opt_metric)
+        for m in metrics:
+            exp.add_tracking_metric(m)
         with self.assertLogs(logger=logger, level="WARN") as mock_logs:
             adapter = Adapter(
                 experiment=exp, model=Generator(), data_loader_config=data_loader_config
