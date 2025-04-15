@@ -156,6 +156,9 @@ class ArmEffectsPlot(PlotlyAnalysis):
                     metric_name=metric_name,
                     is_relative=self.relativize,
                     metric_label=metric_labels[metric_name],
+                    status_quo_arm_name=experiment.status_quo.name
+                    if experiment.status_quo
+                    else None,
                 ),
                 category=AnalysisCardCategory.INSIGHT,
             )
@@ -229,6 +232,7 @@ def _prepare_figure(
     metric_name: str,
     is_relative: bool,
     metric_label: str,
+    status_quo_arm_name: str | None,
 ) -> go.Figure:
     scatters = [
         go.Scatter(
@@ -286,24 +290,29 @@ def _prepare_figure(
     arm_order = df.sort_values(by=["trial_index", "arm_name"])["arm_name"].tolist()
 
     additional_arm_names = df[df["trial_index"] == -1]["arm_name"].tolist()
+
     arm_order = [
-        *[arm_name for arm_name in arm_order if arm_name == "status_quo"],
+        *[arm_name for arm_name in arm_order if arm_name == status_quo_arm_name],
         *[
             arm_name
             for arm_name in arm_order
-            if arm_name not in additional_arm_names and arm_name != "status_quo"
+            if arm_name not in additional_arm_names and arm_name != status_quo_arm_name
         ],
         *[
             arm_name
             for arm_name in arm_order
-            if arm_name in additional_arm_names and arm_name != "status_quo"
+            if arm_name in additional_arm_names and arm_name != status_quo_arm_name
         ],
     ]
     figure.update_xaxes(categoryorder="array", categoryarray=arm_order)
 
     # Add a horizontal line for the status quo.
-    if "status_quo" in df["arm_name"].values:
-        y = df[df["arm_name"] == "status_quo"][f"{metric_name}_mean"].iloc[0]
+    if status_quo_arm_name in df["arm_name"].values:
+        # In relativized plots the status quo is always 0% on the y-axis.
+        if is_relative:
+            y = 0
+        else:
+            y = df[df["arm_name"] == status_quo_arm_name][f"{metric_name}_mean"].iloc[0]
 
         figure.add_shape(
             type="line",
