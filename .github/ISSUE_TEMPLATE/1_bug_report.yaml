@@ -56,7 +56,7 @@ body:
     id: pull-request
     attributes:
       label: Pull Request
-      description: Are you willing to open a pull request fixing the bug outlined in this issue? (See [Contributing to BoTorch](https://github.com/pytorch/botorch/blob/main/CONTRIBUTING.md))
+      description: Are you willing to open a pull request fixing the bug outlined in this issue? (See [Contributing to Ax](https://github.com/facebook/Ax/blob/main/CONTRIBUTING.md))
       options:
         - "Yes"
         - "No"
