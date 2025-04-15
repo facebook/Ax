@@ -365,15 +365,20 @@ def _prepare_modeled_arm_data(
         )
     ]
 
+    # If an arm does not have an associated trial index, predict as if it is part of
+    # the target trial.
+    target_trial_index = get_target_trial_index(experiment=experiment)
+
     # Batch predict for efficiency.
     predictions = adapter.predict(
         observation_features=[
             ObservationFeatures.from_arm(
                 arm=arm,
-                # Always predict as if the arm is a member of the target trial.
-                trial_index=get_target_trial_index(experiment=experiment),
+                trial_index=trial_index
+                if trial_index is not None and trial_index != -1
+                else target_trial_index,
             )
-            for _, arm in predictable_pairs
+            for trial_index, arm in predictable_pairs
         ]
     )
 
