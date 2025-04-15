@@ -24,6 +24,7 @@ from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argpars
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
+    get_botorch_objective_and_transform,
     subset_model,
     SubsetModelData,
 )
@@ -242,6 +243,7 @@ class AcquisitionTest(TestCase):
             objective_thresholds=self.objective_thresholds,
         )
 
+    # Mock so that we can check that arguments are passed correctly.
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
     @mock.patch(
         f"{ACQUISITION_PATH}.subset_model",
@@ -251,6 +253,7 @@ class AcquisitionTest(TestCase):
     )
     @mock.patch(
         f"{ACQUISITION_PATH}.get_botorch_objective_and_transform",
+        wraps=get_botorch_objective_and_transform,
     )
     def test_init_with_subset_model_false(
         self,
@@ -623,6 +626,8 @@ class AcquisitionTest(TestCase):
             (ssd_categorical_integer, "optimize_acqf_discrete_local_search"),
             (ssd_ordinal_noninteger, "optimize_acqf_discrete_local_search"),
         ]:
+            # Mock optimize_acqf_discrete_local_search because it isn't handled
+            # by `mock_botorch_optimize`
             with mock.patch(
                 f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
             ) as mock_optimizer_argparse, mock.patch(

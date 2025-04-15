@@ -418,6 +418,7 @@ class SurrogateTest(TestCase):
         surrogate = self._get_surrogate(botorch_model_class=SingleTaskGP)[0]
         self.assertEqual(surrogate, surrogate.clone_reset())
 
+    # This mock is needed since we are not using a real MLL
     @patch(f"{UTILS_PATH}.fit_gpytorch_mll")
     def test_mll_options(self, _) -> None:
         mock_mll = MagicMock(self.mll_class)
@@ -617,6 +618,7 @@ class SurrogateTest(TestCase):
         self.assertIsNot(submodel, surrogate._submodels[key])
         self.assertIs(surrogate._last_search_space_digest, search_space_digest)
 
+    @mock_botorch_optimize
     def test_construct_model(self) -> None:
         for botorch_model_class in (SaasFullyBayesianSingleTaskGP, SingleTaskGP):
             # Don't use an outcome transform here because the
@@ -625,13 +627,42 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(
                 botorch_model_class=botorch_model_class, use_outcome_transform=False
             )
-            with patch.object(
-                botorch_model_class,
-                "construct_inputs",
-                wraps=botorch_model_class.construct_inputs,
-            ) as mock_construct_inputs, patch.object(
-                botorch_model_class, "__init__", return_value=None, autospec=True
-            ) as mock_init, patch(f"{SURROGATE_PATH}.fit_botorch_model") as mock_fit:
+
+            with self.subTest("Arguments passed through correctly"):
+                with patch.object(
+                    botorch_model_class,
+                    "construct_inputs",
+                    wraps=botorch_model_class.construct_inputs,
+                ) as mock_construct_inputs, patch.object(
+                    botorch_model_class, "__init__", return_value=None, autospec=True
+                ) as mock_init, patch(
+                    f"{SURROGATE_PATH}.fit_botorch_model"
+                ) as mock_fit:
+                    model = surrogate._construct_model(
+                        dataset=self.training_data[0],
+                        search_space_digest=self.search_space_digest,
+                        model_config=surrogate.surrogate_spec.model_configs[0],
+                        default_botorch_model_class=botorch_model_class,
+                        state_dict=None,
+                        refit=True,
+                    )
+                mock_init.assert_called_once()
+                mock_fit.assert_called_once()
+                call_kwargs = mock_init.call_args.kwargs
+                self.assertTrue(torch.equal(call_kwargs["train_X"], self.Xs[0]))
+                self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
+                self.assertIsInstance(call_kwargs["input_transform"], Normalize)
+                self.assertIsNone(call_kwargs["outcome_transform"])
+                self.assertEqual(len(call_kwargs), 4)
+
+                mock_construct_inputs.assert_called_with(
+                    training_data=self.training_data[0],
+                )
+
+            # We can't use `wraps=fit_botorch_model` with the above code,
+            # because `_construct_submodules` relies on `inspect` and mocks seem
+            # to break that
+            with self.subTest("Model construction runs"):
                 model = surrogate._construct_model(
                     dataset=self.training_data[0],
                     search_space_digest=self.search_space_digest,
@@ -640,18 +671,6 @@ class SurrogateTest(TestCase):
                     state_dict=None,
                     refit=True,
                 )
-            mock_init.assert_called_once()
-            mock_fit.assert_called_once()
-            call_kwargs = mock_init.call_args.kwargs
-            self.assertTrue(torch.equal(call_kwargs["train_X"], self.Xs[0]))
-            self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
-            self.assertIsInstance(call_kwargs["input_transform"], Normalize)
-            self.assertIsNone(call_kwargs["outcome_transform"])
-            self.assertEqual(len(call_kwargs), 4)
-
-            mock_construct_inputs.assert_called_with(
-                training_data=self.training_data[0],
-            )
 
             # Cache the model & dataset as we would in `Surrogate.fit``.
             outcomes = self.training_data[0].outcome_names
@@ -663,7 +682,9 @@ class SurrogateTest(TestCase):
             )
 
             # Attempt to re-fit the same model with the same data.
-            with patch(f"{SURROGATE_PATH}.fit_botorch_model") as mock_fit:
+            with patch(
+                f"{SURROGATE_PATH}.fit_botorch_model", wraps=fit_botorch_model
+            ) as mock_fit:
                 new_model = surrogate._construct_model(
                     dataset=self.training_data[0],
                     search_space_digest=self.search_space_digest,
@@ -679,7 +700,9 @@ class SurrogateTest(TestCase):
             # The reason is that we cache the best model config.
             # We only reset the best model config and cached models
             # if the search space digest changes
-            with patch(f"{SURROGATE_PATH}.fit_botorch_model") as mock_fit:
+            with patch(
+                f"{SURROGATE_PATH}.fit_botorch_model", wraps=fit_botorch_model
+            ) as mock_fit:
                 model = surrogate._construct_model(
                     dataset=self.training_data[0],
                     search_space_digest=self.search_space_digest,
@@ -693,14 +716,15 @@ class SurrogateTest(TestCase):
             mock_fit.assert_not_called()
 
             # Model is not re-fit if we change the model class.
+            search_space_digest = SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+                target_values={1: 2.0},
+            )
             with patch(f"{SURROGATE_PATH}.fit_botorch_model") as mock_fit:
                 model = surrogate._construct_model(
                     dataset=self.training_data[0],
-                    search_space_digest=SearchSpaceDigest(
-                        feature_names=self.feature_names,
-                        bounds=self.bounds,
-                        target_values={1: 2.0},
-                    ),
+                    search_space_digest=search_space_digest,
                     model_config=ModelConfig(),
                     default_botorch_model_class=SingleTaskGP,
                     state_dict=None,
