@@ -33,6 +33,20 @@ MARKER_BLUE = "rgba(0, 0, 255, 0.3)"  # slightly more opaque than the CI blue
 CANDIDATE_RED = "rgba(220, 20, 60, 0.3)"
 CANDIDATE_CI_RED = "rgba(220, 20, 60, 0.2)"
 
+# Splat this into a go.Scatter initializer when drawing a line that represents the
+# cummulative best, Pareto frontier, etc. for a unified look and feel.
+BEST_LINE_SETTINGS: dict[str, str | dict[str, str] | bool] = {
+    "mode": "lines",
+    "line": {
+        "color": px.colors.qualitative.Plotly[9],  # Gold
+        "dash": "dash",
+        # This gives us the "stepped" line effect we want
+        "shape": "hv",
+    },
+    # Do not show this line in the legend or in hover tooltips.
+    "showlegend": False,
+    "hoverinfo": "skip",
+}
 
 # Use a consistent color for each TrialStatus name, sourced from
 # the default Plotly color palette. See https://plotly.com/python/discrete-color/
@@ -52,6 +66,21 @@ TRIAL_STATUS_TO_PLOTLY_COLOR: dict[str, str] = {
 CI_ALPHA: float = 0.5
 
 
+def get_scatter_point_color(
+    hex_color: str,
+    ci_transparency: bool = False,
+) -> str:
+    """
+    Convert a hex color (like those in px.colors.qualitative) to an rgba string.
+
+    Always use transparency for CI colors to improve legibility.
+    """
+    red, green, blue = px.colors.hex_to_rgb(hex_color)
+    alpha = CI_ALPHA if ci_transparency else 1
+
+    return f"rgba({red}, {green}, {blue}, {alpha})"
+
+
 def trial_status_to_plotly_color(
     trial_status: str,
     ci_transparency: bool = False,
@@ -68,10 +97,7 @@ def trial_status_to_plotly_color(
         px.colors.qualitative.Plotly[8],
     )
 
-    red, green, blue = px.colors.hex_to_rgb(hex_color)
-    alpha = CI_ALPHA if ci_transparency else 1
-
-    return f"rgba({red}, {green}, {blue}, {alpha})"
+    return get_scatter_point_color(hex_color=hex_color, ci_transparency=ci_transparency)
 
 
 def get_arm_tooltip(
