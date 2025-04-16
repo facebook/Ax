@@ -11,7 +11,7 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Mapping
+from typing import Any, cast, Mapping
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -20,6 +20,7 @@ from ax.models.torch_base import TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
@@ -27,6 +28,7 @@ from botorch.acquisition.multi_objective.logei import (
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models.fully_bayesian import FullyBayesianSingleTaskGP
+from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
@@ -37,7 +39,7 @@ from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import SupervisedDataset
-from botorch.utils.transforms import is_fully_bayesian
+from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.likelihoods import Likelihood
@@ -397,32 +399,6 @@ def _get_shared_rows(Xs: list[Tensor]) -> tuple[Tensor, list[Tensor]]:
     return X_shared, idcs_shared
 
 
-def fit_botorch_model(
-    model: Model,
-    mll_class: type[MarginalLogLikelihood],
-    mll_options: dict[str, Any] | None = None,
-) -> None:
-    """Fit a BoTorch model."""
-    mll_options = mll_options or {}
-    models = model.models if isinstance(model, ModelList) else [model]
-    for m in models:
-        # TODO: Support deterministic models when we support `ModelList`
-        if is_fully_bayesian(m):
-            mll_options.setdefault("disable_progbar", True)
-            fit_fully_bayesian_model_nuts(
-                m,
-                **mll_options,
-            )
-        elif isinstance(m, (GPyTorchModel, PairwiseGP)):
-            mll_options = mll_options or {}
-            mll = mll_class(likelihood=m.likelihood, model=m, **mll_options)
-            fit_gpytorch_mll(mll)
-        else:
-            raise NotImplementedError(
-                f"Model of type {m.__class__.__name__} is currently not supported."
-            )
-
-
 def subset_state_dict(
     state_dict: Mapping[str, Tensor],
     submodel_index: int,
@@ -444,3 +420,59 @@ def subset_state_dict(
         if k.startswith(expected_substring)
     ]
     return OrderedDict(new_items)
+
+
+# ----------------------- Model fitting helpers ----------------------- #
+
+
+fit_botorch_model = Dispatcher(name="fit_botorch_model", encoder=_argparse_type_encoder)
+
+
+@fit_botorch_model.register(ModelList)
+def _fit_botorch_model_list(
+    model: Model,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    for m in cast(list[Model], model.models):
+        fit_botorch_model(m, mll_class=mll_class, mll_options=mll_options)
+
+
+@fit_botorch_model.register(GPyTorchModel)
+@fit_botorch_model.register(PairwiseGP)
+def _fit_botorch_model_gpytorch(
+    model: GPyTorchModel | PairwiseGP,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    """Fit a GPyTorch based BoTorch model."""
+    mll_options = mll_options or {}
+    mll = mll_class(likelihood=model.likelihood, model=model, **mll_options)
+    fit_gpytorch_mll(mll)
+
+
+@fit_botorch_model.register(FullyBayesianSingleTaskGP)
+@fit_botorch_model.register(SaasFullyBayesianMultiTaskGP)
+def _fit_botorch_model_fully_bayesian_nuts(
+    model: FullyBayesianSingleTaskGP | SaasFullyBayesianMultiTaskGP,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    mll_options = mll_options or {}
+    mll_options.setdefault("disable_progbar", True)
+    fit_fully_bayesian_model_nuts(model, **mll_options)
+
+
+@fit_botorch_model.register(object)
+def _fit_botorch_model_not_implemented(
+    model: Model,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    raise NotImplementedError(
+        f"fit_botorch_model is not implemented for {model.__class__.__name__}. "
+        "You can register a model fitting routine for it by adding new case "
+        "to the `fit_botorch_model` dispatcher. To do so, decorate a function "
+        "that accepts `model`, `mll_class` and `mll_options` inputs with "
+        f"`@fit_botorch_model.register({model.__class__.__name__})`."
+    )

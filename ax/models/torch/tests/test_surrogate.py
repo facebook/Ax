@@ -75,7 +75,7 @@ from torch.nn import ModuleList  # @manual -- autodeps can't figure it out.
 ACQUISITION_PATH = f"{Acquisition.__module__}"
 CURRENT_PATH = f"{__name__}"
 SURROGATE_PATH = f"{Surrogate.__module__}"
-UTILS_PATH = f"{fit_botorch_model.__module__}"
+UTILS_PATH = f"{ModelConfig.__module__}"
 
 RANK = "rank"
 
@@ -1878,18 +1878,16 @@ class SurrogateWithModelListTest(TestCase):
 
         # Fitting with PairwiseGP should be ok
         fit_botorch_model(
-            model=PairwiseGP(
-                datapoints=torch.rand(2, 2), comparisons=torch.tensor([[0, 1]])
-            ),
+            PairwiseGP(datapoints=torch.rand(2, 2), comparisons=torch.tensor([[0, 1]])),
             mll_class=PairwiseLaplaceMarginalLogLikelihood,
         )
         # Fitting with unknown model should raise
         with self.assertRaisesRegex(
             NotImplementedError,
-            "Model of type GenericDeterministicModel is currently not supported.",
+            "fit_botorch_model is not implemented for GenericDeterministicModel",
         ):
             fit_botorch_model(
-                model=GenericDeterministicModel(f=lambda x: x),
+                GenericDeterministicModel(f=lambda x: x),
                 mll_class=self.mll_class,
             )
 

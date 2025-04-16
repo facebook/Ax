@@ -879,7 +879,7 @@ class Surrogate(Base):
             model.load_state_dict(state_dict)
         if state_dict is None or refit:
             fit_botorch_model(
-                model=model,
+                model,  # Intentionally not using named args for dispatcher.
                 mll_class=model_config.mll_class,
                 mll_options=model_config.mll_options,
             )
