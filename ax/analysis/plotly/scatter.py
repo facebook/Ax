@@ -5,13 +5,18 @@
 
 # pyre-strict
 
+from logging import Logger
 from typing import Mapping, Sequence
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import get_arm_tooltip, trial_status_to_plotly_color
+from ax.analysis.plotly.utils import (
+    get_arm_tooltip,
+    is_predictive,
+    trial_status_to_plotly_color,
+)
 from ax.analysis.utils import (
     extract_relevant_adapter,
     POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
@@ -23,8 +28,12 @@ from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
+from ax.modelbridge.registry import Generators
+from ax.utils.common.logger import get_logger
 from plotly import graph_objects as go
 from pyre_extensions import override
+
+logger: Logger = get_logger(__name__)
 
 
 class ScatterPlot(PlotlyAnalysis):
@@ -103,6 +112,21 @@ class ScatterPlot(PlotlyAnalysis):
                 generation_strategy=generation_strategy,
                 adapter=adapter,
             )
+
+            if not is_predictive(relevant_adapter):
+                logger.warning(
+                    f"Adapter {relevant_adapter} cannot make out of sample "
+                    "predictions, falling back to EmpiricalBayesThompson."
+                )
+
+                data = (
+                    experiment.lookup_data(trial_indices=[self.trial_index])
+                    if self.trial_index is not None
+                    else experiment.lookup_data()
+                )
+                relevant_adapter = Generators.EMPIRICAL_BAYES_THOMPSON(
+                    experiment=experiment, data=data
+                )
         else:
             relevant_adapter = None
 

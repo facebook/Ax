@@ -5,12 +5,14 @@
 
 # pyre-safe
 
+from logging import Logger
 from typing import Sequence
 
 import numpy as np
 
 import pandas as pd
 import torch
+from ax.analysis.plotly.utils import is_predictive
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
@@ -22,10 +24,14 @@ from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
+from ax.modelbridge.registry import Generators
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
+
+logger: Logger = get_logger(__name__)
 
 # Warn if p_feasible is less than this threshold.
 # TODO: Move this constrant to best point utilities so that the logic for warning in
@@ -148,6 +154,20 @@ def prepare_arm_data(
         if adapter is None:
             raise UserInputError(
                 "Must provide an adapter to use model predictions for the analysis."
+            )
+
+        if not is_predictive(adapter=adapter):
+            logger.info(
+                "Using Empirical Bayes to model effects because we were unable to find "
+                " a suitable adapter."
+            )
+            data = (
+                experiment.lookup_data(trial_indices=[trial_index])
+                if trial_index is not None
+                else experiment.lookup_data()
+            )
+            adapter = Generators.EMPIRICAL_BAYES_THOMPSON(
+                experiment=experiment, data=data
             )
 
         df = _prepare_modeled_arm_data(

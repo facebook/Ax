@@ -133,6 +133,11 @@ class ArmEffectsPlot(PlotlyAnalysis):
                 title=(
                     f"{'Modeled' if self.use_model_predictions else 'Observed'} Arm "
                     f"Effects on {metric_labels[metric_name]}"
+                    + (
+                        f" for trial {self.trial_index}"
+                        if self.trial_index is not None
+                        else ""
+                    )
                 ),
                 subtitle=_get_subtitle(
                     metric_label=metric_labels[metric_name],
