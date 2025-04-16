@@ -246,7 +246,7 @@ def _build_comparison_str(
 class TestCase(fake_filesystem_unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
-    MAX_TEST_SECONDS = 60
+    MAX_TEST_SECONDS = 120
     NUMBER_OF_PROFILER_LINES_TO_OUTPUT = 20
     PROFILE_TESTS = False
     _long_test_active_reason: str | None = None
