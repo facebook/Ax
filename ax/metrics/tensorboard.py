@@ -246,7 +246,7 @@ try:
 
             # Apply smoothing
             if metric.smoothing > 0:
-                df["mean"] = df["mean"].ewm(alpha=metric.smoothing).mean()
+                df["mean"] = df["mean"].ewm(alpha=1 - metric.smoothing).mean()
 
             # Apply rolling percentile
             if metric.percentile is not None:
