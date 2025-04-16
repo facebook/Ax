@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from unittest.mock import Mock, patch
+
 from ax.analysis.analysis import (
     AnalysisBlobAnnotation,
     AnalysisCardCategory,
@@ -87,8 +89,17 @@ class TestSensitivityAnalysisPlot(TestCase):
         self.assertEqual(len(card.df), 3)  # 2 first order + 1 second order
 
     @mock_botorch_optimize
-    @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
-    def test_online(self) -> None:
+    @patch(  # pyre-fixme[56]: Pyre was not able to infer the type of argument lambda
+        f"{SensitivityAnalysisPlot.__module__}.ax_parameter_sens",
+        wraps=lambda model_bridge, metrics, **kwargs: {
+            outcome: {parameter: 0 for parameter in model_bridge.parameters}
+            for outcome in (metrics if metrics is not None else model_bridge.outcomes)
+        },
+    )
+    def test_online(
+        self,
+        _sensitivity_mock: Mock,
+    ) -> None:
         # Test SensitivityAnalysisPlot can be computed for a variety of experiments
         # which resemble those we see in an online setting.
 
@@ -114,8 +125,14 @@ class TestSensitivityAnalysisPlot(TestCase):
                     )
 
     @mock_botorch_optimize
-    @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
-    def test_offline(self) -> None:
+    @patch(  # pyre-fixme[56]: Pyre was not able to infer the type of argument lambda
+        f"{SensitivityAnalysisPlot.__module__}.ax_parameter_sens",
+        wraps=lambda model_bridge, metrics, **kwargs: {
+            outcome: {parameter: 0 for parameter in model_bridge.parameters}
+            for outcome in (metrics if metrics is not None else model_bridge.outcomes)
+        },
+    )
+    def test_offline(self, _sensitivity_mock: Mock) -> None:
         # Test SensitivityAnalysisPlot can be computed for a variety of experiments
         # which resemble those we see in an offline setting.
 

@@ -4,6 +4,11 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+
+from unittest.mock import Mock, patch
+
+from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
+
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 from ax.api.client import Client
 from ax.api.configs import (
@@ -149,8 +154,17 @@ class TestTopSurfacesAnalysis(TestCase):
         self.assertEqual(cards[1].title, "x1 vs. bar")
 
     @mock_botorch_optimize
-    @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
-    def test_online(self) -> None:
+    @patch(  # pyre-fixme[56]: Pyre was not able to infer the type of argument lambda
+        f"{SensitivityAnalysisPlot.__module__}.ax_parameter_sens",
+        wraps=lambda model_bridge, metrics, **kwargs: {
+            outcome: {parameter: 0 for parameter in model_bridge.parameters}
+            for outcome in (metrics if metrics is not None else model_bridge.outcomes)
+        },
+    )
+    def test_online(
+        self,
+        _sensitivity_mock: Mock,
+    ) -> None:
         # Test TopSurfacesAnalysis can be computed for a variety of experiments
         # which resemble those we see in an online setting.
 
@@ -174,8 +188,17 @@ class TestTopSurfacesAnalysis(TestCase):
                     )
 
     @mock_botorch_optimize
-    @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
-    def test_offline(self) -> None:
+    @patch(  # pyre-fixme[56]: Pyre was not able to infer the type of argument lambda
+        f"{SensitivityAnalysisPlot.__module__}.ax_parameter_sens",
+        wraps=lambda model_bridge, metrics, **kwargs: {
+            outcome: {parameter: 0 for parameter in model_bridge.parameters}
+            for outcome in (metrics if metrics is not None else model_bridge.outcomes)
+        },
+    )
+    def test_offline(
+        self,
+        _sensitivity_mock: Mock,
+    ) -> None:
         # Test TopSurfacesAnalysis can be computed for a variety of experiments
         # which resemble those we see in an offline setting.
 
