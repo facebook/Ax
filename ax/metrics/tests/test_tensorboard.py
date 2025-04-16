@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from unittest import mock
@@ -48,6 +49,31 @@ def _get_fake_multiplexer(
     ]
 
     return mul
+
+
+def tb_smooth(scalars: list[float], weight: float) -> list[float]:
+    """
+    Debiased EMA implementation according to Tensorboard Github:
+    https://fburl.com/6v6q8scg
+
+    This function is used to test that the smoothing functaionality
+    of pandas.series.ewm is equivalent to the smoothing functionality
+    of Tensorboard.
+    """
+    last = 0
+    smoothed = []
+    num_acc = 0
+    for next_val in scalars:
+        last = last * weight + (1 - weight) * next_val
+        num_acc += 1
+        # de-bias
+        debias_weight = 1
+        if weight != 1:
+            debias_weight = 1 - math.pow(weight, num_acc)
+        smoothed_val = last / debias_weight
+        smoothed.append(smoothed_val)
+
+    return smoothed
 
 
 class TensorboardMetricTest(TestCase):
@@ -122,7 +148,7 @@ class TensorboardMetricTest(TestCase):
     def test_smoothing(self) -> None:
         fake_data = [8.0, 4.0, 2.0, 1.0]
         smoothing = 0.5
-        smooth_data = pd.Series(fake_data).ewm(alpha=smoothing).mean().tolist()
+        smooth_data = tb_smooth(fake_data, smoothing)
 
         fake_multiplexer = _get_fake_multiplexer(fake_data=fake_data)
         metric = TensorboardMetric(
