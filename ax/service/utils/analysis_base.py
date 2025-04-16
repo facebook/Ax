@@ -4,14 +4,10 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+
 from collections.abc import Iterable
 
-from ax.analysis.analysis import (
-    Analysis,
-    AnalysisCard,
-    AnalysisCardCategory,
-    display_cards,
-)
+from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardCategory
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
