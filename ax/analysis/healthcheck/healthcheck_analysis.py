@@ -37,6 +37,9 @@ class HealthcheckAnalysisCard(AnalysisCard):
     def get_status(self) -> HealthcheckStatus:
         return HealthcheckStatus(json.loads(self.blob)["status"])
 
+    def get_aditional_attrs(self) -> dict[str, str | int | float | bool]:
+        return json.loads(self.blob)
+
 
 class HealthcheckAnalysisE(AnalysisE):
     def error_card(self) -> list[AnalysisCard]:
@@ -81,3 +84,29 @@ class HealthcheckAnalysis(Analysis):
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> Sequence[HealthcheckAnalysisCard]: ...
+
+    def _create_healthcheck_analysis_card(
+        self,
+        title: str,
+        subtitle: str,
+        level: int,
+        df: pd.DataFrame,
+        category: int,
+        status: HealthcheckStatus,
+        **additional_attrs: str | int | float | bool,
+    ) -> HealthcheckAnalysisCard:
+        return HealthcheckAnalysisCard(
+            name=self.name,
+            attributes=self.attributes,
+            title=title,
+            subtitle=subtitle,
+            level=level,
+            df=df,
+            category=category,
+            blob=json.dumps(
+                {
+                    "status": status,
+                    **additional_attrs,
+                }
+            ),
+        )

@@ -5,7 +5,6 @@
 
 # pyre-safe
 
-import json
 from typing import Sequence
 
 import pandas as pd
@@ -46,23 +45,12 @@ class ShouldGenerateCandidates(HealthcheckAnalysis):
             else HealthcheckStatus.WARNING
         )
         return [
-            HealthcheckAnalysisCard(
-                name=self.name,
+            self._create_healthcheck_analysis_card(
                 title=f"Ready to Generate Candidates for Trial {self.trial_index}",
-                blob=json.dumps(
-                    {
-                        "status": status,
-                    }
-                ),
                 subtitle=self.reason,
-                df=pd.DataFrame(
-                    {
-                        "status": [status],
-                        "reason": [self.reason],
-                    }
-                ),
+                df=pd.DataFrame(),
                 level=AnalysisCardLevel.CRITICAL,
-                attributes=self.attributes,
+                status=status,
                 category=AnalysisCardCategory.DIAGNOSTIC,
-            )
+            ),
         ]

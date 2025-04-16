@@ -5,7 +5,6 @@
 
 # pyre-safe
 
-import json
 from datetime import datetime
 from typing import Sequence
 
@@ -88,22 +87,13 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
             subtitle += f"{self.reason}"
 
         return [
-            HealthcheckAnalysisCard(
-                name="CanGenerateCandidates",
+            self._create_healthcheck_analysis_card(
                 title=f"Ax Candidate Generation {title_status}",
-                blob=json.dumps(
-                    {
-                        "status": status,
-                    }
-                ),
                 subtitle=subtitle,
-                df=pd.DataFrame(
-                    {
-                        "status": [status],
-                        "reason": [self.reason],
-                    }
-                ),
+                df=pd.DataFrame(),
                 level=level,
+                status=status,
                 category=AnalysisCardCategory.DIAGNOSTIC,
+                reason=self.reason,
             )
         ]
