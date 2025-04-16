@@ -219,39 +219,41 @@ class TestArmEffectsPlot(TestCase):
             for use_model_predictions in [True, False]:
                 for trial_index in [None, 0]:
                     for with_additional_arms in [True, False]:
-                        if use_model_predictions and with_additional_arms:
-                            additional_arms = [
-                                Arm(
-                                    parameters={
-                                        parameter_name: 0
-                                        for parameter_name in (
-                                            experiment.search_space.parameters.keys()
-                                        )
-                                    }
+                        for show_cumulative_best in [True, False]:
+                            if use_model_predictions and with_additional_arms:
+                                additional_arms = [
+                                    Arm(
+                                        parameters={
+                                            parameter_name: 0
+                                            for parameter_name in (
+                                                experiment.search_space.parameters.keys()  # noqa E501
+                                            )
+                                        }
+                                    )
+                                ]
+                            else:
+                                additional_arms = None
+
+                            generation_strategy = (
+                                get_default_generation_strategy_at_MBM_node(
+                                    experiment=experiment
                                 )
-                            ]
-                        else:
-                            additional_arms = None
-
-                        generation_strategy = (
-                            get_default_generation_strategy_at_MBM_node(
-                                experiment=experiment
                             )
-                        )
-                        generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.model)
+                            generation_strategy.current_node._fit(experiment=experiment)
+                            adapter = none_throws(generation_strategy.model)
 
-                        analysis = ArmEffectsPlot(
-                            metric_names=[*adapter.metric_names],
-                            use_model_predictions=use_model_predictions,
-                            trial_index=trial_index,
-                            additional_arms=additional_arms,
-                        )
+                            analysis = ArmEffectsPlot(
+                                metric_names=[*adapter.metric_names],
+                                use_model_predictions=use_model_predictions,
+                                trial_index=trial_index,
+                                additional_arms=additional_arms,
+                                show_cumulative_best=show_cumulative_best,
+                            )
 
-                        _ = analysis.compute(
-                            experiment=experiment,
-                            adapter=adapter,
-                        )
+                            _ = analysis.compute(
+                                experiment=experiment,
+                                adapter=adapter,
+                            )
 
     @mock_botorch_optimize
     def test_offline(self) -> None:
@@ -262,39 +264,41 @@ class TestArmEffectsPlot(TestCase):
             for use_model_predictions in [True, False]:
                 for trial_index in [None, 0]:
                     for with_additional_arms in [True, False]:
-                        if use_model_predictions and with_additional_arms:
-                            additional_arms = [
-                                Arm(
-                                    parameters={
-                                        parameter_name: 0
-                                        for parameter_name in (
-                                            experiment.search_space.parameters.keys()
-                                        )
-                                    }
+                        for show_cumulative_best in [True, False]:
+                            if use_model_predictions and with_additional_arms:
+                                additional_arms = [
+                                    Arm(
+                                        parameters={
+                                            parameter_name: 0
+                                            for parameter_name in (
+                                                experiment.search_space.parameters.keys()  # noqa E501
+                                            )
+                                        }
+                                    )
+                                ]
+                            else:
+                                additional_arms = None
+
+                            generation_strategy = (
+                                get_default_generation_strategy_at_MBM_node(
+                                    experiment=experiment
                                 )
-                            ]
-                        else:
-                            additional_arms = None
-
-                        generation_strategy = (
-                            get_default_generation_strategy_at_MBM_node(
-                                experiment=experiment
                             )
-                        )
-                        generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.model)
+                            generation_strategy.current_node._fit(experiment=experiment)
+                            adapter = none_throws(generation_strategy.model)
 
-                        analysis = ArmEffectsPlot(
-                            metric_names=[*adapter.metric_names],
-                            use_model_predictions=use_model_predictions,
-                            trial_index=trial_index,
-                            additional_arms=additional_arms,
-                        )
+                            analysis = ArmEffectsPlot(
+                                metric_names=[*adapter.metric_names],
+                                use_model_predictions=use_model_predictions,
+                                trial_index=trial_index,
+                                additional_arms=additional_arms,
+                                show_cumulative_best=show_cumulative_best,
+                            )
 
-                        _ = analysis.compute(
-                            experiment=experiment,
-                            adapter=adapter,
-                        )
+                            _ = analysis.compute(
+                                experiment=experiment,
+                                adapter=adapter,
+                            )
 
 
 class TestArmEffectsPlotRel(TestCase):
