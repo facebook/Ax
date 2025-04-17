@@ -63,7 +63,7 @@ class OutcomeConstraint(SortableBase):
         self._validate_metric_constraint_op(metric=metric, op=op)
         self._metric = metric
         self._op = op
-        self.bound = bound
+        self.bound: float = float(bound) if isinstance(bound, int) else bound
         self.relative = relative
 
     @property

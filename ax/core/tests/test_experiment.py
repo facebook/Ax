@@ -1249,7 +1249,15 @@ class ExperimentTest(TestCase):
                     "track",
                     "track",
                 ],
-                "Bound": ["None", ">= 5.1", ">= 1%", "<= -7.8", "None", "None", "None"],
+                "Bound": [
+                    "None",
+                    ">= 5.1",
+                    ">= 1.0%",
+                    "<= -7.8",
+                    "None",
+                    "None",
+                    "None",
+                ],
                 "Lower is Better": [True, "None", False, "None", True, False, "None"],
             }
         )

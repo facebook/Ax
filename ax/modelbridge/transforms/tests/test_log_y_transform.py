@@ -159,7 +159,7 @@ class LogYTransformTest(TestCase):
             tf.transform_optimization_config(oc, None, None)
         self.assertEqual(
             "LogY transform cannot be applied to metric m1 since the "
-            "bound isn't positive, got: 0.",
+            "bound isn't positive, got: 0.0.",
             str(cm.exception),
         )
         # output constraint with a positive bound should work
