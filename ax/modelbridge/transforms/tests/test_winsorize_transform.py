@@ -160,19 +160,6 @@ class WinsorizeTransformTest(TestCase):
             },
         )
 
-    def test_PrintDeprecationWarning(self) -> None:
-        expected_warning = (
-            "Winsorization received an out-of-date `transform_config`, containing "
-            'the key `"optimization_config"`. Please update the config according '
-            "to the docs of `ax.modelbridge.transforms.winsorize.Winsorize`."
-        )
-        with self.assertWarnsRegex(DeprecationWarning, expected_warning):
-            Winsorize(
-                search_space=None,
-                observations=deepcopy(self.observations),
-                config={"optimization_config": "dummy_val"},
-            )
-
     def test_Init(self) -> None:
         self.assertEqual(self.t.cutoffs["m1"], (-INF, 2.0))
         self.assertEqual(self.t.cutoffs["m2"], (-INF, 2.0))

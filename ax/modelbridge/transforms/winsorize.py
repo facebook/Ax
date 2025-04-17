@@ -25,7 +25,12 @@ from ax.core.outcome_constraint import (
     ScalarizedOutcomeConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
+from ax.exceptions.core import (
+    AxWarning,
+    DataRequiredError,
+    UnsupportedError,
+    UserInputError,
+)
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
@@ -42,7 +47,6 @@ if TYPE_CHECKING:
 logger: Logger = get_logger(__name__)
 
 
-OLD_KEYS = ["winsorization_lower", "winsorization_upper", "percentile_bounds"]
 AUTO_WINS_QUANTILE = -1  # This shouldn't be in the [0, 1] range
 DEFAULT_CUTOFFS: tuple[float, float] = (-float("inf"), float("inf"))
 
@@ -100,13 +104,6 @@ class Winsorize(Transform):
     ) -> None:
         if observations is None or len(observations) == 0:
             raise DataRequiredError("`Winsorize` transform requires non-empty data.")
-        if config is not None and config.get("optimization_config") is not None:
-            warnings.warn(
-                "Winsorization received an out-of-date `transform_config`, containing "
-                'the key `"optimization_config"`. Please update the config according '
-                "to the docs of `ax.modelbridge.transforms.winsorize.Winsorize`.",
-                DeprecationWarning,
-            )
         optimization_config = modelbridge._optimization_config if modelbridge else None
         if config is None and optimization_config is None:
             raise ValueError(
@@ -118,41 +115,21 @@ class Winsorize(Transform):
             config = {}
         observation_data = [obs.data for obs in observations]
 
-        # Check for legacy config
-        use_legacy = False
-        old_present = set(OLD_KEYS).intersection(config.keys())
-        if old_present:
-            warnings.warn(
-                "Winsorization received an out-of-date `transform_config`, containing "
-                f"the following deprecated keys: {old_present}. Please update the "
-                "config according to the docs of "
-                "`ax.modelbridge.transforms.winsorize.Winsorize`.",
-                DeprecationWarning,
-            )
-            use_legacy = True
-
         # Get config settings.
         winsorization_config = config.get("winsorization_config", {})
         use_raw_sq = _get_and_validate_use_raw_sq(config=config)
         self.cutoffs = {}
         all_metric_values = get_data(observation_data=observation_data)
         for metric_name, metric_values in all_metric_values.items():
-            if use_legacy:
-                self.cutoffs[metric_name] = _get_cutoffs_from_legacy_transform_config(
-                    metric_name=metric_name,
-                    metric_values=metric_values,
-                    transform_config=config,
-                )
-            else:
-                self.cutoffs[metric_name] = _get_cutoffs(
-                    metric_name=metric_name,
-                    metric_values=metric_values,
-                    winsorization_config=winsorization_config,
-                    modelbridge=modelbridge,
-                    observations=observations,
-                    optimization_config=optimization_config,
-                    use_raw_sq=use_raw_sq,
-                )
+            self.cutoffs[metric_name] = _get_cutoffs(
+                metric_name=metric_name,
+                metric_values=metric_values,
+                winsorization_config=winsorization_config,
+                modelbridge=modelbridge,
+                observations=observations,
+                optimization_config=optimization_config,
+                use_raw_sq=use_raw_sq,
+            )
 
     def _transform_observation_data(
         self,
@@ -283,7 +260,9 @@ def _get_auto_winsorization_cutoffs_multi_objective(
         warnings.warn(
             "Encountered a `MultiObjective` without objective thresholds. We will "
             "winsorize each objective separately. We strongly recommend specifying "
-            "the objective thresholds when using multi-objective optimization."
+            "the objective thresholds when using multi-objective optimization.",
+            AxWarning,
+            stacklevel=3,
         )
         objectives = assert_is_instance(optimization_config.objective, MultiObjective)
         minimize = [
@@ -312,7 +291,9 @@ def _obtain_cutoffs_from_outcome_constraints(
         warnings.warn(
             "Automatic winsorization isn't supported for a "
             "`ScalarizedOutcomeConstraint`. Specify the winsorization settings "
-            f"manually if you want to winsorize metric {metric_name}."
+            f"manually if you want to winsorize metric {metric_name}.",
+            AxWarning,
+            stacklevel=3,
         )
     outcome_constraints = _get_non_scalarized_outcome_constraints(
         optimization_config=optimization_config, metric_name=metric_name
