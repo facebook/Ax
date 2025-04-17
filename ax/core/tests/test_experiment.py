@@ -8,7 +8,6 @@
 
 import logging
 from collections import OrderedDict
-from enum import unique
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
