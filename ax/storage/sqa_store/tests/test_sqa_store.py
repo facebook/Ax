@@ -10,7 +10,7 @@ import logging
 from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
-from enum import Enum, unique
+from enum import Enum
 from logging import Logger
 from typing import Any, TypeVar
 from unittest import mock
@@ -21,7 +21,7 @@ from ax.analysis.analysis import AnalysisCard, AnalysisCardCategory, AnalysisCar
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
-from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
+from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.batch_trial import LifecycleStage
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -141,11 +141,6 @@ GET_GS_SQA_IMM_FUNC = _get_generation_strategy_sqa_immutable_opt_config_and_sear
 T = TypeVar("T")
 
 
-@unique
-class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
-    MyAuxExpPurpose = "my_auxiliary_experiment_purpose"
-
-
 class SQAStoreTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -158,7 +153,6 @@ class SQAStoreTest(TestCase):
             get_range_parameter(),  # w
             get_range_parameter2(),  # x
         ]
-        self.config.auxiliary_experiment_purpose_enum = TestAuxiliaryExperimentPurpose
 
     def test_CreationOfTestDB(self) -> None:
         init_test_engine_and_session_factory(tier_or_path=":memory:", force_init=True)
@@ -276,8 +270,6 @@ class SQAStoreTest(TestCase):
             is_test=True,
         )
         save_experiment(aux_experiment, config=self.config)
-        # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-        purpose = self.config.auxiliary_experiment_purpose_enum.MyAuxExpPurpose
 
         experiment_w_aux_exp = Experiment(
             name="test_experiment_w_aux_exp_in_SQAStoreTest",
@@ -287,7 +279,10 @@ class SQAStoreTest(TestCase):
             tracking_metrics=[Metric(name="tracking")],
             is_test=True,
             auxiliary_experiments_by_purpose={
-                purpose: [AuxiliaryExperiment(experiment=aux_experiment)]
+                # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
+                self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT: [
+                    AuxiliaryExperiment(experiment=aux_experiment)
+                ]
             },
         )
         self.assertIsNone(experiment_w_aux_exp.db_id)
@@ -312,7 +307,7 @@ class SQAStoreTest(TestCase):
         aux_exp.new_trial(aux_exp_gs.gen(experiment=aux_exp))
         save_experiment(aux_exp, config=self.config)
         # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-        purpose = self.config.auxiliary_experiment_purpose_enum.MyAuxExpPurpose
+        purpose = self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT
 
         target_exp = Experiment(
             name="test_experiment_w_aux_exp_in_SQAStoreTest_reduced_state",
@@ -369,7 +364,7 @@ class SQAStoreTest(TestCase):
             is_test=True,
             auxiliary_experiments_by_purpose={
                 # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-                self.config.auxiliary_experiment_purpose_enum.MyAuxExpPurpose: [
+                self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT: [
                     AuxiliaryExperiment(experiment=aux_experiment)
                 ]
             },
@@ -383,7 +378,7 @@ class SQAStoreTest(TestCase):
         exp1_name = "test_aux_exp_in_SQAStoreTest1"
         exp2_name = "test_aux_exp_in_SQAStoreTest2"
         # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-        exp_purpose = self.config.auxiliary_experiment_purpose_enum.MyAuxExpPurpose
+        exp_purpose = self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT
 
         exp1 = Experiment(
             name=exp1_name,

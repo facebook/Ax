@@ -14,6 +14,7 @@ from functools import partial
 import numpy as np
 import torch
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
+from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -155,6 +156,7 @@ TEST_CASES = [
     ("AndEarlyStoppingStrategy", get_and_early_stopping_strategy),
     ("Arm", get_arm),
     ("AuxiliaryExperiment", get_auxiliary_experiment),
+    ("AuxiliaryExperimentPurpose", lambda: AuxiliaryExperimentPurpose.PE_EXPERIMENT),
     ("BackendSimulator", get_backend_simulator_with_trials),
     ("BatchTrial", get_batch_trial),
     (

@@ -1604,11 +1604,6 @@ class ExperimentWithMapDataTest(TestCase):
             )
 
     def test_experiment_with_aux_experiments(self) -> None:
-        @unique
-        class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
-            PurposeA = "PurposeA"
-            PurposeB = "PurposeB"
-
         for get_exp_func in [get_experiment, get_experiment_with_data]:
             # different names for Ax equality purposes
             A_experiment_1 = get_exp_func()
@@ -1629,22 +1624,26 @@ class ExperimentWithMapDataTest(TestCase):
                 name="test",
                 search_space=get_search_space(),
                 auxiliary_experiments_by_purpose={
-                    TestAuxiliaryExperimentPurpose.PurposeA: [A_auxiliary_experiment_1],
-                    TestAuxiliaryExperimentPurpose.PurposeB: [B_auxiliary_experiment_1],
+                    AuxiliaryExperimentPurpose.PE_EXPERIMENT: [
+                        A_auxiliary_experiment_1
+                    ],
+                    AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
+                        B_auxiliary_experiment_1
+                    ],
                 },
             )
 
             with self.subTest("in-place modification of auxiliary experiments"):
                 experiment.auxiliary_experiments_by_purpose[
-                    TestAuxiliaryExperimentPurpose.PurposeB
+                    AuxiliaryExperimentPurpose.BO_EXPERIMENT
                 ] = [B_auxiliary_experiment_2]
                 self.assertEqual(
                     experiment.auxiliary_experiments_by_purpose,
                     {
-                        TestAuxiliaryExperimentPurpose.PurposeA: [
+                        AuxiliaryExperimentPurpose.PE_EXPERIMENT: [
                             A_auxiliary_experiment_1
                         ],
-                        TestAuxiliaryExperimentPurpose.PurposeB: [
+                        AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
                             B_auxiliary_experiment_2
                         ],
                     },
@@ -1652,8 +1651,10 @@ class ExperimentWithMapDataTest(TestCase):
 
             with self.subTest("test setter"):
                 experiment.auxiliary_experiments_by_purpose = {
-                    TestAuxiliaryExperimentPurpose.PurposeA: [A_auxiliary_experiment_1],
-                    TestAuxiliaryExperimentPurpose.PurposeB: [
+                    AuxiliaryExperimentPurpose.PE_EXPERIMENT: [
+                        A_auxiliary_experiment_1
+                    ],
+                    AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
                         B_auxiliary_experiment_1,
                         B_auxiliary_experiment_2,
                     ],
@@ -1661,10 +1662,10 @@ class ExperimentWithMapDataTest(TestCase):
                 self.assertEqual(
                     experiment.auxiliary_experiments_by_purpose,
                     {
-                        TestAuxiliaryExperimentPurpose.PurposeA: [
+                        AuxiliaryExperimentPurpose.PE_EXPERIMENT: [
                             A_auxiliary_experiment_1
                         ],
-                        TestAuxiliaryExperimentPurpose.PurposeB: [
+                        AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
                             B_auxiliary_experiment_1,
                             B_auxiliary_experiment_2,
                         ],
@@ -1674,7 +1675,7 @@ class ExperimentWithMapDataTest(TestCase):
             with self.subTest("test auxiliary experiments for storage"):
                 # remove initial auxiliary experiments and add others
                 experiment.auxiliary_experiments_by_purpose = {
-                    TestAuxiliaryExperimentPurpose.PurposeB: [
+                    AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
                         B_auxiliary_experiment_2,
                     ],
                 }
@@ -1682,7 +1683,7 @@ class ExperimentWithMapDataTest(TestCase):
                 self.assertEqual(
                     experiment.auxiliary_experiments_by_purpose,
                     {
-                        TestAuxiliaryExperimentPurpose.PurposeB: [
+                        AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
                             B_auxiliary_experiment_2,
                         ],
                     },
@@ -1693,13 +1694,13 @@ class ExperimentWithMapDataTest(TestCase):
                 B_auxiliary_experiment_1.is_active = False
                 self.assertAxBaseEqual(
                     experiment.auxiliary_experiments_by_purpose_for_storage[
-                        TestAuxiliaryExperimentPurpose.PurposeA
+                        AuxiliaryExperimentPurpose.PE_EXPERIMENT
                     ][0],
                     A_auxiliary_experiment_1,
                 )
                 self.assertAxBaseEqual(
                     experiment.auxiliary_experiments_by_purpose_for_storage[
-                        TestAuxiliaryExperimentPurpose.PurposeB
+                        AuxiliaryExperimentPurpose.BO_EXPERIMENT
                     ][1],
                     B_auxiliary_experiment_1,
                 )

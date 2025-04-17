@@ -6,7 +6,6 @@
 # pyre-strict
 
 
-from enum import unique
 from logging import Logger
 from unittest.mock import patch
 
@@ -41,11 +40,6 @@ from ax.utils.testing.core_stubs import (
 )
 
 logger: Logger = get_logger(__name__)
-
-
-@unique
-class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
-    TestAuxExpPurpose = "test_aux_exp_purpose"
 
 
 class TestTransitionCriterion(TestCase):
@@ -132,7 +126,7 @@ class TestTransitionCriterion(TestCase):
                         AuxiliaryExperimentCheck(
                             transition_to="sobol_2",
                             auxiliary_experiment_purposes_to_include=[
-                                TestAuxiliaryExperimentPurpose.TestAuxExpPurpose
+                                AuxiliaryExperimentPurpose.PE_EXPERIMENT
                             ],
                         )
                     ],
@@ -144,7 +138,7 @@ class TestTransitionCriterion(TestCase):
                         AuxiliaryExperimentCheck(
                             transition_to="sobol_1",
                             auxiliary_experiment_purposes_to_exclude=[
-                                TestAuxiliaryExperimentPurpose.TestAuxExpPurpose
+                                AuxiliaryExperimentPurpose.PE_EXPERIMENT
                             ],
                         )
                     ],
@@ -164,7 +158,7 @@ class TestTransitionCriterion(TestCase):
 
         # Transition because auxiliary_experiment_purposes_to_include is met
         experiment.auxiliary_experiments_by_purpose = {
-            TestAuxiliaryExperimentPurpose.TestAuxExpPurpose: [aux_exp],
+            AuxiliaryExperimentPurpose.PE_EXPERIMENT: [aux_exp],
         }
         grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
         self.assertEqual(gs.current_node_name, "sobol_2")
