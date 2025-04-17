@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-safe
+# pyre-strict
 
 from ax.analysis.analysis import AnalysisBlobAnnotation
 from ax.analysis.plotly.scatter import compute_scatter_adhoc, ScatterPlot
