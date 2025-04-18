@@ -48,20 +48,20 @@ class BaseData(Base, SerializationMixin):
 
     """
 
-    REQUIRED_COLUMNS = {"arm_name"}
+    REQUIRED_COLUMNS = {"trial_index", "arm_name"}
 
     # Note on text data: https://pandas.pydata.org/docs/user_guide/text.html
     # Its type can either be `numpy.dtypes.ObjectDType` or StringDtype extension
     # type; the later is still experimental. So we are using object.
     COLUMN_DATA_TYPES: dict[str, Any] = {
         # Ubiquitous columns.
+        "trial_index": int,
         "arm_name": np.dtype("O"),
         # Metric data-related columns.
         "metric_name": np.dtype("O"),
         "mean": np.float64,
         "sem": np.float64,
         # Metadata columns available for all subclasses.
-        "trial_index": int,
         "start_time": pd.Timestamp,
         "end_time": pd.Timestamp,
         "n": int,

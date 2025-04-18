@@ -84,19 +84,33 @@ class RelativizeDataTest(TestCase):
             df=pd.DataFrame(
                 [
                     {
+                        "trial_index": 0,
                         "mean": 2,
                         "sem": 0,
                         "metric_name": "foobar",
                         "arm_name": "status_quo",
                     },
                     {
+                        "trial_index": 0,
                         "mean": 5,
                         "sem": 0,
                         "metric_name": "foobaz",
                         "arm_name": "status_quo",
                     },
-                    {"mean": 1, "sem": 0, "metric_name": "foobar", "arm_name": "0_0"},
-                    {"mean": 10, "sem": 0, "metric_name": "foobaz", "arm_name": "0_0"},
+                    {
+                        "trial_index": 0,
+                        "mean": 1,
+                        "sem": 0,
+                        "metric_name": "foobar",
+                        "arm_name": "0_0",
+                    },
+                    {
+                        "trial_index": 0,
+                        "mean": 10,
+                        "sem": 0,
+                        "metric_name": "foobaz",
+                        "arm_name": "0_0",
+                    },
                 ]
             )
         )
@@ -104,12 +118,19 @@ class RelativizeDataTest(TestCase):
             df=pd.DataFrame(
                 [
                     {
+                        "trial_index": 0,
                         "mean": -0.5,
                         "sem": 0,
                         "metric_name": "foobar",
                         "arm_name": "0_0",
                     },
-                    {"mean": 1, "sem": 0, "metric_name": "foobaz", "arm_name": "0_0"},
+                    {
+                        "trial_index": 0,
+                        "mean": 1,
+                        "sem": 0,
+                        "metric_name": "foobaz",
+                        "arm_name": "0_0",
+                    },
                 ]
             )
         )
@@ -117,24 +138,33 @@ class RelativizeDataTest(TestCase):
             df=pd.DataFrame(
                 [
                     {
+                        "trial_index": 0,
                         "mean": 0,
                         "sem": 0,
                         "metric_name": "foobar",
                         "arm_name": "status_quo",
                     },
                     {
+                        "trial_index": 0,
                         "mean": -0.5,
                         "sem": 0,
                         "metric_name": "foobar",
                         "arm_name": "0_0",
                     },
                     {
+                        "trial_index": 0,
                         "mean": 0,
                         "sem": 0,
                         "metric_name": "foobaz",
                         "arm_name": "status_quo",
                     },
-                    {"mean": 1, "sem": 0, "metric_name": "foobaz", "arm_name": "0_0"},
+                    {
+                        "trial_index": 0,
+                        "mean": 1,
+                        "sem": 0,
+                        "metric_name": "foobaz",
+                        "arm_name": "0_0",
+                    },
                 ]
             )
         )

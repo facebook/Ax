@@ -98,11 +98,11 @@ class TensorboardMetricTest(TestCase):
         expected_df = pd.DataFrame(
             [
                 {
+                    "trial_index": 0,
                     "arm_name": "0_0",
                     "metric_name": "loss",
                     "mean": fake_data[i],
                     "sem": float("nan"),
-                    "trial_index": 0,
                     "step": float(i),
                 }
                 for i in range(len(fake_data))
@@ -168,11 +168,11 @@ class TensorboardMetricTest(TestCase):
         expected_df = pd.DataFrame(
             [
                 {
+                    "trial_index": 0,
                     "arm_name": "0_0",
                     "metric_name": "loss",
                     "mean": smooth_data[i],
                     "sem": float("nan"),
-                    "trial_index": 0,
                     "step": float(i),
                 }
                 for i in range(len(fake_data))
@@ -207,11 +207,11 @@ class TensorboardMetricTest(TestCase):
         expected_df = pd.DataFrame(
             [
                 {
+                    "trial_index": 0,
                     "arm_name": "0_0",
                     "metric_name": "loss",
                     "mean": cummin_data[i],
                     "sem": float("nan"),
-                    "trial_index": 0,
                     "step": float(i),
                 }
                 for i in range(len(fake_data))
@@ -240,11 +240,11 @@ class TensorboardMetricTest(TestCase):
         expected_df = pd.DataFrame(
             [
                 {
+                    "trial_index": 0,
                     "arm_name": "0_0",
                     "metric_name": "loss",
                     "mean": percentile_data[i],
                     "sem": float("nan"),
-                    "trial_index": 0,
                     "step": float(i),
                 }
                 for i in range(len(fake_data))
