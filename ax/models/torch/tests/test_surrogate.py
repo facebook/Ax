@@ -606,7 +606,7 @@ class SurrogateTest(TestCase):
             feature_names=self.feature_names,
             bounds=bounds,
         )
-        with patch(f"{SURROGATE_PATH}.logger.info") as mock_log:
+        with patch(f"{SURROGATE_PATH}.logger.debug") as mock_log:
             surrogate.fit(
                 datasets=self.training_data,
                 search_space_digest=search_space_digest,

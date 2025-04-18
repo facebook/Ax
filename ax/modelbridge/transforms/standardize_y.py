@@ -159,7 +159,7 @@ def compute_standardization_parameters(
         # Don't standardize if variance is too small.
         if s < 1e-8:
             Ystd[k] = 1.0
-            logger.info(f"Outcome {k} is constant, within tolerance.")
+            logger.warning(f"Outcome {k} is constant, within tolerance.")
     # pyre-fixme[7]: Expected `Tuple[Dict[Union[Tuple[str, str], str], float],
     #  Dict[Union[Tuple[str, str], str], float]]` but got `Tuple[Dict[Union[Tuple[str,
     #  Union[None, bool, float, int, str]], str], typing.Any], Dict[Union[Tuple[str,

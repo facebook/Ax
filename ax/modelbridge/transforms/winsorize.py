@@ -7,7 +7,6 @@
 # pyre-strict
 
 import warnings
-from logging import Logger
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
@@ -37,14 +36,11 @@ from ax.modelbridge.transforms.utils import (
     get_data,
 )
 from ax.models.types import TConfig, WinsorizationConfig
-from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401
-
-logger: Logger = get_logger(__name__)
 
 
 AUTO_WINS_QUANTILE = -1  # This shouldn't be in the [0, 1] range

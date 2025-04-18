@@ -184,7 +184,9 @@ class SobolGeneratorTest(TestCase):
         bounds = self._create_bounds(n_tunable=10, n_fixed=0)
         A = np.ones((1, 10))
         b = np.array([1]).reshape((1, 1))
-        with mock.patch("ax.models.random.base.logger.info") as mock_logger, mock.patch(
+        with mock.patch(
+            "ax.models.random.base.logger.warning"
+        ) as mock_logger, mock.patch(
             "botorch.utils.sampling.sample_polytope",
             wraps=sample_polytope,
         ) as wrapped_sampler:
