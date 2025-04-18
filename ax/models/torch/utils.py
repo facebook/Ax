@@ -8,7 +8,6 @@
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from logging import Logger
 from typing import Any, cast
 
 import numpy as np
@@ -19,7 +18,6 @@ from ax.models.model_utils import filter_constraints_and_fixed_features, get_obs
 from ax.models.random.sobol import SobolGenerator
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
-from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.monte_carlo import (
@@ -59,8 +57,6 @@ from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor
-
-logger: Logger = get_logger(__name__)
 
 
 # Distributions

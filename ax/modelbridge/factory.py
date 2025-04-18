@@ -7,7 +7,6 @@
 # pyre-strict
 
 from collections.abc import Mapping, Sequence
-from logging import Logger
 
 import torch
 from ax.core.data import Data
@@ -33,11 +32,7 @@ from ax.models.torch.botorch_defaults import (
 )
 from ax.models.torch.utils import predict_from_model
 from ax.models.types import TConfig
-from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance
-
-
-logger: Logger = get_logger(__name__)
 
 
 DEFAULT_TORCH_DEVICE = torch.device("cpu")

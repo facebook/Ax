@@ -159,8 +159,12 @@ class RandomGenerator(Generator):
             )
         except SearchSpaceExhausted as e:
             if self.fallback_to_sample_polytope:
-                logger.info(
-                    "Rejection sampling exceeded specified maximum draws. "
+                logger.warning(
+                    "Parameter constraints are very restrictive, this makes "
+                    "candidate generation difficult. "
+                    "(Rejection sampling exceeded specified maximum draws). "
+                )
+                logger.debug(
                     "Falling back on HitAndRunPolytopeSampler instead of "
                     f"{self.__class__.__name__}."
                 )

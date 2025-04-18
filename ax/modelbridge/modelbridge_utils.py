@@ -1389,7 +1389,7 @@ def process_contextual_datasets(
             )
             remaining_metrics = list(set(remaining_metrics) - set(metric_list))
     else:
-        logger.info(
+        logger.warning(
             "No metric decomposition found in experiment properties. Using "
             "LCEA model to fit each outcome independently."
         )

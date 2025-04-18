@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from logging import Logger
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -21,7 +20,6 @@ from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
 from ax.models.types import TConfig
-from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import assert_is_instance
 from sklearn.preprocessing import PowerTransformer
@@ -29,9 +27,6 @@ from sklearn.preprocessing import PowerTransformer
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401
-
-
-logger: Logger = get_logger(__name__)
 
 
 class PowerTransformY(Transform):

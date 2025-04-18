@@ -556,7 +556,9 @@ class Adapter:
                 if not training_in_design[i] and obs.arm_name is not None:
                     ood_names.append(obs.arm_name)
             ood_str = ", ".join(set(ood_names))
-            logger.info(f"Leaving out out-of-design observations for arms: {ood_str}")
+            logger.warning(
+                f"Leaving out out-of-design observations for arms: {ood_str}"
+            )
         self._training_in_design = training_in_design
 
     def _fit(
@@ -1162,13 +1164,13 @@ def clamp_observation_features(
             else:
                 val = assert_is_instance(obsf.parameters[p.name], int)
             if val < p.lower:
-                logger.info(
+                logger.debug(
                     f"Untransformed parameter {val} "
                     f"less than lower bound {p.lower}, clamping"
                 )
                 obsf.parameters[p.name] = p.lower
             elif val > p.upper:
-                logger.info(
+                logger.debug(
                     f"Untransformed parameter {val} "
                     f"greater than upper bound {p.upper}, clamping"
                 )
