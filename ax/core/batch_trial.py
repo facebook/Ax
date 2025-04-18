@@ -653,7 +653,7 @@ class BatchTrial(BaseTrial):
 
         data_for_logging = _round_floats_for_logging(item=evaluations)
 
-        logger.info(
+        logger.debug(
             f"Updated trial {self.index} with data: "
             f"{_round_floats_for_logging(item=data_for_logging)}."
         )
@@ -690,7 +690,7 @@ class BatchTrial(BaseTrial):
                         # is not stored in Ax data.
                         cand_metadata[arm.name] = gr_cand_metadata.get(arm.signature)
                 if warn:
-                    logger.warning(
+                    logger.debug(
                         "The same arm appears in multiple generator runs in batch "
                         f"{self.index}. Candidate metadata will only contain metadata "
                         "for one of those generator runs, and the candidate metadata "
@@ -729,7 +729,7 @@ class BatchTrial(BaseTrial):
 
         for metric_name in data.df["metric_name"].values:
             if metric_name not in self.experiment.metrics:
-                logger.info(
+                logger.debug(
                     f"Data was logged for metric {metric_name} that was not yet "
                     "tracked on the experiment. Please specify `tracking_metric_"
                     "names` argument in AxClient.create_experiment to add tracking "

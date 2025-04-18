@@ -7,7 +7,6 @@
 # pyre-strict
 
 from itertools import groupby
-from logging import Logger
 
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -20,9 +19,7 @@ from ax.core.outcome_constraint import (
 from ax.core.risk_measures import RiskMeasure
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
-from ax.utils.common.logger import get_logger
 
-logger: Logger = get_logger(__name__)
 
 TRefPoint = list[ObjectiveThreshold]
 
