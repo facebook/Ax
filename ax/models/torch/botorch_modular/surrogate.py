@@ -1130,7 +1130,7 @@ class Surrogate(Base):
                         state_dict=state_dict,
                     )
             except ModelFittingError as e:
-                logger.info(
+                logger.warning(
                     f"Model {model_config} failed to fit with error {e}. Skipping."
                 )
                 continue
@@ -1234,7 +1234,7 @@ class Surrogate(Base):
             self._last_search_space_digest is not None
             and search_space_digest != self._last_search_space_digest
         ):
-            logger.info(
+            logger.debug(
                 "Discarding all previously trained models due to a change "
                 "in the search space digest."
             )

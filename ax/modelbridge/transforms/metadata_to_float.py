@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from logging import Logger
 from typing import Any, SupportsFloat, TYPE_CHECKING
 
 from ax.core import ParameterType
@@ -21,15 +20,11 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
-from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401
-
-
-logger: Logger = get_logger(__name__)
 
 
 class MetadataToFloat(Transform):

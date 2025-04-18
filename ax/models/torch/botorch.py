@@ -11,7 +11,6 @@ from __future__ import annotations
 import warnings
 from collections.abc import Callable, Sequence
 from copy import deepcopy
-from logging import Logger
 from typing import Any, Optional
 
 import numpy.typing as npt
@@ -37,7 +36,6 @@ from ax.models.torch_base import TorchGenerator, TorchGenResults, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models import ModelList
 from botorch.models.model import Model
@@ -46,8 +44,6 @@ from botorch.utils.transforms import is_ensemble, normalize_indices
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 from torch.nn import ModuleList  # @manual
-
-logger: Logger = get_logger(__name__)
 
 
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.

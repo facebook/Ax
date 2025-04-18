@@ -7,7 +7,6 @@
 # pyre-strict
 
 from collections.abc import Callable
-from logging import Logger
 from typing import Any, Optional
 
 import torch
@@ -44,14 +43,11 @@ from ax.models.torch.utils import (
 from ax.models.torch_base import TorchGenerator, TorchGenResults, TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
-
-logger: Logger = get_logger(__name__)
 
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TOptimizerList = Callable[

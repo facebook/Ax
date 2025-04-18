@@ -7,7 +7,6 @@
 # pyre-strict
 
 from collections.abc import Sequence
-from logging import Logger
 from typing import Any, cast, Union
 
 from ax.core.search_space import SearchSpaceDigest
@@ -17,7 +16,6 @@ from ax.models.torch.botorch_defaults import get_qLogNEI
 from ax.models.torch.cbo_sac import generate_model_space_decomposition
 from ax.models.torch_base import TorchGenerator, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
 from botorch.fit import fit_gpytorch_mll
 from botorch.models.contextual import LCEAGP
 from botorch.models.gpytorch import GPyTorchModel
@@ -28,7 +26,6 @@ from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
-logger: Logger = get_logger(__name__)
 
 
 def get_map_model(

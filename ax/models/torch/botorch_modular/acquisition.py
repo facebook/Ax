@@ -13,7 +13,6 @@ import operator
 from collections.abc import Callable
 from functools import partial, reduce
 from itertools import product
-from logging import Logger
 from typing import Any, Mapping, Sequence
 
 import torch
@@ -35,7 +34,6 @@ from ax.models.torch.utils import (
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
-from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
@@ -60,8 +58,6 @@ MAX_CHOICES_ENUMERATE = 100_000
 MAX_CARDINALITY_FOR_LOCAL_SEARCH = 100
 # For mixed search spaces.
 ALTERNATING_OPTIMIZER_THRESHOLD = 10
-
-logger: Logger = get_logger(__name__)
 
 
 def determine_optimizer(

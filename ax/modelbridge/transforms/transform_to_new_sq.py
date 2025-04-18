@@ -79,8 +79,8 @@ class TransformToNewSQ(BaseRelativize):
             trials_indices_with_sq_data = self.status_quo_data_by_trial.keys()
             if target_trial_index not in trials_indices_with_sq_data:
                 target_trial_index = max(trials_indices_with_sq_data)
-                logger.info(
-                    "No SQ data for target trial. Failing back to "
+                logger.warning(
+                    "No status quo data for target trial. Failing back to "
                     f"{target_trial_index}."
                 )
 

@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-from logging import Logger
 from typing import Callable, TYPE_CHECKING
 
 import numpy as np
@@ -19,14 +18,10 @@ from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.log_y import match_ci_width
 from ax.models.types import TConfig
-from ax.utils.common.logger import get_logger
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401
-
-
-logger: Logger = get_logger(__name__)
 
 
 class BilogY(Transform):
