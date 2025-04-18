@@ -531,7 +531,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
             stale_candidate_trials = self.experiment.trials_by_status[
                 TrialStatus.CANDIDATE
             ]
-            self.logger.info(
+            self.logger.debug(
                 "Marking the following trials as failed because they are stale: "
                 f"{[t.index for t in stale_candidate_trials]}"
             )
@@ -1510,7 +1510,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         # for all metrics. By pre-caching the data now, we remove the need to
         # fetch it during candidate generation.
         idcs = make_indices_str(indices=newly_completed)
-        self.logger.info(f"Fetching data for trials: {idcs}.")
+        self.logger.debug(f"Fetching data for trials: {idcs}.")
         self._fetch_and_process_trials_data_results(
             trial_indices=newly_completed,
         )

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-
+import logging
 import random
 import string
 from unittest.mock import patch
@@ -355,7 +355,9 @@ class TestWithDBSettingsBase(TestCase):
             save_generation_strategy=False
         )
         # test logging with no experiment/gs saved
-        with self.assertLogs(logger="ax.service.utils.with_db_settings_base") as lg:
+        with self.assertLogs(
+            logger="ax.service.utils.with_db_settings_base", level=logging.DEBUG
+        ) as lg:
             output = try_load_generation_strategy(
                 experiment_name=experiment.name,
                 decoder=self.with_db_settings.db_settings.decoder,
@@ -375,7 +377,9 @@ class TestWithDBSettingsBase(TestCase):
         )
         self.assertTrue(exp_saved)
         self.assertTrue(gs_saved)
-        with self.assertLogs(logger="ax.service.utils.with_db_settings_base") as lg:
+        with self.assertLogs(
+            logger="ax.service.utils.with_db_settings_base", level=logging.DEBUG
+        ) as lg:
             output = try_load_generation_strategy(
                 experiment_name=experiment.name,
                 decoder=self.with_db_settings.db_settings.decoder,

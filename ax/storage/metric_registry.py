@@ -7,7 +7,6 @@
 # pyre-strict
 
 from collections.abc import Callable
-from logging import Logger
 from typing import Any
 
 from ax.core.map_metric import MapMetric
@@ -26,9 +25,6 @@ from ax.storage.json_store.registry import (
     TDecoderRegistry,
 )
 from ax.storage.utils import stable_hash
-from ax.utils.common.logger import get_logger
-
-logger: Logger = get_logger(__name__)
 
 """
 Mapping of Metric classes to ints.

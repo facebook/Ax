@@ -238,7 +238,7 @@ def _get_objective_v_param_plots(
                             parameters_to_use=params_to_use,
                         )
                     )
-                logger.info(
+                logger.debug(
                     f"Created contour plots for metric {metric_name} and parameters "
                     f"{params_to_use}."
                 )
@@ -424,16 +424,14 @@ def get_standard_plots(
                 )
                 logger.debug("Finished global sensitivity analysis.")
             except Exception as e:
-                logger.info(
+                logger.debug(
                     f"Failed to compute signed global feature sensitivities: {e}"
                     "Trying to get unsigned feature sensitivities."
                 )
                 try:
                     sens = ax_parameter_sens(model, order="total", signed=False)
                 except Exception as e:
-                    logger.exception(
-                        f"Failed to compute unsigned feature sensitivities: {e}"
-                    )
+                    logger.exception(f"Failed to compute feature sensitivities: {e}")
         if sens is None:
             try:
                 sens = {
@@ -441,7 +439,7 @@ def get_standard_plots(
                     for i, metric_name in enumerate(sorted(model.metric_names))
                 }
             except Exception as e:
-                logger.info(f"Failed to compute feature importances: {e}")
+                logger.warning(f"Failed to compute feature importances: {e}")
 
         try:
             logger.debug("Starting objective vs. param plots.")
@@ -541,7 +539,7 @@ def _transform_progression_to_walltime(
         )
         return transformed_times
     except Exception as e:
-        logger.info(f"Failed to transform progression to walltime: {e}")
+        logger.debug(f"Failed to transform progression to walltime: {e}")
         return None
 
 
@@ -678,7 +676,7 @@ def _merge_trials_dict_with_df(
         if not all(
             v is not None for v in trials_dict.values()
         ):  # not present for all trials
-            logger.info(
+            logger.debug(
                 f"Column {column_name} missing for some trials. "
                 "Filling with None when missing."
             )
@@ -719,7 +717,7 @@ def _merge_results_if_no_duplicates(
             ``results_key_col``
     """
     if len(results.index) == 0:
-        logger.info(
+        logger.debug(
             f"No results present for the specified metrics `{metrics}`. "
             "Returning arm parameters and metadata only."
         )
@@ -1272,7 +1270,7 @@ def _construct_comparison_message(
 ) -> str | None:
     # TODO: allow for user configured digits value
     if baseline_value == 0:
-        logger.info(
+        logger.debug(
             "compare_to_baseline: baseline has value of 0"
             + ", can't compute percent change."
         )
@@ -1356,13 +1354,13 @@ def maybe_extract_baseline_comparison_values(
     # TODO: extract and use best arms if comparison_arm_names is not provided.
     #   Can do this automatically using optimization_config.
     if not comparison_arm_names:
-        logger.info(
+        logger.debug(
             "compare_to_baseline: comparison_arm_names not provided. Returning None."
         )
         return None
     if not optimization_config:
         if experiment.optimization_config is None:
-            logger.info(
+            logger.debug(
                 "compare_to_baseline: optimization_config neither"
                 + " provided in inputs nor present on experiment."
             )
@@ -1371,13 +1369,13 @@ def maybe_extract_baseline_comparison_values(
 
     arms_df = exp_to_df(experiment)
     if arms_df is None:
-        logger.info("compare_to_baseline: arms_df is None.")
+        logger.debug("compare_to_baseline: arms_df is None.")
         return None
 
     comparison_arm_df = arms_df[arms_df["arm_name"].isin(comparison_arm_names)]
 
     if comparison_arm_df is None or len(comparison_arm_df) == 0:
-        logger.info("compare_to_baseline: comparison_arm_df has no rows.")
+        logger.debug("compare_to_baseline: comparison_arm_df has no rows.")
         return None
 
     try:
@@ -1385,7 +1383,7 @@ def maybe_extract_baseline_comparison_values(
             experiment=experiment, baseline_arm_name=baseline_arm_name
         )
     except Exception as e:
-        logger.info(f"compare_to_baseline: could not select baseline arm. Reason: {e}")
+        logger.debug(f"compare_to_baseline: could not select baseline arm. Reason: {e}")
         return None
 
     baseline_rows = arms_df[arms_df["arm_name"] == baseline_arm_name]

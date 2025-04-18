@@ -162,7 +162,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             generation strategies.
 
         verbose_logging: Whether Ax should log significant optimization events,
-            defaults to `True`.
+            defaults to `True`. Float values are rounded to 6 decimal places.
 
         suppress_storage_errors: Whether to suppress SQL storage-related errors if
             encountered. Only use if SQL storage is not important for the given use
@@ -198,13 +198,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         if not verbose_logging:
             logger.setLevel(logging.WARNING)
-        else:
-            logger.info(
-                "Starting optimization with verbose logging. To disable logging, "
-                "set the `verbose_logging` argument to `False`. Note that float "
-                "values in the logs are rounded to "
-                f"{ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES} decimal points."
-            )
+
         if generation_strategy is not None and torch_device is not None:
             warnings.warn(
                 "Both a `generation_strategy` and a `torch_device` were specified. "
@@ -1073,11 +1067,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             )
         if self.generation_strategy.model is not None:
             try:
-                logger.info(
-                    f"Retrieving contour plot with parameter '{param_x}' on X-axis "
-                    f"and '{param_y}' on Y-axis, for metric '{metric_name}'. "
-                    "Remaining parameters are affixed to the middle of their range."
-                )
                 return plot_contour(
                     model=none_throws(self.generation_strategy.model),
                     param_x=param_x,
@@ -1088,7 +1077,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             except NotImplementedError:
                 # Some models don't implement '_predict', which is needed
                 # for the contour plots.
-                logger.info(
+                logger.error(
                     f"Model {self.generation_strategy.model} does not implement "
                     "`predict`, so it cannot be used to generate a response "
                     "surface plot."
@@ -1117,10 +1106,10 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             try:
                 return plot_feature_importance_by_feature(cur_model, relative=relative)
             except NotImplementedError:
-                logger.info(
+                logger.error(
                     f"Model {self.generation_strategy.model} does not implement "
                     "`feature_importances`, so it cannot be used to generate "
-                    "this plot. Only certain models, implement feature importances."
+                    "this plot."
                 )
 
         raise ValueError(
@@ -1150,7 +1139,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         self._experiment = none_throws(
             experiment, f"Experiment by name '{experiment_name}' not found."
         )
-        logger.info(f"Loaded {experiment}.")
+        logger.debug(f"Loaded {experiment}.")
         if generation_strategy is None:
             if choose_generation_strategy_kwargs is None:
                 raise UserInputError(
@@ -1164,7 +1153,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             self._save_generation_strategy_to_db_if_possible()
         else:
             self._generation_strategy = generation_strategy
-            logger.info(
+            logger.debug(
                 f"Using generation strategy associated with the loaded experiment:"
                 f" {generation_strategy}."
             )
@@ -1260,11 +1249,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         # Predict on user-provided data
         if parameterizations is not None:
-            logger.info(
-                '"parameterizations" have been provided, only these data '
-                "points will be predicted. No trial data prediction will be "
-                "returned."
-            )
             for label in parameterizations.keys():
                 label_to_feature_dict[label] = ObservationFeatures(
                     parameters=parameterizations[label]
@@ -1397,7 +1381,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         with open(filepath, "w+") as file:
             file.write(json.dumps(self.to_json_snapshot()))
-            logger.info(f"Saved JSON-serialized state of optimization to `{filepath}`.")
+            logger.debug(
+                f"Saved JSON-serialized state of optimization to `{filepath}`."
+            )
 
     @classmethod
     def load_from_json_file(
@@ -1718,7 +1704,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             if overwrite_existing_experiment:
                 exp_name = self.experiment._name or "untitled"
                 new_exp_name = name or "untitled"
-                logger.info(
+                logger.debug(
                     f"Overwriting existing experiment ({exp_name}) on this client "
                     f"with new experiment ({new_exp_name}) and restarting the "
                     "generation strategy."
