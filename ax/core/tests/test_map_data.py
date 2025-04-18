@@ -101,6 +101,18 @@ class MapDataTest(TestCase):
     def test_init(self) -> None:
         empty = MapData()
         self.assertTrue(empty.map_df.empty)
+        # Check that the required columns do not include any map keys.
+        self.assertEqual(empty.REQUIRED_COLUMNS, empty.required_columns())
+        self.assertEqual(set(empty.map_df.columns), empty.REQUIRED_COLUMNS)
+
+        # Initialize empty with map key infos.
+        empty = MapData(map_key_infos=self.map_key_infos)
+        self.assertTrue(empty.map_df.empty)
+        # Check that the required columns include the map keys.
+        self.assertEqual(
+            empty.REQUIRED_COLUMNS.union(["epoch"]), empty.required_columns()
+        )
+        self.assertEqual(set(empty.map_df.columns), empty.required_columns())
 
         with self.assertRaisesRegex(ValueError, "map_key_infos may be `None` iff"):
             MapData(df=self.df, map_key_infos=None)

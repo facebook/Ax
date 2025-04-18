@@ -199,6 +199,9 @@ class MapData(Data):
     def map_keys(self) -> list[str]:
         return [mki.key for mki in self.map_key_infos]
 
+    def required_columns(self) -> set[str]:
+        return super().required_columns().union(self.map_keys)
+
     @property
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
