@@ -47,7 +47,7 @@ from ax.core.trial_status import TrialStatus
 from ax.core.types import TParamValue
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
-from ax.service.utils.best_point_mixin import BestPointMixin
+from ax.service.utils.best_point import get_trace
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
@@ -288,7 +288,7 @@ def _get_oracle_value_of_params(
     dummy_experiment = get_oracle_experiment_from_params(
         problem=problem, dict_of_dict_of_params={0: {"0_0": params}}
     )
-    (inference_value,) = BestPointMixin._get_trace(
+    (inference_value,) = get_trace(
         experiment=dummy_experiment, optimization_config=problem.optimization_config
     )
     return inference_value
@@ -312,7 +312,7 @@ def _get_oracle_trace_from_arms(
             for i, arms in enumerate(evaluated_arms_list)
         },
     )
-    oracle_trace = BestPointMixin._get_trace(
+    oracle_trace = get_trace(
         experiment=dummy_experiment,
         optimization_config=problem.optimization_config,
     )

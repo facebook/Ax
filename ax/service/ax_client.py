@@ -66,6 +66,7 @@ from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.analysis_base import AnalysisBase
+from ax.service.utils.best_point import get_trace
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.instantiation import (
     FixedFeatures,
@@ -1610,9 +1611,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     @copy_doc(BestPointMixin.get_trace)
     def get_trace(
         self,
-        optimization_config: MultiObjectiveOptimizationConfig | None = None,
+        optimization_config: OptimizationConfig | None = None,
     ) -> list[float]:
-        return BestPointMixin._get_trace(
+        return get_trace(
             experiment=self.experiment,
             optimization_config=optimization_config,
         )

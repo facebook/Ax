@@ -51,6 +51,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.service.utils.analysis_base import AnalysisBase
+from ax.service.utils.best_point import get_trace
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
@@ -1292,7 +1293,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         self,
         optimization_config: OptimizationConfig | None = None,
     ) -> list[float]:
-        return BestPointMixin._get_trace(
+        return get_trace(
             experiment=self.experiment,
             optimization_config=optimization_config,
         )
