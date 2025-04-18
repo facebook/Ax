@@ -25,7 +25,7 @@ from ax.plot.base import AxPlotConfig, AxPlotTypes, CI_OPACITY, DECIMALS
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.plot.helper import _format_CI, _format_dict, extend_range
 from ax.plot.pareto_utils import ParetoFrontierResults
-from ax.service.utils.best_point_mixin import BestPointMixin
+from ax.service.utils.best_point import get_trace
 from plotly import express as px
 from pyre_extensions import assert_is_instance, none_throws
 from scipy.stats import norm
@@ -62,7 +62,7 @@ def scatter_plot_with_hypervolume_trace_plotly(experiment: Experiment) -> go.Fig
     Arguments:
         experiment: MOO experiment to calculate the hypervolume trace from
     """
-    hypervolume_trace = BestPointMixin._get_trace(experiment=experiment)
+    hypervolume_trace = get_trace(experiment=experiment)
 
     df = pd.DataFrame(
         {
