@@ -832,9 +832,14 @@ class TestGenerationStrategy(TestCase):
                 with self.assertRaisesRegex(
                     GenerationStrategyRepeatedPoints, "exceeded `MAX_GEN_ATTEMPTS`"
                 ), mock.patch(
-                    "ax.generation_strategy.generation_node.logger.info"
+                    "ax.generation_strategy.generation_node.logger.debug"
                 ) as mock_logger:
                     g = sobol.gen(exp)
+                    self.assertEqual(mock_logger.call_count, 5)
+                    self.assertIn(
+                        "The generator run produced duplicate arms.",
+                        mock_logger.call_args[0][0],
+                    )
             else:
                 # With Sobol fallback without generator level deduplication.
                 with self.assertLogs(GenerationNode.__module__, logging.WARNING) as cm:
@@ -842,11 +847,6 @@ class TestGenerationStrategy(TestCase):
                 self.assertTrue(
                     any("gen failed with error" in msg for msg in cm.output)
                 )
-            self.assertEqual(mock_logger.call_count, 5)
-            self.assertIn(
-                "The generator run produced duplicate arms.",
-                mock_logger.call_args[0][0],
-            )
 
     def test_current_generator_run_limit(self) -> None:
         NUM_INIT_TRIALS = 5

@@ -423,7 +423,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         # If during input constructor application we determined that we should skip
         # this node, return early.
         if self._should_skip:
-            logger.info(f"Skipping generation for node {self.node_name}.")
+            logger.debug(f"Skipping generation for node {self.node_name}.")
             return None
 
         if not skip_fit:
@@ -538,7 +538,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 return gr  # Not deduplicationg.
             if all(arm.signature not in dedup_against_arms for arm in gr.arms):
                 return gr  # Generated a set of all-non-duplicate arms.
-            logger.info(
+            logger.debug(
                 "The generator run produced duplicate arms. Re-running the "
                 "generation step in an attempt to deduplicate. Candidates "
                 f"produced in the last generator run: {gr.arms}."
