@@ -55,5 +55,5 @@ class TestHealtheckException(TestCase):
 
         # Check that error message is in the analysis card
         self.assertEqual(analysis_card.name, "DummyAnalysis")
-        self.assertEqual(analysis_card.title, "DummyAnalysis Error")
+        self.assertEqual(analysis_card.title, "DummyAnalysis Failure")
         self.assertIn(ERROR_MESSAGE, analysis_card.subtitle)

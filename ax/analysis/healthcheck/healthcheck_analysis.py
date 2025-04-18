@@ -53,10 +53,10 @@ class HealthcheckAnalysisE(AnalysisE):
         return [
             HealthcheckAnalysisCard(
                 name=self.analysis.name,
-                title=f"{self.analysis.name} Error",
+                title=f"{self.analysis.name} Failure",
                 subtitle=(
                     f"An error occurred while computing {self.analysis}:\n"
-                    f"{exception_stack_trace}"
+                    f"```\n{exception_stack_trace}\n```"
                 ),
                 attributes=self.analysis.attributes,
                 blob=json.dumps({"status": HealthcheckStatus.FAIL}),
