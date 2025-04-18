@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import logging
 from collections.abc import Sequence
 from typing import Any
 
@@ -19,11 +18,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
-
-
-logger: logging.Logger = get_logger(__name__)
 
 
 class MultiTypeExperiment(Experiment):
