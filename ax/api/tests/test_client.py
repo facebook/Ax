@@ -9,7 +9,6 @@ from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
-
 import pandas as pd
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.api.client import Client
@@ -25,7 +24,6 @@ from ax.api.configs import (
 from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TParameterization
-
 from ax.core.experiment import Experiment
 from ax.core.formatting_utils import DataType
 from ax.core.map_data import MapData
@@ -413,11 +411,11 @@ class TestClient(TestCase):
             ).map_df.equals(
                 pd.DataFrame(
                     {
+                        "trial_index": {0: 0},
                         "arm_name": {0: "0_0"},
                         "metric_name": {0: "foo"},
                         "mean": {0: 1.0},
                         "sem": {0: np.nan},
-                        "trial_index": {0: 0},
                         "step": {0: np.nan},
                     }
                 )
@@ -438,11 +436,11 @@ class TestClient(TestCase):
             ).map_df.equals(
                 pd.DataFrame(
                     {
+                        "trial_index": {0: 0, 1: 0},
                         "arm_name": {0: "0_0", 1: "0_0"},
                         "metric_name": {0: "foo", 1: "foo"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
-                        "trial_index": {0: 0, 1: 0},
                         "step": {0: np.nan, 1: 10.0},
                     }
                 )
@@ -465,11 +463,11 @@ class TestClient(TestCase):
             ).map_df.equals(
                 pd.DataFrame(
                     {
+                        "trial_index": {0: 0, 1: 0, 2: 0},
                         "arm_name": {0: "0_0", 1: "0_0", 2: "0_0"},
                         "metric_name": {0: "foo", 1: "foo", 2: "bar"},
                         "mean": {0: 2.0, 1: 1.0, 2: 2.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan},
-                        "trial_index": {0: 0, 1: 0, 2: 0},
                         "step": {0: 10.0, 1: np.nan, 2: np.nan},
                     }
                 )
@@ -511,11 +509,11 @@ class TestClient(TestCase):
             ).map_df.equals(
                 pd.DataFrame(
                     {
+                        "trial_index": {0: 0, 1: 0},
                         "arm_name": {0: "0_0", 1: "0_0"},
                         "metric_name": {0: "foo", 1: "bar"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
-                        "trial_index": {0: 0, 1: 0},
                         "step": {0: np.nan, 1: np.nan},
                     }
                 )
@@ -540,11 +538,11 @@ class TestClient(TestCase):
             ).map_df.equals(
                 pd.DataFrame(
                     {
+                        "trial_index": {0: 1, 1: 1},
                         "arm_name": {0: "1_0", 1: "1_0"},
                         "metric_name": {0: "foo", 1: "bar"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
-                        "trial_index": {0: 1, 1: 1},
                         "step": {0: 10.0, 1: 10.0},
                     }
                 )
@@ -566,11 +564,11 @@ class TestClient(TestCase):
             ).map_df.equals(
                 pd.DataFrame(
                     {
+                        "trial_index": {0: 2},
                         "arm_name": {0: "2_0"},
                         "metric_name": {0: "foo"},
                         "mean": {0: 1.0},
                         "sem": {0: np.nan},
-                        "trial_index": {0: 2},
                         "step": {0: np.nan},
                     }
                 )
@@ -708,11 +706,11 @@ class TestClient(TestCase):
             ).map_df.equals(
                 pd.DataFrame(
                     {
+                        "trial_index": {0: 0},
                         "arm_name": {0: "0_0"},
                         "metric_name": {0: "foo"},
                         "mean": {0: 0.0},
                         "sem": {0: np.nan},
-                        "trial_index": {0: 0},
                         "step": {0: 1.0},
                     }
                 )
@@ -778,11 +776,11 @@ class TestClient(TestCase):
             ).map_df.equals(
                 pd.DataFrame(
                     {
+                        "trial_index": {0: 0, 1: 1, 2: 2, 3: 3},
                         "arm_name": {0: "0_0", 1: "1_0", 2: "2_0", 3: "3_0"},
                         "metric_name": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
                         "mean": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan, 3: np.nan},
-                        "trial_index": {0: 0, 1: 1, 2: 2, 3: 3},
                         "progression": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
                     }
                 )
