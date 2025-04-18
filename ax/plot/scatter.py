@@ -800,8 +800,10 @@ def _check_label_lengths(labels: list[str]) -> None:
     if long_labels:
         logger.info(
             "This plot may be malformed due to long labels. You"
-            " can override long labels by passing a label_dict dictionary"
-            " to plotting functions that support it.\nHere's a list of labels"
+            " can override long labels by passing a label_dict dictionary."
+        )
+        logger.debug(
+            "Here's a list of labels"
             f" longer than {max_len} characters:\n" + "\n".join(long_labels)
         )
 

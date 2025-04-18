@@ -7,8 +7,9 @@
 # pyre-strict
 
 import itertools
+import logging
 from collections import namedtuple
-from logging import INFO, WARN
+from logging import DEBUG, INFO, WARN
 from unittest import mock
 from unittest.mock import patch, PropertyMock
 
@@ -432,16 +433,13 @@ class ReportUtilsTest(TestCase):
             ),
         ]
         exp.trials[0].run()
-        # NOTE: level set to INFO in this block, because the global sensitivity
-        # analysis raises an INFO level log entry here. Leaving level=WARN here
-        # actually passes on Python 3.8 because of a language internal bug. See
-        # https://bugs.python.org/issue41943 for more information.
-        with self.assertLogs(logger="ax", level=INFO) as log:
+        logger = logging.getLogger("ax.service.utils.report_utils")
+        logger.setLevel(DEBUG)
+        with self.assertLogs(logger="ax", level=DEBUG) as log:
             plots = get_standard_plots(
                 experiment=exp,
                 model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
             )
-            self.assertEqual(len(log.output), 3)
             self.assertIn(
                 "Pareto plotting not supported for experiments with relative objective "
                 "thresholds.",
@@ -538,7 +536,9 @@ class ReportUtilsTest(TestCase):
             experiment=exp,
             data=exp.fetch_data(),
         )
-        with self.assertLogs(logger="ax", level=INFO) as log:
+        logger = logging.getLogger("ax.service.utils.report_utils")
+        logger.setLevel(DEBUG)
+        with self.assertLogs(logger="ax", level=DEBUG) as log:
             _get_objective_v_param_plots(
                 experiment=exp, model=model, max_num_contour_plots=2
             )
@@ -854,6 +854,8 @@ class ReportUtilsTest(TestCase):
             "optimal": Arm(name="optimal", parameters={}),
             "bad_optimal": Arm(name="bad_optimal", parameters={}),
         }
+        logger = logging.getLogger("ax.service.utils.report_utils")
+        logger.setLevel(DEBUG)
 
         with patch(
             "ax.service.utils.report_utils.exp_to_df",
@@ -864,7 +866,7 @@ class ReportUtilsTest(TestCase):
             new_callable=PropertyMock,
             return_value=arms_by_name_mock,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 self.assertEqual(
                     compare_to_baseline(
                         experiment=experiment,
@@ -891,7 +893,7 @@ class ReportUtilsTest(TestCase):
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 self.assertEqual(
                     compare_to_baseline(
                         experiment=experiment,
@@ -918,7 +920,7 @@ class ReportUtilsTest(TestCase):
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 exp_no_opt = Experiment(
                     search_space=get_branin_search_space(),
                     tracking_metrics=[true_obj_metric],
@@ -971,11 +973,13 @@ class ReportUtilsTest(TestCase):
         arms_df = pd.DataFrame(data)
 
         # no arms df
+        logger = logging.getLogger("ax.service.utils.report_utils")
+        logger.setLevel(DEBUG)
         with patch(
             "ax.service.utils.report_utils.exp_to_df",
             return_value=None,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 self.assertEqual(
                     compare_to_baseline(
                         experiment=experiment,
@@ -998,7 +1002,7 @@ class ReportUtilsTest(TestCase):
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 comparison_arm_not_found = ["unknown_arm"]
                 self.assertEqual(
                     compare_to_baseline(
@@ -1029,7 +1033,7 @@ class ReportUtilsTest(TestCase):
                 parameters={"x1": 0, "x2": 0},
             )
             baseline_arm_name = "not_baseline_arm_in_dataframe"
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 self.assertEqual(
                     compare_to_baseline(
                         experiment=experiment_with_status_quo,

@@ -685,7 +685,7 @@ def _objective_threshold_from_nadir(
     with this as the bound.
     """
 
-    logger.info(f"Inferring ObjectiveThreshold for {objective} using nadir point.")
+    logger.debug(f"Inferring ObjectiveThreshold for {objective} using nadir point.")
 
     optimization_config = optimization_config or assert_is_instance(
         experiment.optimization_config,

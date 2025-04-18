@@ -9,7 +9,6 @@
 from abc import ABCMeta, abstractmethod
 from collections.abc import Iterable
 from functools import partial
-from logging import Logger
 
 import numpy as np
 import torch
@@ -45,12 +44,9 @@ from ax.service.utils.best_point import (
     fill_missing_thresholds_from_nadir,
 )
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
-from ax.utils.common.logger import get_logger
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 from pyre_extensions import assert_is_instance, none_throws
 
-
-logger: Logger = get_logger(__name__)
 
 NUM_BINS_PER_TRIAL = 3
 

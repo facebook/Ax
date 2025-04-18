@@ -217,7 +217,7 @@ def _get_in_sample_arms(
     if ("TrialAsTask" not in model.transforms.keys() or trial_selector is None) and (
         len(arm_name_to_parameters) != len(observations)
     ):
-        logger.error(
+        logger.debug(
             "Have observations of arms with different features but same"
             " name. Arbitrary one will be plotted."
         )

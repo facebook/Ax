@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import warnings
 from copy import deepcopy
 from itertools import combinations
 from logging import Logger
@@ -409,7 +410,9 @@ def compute_posterior_pareto_frontier(
                 else experiment.fetch_data()
             )
         except Exception as e:
-            logger.info(f"Could not fetch data from experiment or trial: {e}")
+            warnings.warn(
+                f"Could not fetch data from experiment or trial: {e}", stacklevel=2
+            )
 
     # The weights here are just dummy weights that we pass in to construct the
     # modelbridge. We set the weight to -1 if `lower_is_better` is `True` and
