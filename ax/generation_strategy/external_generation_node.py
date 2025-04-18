@@ -9,7 +9,6 @@
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from logging import Logger
 from typing import Any
 
 from ax.core.arm import Arm
@@ -22,9 +21,6 @@ from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import TransitionCriterion
-from ax.utils.common.logger import get_logger
-
-logger: Logger = get_logger(__name__)
 
 
 # TODO[drfreund]: Introduce a `GenerationNodeInterface` to
