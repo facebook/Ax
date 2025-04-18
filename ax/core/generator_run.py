@@ -14,7 +14,6 @@ from collections.abc import MutableMapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from logging import Logger
 from typing import Any
 
 import pandas as pd
@@ -29,10 +28,7 @@ from ax.core.types import (
 )
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import Base, SortableBase
-from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
-
-logger: Logger = get_logger(__name__)
 
 
 class GeneratorRunType(Enum):

@@ -272,7 +272,7 @@ class Trial(BaseTrial):
         """Utility method to validate data before further processing."""
         for metric_name in data.df["metric_name"].values:
             if metric_name not in self.experiment.metrics:
-                logger.info(
+                logger.debug(
                     f"Data was logged for metric {metric_name} that was not yet "
                     "tracked on the experiment. Please specify `tracking_metric_"
                     "names` argument in AxClient.create_experiment to add tracking "

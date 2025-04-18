@@ -48,7 +48,7 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.utils.common.base import Base
-from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
+from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -109,7 +109,9 @@ class Experiment(Base):
             runner: Default runner used for trials on this experiment.
             status_quo: Arm representing existing "control" arm.
             description: Description of the experiment.
-            is_test: Convenience metadata tracker for the user to mark test experiments.
+            is_test: Mark experiment as test in metadata. This flag is meant purely
+                for development and integration testing purposes. Leave as False for
+                live experiments.
             experiment_type: The class of experiments this one belongs to.
             properties: Dictionary of this experiment's properties.  It is meant to
                 only store primitives that pertain to Ax experiment state. Any trial
@@ -206,8 +208,6 @@ class Experiment(Base):
     @is_test.setter
     def is_test(self, is_test: bool) -> None:
         """Set whether the experiment is a test."""
-        if is_test:
-            logger.info(EXPERIMENT_IS_TEST_WARNING)
         self._is_test = is_test
 
     @property
@@ -689,7 +689,7 @@ class Experiment(Base):
                 "this experiment, and none were passed in to `fetch_data`."
             )
         if not any(t.status.expecting_data for t in trials):
-            logger.info("No trials are in a state expecting data.")
+            logger.debug("No trials are in a state expecting data.")
             return {}
         metrics_to_fetch = list(metrics or self.metrics.values())
         metrics_by_class = self._metrics_by_class(metrics=metrics_to_fetch)
@@ -805,7 +805,7 @@ class Experiment(Base):
             self.metrics.keys()
         )
         if metrics_not_on_exp:
-            logger.info(
+            logger.debug(
                 f"Attached data has some metrics ({metrics_not_on_exp}) that are "
                 "not among the metrics on this experiment. Note that attaching data "
                 "will not automatically add those metrics to the experiment. "
@@ -1423,12 +1423,12 @@ class Experiment(Base):
             copied_trials.append(new_trial)
 
         if self._name is not None:
-            logger.info(
+            logger.debug(
                 f"Copied {len(copied_trials)} completed trials and their data "
                 f"from {old_experiment._name} to {self._name}."
             )
         else:
-            logger.info(
+            logger.debug(
                 f"Copied {len(copied_trials)} completed trials and their data "
                 f"from {old_experiment._name}."
             )
@@ -1652,7 +1652,7 @@ class Experiment(Base):
 
         trial.mark_running(no_runner_required=True)
 
-        logger.info(
+        logger.debug(
             "Attached custom parameterizations "
             f"{round_floats_for_logging(item=parameterizations)} "
             f"as trial {trial.index}."

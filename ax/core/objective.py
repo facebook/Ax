@@ -10,16 +10,12 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Iterable
-from logging import Logger
 from typing import Any
 
 from ax.core.metric import Metric
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
-from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
-
-logger: Logger = get_logger(__name__)
 
 
 class Objective(SortableBase):
