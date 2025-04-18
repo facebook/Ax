@@ -214,7 +214,7 @@ def _get_model(
         )
 
     if not is_predictive(adapter=relevant_adapter):
-        logger.info(
+        logger.debug(
             "Using Empirical Bayes to model effects because we were unable to find "
             + " a suitable adapter on the current Generation Strategy. Current "
             + f" Generation Strategy is: {generation_strategy} and model is: {adapter}"

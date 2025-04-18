@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Collection
-from logging import Logger
 from typing import TYPE_CHECKING
 
 from ax.core import MultiObjectiveOptimizationConfig
@@ -25,11 +24,8 @@ if TYPE_CHECKING:
     from ax.generation_strategy.generation_node import GenerationNode
 
 from ax.utils.common.base import SortableBase
-from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin, serialize_init_args
 from pyre_extensions import none_throws
-
-logger: Logger = get_logger(__name__)
 
 
 DATA_REQUIRED_MSG = (

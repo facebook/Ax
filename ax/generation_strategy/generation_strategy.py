@@ -137,7 +137,7 @@ class GenerationStrategy(Base):
             for ms in node.model_specs
         )
         if not self._uses_registered_models:
-            logger.info(
+            logger.warning(
                 "Using model via callable function, "
                 "so optimization is not resumable if interrupted."
             )

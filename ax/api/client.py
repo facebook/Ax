@@ -867,7 +867,9 @@ class Client(WithDBSettingsBase):
         """
         with open(filepath, "w+") as file:
             file.write(json.dumps(self._to_json_snapshot()))
-            logger.info(f"Saved JSON-serialized state of optimization to `{filepath}`.")
+            logger.debug(
+                f"Saved JSON-serialized state of optimization to `{filepath}`."
+            )
 
     @classmethod
     def load_from_json_file(

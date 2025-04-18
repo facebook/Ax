@@ -130,7 +130,7 @@ def _make_botorch_step(
             model_kwargs.update({"disable_progbar": disable_progbar})
         if jit_compile is not None:
             model_kwargs.update({"jit_compile": jit_compile})
-    else:
+    elif verbose is not None or disable_progbar is not None or jit_compile is not None:
         # TODO[T164389105] Rewrite choose_generation_strategy to be MBM first
         logger.info(
             "`verbose`, `disable_progbar`, and `jit_compile` are not yet supported "
@@ -214,7 +214,7 @@ def _suggest_gp_model(
         and all_range_parameters_are_discrete
         and num_possible_points <= num_trials
     ):
-        logger.info("Using Sobol since we can enumerate the search space.")
+        logger.debug("Using Sobol since we can enumerate the search space.")
         if use_saasbo:
             logger.warning(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
         return None
@@ -232,7 +232,7 @@ def _suggest_gp_model(
             < MAX_DISCRETE_ENUMERATIONS_NO_CONTINUOUS_OPTIMIZATION
         )
     ):
-        logger.info(
+        logger.debug(
             "Using Bayesian optimization with a categorical kernel for improved "
             "performance with a large number of unordered categorical parameters."
         )
@@ -264,7 +264,7 @@ def _suggest_gp_model(
         logger.info(f"Using {method} since {reason}")
         return method
 
-    logger.info(
+    logger.warning(
         f"Using Sobol since there are more than {MAX_DISCRETE_ENUMERATIONS_MIXED} "
         "combinations of enumerated parameters. For improved performance, make sure "
         "that all ordered `ChoiceParameter`s are encoded as such (`is_ordered=True`), "
@@ -474,7 +474,7 @@ def choose_generation_strategy_legacy(
             )
 
         # If number of initialization trials is not specified, estimate it.
-        logger.info(
+        logger.debug(
             "Calculating the number of remaining initialization trials based on "
             f"num_initialization_trials={num_initialization_trials} "
             f"max_initialization_trials={max_initialization_trials} "
@@ -492,13 +492,13 @@ def choose_generation_strategy_legacy(
                 num_initialization_trials = min(
                     num_initialization_trials, max_initialization_trials
                 )
-            logger.info(
+            logger.debug(
                 f"calculated num_initialization_trials={num_initialization_trials}"
             )
         num_remaining_initialization_trials = max(
             0, num_initialization_trials - max(0, num_completed_initialization_trials)
         )
-        logger.info(
+        logger.debug(
             "num_completed_initialization_trials="
             f"{num_completed_initialization_trials} "
             f"num_remaining_initialization_trials={num_remaining_initialization_trials}"
