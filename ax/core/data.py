@@ -148,10 +148,9 @@ class BaseData(Base, SerializationMixin):
                     df[col] = df[col].astype(dtype)
         return df
 
-    @classmethod
-    def required_columns(cls) -> set[str]:
+    def required_columns(self) -> set[str]:
         """Names of columns that must be present in the underlying ``DataFrame``."""
-        return cls.REQUIRED_COLUMNS
+        return self.REQUIRED_COLUMNS
 
     @classmethod
     def supported_columns(
