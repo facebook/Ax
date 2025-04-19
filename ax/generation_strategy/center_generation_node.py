@@ -15,7 +15,7 @@ from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
-from ax.generation_strategy.transition_criterion import MinTrials
+from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
 from pyre_extensions import none_throws
 
 
@@ -32,17 +32,14 @@ class CenterGenerationNode(ExternalGenerationNode):
         experiment, this will fallback to Sobol through the use of ``GenerationNode``
         deduplication logic.
         """
-        transition_criteria = [
-            MinTrials(
-                threshold=1,
-                block_gen_if_met=False,
-                block_transition_if_unmet=True,
-                transition_to=next_node_name,
-            ),
-        ]
         super().__init__(
             node_name="CenterOfSearchSpace",
-            transition_criteria=transition_criteria,
+            transition_criteria=[
+                AutoTransitionAfterGen(
+                    transition_to=next_node_name,
+                    continue_trial_generation=False,
+                )
+            ],
             should_deduplicate=True,
         )
         self.search_space: SearchSpace | None = None

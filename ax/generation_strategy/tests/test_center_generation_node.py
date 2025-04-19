@@ -17,7 +17,7 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import SearchSpace
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
-from ax.generation_strategy.transition_criterion import MinTrials
+from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from pyre_extensions import none_throws
@@ -58,11 +58,8 @@ class TestCenterGenerationNode(TestCase):
         self.assertEqual(
             node.transition_criteria,
             [
-                MinTrials(
-                    threshold=1,
-                    block_gen_if_met=False,
-                    block_transition_if_unmet=True,
-                    transition_to="test",
+                AutoTransitionAfterGen(
+                    transition_to="test", continue_trial_generation=False
                 )
             ],
         )
