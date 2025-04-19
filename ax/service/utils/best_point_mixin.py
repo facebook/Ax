@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from abc import ABCMeta, abstractmethod
+from abc import ABC
 from collections.abc import Iterable
 from functools import partial
 
@@ -51,8 +51,10 @@ from pyre_extensions import assert_is_instance, none_throws
 NUM_BINS_PER_TRIAL = 3
 
 
-class BestPointMixin(metaclass=ABCMeta):
-    @abstractmethod
+class BestPointMixin(ABC):
+    experiment: Experiment
+    generation_strategy: GenerationStrategy
+
     def get_best_trial(
         self,
         optimization_config: OptimizationConfig | None = None,
@@ -82,7 +84,13 @@ class BestPointMixin(metaclass=ABCMeta):
         Returns:
             Tuple of trial index, parameterization and model predictions for it.
         """
-        pass
+        return self._get_best_trial(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+            use_model_predictions=use_model_predictions,
+        )
 
     def get_best_parameters(
         self,
@@ -125,7 +133,6 @@ class BestPointMixin(metaclass=ABCMeta):
         _, parameterization, vals = res
         return parameterization, vals
 
-    @abstractmethod
     def get_pareto_optimal_parameters(
         self,
         optimization_config: OptimizationConfig | None = None,
@@ -163,9 +170,14 @@ class BestPointMixin(metaclass=ABCMeta):
             Raises a `NotImplementedError` if extracting the Pareto frontier is
             not possible. Note that the returned dict may be empty.
         """
-        pass
+        return self._get_pareto_optimal_parameters(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+            use_model_predictions=use_model_predictions,
+        )
 
-    @abstractmethod
     def get_hypervolume(
         self,
         optimization_config: MultiObjectiveOptimizationConfig | None = None,
@@ -186,10 +198,16 @@ class BestPointMixin(metaclass=ABCMeta):
                 also be based on model predictions and may differ from the
                 observed values.
         """
-        pass
+        return self._get_hypervolume(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+            use_model_predictions=use_model_predictions,
+        )
 
-    @abstractmethod
     def get_trace(
+        self,
         optimization_config: OptimizationConfig | None = None,
     ) -> list[float]:
         """Get the optimization trace of the given experiment.
@@ -199,7 +217,6 @@ class BestPointMixin(metaclass=ABCMeta):
         `use_model_predictions = False`, though this does it more efficiently.
 
         Args:
-            experiment: The experiment to get the trace for.
             optimization_config: An optional optimization config to use for computing
                 the trace. This allows computing the traces under different objectives
                 or constraints without having to modify the experiment.
@@ -207,10 +224,12 @@ class BestPointMixin(metaclass=ABCMeta):
         Returns:
             A list of observed hypervolumes or best values.
         """
-        pass
+        return self._get_trace(
+            experiment=self.experiment, optimization_config=optimization_config
+        )
 
-    @abstractmethod
     def get_trace_by_progression(
+        self,
         optimization_config: OptimizationConfig | None = None,
         bins: list[float] | None = None,
         final_progression_only: bool = False,
@@ -246,7 +265,12 @@ class BestPointMixin(metaclass=ABCMeta):
             A tuple containing (1) the list of observed hypervolumes or best values and
             (2) a list of associated x-values (i.e., progressions) useful for plotting.
         """
-        pass
+        return self._get_trace_by_progression(
+            experiment=self.experiment,
+            optimization_config=optimization_config,
+            bins=bins,
+            final_progression_only=final_progression_only,
+        )
 
     @staticmethod
     def _get_best_trial(

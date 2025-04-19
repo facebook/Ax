@@ -9,7 +9,7 @@
 import json
 import logging
 import warnings
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from functools import partial
 
 from logging import Logger
@@ -29,18 +29,9 @@ from ax.core.map_metric import MapMetric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
 from ax.core.runner import Runner
 from ax.core.trial import Trial
-from ax.core.types import (
-    TEvaluationOutcome,
-    TModelPredictArm,
-    TParameterization,
-    TParamValue,
-)
+from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
 
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
@@ -1563,73 +1554,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     def global_stopping_strategy(self, gss: BaseGlobalStoppingStrategy) -> None:
         """Update the global stopping strategy."""
         self._global_stopping_strategy = gss
-
-    @copy_doc(BestPointMixin.get_best_trial)
-    def get_best_trial(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
-        return self._get_best_trial(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
-    def get_pareto_optimal_parameters(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
-        return self._get_pareto_optimal_parameters(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_hypervolume)
-    def get_hypervolume(
-        self,
-        optimization_config: MultiObjectiveOptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> float:
-        return BestPointMixin._get_hypervolume(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_trace)
-    def get_trace(
-        self,
-        optimization_config: MultiObjectiveOptimizationConfig | None = None,
-    ) -> list[float]:
-        return BestPointMixin._get_trace(
-            experiment=self.experiment,
-            optimization_config=optimization_config,
-        )
-
-    @copy_doc(BestPointMixin.get_trace_by_progression)
-    def get_trace_by_progression(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        bins: list[float] | None = None,
-        final_progression_only: bool = False,
-    ) -> tuple[list[float], list[float]]:
-        return BestPointMixin._get_trace_by_progression(
-            experiment=self.experiment,
-            optimization_config=optimization_config,
-            bins=bins,
-            final_progression_only=final_progression_only,
-        )
 
     def _update_trial_with_raw_data(
         self,

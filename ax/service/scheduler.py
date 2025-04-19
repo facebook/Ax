@@ -27,12 +27,7 @@ from ax.core.multi_type_experiment import (
     get_trial_indices_for_statuses,
     MultiTypeExperiment,
 )
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
 from ax.core.runner import Runner
-from ax.core.types import TModelPredictArm, TParameterization
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 
 from ax.exceptions.core import (
@@ -55,7 +50,6 @@ from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.utils.common.constants import Keys
-from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import (
     build_file_handler,
@@ -1241,75 +1235,6 @@ class Scheduler(AnalysisBase, BestPointMixin):
             )
 
         return updated_any_trial_status
-
-    @copy_doc(BestPointMixin.get_best_trial)
-    def get_best_trial(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
-        return self._get_best_trial(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
-    def get_pareto_optimal_parameters(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
-        return self._get_pareto_optimal_parameters(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_hypervolume)
-    def get_hypervolume(
-        self,
-        optimization_config: MultiObjectiveOptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> float:
-        return BestPointMixin._get_hypervolume(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_trace)
-    def get_trace(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-    ) -> list[float]:
-        return BestPointMixin._get_trace(
-            experiment=self.experiment,
-            optimization_config=optimization_config,
-        )
-
-    @copy_doc(BestPointMixin.get_trace_by_progression)
-    def get_trace_by_progression(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        bins: list[float] | None = None,
-        final_progression_only: bool = False,
-    ) -> tuple[list[float], list[float]]:
-        return BestPointMixin._get_trace_by_progression(
-            experiment=self.experiment,
-            optimization_config=optimization_config,
-            bins=bins,
-            final_progression_only=final_progression_only,
-        )
 
     # ------------------------- III. Protected helpers. -----------------------
 
