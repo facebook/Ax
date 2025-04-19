@@ -120,7 +120,8 @@ class TorchAdapter(Adapter):
                 `model_gen_options` passed to the `Adapter.gen` method.
             torch_device: The device to use for any torch tensors and operations
                 on these tensors.
-            data_loader_options: A dictionary of options for loading data.
+            data_loader_config: A DataLoaderConfig of options for loading data. See the
+                docstring of DataLoaderConfig for more details.
             fit_out_of_design: Overwrites `data_loader_config.fit_out_of_design` if
                 not None.
             fit_abandoned: Overwrites `data_loader_config.fit_abandoned` if not None.
