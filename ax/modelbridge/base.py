@@ -165,7 +165,7 @@ class Adapter:
         if data_loader_config is None:
             data_loader_config = DataLoaderConfig()
 
-        data_loader_config = _legacy_overwrite_data_loader_options(
+        data_loader_config = _legacy_overwrite_data_loader_config(
             data_loader_config=data_loader_config,
             fit_out_of_design=fit_out_of_design,
             fit_abandoned=fit_abandoned,
@@ -1178,7 +1178,7 @@ def clamp_observation_features(
     return observation_features
 
 
-def _legacy_overwrite_data_loader_options(
+def _legacy_overwrite_data_loader_config(
     data_loader_config: DataLoaderConfig,
     fit_out_of_design: bool | None = None,
     fit_abandoned: bool | None = None,
@@ -1207,7 +1207,7 @@ def _legacy_overwrite_data_loader_options(
             if warn_if_legacy:
                 logger.warning(
                     f"`{var_name}` is deprecated. Please pass as "
-                    f"`data_loader_options.{var_name}` instead."
+                    f"`data_loader_config.{var_name}` instead."
                 )
             data_loader_config_dict[var_name] = deprecated_var
         else:
