@@ -13,6 +13,7 @@ from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import (
+    BEST_LINE_SETTINGS,
     get_arm_tooltip,
     is_predictive,
     trial_status_to_plotly_color,
@@ -66,6 +67,7 @@ class ScatterPlot(PlotlyAnalysis):
         trial_statuses: Sequence[TrialStatus] | None = None,
         additional_arms: Sequence[Arm] | None = None,
         labels: Mapping[str, str] | None = None,
+        show_pareto_frontier: bool = False,
     ) -> None:
         """
         Args:
@@ -85,6 +87,8 @@ class ScatterPlot(PlotlyAnalysis):
                 trial with index -1.
             labels: A mapping from metric names to labels to use in the plot. If a label
                 is not provided for a metric, the metric name will be used.
+            show_pareto_frontier: Whether to draw a line representing the Pareto
+                frontier for the two metrics on the plot.
         """
 
         self.x_metric_name = x_metric_name
@@ -95,6 +99,7 @@ class ScatterPlot(PlotlyAnalysis):
         self.trial_statuses = trial_statuses
         self.additional_arms = additional_arms
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
+        self.show_pareto_frontier = show_pareto_frontier
 
     @override
     def compute(
@@ -144,6 +149,9 @@ class ScatterPlot(PlotlyAnalysis):
         x_metric_label = self.labels.get(self.x_metric_name, self.x_metric_name)
         y_metric_label = self.labels.get(self.y_metric_name, self.y_metric_name)
 
+        x_lower_is_better = experiment.metrics[self.x_metric_name].lower_is_better
+        y_lower_is_better = experiment.metrics[self.y_metric_name].lower_is_better
+
         figure = _prepare_figure(
             df=df,
             x_metric_name=self.x_metric_name,
@@ -151,6 +159,13 @@ class ScatterPlot(PlotlyAnalysis):
             x_metric_label=x_metric_label,
             y_metric_label=y_metric_label,
             is_relative=self.relativize,
+            show_pareto_frontier=self.show_pareto_frontier,
+            x_lower_is_better=x_lower_is_better
+            if x_lower_is_better is not None
+            else False,
+            y_lower_is_better=y_lower_is_better
+            if y_lower_is_better is not None
+            else False,
         )
 
         return [
@@ -241,6 +256,9 @@ def _prepare_figure(
     x_metric_label: str,
     y_metric_label: str,
     is_relative: bool,
+    show_pareto_frontier: bool,
+    x_lower_is_better: bool,
+    y_lower_is_better: bool,
 ) -> go.Figure:
     # Initialize the Scatters one at a time since we cannot specify multiple different
     # error bar colors from within one trace.
@@ -333,5 +351,36 @@ def _prepare_figure(
         )
 
         figure.add_trace(legend_trace)
+
+    if show_pareto_frontier:
+        # Infeasible arms are not included in the Pareto frontier
+        eligable_arms = df[df["p_feasible"] >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD]
+
+        # If there are no arms which are not likely to violate constraints, return the
+        # figure as is, without adding a Pareto frontier line.
+        if len(eligable_arms) == 0:
+            return figure
+
+        sorted_df = eligable_arms.sort_values(
+            by=f"{x_metric_name}_mean", ascending=x_lower_is_better
+        )
+
+        pareto_x = [sorted_df[f"{x_metric_name}_mean"].iloc[0]]
+        pareto_y = [sorted_df[f"{y_metric_name}_mean"].iloc[0]]
+        for i in range(1, len(sorted_df)):
+            if not y_lower_is_better and sorted_df[f"{y_metric_name}_mean"].iloc[
+                i
+            ] > max(sorted_df[f"{y_metric_name}_mean"].iloc[:i]):
+                pareto_x.append(sorted_df[f"{x_metric_name}_mean"].iloc[i])
+                pareto_y.append(sorted_df[f"{y_metric_name}_mean"].iloc[i])
+            elif y_lower_is_better and sorted_df[f"{y_metric_name}_mean"].iloc[i] < min(
+                sorted_df[f"{y_metric_name}_mean"].iloc[:i]
+            ):
+                pareto_x.append(sorted_df[f"{x_metric_name}_mean"].iloc[i])
+                pareto_y.append(sorted_df[f"{y_metric_name}_mean"].iloc[i])
+
+        pareto_trace = go.Scatter(x=pareto_x, y=pareto_y, **BEST_LINE_SETTINGS)
+
+        figure.add_trace(pareto_trace)
 
     return figure
