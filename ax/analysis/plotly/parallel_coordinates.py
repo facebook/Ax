@@ -12,7 +12,7 @@ import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import select_metric
+from ax.analysis.plotly.utils import METRIC_CONTINUOUS_COLOR_SCALE, select_metric
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -118,7 +118,11 @@ def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
 
     return go.Figure(
         go.Parcoords(
-            line={"color": df[metric_name], "showscale": True},
+            line={
+                "color": df[metric_name],
+                "colorscale": METRIC_CONTINUOUS_COLOR_SCALE,
+                "showscale": True,
+            },
             dimensions=[
                 *parameter_dimensions,
                 {
