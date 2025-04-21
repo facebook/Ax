@@ -17,7 +17,7 @@ from ax.analysis.plotly.surface.utils import (
     is_axis_log_scale,
     select_fixed_value,
 )
-from ax.analysis.plotly.utils import select_metric
+from ax.analysis.plotly.utils import get_scatter_point_color, select_metric
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
@@ -185,7 +185,6 @@ def _prepare_plot(
     y_lower = (df[f"{metric_name}_mean"] - 1.96 * df[f"{metric_name}_sem"]).tolist()
 
     plotly_blue = px.colors.qualitative.Plotly[0]
-    plotly_blue_translucent = "rgba(99, 110, 250, 0.2)"
 
     # Draw a line at the mean and a shaded region between the upper and lower bounds
     line = go.Scatter(
@@ -202,7 +201,7 @@ def _prepare_plot(
         # Concatenate upper and lower bounds in reverse order
         y=y_upper + y_lower[::-1],
         fill="toself",
-        fillcolor=plotly_blue_translucent,
+        fillcolor=get_scatter_point_color(hex_color=plotly_blue, ci_transparency=True),
         line={"color": "rgba(255,255,255,0)"},  # Make "line" transparent
         hoverinfo="skip",
         showlegend=False,
