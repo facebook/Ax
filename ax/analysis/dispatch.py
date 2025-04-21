@@ -89,15 +89,13 @@ def choose_analyses(experiment: Experiment) -> list[Analysis]:
     ]
 
     # Leave-one-out cross validation for each objective and outcome constraint
-    cv_plots = [
-        CrossValidationPlot(metric_name=name) for name in optimization_config.metrics
-    ]
+    cv_plots = CrossValidationPlot(metric_names=[*optimization_config.metrics.keys()])
 
     return [
         *objective_plots,
         *other_scatters,
         *progressions,
         *interactions,
-        *cv_plots,
+        cv_plots,
         Summary(),
     ]

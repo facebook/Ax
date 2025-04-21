@@ -66,6 +66,21 @@ TRIAL_STATUS_TO_PLOTLY_COLOR: dict[str, str] = {
 CI_ALPHA: float = 0.5
 
 
+def get_scatter_point_color(
+    hex_color: str,
+    ci_transparency: bool = False,
+) -> str:
+    """
+    Convert a hex color (like those in px.colors.qualitative) to an rgba string.
+
+    Always use transparency for CI colors to improve legibility.
+    """
+    red, green, blue = px.colors.hex_to_rgb(hex_color)
+    alpha = CI_ALPHA if ci_transparency else 1
+
+    return f"rgba({red}, {green}, {blue}, {alpha})"
+
+
 def trial_status_to_plotly_color(
     trial_status: str,
     ci_transparency: bool = False,
@@ -82,10 +97,7 @@ def trial_status_to_plotly_color(
         px.colors.qualitative.Plotly[8],
     )
 
-    red, green, blue = px.colors.hex_to_rgb(hex_color)
-    alpha = CI_ALPHA if ci_transparency else 1
-
-    return f"rgba({red}, {green}, {blue}, {alpha})"
+    return get_scatter_point_color(hex_color=hex_color, ci_transparency=ci_transparency)
 
 
 def get_arm_tooltip(
