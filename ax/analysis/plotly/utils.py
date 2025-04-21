@@ -48,6 +48,11 @@ BEST_LINE_SETTINGS: dict[str, str | dict[str, str] | bool] = {
     "hoverinfo": "skip",
 }
 
+# Use the same continuous sequential color scale for all plots. Plasma uses purples for
+# low values and transitions to yellows for high values.
+METRIC_CONTINUOUS_COLOR_SCALE: list[str] = px.colors.sequential.Plasma
+
+
 # Use a consistent color for each TrialStatus name, sourced from
 # the default Plotly color palette. See https://plotly.com/python/discrete-color/
 # for more details and swatches.

@@ -17,7 +17,7 @@ from ax.analysis.plotly.surface.utils import (
     is_axis_log_scale,
     select_fixed_value,
 )
-from ax.analysis.plotly.utils import select_metric
+from ax.analysis.plotly.utils import METRIC_CONTINUOUS_COLOR_SCALE, select_metric
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
@@ -223,7 +223,7 @@ def _prepare_plot(
             z=z_grid.values,
             x=z_grid.columns.values,
             y=z_grid.index.values,
-            contours_coloring="heatmap",
+            colorscale=METRIC_CONTINUOUS_COLOR_SCALE,
             showscale=False,
         ),
         layout=go.Layout(
