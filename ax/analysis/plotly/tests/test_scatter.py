@@ -196,42 +196,44 @@ class TestScatterPlot(TestCase):
             for use_model_predictions in [True, False]:
                 for trial_index in [None, 0]:
                     for with_additional_arms in [True, False]:
-                        if use_model_predictions and with_additional_arms:
-                            additional_arms = [
-                                Arm(
-                                    parameters={
-                                        parameter_name: 0
-                                        for parameter_name in (
-                                            experiment.search_space.parameters.keys()
-                                        )
-                                    }
+                        for show_pareto_frontier in [True, False]:
+                            if use_model_predictions and with_additional_arms:
+                                additional_arms = [
+                                    Arm(
+                                        parameters={
+                                            parameter_name: 0
+                                            for parameter_name in (
+                                                experiment.search_space.parameters.keys()  # noqa E501
+                                            )
+                                        }
+                                    )
+                                ]
+                            else:
+                                additional_arms = None
+
+                            generation_strategy = (
+                                get_default_generation_strategy_at_MBM_node(
+                                    experiment=experiment
                                 )
-                            ]
-                        else:
-                            additional_arms = None
-
-                        generation_strategy = (
-                            get_default_generation_strategy_at_MBM_node(
-                                experiment=experiment
                             )
-                        )
-                        generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.model)
+                            generation_strategy.current_node._fit(experiment=experiment)
+                            adapter = none_throws(generation_strategy.model)
 
-                        x_metric_name, y_metric_name = [*adapter.metric_names][:2]
+                            x_metric_name, y_metric_name = [*adapter.metric_names][:2]
 
-                        analysis = ScatterPlot(
-                            x_metric_name=x_metric_name,
-                            y_metric_name=y_metric_name,
-                            use_model_predictions=use_model_predictions,
-                            trial_index=trial_index,
-                            additional_arms=additional_arms,
-                        )
+                            analysis = ScatterPlot(
+                                x_metric_name=x_metric_name,
+                                y_metric_name=y_metric_name,
+                                use_model_predictions=use_model_predictions,
+                                trial_index=trial_index,
+                                additional_arms=additional_arms,
+                                show_pareto_frontier=show_pareto_frontier,
+                            )
 
-                        _ = analysis.compute(
-                            experiment=experiment,
-                            adapter=adapter,
-                        )
+                            _ = analysis.compute(
+                                experiment=experiment,
+                                adapter=adapter,
+                            )
 
     @mock_botorch_optimize
     def test_offline(self) -> None:
@@ -246,39 +248,41 @@ class TestScatterPlot(TestCase):
             for use_model_predictions in [True, False]:
                 for trial_index in [None, 0]:
                     for with_additional_arms in [True, False]:
-                        if use_model_predictions and with_additional_arms:
-                            additional_arms = [
-                                Arm(
-                                    parameters={
-                                        parameter_name: 0
-                                        for parameter_name in (
-                                            experiment.search_space.parameters.keys()
-                                        )
-                                    }
+                        for show_pareto_frontier in [True, False]:
+                            if use_model_predictions and with_additional_arms:
+                                additional_arms = [
+                                    Arm(
+                                        parameters={
+                                            parameter_name: 0
+                                            for parameter_name in (
+                                                experiment.search_space.parameters.keys()  # noqa E501
+                                            )
+                                        }
+                                    )
+                                ]
+                            else:
+                                additional_arms = None
+
+                            generation_strategy = (
+                                get_default_generation_strategy_at_MBM_node(
+                                    experiment=experiment
                                 )
-                            ]
-                        else:
-                            additional_arms = None
-
-                        generation_strategy = (
-                            get_default_generation_strategy_at_MBM_node(
-                                experiment=experiment
                             )
-                        )
-                        generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.model)
+                            generation_strategy.current_node._fit(experiment=experiment)
+                            adapter = none_throws(generation_strategy.model)
 
-                        x_metric_name, y_metric_name = [*adapter.metric_names][:2]
+                            x_metric_name, y_metric_name = [*adapter.metric_names][:2]
 
-                        analysis = ScatterPlot(
-                            x_metric_name=x_metric_name,
-                            y_metric_name=y_metric_name,
-                            use_model_predictions=use_model_predictions,
-                            trial_index=trial_index,
-                            additional_arms=additional_arms,
-                        )
+                            analysis = ScatterPlot(
+                                x_metric_name=x_metric_name,
+                                y_metric_name=y_metric_name,
+                                use_model_predictions=use_model_predictions,
+                                trial_index=trial_index,
+                                additional_arms=additional_arms,
+                                show_pareto_frontier=show_pareto_frontier,
+                            )
 
-                        _ = analysis.compute(
-                            experiment=experiment,
-                            adapter=adapter,
-                        )
+                            _ = analysis.compute(
+                                experiment=experiment,
+                                adapter=adapter,
+                            )
