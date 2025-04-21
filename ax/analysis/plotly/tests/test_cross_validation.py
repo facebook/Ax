@@ -11,7 +11,7 @@ from ax.analysis.analysis import (
     AnalysisCardLevel,
 )
 from ax.analysis.plotly.cross_validation import (
-    cross_validation_adhoc_compute,
+    compute_cross_validation_adhoc,
     CrossValidationPlot,
 )
 from ax.core.trial import Trial
@@ -50,7 +50,7 @@ class TestCrossValidationPlot(TestCase):
             )
 
     def test_compute(self) -> None:
-        analysis = CrossValidationPlot(metric_name="bar")
+        analysis = CrossValidationPlot(metric_names=["bar"])
 
         # Test that it fails if no GenerationStrategy is provided
         with self.assertRaisesRegex(
@@ -103,23 +103,8 @@ class TestCrossValidationPlot(TestCase):
                 card.df["arm_name"].unique(),
             )
 
-    def test_raises_if_no_metric_name_and_no_exp(self) -> None:
-        analysis = CrossValidationPlot()
-        with self.subTest("raises if no metric name and no experiment"):
-            with self.assertRaisesRegex(
-                UserInputError, "attempting to infer metric name"
-            ):
-                analysis.compute(generation_strategy=self.client.generation_strategy)
-        with self.subTest("infer from experiment"):
-            (card,) = analysis.compute(
-                generation_strategy=self.client.generation_strategy,
-                experiment=self.client.experiment,
-            )
-            # validates that metric name was successfully inferred from exp
-            self.assertEqual(card.title, "Cross Validation for bar")
-
     def test_it_can_specify_trial_index_correctly(self) -> None:
-        analysis = CrossValidationPlot(metric_name="bar", trial_index=9)
+        analysis = CrossValidationPlot(metric_names=["bar"], trial_index=9)
         (card,) = analysis.compute(generation_strategy=self.client.generation_strategy)
         for t in self.client.experiment.trials.values():
             # Skip the last trial because the model was used to generate it
@@ -139,11 +124,9 @@ class TestCrossValidationPlot(TestCase):
         adapter = Generators.BOTORCH_MODULAR(
             experiment=self.client.experiment, data=data
         )
-        analysis = cross_validation_adhoc_compute(
-            adapter=adapter, data=data, metric_name_mapping=metric_mapping
-        )
-        self.assertEqual(len(analysis), 1)
-        card = analysis[0]
+        cards = compute_cross_validation_adhoc(adapter=adapter, labels=metric_mapping)
+        self.assertEqual(len(cards), 1)
+        card = cards[0]
         self.assertEqual(card.name, "CrossValidationPlot")
         # validate that the metric name replacement occurred
         self.assertEqual(card.title, "Cross Validation for spunky")
@@ -166,9 +149,11 @@ class TestCrossValidationPlot(TestCase):
                     ).objective.metric_names[0]
 
                     analysis = CrossValidationPlot(
-                        metric_name=metric_name,
+                        metric_names=[metric_name],
                         untransform=untransform,
-                        refined_metric_name=refined_metric_name,
+                        labels={metric_name: refined_metric_name}
+                        if refined_metric_name
+                        else None,
                     )
 
                     _ = analysis.compute(
@@ -193,9 +178,11 @@ class TestCrossValidationPlot(TestCase):
                     ).objective.metric_names[0]
 
                     analysis = CrossValidationPlot(
-                        metric_name=metric_name,
+                        metric_names=[metric_name],
                         untransform=untransform,
-                        refined_metric_name=refined_metric_name,
+                        labels={metric_name: refined_metric_name}
+                        if refined_metric_name
+                        else None,
                     )
 
                     _ = analysis.compute(

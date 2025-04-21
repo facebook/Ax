@@ -6,26 +6,19 @@
 # pyre-strict
 
 
-from typing import Sequence
+from typing import Mapping, Sequence
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import (
-    CONFIDENCE_INTERVAL_BLUE,
-    get_nudge_value,
-    MARKER_BLUE,
-    select_metric,
-)
+from ax.analysis.plotly.utils import get_nudge_value, get_scatter_point_color
 from ax.analysis.utils import extract_relevant_adapter
-from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.base import Adapter
 from ax.modelbridge.cross_validation import cross_validate
-from plotly import graph_objects as go
+from plotly import express as px, graph_objects as go
 
 
 class CrossValidationPlot(PlotlyAnalysis):
@@ -53,17 +46,16 @@ class CrossValidationPlot(PlotlyAnalysis):
 
     def __init__(
         self,
-        metric_name: str | None = None,
+        metric_names: Sequence[str] | None = None,
         folds: int = -1,
         untransform: bool = True,
         trial_index: int | None = None,
-        refined_metric_name: str | None = None,
+        labels: Mapping[str, str] | None = None,
     ) -> None:
         """
         Args:
-            metric_name: The name of the metric to plot. If not specified the objective
-                will be used. Note that the metric cannot be inferred for
-                multi-objective or scalarized-objective experiments.
+            metric_names: The name of the metric to plot. If not specified all metrics
+                available on the underyling model will be used.
             folds: Number of subsamples to partition observations into. Use -1 for
                 leave-one-out cross validation.
             untransform: Whether to untransform the model predictions before cross
@@ -80,13 +72,15 @@ class CrossValidationPlot(PlotlyAnalysis):
             trial_index: Optional trial index that the model from generation_strategy
                 was used to generate. Useful card attribute to filter to only specific
                 trial.
+            labels: Optional dictionary of labels for the plot. Useful for when metric
+                names are too long or otherwise challenging to read.
         """
 
-        self.metric_name = metric_name
+        self.metric_names = metric_names
         self.folds = folds
         self.untransform = untransform
         self.trial_index = trial_index
-        self._refined_metric_name = refined_metric_name
+        self.labels: dict[str, str] = {**labels} if labels is not None else {}
 
     def compute(
         self,
@@ -100,45 +94,40 @@ class CrossValidationPlot(PlotlyAnalysis):
             adapter=adapter,
         )
 
-        # If metric name is not provided, try to infer it from the experiment
-        metric_name = self.metric_name
-        if metric_name is None:
-            if experiment is None:
-                raise UserInputError(
-                    "No metric name is provided, attempting to infer metric name "
-                    "from the Experiment object, but no Experiment is provided."
+        cards = []
+        for metric_name in self.metric_names or relevant_adapter.metric_names:
+            df = _prepare_data(
+                adapter=relevant_adapter,
+                metric_name=metric_name,
+                folds=self.folds,
+                untransform=self.untransform,
+            )
+
+            fig = _prepare_plot(df=df)
+
+            k_folds_substring = (
+                f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
+            )
+            nudge = get_nudge_value(metric_name=metric_name, experiment=experiment)
+
+            # If a human readable metric name is provided, use it in the title
+            metric_title = self.labels.get(metric_name, metric_name)
+
+            # Define the cross-validation description based on the number of folds
+            cv_description = (
+                (
+                    f"the data is split into {self.folds} subsets and the model is "
+                    f"trained on {self.folds - 1} subsets while the remaining subset "
+                    "is used for validation"
                 )
-            metric_name = select_metric(experiment=experiment)
-
-        df = _prepare_data(
-            adapter=relevant_adapter,
-            metric_name=metric_name,
-            folds=self.folds,
-            untransform=self.untransform,
-        )
-
-        fig = _prepare_plot(df=df)
-        k_folds_substring = f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
-        nudge = get_nudge_value(metric_name=metric_name, experiment=experiment)
-
-        # If a human readable metric name is provided, use it in the title
-        metric_title = self._refined_metric_name or metric_name
-
-        # Define the cross-validation description based on the number of folds
-        cv_description = (
-            (
-                f"the data is split into {self.folds} subsets and the model is "
-                f"trained on {self.folds - 1} subsets while the remaining subset "
-                "is used for validation"
+                if self.folds > 0
+                else (
+                    "the model is trained on all data except one sample, which is "
+                    "used for validation"
+                )
             )
-            if self.folds > 0
-            else (
-                "the model is trained on all data except one sample, which is "
-                "used for validation"
-            )
-        )
-        return [
-            self._create_plotly_analysis_card(
+
+            card = self._create_plotly_analysis_card(
                 title=f"Cross Validation for {metric_title}",
                 subtitle=(
                     "The cross-validation plot displays the model fit for each "
@@ -159,30 +148,28 @@ class CrossValidationPlot(PlotlyAnalysis):
                 fig=fig,
                 category=AnalysisCardCategory.INSIGHT,
             )
-        ]
+
+            cards.append(card)
+
+        return cards
 
 
-def cross_validation_adhoc_compute(
-    adapter: Adapter,
-    data: Data,
-    experiment: Experiment | None = None,
+def compute_cross_validation_adhoc(
+    metric_names: Sequence[str] | None = None,
     folds: int = -1,
     untransform: bool = True,
-    metric_name_mapping: dict[str, str] | None = None,
+    labels: Mapping[str, str] | None = None,
+    experiment: Experiment | None = None,
+    generation_strategy: GenerationStrategy | None = None,
+    adapter: Adapter | None = None,
 ) -> list[PlotlyAnalysisCard]:
     """
-    Helper method to expose adhoc cross validation plotting. This overrides the
-    default assumption that the adapter from the generation strategy should be
-    used. Only for advanced users in a notebook setting.
+    Helper method to expose adhoc cross validation plotting. Only for advanced users in
+    a notebook setting.
 
     Args:
-        adapter: The adapter that will be assessed during cross validation.
-        data: The Data that was used to fit the model. Will be used in this
-            adhoc cross validation call to compute the cross validation for all
-            metrics in the Data object.
-        experiment: Experiment associated with this analysis. Used to determine
-            the priority of the analysis based on the metric importance in the
-            optimization config.
+        metric_names: The name of the metric to plot. If not specified all metrics
+            available on the underyling model will be used.
         folds: Number of subsamples to partition observations into. Use -1 for
             leave-one-out cross validation.
         untransform: Whether to untransform the model predictions before cross
@@ -196,29 +183,33 @@ def cross_validation_adhoc_compute(
             regions where outliers have been removed, we have found it to better
             reflect the how good the model used for candidate generation actually
             is.
-        metric_name_mapping: Optional mapping from default metric names to more
-            readable metric names.
+        labels: Optional dictionary of labels for the plot. Useful for when metric
+            names are too long or otherwise challenging to read.
+        experiment: Optional. The experiment to extract data from.
+        generation_strategy: Optional. The generation strategy to extract the adapter
+            from.
+        adapter: Optional. The adapter to cross validate. If provided, this adapter
+            will be used instead of the current adapter on the ``GenerationStrategy``
     """
-    plots = []
-    # Get all unique metric names in the data object, CVs will be computed for
-    # all metrics in the data object
-    metric_names = list(data.df["metric_name"].unique())
-    for metric_name in metric_names:
-        # replace metric name with human readable name if mapping is provided
-        refined_metric_name = (
-            metric_name_mapping.get(metric_name, metric_name)
-            if metric_name_mapping
-            else metric_name
+    relevant_adapter = extract_relevant_adapter(
+        experiment=experiment,
+        generation_strategy=generation_strategy,
+        adapter=adapter,
+    )
+
+    analysis = CrossValidationPlot(
+        metric_names=metric_names,
+        folds=folds,
+        untransform=untransform,
+        labels=labels,
+    )
+
+    return [
+        *analysis.compute(
+            experiment=experiment,
+            adapter=relevant_adapter,
         )
-        plots.append(
-            *CrossValidationPlot(
-                metric_name=metric_name,
-                folds=folds,
-                untransform=untransform,
-                refined_metric_name=refined_metric_name,
-            ).compute(experiment=experiment, generation_strategy=None, adapter=adapter)
-        )
-    return plots
+    ]
 
 
 def _prepare_data(
@@ -276,19 +267,29 @@ def _prepare_plot(
             y=df["predicted"],
             mode="markers",
             marker={
-                "color": MARKER_BLUE,
+                # Plotly blue
+                "color": get_scatter_point_color(
+                    hex_color=px.colors.qualitative.Plotly[0],
+                    ci_transparency=False,
+                ),
             },
             error_x={
                 "type": "data",
                 "array": df["observed_95_ci"],
                 "visible": True,
-                "color": CONFIDENCE_INTERVAL_BLUE,
+                "color": get_scatter_point_color(
+                    hex_color=px.colors.qualitative.Plotly[0],
+                    ci_transparency=True,
+                ),
             },
             error_y={
                 "type": "data",
                 "array": df["predicted_95_ci"],
                 "visible": True,
-                "color": CONFIDENCE_INTERVAL_BLUE,
+                "color": get_scatter_point_color(
+                    hex_color=px.colors.qualitative.Plotly[0],
+                    ci_transparency=True,
+                ),
             },
             text=df["arm_name"],
             hovertemplate=(
@@ -298,7 +299,10 @@ def _prepare_plot(
                 + "<extra></extra>"  # Removes the trace name from the hover
             ),
             hoverlabel={
-                "bgcolor": CONFIDENCE_INTERVAL_BLUE,
+                "bgcolor": get_scatter_point_color(
+                    hex_color=px.colors.qualitative.Plotly[0],
+                    ci_transparency=True,
+                ),
                 "font": {"color": "black"},
             },
         )
