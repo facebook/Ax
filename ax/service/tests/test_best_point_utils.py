@@ -7,23 +7,19 @@
 # pyre-strict
 
 import copy
-import random
 from unittest import mock
 from unittest.mock import MagicMock, patch, PropertyMock
 
 import pandas as pd
 import torch
 from ax.core.arm import Arm
-from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import DataRequiredError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Generators
@@ -34,7 +30,7 @@ from ax.service.utils.best_point import (
     _derel_opt_config_wrapper,
     _extract_best_arm_from_gr,
     _is_row_feasible,
-    extract_Y_from_data,
+    derelativize_opt_config,
     get_best_by_raw_objective_with_trial_index,
     get_best_parameters_from_model_predictions_with_trial_index,
     get_best_raw_objective_point_with_trial_index,
@@ -49,12 +45,11 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_experiment_with_map_data,
     get_experiment_with_observations,
-    get_sobol,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from pyre_extensions import none_throws
 
-best_point_module: str = _derel_opt_config_wrapper.__module__
+best_point_module: str = get_best_by_raw_objective_with_trial_index.__module__
 DUMMY_OPTIMIZATION_CONFIG = "test_optimization_config"
 
 
@@ -175,13 +170,6 @@ class TestBestPointUtils(TestCase):
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run().complete()
         exp.fetch_data()
-        # pyre-fixme[16]: Optional type has no attribute `clone`.
-        opt_conf = exp.optimization_config.clone()
-        opt_conf.objective.metric._name = "not_branin"
-        with self.assertRaisesRegex(ValueError, "No data has been logged"):
-            get_best_raw_objective_point_with_trial_index(
-                experiment=exp, optimization_config=opt_conf
-            )
 
         # Test constraints work as expected.
         observations = [[1.0, 2.0], [3.0, 4.0], [-5.0, -6.0]]
@@ -208,50 +196,51 @@ class TestBestPointUtils(TestCase):
         self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
 
     def test_best_raw_objective_point_unsatisfiable(self) -> None:
-        exp = get_branin_experiment()
+        exp = get_branin_experiment(with_absolute_constraint=True)
+        params = {"x1": 5.0, "x2": 5.0}
         trial = exp.new_trial(
-            generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
+            generator_run=GeneratorRun(arms=[Arm(parameters=params)])
         ).run()
         trial.mark_completed()
         exp.fetch_data()
 
-        # pyre-fixme[16]: Optional type has no attribute `clone`.
-        opt_conf = exp.optimization_config.clone()
-        opt_conf.outcome_constraints.append(
-            OutcomeConstraint(
-                metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0, relative=False
-            )
-        )
+        # Change the constraint so it will be violated
+        exp.optimization_config.outcome_constraints[0].op = ComparisonOp.LEQ
 
-        with self.assertRaisesRegex(ValueError, "No points satisfied"):
-            get_best_raw_objective_point_with_trial_index(
-                experiment=exp, optimization_config=opt_conf
-            )
+        best_trial, best_params, values = get_best_raw_objective_point_with_trial_index(
+            experiment=exp
+        )
+        self.assertEqual(best_trial, 0)
+        self.assertEqual(best_params, params)
+        self.assertEqual(values.keys(), {"branin_e", "branin"})
+        # Note: We will no longer error here. It gives a misleading message
+        # about 95% confidence intervals.
 
     def test_best_raw_objective_point_unsatisfiable_relative(self) -> None:
-        exp = get_experiment_with_observations(
-            observations=[[-1, 1]],
-            constrained=True,
+        # This didn't work becaus it didn't have a status quo
+        exp = get_branin_experiment(
+            with_relative_constraint=True,
+            with_completed_batch=True,
+            with_status_quo=False,
+        )
+        with self.assertRaisesRegex(
+            DataRequiredError,
+            "Optimization config has relative constraint, but model was not fit"
+            " with status quo.",
+        ):
+            get_best_raw_objective_point_with_trial_index(experiment=exp)
+
+        exp = get_branin_experiment(
+            with_relative_constraint=True,
+            with_completed_batch=True,
+            with_status_quo=True,
         )
 
-        # Create altered optimization config with unsatisfiable relative constraint.
-        opt_conf = none_throws(exp.optimization_config).clone()
-        opt_conf.outcome_constraints[0].relative = True
-        opt_conf.outcome_constraints[0].bound = 9999
-
-        with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
-            get_best_raw_objective_point_with_trial_index(
-                exp, optimization_config=opt_conf
-            )
-            self.assertTrue(
-                any("No status quo provided" in warning for warning in lg.output),
-                msg=lg.output,
-            )
-
-        exp.status_quo = exp.trials[0].arms[0]
-
-        with self.assertRaisesRegex(ValueError, "No points satisfied"):
-            get_best_raw_objective_point_with_trial_index(exp, opt_conf)
+        best_trial, _, values = get_best_raw_objective_point_with_trial_index(
+            experiment=exp
+        )
+        self.assertEqual(best_trial, 0)
+        self.assertEqual(values.keys(), {"branin_d", "branin"})
 
     def test_best_raw_objective_point_scalarized(self) -> None:
         exp = get_branin_experiment()
@@ -301,11 +290,12 @@ class TestBestPointUtils(TestCase):
         _, parameterization, __ = get_best_raw_objective_point_with_trial_index(exp)
         self.assertEqual(parameterization, params)
 
+    # TODO: tests for derelativize_opt_config
     @patch(
         f"{best_point_module}.derelativize_optimization_config_with_raw_status_quo",
         return_value=DUMMY_OPTIMIZATION_CONFIG,
     )
-    def test_derel_opt_config_wrapper(self, mock_derelativize: MagicMock) -> None:
+    def test_derelativize_opt_config(self, mock_derelativize: MagicMock) -> None:
         # No change to optimization config without relative constraints/thresholds.
         exp = get_experiment_with_observations(
             observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 0, 1]],
@@ -409,137 +399,6 @@ class TestBestPointUtils(TestCase):
             observations=test_observations_1,
         )
 
-    def test_extract_Y_from_data(self) -> None:
-        experiment = get_branin_experiment()
-        sobol_generator = get_sobol(search_space=experiment.search_space)
-        for i in range(20):
-            sobol_run = sobol_generator.gen(n=1)
-            trial = experiment.new_trial(generator_run=sobol_run).mark_running(
-                no_runner_required=True
-            )
-            if i in [3, 8, 10]:
-                trial.mark_early_stopped(unsafe=True)
-            else:
-                trial.mark_completed()
-
-        df_dicts = []
-        for trial_idx in range(20):
-            for metric_name in ["foo", "bar"]:
-                df_dicts.append(
-                    {
-                        "trial_index": trial_idx,
-                        "metric_name": metric_name,
-                        "arm_name": f"{trial_idx}_0",
-                        "mean": (
-                            float(trial_idx)
-                            if metric_name == "foo"
-                            else trial_idx + 5.0
-                        ),
-                        "sem": 0.0,
-                    }
-                )
-        experiment.attach_data(Data(df=pd.DataFrame.from_records(df_dicts)))
-
-        expected_Y = torch.stack(
-            [
-                torch.arange(20, dtype=torch.double),
-                torch.arange(5, 25, dtype=torch.double),
-            ],
-            dim=-1,
-        )
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment,
-            metric_names=["foo", "bar"],
-        )
-        expected_trial_indices = torch.arange(20)
-        self.assertTrue(torch.allclose(Y, expected_Y))
-        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
-        # Check that it respects ordering of metric names.
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment,
-            metric_names=["bar", "foo"],
-        )
-        self.assertTrue(torch.allclose(Y, expected_Y[:, [1, 0]]))
-        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
-        # Extract partial metrics.
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment, metric_names=["bar"]
-        )
-        self.assertTrue(torch.allclose(Y, expected_Y[:, [1]]))
-        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
-        # Works with messed up ordering of data.
-        clone_dicts = df_dicts.copy()
-        random.shuffle(clone_dicts)
-        experiment._data_by_trial = {}
-        experiment.attach_data(Data(df=pd.DataFrame.from_records(clone_dicts)))
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment,
-            metric_names=["foo", "bar"],
-        )
-        self.assertTrue(torch.allclose(Y, expected_Y))
-        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
-
-        # Check that it skips trials that are not completed.
-        experiment.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        experiment.trials[1].mark_abandoned(unsafe=True)
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment,
-            metric_names=["foo", "bar"],
-        )
-        self.assertTrue(torch.allclose(Y, expected_Y[2:]))
-        self.assertTrue(torch.equal(trial_indices, expected_trial_indices[2:]))
-
-        # Error with missing data.
-        with self.assertRaisesRegex(
-            UserInputError, "Trial 2 is missing data on metrics {'foo'}."
-        ):
-            # Skipping first 5 data points since first two trials are not completed.
-
-            extract_Y_from_data(
-                experiment=experiment,
-                metric_names=["foo", "bar"],
-                data=Data(df=pd.DataFrame.from_records(df_dicts[5:])),
-            )
-
-        # Error with extra data.
-        with self.assertRaisesRegex(
-            UserInputError, "Trial data has more than one row per arm, metric pair. "
-        ):
-            # Skipping first 5 data points since first two trials are not completed.
-            base_df = pd.DataFrame.from_records(df_dicts[5:])
-            extract_Y_from_data(
-                experiment=experiment,
-                metric_names=["foo", "bar"],
-                data=Data(df=pd.concat((base_df, base_df))),
-            )
-
-        # Check that it works with BatchTrial.
-        experiment = get_branin_experiment()
-        batch_trial = BatchTrial(experiment=experiment, index=0)
-        batch_trial.add_arm(Arm(name="0_0", parameters={"x1": 0.0, "x2": 0.0}))
-        batch_trial.add_arm(Arm(name="0_1", parameters={"x1": 1.0, "x2": 0.0}))
-        batch_trial.mark_running(no_runner_required=True).mark_completed()
-        df_dicts_batch = []
-        for i in (0, 1):
-            for metric_name in ["foo", "bar"]:
-                df_dicts_batch.append(
-                    {
-                        "trial_index": 0,
-                        "metric_name": metric_name,
-                        "arm_name": f"0_{i}",
-                        "mean": float(i) if metric_name == "foo" else i + 5.0,
-                        "sem": 0.0,
-                    }
-                )
-        batch_df = pd.DataFrame.from_records(df_dicts_batch)
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment,
-            metric_names=["foo", "bar"],
-            data=Data(df=batch_df),
-        )
-        self.assertTrue(torch.allclose(Y, expected_Y[:2]))
-        self.assertTrue(torch.equal(trial_indices, torch.zeros(2, dtype=torch.long)))
-
     def test_is_row_feasible(self) -> None:
         exp = get_experiment_with_observations(
             observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 0, 1]],
@@ -583,7 +442,7 @@ class TestBestPointUtils(TestCase):
         exp._status_quo = exp.trials[0].arms[0]
         for constraint in none_throws(exp.optimization_config).all_constraints:
             constraint.relative = True
-        optimization_config = _derel_opt_config_wrapper(
+        optimization_config = derelativize_opt_config(
             optimization_config=none_throws(exp.optimization_config),
             experiment=exp,
         )
