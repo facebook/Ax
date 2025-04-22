@@ -37,6 +37,8 @@ from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -54,7 +56,7 @@ from ax.utils.testing.core_stubs import (
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 from torch.utils.data import Dataset
 
 
@@ -304,6 +306,27 @@ class DeterministicGenerationNode(ExternalGenerationNode):
         self, pending_parameters: list[TParameterization]
     ) -> TParameterization:
         return {self.param_name: next(self.iterator)}
+
+    def gen(
+        self,
+        *,
+        experiment: Experiment,
+        pending_observations: dict[str, list[ObservationFeatures]] | None,
+        skip_fit: bool = False,
+        data: Data | None = None,
+        **gs_gen_kwargs: Any,
+    ) -> GeneratorRun | None:
+        generator_run = none_throws(
+            super().gen(
+                experiment=experiment,
+                pending_observations=pending_observations,
+                skip_fit=skip_fit,
+                data=data,
+                **gs_gen_kwargs,
+            )
+        )
+        generator_run._best_arm_predictions = (generator_run.arms[0], None)
+        return generator_run
 
 
 def get_discrete_search_space(n_values: int = 20) -> SearchSpace:

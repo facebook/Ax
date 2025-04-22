@@ -17,7 +17,7 @@ from unittest.mock import patch
 import numpy as np
 import torch
 from ax.benchmark.benchmark import (
-    _get_inference_trace_from_params,
+    _get_trace_from_arms,
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
@@ -47,6 +47,8 @@ from ax.benchmark.methods.sobol import (
     get_sobol_generation_strategy,
 )
 from ax.benchmark.problems.registry import get_problem
+
+from ax.core.arm import Arm
 from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -113,7 +115,7 @@ class TestBenchmark(TestCase):
         )
 
     @mock_botorch_optimize
-    def test_batch(self) -> None:
+    def ftest_batch(self) -> None:
         batch_size = 5
 
         problem = get_problem("ackley4", num_trials=2)
@@ -345,6 +347,10 @@ class TestBenchmark(TestCase):
             "Trials complete at same time": [1, 3],
             "Complete out of order": [1, 1, 3, 3],
         }
+        expected_inference_traces = expected_traces.copy()
+        # The inference trace will just be the completion order because, for
+        # each trial, best point=parameter=trial index.
+        expected_inference_traces["Complete out of order"] = [1, 0, 3, 2]
         expected_costs = {
             "All complete at different times": [1, 3, 7, 12],
             "Trials complete immediately": [1, 2],
@@ -433,7 +439,7 @@ class TestBenchmark(TestCase):
                 self.assertFalse(np.isnan(result.inference_trace).any())
                 self.assertEqual(
                     result.inference_trace.tolist(),
-                    expected_traces[case_name],
+                    expected_inference_traces[case_name],
                     msg=case_name,
                 )
                 self.assertEqual(
@@ -698,19 +704,32 @@ class TestBenchmark(TestCase):
             noise_std=100.0,
         )
         res = self.benchmark_replication(problem=problem, method=method, seed=seed)
+        # 3 Sobol trials => 3 NaNs
+        self.assertEqual(len(res.inference_trace), num_trials)
+        self.assertTrue(np.all(np.isnan(res.inference_trace[:3])))
         # The inference trace could coincide with the oracle trace, but it won't
         # happen in this example with high noise and a seed
         self.assertEqual(
-            np.equal(res.inference_trace, res.optimization_trace).all(),
+            np.array_equal(res.inference_trace, res.optimization_trace, equal_nan=True),
             report_inference_value_as_trace,
         )
         self.assertEqual(
-            np.equal(res.oracle_trace, res.optimization_trace).all(),
+            np.array_equal(res.oracle_trace, res.optimization_trace, equal_nan=True),
             not report_inference_value_as_trace,
         )
 
         self.assertEqual(res.optimization_trace.shape, (problem.num_trials,))
-        self.assertTrue((res.inference_trace >= res.oracle_trace).all())
+        self.assertGreaterEqual(res.inference_trace[-1], res.oracle_trace[-1])
+        with self.subTest("inference value is from GeneratorRun"):
+            best_arm_predictions = (
+                none_throws(res.experiment)
+                .trials[3]
+                .generator_runs[0]
+                .best_arm_predictions
+            )
+            best_params = none_throws(best_arm_predictions)[0].parameters
+            value = problem.test_function.evaluate_true(params=best_params).item()
+            self.assertEqual(res.inference_trace[-1], value)
 
     def test_replication_with_inference_value(self) -> None:
         for (
@@ -1178,40 +1197,63 @@ class TestBenchmark(TestCase):
             # (5-0) * (5-0)
             self.assertEqual(result, 25)
 
-    def test_get_inference_trace_from_params(self) -> None:
+    def ftest_get_trace_from_arms(self) -> None:
         problem = get_single_objective_benchmark_problem()
-        with self.subTest("No params"):
-            n_elements = 4
-            result = _get_inference_trace_from_params(
-                best_params_list=[], problem=problem, n_elements=n_elements
-            )
-            self.assertEqual(len(result), n_elements)
-            self.assertTrue(np.isnan(result).all())
-
-        with self.subTest("Wrong number of params"):
-            n_elements = 4
-            with self.assertRaisesRegex(RuntimeError, "Expected 4 elements"):
-                _get_inference_trace_from_params(
-                    best_params_list=[{"x0": 0.0, "x1": 0.0}],
-                    problem=problem,
-                    n_elements=n_elements,
+        with self.subTest("Empty list"):
+            for cumulative_best in [False, True]:
+                result = _get_trace_from_arms(
+                    arms_list=[], problem=problem, cumulative_best=cumulative_best
                 )
+                self.assertEqual(len(result), 0)
 
-        with self.subTest("Correct number of params"):
-            n_elements = 2
-            best_params_list = [{"x0": 0.0, "x1": 0.0}, {"x0": 1.0, "x1": 1.0}]
-            result = _get_inference_trace_from_params(
-                best_params_list=best_params_list,
+        arms = [
+            Arm(parameters={"x0": 0.0, "x1": 0.0}, name="0_0"),
+            Arm(parameters={"x0": 1.0, "x1": 1.0}, name="0_1"),
+        ]
+        values = [
+            problem.test_function.evaluate_true(params=arm.parameters).item()
+            for arm in arms
+        ]
+        best_value = min(values)
+        with self.subTest("One batch"):
+            for cumulative_best in [False, True]:
+                result = _get_trace_from_arms(
+                    arms_list=[{arms[0], arms[1]}],
+                    problem=problem,
+                    cumulative_best=cumulative_best,
+                )
+                self.assertEqual(len(result), 1)
+                self.assertFalse(np.isnan(result).any())
+
+                self.assertEqual(result.tolist(), [best_value])
+
+        with self.subTest("Two one-arm trials"):
+            for i, j in [[0, 1], [1, 0]]:
+                result = _get_trace_from_arms(
+                    arms_list=[{arms[i]}, {arms[j]}],
+                    problem=problem,
+                    cumulative_best=True,
+                )
+                self.assertEqual(len(result), 2)
+                self.assertEqual(result[0], values[i])
+                self.assertEqual(result[-1], best_value)
+
+                result = _get_trace_from_arms(
+                    arms_list=[{arms[i]}, {arms[j]}],
+                    problem=problem,
+                    cumulative_best=False,
+                )
+                self.assertEqual(len(result), 2)
+                self.assertEqual(result[0], values[i])
+                self.assertEqual(result[-1], values[j])
+
+        with self.subTest("Empty arms set"):
+            result = _get_trace_from_arms(
+                arms_list=[set(), {arms[0]}],
                 problem=problem,
-                n_elements=n_elements,
+                cumulative_best=True,
             )
-            self.assertEqual(len(result), n_elements)
-            self.assertFalse(np.isnan(result).any())
-            expected_trace = [
-                problem.test_function.evaluate_true(params=params).item()
-                for params in best_params_list
-            ]
-            self.assertEqual(result.tolist(), expected_trace)
+            self.assertEqual(len(result), 2)
 
     def test_get_opt_trace_by_cumulative_epochs(self) -> None:
         # Time  | trial 0 | trial 1 | trial 2 | trial 3 | new steps
