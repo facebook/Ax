@@ -16,7 +16,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.trial import Trial
 from ax.exceptions.core import DataRequiredError
-from ax.service.utils.best_point import extract_Y_from_data
+from ax.service.utils.best_point import extract_Y_from_data, get_trace
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -31,9 +31,6 @@ from pyre_extensions import assert_is_instance, none_throws
 
 class TestBestPointMixin(TestCase):
     def test_get_trace(self) -> None:
-        # Alias for easier access.
-        get_trace = BestPointMixin._get_trace
-
         # Single objective, minimize.
         exp = get_experiment_with_observations(
             observations=[[11], [10], [9], [15], [5]], minimize=True

@@ -8,10 +8,8 @@
 
 from abc import ABC
 from collections.abc import Iterable
-from functools import partial
 
 import numpy as np
-import torch
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.objective import ScalarizedObjective
@@ -23,28 +21,11 @@ from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.modelbridge_utils import (
-    extract_objective_thresholds,
-    extract_objective_weights,
-    extract_outcome_constraints,
-    observed_hypervolume,
-    predicted_hypervolume,
-    validate_and_apply_final_transform,
-)
+from ax.modelbridge.modelbridge_utils import observed_hypervolume, predicted_hypervolume
 from ax.modelbridge.torch import TorchAdapter
-from ax.modelbridge.transforms.derelativize import Derelativize
-from ax.models.torch.botorch_moo_defaults import (
-    get_outcome_constraint_transforms,
-    get_weighted_mc_objective_and_objective_thresholds,
-)
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils import best_point as best_point_utils
-from ax.service.utils.best_point import (
-    extract_Y_from_data,
-    fill_missing_thresholds_from_nadir,
-)
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
-from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -204,28 +185,6 @@ class BestPointMixin(ABC):
             optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
-        )
-
-    def get_trace(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-    ) -> list[float]:
-        """Get the optimization trace of the given experiment.
-
-        The output is equivalent to calling `_get_hypervolume` or `_get_best_trial`
-        repeatedly, with an increasing sequence of `trial_indices` and with
-        `use_model_predictions = False`, though this does it more efficiently.
-
-        Args:
-            optimization_config: An optional optimization config to use for computing
-                the trace. This allows computing the traces under different objectives
-                or constraints without having to modify the experiment.
-
-        Returns:
-            A list of observed hypervolumes or best values.
-        """
-        return self._get_trace(
-            experiment=self.experiment, optimization_config=optimization_config
         )
 
     def get_trace_by_progression(
@@ -414,152 +373,6 @@ class BestPointMixin(ABC):
         return observed_hypervolume(
             modelbridge=minimal_model, optimization_config=moo_optimization_config
         )
-
-    @staticmethod
-    def _get_trace(
-        experiment: Experiment,
-        optimization_config: OptimizationConfig | None = None,
-    ) -> list[float]:
-        """Compute the optimization trace at each iteration.
-
-        Given an experiment and an optimization config, compute the performance
-        at each iteration. For multi-objective, the performance is computed as
-        the hypervolume. For single objective, the performance is computed as
-        the best observed objective value.
-
-        Infeasible points (that violate constraints) do not contribute to
-        improvements in the optimization trace. If the first trial(s) are infeasible,
-        the trace can start at inf or -inf.
-
-        An iteration here refers to a completed or early-stopped (batch) trial.
-        There will be one performance metric in the trace for each iteration.
-
-        Args:
-            experiment: The experiment to get the trace for.
-            optimization_config: Optimization config to use in place of the one
-                stored on the experiment.
-
-        Returns:
-            A list of performance values at each iteration.
-        """
-        optimization_config = optimization_config or none_throws(
-            experiment.optimization_config
-        )
-        # Get the names of the metrics in optimization config.
-        metric_names = set(optimization_config.objective.metric_names)
-        for cons in optimization_config.outcome_constraints:
-            metric_names.update({cons.metric.name})
-        metric_names = list(metric_names)
-        # Convert data into a tensor.
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment, metric_names=metric_names
-        )
-        if Y.numel() == 0:
-            return []
-
-        # Derelativize the optimization config.
-        tf = Derelativize(
-            search_space=None, observations=None, config={"use_raw_status_quo": True}
-        )
-        optimization_config = tf.transform_optimization_config(
-            optimization_config=optimization_config.clone(),
-            modelbridge=get_tensor_converter_model(
-                experiment=experiment, data=experiment.lookup_data()
-            ),
-            fixed_features=None,
-        )
-
-        # Extract weights, constraints, and objective_thresholds.
-        objective_weights = extract_objective_weights(
-            objective=optimization_config.objective, outcomes=metric_names
-        )
-        outcome_constraints = extract_outcome_constraints(
-            outcome_constraints=optimization_config.outcome_constraints,
-            outcomes=metric_names,
-        )
-        to_tensor = partial(
-            torch.as_tensor, dtype=torch.double, device=torch.device("cpu")
-        )
-        if optimization_config.is_moo_problem:
-            objective_thresholds = extract_objective_thresholds(
-                objective_thresholds=fill_missing_thresholds_from_nadir(
-                    experiment=experiment, optimization_config=optimization_config
-                ),
-                objective=optimization_config.objective,
-                outcomes=metric_names,
-            )
-            objective_thresholds = to_tensor(none_throws(objective_thresholds))
-        else:
-            objective_thresholds = None
-        (
-            objective_weights,
-            outcome_constraints,
-            _,
-            _,
-            _,
-        ) = validate_and_apply_final_transform(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=None,
-            pending_observations=None,
-            final_transform=to_tensor,
-        )
-        # Get weighted tensor objectives.
-        if optimization_config.is_moo_problem:
-            (
-                obj,
-                weighted_objective_thresholds,
-            ) = get_weighted_mc_objective_and_objective_thresholds(
-                objective_weights=objective_weights,
-                objective_thresholds=none_throws(objective_thresholds),
-            )
-            Y_obj = obj(Y)
-            infeas_value = weighted_objective_thresholds
-        else:
-            Y_obj = Y @ objective_weights
-            infeas_value = float("-inf")
-        # Account for feasibility.
-        if outcome_constraints is not None:
-            cons_tfs = none_throws(
-                get_outcome_constraint_transforms(outcome_constraints)
-            )
-            feas = torch.all(torch.stack([c(Y) <= 0 for c in cons_tfs], dim=-1), dim=-1)
-            # Set the infeasible points to reference point or to NaN
-            Y_obj[~feas] = infeas_value
-        # Get unique trial indices. Note: only completed/early-stopped
-        # trials are present.
-        unique_trial_indices = trial_indices.unique().sort().values.tolist()
-        # compute the performance at each iteration (completed/early-stopped
-        # trial).
-        # For `BatchTrial`s, there is one performance value per iteration, even
-        # if the iteration (`BatchTrial`) has multiple arms.
-        if optimization_config.is_moo_problem:
-            # Compute the hypervolume trace.
-            partitioning = DominatedPartitioning(
-                ref_point=weighted_objective_thresholds.double()
-            )
-            # compute hv for each iteration (trial_index)
-            hvs = []
-            for trial_index in unique_trial_indices:
-                new_Y = Y_obj[trial_indices == trial_index]
-                # update with new point
-                partitioning.update(Y=new_Y)
-                hv = partitioning.compute_hypervolume().item()
-                hvs.append(hv)
-            return hvs
-        running_max = float("-inf")
-        raw_maximum = np.zeros(len(unique_trial_indices))
-        # Find the best observed value for each iterations.
-        # Enumerate the unique trial indices because only indices
-        # of completed/early-stopped trials are present.
-        for i, trial_index in enumerate(unique_trial_indices):
-            new_Y = Y_obj[trial_indices == trial_index]
-            running_max = max(running_max, new_Y.max().item())
-            raw_maximum[i] = running_max
-        if optimization_config.objective.minimize:
-            # Negate the result if it is a minimization problem.
-            raw_maximum = -raw_maximum
-        return raw_maximum.tolist()
 
     @staticmethod
     def _get_trace_by_progression(
