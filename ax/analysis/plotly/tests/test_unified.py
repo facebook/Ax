@@ -255,6 +255,11 @@ class TestArmEffectsPlot(TestCase):
                                 adapter=adapter,
                             )
 
+    @TestCase.ax_long_test(
+        reason=(
+            "Adapter.predict still too slow under @mock_botorch_optimize for this test"
+        )
+    )
     @mock_botorch_optimize
     def test_offline(self) -> None:
         # Test ArmEffectsPlot can be computed for a variety of experiments which

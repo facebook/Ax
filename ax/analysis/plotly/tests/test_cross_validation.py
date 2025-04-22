@@ -131,6 +131,11 @@ class TestCrossValidationPlot(TestCase):
         # validate that the metric name replacement occurred
         self.assertEqual(card.title, "Cross Validation for spunky")
 
+    @TestCase.ax_long_test(
+        reason=(
+            "cross_validate still too slow under @mock_botorch_optimize for this test"
+        )
+    )
     @mock_botorch_optimize
     def test_online(self) -> None:
         # Test CrossValidationPlot can be computed for a variety of experiments which
@@ -160,6 +165,11 @@ class TestCrossValidationPlot(TestCase):
                         experiment=experiment, generation_strategy=generation_strategy
                     )
 
+    @TestCase.ax_long_test(
+        reason=(
+            "cross_validate still too slow under @mock_botorch_optimize for this test"
+        )
+    )
     @mock_botorch_optimize
     def test_offline(self) -> None:
         # Test CrossValidationPlot can be computed for a variety of experiments which
