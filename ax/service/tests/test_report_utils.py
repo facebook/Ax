@@ -366,6 +366,12 @@ class ReportUtilsTest(TestCase):
         )
         self.assertDictEqual(expected_output, actual_output)
 
+    @TestCase.ax_long_test(
+        reason=(
+            "get_standard_plots still too slow under @mock_botorch_optimize for this "
+            "test. Will be deprecated soon."
+        )
+    )
     @mock_botorch_optimize
     def test_get_standard_plots(self) -> None:
         exp = get_branin_experiment()
