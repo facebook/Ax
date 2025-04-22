@@ -453,32 +453,46 @@ class ReportUtilsTest(TestCase):
                 self.assertTrue(any(expected_msg in msg for msg in log.output[1:]))
         self.assertEqual(len(plots), 6)
 
+    # Note: Not sure this actually runs due to both metrics having minimize=True
+    # and because the trial has not completed
     @mock_botorch_optimize
     def test_get_standard_plots_moo_relative_constraints(self) -> None:
-        exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        exp.optimization_config.objective.objectives[0].minimize = False
-        exp.optimization_config.objective.objectives[1].minimize = True
-        assert_is_instance(
-            exp.optimization_config, MultiObjectiveOptimizationConfig
-        )._objective_thresholds = [
-            ObjectiveThreshold(
-                metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0
-            ),
-            ObjectiveThreshold(
-                metric=exp.metrics["branin_b"], op=ComparisonOp.LEQ, bound=100.0
-            ),
-        ]
-        exp.trials[0].run()
+        for trial_is_complete in [False, True]:
+            with self.subTest(trial_is_complete=trial_is_complete):
+                exp = get_branin_experiment_with_multi_objective(with_batch=True)
+                first_obj = assert_is_instance(
+                    none_throws(exp.optimization_config).objective, MultiObjective
+                ).objectives[0]
+                first_obj.minimize = False
+                first_obj.metric.lower_is_better = False
+                # exp.optimization_config.objective.objectives[1].minimize = True
+                assert_is_instance(
+                    exp.optimization_config, MultiObjectiveOptimizationConfig
+                )._objective_thresholds = [
+                    ObjectiveThreshold(
+                        metric=exp.metrics["branin_a"],
+                        op=ComparisonOp.GEQ,
+                        bound=-100.0,
+                    ),
+                    ObjectiveThreshold(
+                        metric=exp.metrics["branin_b"], op=ComparisonOp.LEQ, bound=100.0
+                    ),
+                ]
+                exp.trials[0].run()
+                if trial_is_complete:
+                    exp.trials[0].mark_completed()
 
-        for ot in assert_is_instance(
-            exp.optimization_config, MultiObjectiveOptimizationConfig
-        )._objective_thresholds:
-            ot.relative = False
-        plots = get_standard_plots(
-            experiment=exp,
-            model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
-        )
-        self.assertEqual(len(plots), 8)
+                for ot in assert_is_instance(
+                    exp.optimization_config, MultiObjectiveOptimizationConfig
+                )._objective_thresholds:
+                    ot.relative = False
+                plots = get_standard_plots(
+                    experiment=exp,
+                    model=Generators.BOTORCH_MODULAR(
+                        experiment=exp, data=exp.fetch_data()
+                    ),
+                )
+                self.assertEqual(len(plots), 8)
 
     @mock_botorch_optimize
     def test_get_standard_plots_moo_no_objective_thresholds(self) -> None:

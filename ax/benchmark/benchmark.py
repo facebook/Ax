@@ -47,7 +47,7 @@ from ax.core.trial_status import TrialStatus
 from ax.core.types import TParamValue
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
-from ax.service.utils.best_point_mixin import BestPointMixin
+from ax.service.utils.best_point import get_trace
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
@@ -275,85 +275,47 @@ def _get_cumulative_cost(
     return previous_cost + sum(per_trial_times)
 
 
-def _get_oracle_value_of_params(
-    params: Mapping[str, TParamValue], problem: BenchmarkProblem
-) -> float:
-    """
-    A roundabout way of getting the value of a parameterization:
-    1. Construct an experiment with the parameterization as its only trial,
-        using the BenchmarkProblem to get the oracle value of that
-        parameterization.
-    2. Get the optimization trace of that experiment.
-    """
-    dummy_experiment = get_oracle_experiment_from_params(
-        problem=problem, dict_of_dict_of_params={0: {"0_0": params}}
-    )
-    (inference_value,) = BestPointMixin._get_trace(
-        experiment=dummy_experiment, optimization_config=problem.optimization_config
-    )
-    return inference_value
-
-
-def _get_oracle_trace_from_arms(
-    evaluated_arms_list: Iterable[set[Arm]], problem: BenchmarkProblem
+def _get_trace_from_arms(
+    arms_list: Iterable[set[Arm]], problem: BenchmarkProblem, cumulative_best: bool
 ) -> npt.NDArray:
     """
-    Get the oracle trace from a list of arms.
+    Get a trace from a list of sets of arms.
 
-    1. Construct a dummy experiment where trial ``i`` contains the arms in
-        ``evaluated_arms_list[i]``; if there are multiple arms, it will be a
-        ``BatchTrial``. Its data will be at oracle values.
-    2. Get the optimization trace of that experiment.
+    If 'cumulative_best' is True:
+        1. Construct a dummy experiment where trial ``i`` contains the arms in
+            ``arms_list[i]``; if there are multiple arms, it will be a
+            ``BatchTrial``. Its data will be at oracle values.
+        2. Get the optimization trace of that experiment. It will be increasing
+            (if higher is better) or lower (otherwise).
+
+    If `cumulative_best` is False:
+        1. For each set of arms in `arms_list`, construct a one-trial dummy
+            experiment in which trial ``i`` contains the arms in
+            ``arms_list[i]``; if there are multiple arms, it will be a
+            ``BatchTrial``. Its data will be at oracle values.
+        2. Get the value of each trial.
     """
+    # TODO: make sure this works reasonably with empty arms_list
     dummy_experiment = get_oracle_experiment_from_params(
         problem=problem,
         dict_of_dict_of_params={
             i: {arm.name: arm.parameters for arm in arms}
-            for i, arms in enumerate(evaluated_arms_list)
+            for i, arms in enumerate(arms_list)
         },
     )
-    oracle_trace = BestPointMixin._get_trace(
+    trace = get_trace(
         experiment=dummy_experiment,
         optimization_config=problem.optimization_config,
+        cumulative_best=cumulative_best,
     )
-    return np.array(oracle_trace)
-
-
-def _get_inference_trace_from_params(
-    best_params_list: Sequence[Mapping[str, TParamValue]],
-    problem: BenchmarkProblem,
-    n_elements: int,
-) -> npt.NDArray:
-    """
-    Get the inference value of each parameterization in ``best_params_list``.
-
-    ``best_params_list`` can be empty, indicating that inference value is not
-    supported for this benchmark, in which case the returned array will be all
-    NaNs with length ``n_elements``. If it is not empty, it must have length
-    ``n_elements``.
-    """
-    if len(best_params_list) == 0:
-        return np.full(n_elements, np.nan)
-    if len(best_params_list) != n_elements:
-        raise RuntimeError(
-            f"Expected {n_elements} elements in `best_params_list`, got "
-            f"{len(best_params_list)}."
-        )
-    return np.array(
-        [
-            _get_oracle_value_of_params(params=params, problem=problem)
-            for params in best_params_list
-        ]
-    )
+    return np.array(trace)
 
 
 def _update_benchmark_tracking_vars_in_place(
     experiment: Experiment,
-    method: BenchmarkMethod,
-    problem: BenchmarkProblem,
     cost_trace: list[float],
     evaluated_arms_list: list[set[Arm]],
-    best_params_list: list[Mapping[str, TParamValue]],
+    best_arms_list: list[set[Arm]],
     completed_trial_idcs: set[int],
 ) -> None:
     """
@@ -372,9 +334,6 @@ def _update_benchmark_tracking_vars_in_place(
     newly_completed_trials = currently_completed_trial_idcs - completed_trial_idcs
     completed_trial_idcs |= newly_completed_trials
 
-    is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
-    compute_best_params = not (problem.is_moo or is_mf_or_mt)
-
     if len(newly_completed_trials) > 0:
         previous_cost = cost_trace[-1] if len(cost_trace) > 0 else 0.0
         cost = _get_cumulative_cost(
@@ -391,17 +350,16 @@ def _update_benchmark_tracking_vars_in_place(
         }
         evaluated_arms_list.append(params)
 
-        # Inference trace: Not supported for MOO.
-        # It's also not supported for multi-fidelity or multi-task
-        # problems, because Ax's best-point functionality doesn't know
-        # to predict at the target task or fidelity.
-        if compute_best_params:
-            (best_params,) = method.get_best_parameters(
-                experiment=experiment,
-                optimization_config=problem.optimization_config,
-                n_points=problem.n_best_points,
-            )
-            best_params_list.append(best_params)
+        best_arm_predictions = (
+            experiment.trials[i].generator_runs[0].best_arm_predictions
+            for i in newly_completed_trials
+        )
+        best_arms = {
+            best_arm_pred[0]
+            for best_arm_pred in best_arm_predictions
+            if best_arm_pred is not None
+        }
+        best_arms_list.append(best_arms)
 
 
 def benchmark_replication(
@@ -469,7 +427,7 @@ def benchmark_replication(
     # Since multiple trials can complete at once, there may be fewer elements in
     # these traces than the number of trials run.
     cost_trace: list[float] = []
-    best_params_list: list[Mapping[str, TParamValue]] = []  # For inference trace
+    best_arms_list: list[set[Arm]] = []  # For inference trace
     evaluated_arms_list: list[set[Arm]] = []  # For oracle trace
     completed_trial_idcs: set[int] = set()
 
@@ -496,11 +454,9 @@ def benchmark_replication(
         ):
             _update_benchmark_tracking_vars_in_place(
                 experiment=experiment,
-                method=method,
-                problem=problem,
                 cost_trace=cost_trace,
                 evaluated_arms_list=evaluated_arms_list,
-                best_params_list=best_params_list,
+                best_arms_list=best_arms_list,
                 completed_trial_idcs=completed_trial_idcs,
             )
 
@@ -520,13 +476,11 @@ def benchmark_replication(
             trials=experiment.trials, simulator=simulator
         )
 
-    inference_trace = _get_inference_trace_from_params(
-        best_params_list=best_params_list,
-        problem=problem,
-        n_elements=len(cost_trace),
+    inference_trace = _get_trace_from_arms(
+        arms_list=best_arms_list, problem=problem, cumulative_best=False
     )
-    oracle_trace = _get_oracle_trace_from_arms(
-        evaluated_arms_list=evaluated_arms_list, problem=problem
+    oracle_trace = _get_trace_from_arms(
+        arms_list=evaluated_arms_list, problem=problem, cumulative_best=True
     )
 
     optimization_trace = (

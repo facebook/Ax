@@ -16,7 +16,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.trial import Trial
 from ax.exceptions.core import DataRequiredError
-from ax.service.utils.best_point import extract_Y_from_data
+from ax.service.utils.best_point import get_trace
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -31,9 +31,6 @@ from pyre_extensions import assert_is_instance, none_throws
 
 class TestBestPointMixin(TestCase):
     def test_get_trace(self) -> None:
-        # Alias for easier access.
-        get_trace = BestPointMixin._get_trace
-
         # Single objective, minimize.
         exp = get_experiment_with_observations(
             observations=[[11], [10], [9], [15], [5]], minimize=True
@@ -203,18 +200,3 @@ class TestBestPointMixin(TestCase):
             minimize=True,
         )
         self.assertEqual(get_best(exp), 10)  # 5 and 9 are out of design
-
-    def test_extract_Y_from_data(self) -> None:
-        # Single objective, minimize.
-        exp = get_experiment_with_observations(
-            observations=[[11], [10], [9], [15], [5]], minimize=True
-        )
-        self.assertNotEqual(len(exp.lookup_data().df), 0)
-
-        if not exp.optimization_config:
-            raise TypeError("No objective")
-
-        metric_names = exp.optimization_config.objective.metric_names
-
-        output, _ = extract_Y_from_data(experiment=exp, metric_names=metric_names)
-        self.assertNotEqual(len(output), 0)
