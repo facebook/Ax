@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-from typing import Literal, Sequence
+from typing import Literal, Mapping, Sequence
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
@@ -22,15 +22,39 @@ from pyre_extensions import override
 
 
 class SensitivityAnalysisPlot(PlotlyAnalysis):
+    """
+    Compute sensitivity for all metrics on a TorchAdapter.
+
+    Sobol measures are always positive regardless of the direction in which the
+    parameter influences f. If `signed` is set to True, then the Sobol measure for each
+    parameter will be given as its sign the sign of the average gradient with respect to
+    that parameter across the search space. Thus, important parameters that, when
+    increased, decrease will have large and negative values; unimportant parameters
+    will have values close to 0.
+    """
+
     def __init__(
         self,
         metric_names: Sequence[str] | None = None,
         order: Literal["first", "second", "total"] = "total",
         top_k: int | None = None,
+        labels: Mapping[str, str] | None = None,
     ) -> None:
+        """
+        Args:
+            metric_names: The names of the metrics and outcomes for which to compute
+                sensitivities. This should preferably be metrics with a good model fit.
+                Defaults to all metrics in the experiment.
+            order: A string specifying the order of the Sobol indices to be computed.
+                Supports "first" and "total" and defaults to "first".
+            top_k: Optional limit on the number of parameters to show in the plot.
+            labels: A mapping from metric names to labels to use in the plot. If a label
+                is not provided for a metric, the metric name will be used.
+        """
         self.metric_names = metric_names
         self.order = order
         self.top_k = top_k
+        self.labels: dict[str, str] = {**labels} if labels is not None else {}
 
     @override
     def compute(
@@ -59,15 +83,20 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
 
         cards = []
         for metric_name in data["metric_name"].unique():
+            # If a human readable metric name is provided, use it
+            metric_label = self.labels.get(metric_name, metric_name)
             df, fig = _prepare_card_components(
-                data=data, metric_name=metric_name, top_k=self.top_k
+                data=data,
+                metric_name=metric_name,
+                top_k=self.top_k,
+                metric_label=metric_label,
             )
 
             card = self._create_plotly_analysis_card(
-                title=f"Sensitivity Analysis for {metric_name}",
+                title=f"Sensitivity Analysis for {metric_label}",
                 subtitle=(
-                    f"Understand how each parameter affects {metric_name} according to "
-                    f"a {self.order}-order sensitivity analysis."
+                    f"Understand how each parameter affects {metric_label} according "
+                    f"to a {self.order}-order sensitivity analysis."
                 ),
                 level=AnalysisCardLevel.MID,
                 category=AnalysisCardCategory.INSIGHT,
@@ -78,6 +107,41 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
             cards.append(card)
 
         return cards
+
+
+def compute_sensitivity_adhoc(
+    adapter: Adapter | None = None,
+    metric_names: Sequence[str] | None = None,
+    labels: Mapping[str, str] | None = None,
+    order: Literal["first", "second", "total"] = "total",
+    top_k: int | None = None,
+) -> list[PlotlyAnalysisCard]:
+    """
+    Compute SensitivityAnalysis cards for the given experiment and either Adapter or
+    GenerationStrategy.
+
+    Note that cards are not saved to the database when computed adhoc -- they are only
+    saved when computed as part of call to ``Client.compute_analyses`` or equivalent.
+
+    Args:
+        adapter: The adapter to use to compute the analysis. If not provided, will use
+            the current adapter on the ``GenerationStrategy``.
+        metric_names: The names of the metrics and outcomes for which to compute
+                sensitivities. This should preferably be metrics with a good model fit.
+                Defaults to all metrics in the experiment.
+        order: A string specifying the order of the Sobol indices to be computed.
+            Supports "first" and "total" and defaults to "first".
+        top_k: Optional limit on the number of parameters to show in the plot.
+        labels: A mapping from metric names to labels to use in the plot. If a label
+            is not provided for a metric, the metric name will be used.
+    """
+    analysis = SensitivityAnalysisPlot(
+        metric_names=metric_names,
+        order=order,
+        top_k=top_k,
+        labels=labels,
+    )
+    return [*analysis.compute(adapter=adapter)]
 
 
 def _prepare_data(
@@ -105,7 +169,10 @@ def _prepare_data(
 
 
 def _prepare_card_components(
-    data: pd.DataFrame, metric_name: str, top_k: int | None
+    data: pd.DataFrame,
+    metric_name: str,
+    metric_label: str,
+    top_k: int | None,
 ) -> tuple[pd.DataFrame, go.Figure]:
     plotting_df = data.loc[data["metric_name"] == metric_name][
         ["parameter_name", "sensitivity"]
@@ -113,7 +180,7 @@ def _prepare_card_components(
 
     plotting_df["importance"] = plotting_df["sensitivity"].abs()
     plotting_df["direction"] = plotting_df["sensitivity"].apply(
-        lambda x: f"Increases {metric_name}" if x >= 0 else f"Decreases {metric_name}"
+        lambda x: f"Increases {metric_label}" if x >= 0 else f"Decreases {metric_label}"
     )
 
     blue = px.colors.qualitative.Plotly[0]
@@ -127,8 +194,8 @@ def _prepare_card_components(
         orientation="h",
         color="direction",
         color_discrete_map={
-            f"Increases {metric_name}": blue,
-            f"Decreases {metric_name}": orange,
+            f"Increases {metric_label}": blue,
+            f"Decreases {metric_label}": orange,
         },
         hover_data=["parameter_name", "sensitivity"],
     )
