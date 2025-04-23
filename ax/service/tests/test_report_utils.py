@@ -28,6 +28,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Generators
 from ax.service.scheduler import Scheduler
 from ax.service.utils.report_utils import (
+    _find_sigfigs,
     _format_comparison_string,
     _get_cross_validation_plots,
     _get_curve_plot_dropdown,
@@ -1322,3 +1323,12 @@ class ReportUtilsTest(TestCase):
                 model_fit_threshold=1.0,
                 metric_names=["bad_metric_name"],
             )
+
+    def test_find_sigfigs(self) -> None:
+        self.assertEqual(_find_sigfigs(0.4, 0.5), 2)
+        self.assertEqual(_find_sigfigs(0.49, 0.5), 2)
+        self.assertEqual(_find_sigfigs(0.499, 0.5), 3)
+        self.assertEqual(_find_sigfigs(0.111122, 0.111100), 5)
+        self.assertEqual(_find_sigfigs(50.0, 50.0001), 4)
+        self.assertEqual(_find_sigfigs(0.04390, 0.03947), 3)
+        self.assertEqual(_find_sigfigs(49.1, 50.00001, 2), 2)
