@@ -2710,6 +2710,7 @@ class TestAxClient(TestCase):
         self.assertGreater(len(observed_pareto), 0)
 
     # Part 1/2 of tests run by helper_test_get_pareto_optimal_parameters_simple
+    @mock_botorch_optimize
     def test_get_pareto_optimal_parameters_simple_with_minimize_false(self) -> None:
         minimize = False
         for use_y0_threshold, use_y2_constraint in product(
@@ -2722,6 +2723,7 @@ class TestAxClient(TestCase):
             )
 
     # Part 2/2 of tests run by helper_test_get_pareto_optimal_parameters_simple
+    @mock_botorch_optimize
     def test_get_pareto_optimal_parameters_simple_with_minimize_true(self) -> None:
         minimize = True
         for use_y0_threshold, use_y2_constraint in product(
