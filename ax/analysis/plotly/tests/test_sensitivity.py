@@ -10,10 +10,15 @@ from ax.analysis.analysis import (
     AnalysisCardCategory,
     AnalysisCardLevel,
 )
-from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
+from ax.analysis.plotly.sensitivity import (
+    compute_sensitivity_adhoc,
+    SensitivityAnalysisPlot,
+)
 from ax.api.client import Client
 from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
 from ax.exceptions.core import UserInputError
+from ax.modelbridge.registry import Generators
+from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -22,6 +27,29 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestSensitivityAnalysisPlot(TestCase):
+    @mock_botorch_optimize
+    def setUp(self) -> None:
+        super().setUp()
+        self.client = AxClient()
+        self.client.create_experiment(
+            is_test=True,
+            name="foo",
+            parameters=[
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [-1.0, 1.0],
+                }
+            ],
+            objectives={"bar": ObjectiveProperties(minimize=True)},
+        )
+
+        for _ in range(10):
+            parameterization, trial_index = self.client.get_next_trial()
+            self.client.complete_trial(
+                trial_index=trial_index, raw_data={"bar": parameterization["x"] ** 2}
+            )
+
     @mock_botorch_optimize
     def test_compute(self) -> None:
         client = Client()
@@ -85,6 +113,19 @@ class TestSensitivityAnalysisPlot(TestCase):
         second_order = SensitivityAnalysisPlot(metric_names=["bar"], order="second")
         (card,) = second_order.compute(generation_strategy=client._generation_strategy)
         self.assertEqual(len(card.df), 3)  # 2 first order + 1 second order
+
+    @mock_botorch_optimize
+    def test_compute_adhoc(self) -> None:
+        metric_mapping = {"bar": "spunky"}
+        data = self.client.experiment.lookup_data()
+        adapter = Generators.BOTORCH_MODULAR(
+            experiment=self.client.experiment, data=data
+        )
+        cards = compute_sensitivity_adhoc(adapter=adapter, labels=metric_mapping)
+        self.assertEqual(len(cards), 1)
+        card = cards[0]
+        self.assertEqual(card.name, "SensitivityAnalysisPlot")
+        self.assertEqual(card.title, "Sensitivity Analysis for spunky")
 
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
