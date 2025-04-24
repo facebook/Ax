@@ -3,6 +3,10 @@ id: intro-to-bo
 title: Introduction to Bayesian Optimization
 ---
 
+import surrogate from './assets/surrogate.png';
+import ei from './assets/ei.png';
+import gpei from './assets/gpei.gif';
+
 # Introduction to Bayesian Optimization
 
 Bayesian optimization (BO) is a highly effective adaptive experimentation method
@@ -71,7 +75,7 @@ outcome and quantify the uncertainty of configurations that have not yet been
 tested. Intuitively, the uncertainty bands are tight in regions that are
 well-explored and become wider as we move away from them.
 
-![GP surrogate model](assets/surrogate.png)
+<center><img src={surrogate} alt="GP surrogate model" width="60%"/></center>
 
 ## Acquisition Functions
 
@@ -106,13 +110,13 @@ A visualization of the expected improvement based on the surrogate model
 predictions is shown below, where the next suggestion is where the expected
 improvement is at its maximum.
 
-![Expected Improvement (EI) acquisition function](assets/ei.png)
+<center><img src={ei} alt="Expected Improvement (EI) acquisition function" width="60%"/></center>
 
 Once a new highest EI is selected and evaluated, the surrogate model is
 retrained and a new suggestion is made. As described above, this process
 continues iteratively until a stopping condition, set by the user, is reached.
 
-![Full Bayesian optimization loop](assets/gpei.gif)
+<center><img src={gpei} alt="Full Bayesian optimization loop" width="60%"/></center>
 
 Using an acquisition function like EI to sample new points initially promotes
 quick exploration because the expected values, informed by the uncertainty

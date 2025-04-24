@@ -3,6 +3,11 @@ id: intro-to-ae
 title: Introduction to Adaptive Experimentation
 ---
 
+import Traditional_vs_Adaptive from './assets/traditional_vs_adaptive.svg';
+import doe from './assets/doe.png';
+import line_square_cube from './assets/line_square_cube.png';
+import discrepancy_dims from './assets/discrepancy_dims.png';
+
 # Introduction to Adaptive Experimentation
 
 In engineering tasks we often encounter so-called "black box" optimization
@@ -25,7 +30,7 @@ Adaptive experimentation is an approach to solving these problems efficiently by
 leveraging data from prior iterations to inform future decisions on which trials
 to run next.
 
-![Traditional vs. Adaptive design](assets/traditional_vs_adaptive.svg)
+<center><Traditional_vs_Adaptive alt="Traditional vs. Adaptive design" width="60%" height="auto"/></center>
 
 ## Traditional methods are inefficient, especially in high dimensions
 
@@ -50,14 +55,14 @@ points that are more uniformly dispersed. Examples include:
 - Latin Hypercube Sampling. Both rely on some form of subdividing a search space
   and assigning points in relation to these subdivisions.
 
-![DoE sampling methods](assets/doe.png)
+<center><img src={doe} alt="DoE sampling methods" width="60%"/></center>
 
 Unfortunately getting broad coverage of the domain requires many samples, which
 can be expensive. Worse, as more dimensions are added more points are required
 to achieve the same coverage. To illustrate, imagine points distributed on a
 line (1D), a square (2D), and a cube (3D).
 
-![Sampling from a line, a square, and a cube](assets/line_square_cube.png)
+<center><img src={line_square_cube} alt="Sampling from a line, a square, and a cube" width="60%"/></center>
 
 Notice how even though there are 9x more points in the cube than on the line,
 the
@@ -79,7 +84,7 @@ below. In the case of grid search, to have even just two subdivisions in each of
 20 dimensions would require $$20^2 = 400$$ points, well over our 100 point
 budget!
 
-![Discrepancy vs. input dimensionality](assets/discrepancy_dims.png)
+<center><img src={discrepancy_dims} alt="Discrepancy vs. input dimensionality" width="60%"/></center>
 
 ## Adaptive experimentation outperforms traditional methods
 
