@@ -1266,9 +1266,8 @@ def _construct_comparison_message(
     baseline_value: float,
     comparison_arm_name: str,
     comparison_value: float,
-    digits: int = 2,
+    digits: int | None = None,
 ) -> str | None:
-    # TODO: allow for user configured digits value
     if baseline_value == 0:
         logger.debug(
             "compare_to_baseline: baseline has value of 0"
@@ -1285,6 +1284,7 @@ def _construct_comparison_message(
         )
         return None
     percent_change = ((abs(comparison_value - baseline_value)) / baseline_value) * 100
+    digits = _find_sigfigs(baseline_value, comparison_value)
 
     return _format_comparison_string(
         comparison_arm_name=comparison_arm_name,
@@ -1295,6 +1295,38 @@ def _construct_comparison_message(
         comparison_value=comparison_value,
         digits=digits,
     )
+
+
+def _find_sigfigs(
+    baseline_value: float,
+    comparison_value: float,
+    max_precision: int = 10,
+    default_digits: int = 2,
+) -> int:
+    """Find the number of significant figures to display in a comparison message.
+    This is done by finding the number of significant figures in the difference
+    between baseline_value and comparison_value, so that the displayed values
+    have at least one differing digit after rounding (if the abs difference is > 1).
+    This compares up to max_precision digits after the decimal point,
+    and defaults to default_digits if no differing digits are found.
+
+    e.g.
+    0.4 and 0.5 => 2 (round to 0.40 and 0.50)
+    0.04390 and 0.03947 => 3 (round to 0.043 and 0.039)
+    0.111122 and 0.111100 -> 0.111122 and 0.111100
+    50.0 and 50.0001 -> 50.00 and 50.0001
+    49.1 and 50.001 => 2 (round to 49.10 and 50.00)
+    """
+    diff = abs(baseline_value - comparison_value)
+    str_diff = f"{diff:.{max_precision}f}"
+    ints, decimals = str_diff.split(".")
+    if int(ints) > 0:
+        return default_digits
+    for i, d in enumerate(decimals):
+        if d != "0":
+            return max(i + 1, default_digits)
+
+    return default_digits
 
 
 def _build_result_tuple(
