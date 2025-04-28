@@ -1295,6 +1295,7 @@ class ExperimentTest(TestCase):
                 "trial_index": [0, 1, 2],
                 "arm_name": ["0_0", "1_0", "0_0"],
                 "trial_status": ["COMPLETED", "COMPLETED", "CANDIDATE"],
+                "generation_method": ["Sobol", "Sobol", "Sobol"],
                 "name": ["0", "1", None],  # the metadata
                 "m1": [1.0, 3.0, None],
                 "m2": [2.0, 4.0, None],
@@ -1302,7 +1303,7 @@ class ExperimentTest(TestCase):
                 "y": ys,
             }
         )
-        self.assertTrue(df.equals(expected_df))
+        pd.testing.assert_frame_equal(df, expected_df)
         # Check that empty columns are included when omit=False.
         df = experiment.to_df(omit_empty_columns=False)
         self.assertEqual(
@@ -1313,6 +1314,7 @@ class ExperimentTest(TestCase):
                 "trial_status",
                 "fail_reason",
                 "generation_node",
+                "generation_method",
                 "name",
                 "m1",
                 "m2",
