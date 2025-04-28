@@ -791,10 +791,18 @@ class Encoder:
         best_arm_name = None
         best_arm_parameters = None
         best_arm_predictions = None
+
         if generator_run.best_arm_predictions is not None:
-            best_arm = generator_run.best_arm_predictions[0]
-            # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
-            best_arm_predictions = list(generator_run.best_arm_predictions[1])
+            best_arm, model_predict_arm = generator_run.best_arm_predictions
+
+            if model_predict_arm is not None:
+                best_arm_predictions = list(model_predict_arm)
+            else:
+                logger.warning(
+                    f"No model predictions found with best arm '{best_arm._name}'."
+                    " Setting best_arm_predictions=None in storage"
+                )
+
             best_arm_name = best_arm._name
             best_arm_parameters = best_arm.parameters
         model_predictions = (
