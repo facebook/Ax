@@ -114,6 +114,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_scalarized_objective_and_outcome_constraint,
     get_fixed_parameter,
     get_generator_run,
+    get_model_predictions_per_arm,
     get_multi_objective_optimization_config,
     get_multi_type_experiment,
     get_objective,
@@ -232,6 +233,61 @@ class SQAStoreTest(TestCase):
 
         generator_run_sqa.generator_run_type = 0
         self.decoder.generator_run_from_sqa(generator_run_sqa, False, False)
+
+    def test_GeneratorRunBestArm(self) -> None:
+        experiment = self.experiment
+
+        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run._generator_run_type = "STATUS_QUO"
+
+        arm = get_arm()
+        arm_predictions = get_model_predictions_per_arm()
+        arm._name = arm.signature
+
+        generator_run._best_arm_predictions = (arm, arm_predictions[arm.signature])
+
+        generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)
+
+        self.assertIsNotNone(generator_run_sqa.best_arm_name)
+        self.assertIsNotNone(generator_run_sqa.best_arm_predictions)
+
+    def test_GeneratorRunNoBestArm(self) -> None:
+        experiment = self.experiment
+
+        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run._generator_run_type = "STATUS_QUO"
+        generator_run._best_arm_predictions = None
+
+        generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)
+
+        self.assertIsNone(generator_run_sqa.best_arm_name)
+        self.assertIsNone(generator_run_sqa.best_arm_predictions)
+
+    def test_GeneratorRunNoBestArmPredictions(self) -> None:
+        experiment = self.experiment
+
+        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run._generator_run_type = "STATUS_QUO"
+
+        arm = get_arm()
+        arm._name = "best_arm"
+
+        generator_run._best_arm_predictions = (arm, None)
+
+        with self.assertLogs("ax", level=logging.WARNING) as logs:
+            generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)
+
+        self.assertEqual(
+            [
+                "WARNING:ax.storage.sqa_store.encoder:"
+                "No model predictions found with best arm 'best_arm'."
+                " Setting best_arm_predictions=None in storage"
+            ],
+            logs.output,
+        )
+
+        self.assertIsNotNone(generator_run_sqa.best_arm_name)
+        self.assertIsNone(generator_run_sqa.best_arm_predictions)
 
     @mock_botorch_optimize
     def test_SaveExperimentWithSurrogateAsModelKwarg(self) -> None:
