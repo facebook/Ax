@@ -57,6 +57,7 @@ export default {
       'recipes/experiment-to-json',
       'recipes/experiment-to-sqlite',
       'recipes/multi-objective-optimization',
+      'recipes/scalarized-objective',
     ],
   },
 };
