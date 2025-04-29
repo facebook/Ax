@@ -58,6 +58,7 @@ export default {
       'recipes/experiment-to-sqlite',
       'recipes/multi-objective-optimization',
       'recipes/scalarized-objective',
+      'recipes/outcome-constraints',
     ],
   },
 };
