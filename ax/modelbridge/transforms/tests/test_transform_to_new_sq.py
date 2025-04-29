@@ -145,7 +145,7 @@ class TransformToNewSQSpecificTest(TestCase):
 
     def test_target_trial_index(self) -> None:
         sobol = get_sobol(search_space=self.exp.search_space)
-        self.exp.new_batch_trial(generator_run=sobol.gen(2), optimize_for_power=True)
+        self.exp.new_batch_trial(generator_run=sobol.gen(2), add_status_quo_arm=True)
         t = self.exp.trials[1]
         t = assert_is_instance(t, BatchTrial)
         t.mark_running(no_runner_required=True)

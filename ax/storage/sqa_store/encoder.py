@@ -979,7 +979,6 @@ class Encoder:
         abandoned_arms = []
         generator_runs = []
         status_quo_name = None
-        optimize_for_power = None
         lifecycle_stage = None
 
         if isinstance(trial, Trial) and trial.generator_run:
@@ -1030,12 +1029,6 @@ class Encoder:
                 generator_runs.append(gr_sqa)
                 status_quo_name = trial_status_quo.name
 
-            optimize_for_power = getattr(trial, "optimize_for_power", None)
-            if optimize_for_power is None:
-                logger.warning(
-                    f"optimize_for_power not present in BatchTrial: {trial.__dict__}"
-                )
-
         # pyre-ignore[9]: Expected `Base` for 1st...ot `typing.Type[Trial]`.
         trial_class: SQATrial = self.config.class_to_sqa_class[Trial]
         trial_sqa = trial_class(  # pyre-fixme[29]: `SQATrial` is not a function.
@@ -1046,7 +1039,6 @@ class Encoder:
             index=trial.index,
             is_batch=isinstance(trial, BatchTrial),
             num_arms_created=trial._num_arms_created,
-            optimize_for_power=optimize_for_power,
             ttl_seconds=trial.ttl_seconds,
             run_metadata=trial.run_metadata,
             stop_metadata=trial.stop_metadata,

@@ -1152,8 +1152,8 @@ class Experiment(Base):
         self,
         generator_run: GeneratorRun | None = None,
         generator_runs: list[GeneratorRun] | None = None,
+        add_status_quo_arm: bool | None = False,
         trial_type: str | None = None,
-        optimize_for_power: bool | None = False,
         ttl_seconds: int | None = None,
         lifecycle_stage: LifecycleStage | None = None,
     ) -> BatchTrial:
@@ -1167,11 +1167,11 @@ class Experiment(Base):
                 also be set later through `add_arm` or `add_generator_run`, but a
                 trial's associated generator run is immutable once set.  This cannot
                 be combined with the `generator_run` argument.
+            add_status_quo_arm: If True, adds the status quo arm to the trial with a
+            weight of 1.0. If False, the _status_quo is still set on the trial for
+            tracking purposes, but without a weight it will not be an Arm present on
+            the trial
             trial_type: Type of this trial, if used in MultiTypeExperiment.
-            optimize_for_power: Whether to optimize the weights of arms in this
-                trial such that the experiment's power to detect effects of
-                certain size is as high as possible. Refer to documentation of
-                `BatchTrial.set_status_quo_and_optimize_power` for more detail.
             ttl_seconds: If specified, trials will be considered failed after
                 this many seconds since the time the trial was ran, unless the
                 trial is completed before then. Meant to be used to detect
@@ -1188,7 +1188,7 @@ class Experiment(Base):
             trial_type=trial_type,
             generator_run=generator_run,
             generator_runs=generator_runs,
-            optimize_for_power=optimize_for_power,
+            add_status_quo_arm=add_status_quo_arm,
             ttl_seconds=ttl_seconds,
             lifecycle_stage=lifecycle_stage,
         )
@@ -1553,9 +1553,9 @@ class Experiment(Base):
         self,
         parameterizations: list[TParameterization],
         arm_names: list[str] | None = None,
+        add_status_quo_arm: bool = False,
         ttl_seconds: int | None = None,
         run_metadata: dict[str, Any] | None = None,
-        optimize_for_power: bool = False,
     ) -> tuple[dict[str, TParameterization], int]:
         """Attach a new trial with the given parameterization to the experiment.
 
@@ -1564,15 +1564,14 @@ class Experiment(Base):
                 only one is provided a single-arm Trial is created. If multiple
                 arms are provided a BatchTrial is created.
             arm_names: Names of arm(s) in the new trial.
+            add_status_quo_arm: If True, adds the status quo arm to the trial with a
+            weight of 1.0. If False, the _status_quo is still set on the trial for
+            tracking purposes, but without a weight it will not be an Arm present on
+            the trial
             ttl_seconds: If specified, will consider the trial failed after this
                 many seconds. Used to detect dead trials that were not marked
                 failed properly.
             run_metadata: Metadata to attach to the trial.
-            optimize_for_power: For BatchTrial only.
-                Whether to optimize the weights of arms in this
-                trial such that the experiment's power to detect effects of
-                certain size is as high as possible. Refer to documentation of
-                `BatchTrial.set_status_quo_and_optimize_power` for more detail.
 
         Returns:
             Tuple of arm name to parameterization dict, and trial index from
@@ -1625,7 +1624,7 @@ class Experiment(Base):
         trial = None
         if is_batch:
             trial = self.new_batch_trial(
-                ttl_seconds=ttl_seconds, optimize_for_power=optimize_for_power
+                ttl_seconds=ttl_seconds, add_status_quo_arm=add_status_quo_arm
             ).add_arms_and_weights(arms=arms)
 
         else:

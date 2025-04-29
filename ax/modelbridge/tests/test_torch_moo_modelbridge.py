@@ -567,7 +567,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             init_position=len(exp.arms_by_name) - 1,
         )
         sobol_run = sobol_generator.gen(n=2)
-        trial = exp.new_batch_trial(optimize_for_power=True)
+        trial = exp.new_batch_trial(add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
         trial.mark_running(no_runner_required=True).mark_completed()
         data = exp.fetch_data()

@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import math
 from time import sleep
 from unittest import mock
 from unittest.mock import patch, PropertyMock
@@ -198,16 +197,22 @@ class BatchTrialTest(TestCase):
         self.assertIsNone(self.batch.status_quo)
         self.assertIsNone(self.batch._status_quo_weight_override)
 
-    def test_status_quo_set_on_clone(self) -> None:
+    def test_status_quo_set_on_clone_ono(
+        self,
+    ) -> None:
         self.experiment.status_quo = self.status_quo
         batch2 = self.batch.clone()
         self.assertEqual(batch2.status_quo, self.experiment.status_quo)
-
-        # Since optimize_for_power was not set, the weight override should not be
-        # And the status quo shoudl not appear in arm_weights
+        # Since add_status_quo_arm was False,
+        # _status_quo_weight_override should be False and the
+        # status_quo arm should not appear in arm_weights
         self.assertIsNone(batch2._status_quo_weight_override)
         self.assertTrue(batch2.status_quo not in batch2.arm_weights)
         self.assertEqual(sum(batch2.weights), sum(self.weights))
+        # Test with add_status_quo_arm=True
+        batch3 = self.experiment.new_batch_trial(add_status_quo_arm=True)
+        self.assertEqual(batch3._status_quo_weight_override, 1.0)
+        self.assertTrue(batch2.status_quo in batch3.arm_weights)
 
     def test_status_quo_cannot_be_set_with_different_name(self) -> None:
         # Set status quo to new arm
@@ -217,39 +222,10 @@ class BatchTrialTest(TestCase):
                 Arm(self.status_quo.parameters, name="new_name"), 1
             )
 
-    def test_cannot_optimizer_for_power_without_status_quo(self) -> None:
+    def test_cannot_set_status_quo_with_weight_without_status_quo(self) -> None:
         self.experiment.status_quo = None
         with self.assertRaises(ValueError):
-            self.experiment.new_batch_trial(optimize_for_power=True)
-
-    def test_opt_for_power_sq_weight_is_one_for_empty_trial(self) -> None:
-        self.experiment.status_quo = self.status_quo
-        batch = self.experiment.new_batch_trial(optimize_for_power=True)
-        self.assertEqual(batch._status_quo_weight_override, 1)
-
-        batch.add_arms_and_weights(arms=[])
-        self.assertTrue(batch._status_quo_weight_override, 1)
-
-    def test_opt_for_power_sq_weight_is_sqrt_k(self) -> None:
-        self.experiment.status_quo = self.status_quo
-        batch = self.experiment.new_batch_trial(optimize_for_power=True)
-        batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
-        expected_status_quo_weight = math.sqrt(sum(self.weights))
-        self.assertTrue(
-            math.isclose(batch._status_quo_weight_override, expected_status_quo_weight)
-        )
-        self.assertTrue(
-            math.isclose(
-                batch.arm_weights[batch.status_quo], expected_status_quo_weight
-            )
-        )
-
-    def test_cannot_opt_for_power_without_status_quo(self) -> None:
-        self.experiment.status_quo = None
-        with self.assertRaisesRegex(
-            ValueError, "Can only optimize for power if experiment has a status quo."
-        ):
-            self.experiment.new_batch_trial(optimize_for_power=True)
+            self.experiment.new_batch_trial(add_status_quo_arm=True)
 
     def test_ArmsByName(self) -> None:
         # Initializes empty
@@ -482,7 +458,7 @@ class BatchTrialTest(TestCase):
         status_quo = Arm(
             name="status_quo", parameters={"w": 0.0, "x": 1, "y": "foo", "z": True}
         )
-        batch.set_status_quo_and_optimize_power(status_quo)
+        batch.set_status_quo_with_weight(status_quo=status_quo, weight=1.0)
         batch.mark_running(no_runner_required=True)
         new_batch_trial = batch.clone_to()
         self.assertEqual(new_batch_trial.index, 2)
@@ -597,55 +573,6 @@ class BatchTrialTest(TestCase):
         gr = GeneratorRun(arms=new_arms)
         with self.assertRaises(ValueError):
             new_batch_trial.add_generator_run(gr)
-
-    def test_SetStatusQuoAndOptimizePower(self) -> None:
-        batch_trial = self.experiment.new_batch_trial()
-        status_quo = Arm(
-            name="status_quo", parameters={"w": 0.0, "x": 1, "y": "foo", "z": True}
-        )
-
-        # Test adding status quo and optimizing power on empty batch
-        batch_trial.set_status_quo_and_optimize_power(status_quo)
-        self.assertEqual(batch_trial.arm_weights[status_quo], 1.0)
-
-        # Test adding status quo and optimizing power on non-empty batch
-        batch_trial = self.experiment.new_batch_trial()
-        parameterizations = [
-            {"w": 0.75, "x": 1, "y": "foo", "z": True},
-            {"w": 0.77, "x": 2, "y": "foo", "z": True},
-        ]
-        arms = [Arm(parameters=p) for i, p in enumerate(parameterizations)]
-        batch_trial.add_arms_and_weights(arms=arms)
-        batch_trial.set_status_quo_and_optimize_power(status_quo)
-        self.assertEqual(batch_trial.arm_weights[status_quo], np.sqrt(2))
-
-        # Test adding status quo and optimizing power when trial already
-        # has a status quo
-        batch_trial = self.experiment.new_batch_trial()
-        batch_trial.set_status_quo_with_weight(status_quo, 1)
-        self.assertEqual(batch_trial.arm_weights[status_quo], 1.0)
-        batch_trial.add_arms_and_weights(arms=arms)
-        batch_trial.set_status_quo_and_optimize_power(status_quo)
-        self.assertEqual(batch_trial.arm_weights[status_quo], np.sqrt(2))
-        # Since status quo is not in the generator runs, all of its weight
-        # comes from _status_quo_weight_override
-        self.assertEqual(batch_trial._status_quo_weight_override, np.sqrt(2))
-
-        # Test adding status quo and optimizing power when status quo
-        # is in the generator runs
-        batch_trial = self.experiment.new_batch_trial()
-        parameterizations = [
-            {"w": 0.75, "x": 1, "y": "foo", "z": True},
-            {"w": 0.77, "x": 2, "y": "foo", "z": True},
-            {"w": 0.0, "x": 1, "y": "foo", "z": True},
-        ]
-        arms = [Arm(parameters=p) for i, p in enumerate(parameterizations)]
-        batch_trial.add_arms_and_weights(arms=arms)
-        batch_trial.set_status_quo_and_optimize_power(status_quo)
-        self.assertEqual(batch_trial.arm_weights[status_quo], np.sqrt(2))
-        # Since status quo has a weight of 1 in the generator runs, only part of
-        # its weight comes from _status_quo_weight_override
-        self.assertEqual(batch_trial._status_quo_weight_override, np.sqrt(2))
 
     def test_Repr(self) -> None:
         self.assertEqual(
