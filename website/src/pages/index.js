@@ -14,7 +14,7 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import CodeBlock from '@theme/CodeBlock';
-import Layout from "@theme/Layout";
+import Layout from '@theme/Layout';
 
 const features = [
   {
@@ -43,7 +43,7 @@ const features = [
 const Feature = ({imageUrl, title, content, image}) => {
   const imgUrl = useBaseUrl(imageUrl);
   return (
-    <div className='col col--4 feature text--center'>
+    <div className="col col--4 feature text--center">
       {imgUrl && (
         <div>
           <img src={imgUrl} alt={title} />
@@ -63,54 +63,75 @@ const Feature = ({imageUrl, title, content, image}) => {
       <p>{content}</p>
     </div>
   );
-}
+};
 
-const codeExample = `>>> from ax import optimize
->>> best_parameters, best_values, experiment, model = optimize(
-      parameters=[
-        {
-          "name": "x1",
-          "type": "range",
-          "bounds": [-10.0, 10.0],
-        },
-        {
-          "name": "x2",
-          "type": "range",
-          "bounds": [-10.0, 10.0],
-        },
-      ],
-      # Booth function
-      evaluation_function=lambda p: (p["x1"] + 2*p["x2"] - 7)**2 + (2*p["x1"] + p["x2"] - 5)**2,
-      minimize=True,
-  )
+const codeExample = `
+>>> from ax import *
 
->>> best_parameters
-{'x1': 1.02, 'x2': 2.97}  # true min is (1, 3)`;
+>>> client = Client()
+>>> client.configure_experiment(
+    experiment_config=ExperimentConfig(
+        name="booth_function",
+        parameters=[
+            RangeParameterConfig(
+                name="x1",
+                bounds=(-10.0, 10.0),
+                parameter_type=ParameterType.FLOAT,
+            ),
+            RangeParameterConfig(
+                name="x2",
+                bounds=(-10.0, 10.0),
+                parameter_type=ParameterType.FLOAT,
+            ),
+        ],
+    )
+)
+>>> client.configure_optimization(objective="-1 * booth")
+
+>>> for _ in range(20):
+>>>     for trial_index, parameters in client.get_next_trials(max_trials=1).items():
+>>>         client.complete_trial(
+>>>             trial_index=trial_index,
+>>>             raw_data={
+>>>                 "booth": (parameters["x1"] + 2 * parameters["x2"] - 7) ** 2
+>>>                 + (2 * parameters["x1"] + parameters["x2"] - 5) ** 2
+>>>             },
+>>>         )
+
+>>> client.get_best_parameterization()
+{'x1': 1.02, 'x2': 2.97}  # true min is (1, 3)
+`;
 
 const QuickStart = () => (
   <div
     className="get-started-section padding--xl"
     style={{'background-color': 'var(--ifm-color-emphasis-200)'}}
-    id="quickstart"
-  >
+    id="quickstart">
     <h2 className="text--center padding--md">Get Started</h2>
     <ol>
       <li>
         Install Ax:
         <Tabs>
           <TabItem value="linux" label="Linux" deafult>
-              <CodeBlock languague="bash" showLineNumbers>{`pip3 install ax-platform`}</CodeBlock>
+            <CodeBlock
+              languague="bash"
+              showLineNumbers>{`pip3 install ax-platform`}</CodeBlock>
           </TabItem>
           <TabItem value="mac" label="Mac">
-              <CodeBlock language="bash" showLineNumbers>{`conda install pytorch torchvision -c pytorch
+            <CodeBlock
+              language="bash"
+              showLineNumbers>{`conda install pytorch torchvision -c pytorch
 pip3 install ax-platform`}</CodeBlock>
           </TabItem>
         </Tabs>
       </li>
       <li>
         Run an optimization:
-        <br/><br/>
-        <CodeBlock language="python" showLineNumbers>{codeExample}</CodeBlock>
+        <br />
+        <br />
+        <CodeBlock language="python" showLineNumbers>
+          {codeExample}
+        </CodeBlock>
       </li>
     </ol>
   </div>
@@ -120,11 +141,17 @@ const MyPage = () => {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout title={siteConfig.title} description={siteConfig.tagline}>
-      <div className="hero text--center" style={{height: "40rem"}}>
+      <div className="hero text--center" style={{height: '40rem'}}>
         <div className="container">
           <div className="padding-vert--md">
-            <img src={useBaseUrl('img/ax_wireframe.svg')} alt="Project Logo" style={{ width: "300px"}} />
-            <p className="hero__subtitle text--secondary">{siteConfig.tagline}</p>
+            <img
+              src={useBaseUrl('img/ax_wireframe.svg')}
+              alt="Project Logo"
+              style={{width: '300px'}}
+            />
+            <p className="hero__subtitle text--secondary">
+              {siteConfig.tagline}
+            </p>
           </div>
           <div>
             <Link
