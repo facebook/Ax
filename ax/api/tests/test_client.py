@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import random
 from collections.abc import Mapping
 from typing import Any
 
@@ -42,6 +43,7 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
+
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -377,6 +379,53 @@ class TestClient(TestCase):
         trials = client.get_next_trials(maximum_trials=1, fixed_parameters={"x1": 0.5})
         value = assert_is_instance(trials[3]["x1"], float)
         self.assertEqual(value, 0.5)
+
+    def test_get_next_trials_with_db(self) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        client = Client(storage_config=StorageConfig())
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                    RangeParameterConfig(
+                        name="x2", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+
+        client.configure_optimization(objective="foo")
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig(
+                # Set this to a large number so test runs fast
+                initialization_budget=1,
+            )
+        )
+
+        # Test can generate one trial
+        trials = client.get_next_trials()
+        self.assertEqual(len(trials), 1)
+        self.assertIn(0, trials)
+        trial = client._experiment.trials[0]
+        self.assertEqual(trial.generator_runs[0]._model_key, "Sobol")
+        client.complete_trial(
+            trial_index=trial.index, raw_data={"foo": (random.random(), 1.0)}
+        )
+
+        # Check that loading the GS from the DB results in using BO.
+        # This will only happen if the GS is saved in get_next_trials
+        client2 = Client.load_from_database(
+            client._experiment.name, storage_config=StorageConfig()
+        )
+        trials = client2.get_next_trials()
+        self.assertEqual(len(trials), 1)
+        self.assertIn(1, trials)
+        trial = client2._experiment.trials[1]
+        self.assertEqual(trial.generator_runs[0]._model_key, "BoTorch")
 
     def test_attach_data(self) -> None:
         client = Client()
