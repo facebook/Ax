@@ -300,7 +300,6 @@ class SQATrial(Base):
         IntEnum(LifecycleStage), nullable=True
     )
     num_arms_created: Column[int] = Column(Integer, nullable=False, default=0)
-    optimize_for_power: Column[bool | None] = Column(Boolean)
     ttl_seconds: Column[int | None] = Column(Integer)
     run_metadata: Column[dict[str, Any] | None] = Column(JSONEncodedLongTextDict)
     stop_metadata: Column[dict[str, Any] | None] = Column(JSONEncodedTextDict)

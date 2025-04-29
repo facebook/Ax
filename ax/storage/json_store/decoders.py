@@ -75,7 +75,6 @@ def batch_trial_from_json(
     num_arms_created: int,
     status_quo: Arm | None,
     status_quo_weight_override: float,
-    optimize_for_power: bool | None,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
     failed_reason: str | None = None,
@@ -93,7 +92,10 @@ def batch_trial_from_json(
     does not allow us to exactly recreate an existing object.
     """
 
-    batch = BatchTrial(experiment=experiment, ttl_seconds=ttl_seconds)
+    batch = BatchTrial(
+        experiment=experiment,
+        ttl_seconds=ttl_seconds,
+    )
     batch._index = index
     batch._trial_type = trial_type
     batch._status = status
@@ -111,11 +113,16 @@ def batch_trial_from_json(
     batch._num_arms_created = num_arms_created
     batch._status_quo = status_quo
     batch._status_quo_weight_override = status_quo_weight_override
-    batch.optimize_for_power = optimize_for_power
     batch._generation_step_index = generation_step_index
     batch._lifecycle_stage = lifecycle_stage
     batch._properties = properties
     batch._refresh_arms_by_name()  # Trigger cache build
+
+    # Trial.arms_by_name only returns arms with weights
+    batch.add_status_quo_arm = (
+        batch.status_quo is not None and batch.status_quo.name in batch.arms_by_name
+    )
+
     warn_on_kwargs(callable_with_kwargs=BatchTrial, **kwargs)
     return batch
 

@@ -525,7 +525,7 @@ class TestAxScheduler(TestCase):
         trial0.assign_runner()
         sobol_generator = get_sobol(search_space=self.branin_experiment.search_space)
         sobol_run = sobol_generator.gen(n=15)
-        trial1 = self.branin_experiment.new_batch_trial(optimize_for_power=False)
+        trial1 = self.branin_experiment.new_batch_trial()
         trial1.add_generator_run(sobol_run)
         trial1.assign_runner()
         trial1.mark_running()

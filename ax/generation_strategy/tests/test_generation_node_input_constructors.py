@@ -541,7 +541,6 @@ class TestGenerationNodeInputConstructors(TestCase):
         for i in range(num_arms):
             grs.append(GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": i})]))
         trial = experiment.new_batch_trial(
-            optimize_for_power=False,
             trial_type=trial_type,
             generator_runs=grs,
         )

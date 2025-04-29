@@ -935,7 +935,6 @@ class Decoder:
         if trial_sqa.is_batch:
             trial = BatchTrial(
                 experiment=experiment,
-                optimize_for_power=trial_sqa.optimize_for_power,
                 ttl_seconds=trial_sqa.ttl_seconds,
                 index=trial_sqa.index,
                 lifecycle_stage=trial_sqa.lifecycle_stage,
@@ -976,6 +975,13 @@ class Decoder:
                 for abandoned_arm_sqa in trial_sqa.abandoned_arms
             }
             trial._refresh_arms_by_name()  # Trigger cache build
+
+            # Trial.arms_by_name only returns arms with weights
+            trial.add_status_quo_arm = (
+                trial.status_quo is not None
+                and trial.status_quo.name in trial.arms_by_name
+            )
+
         else:
             trial = Trial(
                 experiment=experiment,

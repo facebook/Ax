@@ -737,7 +737,6 @@ class ExperimentTest(TestCase):
             ],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
-            optimize_for_power=True,
         )
 
         self.assertEqual(len(self.experiment.trials), num_trials + 1)
@@ -759,7 +758,6 @@ class ExperimentTest(TestCase):
             arm_names=["arm1", "arm2", "arm3"],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
-            optimize_for_power=True,
         )
 
         self.assertEqual(len(self.experiment.trials), num_trials + 1)
@@ -780,7 +778,6 @@ class ExperimentTest(TestCase):
             parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True}],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
-            optimize_for_power=True,
         )
 
         self.assertEqual(len(self.experiment.trials), num_trials + 1)
@@ -794,7 +791,6 @@ class ExperimentTest(TestCase):
             arm_names=["arm1"],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
-            optimize_for_power=True,
         )
 
         self.assertEqual(len(self.experiment.trials), num_trials + 1)
