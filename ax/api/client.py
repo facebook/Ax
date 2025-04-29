@@ -363,6 +363,9 @@ class Client(WithDBSettingsBase):
 
             trials.append(trial)
 
+        # Save GS to db
+        self._save_generation_strategy_to_db_if_possible()
+
         # Bulk save all trials to the database if possible
         self._save_or_update_trials_in_db_if_possible(
             experiment=self._experiment, trials=trials
