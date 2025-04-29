@@ -1,9 +1,9 @@
 # Specifying Outcome Constraints
 ## Introduction
-Outcome constraints can be a crucial component of optimization in Ax. They allow you to specify constraints on the outcomes of your experiment, ensuring that the optimized parameters do not degrade certain metrics.
+Outcome constraints specify constraints on the outcomes of your experiment, ensuring that the optimized parameters do not degrade certain metrics.
 
 ## Prerequisites
-Before we begin you must instantiate the `Client` and configure it with your experiment and metrics.
+Instantiate the `Client` and configure your experiment and metrics.
 
 We will also assume you are already familiar with [using Ax for ask-tell optimization](#).
 
@@ -20,9 +20,9 @@ client.configure_metrics(...)
 2. Continue with iterating over trials and evaluating them
 
 ### 1. Configure an optimization with outcome constraints
-We can leverage the Client's `configure_optimization` method to configure an optimization with outcome constraints. This method takes an objective string and an outcome constraints string.
+We can leverage the Client's `configure_optimization` method to configure an optimization with outcome constraints. This method takes an objective string and a sequence of outcome constraint strings.
 
-Outcome constraints allow us to express a desire to have a metric clear a threshold but not be further optimized. Some real world examples of where outcome constraints can be helpful include:
+Outcome constraints indicate the preference for a metric to meet a specified threshold but not be further optimized. Some real world examples of where outcome constraints can be helpful include:
 
 - Optimizing a model's architecture to improve accuracy but keeping its size small enough to fit on a chip
 - Optimizing a mechanical component's strength while keeping it under a weight limit.
