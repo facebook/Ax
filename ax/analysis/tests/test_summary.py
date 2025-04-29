@@ -45,7 +45,7 @@ class TestSummary(TestCase):
         client.configure_optimization(objective="foo, bar")
 
         # Get two trials and fail one, giving us a ragged structure
-        client.get_next_trials(maximum_trials=2)
+        client.get_next_trials(max_trials=2)
         client.complete_trial(trial_index=0, raw_data={"foo": 1.0, "bar": 2.0})
         client.mark_trial_failed(trial_index=1)
 

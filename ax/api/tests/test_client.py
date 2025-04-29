@@ -335,7 +335,7 @@ class TestClient(TestCase):
         client = Client()
 
         with self.assertRaisesRegex(AssertionError, "Experiment not set"):
-            client.get_next_trials()
+            client.get_next_trials(max_trials=1)
 
         client.configure_experiment(
             ExperimentConfig(
@@ -352,7 +352,7 @@ class TestClient(TestCase):
         )
 
         with self.assertRaisesRegex(UnsupportedError, "OptimizationConfig not set"):
-            client.get_next_trials()
+            client.get_next_trials(max_trials=1)
 
         client.configure_optimization(objective="foo")
         client.configure_generation_strategy(
@@ -363,7 +363,7 @@ class TestClient(TestCase):
         )
 
         # Test can generate one trial
-        trials = client.get_next_trials()
+        trials = client.get_next_trials(max_trials=1)
         self.assertEqual(len(trials), 1)
         self.assertEqual({*trials[0].keys()}, {"x1", "x2"})
         for parameter in ["x1", "x2"]:
@@ -372,11 +372,11 @@ class TestClient(TestCase):
             self.assertLessEqual(value, 1.0)
 
         # Test can generate multiple trials
-        trials = client.get_next_trials(maximum_trials=2)
+        trials = client.get_next_trials(max_trials=2)
         self.assertEqual(len(trials), 2)
 
         # Test respects fixed features
-        trials = client.get_next_trials(maximum_trials=1, fixed_parameters={"x1": 0.5})
+        trials = client.get_next_trials(max_trials=1, fixed_parameters={"x1": 0.5})
         value = assert_is_instance(trials[3]["x1"], float)
         self.assertEqual(value, 0.5)
 
@@ -407,7 +407,7 @@ class TestClient(TestCase):
         )
 
         # Test can generate one trial
-        trials = client.get_next_trials()
+        trials = client.get_next_trials(max_trials=1)
         self.assertEqual(len(trials), 1)
         self.assertIn(0, trials)
         trial = client._experiment.trials[0]
@@ -421,7 +421,7 @@ class TestClient(TestCase):
         client2 = Client.load_from_database(
             client._experiment.name, storage_config=StorageConfig()
         )
-        trials = client2.get_next_trials()
+        trials = client2.get_next_trials(max_trials=1)
         self.assertEqual(len(trials), 1)
         self.assertIn(1, trials)
         trial = client2._experiment.trials[1]
@@ -446,7 +446,7 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
 
         # Vanilla case with no progression argument
-        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        trial_index = [*client.get_next_trials(max_trials=1).keys()][0]
         client.attach_data(trial_index=trial_index, raw_data={"foo": 1.0})
 
         self.assertEqual(
@@ -542,7 +542,7 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo", outcome_constraints=["bar >= 0"])
 
         # Vanilla case with no progression argument
-        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        trial_index = [*client.get_next_trials(max_trials=1).keys()][0]
         client.complete_trial(
             trial_index=trial_index, raw_data={"foo": 1.0, "bar": 2.0}
         )
@@ -570,7 +570,7 @@ class TestClient(TestCase):
         )
 
         # With progression argument
-        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        trial_index = [*client.get_next_trials(max_trials=1).keys()][0]
         client.complete_trial(
             trial_index=trial_index, raw_data={"foo": 1.0, "bar": 2.0}, progression=10
         )
@@ -599,7 +599,7 @@ class TestClient(TestCase):
         )
 
         # With missing metrics
-        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        trial_index = [*client.get_next_trials(max_trials=1).keys()][0]
         client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
 
         self.assertEqual(
@@ -689,7 +689,7 @@ class TestClient(TestCase):
         )
         client.configure_optimization(objective="foo")
 
-        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        trial_index = [*client.get_next_trials(max_trials=1).keys()][0]
         client.mark_trial_failed(trial_index=trial_index)
         self.assertEqual(
             client._experiment.trials[trial_index].status,
@@ -711,7 +711,7 @@ class TestClient(TestCase):
         )
         client.configure_optimization(objective="foo")
 
-        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        trial_index = [*client.get_next_trials(max_trials=1).keys()][0]
         client.mark_trial_abandoned(trial_index=trial_index)
         self.assertEqual(
             client._experiment.trials[trial_index].status,
@@ -733,7 +733,7 @@ class TestClient(TestCase):
         )
         client.configure_optimization(objective="foo")
 
-        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        trial_index = [*client.get_next_trials(max_trials=1).keys()][0]
 
         with self.assertRaisesRegex(
             UnsupportedError, "Cannot mark trial early stopped"
@@ -787,7 +787,7 @@ class TestClient(TestCase):
             )
         )
 
-        client.get_next_trials(maximum_trials=1)
+        client.get_next_trials(max_trials=1)
         self.assertFalse(client.should_stop_trial_early(trial_index=0))
 
     def test_run_trials(self) -> None:
@@ -807,7 +807,7 @@ class TestClient(TestCase):
         client.configure_metrics(metrics=[DummyMetric(name="foo")])
         client.configure_runner(runner=DummyRunner())
 
-        client.run_trials(maximum_trials=4, options=OrchestrationConfig())
+        client.run_trials(max_trials=4, options=OrchestrationConfig())
 
         self.assertEqual(len(client._experiment.trials), 4)
         self.assertEqual(
@@ -855,11 +855,11 @@ class TestClient(TestCase):
 
         # First use Client in ask-tell
         # Complete two trials
-        for index, _parameters in client.get_next_trials(maximum_trials=2).items():
+        for index, _parameters in client.get_next_trials(max_trials=2).items():
             client.complete_trial(trial_index=index, raw_data={"foo": 1.0})
 
         # Leave one trial RUNNING
-        _ = client.get_next_trials(maximum_trials=1)
+        _ = client.get_next_trials(max_trials=1)
 
         self.assertEqual(
             len(client._experiment.trials_by_status[TrialStatus.COMPLETED]),
@@ -873,7 +873,7 @@ class TestClient(TestCase):
         # Configure runners and Metrics Run another two trials
         client.configure_metrics(metrics=[DummyMetric(name="foo")])
         client.configure_runner(runner=DummyRunner())
-        client.run_trials(maximum_trials=2, options=OrchestrationConfig())
+        client.run_trials(max_trials=2, options=OrchestrationConfig())
 
         # All trials should be COMPLETED
         self.assertEqual(
@@ -904,7 +904,7 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo, bar")
 
         # Get two trials and fail one, giving us a ragged structure
-        client.get_next_trials(maximum_trials=2)
+        client.get_next_trials(max_trials=2)
         client.complete_trial(trial_index=0, raw_data={"foo": 1.0, "bar": 2.0})
         client.mark_trial_failed(trial_index=1)
 
@@ -990,7 +990,7 @@ class TestClient(TestCase):
                 )
             )
 
-        for trial_index, _ in client.get_next_trials(maximum_trials=1).items():
+        for trial_index, _ in client.get_next_trials(max_trials=1).items():
             client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
 
         cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
@@ -1029,7 +1029,7 @@ class TestClient(TestCase):
             client.get_best_parameterization()
 
         for _ in range(3):
-            for index, parameters in client.get_next_trials(maximum_trials=1).items():
+            for index, parameters in client.get_next_trials(max_trials=1).items():
                 client.complete_trial(
                     trial_index=index,
                     raw_data={
@@ -1053,7 +1053,7 @@ class TestClient(TestCase):
         self.assertEqual({*prediction.keys()}, {"foo"})
 
         # Run a non-Sobol trial
-        for index, parameters in client.get_next_trials(maximum_trials=1).items():
+        for index, parameters in client.get_next_trials(max_trials=1).items():
             client.complete_trial(
                 trial_index=index,
                 raw_data={
@@ -1113,7 +1113,7 @@ class TestClient(TestCase):
             client.get_pareto_frontier()
 
         for _ in range(3):
-            for index, parameters in client.get_next_trials(maximum_trials=1).items():
+            for index, parameters in client.get_next_trials(max_trials=1).items():
                 client.complete_trial(
                     trial_index=index,
                     raw_data={
@@ -1145,7 +1145,7 @@ class TestClient(TestCase):
             self.assertEqual({*prediction.keys()}, {"foo", "bar"})
 
         # Run a non-Sobol trial
-        for index, parameters in client.get_next_trials(maximum_trials=1).items():
+        for index, parameters in client.get_next_trials(max_trials=1).items():
             client.complete_trial(
                 trial_index=index,
                 raw_data={
@@ -1211,7 +1211,7 @@ class TestClient(TestCase):
 
         client.configure_metrics(metrics=[DummyMetric(name="baz")])
         for _ in range(4):
-            for index, parameters in client.get_next_trials(maximum_trials=1).items():
+            for index, parameters in client.get_next_trials(max_trials=1).items():
                 client.complete_trial(
                     trial_index=index,
                     raw_data={
@@ -1270,7 +1270,7 @@ class TestClient(TestCase):
         )
 
         # Use the Client a bit
-        _ = client.get_next_trials(maximum_trials=2)
+        _ = client.get_next_trials(max_trials=2)
 
         snapshot = client._to_json_snapshot()
         other_client = Client._from_json_snapshot(snapshot=snapshot)
