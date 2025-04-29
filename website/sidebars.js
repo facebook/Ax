@@ -50,6 +50,12 @@ export default {
   },
   tutorials: tutorials(),
   recipes: {
-    Recipes: ['recipes/index', 'custom-trials', 'recipes/tracking-metrics', 'recipes/experiment-to-json'],
+    Recipes: [
+      'recipes/index',
+      'custom-trials',
+      'recipes/tracking-metrics',
+      'recipes/experiment-to-json',
+      'recipes/experiment-to-sqlite',
+    ],
   },
 };
