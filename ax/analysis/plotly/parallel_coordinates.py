@@ -12,7 +12,11 @@ import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import METRIC_CONTINUOUS_COLOR_SCALE, select_metric
+from ax.analysis.plotly.utils import (
+    METRIC_CONTINUOUS_COLOR_SCALE,
+    select_metric,
+    truncate_label,
+)
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -126,7 +130,7 @@ def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
             dimensions=[
                 *parameter_dimensions,
                 {
-                    "label": _truncate_label(label=metric_name),
+                    "label": truncate_label(label=metric_name),
                     "values": df[metric_name].tolist(),
                 },
             ],
@@ -161,7 +165,7 @@ def _get_parameter_dimension(series: pd.Series) -> dict[str, Any]:
         return {
             "tickvals": None,
             "ticktext": None,
-            "label": _truncate_label(label=str(series.name)),
+            "label": truncate_label(label=str(series.name)),
             "values": series.tolist(),
         }
 
@@ -170,14 +174,8 @@ def _get_parameter_dimension(series: pd.Series) -> dict[str, Any]:
     mapping = {v: k for k, v in enumerate(sorted(series.unique()))}
 
     return {
-        "tickvals": [_truncate_label(label=str(val)) for val in mapping.values()],
-        "ticktext": [_truncate_label(label=str(key)) for key in mapping.keys()],
-        "label": _truncate_label(label=str(series.name)),
+        "tickvals": [truncate_label(label=str(val)) for val in mapping.values()],
+        "ticktext": [truncate_label(label=str(key)) for key in mapping.keys()],
+        "label": truncate_label(label=str(series.name)),
         "values": series.map(mapping).tolist(),
     }
-
-
-def _truncate_label(label: str, n: int = 18) -> str:
-    if len(label) > n:
-        return label[:n] + "..."
-    return label

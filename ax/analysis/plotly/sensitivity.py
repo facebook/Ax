@@ -10,6 +10,7 @@ import pandas as pd
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.utils import truncate_label
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
@@ -19,6 +20,9 @@ from ax.modelbridge.torch import TorchAdapter
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from plotly import express as px, graph_objects as go
 from pyre_extensions import override
+
+# SensitivityAnalysisPlot uses a plotly bar chart which needs especially short labels
+MAX_LABEL_LEN: int = 20
 
 
 class SensitivityAnalysisPlot(PlotlyAnalysis):
@@ -84,7 +88,9 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
         cards = []
         for metric_name in data["metric_name"].unique():
             # If a human readable metric name is provided, use it
-            metric_label = self.labels.get(metric_name, metric_name)
+            metric_label = self.labels.get(
+                metric_name, truncate_label(label=metric_name, n=MAX_LABEL_LEN)
+            )
             df, fig = _prepare_card_components(
                 data=data,
                 metric_name=metric_name,
@@ -178,6 +184,18 @@ def _prepare_card_components(
         ["parameter_name", "sensitivity"]
     ].copy()
 
+    # If the parameter name is too long, truncate it.
+    # If the parameter name is a second order interaction, truncate each parameter name
+    # separately then re-combine.
+    plotting_df["truncated_parameter_name"] = plotting_df["parameter_name"].apply(
+        lambda label: " & ".join(
+            truncate_label(label=sub_label, n=MAX_LABEL_LEN // 2)
+            for sub_label in label.split(" & ")
+        )
+        if "&" in label
+        else truncate_label(label=label, n=MAX_LABEL_LEN)
+    )
+
     plotting_df["importance"] = plotting_df["sensitivity"].abs()
     plotting_df["direction"] = plotting_df["sensitivity"].apply(
         lambda x: f"Increases {metric_label}" if x >= 0 else f"Decreases {metric_label}"
@@ -190,14 +208,15 @@ def _prepare_card_components(
         .reset_index()
         .head(top_k),
         x="importance",
-        y="parameter_name",
+        y="truncated_parameter_name",
         orientation="h",
         color="direction",
         color_discrete_map={
             f"Increases {metric_label}": blue,
             f"Decreases {metric_label}": orange,
         },
-        hover_data=["parameter_name", "sensitivity"],
+        # Show full parameter name on hover, not truncated name
+        hover_data=["parameter_name"],
     )
 
     # Display most important parameters first

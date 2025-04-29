@@ -17,7 +17,11 @@ from ax.analysis.plotly.surface.utils import (
     is_axis_log_scale,
     select_fixed_value,
 )
-from ax.analysis.plotly.utils import get_scatter_point_color, select_metric
+from ax.analysis.plotly.utils import (
+    get_scatter_point_color,
+    select_metric,
+    truncate_label,
+)
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
@@ -250,8 +254,8 @@ def _prepare_plot(
     fig = go.Figure(
         [line, error_band],
         layout=go.Layout(
-            xaxis_title=parameter_name,
-            yaxis_title=metric_name,
+            xaxis_title=truncate_label(label=parameter_name),
+            yaxis_title=truncate_label(label=metric_name),
         ),
     )
 
