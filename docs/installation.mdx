@@ -1,0 +1,57 @@
+---
+id: installation
+title: Installation
+---
+
+## Requirements
+
+Ax requires Python 3.10 or newer.
+A full list of Ax's direct dependencies can be found in [setup.py](https://github.com/facebook/Ax/blob/main/setup.py).
+
+## Installing Ax (stable)
+We recommend installing Ax via pip, even if using Conda environment:
+
+```shell
+conda install pytorch torchvision -c pytorch  # OSX only (details below)
+pip install ax-platform
+```
+
+Installation will use Python wheels from PyPI, available for [OSX, Linux, and Windows](https://pypi.org/project/ax-platform/#files).
+
+_Note_: Make sure the `pip` being used to install `ax-platform` is actually the one from the newly created Conda environment.
+If you're using a Unix-based OS, you can use `which pip` to check.
+
+_Recommendation for MacOS users_: PyTorch is a required dependency of BoTorch, and can be automatically installed via pip.
+However, **we recommend you [install PyTorch manually](https://pytorch.org/get-started/locally/#anaconda-1) before installing Ax, using the Anaconda package manager**.
+Installing from Anaconda will link against MKL (a library that optimizes mathematical computation for Intel processors).
+This will result in up to an order-of-magnitude speed-up for Bayesian optimization, whereas installing PyTorch from pip does not link against MKL.
+
+If you need CUDA on MacOS, you will need to build PyTorch from source. Please consult the PyTorch installation instructions above.
+
+### Installing with Extras
+Ax can be installed with additional dependencies, which are not included in the default installation.
+For example, in order to use Ax within a Jupyter notebook, install Ax with the `notebook` extra:
+
+```shell
+pip install ax-platform[notebook]
+```
+
+Extras for using Ax with MySQL storage (`mysql`), for running Ax's tutorial's locally (`tutorials`), and for installing all dependencies necessary for developing Ax (`dev`) are also available.
+
+## Install Ax from source
+
+You can install the latest (bleeding edge) version from GitHub:
+
+```shell
+pip install 'git+https://github.com/facebook/Ax.git#egg=ax-platform'
+```
+
+See also the recommendation for installing PyTorch for MacOS users above.
+
+The bleeding edge for Ax depends on bleeding edge versions of BoTorch and GPyTorch.
+We therefore recommend installing those from Git as well:
+
+```shell
+pip install git+https://github.com/cornellius-gp/gpytorch.git
+pip install git+https://github.com/pytorch/botorch.git
+```
