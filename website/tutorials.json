@@ -1,5 +1,6 @@
 {
     "Using Ax": [
+      {"id": "quickstart", "title": "Quickstart"},
       {
         "id": "getting_started",
         "title": "Getting Started with Ax"
