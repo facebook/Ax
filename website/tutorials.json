@@ -1,26 +1,26 @@
 {
     "Using Ax": [
       {
-        "id": "ask_tell",
-        "title": "Ask-tell Optimization with Ax"
+        "id": "getting_started",
+        "title": "Getting Started with Ax"
       },
       {
-        "id": "closed_loop",
-        "title": "Closed-loop Optimization with Ax"
+        "id": "automating",
+        "title": "Automating Orchestration"
       },
       {
         "id": "early_stopping",
-        "title": "Ask-tell experimentation with early stopping"
+        "title": "Trial-level Early Stopping"
       }
     ],
     "Applications and Examples": [
       {
-        "id": "automl",
-        "title": "Ax for AutoML"
+        "id": "sklearn",
+        "title": "Ax for AutoML with scikit-learn"
       },
       {
-        "id": "human_in_the_loop",
-        "title": "Ask-tell Optimization in a Human-in-the-loop Setting"
+        "id": "materials_science",
+        "title": "Ax for Materials Science"
       }
     ]
   }

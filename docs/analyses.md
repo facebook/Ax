@@ -1,6 +1,6 @@
 ---
 id: analyses
-title: Utilizing and Creating Ax Analyses
+title: Utilizing and Creating Analyses
 ---
 
 :::info
