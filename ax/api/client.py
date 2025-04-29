@@ -306,16 +306,17 @@ class Client(WithDBSettingsBase):
 
     # -------------------- Section 2. Conduct Experiment ----------------------------
     def get_next_trials(
-        self, maximum_trials: int = 1, fixed_parameters: TParameterization | None = None
+        self,
+        max_trials: int,
+        fixed_parameters: TParameterization | None = None,
     ) -> dict[int, TParameterization]:
         """
-        Create up to `maximum_trials` trials using the `GenerationStrategy`, attach
-        them to the Experiment, with status RUNNING, and return a mapping of trial
-        index to its parameterization. If a partial parameterization is provided via
-        fixed_parameters those parameters will be locked for all trials.
-
-        This will need to be rethought somewhat when we add support for BatchTrials,
-        but will be okay for current supported functionality.
+        Create up to `maximum_trials` trials using the `GenerationStrategy` (or as many
+        as possible before reaching the maximum parellelism defined by the
+        `GenerationNode`), attach them to the Experiment, with status RUNNING, and
+        return a mapping from trial index to its parameterization. If a partial
+        parameterization is provided via fixed_parameters those parameters will be
+        locked for all trials.
 
         Saves to database on completion if storage_config is present.
 
@@ -349,7 +350,7 @@ class Client(WithDBSettingsBase):
                     if fixed_parameters is not None
                     else None
                 ),
-                num_trials=maximum_trials,
+                num_trials=max_trials,
             )
 
         for generator_run in generator_runs:
@@ -371,9 +372,16 @@ class Client(WithDBSettingsBase):
             experiment=self._experiment, trials=trials
         )
 
+        res = {trial.index: none_throws(trial.arm).parameters for trial in trials}
+
+        if len(res) != max_trials:
+            logger.warning(
+                f"{max_trials} requested but only {len(res)} could be generated."
+            )
+
         # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
         # None, but we do not allow this in the API.
-        return {trial.index: none_throws(trial.arm).parameters for trial in trials}
+        return res
 
     def complete_trial(
         self,
@@ -576,9 +584,9 @@ class Client(WithDBSettingsBase):
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
         )
 
-    def run_trials(self, maximum_trials: int, options: OrchestrationConfig) -> None:
+    def run_trials(self, max_trials: int, options: OrchestrationConfig) -> None:
         """
-        Run maximum_trials trials in a loop by creating an ephemeral Scheduler under
+        Run up to max_trials trials in a loop by creating an ephemeral Scheduler under
         the hood using the Experiment, GenerationStrategy, Metrics, and Runner attached
         to this AxClient along with the provided OrchestrationConfig.
 
@@ -599,7 +607,7 @@ class Client(WithDBSettingsBase):
         )
 
         # Note: This scheduler call will handle storage internally
-        scheduler.run_n_trials(max_trials=maximum_trials)
+        scheduler.run_n_trials(max_trials=max_trials)
 
     # -------------------- Section 3. Analyze ---------------------------------------
     def compute_analyses(
