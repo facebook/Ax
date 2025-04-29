@@ -830,9 +830,15 @@ class SQAStoreTest(TestCase):
         self.assertEqual(self.experiment, loaded_experiment)
 
         # Update a trial by attaching data
-        self.experiment.attach_data(get_data(trial_index=trial.index))
+        data = get_data(trial_index=trial.index)
+        self.experiment.attach_data(data)
         save_or_update_trial(experiment=self.experiment, trial=trial)
-
+        # make sure loaded experiment has data
+        loaded_experiment = load_experiment(self.experiment.name)
+        self.assertEqual(self.experiment, loaded_experiment)
+        # verify that saving is idempotent, by saving the original experiment again
+        # and reloading
+        save_or_update_trial(experiment=self.experiment, trial=trial)
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(self.experiment, loaded_experiment)
 
