@@ -18,7 +18,6 @@ module.exports={
   "projectName": "Ax",
   "scripts": [
     "https://cdn.plot.ly/plotly-latest.min.js",
-    "/Ax/js/plotUtils.js",
     "https://buttons.github.io/buttons.js",
     'https://cdn.bokeh.org/bokeh/release/bokeh-2.4.2.min.js',
     'https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.4.2.min.js',
