@@ -1,28 +1,26 @@
 {
-    "Basic usage": [
+    "Using Ax": [
       {
         "id": "ask_tell",
         "title": "Ask-tell Optimization with Ax"
       },
       {
-        "id": "human_in_the_loop",
-        "title": "Ask-tell Optimization in a Human-in-the-loop Setting"
-      },
-      {
         "id": "closed_loop",
         "title": "Closed-loop Optimization with Ax"
-      }
-    ],
-    "Advanced features": [
+      },
       {
         "id": "early_stopping",
         "title": "Ask-tell experimentation with early stopping"
       }
     ],
-    "Applications and Integrations": [
+    "Applications and Examples": [
       {
         "id": "automl",
         "title": "Ax for AutoML"
+      },
+      {
+        "id": "human_in_the_loop",
+        "title": "Ask-tell Optimization in a Human-in-the-loop Setting"
       }
     ]
   }
