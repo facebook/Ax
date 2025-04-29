@@ -25,7 +25,6 @@ from ax.modelbridge.cross_validation import (
     assess_model_fit,
     compute_diagnostics,
     cross_validate,
-    cross_validate_by_trial,
     CVDiagnostics,
     CVResult,
     has_good_opt_config_model_fit,
@@ -227,57 +226,6 @@ class CrossValidationTest(TestCase):
                 mock_cv = ma._cross_validate
             call_kwargs = mock_cv.mock_calls[-1].kwargs
             self.assertTrue(call_kwargs["use_posterior_predictive"])
-
-    def test_CrossValidateByTrial(self) -> None:
-        # With only 1 trial
-        ma = mock.MagicMock()
-        ma.get_training_data = mock.MagicMock(
-            "ax.modelbridge.base.Adapter.get_training_data",
-            autospec=True,
-            return_value=self.training_data[1:3],
-        )
-        with self.assertRaises(ValueError):
-            cross_validate_by_trial(model=ma)
-        # Prepare input and output data
-        ma = mock.MagicMock()
-        ma.get_training_data = mock.MagicMock(
-            "ax.modelbridge.base.Adapter.get_training_data",
-            autospec=True,
-            return_value=self.training_data,
-        )
-        ma.cross_validate = mock.MagicMock(
-            "ax.modelbridge.base.Adapter.cross_validate",
-            autospec=True,
-            return_value=self.observation_data,
-        )
-        # Non-existent trial
-        with self.assertRaises(ValueError):
-            cross_validate_by_trial(model=ma, trial=10)
-
-        # Working
-        result = cross_validate_by_trial(model=ma)
-        self.assertEqual(len(result), 1)
-
-        # Check that Adapter.cross_validate was called correctly.
-        z = ma.cross_validate.mock_calls
-        self.assertEqual(len(z), 1)
-        train_trials = [obs.features.trial_index for obs in z[0][2]["cv_training_data"]]
-        test_trials = [obsf.trial_index for obsf in z[0][2]["cv_test_points"]]
-        self.assertEqual(train_trials, [0, 1])
-        self.assertEqual(test_trials, [2])
-
-        # Check result is correct
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0].observed.features.trial_index, 2)
-
-        mock_cv = ma.cross_validate
-        call_kwargs = mock_cv.mock_calls[-1].kwargs
-        self.assertFalse(call_kwargs["use_posterior_predictive"])
-
-        # test observation noise
-        result = cross_validate_by_trial(model=ma, use_posterior_predictive=True)
-        call_kwargs = mock_cv.mock_calls[-1].kwargs
-        self.assertTrue(call_kwargs["use_posterior_predictive"])
 
     def test_cross_validate_gives_a_useful_error_for_model_with_no_data(self) -> None:
         exp = get_branin_experiment()
