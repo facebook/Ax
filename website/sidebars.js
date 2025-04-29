@@ -50,6 +50,6 @@ export default {
   },
   tutorials: tutorials(),
   recipes: {
-    Recipes: ['recipes/index', 'custom-trials'],
+    Recipes: ['recipes/index', 'custom-trials', 'recipes/tracking-metrics'],
   },
 };
