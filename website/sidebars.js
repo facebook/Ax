@@ -46,7 +46,7 @@ const tutorials = () => {
 export default {
   docs: {
     Introduction: ['why-ax', 'intro-to-ae', 'intro-to-bo'],
-    "Contributor's Guide": ['analyses'],
+    'Extending Ax': ['analyses'],
   },
   tutorials: tutorials(),
   recipes: {
