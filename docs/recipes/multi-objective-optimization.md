@@ -1,6 +1,6 @@
 # Multi-Objective Optimization with Ax
 
-Multi-objective optimization (MOO) allows you to optimize multiple objectives simultaneously, which is particularly useful when you have competing objectives. In this recipe, we will explore how to perform multi-objective optimization using the Ax Client.
+Multi-objective optimization (MOO) allows you to optimize multiple objectives simultaneously, which is particularly useful when you have competing objectives. In this recipe, we will demonstrate how to perform multi-objective optimization using the Ax Client.
 
 Note that while MOO can handle multiple objectives, it's generally recommended to keep the number of objectives relatively small. Having too many objectives can lead decreased optimization performance and difficulties in interpreting the results.
 
@@ -10,7 +10,7 @@ We will assume you are already familiar with [using Ax for ask-tell optimization
 
 ## Setup
 
-Before we begin you must instantiate the `Client` and configure it with your
+Instantiate the `Client` and configure it with your
 experiment and metrics.
 
 ```python
@@ -27,7 +27,7 @@ client.configure_metrics(...)
 3. Observe optimal parametrizations
 
 ### 1. Configure an optimization with multiple objectives
-We can leverage the Client's `configure_optimization` method to configure a multi-objective optimization. This method takes in an objective goal as a string, and can be used to specify single-objective, scalarized-objective, and multi-objective goals. For this recipe, we will use a multi-objective goal:
+We can leverage the Client's `configure_optimization` method. This method takes in an objective goal as a string, and can be used to specify single-objective, scalarized-objective, and multi-objective goals. For this recipe, we will define a multi-objective goal:
 
 ```
 client.configure_optimization(objectives="-cost, utility")

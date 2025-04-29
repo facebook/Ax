@@ -1,80 +1,83 @@
 # Saving and Loading an Ax Experiment to JSON
 
-Ax provides a convenient way to save and load experiments in JSON format, making it easy to store and transport experiment data. In this recipe, we will walk through the steps of saving an Ax experiment to JSON using the AxClient.
+Ax provides a convenient way to save and load experiments in JSON format, making it easy to store and transport experiment data. In this recipe, we will walk through the steps of saving and loading an Ax experiment to JSON using the Client.
 
 ## Introduction
 
-Saving an experiment to JSON is useful when you want to store the experiment data in a lightweight and transportable format. This can be particularly useful for users who prefer a simple storage solution or need to share experiment data with others.
-
-## Prerequisites
-
-We assume that you are already familiar with using Ax for experimentation and have an AxClient instance set up.
-
-## Setup
-
-Before we begin, make sure you have an AxClient instance configured for your experiment.
-
-```python
-from ax import AxClient
-
-client = AxClient()
-```
+Saving and loading an experiment to JSON is useful when you want to store the experiment data in a lightweight and transportable format. This can be particularly useful for users who prefer a simple storage solution or need to share experiment data with others.
 
 ## Steps
 
-1. Get the experiment object from the AxClient
-2. Save the experiment to JSON using the `save_experiment` function
+In this recipe, we plan to save a a snapshot of an Ax Client to JSON, reload the client from the JSON file, and validate its contents.
 
-### 1. Get the experiment object from the AxClient
+* **Saving to JSON**
+    1. Initialize a Client and configure it with an experiment
+    2. View the state of the attached experiment via `summarize()`
+    3. Call save_to_json_file to save a snapshot of the Client to JSON
+* **Loading from JSON**
+    1. Call load_from_json_file to initialize a new Client
+    2. Validate the state of the attached experiment via `summarize()`
 
-First, we need to get the experiment object from the AxClient. We can do this by accessing the `_experiment` attribute of the AxClient instance.
+### Saving to JSON
+#### 1. Initialize a Client and configure it with an experiment
+
+Instantiate a `Client` and configure it for your experiment.
 
 ```python
-experiment = client._experiment
+client = Client()
+
+client.configure_experiment(...)
+client.configure_optimization(...)
 ```
 
-### 2. Save the experiment to JSON
+#### 2. View the state of the attached experiment via `summarize()`
 
-Next, we use the `save_experiment` function from the `ax.storage.json_store.save` module to save the experiment to JSON. We need to specify the filepath where we want to save the experiment.
+You can inspect the state of a experiment by leveraging the summarize() method, which returns a DataFrame
 
 ```python
-from ax.storage.json_store.save import save_experiment
-
-filepath = "experiments/experiment.json"
-save_experiment(experiment, filepath)
+client.summarize()
 ```
 
-This will serialize the experiment (including attached data) and save it to the specified file.
+#### 2. Call save_to_json_file to save a snapshot of the Client to JSON
 
-## Updating the Experiment
-
-To update a JSON-backed experiment, simply re-save the experiment to the same file.
-
-## Loading the Experiment
-
-To load an experiment from JSON, use the `load_experiment` function from the `ax.storage.json_store.load` module and specify the filepath again.
+In order to save an experiment to JSON, we need to call the `save_to_json_file` method on the Client instance. This method takes a single optional argument `filepath`, which is the filepath where we want to save the JSON file (argument defaults to "ax_client_snapshot.json").
 
 ```python
-from ax.storage.json_store.load import load_experiment
-
-loaded_experiment = load_experiment(filepath)
+client.save_to_json_file()
 ```
 
-## Customizing the Serialization Process
+On success, this will save a snapshot of the Client's settings and state to the specified file, which includes information about the experiment and generation strategy (if present).
 
-If you have custom metrics or runners that you want to ensure are saved to JSON properly, you can create a `RegistryBundle` that bundles together encoding and decoding logic for use in the save/load functions.
+### Load an Experiment from JSON
+#### 1. Call load_from_json_file to initialize a new Client
+
+We will now load the previously saved Client snapshot into a new one. We will do this by calling `load_from_json_file`
 
 ```python
-from ax.storage.registry_bundle import RegistryBundle
+new_client = Client.load_from_json_file(filepath = "ax_client_snapshot.json")
+```
 
-bundle = RegistryBundle(
-    runner_clss={MyRunner: None},
-    metric_clss={MyMetric: None},
+#### 2. Validate the state of the attached experiment via `summarize()`
+
+We can now view the state of the experiment by calling `summarize()`, and validate that it is the same as the one we saved in the earlier section
+
+```python
+new_client.summarize()
+```
+
+### Customizing the Serialization Process
+
+If you have custom metrics or runners that you want to ensure are saved to JSON properly, you can initialize the `Client` with a `StorageConfig` that contains a `RegistryBundle`, that bundles together encoding and decoding logic for use in the save/load functions.
+
+```python
+storage_config = StorageConfig(
+    registry_bundle = RegistryBundle(
+        runner_clss={MyRunner: None},
+        metric_clss={MyMetric: None},
+    )
 )
 
-filepath = "experiments/experiment.json"
-save_experiment(experiment, filepath, encoder_registry=bundle.encoder_registry)
-loaded_experiment = load_experiment(filepath, decoder_registry=bundle.decoder_registry)
+client = Client(storage_config = storage_config)
 ```
 
 ## Learn more
