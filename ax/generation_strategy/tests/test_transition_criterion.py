@@ -164,14 +164,28 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(gs.current_node_name, "sobol_2")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
-        # Do not move even when the aux exp is still there
+
+        # Not having the aux exp purpose at all should be the same and remain in sobol_1
+        experiment.auxiliary_experiments_by_purpose = {}
+        grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
+        self.assertEqual(gs.current_node_name, "sobol_1")
+        self.assertEqual(len(grs), 1)
+        self.assertEqual(len(grs[0].arms), 5)
+
+        # Having multiple aux exp should be fine and we move back to sobol_2
+        experiment.auxiliary_experiments_by_purpose = {
+            AuxiliaryExperimentPurpose.PE_EXPERIMENT: [aux_exp, aux_exp],
+        }
         grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
         self.assertEqual(gs.current_node_name, "sobol_2")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
 
-        # Remove the aux experiment and move back to sobol_1
-        experiment.auxiliary_experiments_by_purpose = {}
+        # Empty the aux exp list is the same as not having the aux exp purpose
+        # and should move back to sobol_1
+        experiment.auxiliary_experiments_by_purpose = {
+            AuxiliaryExperimentPurpose.PE_EXPERIMENT: [],
+        }
         grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
         self.assertEqual(gs.current_node_name, "sobol_1")
         self.assertEqual(len(grs), 1)

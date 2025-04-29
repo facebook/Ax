@@ -8,12 +8,11 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Collection
 from typing import TYPE_CHECKING
 
 from ax.core import MultiObjectiveOptimizationConfig
 
-from ax.core.auxiliary import AuxiliaryExperimentPurpose
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.experiment import Experiment
 
 from ax.core.trial_status import TrialStatus
@@ -760,7 +759,9 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
 
     def check_aux_exp_purposes(
         self,
-        aux_exp_purposes: Collection[AuxiliaryExperimentPurpose],
+        aux_exp_by_purposes: dict[
+            AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
+        ],
         include: bool,
         expected_aux_exp_purposes: list[AuxiliaryExperimentPurpose] | None = None,
     ) -> bool:
@@ -768,7 +769,10 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
         are in (or not in) aux_exp_purposes"""
         if expected_aux_exp_purposes is not None:
             for purpose in none_throws(expected_aux_exp_purposes):
-                purpose_present = purpose in aux_exp_purposes
+                purpose_present = (
+                    purpose in aux_exp_by_purposes
+                    and len(aux_exp_by_purposes[purpose]) > 0
+                )
                 if purpose_present != include:
                     return False
         return True
@@ -779,14 +783,13 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
         curr_node: GenerationNode,
     ) -> bool:
         """Check if the experiment has auxiliary experiments for certain purpose."""
-        aux_exp_purposes = set(experiment.auxiliary_experiments_by_purpose.keys())
         inclusion_check = self.check_aux_exp_purposes(
-            aux_exp_purposes=aux_exp_purposes,
+            aux_exp_by_purposes=experiment.auxiliary_experiments_by_purpose,
             include=True,
             expected_aux_exp_purposes=self.auxiliary_experiment_purposes_to_include,
         )
         exclusion_check = self.check_aux_exp_purposes(
-            aux_exp_purposes=aux_exp_purposes,
+            aux_exp_by_purposes=experiment.auxiliary_experiments_by_purpose,
             include=False,
             expected_aux_exp_purposes=self.auxiliary_experiment_purposes_to_exclude,
         )
