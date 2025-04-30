@@ -44,7 +44,9 @@ class TestTopSurfacesAnalysis(TestCase):
         client.configure_optimization(objective="bar")
 
         for _ in range(6):
-            for trial_index, parameterization in client.get_next_trials().items():
+            for trial_index, parameterization in client.get_next_trials(
+                max_trials=1
+            ).items():
                 client.complete_trial(
                     trial_index=trial_index,
                     raw_data={
@@ -127,7 +129,9 @@ class TestTopSurfacesAnalysis(TestCase):
         client.configure_optimization(objective="bar")
 
         for _ in range(6):
-            for trial_index, parameterization in client.get_next_trials().items():
+            for trial_index, parameterization in client.get_next_trials(
+                max_trials=1
+            ).items():
                 client.complete_trial(
                     trial_index=trial_index,
                     raw_data={

@@ -44,13 +44,15 @@ class TestScatterPlot(TestCase):
         self.client.configure_optimization(objective="foo, bar")
 
         # Get two trials and fail one, giving us a ragged structure
-        self.client.get_next_trials(maximum_trials=2)
+        self.client.get_next_trials(max_trials=2)
         self.client.complete_trial(trial_index=0, raw_data={"foo": 1.0, "bar": 2.0})
         self.client.mark_trial_failed(trial_index=1)
 
         # Complete 5 trials successfully
         for _ in range(5):
-            for trial_index, parameterization in self.client.get_next_trials().items():
+            for trial_index, parameterization in self.client.get_next_trials(
+                max_trials=1
+            ).items():
                 self.client.complete_trial(
                     trial_index=trial_index,
                     raw_data={
