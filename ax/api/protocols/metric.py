@@ -15,9 +15,9 @@ from pyre_extensions import override
 
 class IMetric(_APIMetric):
     """
-    Metrics automate the process of fetching data from external systems. They are used
-    in conjunction with Runners in the run_n_trials method to facilitate closed-loop
-    experimentation.
+    ``Metrics`` automate the process of fetching data from external systems. They are
+    used in conjunction with ``Runners`` in the ``Client.run_trials`` method to
+    facilitate closed-loop experimentation.
     """
 
     def __init__(self, name: str) -> None:
@@ -30,7 +30,7 @@ class IMetric(_APIMetric):
         trial_metadata: Mapping[str, Any],
     ) -> tuple[int, float | tuple[float, float]]:
         """
-        Given trial metadata (the mapping returned from IRunner.run), fetches
+        Given trial metadata (the mapping returned from ``IRunner.run``), fetches
         readings for the metric.
 
         Readings are returned as a pair (progression, outcome), where progression is

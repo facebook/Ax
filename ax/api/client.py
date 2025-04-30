@@ -81,7 +81,8 @@ class Client(WithDBSettingsBase):
         random_seed: int | None = None,
     ) -> None:
         """
-        Initialize a Client, which manages state across the lifecycle of an experiment.
+        Initialize a ``Client``, which manages state across the lifecycle of an
+        experiment.
 
         Args:
             storage_config: Configuration for saving to and loading from a database. If
@@ -103,14 +104,14 @@ class Client(WithDBSettingsBase):
     # -------------------- Section 1: Configure --------------------------------------
     def configure_experiment(self, experiment_config: ExperimentConfig) -> None:
         """
-        Given an ExperimentConfig, construct the Ax Experiment object. Note that
+        Given an ``ExperimentConfig``, construct the Ax ``Experiment`` object. Note that
         validation occurs at time of config instantiation, not at
-        configure_experiment.
+        ``configure_experiment``.
 
         This method only constitutes defining the search space and misc. metadata
         like name, description, and owners.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         if self._maybe_experiment is not None:
             raise UnsupportedError(
@@ -124,26 +125,18 @@ class Client(WithDBSettingsBase):
 
     def configure_optimization(
         self,
-        # Objective string is an expression and allows us to express single,
-        # scalarized, and multi-objective via SymPy parsing.
-        # Ex: "loss", "ne1 + ne1", "-ne, qps"
         objective: str,
-        # Outcome constraints will also be parsed via SymPy
-        # Ex: "num_layers1 <= num_layers2", "compound_a + compound_b <= 1"
-        # To indicate a relative constraint multiply your bound by "baseline"
-        # Ex: "qps >= 0.95 * baseline" will constrain such that the QPS is at least
-        # 95% of the baseline arm's QPS.
         outcome_constraints: Sequence[str] | None = None,
     ) -> None:
         """
-        Configures the goals of the optimization by setting the OptimizationConfig.
-        Metrics referenced here by their name will be moved from the Experiment's
-        tracking_metrics if they were were already present (i.e. they were attached via
-        configure_metrics) or added as base Metrics.
+        Configures the goals of the optimization by setting the ``OptimizationConfig``.
+        ``Metrics`` referenced here by their name will be moved from the Experiment's
+        ``tracking_metrics`` if they were were already present (i.e. they were attached
+        via ``configure_metrics``) or added as base ``Metrics``.
 
         Args:
             objective: Objective is a string and allows us to express single,
-                scalarized, and multi-objective goals. Ex: "loss", "ne1 + ne1",
+                scalarized, and multi-objective goals. Ex: "loss", "ne1 + 2 * ne2",
                 "-ne, qps"
             outcome_constraints: Outcome constraints are also strings and allow us to
                 express a desire to have a metric clear a threshold but not be
@@ -155,7 +148,7 @@ class Client(WithDBSettingsBase):
                 Note that scalarized outcome constraints cannot be relative.
 
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
 
         self._experiment.optimization_config = optimization_config_from_string(
@@ -169,10 +162,11 @@ class Client(WithDBSettingsBase):
         self, generation_strategy_config: GenerationStrategyConfig
     ) -> None:
         """
-        Overwrite the existing GenerationStrategy by calling choose_gs using the
-        arguments of the GenerationStrategyConfig as parameters.
+        Optional method to configure the way candidate parameterizations are generated
+        during the optimization; if not called a default ``GenerationStrategy`` will be
+        used.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
 
         generation_strategy = choose_generation_strategy(
@@ -191,18 +185,19 @@ class Client(WithDBSettingsBase):
     # -------------------- Section 1.1: Configure Automation ------------------------
     def configure_runner(self, runner: IRunner) -> None:
         """
-        Attaches a Runner to the Experiment.
+        Attaches a ``Runner`` to the ``Experiment``, to be used for automating trial
+        deployment when using ``run_n_trials``.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         self._set_runner(runner=runner)
 
     def configure_metrics(self, metrics: Sequence[IMetric]) -> None:
         """
-        Attach a class with logic for autmating fetching of a given metric by
-        replacing its instance with the provided Metric from metrics sequence input,
-        or adds the Metric provided to the Experiment as a tracking metric if that
-        metric was not already present.
+        Attach a ``Metric`` with logic for autmating fetching of a given metric by
+        replacing its instance with the provided ``Metric`` from metrics sequence input,
+        or adds the ``Metric`` provided to the ``Experiment`` as a tracking metric if
+        that metric was not already present.
         """
         self._set_metrics(metrics=metrics)
 
@@ -213,9 +208,9 @@ class Client(WithDBSettingsBase):
         method signature stability) for the convenience of some developers, power
         users, and partners.
 
-        Overwrite the existing Experiment with the provided Experiment.
+        Overwrite the existing ``Experiment`` with the provided ``Experiment``.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         self._maybe_experiment = experiment
 
@@ -227,9 +222,10 @@ class Client(WithDBSettingsBase):
         method signature stability) for the convenience of some developers, power
         users, and partners.
 
-        Overwrite the existing OptimizationConfig with the provided OptimizationConfig.
+        Overwrite the existing ``OptimizationConfig`` with the provided
+        ``OptimizationConfig``.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.optimization_config = optimization_config
 
@@ -241,9 +237,10 @@ class Client(WithDBSettingsBase):
         method signature stability) for the convenience of some developers, power
         users, and partners.
 
-        Overwrite the existing GenerationStrategy with the provided GenerationStrategy.
+        Overwrite the existing ``GenerationStrategy`` with the provided
+        ``GenerationStrategy``.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         self._maybe_generation_strategy = generation_strategy
 
@@ -261,10 +258,10 @@ class Client(WithDBSettingsBase):
         method signature stability) for the convenience of some developers, power
         users, and partners.
 
-        Overwrite the existing EarlyStoppingStrategy with the provided
-        EarlyStoppingStrategy.
+        Overwrite the existing ``EarlyStoppingStrategy`` with the provided
+        ``EarlyStoppingStrategy``.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         self._maybe_early_stopping_strategy = early_stopping_strategy
 
@@ -274,9 +271,9 @@ class Client(WithDBSettingsBase):
         method signature stability) for the convenience of some developers and power
         users.
 
-        Attaches a Runner to the Experiment.
+        Attaches a ``Runner`` to the ``Experiment``.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.runner = runner
 
@@ -290,10 +287,12 @@ class Client(WithDBSettingsBase):
         method signature stability) for the convenience of some developers, power
         users, and partners.
 
-        Attach a class with logic for autmating fetching of a given metric by
-        replacing its instance with the provided Metric from metrics sequence input,
-        or adds the Metric provided to the Experiment as a tracking metric if that
+        Attach a ``Metric`` with logic for autmating fetching of a given metric by
+        replacing its instance with the provided ``Metric`` from metrics sequence input,
+        or adds the ``Metric`` provided to the Experiment as a tracking metric if that
         metric was not already present.
+
+        Saves to database on completion if ``storage_config`` is present.
         """
         # If an equivalently named Metric already exists on the Experiment, replace it
         # with the Metric provided. Otherwise, add the Metric to the Experiment as a
@@ -311,14 +310,14 @@ class Client(WithDBSettingsBase):
         fixed_parameters: TParameterization | None = None,
     ) -> dict[int, TParameterization]:
         """
-        Create up to `maximum_trials` trials using the `GenerationStrategy` (or as many
+        Create up to ``max_trials`` trials using the ``GenerationStrategy`` (or as many
         as possible before reaching the maximum parellelism defined by the
-        `GenerationNode`), attach them to the Experiment, with status RUNNING, and
+        ``GenerationNode``), attach them to the ``Experiment`` with status RUNNING, and
         return a mapping from trial index to its parameterization. If a partial
-        parameterization is provided via fixed_parameters those parameters will be
-        locked for all trials.
+        parameterization is provided via ``fixed_parameters`` each parameterization will
+        have those parameters set to the provided values.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
 
         Returns:
             A mapping of trial index to parameterization.
@@ -390,15 +389,15 @@ class Client(WithDBSettingsBase):
         progression: int | None = None,
     ) -> TrialStatus:
         """
-        Indicate the trial is complete while optionally attach data. In non-timeseries
-        settings users should prefer to use complete_trial with raw_data over
-        attach_data. Ax will determine the trial's status automatically:
-            - If all metrics on the OptimizationConfig are present the trial will be
+        Indicate the trial is complete and optionally attach data. In non-timeseries
+        settings users should prefer to use ``complete_trial`` with ``raw_data`` over
+        ``attach_data``. Ax will determine the trial's status automatically:
+            - If all metrics on the ``OptimizationConfig`` are present the trial will be
                 marked as COMPLETED
-            - If any metrics on the OptimizationConfig are missing the trial will be
+            - If any metrics on the ``OptimizationConfig`` are missing the trial will be
                 marked as FAILED
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         if raw_data is not None:
             self.attach_data(
@@ -441,10 +440,9 @@ class Client(WithDBSettingsBase):
         """
         Attach data without indicating the trial is complete. Missing metrics are,
         allowed, and unexpected metric values will be added to the Experiment as
-        tracking metrics. If progression is provided the Experiment will be updated to
-        use MapData and the data will be attached to the appropriate step.
+        tracking metrics.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
 
         # If no progression is provided assume the data is not timeseries-like and
@@ -470,11 +468,11 @@ class Client(WithDBSettingsBase):
         self, parameters: TParameterization, arm_name: str | None = None
     ) -> int:
         """
-        Attach a single-arm trial to the experiment with the provided parameters.
+        Attach a single-arm trial to the ``Experiment`` with the provided parameters.
         The trial will be marked as RUNNING and must be completed manually by the
         user.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
 
         Returns:
             The index of the attached trial.
@@ -496,15 +494,15 @@ class Client(WithDBSettingsBase):
         self, parameters: TParameterization, arm_name: str | None = None
     ) -> int:
         """
-        Attaches custom single-arm trial to an experiment specifically for use as the
-        baseline or status quo in evaluating relative outcome constraints and
+        Attaches custom single-arm trial to an ``Experiment`` specifically for use as
+        the baseline or status quo in evaluating relative outcome constraints and
         improvement over baseline objective value. The trial will be marked as RUNNING
         and must be completed manually by the user.
 
         Returns:
             The index of the attached trial.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         trial_index = self.attach_trial(
             parameters=parameters,
@@ -524,8 +522,8 @@ class Client(WithDBSettingsBase):
         """
         Check if the trial should be stopped early. If True and the user wishes to heed
         Ax's recommendation the user should manually stop the trial and call
-        mark_trial_early_stopped(trial_index). The EarlyStoppingStrategy may be selected
-        automatically or set manually via set_early_stopping_strategy.
+        ``mark_trial_early_stopped(trial_index)``. The ``EarlyStoppingStrategy`` may be
+        selected automatically or set manually via ``set_early_stopping_strategy``.
 
         Returns:
             Whether the trial should be stopped early.
@@ -544,9 +542,9 @@ class Client(WithDBSettingsBase):
     def mark_trial_failed(self, trial_index: int) -> None:
         """
         Manually mark a trial as FAILED. FAILED trials typically may be re-suggested by
-        get_next_trials, though this is controlled by the GenerationStrategy.
+        ``get_next_trials``, though this is controlled by the ``GenerationStrategy``.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_failed()
 
@@ -557,10 +555,10 @@ class Client(WithDBSettingsBase):
     def mark_trial_abandoned(self, trial_index: int) -> None:
         """
         Manually mark a trial as ABANDONED. ABANDONED trials are typically not able to
-        be re-suggested by get_next_trials, though this is controlled by the
-        GenerationStrategy.
+        be re-suggested by ``get_next_trials``, though this is controlled by the
+        ``GenerationStrategy``.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_abandoned()
 
@@ -576,7 +574,7 @@ class Client(WithDBSettingsBase):
         attached for the trial yet users should instead call ``mark_trial_abandoned``.
         EARLY_STOPPED trials will not be re-suggested by ``get_next_trials``.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_early_stopped()
 
@@ -586,11 +584,12 @@ class Client(WithDBSettingsBase):
 
     def run_trials(self, max_trials: int, options: OrchestrationConfig) -> None:
         """
-        Run up to max_trials trials in a loop by creating an ephemeral Scheduler under
-        the hood using the Experiment, GenerationStrategy, Metrics, and Runner attached
-        to this AxClient along with the provided OrchestrationConfig.
+        Run up to max_trials trials in a loop by creating an ephemeral ``Scheduler``
+        under the hood using the ``Experiment``, ``GenerationStrategy``, ``Metrics``,
+        and ``Runner`` attached to this ``Client`` along with the provided
+        ``OrchestrationConfig``.
 
-        Saves to database on completion if storage_config is present.
+        Saves to database on completion if ``storage_config`` is present.
         """
 
         scheduler = Scheduler(
@@ -616,16 +615,17 @@ class Client(WithDBSettingsBase):
         display: bool = True,
     ) -> list[AnalysisCard]:
         """
-        Compute AnalysisCards (data about the optimization for end-user consumption)
-        using the Experiment and GenerationStrategy. If no analyses are provided use
-        some heuristic to determine which analyses to run. If some analyses fail, log
-        failure and continue to compute the rest.
+        Compute ``AnalysisCards`` (data about the optimization for end-user consumption)
+        using the ``Experiment`` and ``GenerationStrategy``. If no analyses are
+        provided use some heuristic to determine which analyses to run. If some
+        analyses fail, log failure and continue to compute the rest.
 
         Note that the Analysis class is NOT part of the API and its methods are subject
         to change incompatibly between minor versions. Users are encouraged to use the
-        provided analyses or leave this argument as None to use the default analyses.
+        provided analyses or leave this argument as ``None`` to use the default
+        analyses.
 
-        Saves to database on completion if storage_config is present.
+        Saves cards to database on completion if ``storage_config`` is present.
 
         Args:
             analyses: A list of Analysis classes to run. If None Ax will choose which
@@ -673,21 +673,22 @@ class Client(WithDBSettingsBase):
 
     def summarize(self) -> pd.DataFrame:
         """
-        Special convenience method for producing the DataFrame produced by the Summary
-        Analysis. This method is a convenient way to inspect the state of the
-        experiment, but because the shape of the resultant DataFrame can change based
-        on the experiment state both users and Ax developers should prefer to use other
-        methods for extracting information from the experiment to consume downstream.
+        Special convenience method for producing the ``DataFrame`` produced by the
+        ``Summary`` ``Analysis``. This method is a convenient way to inspect the state
+        of the ``Experiment``, but because the shape of the resultant DataFrame can
+        change based on the ``Experiment`` state both users and Ax developers should
+        prefer to use other methods for extracting information from the experiment to
+        consume downstream.
 
-        The DataFrame computed will contain one row per arm and the following columns
-        (though empty columns are omitted):
+        The ``DataFrame`` computed will contain one row per arm and the following
+        columns (though empty columns are omitted):
             - trial_index: The trial index of the arm
             - arm_name: The name of the arm
             - trial_status: The status of the trial (e.g. RUNNING, SUCCEDED, FAILED)
             - failure_reason: The reason for the failure, if applicable
             - generation_node: The name of the ``GenerationNode`` that generated the arm
             - **METADATA: Any metadata associated with the trial, as specified by the
-                Experiment's runner.run_metadata_report_keys field
+                Experiment's ``runner.run_metadata_report_keys`` field
             - **METRIC_NAME: The observed mean of the metric specified, for each metric
             - **PARAMETER_NAME: The parameter value for the arm, for each parameter
         """
@@ -706,10 +707,11 @@ class Client(WithDBSettingsBase):
         Identifies the best parameterization tried in the experiment so far, also
         called the best in-sample arm.
 
-        If `use_model_predictions` is True, first attempts to do so with the model used
-        in optimization and its corresponding predictions if available. If
-        `use_model_predictions` is False or attempts to use the model fails, falls back
-        to the best raw objective based on the data fetched from the experiment.
+        If ``use_model_predictions`` is ``True``, first attempts to do so with the
+        model used in optimization and its corresponding predictions if available. If
+        ``use_model_predictions`` is ``False`` or attempts to use the model fails,
+        falls back to the best raw objective based on the data fetched from the
+        ``Experiment``.
 
         Parameterizations which were observed to violate outcome constraints are not
         eligible to be the best parameterization.
@@ -718,7 +720,7 @@ class Client(WithDBSettingsBase):
             - The parameters predicted to have the best optimization value without
                 violating any outcome constraints.
             - The metric values for the best parameterization. Uses model prediction if
-                use_model_predictions=True, otherwise returns observed data.
+                ``use_model_predictions=True``, otherwise returns observed data.
             - The trial which most recently ran the best parameterization
             - The name of the best arm (each trial has a unique name associated with
                 each parameterization)
@@ -777,7 +779,7 @@ class Client(WithDBSettingsBase):
                 - The parameters predicted to have the best optimization value without
                 violating any outcome constraints.
                 - The metric values for the best parameterization. Uses model
-                    prediction if use_model_predictions=True, otherwise returns
+                    prediction if ``use_model_predictions=True``, otherwise returns
                     observed data.
                 - The trial which most recently ran the best parameterization
                 - The name of the best arm (each trial has a unique name associated
@@ -829,7 +831,7 @@ class Client(WithDBSettingsBase):
         points: Sequence[TParameterization],
     ) -> list[TOutcome]:
         """
-        Use the GenerationStrategy to predict the outcome of the provided
+        Use the current surrogate model to predict the outcome of the provided
         list of parameterizations.
 
         Returns:
@@ -873,7 +875,7 @@ class Client(WithDBSettingsBase):
     # Note: SQL storage handled automatically during regular usage
     def save_to_json_file(self, filepath: str = "ax_client_snapshot.json") -> None:
         """
-        Save a JSON-serialized snapshot of this `AxClient`'s settings and state
+        Save a JSON-serialized snapshot of this ``Client``'s settings and state
         to a .json file by the given path.
         """
         with open(filepath, "w+") as file:
@@ -889,11 +891,11 @@ class Client(WithDBSettingsBase):
         storage_config: StorageConfig | None = None,
     ) -> Self:
         """
-        Restore a `Client` and its state from a JSON-serialized snapshot,
+        Restore a ``Client`` and its state from a JSON-serialized snapshot,
         residing in a .json file by the given path.
 
         Returns:
-            The restored `Client`.
+            The restored ``Client``.
         """
         with open(filepath) as file:
             return cls._from_json_snapshot(
@@ -907,10 +909,10 @@ class Client(WithDBSettingsBase):
         storage_config: StorageConfig | None = None,
     ) -> Self:
         """
-        Restore an `AxClient` and its state from database by the given name.
+        Restore an ``Client`` and its state from database by the given name.
 
         Returns:
-            The restored `AxClient`.
+            The restored ``Client``.
         """
         db_settings_base = WithDBSettingsBase(
             db_settings=db_settings_from_storage_config(storage_config=storage_config)

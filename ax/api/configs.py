@@ -16,7 +16,7 @@ from ax.storage.registry_bundle import RegistryBundleBase
 
 class ParameterType(Enum):
     """
-    The ParameterType enum allows users to specify the type of a parameter.
+    Allows specifying the type of a parameter.
     """
 
     FLOAT = "float"
@@ -27,9 +27,9 @@ class ParameterType(Enum):
 
 class ParameterScaling(Enum):
     """
-    The ParameterScaling enum allows users to specify which scaling to apply during
-    candidate generation. This is useful for parameters that should not be explored
-    on the same scale, such as learning rates and batch sizes.
+    Allows specifying which scaling to apply during candidate generation. This is
+    useful for parameters that should not be explored on the same scale, such as
+    learning rates which benefit from logarithmic scaling.
     """
 
     LINEAR = "linear"
@@ -39,8 +39,8 @@ class ParameterScaling(Enum):
 @dataclass
 class RangeParameterConfig:
     """
-    RangeParameterConfig allows users to specify the a continuous dimension of an
-    experiment's search space and will internally validate the inputs.
+    Allows specifying a continuous dimension of an experiment's search space
+    and internally validates the inputs.
     """
 
     name: str
@@ -54,8 +54,9 @@ class RangeParameterConfig:
 @dataclass
 class ChoiceParameterConfig:
     """
-    ChoiceParameterConfig allows users to specify the a discrete dimension of an
-    experiment's search space and will internally validate the inputs.
+    Allows specifying a discrete dimension of an experiment's search space and
+    internally validates the inputs. Choice parameters can be either ordinal or
+    categorical; this is controlled via the ``is_ordered`` flag.
     """
 
     name: str
@@ -68,7 +69,7 @@ class ChoiceParameterConfig:
 @dataclass
 class ExperimentConfig:
     """
-    ExperimentConfig allows users to specify the SearchSpace of an experiment along
+    Allows specifying the search space of an experiment along
     with other metadata.
     """
 
@@ -110,9 +111,10 @@ class GenerationMethod(Enum):
 
 @dataclass
 class GenerationStrategyConfig:
-    """A dataclass used to configure the generation strategy used in the experiment.
+    """
+    Allows the user to configure the way candidates are generated during the experiment.
     This is used, along with the properties of the experiment, to determine the
-    generation strategy to use for candidate generation.
+    ``GenerationStrategy`` to use for candidate generation.
 
     Args:
         method: The generation method to use. See ``GenerationMethod`` for more details.
@@ -156,6 +158,11 @@ class GenerationStrategyConfig:
 
 @dataclass
 class OrchestrationConfig:
+    """
+    Allows the user to configure how Ax should conduct closed-loop experiments (i.e.
+    those with automated trial deployment and metric fetching).
+    """
+
     parallelism: int = 1
     tolerated_trial_failure_rate: float = 0.5
     initial_seconds_between_polls: int = 1
@@ -163,6 +170,11 @@ class OrchestrationConfig:
 
 @dataclass
 class StorageConfig:
+    """
+    Allows the user to configure how Ax should connect to a SQL database to store the
+    experiment and its data.
+    """
+
     creator: Callable[..., Any] | None = None  # pyre-fixme[4]
     url: str | None = None
     registry_bundle: RegistryBundleBase | None = None
