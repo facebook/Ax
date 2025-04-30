@@ -160,9 +160,8 @@ def truncate_label(label: str, n: int = MAX_LABEL_LEN) -> str:
     label = re.sub(r"^[^:]*:", "", label)
     if len(label) <= n:
         return label
-    # Split the label into segments separated by colons
-    segments = re.split(r"[:]", label)
     # Filter out empty segments and those that seem too generic
+    segments = re.split(r"[:]", label)
     filtered_segments = [
         s for s in segments if s and s.lower() not in ["overall", "v2"]
     ]
