@@ -7,6 +7,7 @@
 
 import numpy as np
 import pandas as pd
+from ax.analysis.plotly.utils import truncate_label
 from ax.analysis.utils import _relativize_data, prepare_arm_data
 from ax.api.client import Client
 from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
@@ -512,6 +513,41 @@ class TestUtils(TestCase):
             0.5,
             decimal=1,
         )
+
+    def test_truncate_label(self) -> None:
+        with self.subTest("No truncation"):
+            self.assertEqual(
+                truncate_label(label="short:overall_END_ALL_CAP"),
+                "short:overall_END_ALL_CAP",
+            )
+        with self.subTest("remove suffix"):
+            self.assertEqual(
+                truncate_label(label="not_as_short:overall_END_ALL_CAP", n=20),
+                "not_as_short:overall",
+            )
+        with self.subTest("remove prefix"):
+            self.assertEqual(
+                truncate_label(
+                    label="long_prefix:not_as_short:overall_END_ALL_CAP", n=20
+                ),
+                "not_as_short:overall",
+            )
+        with self.subTest("remove common words and keep two segments"):
+            self.assertEqual(
+                truncate_label(
+                    label="long_prefix:short_prefix:not_as_short:overall_END_ALL_CAP",
+                    n=30,
+                ),
+                "short_prefix:not_as_short",
+            )
+        with self.subTest("only one long label"):
+            self.assertEqual(
+                truncate_label(
+                    label="thisismyextrabiglabelthatcantbehandled",
+                    n=20,
+                ),
+                "thisismyextrabigl...",
+            )
 
     @TestCase.ax_long_test(
         reason=(
