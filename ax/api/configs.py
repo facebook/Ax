@@ -122,6 +122,10 @@ class GenerationStrategyConfig:
             If ``None``, a default budget of 5 trials is used.
         initialization_random_seed: The random seed to use with the Sobol generator
             that generates the initialization trials.
+        initialize_with_center: If True, the center of the search space is used as the
+            first point. The definition of center respects the scaling of the
+            parameters. For discrete parameters, the median value is considered the
+            center, with the later points being used to break ties.
         use_existing_trials_for_initialization: Whether to count all trials attached
             to the experiment as part of the initialization budget. For example,
             if 2 trials were manually attached to the experiment and this option
@@ -149,6 +153,7 @@ class GenerationStrategyConfig:
     # Initialization options
     initialization_budget: int | None = None
     initialization_random_seed: int | None = None
+    initialize_with_center: bool = True
     use_existing_trials_for_initialization: bool = True
     min_observed_initialization_trials: int | None = None
     allow_exceeding_initialization_budget: bool = False
