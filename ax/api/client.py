@@ -375,7 +375,8 @@ class Client(WithDBSettingsBase):
 
         if len(res) != max_trials:
             logger.warning(
-                f"{max_trials} requested but only {len(res)} could be generated."
+                f"{max_trials} trials requested but only {len(res)} could be "
+                "generated."
             )
 
         # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
