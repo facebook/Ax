@@ -16,6 +16,7 @@ from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
     trial_status_to_plotly_color,
+    truncate_label,
 )
 from ax.analysis.utils import (
     extract_relevant_adapter,
@@ -132,9 +133,9 @@ class ArmEffectsPlot(PlotlyAnalysis):
         )
 
         # Retrieve the metric labels from the mapping provided by the user, defaulting
-        # to the metric name if no label is provided.
+        # to the metric name if no label is provided, truncated.
         metric_labels = {
-            metric_name: self.labels.get(metric_name, metric_name)
+            metric_name: self.labels.get(metric_name, truncate_label(label=metric_name))
             for metric_name in metric_names
         }
 

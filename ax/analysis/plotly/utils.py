@@ -6,6 +6,7 @@
 # pyre-strict
 
 import math
+import re
 from typing import Sequence
 
 import numpy as np
@@ -21,6 +22,8 @@ from ax.modelbridge.base import Adapter
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from numpy.typing import NDArray
 from plotly import express as px
+
+MAX_LABEL_LEN: int = 50
 
 # Because normal distributions have long tails, every arm has a non-zero
 # probability of violating the constraint. But below a certain threshold, we
@@ -144,6 +147,39 @@ def get_arm_tooltip(
             constraints_warning_str,
         ]
     )
+
+
+def truncate_label(label: str, n: int = MAX_LABEL_LEN) -> str:
+    if len(label) <= n:
+        return label
+    # Remove suffix with uppercase letters and underscores
+    label = re.sub(r"_([A-Z_]+)$", "", label)
+    if len(label) <= n:
+        return label
+    # Remove prefix up to the first colon
+    label = re.sub(r"^[^:]*:", "", label)
+    if len(label) <= n:
+        return label
+    # Split the label into segments separated by colons
+    segments = re.split(r"[:]", label)
+    # Filter out empty segments and those that seem too generic
+    filtered_segments = [
+        s for s in segments if s and s.lower() not in ["overall", "v2"]
+    ]
+    # Build the shortened label by adding segments from the end
+    shortened_label = ""
+    for segment in reversed(filtered_segments):
+        # Check if a single segment is longer than max_length
+        if len(segment) > n:
+            return segment[: n - 3] + "..."
+        # Check if adding the next segment would exceed the max length
+        if len(segment) + (1 if shortened_label else 0) + len(shortened_label) <= n:
+            if shortened_label:
+                shortened_label = ":" + shortened_label
+            shortened_label = segment + shortened_label
+        else:
+            break
+    return shortened_label
 
 
 def get_constraint_violated_probabilities(

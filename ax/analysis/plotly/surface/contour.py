@@ -17,7 +17,11 @@ from ax.analysis.plotly.surface.utils import (
     is_axis_log_scale,
     select_fixed_value,
 )
-from ax.analysis.plotly.utils import METRIC_CONTINUOUS_COLOR_SCALE, select_metric
+from ax.analysis.plotly.utils import (
+    METRIC_CONTINUOUS_COLOR_SCALE,
+    select_metric,
+    truncate_label,
+)
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
@@ -227,8 +231,8 @@ def _prepare_plot(
             showscale=False,
         ),
         layout=go.Layout(
-            xaxis_title=x_parameter_name,
-            yaxis_title=y_parameter_name,
+            xaxis_title=truncate_label(label=x_parameter_name),
+            yaxis_title=truncate_label(label=y_parameter_name),
         ),
     )
 

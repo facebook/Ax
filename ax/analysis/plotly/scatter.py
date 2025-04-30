@@ -17,6 +17,7 @@ from ax.analysis.plotly.utils import (
     get_arm_tooltip,
     is_predictive,
     trial_status_to_plotly_color,
+    truncate_label,
 )
 from ax.analysis.utils import (
     extract_relevant_adapter,
@@ -146,8 +147,14 @@ class ScatterPlot(PlotlyAnalysis):
             relativize=self.relativize,
         )
 
-        x_metric_label = self.labels.get(self.x_metric_name, self.x_metric_name)
-        y_metric_label = self.labels.get(self.y_metric_name, self.y_metric_name)
+        # Retrieve the metric labels from the mapping provided by the user, defaulting
+        # to the metric name if no label is provided, truncated.
+        x_metric_label = self.labels.get(
+            self.x_metric_name, truncate_label(label=self.x_metric_name)
+        )
+        y_metric_label = self.labels.get(
+            self.y_metric_name, truncate_label(label=self.y_metric_name)
+        )
 
         x_lower_is_better = experiment.metrics[self.x_metric_name].lower_is_better
         y_lower_is_better = experiment.metrics[self.y_metric_name].lower_is_better
