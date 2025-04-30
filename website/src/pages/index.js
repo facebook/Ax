@@ -165,7 +165,7 @@ const MyPage = () => {
               Get started
             </Link>
             <Link
-              to="/docs/tutorials/"
+              to="/docs/tutorials/quickstart/"
               className="button button--lg button--outline button--secondary margin--sm">
               Tutorials
             </Link>
