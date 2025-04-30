@@ -9,20 +9,7 @@
 
 const tutorials = () => {
   const allTutorialMetadata = require('./tutorials.json');
-  const tutorialsSidebar = [
-    {
-      type: 'category',
-      label: 'Tutorials',
-      collapsed: false,
-      items: [
-        {
-          type: 'doc',
-          id: 'tutorials/index',
-          label: 'Overview',
-        },
-      ],
-    },
-  ];
+  const tutorialsSidebar = [];
   for (var category in allTutorialMetadata) {
     const categoryItems = allTutorialMetadata[category];
     const items = [];
@@ -37,6 +24,7 @@ const tutorials = () => {
     tutorialsSidebar.push({
       type: 'category',
       label: category,
+      collapsed: false,
       items: items,
     });
   }
@@ -44,22 +32,42 @@ const tutorials = () => {
 };
 
 export default {
-  docs: {
-    Introduction: ['why-ax', 'installation', 'intro-to-ae', 'intro-to-bo'],
-    'Extending Ax': ['analyses'],
-    Reference: ['glossary'],
-  },
-  tutorials: tutorials(),
-  recipes: {
-    Recipes: [
-      'recipes/index',
-      'custom-trials',
-      'recipes/tracking-metrics',
-      'recipes/experiment-to-json',
-      'recipes/experiment-to-sqlite',
-      'recipes/multi-objective-optimization',
-      'recipes/scalarized-objective',
-      'recipes/outcome-constraints',
-    ],
-  },
+  docs: [
+    {
+      type: 'category',
+      label: 'Introduction',
+      collapsed: false,
+      items: ['why-ax', 'installation', 'intro-to-ae', 'intro-to-bo'],
+    },
+    {
+      type: 'category',
+      label: 'Extending Ax',
+      collapsed: false,
+      items: ['analyses'],
+    },
+    {
+      type: 'category',
+      label: 'Reference',
+      collapsed: false,
+      items: ['glossary'],
+    },
+  ],
+  tutorials: [
+    ...tutorials(),
+    {
+      type: 'category',
+      label: 'Recipes',
+      collapsed: false,
+      items: [
+        'recipes/index',
+        'custom-trials',
+        'recipes/tracking-metrics',
+        'recipes/experiment-to-json',
+        'recipes/experiment-to-sqlite',
+        'recipes/multi-objective-optimization',
+        'recipes/scalarized-objective',
+        'recipes/outcome-constraints',
+      ],
+    },
+  ],
 };
