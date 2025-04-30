@@ -17,6 +17,12 @@ from pyre_extensions import override
 
 
 class IRunner(_APIRunner):
+    """
+    ``Runners`` automate the process of running trials on external systems. They are
+    used in conjunction with ``Metrics`` in the ``Client.run_trials`` method to
+    facilitate closed-loop experimentation.
+    """
+
     @override
     def run_trial(
         self, trial_index: int, parameterization: TParameterization
