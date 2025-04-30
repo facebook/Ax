@@ -47,6 +47,7 @@ export default {
   docs: {
     Introduction: ['why-ax', 'installation', 'intro-to-ae', 'intro-to-bo'],
     'Extending Ax': ['analyses'],
+    Reference: ['glossary'],
   },
   tutorials: tutorials(),
   recipes: {
