@@ -11,6 +11,7 @@ import torch
 from ax.api.configs import GenerationMethod, GenerationStrategyConfig
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
+from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
@@ -43,9 +44,6 @@ def _get_sobol_node(
             to `max(1, initialization_budget // 2)`.
         - The TC currently only counts trials in status COMPLETED (with data attached)
             as observed trials.
-        - `use_existing_trials_for_initialization` controls whether trials previously
-            attached to the experiment are counted as part of the required number of
-            observed initialization trials.
     """
     # Set the default options.
     initialization_budget = gs_config.initialization_budget
@@ -54,6 +52,12 @@ def _get_sobol_node(
     min_observed_initialization_trials = gs_config.min_observed_initialization_trials
     if min_observed_initialization_trials is None:
         min_observed_initialization_trials = max(1, initialization_budget // 2)
+    if (
+        gs_config.initialize_with_center
+        and not gs_config.use_existing_trials_for_initialization
+    ):
+        # Account for center point in initialization, since the TC will not count it.
+        initialization_budget -= 1
     # Construct the transition criteria.
     transition_criteria = [
         MinTrials(  # This represents the initialization budget.
@@ -68,7 +72,7 @@ def _get_sobol_node(
             transition_to="MBM",
             block_gen_if_met=False,
             block_transition_if_unmet=True,
-            use_all_trials_in_exp=gs_config.use_existing_trials_for_initialization,
+            use_all_trials_in_exp=True,
             only_in_statuses=[TrialStatus.COMPLETED],
             count_only_trials_with_data=True,
         ),
@@ -148,26 +152,26 @@ def choose_generation_strategy(
     """
     # Handle the random search case.
     if gs_config.method == GenerationMethod.RANDOM_SEARCH:
-        return GenerationStrategy(
-            name="QuasiRandomSearch",
-            nodes=[
-                GenerationNode(
-                    node_name="Sobol",
-                    model_specs=[
-                        GeneratorSpec(
-                            model_enum=Generators.SOBOL,
-                            model_kwargs={"seed": gs_config.initialization_random_seed},
-                        )
-                    ],
-                )
-            ],
-        )
-    # Construct the nodes.
-    sobol_node = _get_sobol_node(gs_config)
-    # Construct the MBM node.
-    mbm_node = _get_mbm_node(gs_config)
-    method_str = gs_config.method.value
-    return GenerationStrategy(
-        name=f"Sobol+MBM:{method_str}",
-        nodes=[sobol_node, mbm_node],
-    )
+        nodes = [
+            GenerationNode(
+                node_name="Sobol",
+                model_specs=[
+                    GeneratorSpec(
+                        model_enum=Generators.SOBOL,
+                        model_kwargs={"seed": gs_config.initialization_random_seed},
+                    )
+                ],
+            )
+        ]
+        gs_name = "QuasiRandomSearch"
+    else:
+        nodes = [
+            _get_sobol_node(gs_config=gs_config),
+            _get_mbm_node(gs_config=gs_config),
+        ]
+        gs_name = f"Sobol+MBM:{gs_config.method.value}"
+    if gs_config.initialize_with_center:
+        center_node = CenterGenerationNode(next_node_name=nodes[0].node_name)
+        nodes.insert(0, center_node)
+        gs_name = f"Center+{gs_name}"
+    return GenerationStrategy(name=gs_name, nodes=nodes)

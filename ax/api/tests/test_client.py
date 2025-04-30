@@ -401,8 +401,7 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
         client.configure_generation_strategy(
             generation_strategy_config=GenerationStrategyConfig(
-                # Set this to a large number so test runs fast
-                initialization_budget=1,
+                initialization_budget=1, initialize_with_center=False
             )
         )
 
@@ -935,7 +934,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 0, 1: 1},
                 "arm_name": {0: "0_0", 1: "1_0"},
                 "trial_status": {0: "COMPLETED", 1: "FAILED"},
-                "generation_node": {0: "Sobol", 1: "Sobol"},
+                "generation_node": {0: "CenterOfSearchSpace", 1: "Sobol"},
                 "foo": {0: 1.0, 1: np.nan},  # NaN because trial 1 failed
                 "bar": {0: 2.0, 1: np.nan},
                 "x1": {
