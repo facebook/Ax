@@ -314,7 +314,7 @@ class SensitivityAnalysisTest(TestCase):
                     input_qmc=True,
                     num_mc_samples=num_mc_samples,
                     order="second",
-                    signed=True,
+                    signed=False,
                 )
 
                 so_ind_tnsr = compute_sobol_indices_from_model_list(
@@ -337,7 +337,7 @@ class SensitivityAnalysisTest(TestCase):
                     # pyre-fixme[6]: For 2nd argument expected
                     #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
                     #  but got `Union[bool, float, int]`.
-                    -fo_ind_tnsr[0, 0].item(),
+                    fo_ind_tnsr[0, 0].item(),
                 )
                 self.assertAlmostEqual(
                     second_ind_dict["branin"]["x2"],
