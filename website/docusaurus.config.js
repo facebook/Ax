@@ -85,14 +85,14 @@ module.exports={
       "items": [
         {
           "type": "docSidebar",
-          "sidebarId": "docs",
-          "label": "Docs",
+          "sidebarId": "tutorials",
+          "label": "Tutorials",
           "position": "left"
         },
         {
           "type": "docSidebar",
-          "sidebarId": "tutorials",
-          "label": "Tutorials",
+          "sidebarId": "docs",
+          "label": "Docs",
           "position": "left"
         },
         {
