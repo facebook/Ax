@@ -1,4 +1,4 @@
-# Attaching custom trials to your experiment
+# Manually Sampling Specific Parameterizations
 
 While Ax excels at generating high-quality trials using Bayesian optimization,
 we may wish to attach trials with specific parameterizations to their
@@ -10,9 +10,7 @@ This could be because we have an intuition that certain parameterizations will
 be successful and want to encourage the optimizer to explore this region of the
 search space. It could be that we have some “baseline” configuration which
 represents the status quo of our system (see
-[attaching a baseline trial to your experiment](#) for further reading). Or, we
-may already have some previously collected data from manual "trials" conducted
-before the Ax experiment began.
+[attaching a baseline trial to your experiment](#) for further reading).
 
 In any of these cases, we can use the `Client`'s `attach_trial` method to
 manually attach a trial with a custom parameterization to our experiment.

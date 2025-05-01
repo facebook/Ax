@@ -59,7 +59,8 @@ export default {
       label: 'Recipes',
       collapsed: false,
       items: [
-        'custom-trials',
+        'recipes/attach-trial',
+        'recipes/existing-data',
         'recipes/tracking-metrics',
         'recipes/experiment-to-json',
         'recipes/experiment-to-sqlite',
