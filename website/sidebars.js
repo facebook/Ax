@@ -59,7 +59,6 @@ export default {
       label: 'Recipes',
       collapsed: false,
       items: [
-        'recipes/index',
         'custom-trials',
         'recipes/tracking-metrics',
         'recipes/experiment-to-json',
