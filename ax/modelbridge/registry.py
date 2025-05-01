@@ -41,6 +41,7 @@ from ax.modelbridge.transforms.int_to_float import IntToFloat, LogIntToFloat
 from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.logit import Logit
+from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
 from ax.modelbridge.transforms.merge_repeated_measurements import (
     MergeRepeatedMeasurements,
 )
@@ -102,6 +103,7 @@ Cont_X_trans: list[type[Transform]] = [
 # optimize_acqf_mixed_alternating, which is a more efficient acquisition function
 # optimizer for mixed discrete/continuous problems.
 MBM_X_trans: list[type[Transform]] = [
+    MapKeyToFloat,
     RemoveFixed,
     OrderedChoiceToIntegerRange,
     OneHot,
