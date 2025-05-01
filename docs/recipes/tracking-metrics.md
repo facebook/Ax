@@ -7,11 +7,6 @@ additional metrics beyond its primary objective(s). Ax allows you to add these
 tracking metrics to your experiment, providing valuable insights into the
 behavior of your system.
 
-## Prerequisites
-
-Before adding tracking metrics, make sure you have an understanding of
-constructing Ax [Metrics](#).
-
 ## Setup
 
 Before we begin you must instantiate the `Client` and configure it with your
@@ -59,10 +54,3 @@ trial_index, parameters = client.get_next_trials(max_trials=1)().popitem()
 
 client.complete_trial(trial_index=trial_index, raw_data={"my_tracking_metric_1": ..., "my_tracking_metric_2": ...})
 ```
-
-### Learn More
-
-For further learning, explore these additional resources:
-
-- [Creating metrics in Ax](#)
-- [Creating optimization configurations in Ax](#)
