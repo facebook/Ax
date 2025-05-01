@@ -13,7 +13,7 @@ results.
 ## Prerequisites
 
 We will assume you are already familiar with
-[using Ax for ask-tell optimization](#)
+[basic Ax usage](../tutorials/getting_started).
 
 ## Setup
 
@@ -75,5 +75,5 @@ for parameters, metrics, trial_index, arm_name in frontier:
 
 Take a look at these other resources to continue your learning:
 
-- [Set scalarized-objective optimizations](#)
-- [Set outcome constraints](#)
+- [Set scalarized-objective optimizations](../recipes/scalarized-objective)
+- [Set outcome constraints](../recipes/outcome-constraints)
