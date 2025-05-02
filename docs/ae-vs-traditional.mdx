@@ -1,0 +1,94 @@
+---
+id: ae-vs-traditional
+title: Adaptive versus non-Adaptive Experiment Design
+---
+
+import Traditional_vs_Adaptive from './assets/traditional_vs_adaptive.svg';
+import doe from './assets/doe.png';
+import line_square_cube from './assets/line_square_cube.png';
+import discrepancy_dims from './assets/discrepancy_dims.png';
+
+# Adaptive versus non-Adaptive Experiment Design
+
+To solve black-box problems where evaluations are expensive or when the number
+of evaluations must remain limited, an efficient sampling procedure is critical.
+
+There are two common approaches to suggest what trials to evaulate in these resource
+constrained settings. One is to use manual trial-and-error based on intuition. One is
+to use manual trial-and-error based on intuition. The second is a more systematic method
+called Design of Experiments (DoE). These non-adaptive methods aim to provide a strong
+understanding of the relationship between the inputs and outputs of a system by providing
+broad coverage of the entire input space. Examples of traditional DoE methods include:
+
+- Grid search: testing points on an equally spaced grid,
+- Random search: randomly picking parameter combinations.
+
+Although somewhat counterintuitive, random search is often more effective than grid
+search because it avoids systematic gaps.
+
+An alternative class of methods referred to as quasi-random search offer the
+"best of both worlds" between grid and random search by strategically selecting
+points that are more uniformly dispersed. Examples include:
+
+- Sobol sampling
+- Latin Hypercube Sampling
+
+Both rely on some form of subdividing a search space and assigning points in relation to
+these subdivisions.
+
+<center><img src={doe} alt="DoE sampling methods" width="60%"/></center>
+
+## Traditional methods are inefficient, especially in high dimensions
+
+Unfortunately getting broad coverage of the domain requires many samples, which
+can be expensive. Worse, as more dimensions are added more points are required
+to achieve the same coverage. To illustrate, imagine points distributed on a
+line (1D), a square (2D), and a cube (3D).
+
+<center><img src={line_square_cube} alt="Sampling from a line, a square, and a cube" width="60%"/></center>
+
+Notice how even though there are 9x more points in the cube than on the line,
+the
+[discrepancy](https://en.wikipedia.org/wiki/Equidistributed_sequence#Discrepancy)
+is 3x higher than for the line (0.100 vs. 0.028). This is often referred to as
+the
+["curse of dimensionality"](https://en.wikipedia.org/wiki/Curse_of_dimensionality).
+
+|             |   Line    |  Square   |   Cube    |  Hypercube  |
+| ----------- | :-------: | :-------: | :-------: | :---------: |
+| Num. Points |  $$3^1$$  |  $$3^2$$  |  $$3^3$$  |   $$n^d$$   |
+| Discrepancy | $$0.028$$ | $$0.061$$ | $$0.100$$ | $$f(3, d)$$ |
+
+Real-world black box optimization tasks often have many dimensions and can only
+afford to conduct very few trials. For example, imagine you have a budget of 100
+trials and are optimizing over a parameter space with 20 dimensions. The
+differences in discrepancy between algorithms can become drastic, as shown
+below. In the case of grid search, to have even just two subdivisions in each of
+20 dimensions would require $$20^2 = 400$$ points, well over our 100 point
+budget!
+
+<center><img src={discrepancy_dims} alt="Discrepancy vs. input dimensionality" width="60%"/></center>
+
+## Adaptive experimentation outperforms traditional methods
+
+Although simple to implement, traditional DoE methods such as grid search,
+random search, and quasi-random search are uninformed, meaning they do not
+incorporate information about the objective function to be optimized. Likewise,
+manual trial-and-error can be slow, expensive, and too complicated to
+effectively reason about; domain experts often restrict their search space to
+just a few parameters to help it feel like it’s something they can handle.
+
+Adaptive experimentation is a more efficient version of DoE that iteratively
+incorporates information from prior results to suggest the next parameter set to
+run, allowing for more efficient exploration of the search space. Suggestions are
+generated in ways that can effectively accelerate learning, reduce uncertainty, and/or
+improve the likelihood of finding some point better than the incumbent.
+
+Bayesian optimization, one of the most effective forms of adaptive
+experimentation, uses acquisition functions to intelligently balance the
+tradeoffs between exploration (learning how new parameterizations perform) and
+exploitation (refining parameterizations previously observed to be good). To
+achieve this, one must also create a surrogate model that predicts the average
+behavior and the uncertainty of the objective(s) as a function of the input
+parameters Typically this surrogate model is much less expensive to evaluate
+than the true, underlying black box function.
