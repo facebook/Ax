@@ -2051,7 +2051,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         )
 
 
-def get_fitted_model_bridge(scheduler: Scheduler, force_refit: bool = False) -> Adapter:
+def get_fitted_adapter(scheduler: Scheduler, force_refit: bool = False) -> Adapter:
     """Returns a fitted Adapter object. If the model is fit already, directly
     returns the already fitted model. Otherwise, fits and returns a new one.
 
@@ -2063,8 +2063,8 @@ def get_fitted_model_bridge(scheduler: Scheduler, force_refit: bool = False) -> 
         A Adapter object fitted to the observations of the scheduler's experiment.
     """
     gs = scheduler.generation_strategy
-    model_bridge = gs.model  # Optional[Adapter]
-    if model_bridge is None or force_refit:  # Need to re-fit the model.
+    adapter = gs.model  # Optional[Adapter]
+    if adapter is None or force_refit:  # Need to re-fit the model.
         gs._curr._fit(experiment=scheduler.experiment)
-        model_bridge = cast(Adapter, gs.model)
-    return model_bridge
+        adapter = cast(Adapter, gs.model)
+    return adapter

@@ -22,12 +22,12 @@ from ax.metrics.branin import BraninMetric
 from ax.modelbridge.cross_validation import (
     _predict_on_cross_validation_data,
     _predict_on_training_data,
-    compute_model_fit_metrics_from_modelbridge,
+    compute_model_fit_metrics_from_adapter,
     get_fit_and_std_quality_and_generalization_dict,
 )
 from ax.modelbridge.registry import Generators
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.scheduler import get_fitted_model_bridge, Scheduler, SchedulerOptions
+from ax.service.scheduler import get_fitted_adapter, Scheduler, SchedulerOptions
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import _entropy_via_kde, entropy_of_observations
@@ -76,15 +76,15 @@ class TestAdapterFitMetrics(TestCase):
         # need to run some trials to initialize the Adapter
         scheduler.run_n_trials(max_trials=NUM_SOBOL + 1)
 
-        model_bridge = get_fitted_model_bridge(scheduler)
-        self.assertEqual(len(model_bridge.get_training_data()), NUM_SOBOL)
+        adapter = get_fitted_adapter(scheduler)
+        self.assertEqual(len(adapter.get_training_data()), NUM_SOBOL)
 
-        model_bridge = get_fitted_model_bridge(scheduler, force_refit=True)
-        self.assertEqual(len(model_bridge.get_training_data()), NUM_SOBOL + 1)
+        adapter = get_fitted_adapter(scheduler, force_refit=True)
+        self.assertEqual(len(adapter.get_training_data()), NUM_SOBOL + 1)
 
-        # testing compute_model_fit_metrics_from_modelbridge with default metrics
-        fit_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=model_bridge,
+        # testing compute_model_fit_metrics_from_adapter with default metrics
+        fit_metrics = compute_model_fit_metrics_from_adapter(
+            adapter=adapter,
             untransform=False,
         )
         r2 = fit_metrics.get("coefficient_of_determination")
@@ -104,8 +104,8 @@ class TestAdapterFitMetrics(TestCase):
         # checking non-default model-fit-metric
         for untransform, generalization in product([True, False], [True, False]):
             with self.subTest(untransform=untransform):
-                fit_metrics = compute_model_fit_metrics_from_modelbridge(
-                    model_bridge=model_bridge,
+                fit_metrics = compute_model_fit_metrics_from_adapter(
+                    adapter=adapter,
                     generalization=generalization,
                     untransform=untransform,
                     fit_metrics_dict={"Entropy": entropy_of_observations},
@@ -122,16 +122,14 @@ class TestAdapterFitMetrics(TestCase):
                     if generalization
                     else _predict_on_training_data
                 )
-                y_obs, _, _ = predict(
-                    model_bridge=model_bridge, untransform=untransform
-                )
+                y_obs, _, _ = predict(adapter=adapter, untransform=untransform)
                 y_obs_branin = np.array(y_obs["branin"])[:, np.newaxis]
                 entropy_truth = _entropy_via_kde(y_obs_branin)
                 self.assertAlmostEqual(entropy_branin, entropy_truth)
 
                 # testing with empty metrics
-                empty_metrics = compute_model_fit_metrics_from_modelbridge(
-                    model_bridge=model_bridge,
+                empty_metrics = compute_model_fit_metrics_from_adapter(
+                    adapter=adapter,
                     fit_metrics_dict={},
                 )
                 self.assertIsInstance(empty_metrics, dict)
@@ -139,8 +137,8 @@ class TestAdapterFitMetrics(TestCase):
 
                 # testing log filtering
                 with warnings.catch_warnings(record=True) as ws:
-                    fit_metrics = compute_model_fit_metrics_from_modelbridge(
-                        model_bridge=model_bridge,
+                    fit_metrics = compute_model_fit_metrics_from_adapter(
+                        adapter=adapter,
                         untransform=untransform,
                         generalization=generalization,
                     )
@@ -158,7 +156,7 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
     def test_it_returns_empty_data_for_sobol(self) -> None:
         with warnings.catch_warnings(record=True) as ws:
             results = get_fit_and_std_quality_and_generalization_dict(
-                fitted_model_bridge=self.sobol,
+                fitted_adapter=self.sobol,
             )
 
             # Ensure we did not warn since we are using a Sobol Generator
@@ -179,19 +177,17 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
             sobol_run
         ).run().mark_completed()
         data = self.experiment.fetch_data()
-        botorch_modelbridge = Generators.BOTORCH_MODULAR(
-            experiment=self.experiment, data=data
-        )
+        adapter = Generators.BOTORCH_MODULAR(experiment=self.experiment, data=data)
 
         # WHEN we call get_fit_and_std_quality_and_generalization_dict
         results = get_fit_and_std_quality_and_generalization_dict(
-            fitted_model_bridge=botorch_modelbridge,
+            fitted_adapter=adapter,
         )
 
         # THEN we get expected results
         # CALCULATE EXPECTED RESULTS
-        fit_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=botorch_modelbridge,
+        fit_metrics = compute_model_fit_metrics_from_adapter(
+            adapter=adapter,
             generalization=False,
             untransform=False,
         )
@@ -206,8 +202,8 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
         model_std_quality = 1 / std_branin
 
         # check generalization metrics
-        gen_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=botorch_modelbridge,
+        gen_metrics = compute_model_fit_metrics_from_adapter(
+            adapter=adapter,
             generalization=True,
             untransform=False,
         )

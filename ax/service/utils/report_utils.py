@@ -38,7 +38,7 @@ from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.modelbridge import Adapter
 from ax.modelbridge.cross_validation import (
-    compute_model_fit_metrics_from_modelbridge,
+    compute_model_fit_metrics_from_adapter,
     cross_validate,
 )
 from ax.modelbridge.random import RandomAdapter
@@ -1532,18 +1532,18 @@ def warn_if_unpredictable_metrics(
         A string warning the user about unpredictable metrics, if applicable.
     """
     # Get fit quality dict.
-    model_bridge = generation_strategy.model  # Optional[Adapter]
-    if model_bridge is None:  # Need to re-fit the model.
+    adapter = generation_strategy.model  # Optional[Adapter]
+    if adapter is None:  # Need to re-fit the model.
         generation_strategy._curr._fit(experiment=experiment)
-        model_bridge = cast(Adapter, generation_strategy.model)
-    if isinstance(model_bridge, RandomAdapter):
+        adapter = cast(Adapter, generation_strategy.model)
+    if isinstance(adapter, RandomAdapter):
         logger.debug(
-            "Current modelbridge on GenerationStrategy is RandomAdapter. "
+            "Current adapter on GenerationStrategy is RandomAdapter. "
             "Not checking metric predictability."
         )
         return None
-    model_fit_dict = compute_model_fit_metrics_from_modelbridge(
-        model_bridge=model_bridge,
+    model_fit_dict = compute_model_fit_metrics_from_adapter(
+        adapter=adapter,
         generalization=True,  # use generalization metrics for user warning
         untransform=False,
     )
