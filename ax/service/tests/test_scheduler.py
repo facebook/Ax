@@ -49,11 +49,11 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
-from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
+from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_adapter
 from ax.modelbridge.registry import Generators, MBM_MTGP_trans
 from ax.service.scheduler import (
     FailureRateExceededError,
-    get_fitted_model_bridge,
+    get_fitted_adapter,
     MessageOutput,
     OptimizationResult,
     Scheduler,
@@ -1828,7 +1828,7 @@ class TestAxScheduler(TestCase):
         self.assertEqual(message, "Exceeding the total number of trials.")
 
     @mock_botorch_optimize
-    def test_get_fitted_model_bridge(self) -> None:
+    def test_get_fitted_adapter(self) -> None:
         self.branin_experiment._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = (
             True
         )
@@ -1862,12 +1862,12 @@ class TestAxScheduler(TestCase):
         self,
         scheduler: Scheduler,
     ) -> None:
-        # testing get_fitted_model_bridge
-        model_bridge = get_fitted_model_bridge(scheduler)
+        # testing get_fitted_adapter
+        adapter = get_fitted_adapter(scheduler)
 
-        # testing compatibility with compute_model_fit_metrics_from_modelbridge
-        fit_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=model_bridge,
+        # testing compatibility with compute_model_fit_metrics_from_adapter
+        fit_metrics = compute_model_fit_metrics_from_adapter(
+            adapter=adapter,
             untransform=False,
         )
         r2 = fit_metrics.get("coefficient_of_determination")
@@ -1885,8 +1885,8 @@ class TestAxScheduler(TestCase):
         self.assertIsInstance(std_branin, float)
 
         # testing with empty metrics dict
-        empty_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=model_bridge,
+        empty_metrics = compute_model_fit_metrics_from_adapter(
+            adapter=adapter,
             fit_metrics_dict={},
             untransform=False,
         )

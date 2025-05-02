@@ -238,7 +238,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         generator_run = fitted_model.gen(**model_gen_kwargs)
         fit_and_std_quality_and_generalization_dict = (
             get_fit_and_std_quality_and_generalization_dict(
-                fitted_model_bridge=self.fitted_model,
+                fitted_adapter=self.fitted_model,
             )
         )
         generator_run._gen_metadata = (

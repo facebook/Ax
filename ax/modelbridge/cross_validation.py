@@ -340,14 +340,14 @@ def _gen_train_test_split(
 
 
 def get_fit_and_std_quality_and_generalization_dict(
-    fitted_model_bridge: Adapter,
+    fitted_adapter: Adapter,
 ) -> dict[str, float | None]:
     """
     Get stats and gen from a fitted Adapter for analytics purposes.
     """
     try:
-        model_fit_dict = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=fitted_model_bridge,
+        model_fit_dict = compute_model_fit_metrics_from_adapter(
+            adapter=fitted_adapter,
             generalization=False,
             untransform=False,
         )
@@ -355,8 +355,8 @@ def get_fit_and_std_quality_and_generalization_dict(
         std = list(model_fit_dict["std_of_the_standardized_error"].values())
 
         # generalization metrics
-        model_gen_dict = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=fitted_model_bridge,
+        model_gen_dict = compute_model_fit_metrics_from_adapter(
+            adapter=fitted_adapter,
             generalization=True,
             untransform=False,
         )
@@ -388,8 +388,8 @@ def get_fit_and_std_quality_and_generalization_dict(
         }
 
 
-def compute_model_fit_metrics_from_modelbridge(
-    model_bridge: Adapter,
+def compute_model_fit_metrics_from_adapter(
+    adapter: Adapter,
     fit_metrics_dict: dict[str, ModelFitMetricProtocol] | None = None,
     generalization: bool = False,
     untransform: bool = False,
@@ -397,7 +397,7 @@ def compute_model_fit_metrics_from_modelbridge(
     """Computes the model fit metrics given a Adapter and an Experiment.
 
     Args:
-        model_bridge: The Adapter for which to compute the model fit metrics.
+        adapter: The Adapter for which to compute the model fit metrics.
         experiment: The experiment with whose data to compute the metrics if
             generalization == False. Otherwise, the data is taken from the Adapter.
         fit_metrics_dict: An optional dictionary with model fit metric functions,
@@ -418,7 +418,7 @@ def compute_model_fit_metrics_from_modelbridge(
         error after training an expensive model, with respect to hyper-parameters:
 
         ```
-        model_fit_dict = compute_model_fit_metrics_from_modelbridge(model_bridge, exp)
+        model_fit_dict = compute_model_fit_metrics_from_adapter(adapter, exp)
         model_fit_dict["coefficient_of_determination"]["test error"] =
             `coefficient of determination of the test error predictions`
         ```
@@ -428,9 +428,7 @@ def compute_model_fit_metrics_from_modelbridge(
         if generalization
         else _predict_on_training_data
     )
-    y_obs, y_pred, se_pred = predict_func(
-        model_bridge=model_bridge, untransform=untransform
-    )
+    y_obs, y_pred, se_pred = predict_func(adapter=adapter, untransform=untransform)
     if fit_metrics_dict is None:
         fit_metrics_dict = {
             "coefficient_of_determination": coefficient_of_determination,
@@ -443,6 +441,19 @@ def compute_model_fit_metrics_from_modelbridge(
         y_pred=y_pred,
         se_pred=se_pred,
         fit_metrics_dict=fit_metrics_dict,
+    )
+
+
+def compute_model_fit_metrics_from_modelbridge(
+    model_bridge: Adapter,
+    fit_metrics_dict: dict[str, ModelFitMetricProtocol] | None = None,
+    generalization: bool = False,
+    untransform: bool = False,
+) -> dict[str, dict[str, float]]:
+    raise DeprecationWarning(
+        "`compute_model_fit_metrics_from_modelbridge` has been renamed to "
+        "`compute_model_fit_metrics_from_adapter`. Please use the new method "
+        "with the `model_bridge` argument replaced by `adapter`. "
     )
 
 
@@ -479,7 +490,7 @@ def _model_std_quality(std: npt.NDArray) -> float:
 
 
 def _predict_on_training_data(
-    model_bridge: Adapter,
+    adapter: Adapter,
     untransform: bool = False,
 ) -> tuple[
     dict[str, npt.NDArray],
@@ -490,19 +501,19 @@ def _predict_on_training_data(
     and returning the observed values, and the corresponding predictive means and
     predictive standard deviations of the model, in transformed space.
 
-    NOTE: This is a helper function for `compute_model_fit_metrics_from_modelbridge`.
+    NOTE: This is a helper function for `compute_model_fit_metrics_from_adapter`.
 
     Args:
-        model_bridge: A Adapter object with which to make predictions.
+        adapter: A Adapter object with which to make predictions.
         untransform: Boolean indicating whether to untransform model predictions.
 
     Returns:
         A tuple containing three dictionaries for 1) observed metric values, and the
         model's associated 2) predictive means and 3) predictive standard deviations.
     """
-    observations = model_bridge.get_training_data()  # List[Observation]
+    observations = adapter.get_training_data()  # List[Observation]
     observation_features = [obs.features for obs in observations]
-    observation_data_pred = model_bridge._predict_observation_data(
+    observation_data_pred = adapter._predict_observation_data(
         observation_features=observation_features,
         untransform=untransform,
     )
@@ -524,7 +535,7 @@ def _predict_on_training_data(
 
 
 def _predict_on_cross_validation_data(
-    model_bridge: Adapter,
+    adapter: Adapter,
     untransform: bool = False,
 ) -> tuple[
     dict[str, npt.NDArray],
@@ -536,10 +547,10 @@ def _predict_on_cross_validation_data(
     and predictive standard deviations of the model as numpy arrays,
     in transformed space.
 
-    NOTE: This is a helper function for `compute_model_fit_metrics_from_modelbridge`.
+    NOTE: This is a helper function for `compute_model_fit_metrics_from_adapter`.
 
     Args:
-        model_bridge: A Adapter object with which to make predictions.
+        adapter: A Adapter object with which to make predictions.
         untransform: Boolean indicating whether to untransform model predictions
             before cross validating. False by default.
 
@@ -549,7 +560,7 @@ def _predict_on_cross_validation_data(
             2. LOOCV predicted mean at each observed point, and
             3. LOOCV predicted standard deviation at each observed point.
     """
-    cv = cross_validate(model=model_bridge, untransform=untransform)
+    cv = cross_validate(model=adapter, untransform=untransform)
 
     metric_names = cv[0].observed.data.metric_names
     mean_observed = {k: [] for k in metric_names}
