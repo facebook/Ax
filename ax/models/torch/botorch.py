@@ -343,8 +343,9 @@ class LegacyBoTorchGenerator(TorchGenerator):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
+        if Keys.ACQF_KWARGS in self._kwargs:
+            raise NotImplementedError(r"{Keys.ACQF_KWARGS} is not supported.")
         options = torch_opt_config.model_gen_options or {}
-        acf_options = options.get(Keys.ACQF_KWARGS, {})
         optimizer_options = options.get(Keys.OPTIMIZER_KWARGS, {})
 
         if search_space_digest.fidelity_features:
@@ -402,7 +403,6 @@ class LegacyBoTorchGenerator(TorchGenerator):
                 outcome_constraints=outcome_constraints,
                 X_observed=X_observed,
                 X_pending=X_pending,
-                **acf_options,
                 **add_kwargs,
             )
             acquisition_function = assert_is_instance(
