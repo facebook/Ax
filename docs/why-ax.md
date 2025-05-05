@@ -22,7 +22,7 @@ costly simulations are contexts in which adaptive experimentation techniques are
 especially useful. Ax can optimize continuous (e.g., integer or floating
 point)-valued configurations, discrete configurations (e.g., variants of an A/B
 test), or mixed spaces using techniques like
-[Bayesian optimization](../intro-to-bo). This makes it suitable for a wide range
+[Bayesian optimization](./intro-to-bo). This makes it suitable for a wide range
 of applications.
 
 # Unique capabilities
@@ -37,7 +37,7 @@ of applications.
   providing sensible defaults and enabling practitioners to leverage advanced
   techniques otherwise only accessible to optimization experts.
 
-- Ax leverages state-of-the-art [Bayesian optimization](../intro-to-bo)
+- Ax leverages state-of-the-art [Bayesian optimization](./intro-to-bo)
   algorithms implemented in [BoTorch](https://botorch.org/), to deliver strong
   performance across a variety of problem classes.
 
