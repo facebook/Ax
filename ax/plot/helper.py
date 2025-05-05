@@ -185,12 +185,13 @@ def _get_in_sample_arms(
     observations = model.get_training_data()
     training_in_design = model.training_in_design
     if data_selector is not None:
-        observations = [obs for obs in observations if data_selector(obs)]
-        training_in_design = [
-            model.training_in_design[i]
-            for i, obs in enumerate(observations)
-            if data_selector(obs)
-        ]
+        new_observations = []
+        training_in_design = []
+        for i, obs in enumerate(observations):
+            if data_selector(obs):
+                training_in_design.append(model.training_in_design[i])
+                new_observations.append(obs)
+        observations = new_observations
     trial_selector = None
     if fixed_features is not None:
         trial_selector = fixed_features.trial_index
