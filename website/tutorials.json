@@ -24,7 +24,7 @@
       "title": "Ax for Materials Science"
     }
   ],
-  "Advanced Topics (non-API)": [
+  "Extending Ax (non-API)": [
     {
       "id": "modular_botorch",
       "title": "Using custom generators via Modular BoTorch Interface"
