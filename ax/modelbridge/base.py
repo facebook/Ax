@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any
 
+import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -478,11 +479,10 @@ class Adapter:
                 optimization_config=self._optimization_config
             )
             if len(map_keys) == 1:
-                map_key = map_keys.pop()
-                # Pick the observation with maximal map key value.
-                self._status_quo = max(
-                    status_quo_observations,
-                    key=lambda obs: obs.features.metadata[map_key],
+                self._status_quo = _combine_multiple_status_quo_observations(
+                    status_quo_observations=status_quo_observations,
+                    map_key=map_keys.pop(),
+                    metrics=set(none_throws(self._optimization_config).metrics),
                 )
             else:
                 logger.warning(
@@ -1220,3 +1220,81 @@ def _legacy_overwrite_data_loader_config(
         **data_loader_config_dict,
     )
     return data_loader_config
+
+
+def _combine_multiple_status_quo_observations(
+    status_quo_observations: list[Observation],
+    map_key: str,
+    metrics: set[str],
+) -> Observation | None:
+    """Finds the maximal (in terms of map key value) observation for each metric
+    in `status_quo_observations`, and combines them into a single ``Observation``
+    object, representing the status quo observations for all metrics.
+
+    NOTE: The resulting ``ObservationFeatures`` will not have any ``metadata``.
+    If there are multiple ``Observation``s for the status quo, this is due to
+    them having different ``metadata``, so we discard it here to avoid having
+    misleading or incomplete information for some metrics.
+
+    Args:
+        status_quo_observations: List of observations for the status quo
+            arm at target trial index. Extracted in ``Adapter._set_status_quo``.
+        map_key: The map key to use for finding the maximal observation.
+        metrics: The metrics to include in the combined observation.
+            This should include all metrics in the optimization config.
+
+    Returns:
+        A single ``Observation`` object that includes the maximal observation
+        for each metric.
+    """
+    # Pick the observation with maximal map key value.
+    partial_obs = [
+        max(
+            status_quo_observations,
+            key=lambda obs: obs.features.metadata[map_key],
+        )
+    ]
+    # Check if the it includes all metrics in the opt config.
+    # If not, search for observations of the remaining metrics as well.
+    while remaining_metrics := metrics.difference(
+        sum((obs.data.metric_names for obs in partial_obs), [])
+    ):
+        # Find observations of the remaining metrics.
+        # Search using one metric at a time.
+        lookup_metric = remaining_metrics.pop()
+        obs_w_lookup_metric = [
+            obs
+            for obs in status_quo_observations
+            if lookup_metric in obs.data.metric_names
+        ]
+        if len(obs_w_lookup_metric) == 0:
+            logger.warning(
+                f"Could not find observations of metric {lookup_metric} for the "
+                f"status quo {status_quo_observations[0].arm_name} in the training "
+                "data. `Adapter.status_quo` will not be set."
+            )
+            return
+        partial_obs.append(
+            max(
+                obs_w_lookup_metric,
+                key=lambda obs: obs.features.metadata[map_key],
+            )
+        )
+    # Combine into a single Observation object.
+    return Observation(
+        features=ObservationFeatures(
+            parameters=partial_obs[0].features.parameters,
+            trial_index=partial_obs[0].features.trial_index,
+            # NOTE: omitting the metadata since it can be different in each obs.
+        ),
+        data=ObservationData(
+            metric_names=sum((obs.data.metric_names for obs in partial_obs), []),
+            means=np.concatenate([obs.data.means for obs in partial_obs], axis=0),
+            covariance=np.diag(
+                np.concatenate(
+                    [np.diag(obs.data.covariance) for obs in partial_obs], axis=0
+                )
+            ),
+        ),
+        arm_name=partial_obs[0].arm_name,
+    )
