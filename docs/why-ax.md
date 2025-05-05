@@ -27,22 +27,24 @@ of applications.
 
 # Unique capabilities
 
-- Ax has an expressive API that can address many real-world optimization tasks.
-  It handles complex search sapces, multiple objectives, constraints on both
-  parameters and outcomes, and noisy observations. It supports suggesting
-  multiple designs to evaluate in parallel (both syncronously and
-  asynchronously) and the ability to early-stop evaluations.
+- **Expressive API**: Ax has an expressive API that can address many real-world
+  optimization tasks. It handles complex search spaces, multiple objectives,
+  constraints on both parameters and outcomes, and noisy observations. It
+  supports suggesting multiple designs to evaluate in parallel (both
+  synchronously and asynchronously) and the ability to early-stop evaluations.
 
-- Ax abstracts away optimization details that are important but obscure,
-  providing sensible defaults and enabling practitioners to leverage advanced
-  techniques otherwise only accessible to optimization experts.
+- **Strong performance out of the box**: Ax abstracts away optimization details
+  that are important but obscure, providing sensible defaults and enabling
+  practitioners to leverage advanced techniques otherwise only accessible to
+  optimization experts.
 
-- Ax leverages state-of-the-art [Bayesian optimization](./intro-to-bo)
-  algorithms implemented in [BoTorch](https://botorch.org/), to deliver strong
-  performance across a variety of problem classes.
+- **State-of-the-art methods**: Ax leverages state-of-the-art
+  [Bayesian optimization](./intro-to-bo) algorithms implemented in
+  [BoTorch](https://botorch.org/), to deliver strong performance across a
+  variety of problem classes.
 
-- Ax is highly configurable, allowing researchers to plug in novel optimization
-  algorithms, models, and experimentation flows.
+- **Flexible:** Ax is highly configurable, allowing researchers to plug in novel
+  optimization algorithms, models, and experimentation flows.
 
-- Ax is production-ready, offering automation and orchestration features, as
-  well as robust error handling for real-world deployment at scale.
+- **Production ready:** Ax offers automation and orchestration features as well
+  as robust error handling for real-world deployment at scale.
