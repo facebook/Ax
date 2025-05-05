@@ -66,7 +66,7 @@ const Feature = ({imageUrl, title, content, image}) => {
 };
 
 const codeExample = `
->>> from ax import *
+>>> from ax import Client, ExperimentConfig, RangeParameterConfig, ParameterType
 
 >>> client = Client()
 >>> client.configure_experiment(
