@@ -110,4 +110,4 @@ client = Client(
 
 Take a look at these other recipes to continue your learning:
 
-- [Saving and Loading an Ax Experiment to JSON](../recipes/experiment-to-json)
+- [Saving and Loading an Ax Experiment to JSON](../recipes/experiment-to-json.md)

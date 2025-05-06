@@ -21,7 +21,7 @@ manually attach a trial with a custom parameterization to our experiment.
 
 ## Prerequisites
 
-We will assume you are familiar with [basic Ax usage](../tutorials/getting_started)
+We will assume you are familiar with [basic Ax usage](../tutorials/getting_started/index.mdx)
 already.
 
 ## Setup
@@ -83,4 +83,4 @@ for paramters, raw_data in my_data.items():
 
 Take a look at these other recipes to continue your learning:
 
-- [Attaching a custom parameterization to your experiment](../recipes/attach-trial)
+- [Attaching a custom parameterization to your experiment](../recipes/attach-trial.md)
