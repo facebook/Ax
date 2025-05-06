@@ -1,27 +1,33 @@
 {
-    "Using Ax": [
-      {"id": "quickstart", "title": "Quickstart"},
-      {
-        "id": "getting_started",
-        "title": "Getting Started with Ax"
-      },
-      {
-        "id": "automating",
-        "title": "Automating Orchestration"
-      },
-      {
-        "id": "early_stopping",
-        "title": "Trial-level Early Stopping"
-      }
-    ],
-    "Applications and Examples": [
-      {
-        "id": "sklearn",
-        "title": "Ax for AutoML with scikit-learn"
-      },
-      {
-        "id": "materials_science",
-        "title": "Ax for Materials Science"
-      }
-    ]
-  }
+  "Using Ax": [
+    {"id": "quickstart", "title": "Quickstart"},
+    {
+      "id": "getting_started",
+      "title": "Getting Started with Ax"
+    },
+    {
+      "id": "automating",
+      "title": "Automating Orchestration"
+    },
+    {
+      "id": "early_stopping",
+      "title": "Trial-level Early Stopping"
+    }
+  ],
+  "Applications and Examples": [
+    {
+      "id": "sklearn",
+      "title": "Ax for AutoML with scikit-learn"
+    },
+    {
+      "id": "materials_science",
+      "title": "Ax for Materials Science"
+    }
+  ],
+  "Extending Ax (non-API)": [
+    {
+      "id": "modular_botorch",
+      "title": "Using custom generators via Modular BoTorch Interface"
+    }
+  ]
+}
