@@ -136,7 +136,7 @@ obeying the constraints (which in this case means `l2norm < 1.25`).
 
 Note: we are using `Hartmann6Metric` and `L2NormMetric` here, which have built in
 evaluation functions for testing. For creating your own cutom metrics, see
-[8. Defining custom metrics](/docs/tutorials/gpei_hartmann_developer/#8-defining-custom-metrics).
+[8. Defining custom metrics](/tutorials/gpei_hartmann_developer/index.mdx#8-defining-custom-metrics).
 
 ```python
 param_names = [f"x{i}" for i in range(6)]
@@ -381,9 +381,9 @@ trial_data.df
 
 The below call to `exp.fetch_data()` also attaches data to the last trial, which because
 of the way we looped through Botorch trials in
-[5. Perform Optimization](/docs/tutorials/gpei_hartmann_developer/#5-perform-optimization),
+[5. Perform Optimization](/tutorials/gpei_hartmann_developer/index.mdx#5-perform-optimization),
 would otherwise not have data attached. This is necessary to get `objective_means` in
-[7. Plot results](/docs/tutorials/gpei_hartmann_developer/#7-plot-results).
+[7. Plot results](/tutorials/gpei_hartmann_developer/index.mdx#7-plot-results).
 
 ```python
 exp.fetch_data().df
@@ -474,7 +474,7 @@ dataframe.
 
 The `is_available_while_running` method is optional and returns a boolean, specifying
 whether the trial data can be fetched before the trial is complete. See
-[6. Inspect trials' data](/docs/tutorials/gpei_hartmann_developer/#6-inspect-trials-data)
+[6. Inspect trials' data](/tutorials/gpei_hartmann_developer/index.mdx#6-inspect-trials-data)
 for more details.
 
 ```python
@@ -582,4 +582,3 @@ load_experiment(exp.name, config=sqa_config)
 ```python
 
 ```
-

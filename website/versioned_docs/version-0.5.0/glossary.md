@@ -21,7 +21,7 @@ Sequential optimization strategy for finding an optimal [arm](glossary.md#arm) i
 
 ### Evaluation function
 
-Function that takes a parameterization and an optional weight as input and outputs a set of metric evaluations ([more details](/docs/trial-evaluation#evaluating-trial-parameters)). Used in the [Loop API](api.md).
+Function that takes a parameterization and an optional weight as input and outputs a set of metric evaluations ([more details](/trial-evaluation.md#evaluating-trial-parameters)). Used in the [Loop API](api.md).
 
 ### Experiment
 
@@ -29,7 +29,7 @@ Object that keeps track of the whole optimization process. Contains a [search sp
 
 ### Generation strategy
 
-Abstraction that allows to declaratively specify one or multiple models to use in the course of the optimization and automate transition between them (relevant [tutorial](/docs/tutorials/scheduler)). [`[GenerationStrategy]`](https://ax.readthedocs.io/en/0.5.0/modelbridge.html#module-ax.modelbridge.generation_strategy)
+Abstraction that allows to declaratively specify one or multiple models to use in the course of the optimization and automate transition between them (relevant [tutorial](/tutorials/scheduler/index.mdx)). [`[GenerationStrategy]`](https://ax.readthedocs.io/en/0.5.0/modelbridge.html#module-ax.modelbridge.generation_strategy)
 
 ### Generator run
 
@@ -53,7 +53,7 @@ The [metric](glossary.md#metric) to be optimized, with an optimization direction
 
 ### Optimization config
 
-Contains information necessary to run an optimization, i.e. [objective](glossary.md#objective) and [outcome constraints](/docs/glossary#outcome-constraint). [`[OptimizationConfig]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.optimization_config)
+Contains information necessary to run an optimization, i.e. [objective](/glossary.md#objective) and [outcome constraints](/glossary.md#outcome-constraint). [`[OptimizationConfig]`](https://ax.readthedocs.io/en/0.5.0/core.html#module-ax.core.optimization_config)
 
 ### Outcome constraint
 
@@ -78,7 +78,7 @@ Dispatch abstraction that defines how a given [trial](glossary.md#trial) is to b
 ### Scheduler
 
 Configurable closed-loop optimization manager class, capable of conducting a full experiment by deploying trials, polling their results, and leveraging those results to generate and deploy more
-trials (relevant [tutorial](/docs/tutorials/scheduler)). [`[Scheduler]`](https://ax.readthedocs.io/en/0.5.0/service.html#module-ax.service.scheduler)
+trials (relevant [tutorial](/tutorials/scheduler/index.mdx)). [`[Scheduler]`](https://ax.readthedocs.io/en/0.5.0/service.html#module-ax.service.scheduler)
 
 ### Search space
 

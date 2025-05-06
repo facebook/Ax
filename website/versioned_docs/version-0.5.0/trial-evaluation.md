@@ -4,7 +4,7 @@ title: Trial Evaluation
 ---
 There are 3 paradigms for evaluating [trials](glossary.md#trial) in Ax. Note:
 ensure that you are using the
-[appropriate type of trials](/docs/core#trial-vs-batch-trial) for your
+[appropriate type of trials](/core.md#trial-vs-batch-trial) for your
 experiment, before proceeding to trial evaluation.
 
 ## [RECOMMENDED] Service API
