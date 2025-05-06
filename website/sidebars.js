@@ -43,7 +43,7 @@ export default {
       type: 'category',
       label: 'Extending Ax',
       collapsed: false,
-      items: ['analyses', 'experiment'],
+      items: ['analyses', 'experiment', 'orchestration'],
     },
     {
       type: 'category',
