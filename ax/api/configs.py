@@ -7,33 +7,10 @@
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from ax.api.types import TParameterValue
 from ax.storage.registry_bundle import RegistryBundleBase
-
-
-class ParameterType(Enum):
-    """
-    Allows specifying the type of a parameter.
-    """
-
-    FLOAT = "float"
-    INT = "int"
-    STRING = "str"
-    BOOL = "bool"
-
-
-class ParameterScaling(Enum):
-    """
-    Allows specifying which scaling to apply during candidate generation. This is
-    useful for parameters that should not be explored on the same scale, such as
-    learning rates which benefit from logarithmic scaling.
-    """
-
-    LINEAR = "linear"
-    LOG = "log"
 
 
 @dataclass
@@ -46,9 +23,9 @@ class RangeParameterConfig:
     name: str
 
     bounds: tuple[float, float]
-    parameter_type: ParameterType
+    parameter_type: Literal["float", "int"]
     step_size: float | None = None
-    scaling: ParameterScaling | None = None
+    scaling: Literal["linear", "log"] | None = None
 
 
 @dataclass
@@ -61,7 +38,7 @@ class ChoiceParameterConfig:
 
     name: str
     values: list[float] | list[int] | list[str] | list[bool]
-    parameter_type: ParameterType
+    parameter_type: Literal["float", "int", "str", "bool"]
     is_ordered: bool | None = None
     dependent_parameters: Mapping[TParameterValue, Sequence[str]] | None = None
 
@@ -84,31 +61,6 @@ class ExperimentConfig:
     owner: str | None = None
 
 
-class GenerationMethod(Enum):
-    """An enum to specify the desired candidate generation method for the experiment.
-    This is used in ``GenerationStrategyConfig``, along with the properties of the
-    experiment, to determine the generation strategy to use for candidate generation.
-
-    NOTE: New options should be rarely added to this enum. This is not intended to be
-    a list of generation strategies for the user to choose from. Instead, this enum
-    should only provide high level guidance to the underlying generation strategy
-    dispatch logic, which is responsible for determinining the exact details.
-
-    Available options are:
-        BALANCED: A balanced generation method that may utilize (per-metric) model
-            selection to achieve a good model accuracy. This method excludes expensive
-            methods, such as the fully Bayesian SAASBO model. Used by default.
-        FAST: A faster generation method that uses the built-in defaults from the
-            Modular BoTorch Model without any model selection.
-        RANDOM_SEARCH: Primarily intended for pure exploration experiments, this
-            method utilizes quasi-random Sobol sequences for candidate generation.
-    """
-
-    BALANCED = "balanced"
-    FAST = "fast"
-    RANDOM_SEARCH = "random_search"
-
-
 @dataclass
 class GenerationStrategyConfig:
     """
@@ -117,7 +69,17 @@ class GenerationStrategyConfig:
     ``GenerationStrategy`` to use for candidate generation.
 
     Args:
-        method: The generation method to use. See ``GenerationMethod`` for more details.
+        method: The generation method to use. Provides high level guidance to the
+            underlying generation strategy dispatch logic, which is responsible for
+            determinining the exact details. Available options are:
+                - ``"balanced"``, a balanced generation method that may utilize
+                    (per-metric) model selection to achieve a good model accuracy.
+                - ``"fast"``, a faster generation method that uses the built-in
+                    defaults from the Modular BoTorch Model without any model
+                    selection.
+                - ``"random_search"``, primarily intended for pure exploration
+                    experiments, this method utilizes quasi-random Sobol sequences
+                    for candidate generation.
         initialization_budget: The number of trials to use for initialization.
             If ``None``, a default budget of 5 trials is used.
         initialization_random_seed: The random seed to use with the Sobol generator
@@ -149,7 +111,7 @@ class GenerationStrategyConfig:
             input corresponds to a valid device.
     """
 
-    method: GenerationMethod = GenerationMethod.FAST
+    method: Literal["balanced", "fast", "random_search"] = "fast"
     # Initialization options
     initialization_budget: int | None = None
     initialization_random_seed: int | None = None

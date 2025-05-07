@@ -10,7 +10,7 @@ from ax.analysis.plotly.arm_effects.unified import (
     compute_arm_effects_adhoc,
 )
 from ax.api.client import Client
-from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
+from ax.api.configs import ExperimentConfig, RangeParameterConfig
 from ax.core.arm import Arm
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
@@ -39,12 +39,12 @@ class TestArmEffectsPlot(TestCase):
                 parameters=[
                     RangeParameterConfig(
                         name="x1",
-                        parameter_type=ParameterType.FLOAT,
+                        parameter_type="float",
                         bounds=(0, 1),
                     ),
                     RangeParameterConfig(
                         name="x2",
-                        parameter_type=ParameterType.FLOAT,
+                        parameter_type="float",
                         bounds=(0, 1),
                     ),
                 ],

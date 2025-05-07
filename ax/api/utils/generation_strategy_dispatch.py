@@ -8,7 +8,7 @@
 
 
 import torch
-from ax.api.configs import GenerationMethod, GenerationStrategyConfig
+from ax.api.configs import GenerationStrategyConfig
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
@@ -101,9 +101,9 @@ def _get_mbm_node(
     - FAST: An empty model config that utilizes MBM defaults.
     """
     # Construct the surrogate spec.
-    if gs_config.method == GenerationMethod.FAST:
+    if gs_config.method == "fast":
         model_configs = [ModelConfig(name="MBM defaults")]
-    elif gs_config.method == GenerationMethod.BALANCED:
+    elif gs_config.method == "balanced":
         model_configs = [
             ModelConfig(name="MBM defaults"),
             ModelConfig(
@@ -151,7 +151,7 @@ def choose_generation_strategy(
         A generation strategy.
     """
     # Handle the random search case.
-    if gs_config.method == GenerationMethod.RANDOM_SEARCH:
+    if gs_config.method == "random_search":
         nodes = [
             GenerationNode(
                 node_name="Sobol",
@@ -169,7 +169,7 @@ def choose_generation_strategy(
             _get_sobol_node(gs_config=gs_config),
             _get_mbm_node(gs_config=gs_config),
         ]
-        gs_name = f"Sobol+MBM:{gs_config.method.value}"
+        gs_name = f"Sobol+MBM:{gs_config.method}"
     if gs_config.initialize_with_center:
         center_node = CenterGenerationNode(next_node_name=nodes[0].node_name)
         nodes.insert(0, center_node)
