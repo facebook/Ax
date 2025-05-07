@@ -7,23 +7,25 @@
 # pyre-strict
 
 import copy
-import random
 from unittest import mock
 from unittest.mock import MagicMock, patch, PropertyMock
+
+import numpy as np
 
 import pandas as pd
 import torch
 from ax.core.arm import Arm
-from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.objective import ScalarizedObjective
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import DataRequiredError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Generators
@@ -34,10 +36,13 @@ from ax.service.utils.best_point import (
     _derel_opt_config_wrapper,
     _extract_best_arm_from_gr,
     _is_row_feasible,
-    extract_Y_from_data,
+    derelativize_opt_config,
     get_best_by_raw_objective_with_trial_index,
     get_best_parameters_from_model_predictions_with_trial_index,
     get_best_raw_objective_point_with_trial_index,
+    get_hypervolume_trace_of_outcomes_multi_objective,
+    get_trace_by_arm_pull_from_data,
+    get_values_of_outcomes_single_or_scalarized_objective,
     logger as best_point_logger,
 )
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
@@ -49,18 +54,222 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_experiment_with_map_data,
     get_experiment_with_observations,
-    get_sobol,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
-best_point_module: str = _derel_opt_config_wrapper.__module__
+best_point_module: str = get_best_by_raw_objective_with_trial_index.__module__
 DUMMY_OPTIMIZATION_CONFIG = "test_optimization_config"
 
 
 class TestBestPointUtils(TestCase):
     """Testing the best point utilities functionality that is not tested in
     main `AxClient` testing suite (`TestServiceAPI`)."""
+
+    def test_get_values_of_outcomes_single_or_scalarized_objective(self) -> None:
+        m1_value = 37
+        m2_value = 49
+        df = pd.DataFrame.from_records(
+            [
+                {"m1": m1_value, "m2": m2_value, "irrelevant": 4, "feasible": True},
+                {"m1": 2, "m2": 3, "irrelevant": 4, "feasible": False},
+            ]
+        )
+        metrics = [Metric(name="m1"), Metric(name="m2")]
+        with self.subTest("MultiObjective not supported"):
+            objective = MultiObjective(
+                objectives=[Objective(metric=m, minimize=False) for m in metrics],
+            )
+            with self.assertRaisesRegex(ValueError, "MultiObjective is not supported"):
+                get_values_of_outcomes_single_or_scalarized_objective(
+                    df_wide=df, objective=objective
+                )
+
+        for minimize in [False, True]:
+            objective = Objective(
+                metric=Metric(name="m1", lower_is_better=minimize), minimize=minimize
+            )
+            worst = float("inf") if minimize else float("-inf")
+            with self.subTest(f"Single objective, minimize={minimize}"):
+                value = get_values_of_outcomes_single_or_scalarized_objective(
+                    df_wide=df, objective=objective
+                )
+                self.assertIsInstance(value, np.ndarray)
+                self.assertEqual(value.tolist(), [m1_value, worst])
+
+            objective = ScalarizedObjective(
+                metrics=metrics, weights=[0.4, 0.6], minimize=minimize
+            )
+
+            with self.subTest(f"ScalarizedObjective, {minimize=}"):
+                value = get_values_of_outcomes_single_or_scalarized_objective(
+                    df_wide=df, objective=objective
+                )
+                self.assertEqual(len(value), 2)
+                self.assertAlmostEqual(value[0], 0.4 * m1_value + 0.6 * m2_value)
+                self.assertEqual(value[1], worst)
+
+            objective = ScalarizedObjective(
+                metrics=metrics, weights=[0.4, -0.6], minimize=minimize
+            )
+            with self.subTest(
+                f"ScalarizedObjective, {minimize=}, maximize other metric"
+            ):
+                value = get_values_of_outcomes_single_or_scalarized_objective(
+                    df_wide=df, objective=objective
+                )
+                self.assertEqual(len(value), 2)
+                self.assertEqual(value[0], 0.4 * m1_value - 0.6 * m2_value)
+                self.assertEqual(value[1], worst)
+
+    def test_get_hypervolume_trace_of_outcomes_multi_objective(self) -> None:
+        objective = MultiObjective(
+            objectives=[
+                Objective(metric=Metric("m1"), minimize=False),
+                Objective(metric=Metric("m2"), minimize=False),
+            ],
+        )
+        # Objective thresholds will be inferred to be [1, 1]
+        df_wide = pd.DataFrame.from_records(
+            [
+                {"m1": 1.0, "m2": 1.0, "feasible": True},
+                {"m1": 2.0, "m2": 3.0, "feasible": True},
+                {"m1": 4.0, "m2": 4.0, "feasible": False},
+                {"m1": 3.0, "m2": 2.0, "feasible": True},
+            ]
+        )
+        with self.subTest("Relative objective thresholds not supported"):
+            optimization_config = MultiObjectiveOptimizationConfig(
+                objective=objective,
+                objective_thresholds=[
+                    ObjectiveThreshold(
+                        metric=Metric("m1"),
+                        bound=1.0,
+                        relative=True,
+                        op=ComparisonOp.GEQ,
+                    )
+                ],
+            )
+            with self.assertRaisesRegex(
+                ValueError, "Relative objective thresholds are not supported"
+            ):
+                get_hypervolume_trace_of_outcomes_multi_objective(
+                    df_wide=df_wide,
+                    optimization_config=optimization_config,
+                    use_cumulative_hv=True,
+                )
+
+        optimization_config = MultiObjectiveOptimizationConfig(
+            objective=objective,
+        )
+        with self.subTest("Cumulative HV"):
+            hvs = get_hypervolume_trace_of_outcomes_multi_objective(
+                df_wide=df_wide,
+                optimization_config=optimization_config,
+                use_cumulative_hv=True,
+            )
+            self.assertEqual(hvs, [0.0, 2.0, 2.0, 3.0])
+
+        with self.subTest("Non-cumulative HV"):
+            hvs = get_hypervolume_trace_of_outcomes_multi_objective(
+                df_wide=df_wide,
+                optimization_config=optimization_config,
+                use_cumulative_hv=False,
+            )
+            self.assertEqual(hvs, [0.0, 2.0, 0.0, 2.0])
+
+    def test_get_trace_by_arm_pull_from_data(self) -> None:
+        df = pd.DataFrame.from_records(
+            data=[
+                {"trial_index": 0, "arm_name": "0_0", "metric_name": "m1", "mean": 1.0},
+                {"trial_index": 0, "arm_name": "0_0", "metric_name": "m2", "mean": 1.0},
+                # infeasible
+                {"trial_index": 0, "arm_name": "0_1", "metric_name": "m1", "mean": 2.0},
+                {
+                    "trial_index": 0,
+                    "arm_name": "0_1",
+                    "metric_name": "m2",
+                    "mean": -1.0,
+                },
+                {
+                    "trial_index": 1,
+                    "arm_name": "0_0",
+                    "metric_name": "extraneous",
+                    "mean": 4.0,
+                },
+                {"trial_index": 1, "arm_name": "0_0", "metric_name": "m1", "mean": 3.0},
+                {"trial_index": 1, "arm_name": "0_0", "metric_name": "m2", "mean": 0.0},
+            ]
+        ).assign(sem=None)
+
+        objective = Objective(metric=Metric("m1"), minimize=False)
+        with self.subTest("Relative optimization config not supported"):
+            optimization_config = OptimizationConfig(
+                objective=objective,
+                outcome_constraints=[
+                    OutcomeConstraint(
+                        metric=Metric("m2"),
+                        op=ComparisonOp.GEQ,
+                        bound=0.0,
+                        relative=True,
+                    )
+                ],
+            )
+            with self.assertRaisesRegex(
+                ValueError, "Relativized optimization config not supported"
+            ):
+                get_trace_by_arm_pull_from_data(
+                    df=df, optimization_config=optimization_config
+                )
+
+        optimzation_config = OptimizationConfig(
+            objective=objective,
+            outcome_constraints=[
+                OutcomeConstraint(
+                    Metric("m2"), op=ComparisonOp.GEQ, bound=0.0, relative=False
+                )
+            ],
+        )
+        with self.subTest("Single objective, cumulative"):
+            result = get_trace_by_arm_pull_from_data(
+                df=df, optimization_config=optimzation_config, use_cumulative_best=True
+            )
+            self.assertEqual(len(result), 3)
+            self.assertEqual(set(result.columns), {"trial_index", "arm_name", "value"})
+            self.assertEqual(result["value"].tolist(), [1.0, 1.0, 3.0])
+
+        with self.subTest("Single objective, non-cumulative"):
+            result = get_trace_by_arm_pull_from_data(
+                df=df, optimization_config=optimzation_config, use_cumulative_best=False
+            )
+            self.assertEqual(len(result), 3)
+            self.assertEqual(set(result.columns), {"trial_index", "arm_name", "value"})
+            self.assertEqual(result["value"].tolist(), [1.0, float("-inf"), 3.0])
+
+        moo_opt_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=Metric("m1"), minimize=False),
+                    Objective(metric=Metric("m2"), minimize=False),
+                ],
+            ),
+        )
+        # reference point inferred to be [1, 0]
+        with self.subTest("Multi-objective, cumulative"):
+            result = get_trace_by_arm_pull_from_data(
+                df=df, optimization_config=moo_opt_config, use_cumulative_best=True
+            )
+            self.assertEqual(len(result), 3)
+            self.assertEqual(set(result.columns), {"trial_index", "arm_name", "value"})
+            self.assertEqual(result["value"].tolist(), [0.0, 0.0, 2.0])
+
+        with self.subTest("Multi-objective, non-cumulative"):
+            result = get_trace_by_arm_pull_from_data(
+                df=df, optimization_config=moo_opt_config, use_cumulative_best=False
+            )
+            self.assertEqual(len(result), 3)
+            self.assertEqual(set(result.columns), {"trial_index", "arm_name", "value"})
+            self.assertEqual(result["value"].tolist(), [0.0, 0.0, 2.0])
 
     @mock_botorch_optimize
     def test_best_from_model_prediction(self) -> None:
@@ -409,136 +618,85 @@ class TestBestPointUtils(TestCase):
             observations=test_observations_1,
         )
 
-    def test_extract_Y_from_data(self) -> None:
-        experiment = get_branin_experiment()
-        sobol_generator = get_sobol(search_space=experiment.search_space)
-        for i in range(20):
-            sobol_run = sobol_generator.gen(n=1)
-            trial = experiment.new_trial(generator_run=sobol_run).mark_running(
-                no_runner_required=True
+    def test_derelativize_opt_config(self) -> None:
+        # No change to optimization config without relative constraints/thresholds.
+        observations = [[-1, 1, 1], [1, 2, 1], [3, -2, -1], [2, 4, 1], [2, 0, 1]]
+        exp = get_experiment_with_observations(
+            observations=observations, constrained=True
+        )
+        input_optimization_config = none_throws(exp.optimization_config)
+        with self.subTest("No relative constraints"):
+            returned_opt_config = derelativize_opt_config(
+                optimization_config=input_optimization_config,
+                experiment=exp,
             )
-            if i in [3, 8, 10]:
-                trial.mark_early_stopped(unsafe=True)
-            else:
-                trial.mark_completed()
+            self.assertEqual(input_optimization_config, returned_opt_config)
 
-        df_dicts = []
-        for trial_idx in range(20):
-            for metric_name in ["foo", "bar"]:
-                df_dicts.append(
-                    {
-                        "trial_index": trial_idx,
-                        "metric_name": metric_name,
-                        "arm_name": f"{trial_idx}_0",
-                        "mean": (
-                            float(trial_idx)
-                            if metric_name == "foo"
-                            else trial_idx + 5.0
-                        ),
-                        "sem": 0.0,
-                    }
-                )
-        experiment.attach_data(Data(df=pd.DataFrame.from_records(df_dicts)))
+        with self.subTest("Provided opt config overrides experiment opt config"):
+            opt_config = input_optimization_config.clone_with_args(
+                outcome_constraints=[]
+            )
+            returned_opt_config = derelativize_opt_config(
+                optimization_config=opt_config,
+                experiment=exp,
+            )
+            self.assertEqual(opt_config, returned_opt_config)
+            self.assertNotEqual(opt_config, exp.optimization_config)
 
-        expected_Y = torch.stack(
-            [
-                torch.arange(20, dtype=torch.double),
-                torch.arange(5, 25, dtype=torch.double),
-            ],
-            dim=-1,
-        )
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment,
-            metric_names=["foo", "bar"],
-        )
-        expected_trial_indices = torch.arange(20)
-        self.assertTrue(torch.allclose(Y, expected_Y))
-        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
-        # Check that it respects ordering of metric names.
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment,
-            metric_names=["bar", "foo"],
-        )
-        self.assertTrue(torch.allclose(Y, expected_Y[:, [1, 0]]))
-        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
-        # Extract partial metrics.
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment, metric_names=["bar"]
-        )
-        self.assertTrue(torch.allclose(Y, expected_Y[:, [1]]))
-        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
-        # Works with messed up ordering of data.
-        clone_dicts = df_dicts.copy()
-        random.shuffle(clone_dicts)
-        experiment._data_by_trial = {}
-        experiment.attach_data(Data(df=pd.DataFrame.from_records(clone_dicts)))
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment,
-            metric_names=["foo", "bar"],
-        )
-        self.assertTrue(torch.allclose(Y, expected_Y))
-        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
+        # Add relative constraints.
+        for constraint in input_optimization_config.all_constraints:
+            constraint.relative = True
 
-        # Check that it skips trials that are not completed.
-        experiment.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        experiment.trials[1].mark_abandoned(unsafe=True)
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment,
-            metric_names=["foo", "bar"],
-        )
-        self.assertTrue(torch.allclose(Y, expected_Y[2:]))
-        self.assertTrue(torch.equal(trial_indices, expected_trial_indices[2:]))
-
-        # Error with missing data.
-        with self.assertRaisesRegex(
-            UserInputError, "Trial 2 is missing data on metrics {'foo'}."
+        # Check errors.
+        with self.subTest("No fit with status quo"), self.assertRaisesRegex(
+            DataRequiredError,
+            "Optimization config has relative constraint, but model was not fit"
+            " with status quo.",
         ):
-            # Skipping first 5 data points since first two trials are not completed.
-
-            extract_Y_from_data(
-                experiment=experiment,
-                metric_names=["foo", "bar"],
-                data=Data(df=pd.DataFrame.from_records(df_dicts[5:])),
+            derelativize_opt_config(
+                optimization_config=input_optimization_config, experiment=exp
             )
 
-        # Error with extra data.
-        with self.assertRaisesRegex(
-            UserInputError, "Trial data has more than one row per arm, metric pair. "
-        ):
-            # Skipping first 5 data points since first two trials are not completed.
-            base_df = pd.DataFrame.from_records(df_dicts[5:])
-            extract_Y_from_data(
-                experiment=experiment,
-                metric_names=["foo", "bar"],
-                data=Data(df=pd.concat((base_df, base_df))),
+        status_quo_trial_index = 2
+        exp.status_quo = exp.trials[status_quo_trial_index].arms[0]
+        with self.subTest("Relative constraints and status quo"):
+            relativized_opt_config = assert_is_instance(
+                derelativize_opt_config(
+                    optimization_config=input_optimization_config, experiment=exp
+                ),
+                MultiObjectiveOptimizationConfig,
             )
+            relativized_obj = assert_is_instance(
+                relativized_opt_config.objective, MultiObjective
+            )
+            input_obj = assert_is_instance(
+                input_optimization_config.objective, MultiObjective
+            )
+            status_quo_df = exp.lookup_data_for_trial(
+                trial_index=status_quo_trial_index
+            )[0].df
+            # This is not a real test of `derelativize_opt_config` but rather
+            # making sure the values on the experiment have't drifted
+            self.assertEqual(status_quo_df["metric_name"].tolist(), ["m1", "m2", "m3"])
+            self.assertEqual(status_quo_df["mean"].tolist(), [3.0, -2.0, -1.0])
 
-        # Check that it works with BatchTrial.
-        experiment = get_branin_experiment()
-        batch_trial = BatchTrial(experiment=experiment, index=0)
-        batch_trial.add_arm(Arm(name="0_0", parameters={"x1": 0.0, "x2": 0.0}))
-        batch_trial.add_arm(Arm(name="0_1", parameters={"x1": 1.0, "x2": 0.0}))
-        batch_trial.mark_running(no_runner_required=True).mark_completed()
-        df_dicts_batch = []
-        for i in (0, 1):
-            for metric_name in ["foo", "bar"]:
-                df_dicts_batch.append(
-                    {
-                        "trial_index": 0,
-                        "metric_name": metric_name,
-                        "arm_name": f"0_{i}",
-                        "mean": float(i) if metric_name == "foo" else i + 5.0,
-                        "sem": 0.0,
-                    }
+            status_quo_obs = observations[status_quo_trial_index]
+            for i in range(2):
+                # Relativization is with respect to the absolute value of the
+                # status quo value
+                self.assertEqual(
+                    relativized_obj.objectives[i].minimize,
+                    input_obj.objectives[i].minimize,
                 )
-        batch_df = pd.DataFrame.from_records(df_dicts_batch)
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment,
-            metric_names=["foo", "bar"],
-            data=Data(df=batch_df),
-        )
-        self.assertTrue(torch.allclose(Y, expected_Y[:2]))
-        self.assertTrue(torch.equal(trial_indices, torch.zeros(2, dtype=torch.long)))
+                self.assertEqual(
+                    relativized_opt_config.objective_thresholds[i].bound,
+                    status_quo_obs[i],
+                )
+
+            self.assertEqual(
+                relativized_opt_config.outcome_constraints[0].bound,
+                observations[status_quo_trial_index][2],
+            )
 
     def test_is_row_feasible(self) -> None:
         exp = get_experiment_with_observations(
