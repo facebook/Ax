@@ -36,6 +36,7 @@ class ThompsonSampler(DiscreteGenerator):
         num_samples: int = 10000,
         min_weight: float | None = None,
         uniform_weights: bool = False,
+        topk: int = 1,
     ) -> None:
         """
         Args:
@@ -45,10 +46,26 @@ class ThompsonSampler(DiscreteGenerator):
                 specified, will be set to 2 / (number of arms).
             uniform_weights: If True, the arms returned from the
                 generator will each be given a weight of 1 / (number of arms).
+            topk : Number of “top” arms to count in each posterior sample when
+                estimating selection probabilities.
+
+                - `topk=1` yields standard Thompson sampling: each draw
+                contributes 1 count to only the single best arm.
+                - `topk=2` approximates the top-two Thompson sampling (TTTS)
+                batch strategy with mixing parameter beta=0.5, by counting both
+                the best and runner-up in each draw and then normalizing.
+                - More generally, `topk=k` counts the k highest-valued arms per
+                draw and divides by k, which corresponds to an implicit
+                assumption that we mix equally across the first through
+                k-th best positions. Implicit assumption is beta=1/k.
+
+                See Russo (2016) "Simple Bayesian Algorithms for Best Arm
+                Identification" for details on TTTS.
         """
         self.num_samples = num_samples
         self.min_weight = min_weight
         self.uniform_weights = uniform_weights
+        self.topk = topk
 
         self.X: Sequence[Sequence[TParamValue]] | None = None
         self.Ys: Sequence[Sequence[float]] | None = None
@@ -197,10 +214,13 @@ class ThompsonSampler(DiscreteGenerator):
             samples = np.concatenate([samples, new_samples], axis=1)
             num_valid_samples = samples.shape[1]
 
-        winner_indices = np.argmax(samples, axis=0)  # (num_samples,)
         winner_counts = np.zeros(len(none_throws(self.X)))  # (k,)
-        for index in winner_indices:
-            winner_counts[index] += 1
+        # sort each sample, take top k, and count
+        sorted_idxs = np.argsort(samples, axis=0)  # shape (num_arms, samples)
+        topk_idxs = sorted_idxs[-self.topk :, :]  # shape (topk, samples)
+        winner_arms, counts = np.unique(topk_idxs.flatten(), return_counts=True)
+        winner_counts[winner_arms] = counts
+
         weights = winner_counts / winner_counts.sum()
         return weights.tolist()
 
@@ -269,6 +289,11 @@ class ThompsonSampler(DiscreteGenerator):
             raise ValueError(
                 "ThompsonSampler requires all rows of X to be unique; "
                 "i.e. that there is only one observation per parameterization."
+            )
+
+        if getattr(self, "topk", 1) > len(X):
+            raise ModelError(
+                f"ThompsonSampler `topk={self.topk}` exceeds number of arms ({len(X)})"
             )
 
     def _fit_X(
