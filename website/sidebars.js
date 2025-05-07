@@ -41,9 +41,9 @@ export default {
     },
     {
       type: 'category',
-      label: 'Extending Ax',
+      label: 'Internal Organization of Ax',
       collapsed: false,
-      items: ['analyses', 'experiment'],
+      items: ['analyses', 'experiment', 'orchestration'],
     },
     {
       type: 'category',
