@@ -397,6 +397,7 @@ def get_botorch_objective_and_transform(
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
     X_observed: Tensor | None = None,
     risk_measure: RiskMeasureMCObjective | None = None,
+    use_p_feasible: bool = True,
 ) -> tuple[MCAcquisitionObjective | None, PosteriorTransform | None]:
     """Constructs a BoTorch `AcquisitionObjective` object.
 
@@ -414,6 +415,8 @@ def get_botorch_objective_and_transform(
         X_observed: Observed points that are feasible and appear in the
             objective or the constraints. None if there are no such points.
         risk_measure: An optional risk measure for robust optimization.
+        use_p_feasible: If True, optimizes P(feasible) if no point is
+            feasible according to the outcome constraint model predictions.
 
     Returns:
         A two-tuple containing (optionally) an `MCAcquisitionObjective` and
@@ -443,9 +446,28 @@ def get_botorch_objective_and_transform(
         obj_tf: Callable[[Tensor, Tensor | None], Tensor] = (
             get_objective_weights_transform(objective_weights)
         )
+        con_tfs = get_outcome_constraint_transforms(outcome_constraints) or []
 
-        def objective(samples: Tensor, X: Tensor | None = None) -> Tensor:
-            return obj_tf(samples, X)
+        feas_point_found = True
+        if X_observed is not None and hasattr(model, "posterior"):
+            posterior = model.posterior(X_observed)
+            if hasattr(posterior, "mean"):
+                posterior_mean = posterior.mean  # pyre-ignore [16] Checked above
+                with torch.no_grad():
+                    mean_preds = torch.stack(
+                        [con(posterior_mean) for con in con_tfs],
+                        dim=-1,
+                    )
+                    feas_point_found = (mean_preds <= 0).all(dim=-1).any().item()
+
+        if (not feas_point_found) and use_p_feasible:
+
+            def objective(samples: Tensor, X: Tensor | None = None) -> Tensor:
+                return torch.ones_like(obj_tf(samples, X))
+        else:
+
+            def objective(samples: Tensor, X: Tensor | None = None) -> Tensor:
+                return obj_tf(samples, X)
 
         # SampleReducingMCAcquisitionFunctions take care of the constraint handling
         # directly, and the constraints get passed in the constructor of an MBM
@@ -457,7 +479,6 @@ def get_botorch_objective_and_transform(
             raise UnsupportedError(
                 "X_observed is required to construct a constrained BoTorch objective."
             )
-        con_tfs = get_outcome_constraint_transforms(outcome_constraints)
         inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
         objective = ConstrainedMCObjective(
             objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
