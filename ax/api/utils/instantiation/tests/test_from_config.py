@@ -5,12 +5,13 @@
 
 # pyre-strict
 
-from ax.api.configs import ChoiceParameterConfig, ExperimentConfig, RangeParameterConfig
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 from ax.api.utils.instantiation.from_config import (
     _parameter_type_converter,
-    experiment_from_config,
     parameter_from_config,
 )
+from ax.api.utils.instantiation.from_struct import experiment_from_struct
+from ax.api.utils.structs import ExperimentStruct
 from ax.core.experiment import Experiment
 from ax.core.formatting_utils import DataType
 from ax.core.parameter import (
@@ -205,7 +206,7 @@ class TestFromConfig(TestCase):
             values=["a", "b", "c"],
         )
 
-        experiment_config = ExperimentConfig(
+        experiment_struct = ExperimentStruct(
             name="test_experiment",
             parameters=[float_parameter, int_parameter, choice_parameter],
             parameter_constraints=["int_param <= float_param"],
@@ -215,7 +216,7 @@ class TestFromConfig(TestCase):
         )
 
         self.assertEqual(
-            experiment_from_config(config=experiment_config),
+            experiment_from_struct(struct=experiment_struct),
             Experiment(
                 search_space=SearchSpace(
                     parameters=[
@@ -263,16 +264,17 @@ class TestFromConfig(TestCase):
             },
         )
 
-        hss_config = ExperimentConfig(
-            name="test_experiment",
+        hss_struct = ExperimentStruct(
             parameters=[float_parameter, int_parameter, root_parameter],
             parameter_constraints=["int_param <= float_param"],
+            name="test_experiment",
             description="test description",
+            experiment_type=None,
             owner="miles",
         )
 
         self.assertEqual(
-            experiment_from_config(config=hss_config),
+            experiment_from_struct(struct=hss_struct),
             Experiment(
                 search_space=HierarchicalSearchSpace(
                     parameters=[

@@ -10,8 +10,8 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
-from ax.api.configs import GenerationStrategyConfig
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
+from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -202,7 +202,7 @@ def get_generation_strategy(
 def get_default_generation_strategy_at_MBM_node(
     experiment: Experiment,
 ) -> GenerationStrategy:
-    gs = choose_generation_strategy(gs_config=GenerationStrategyConfig())
+    gs = choose_generation_strategy(struct=GenerationStrategyDispatchStruct())
 
     gs._experiment = experiment
 

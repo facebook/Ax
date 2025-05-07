@@ -7,12 +7,8 @@
 
 
 import numpy as np
-from ax.api.configs import ChoiceParameterConfig, ExperimentConfig, RangeParameterConfig
-from ax.api.utils.instantiation.from_string import parse_parameter_constraint
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 
-from ax.core.experiment import Experiment
-
-from ax.core.formatting_utils import DataType
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -20,8 +16,6 @@ from ax.core.parameter import (
     ParameterType as CoreParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import validate_constraint_parameters
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 
 
@@ -89,47 +83,6 @@ def parameter_from_config(
             # List instead of immutable container type.
             dependents=config.dependent_parameters,
         )
-
-
-def experiment_from_config(config: ExperimentConfig) -> Experiment:
-    """Create an Experiment from an ExperimentConfig."""
-    parameters = [
-        parameter_from_config(config=parameter_config)
-        for parameter_config in config.parameters
-    ]
-
-    constraints = [
-        parse_parameter_constraint(constraint_str=constraint_str)
-        for constraint_str in config.parameter_constraints
-    ]
-
-    # Ensure that all ParameterConstraints are valid and acting on existing parameters
-    for constraint in constraints:
-        validate_constraint_parameters(
-            parameters=[
-                parameter
-                for parameter in parameters
-                if parameter.name in constraint.constraint_dict.keys()
-            ]
-        )
-
-    if any(p.is_hierarchical for p in parameters):
-        search_space = HierarchicalSearchSpace(
-            parameters=parameters, parameter_constraints=constraints
-        )
-    else:
-        search_space = SearchSpace(
-            parameters=parameters, parameter_constraints=constraints
-        )
-
-    return Experiment(
-        search_space=search_space,
-        name=config.name,
-        description=config.description,
-        experiment_type=config.experiment_type,
-        properties={"owners": [config.owner]},
-        default_data_type=DataType.MAP_DATA,
-    )
 
 
 def _parameter_type_converter(parameter_type: str) -> CoreParameterType:
