@@ -8,7 +8,7 @@
 import json
 from collections.abc import Sequence
 from logging import Logger
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -21,9 +21,10 @@ from ax.analysis.analysis import (  # Used as a return type
 from ax.analysis.dispatch import choose_analyses
 from ax.analysis.summary import Summary
 from ax.api.configs import (
+    ChoiceParameterConfig,
     ExperimentConfig,
     GenerationStrategyConfig,
-    OrchestrationConfig,
+    RangeParameterConfig,
     StorageConfig,
 )
 from ax.api.protocols.metric import IMetric
@@ -102,7 +103,15 @@ class Client(WithDBSettingsBase):
         self._random_seed = random_seed
 
     # -------------------- Section 1: Configure --------------------------------------
-    def configure_experiment(self, experiment_config: ExperimentConfig) -> None:
+    def configure_experiment(
+        self,
+        parameters: Sequence[RangeParameterConfig | ChoiceParameterConfig],
+        parameter_constraints: Sequence[str] | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        experiment_type: str | None = None,
+        owner: str | None = None,
+    ) -> None:
         """
         Given an ``ExperimentConfig``, construct the Ax ``Experiment`` object. Note that
         validation occurs at time of config instantiation, not at
@@ -118,6 +127,17 @@ class Client(WithDBSettingsBase):
                 "Experiment already configured. Please create a new Client if you "
                 "would like a new experiment."
             )
+
+        experiment_config = ExperimentConfig(
+            parameters=[*parameters],
+            parameter_constraints=[*parameter_constraints]
+            if parameter_constraints
+            else [],
+            name=name,
+            description=description,
+            experiment_type=experiment_type,
+            owner=owner,
+        )
 
         self._maybe_experiment = experiment_from_config(config=experiment_config)
 
@@ -159,7 +179,17 @@ class Client(WithDBSettingsBase):
         self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
     def configure_generation_strategy(
-        self, generation_strategy_config: GenerationStrategyConfig
+        self,
+        method: Literal["balanced", "fast", "random_search"] = "fast",
+        # Initialization options
+        initialization_budget: int | None = None,
+        initialization_random_seed: int | None = None,
+        initialize_with_center: bool = True,
+        use_existing_trials_for_initialization: bool = True,
+        min_observed_initialization_trials: int | None = None,
+        allow_exceeding_initialization_budget: bool = False,
+        # Misc options
+        torch_device: str | None = None,
     ) -> None:
         """
         Optional method to configure the way candidate parameterizations are generated
@@ -168,6 +198,17 @@ class Client(WithDBSettingsBase):
 
         Saves to database on completion if ``storage_config`` is present.
         """
+
+        generation_strategy_config = GenerationStrategyConfig(
+            method=method,
+            initialization_budget=initialization_budget,
+            initialization_random_seed=initialization_random_seed,
+            initialize_with_center=initialize_with_center,
+            use_existing_trials_for_initialization=use_existing_trials_for_initialization,  # noqa[E501]
+            min_observed_initialization_trials=min_observed_initialization_trials,
+            allow_exceeding_initialization_budget=allow_exceeding_initialization_budget,
+            torch_device=torch_device,
+        )
 
         generation_strategy = choose_generation_strategy(
             gs_config=generation_strategy_config
@@ -583,7 +624,13 @@ class Client(WithDBSettingsBase):
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
         )
 
-    def run_trials(self, max_trials: int, options: OrchestrationConfig) -> None:
+    def run_trials(
+        self,
+        max_trials: int,
+        parallelism: int = 1,
+        tolerated_trial_failure_rate: float = 0.5,
+        initial_seconds_between_polls: int = 1,
+    ) -> None:
         """
         Run up to max_trials trials in a loop by creating an ephemeral ``Scheduler``
         under the hood using the ``Experiment``, ``GenerationStrategy``, ``Metrics``,
@@ -597,9 +644,9 @@ class Client(WithDBSettingsBase):
             experiment=self._experiment,
             generation_strategy=self._generation_strategy_or_choose(),
             options=SchedulerOptions(
-                max_pending_trials=options.parallelism,
-                tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
-                init_seconds_between_polls=options.initial_seconds_between_polls,
+                max_pending_trials=parallelism,
+                tolerated_trial_failure_rate=tolerated_trial_failure_rate,
+                init_seconds_between_polls=initial_seconds_between_polls,
             ),
             db_settings=db_settings_from_storage_config(self._storage_config)
             if self._storage_config is not None
@@ -986,9 +1033,7 @@ class Client(WithDBSettingsBase):
         try:
             return self._generation_strategy
         except AssertionError:
-            self.configure_generation_strategy(
-                generation_strategy_config=GenerationStrategyConfig()
-            )
+            self.configure_generation_strategy()
 
             return self._generation_strategy
 
