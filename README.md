@@ -53,25 +53,22 @@ To run a simple optimization loop in Ax (using the
 artificial evaluation function):
 
 ```python
->>> from ax import Client, ExperimentConfig, RangeParameterConfig, ParameterType
+>>> from ax import Client, RangeParameterConfig
 
 >>> client = Client()
 >>> client.configure_experiment(
-    experiment_config=ExperimentConfig(
-        name="booth_function",
-        parameters=[
-            RangeParameterConfig(
-                name="x1",
-                bounds=(-10.0, 10.0),
-                parameter_type=ParameterType.FLOAT,
-            ),
-            RangeParameterConfig(
-                name="x2",
-                bounds=(-10.0, 10.0),
-                parameter_type=ParameterType.FLOAT,
-            ),
-        ],
-    )
+      parameters=[
+          RangeParameterConfig(
+              name="x1",
+              bounds=(-10.0, 10.0),
+              parameter_type=ParameterType.FLOAT,
+          ),
+          RangeParameterConfig(
+              name="x2",
+              bounds=(-10.0, 10.0),
+              parameter_type=ParameterType.FLOAT,
+          ),
+      ],
 )
 >>> client.configure_optimization(objective="-1 * booth")
 
