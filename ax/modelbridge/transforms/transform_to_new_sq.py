@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from logging import Logger
-
-from math import sqrt
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -146,50 +144,6 @@ class TransformToNewSQ(BaseRelativize):
                 or obs.features.trial_index == self.default_trial_idx
             )
         ]
-
-    def _get_relative_data(
-        self,
-        data: ObservationData,
-        status_quo_data: ObservationData,
-        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
-    ) -> ObservationData:
-        r"""
-        Transform or untransform `data` based on `status_quo_data` based on `rel_op`.
-
-        Args:
-            data: ObservationData object to relativize
-            status_quo_data: The status quo data associated with the specific trial
-                that `data` belongs to.
-            rel_op: relativize or unrelativize operator.
-            control_as_constant: if treating the control metric as constant
-
-        Returns:
-            (un)transformed ObservationData
-        """
-        L = len(data.metric_names)
-        result = ObservationData(
-            metric_names=data.metric_names,
-            # zeros are just to create the shape so values can be set by index
-            means=np.zeros(L),
-            covariance=np.zeros((L, L)),
-        )
-        for i, metric in enumerate(data.metric_names):
-            j = get_metric_index(data=status_quo_data, metric_name=metric)
-            means_t = data.means[i]
-            sems_t = sqrt(data.covariance[i][i])
-            mean_c = status_quo_data.means[j]
-            sem_c = sqrt(status_quo_data.covariance[j][j])
-            means_rel, sems_rel = self._get_rel_mean_sem(
-                means_t=means_t,
-                sems_t=sems_t,
-                mean_c=mean_c,
-                sem_c=sem_c,
-                metric=metric,
-                rel_op=rel_op,
-            )
-            result.means[i] = means_rel
-            result.covariance[i][i] = sems_rel**2
-        return result
 
     def _get_rel_mean_sem(
         self,
