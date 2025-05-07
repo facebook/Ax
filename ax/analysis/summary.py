@@ -53,7 +53,10 @@ class Summary(Analysis):
 
         return [
             self._create_analysis_card(
-                title=f"Summary for {experiment.name}",
+                title=(
+                    "Summary for "
+                    f"{experiment.name if experiment.has_name else 'Experiment'}"
+                ),
                 subtitle="High-level summary of the `Trial`-s in this `Experiment`",
                 level=AnalysisCardLevel.MID,
                 df=experiment.to_df(omit_empty_columns=self.omit_empty_columns),
