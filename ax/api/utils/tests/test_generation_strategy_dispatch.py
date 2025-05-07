@@ -10,8 +10,8 @@
 from typing import Any
 
 import torch
-from ax.api.configs import GenerationStrategyConfig
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
+from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
@@ -32,7 +32,7 @@ from pyre_extensions import assert_is_instance, none_throws
 
 class TestDispatchUtils(TestCase):
     def test_choose_gs_random_search(self) -> None:
-        config_kws_cases: dict[str, dict[str, Any]] = {
+        struct_kws_cases: dict[str, dict[str, Any]] = {
             "use_center_false": {"initialize_with_center": False},
             "use_center_true": {"initialize_with_center": True},
             "default": {},
@@ -42,13 +42,13 @@ class TestDispatchUtils(TestCase):
             "use_center_true": True,
             "default": True,
         }
-        for case, config_kws in config_kws_cases.items():
+        for case, struct_kws in struct_kws_cases.items():
             with self.subTest(case=case):
-                gs_config = GenerationStrategyConfig(
-                    method="random_search", **config_kws
+                struct = GenerationStrategyDispatchStruct(
+                    method="random_search", **struct_kws
                 )
                 use_center = use_center_cases[case]
-                gs = choose_generation_strategy(gs_config=gs_config)
+                gs = choose_generation_strategy(struct=struct)
                 self.assertEqual(len(gs._nodes), 1 + use_center)
                 if use_center:
                     self.assertIsInstance(gs._nodes[0], CenterGenerationNode)
@@ -68,7 +68,7 @@ class TestDispatchUtils(TestCase):
 
     @mock_botorch_optimize
     def test_choose_gs_fast_with_options(self) -> None:
-        gs_config = GenerationStrategyConfig(
+        struct = GenerationStrategyDispatchStruct(
             method="fast",
             initialization_budget=3,
             initialization_random_seed=0,
@@ -78,7 +78,7 @@ class TestDispatchUtils(TestCase):
             torch_device="cpu",
             initialize_with_center=True,
         )
-        gs = choose_generation_strategy(gs_config=gs_config)
+        gs = choose_generation_strategy(struct=struct)
         self.assertEqual(len(gs._nodes), 3)
         self.assertEqual(gs.name, "Center+Sobol+MBM:fast")
         # Check the center node.
@@ -148,7 +148,7 @@ class TestDispatchUtils(TestCase):
     @mock_botorch_optimize
     def test_choose_gs_balanced(self) -> None:
         gs = choose_generation_strategy(
-            gs_config=GenerationStrategyConfig(
+            struct=GenerationStrategyDispatchStruct(
                 method="balanced", initialize_with_center=False
             ),
         )
