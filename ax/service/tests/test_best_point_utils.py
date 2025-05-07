@@ -8,7 +8,7 @@
 
 import copy
 from unittest import mock
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import patch, PropertyMock
 
 import numpy as np
 
@@ -30,10 +30,8 @@ from ax.generation_strategy.dispatch_utils import choose_generation_strategy_leg
 from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Generators
 from ax.modelbridge.torch import TorchAdapter
-from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
-    _derel_opt_config_wrapper,
     _extract_best_arm_from_gr,
     _is_row_feasible,
     derelativize_opt_config,
@@ -510,114 +508,6 @@ class TestBestPointUtils(TestCase):
         _, parameterization, __ = get_best_raw_objective_point_with_trial_index(exp)
         self.assertEqual(parameterization, params)
 
-    @patch(
-        f"{best_point_module}.derelativize_optimization_config_with_raw_status_quo",
-        return_value=DUMMY_OPTIMIZATION_CONFIG,
-    )
-    def test_derel_opt_config_wrapper(self, mock_derelativize: MagicMock) -> None:
-        # No change to optimization config without relative constraints/thresholds.
-        exp = get_experiment_with_observations(
-            observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 0, 1]],
-            constrained=True,
-        )
-        input_optimization_config = none_throws(exp.optimization_config)
-        optimization_config = _derel_opt_config_wrapper(
-            optimization_config=input_optimization_config
-        )
-        self.assertEqual(input_optimization_config, optimization_config)
-
-        # Add relative constraints.
-        for constraint in input_optimization_config.all_constraints:
-            constraint.relative = True
-
-        # Check errors.
-        with self.assertRaisesRegex(
-            ValueError,
-            "Must specify Adapter or Experiment when calling "
-            "`_derel_opt_config_wrapper`.",
-        ):
-            _derel_opt_config_wrapper(optimization_config=input_optimization_config)
-        with self.assertRaisesRegex(
-            ValueError,
-            "`modelbridge` must have status quo if specified. If `modelbridge` is "
-            "unspecified, `experiment` must have a status quo.",
-        ):
-            _derel_opt_config_wrapper(
-                optimization_config=input_optimization_config, experiment=exp
-            )
-
-        # Set status quo.
-        exp.status_quo = exp.trials[0].arms[0]
-
-        # Adapters will have specific addresses and so must be self-same to
-        # pass equality checks.
-        test_modelbridge_1 = get_tensor_converter_model(
-            experiment=none_throws(exp),
-            data=none_throws(exp).lookup_data(),
-        )
-        test_observations_1 = test_modelbridge_1.get_training_data()
-        returned_value = _derel_opt_config_wrapper(
-            optimization_config=input_optimization_config,
-            modelbridge=test_modelbridge_1,
-            observations=test_observations_1,
-        )
-        mock_derelativize.assert_called_with(
-            optimization_config=input_optimization_config,
-            modelbridge=test_modelbridge_1,
-            observations=test_observations_1,
-        )
-        with patch(
-            f"{best_point_module}.get_tensor_converter_model",
-            return_value=test_modelbridge_1,
-        ), patch(
-            f"{best_point_module}.Adapter.get_training_data",
-            return_value=test_observations_1,
-        ):
-            returned_value = _derel_opt_config_wrapper(
-                optimization_config=input_optimization_config, experiment=exp
-            )
-        self.assertEqual(returned_value, DUMMY_OPTIMIZATION_CONFIG)
-        mock_derelativize.assert_called_with(
-            optimization_config=input_optimization_config,
-            modelbridge=test_modelbridge_1,
-            observations=test_observations_1,
-        )
-
-        # Observations and Adapter are not constructed from other inputs when
-        # provided.
-        test_modelbridge_2 = get_tensor_converter_model(
-            experiment=none_throws(exp),
-            data=none_throws(exp).lookup_data(),
-        )
-        test_observations_2 = test_modelbridge_2.get_training_data()
-        with self.assertLogs(logger=best_point_logger, level="WARN") as lg, patch(
-            f"{best_point_module}.get_tensor_converter_model",
-            return_value=test_modelbridge_2,
-        ), patch(
-            f"{best_point_module}.Adapter.get_training_data",
-            return_value=test_observations_2,
-        ):
-            returned_value = _derel_opt_config_wrapper(
-                optimization_config=input_optimization_config,
-                experiment=exp,
-                modelbridge=test_modelbridge_1,
-                observations=test_observations_1,
-            )
-        self.assertTrue(
-            any(
-                "Adapter and Experiment provided to "
-                "`_derel_opt_config_wrapper`. Ignoring the latter." in warning
-                for warning in lg.output
-            ),
-            msg=lg.output,
-        )
-        self.assertEqual(returned_value, DUMMY_OPTIMIZATION_CONFIG)
-        mock_derelativize.assert_called_with(
-            optimization_config=input_optimization_config,
-            modelbridge=test_modelbridge_1,
-            observations=test_observations_1,
-        )
-
     def test_derelativize_opt_config(self) -> None:
         # No change to optimization config without relative constraints/thresholds.
         observations = [[-1, 1, 1], [1, 2, 1], [3, -2, -1], [2, 4, 1], [2, 0, 1]]
@@ -741,7 +631,7 @@ class TestBestPointUtils(TestCase):
         exp._status_quo = exp.trials[0].arms[0]
         for constraint in none_throws(exp.optimization_config).all_constraints:
             constraint.relative = True
-        optimization_config = _derel_opt_config_wrapper(
+        optimization_config = derelativize_opt_config(
             optimization_config=none_throws(exp.optimization_config),
             experiment=exp,
         )
