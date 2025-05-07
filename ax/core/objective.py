@@ -194,7 +194,7 @@ class ScalarizedObjective(Objective):
 
         """
         if weights is None:
-            weights = [1.0 for i in range(len(metrics))]
+            weights = [1.0 for _ in metrics]
         else:
             if len(weights) != len(metrics):
                 raise ValueError("Length of weights must equal length of metrics")

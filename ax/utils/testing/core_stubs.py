@@ -889,7 +889,7 @@ def get_hierarchical_search_space_experiment(
 
 
 def get_experiment_with_observations(
-    observations: list[list[float]],
+    observations: Sequence[Sequence[float]],
     minimize: bool = False,
     scalarized: bool = False,
     constrained: bool = False,
