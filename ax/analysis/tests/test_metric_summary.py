@@ -13,7 +13,6 @@ from ax.analysis.analysis import (
 )
 from ax.analysis.metric_summary import MetricSummary
 from ax.api.client import Client
-from ax.api.configs import ExperimentConfig
 from ax.core.metric import Metric
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
@@ -24,10 +23,8 @@ class TestMetricSummary(TestCase):
     def test_compute(self) -> None:
         client = Client()
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                name="test_experiment",
-                parameters=[],
-            )
+            name="test_experiment",
+            parameters=[],
         )
         client.configure_optimization(
             objective="foo, bar", outcome_constraints=["baz <= 0.0", "foo >= 1.0"]
