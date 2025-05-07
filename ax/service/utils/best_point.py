@@ -8,7 +8,7 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
-from functools import partial, reduce
+from functools import reduce
 from logging import Logger
 
 import numpy as np
@@ -26,7 +26,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
@@ -38,12 +38,8 @@ from ax.modelbridge.cross_validation import (
     cross_validate,
 )
 from ax.modelbridge.modelbridge_utils import (
-    extract_objective_thresholds,
-    extract_objective_weights,
-    extract_outcome_constraints,
     observed_pareto_frontier as observed_pareto,
     predicted_pareto_frontier as predicted_pareto,
-    validate_and_apply_final_transform,
 )
 from ax.modelbridge.registry import Generators
 from ax.modelbridge.torch import TorchAdapter
@@ -51,18 +47,33 @@ from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
 )
-from ax.models.torch.botorch_moo_defaults import (
-    get_outcome_constraint_transforms,
-    get_weighted_mc_objective_and_objective_thresholds,
-)
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.logger import get_logger
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 from numpy import nan
+from numpy.typing import NDArray
 from pyre_extensions import assert_is_instance, none_throws
-from torch import Tensor
 
 logger: Logger = get_logger(__name__)
+
+
+def derelativize_opt_config(
+    optimization_config: OptimizationConfig,
+    experiment: Experiment,
+    trial_indices: Iterable[int] | None = None,
+) -> OptimizationConfig:
+    tf = Derelativize(
+        search_space=None, observations=None, config={"use_raw_status_quo": True}
+    )
+    optimization_config = tf.transform_optimization_config(
+        optimization_config=optimization_config.clone(),
+        modelbridge=get_tensor_converter_model(
+            experiment=experiment,
+            data=experiment.lookup_data(trial_indices=trial_indices),
+        ),
+        fixed_features=None,
+    )
+    return optimization_config
 
 
 def get_best_raw_objective_point_with_trial_index(
@@ -461,6 +472,7 @@ def get_pareto_optimal_parameters(
     return res
 
 
+# NOTE: This function will be removed in the next PR.
 def _get_best_row_for_scalarized_objective(
     df: pd.DataFrame,
     objective: ScalarizedObjective,
@@ -490,6 +502,7 @@ def _get_best_row_for_scalarized_objective(
     )
 
 
+# NOTE: This function will be removed in the next PR.
 def _get_best_row_for_single_objective(
     df: pd.DataFrame, objective: Objective
 ) -> pd.Series:
@@ -614,77 +627,239 @@ def _derel_opt_config_wrapper(
     )
 
 
-def extract_Y_from_data(
-    experiment: Experiment,
-    metric_names: list[str],
-    data: Data | None = None,
-) -> tuple[Tensor, Tensor]:
-    r"""Converts the experiment observation data into a tensor.
+def get_values_of_outcomes_single_or_scalarized_objective(
+    df_wide: pd.DataFrame, objective: Objective
+) -> NDArray:
+    """
+    Return a list with one entry for each row in `df_wide` according to the
+    objective `objective` and whether the outcomes are feasible.
 
-    NOTE: This requires block design for observations. It will
-    error out if any trial is missing data for any of the given
-    metrics or if the data is missing the `trial_index`.
+    Whether higher or lower is better depends on `objective.minimize` (no
+    absolute values are taken here).
+
+    The entry for any infeasible value will be infinity if the objective is to
+    minimize and negative infinity if the objective is to maximize.
+
+    Example:
+    >>> objective = Objective(metric=Metric(name="m1"), minimize=True)
+    >>> df_wide = pd.DataFrame.from_records(
+    ...     [
+    ...         {"m1": 2.0, "feasible": True},
+    ...         {"m1": 1.0, "feasible": False},
+    ...     ]
+    ... )
+    >>> get_value_of_outcomes_single_or_scalarized_objective(
+    ...     df_wide=df_wide, objective=objective
+    ... )
+    np.array([2.0, inf])
+    """
+    if isinstance(objective, MultiObjective):
+        raise ValueError(
+            "MultiObjective is not supported. Use "
+            "`get_hypervolume_of_outcomes_multi_objective`."
+        )
+    if isinstance(objective, ScalarizedObjective):
+        value = df_wide[objective.metric_names].dot(objective.weights).to_numpy()
+    else:
+        value = df_wide[objective.metric.name].to_numpy()
+    value = value.astype(np.float64)
+    infeasible_idx = np.where(~df_wide["feasible"])[0]
+    value[infeasible_idx] = float("inf") if objective.minimize else float("-inf")
+    return value
+
+
+def _compute_hv_trace(
+    ref_point: torch.Tensor,
+    metrics_tensor: torch.Tensor,
+    is_feasible_array: NDArray,
+    use_cumulative_hv: bool,
+) -> list[float]:
+    # Compute hypervolume of feasible points
+    hvs = []
+    ref_point = ref_point
+
+    if use_cumulative_hv:
+        partitioning = DominatedPartitioning(ref_point=ref_point)
+        cumulative_hv = 0.0
+        for i, is_feasible in enumerate(is_feasible_array):
+            if not is_feasible:
+                hvs.append(cumulative_hv)
+            else:
+                Y = metrics_tensor[[i], :]
+                partitioning.update(Y=Y)
+                cumulative_hv = partitioning.compute_hypervolume().item()
+                hvs.append(cumulative_hv)
+        return hvs
+
+    for i, is_feasible in enumerate(is_feasible_array):
+        if not is_feasible:
+            hvs.append(0.0)
+        else:
+            Y = metrics_tensor[[i], :]
+            partitioning = DominatedPartitioning(ref_point=ref_point, Y=Y)
+            hvs.append(partitioning.compute_hypervolume().item())
+    return hvs
+
+
+# NOTE: we are ignoring `MultiObjective` weights here. these
+# should likely be deprecated or removed
+def get_hypervolume_trace_of_outcomes_multi_objective(
+    df_wide: pd.DataFrame,
+    optimization_config: MultiObjectiveOptimizationConfig,
+    use_cumulative_hv: bool = True,
+) -> list[float]:
+    """
+    Get hypervolume of the outcomes represented in `df_wide`.
 
     Args:
-        experiment: The experiment to extract the data from.
-        metric_names: List of metric names to extract data for.
-        data: An optional `Data` object to use instead of the
-            experiment data. Note that the experiment must have
-            a corresponding COMPLETED or EARLY_STOPPED trial for
-            each `trial_index` in the `data`.
+        df_wide: Dataframe with columns ["feasible"] + relevant
+            metrics. This can come from reshaping the data that comes from `Data.df`.
+        optimization_config: A multi-objective optimization config with a
+            `MultiObjective` (not a `ScalarizedObjective`).
+        use_cumulative_hv: If True, the hypervolume returned is the cumulative
+            hypervolume of the points in each row. Otherwise, this is the
+            hypervolume of each point.
 
     Returns:
-        A two-element Tuple containing a tensor of observed metrics and a
-        tensor of trial_indices.
+        A list of hypervolumes, one for each row in `df_wide`.
+
+    Example:
+    >>> optimization_config = MultiObjectiveOptimizationConfig(
+    ...     objective=MultiObjective(
+    ...         objectives=[
+    ...             Objective(metric=Metric(name="m1"), minimize=False),
+    ...             Objective(metric=Metric(name="m2"), minimize=False),
+    ...         ]
+    ...     ),
+    ... )
+    >>> # Objective threshols will be inferred to be zero
+    >>> df_wide = pd.DataFrame.from_records(
+    ...     [
+    ...         {"m1": 0.0, "m2": 0.0, "feasible": True},
+    ...         {"m1": 1.0, "m2": 2.0, "feasible": True},
+    ...         {"m1": 2.0, "m2": 1.0, "feasible": False},
+    ...         {"m1": 3.0, "m2": 3.0, "feasible": True},
+    ...     ]
+    ... )
+    >>> get_hypervolume_trace_of_outcomes_multi_objective(
+    ...     df_wide=df_wide,
+    ...     optimization_config=optimization_config,
+    ...     use_cumulative_hv=True,
+    ... )
+    [0.0, 2.0, 2.0, 9.0]
+    >>>
+    >>> get_hypervolume_trace_of_outcomes_multi_objective(
+    ...     df_wide=df_wide,
+    ...     optimization_config=optimization_config,
+    ...     use_cumulative_hv=False,
+    ... )
+    [0.0, 2.0, 0.0, 9.0]
     """
-    df = data.df if data is not None else experiment.lookup_data().df
-    if len(df) == 0:
-        y = torch.empty(0, len(metric_names), dtype=torch.double)
-        indices = torch.empty(0, dtype=torch.long)
-        return y, indices
+    objective = assert_is_instance(optimization_config.objective, MultiObjective)
+    for obj in objective.objectives:
+        if obj.minimize:
+            df_wide[obj.metric.name] *= -1
 
-    trials_to_use = []
-    data_to_use = df[df["metric_name"].isin(metric_names)]
+    objective_thresholds = []
+    objective_thresholds_dict = {
+        threshold.metric.name: threshold
+        for threshold in optimization_config.objective_thresholds
+    }
+    for obj in objective.objectives:
+        metric_name = obj.metric.name
+        if metric_name in objective_thresholds_dict:
+            threshold = objective_thresholds_dict[metric_name]
+            if threshold.relative:
+                raise ValueError(
+                    "Relative objective thresholds are not supported. Please "
+                    "`Derelativize` the optimization config, or use "
+                    "`get_trace`."
+                )
+            bound = threshold.bound
+        else:
+            metric_vals = df_wide[metric_name]
+            bound = metric_vals.max() if obj.minimize else metric_vals.min()
 
-    for trial_idx, trial_data in data_to_use.groupby("trial_index"):
-        trial = experiment.trials[trial_idx]
-        if trial.status not in [TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED]:
-            # Skip trials that are not completed or early stopped.
-            continue
-        trials_to_use.append(trial_idx)
-        if trial_data[["metric_name", "arm_name"]].duplicated().any():
-            raise UserInputError(
-                "Trial data has more than one row per arm, metric pair. "
-                f"Got\n\n{trial_data}\n\nfor trial {trial_idx}."
-            )
-        # We have already ensured that `trial_data` has no metrics not in
-        # `metric_names` and that there are no duplicate metrics, so if
-        # len(trial_data) < len(metric_names), the only possibility is that
-        if len(trial_data) < len(metric_names):
-            raise UserInputError(
-                f"Trial {trial_idx} is missing data on metrics "
-                f"{set(metric_names) - set(trial_data['metric_name'])}."
-            )
+        objective_thresholds.append(-bound if obj.minimize else bound)
 
-    keeps = df["trial_index"].isin(trials_to_use)
+    objective_thresholds = torch.tensor(objective_thresholds, dtype=torch.double)
 
-    if not keeps.any():
-        return torch.empty(0, len(metric_names), dtype=torch.double), torch.empty(
-            0, dtype=torch.long
+    metrics_tensor = torch.from_numpy(df_wide[objective.metric_names].to_numpy())
+    return _compute_hv_trace(
+        ref_point=objective_thresholds,
+        metrics_tensor=metrics_tensor,
+        is_feasible_array=df_wide["feasible"].to_numpy(),
+        use_cumulative_hv=use_cumulative_hv,
+    )
+
+
+def get_trace_by_arm_pull_from_data(
+    df: pd.DataFrame,
+    optimization_config: OptimizationConfig,
+    use_cumulative_best: bool = True,
+) -> pd.DataFrame:
+    """
+    Get a trace of the objective value or hypervolume of outcomes.
+
+    An "arm pull" is the combination of a trial (index) and an arm. This
+    function returns a single value for each arm pull, even if there are
+    multiple arms per trial or if an arm is repeated in multiple trials.
+
+    Args:
+        df: Data in the format returned by ``Data.df``, with a separate row for
+            each trial index-arm name-metric.
+        optimization_config: ``OptimizationConfig`` to use to get the trace. Must
+            not be in relative form.
+        use_cumulative_best: If True, the trace will be the cumulative best
+            objective. Otherwise, the trace will be the value of each point.
+
+    Return:
+        A DataFrame containing columns 'trial_index', 'arm_name', and "value",
+        where "value" is the value of the outcomes attained.
+    """
+    if any(oc.relative for oc in optimization_config.all_constraints):
+        raise ValueError(
+            "Relativized optimization config not supported. Please "
+            "`Derelativize` the optimization config, or use `get_trace`."
         )
 
-    data_as_wide = pd.pivot_table(
-        df[keeps],
-        index=["trial_index", "arm_name"],
-        columns="metric_name",
-        values="mean",
-    )[metric_names]
+    # reshape data to wide, using only the metrics in the optimization config
+    metrics = list(optimization_config.metrics.keys())
 
-    means = torch.tensor(data_as_wide.to_numpy()).to(torch.double)
-    trial_indices = torch.tensor(
-        data_as_wide.reset_index()["trial_index"].to_numpy(), dtype=torch.long
+    df["row_feasible"] = _is_row_feasible(
+        df=df, optimization_config=optimization_config
     )
-    return means, trial_indices
+
+    # Transform to a DataFrame with columns ["trial_index", "arm_name"] +
+    # relevant metric names, and values being means.
+    df_wide = (
+        df[df["metric_name"].isin(metrics)]
+        .set_index(["trial_index", "arm_name", "metric_name"])["mean"]
+        .unstack(level="metric_name")
+    )
+    df_wide["feasible"] = df.groupby(["trial_index", "arm_name"])["row_feasible"].all()
+    df_wide.reset_index(inplace=True)
+
+    # MOO and *not* ScalarizedObjective
+    if isinstance(optimization_config.objective, MultiObjective):
+        optimization_config = assert_is_instance(
+            optimization_config, MultiObjectiveOptimizationConfig
+        )
+        df_wide["value"] = get_hypervolume_trace_of_outcomes_multi_objective(
+            df_wide=df_wide,
+            optimization_config=optimization_config,
+            use_cumulative_hv=use_cumulative_best,
+        )
+        return df_wide[["trial_index", "arm_name", "value"]]
+    df_wide["value"] = get_values_of_outcomes_single_or_scalarized_objective(
+        df_wide=df_wide, objective=optimization_config.objective
+    )
+    if df_wide["feasible"].any() and use_cumulative_best:
+        min_or_max = (
+            np.minimum if optimization_config.objective.minimize else np.maximum
+        )
+        df_wide["value"] = min_or_max.accumulate(df_wide["value"])
+    return df_wide[["trial_index", "arm_name", "value"]]
 
 
 def get_trace(
@@ -716,183 +891,51 @@ def get_trace(
     optimization_config = optimization_config or none_throws(
         experiment.optimization_config
     )
+    df = experiment.lookup_data().df
+    if len(df) == 0:
+        return []
     # Get the names of the metrics in optimization config.
     metric_names = set(optimization_config.objective.metric_names)
     for cons in optimization_config.outcome_constraints:
         metric_names.update({cons.metric.name})
     metric_names = list(metric_names)
-    # Convert data into a tensor.
-    Y, trial_indices = extract_Y_from_data(
-        experiment=experiment, metric_names=metric_names
+
+    # Don't compute results for status quo data (for compatibility with legacy behavior)
+    trial_is_completed = df["trial_index"].map(
+        {
+            i: t.status in (TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED)
+            for i, t in experiment.trials.items()
+        }
     )
-    if Y.numel() == 0:
+    idx = df["metric_name"].isin(metric_names) & trial_is_completed
+    # Don't include status quo (for compatibility with legacy behavior)
+    if (status_quo := experiment.status_quo) is not None:
+        idx &= df["arm_name"] != status_quo.name
+    df = df.loc[idx, :]
+    if len(df) == 0:
         return []
 
     # Derelativize the optimization config.
-    tf = Derelativize(
-        search_space=None, observations=None, config={"use_raw_status_quo": True}
-    )
-    optimization_config = tf.transform_optimization_config(
-        optimization_config=optimization_config.clone(),
-        modelbridge=get_tensor_converter_model(
-            experiment=experiment, data=experiment.lookup_data()
-        ),
-        fixed_features=None,
+    optimization_config = derelativize_opt_config(
+        optimization_config=optimization_config,
+        experiment=experiment,
     )
 
-    # Extract weights, constraints, and objective_thresholds.
-    objective_weights = extract_objective_weights(
-        objective=optimization_config.objective, outcomes=metric_names
+    # Get a value for each trial_index + arm
+    value_by_arm_pull = get_trace_by_arm_pull_from_data(
+        df=df,
+        optimization_config=optimization_config,
+        use_cumulative_best=True,
     )
-    outcome_constraints = extract_outcome_constraints(
-        outcome_constraints=optimization_config.outcome_constraints,
-        outcomes=metric_names,
-    )
-    to_tensor = partial(torch.as_tensor, dtype=torch.double, device=torch.device("cpu"))
-    if optimization_config.is_moo_problem:
-        objective_thresholds = extract_objective_thresholds(
-            objective_thresholds=fill_missing_thresholds_from_nadir(
-                experiment=experiment, optimization_config=optimization_config
-            ),
-            objective=optimization_config.objective,
-            outcomes=metric_names,
-        )
-        objective_thresholds = to_tensor(none_throws(objective_thresholds))
+    # Aggregate to trial level
+    objective = optimization_config.objective
+    maximize = isinstance(objective, MultiObjective) or not objective.minimize
+    trial_grouped = value_by_arm_pull.groupby("trial_index")["value"]
+    if maximize:
+        value_by_trial = trial_grouped.max()
+        cumulative_value = np.maximum.accumulate(value_by_trial)
     else:
-        objective_thresholds = None
-    (
-        objective_weights,
-        outcome_constraints,
-        _,
-        _,
-        _,
-    ) = validate_and_apply_final_transform(
-        objective_weights=objective_weights,
-        outcome_constraints=outcome_constraints,
-        linear_constraints=None,
-        pending_observations=None,
-        final_transform=to_tensor,
-    )
-    # Get weighted tensor objectives.
-    if optimization_config.is_moo_problem:
-        (
-            obj,
-            weighted_objective_thresholds,
-        ) = get_weighted_mc_objective_and_objective_thresholds(
-            objective_weights=objective_weights,
-            objective_thresholds=none_throws(objective_thresholds),
-        )
-        Y_obj = obj(Y)
-        infeas_value = weighted_objective_thresholds
-    else:
-        Y_obj = Y @ objective_weights
-        infeas_value = float("-inf")
-    # Account for feasibility.
-    if outcome_constraints is not None:
-        cons_tfs = none_throws(get_outcome_constraint_transforms(outcome_constraints))
-        feas = torch.all(torch.stack([c(Y) <= 0 for c in cons_tfs], dim=-1), dim=-1)
-        # Set the infeasible points to reference point or to NaN
-        Y_obj[~feas] = infeas_value
-    # Get unique trial indices. Note: only completed/early-stopped
-    # trials are present.
-    unique_trial_indices = trial_indices.unique().sort().values.tolist()
-    # compute the performance at each iteration (completed/early-stopped
-    # trial).
-    # For `BatchTrial`s, there is one performance value per iteration, even
-    # if the iteration (`BatchTrial`) has multiple arms.
-    if optimization_config.is_moo_problem:
-        # Compute the hypervolume trace.
-        partitioning = DominatedPartitioning(
-            ref_point=weighted_objective_thresholds.double()
-        )
-        # compute hv for each iteration (trial_index)
-        hvs = []
-        for trial_index in unique_trial_indices:
-            new_Y = Y_obj[trial_indices == trial_index]
-            # update with new point
-            partitioning.update(Y=new_Y)
-            hv = partitioning.compute_hypervolume().item()
-            hvs.append(hv)
-        return hvs
-    running_max = float("-inf")
-    raw_maximum = np.zeros(len(unique_trial_indices))
-    # Find the best observed value for each iterations.
-    # Enumerate the unique trial indices because only indices
-    # of completed/early-stopped trials are present.
-    for i, trial_index in enumerate(unique_trial_indices):
-        new_Y = Y_obj[trial_indices == trial_index]
-        running_max = max(running_max, new_Y.max().item())
-        raw_maximum[i] = running_max
-    if optimization_config.objective.minimize:
-        # Negate the result if it is a minimization problem.
-        raw_maximum = -raw_maximum
-    return raw_maximum.tolist()
+        value_by_trial = trial_grouped.min()
+        cumulative_value = np.minimum.accumulate(value_by_trial)
 
-
-def _objective_threshold_from_nadir(
-    experiment: Experiment,
-    objective: Objective,
-    optimization_config: MultiObjectiveOptimizationConfig | None = None,
-) -> ObjectiveThreshold:
-    """
-    Find the worst value observed for each objective and create an ObjectiveThreshold
-    with this as the bound.
-    """
-
-    logger.debug(f"Inferring ObjectiveThreshold for {objective} using nadir point.")
-
-    optimization_config = optimization_config or assert_is_instance(
-        experiment.optimization_config,
-        MultiObjectiveOptimizationConfig,
-    )
-
-    data_df = experiment.fetch_data().df
-
-    mean = data_df[data_df["metric_name"] == objective.metric.name]["mean"]
-    bound = max(mean) if objective.minimize else min(mean)
-    op = ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ
-
-    return ObjectiveThreshold(
-        metric=objective.metric, bound=bound, op=op, relative=False
-    )
-
-
-def fill_missing_thresholds_from_nadir(
-    experiment: Experiment, optimization_config: OptimizationConfig
-) -> list[ObjectiveThreshold]:
-    r"""Get the objective thresholds from the optimization config and
-    fill the missing thresholds based on the nadir point.
-
-    Args:
-        experiment: The experiment, whose data is used to calculate the nadir point.
-        optimization_config: Optimization config to get the objective thresholds
-            and the objective directions from.
-
-    Returns:
-        A list of objective thresholds, one for each objective in
-        optimization config.
-    """
-    objectives = assert_is_instance(
-        optimization_config.objective,
-        MultiObjective,
-    ).objectives
-    optimization_config = assert_is_instance(
-        optimization_config,
-        MultiObjectiveOptimizationConfig,
-    )
-    provided_thresholds = {
-        obj_t.metric.name: obj_t for obj_t in optimization_config.objective_thresholds
-    }
-    objective_thresholds = [
-        (
-            provided_thresholds[objective.metric.name]
-            if objective.metric.name in provided_thresholds
-            else _objective_threshold_from_nadir(
-                experiment=experiment,
-                objective=objective,
-                optimization_config=optimization_config,
-            )
-        )
-        for objective in objectives
-    ]
-    return objective_thresholds
+    return cumulative_value.tolist()
