@@ -12,8 +12,6 @@ from ax.api.configs import (
     ExperimentConfig,
     GenerationStrategyConfig,
     OrchestrationConfig,
-    ParameterScaling,
-    ParameterType,
     RangeParameterConfig,
     StorageConfig,
 )
@@ -25,8 +23,6 @@ __all__ = [
     "ExperimentConfig",
     "GenerationStrategyConfig",
     "OrchestrationConfig",
-    "ParameterScaling",
-    "ParameterType",
     "RangeParameterConfig",
     "StorageConfig",
     "TOutcome",

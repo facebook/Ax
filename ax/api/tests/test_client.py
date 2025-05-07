@@ -18,7 +18,6 @@ from ax.api.configs import (
     ExperimentConfig,
     GenerationStrategyConfig,
     OrchestrationConfig,
-    ParameterType,
     RangeParameterConfig,
     StorageConfig,
 )
@@ -62,17 +61,17 @@ class TestClient(TestCase):
 
         float_parameter = RangeParameterConfig(
             name="float_param",
-            parameter_type=ParameterType.FLOAT,
+            parameter_type="float",
             bounds=(0, 1),
         )
         int_parameter = RangeParameterConfig(
             name="int_param",
-            parameter_type=ParameterType.INT,
+            parameter_type="int",
             bounds=(0, 1),
         )
         choice_parameter = ChoiceParameterConfig(
             name="choice_param",
-            parameter_type=ParameterType.STRING,
+            parameter_type="str",
             values=["a", "b", "c"],
         )
 
@@ -131,17 +130,17 @@ class TestClient(TestCase):
 
         float_parameter = RangeParameterConfig(
             name="float_param",
-            parameter_type=ParameterType.FLOAT,
+            parameter_type="float",
             bounds=(0, 1),
         )
         int_parameter = RangeParameterConfig(
             name="int_param",
-            parameter_type=ParameterType.INT,
+            parameter_type="int",
             bounds=(0, 1),
         )
         choice_parameter = ChoiceParameterConfig(
             name="choice_param",
-            parameter_type=ParameterType.STRING,
+            parameter_type="str",
             values=["a", "b", "c"],
         )
 
@@ -208,7 +207,7 @@ class TestClient(TestCase):
             experiment_config=ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(0, 1)
+                        name="x1", parameter_type="float", bounds=(0, 1)
                     )
                 ],
                 name="foo",
@@ -278,7 +277,7 @@ class TestClient(TestCase):
             experiment_config=ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(0, 1)
+                        name="x1", parameter_type="float", bounds=(0, 1)
                     )
                 ],
                 name="foo",
@@ -341,10 +340,10 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                     RangeParameterConfig(
-                        name="x2", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x2", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -388,10 +387,10 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                     RangeParameterConfig(
-                        name="x2", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x2", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -436,7 +435,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -532,7 +531,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -633,7 +632,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -657,7 +656,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -680,7 +679,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -702,7 +701,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -724,7 +723,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -772,7 +771,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -796,7 +795,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -842,7 +841,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -889,12 +888,12 @@ class TestClient(TestCase):
                 parameters=[
                     RangeParameterConfig(
                         name="x1",
-                        parameter_type=ParameterType.FLOAT,
+                        parameter_type="float",
                         bounds=(0, 1),
                     ),
                     RangeParameterConfig(
                         name="x2",
-                        parameter_type=ParameterType.FLOAT,
+                        parameter_type="float",
                         bounds=(0, 1),
                     ),
                 ],
@@ -956,7 +955,7 @@ class TestClient(TestCase):
             ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -1005,7 +1004,7 @@ class TestClient(TestCase):
             experiment_config=ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -1089,7 +1088,7 @@ class TestClient(TestCase):
             experiment_config=ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -1189,7 +1188,7 @@ class TestClient(TestCase):
             experiment_config=ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                 ],
                 name="foo",
@@ -1232,25 +1231,23 @@ class TestClient(TestCase):
             experiment_config=ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                     RangeParameterConfig(
-                        name="x2", parameter_type=ParameterType.INT, bounds=(-1, 1)
+                        name="x2", parameter_type="int", bounds=(-1, 1)
                     ),
                     ChoiceParameterConfig(
                         name="x3",
-                        parameter_type=ParameterType.STRING,
+                        parameter_type="str",
                         values=["a", "b"],
                     ),
                     ChoiceParameterConfig(
                         name="x4",
-                        parameter_type=ParameterType.INT,
+                        parameter_type="int",
                         values=[1, 2, 3],
                         is_ordered=True,
                     ),
-                    ChoiceParameterConfig(
-                        name="x5", parameter_type=ParameterType.INT, values=[1]
-                    ),
+                    ChoiceParameterConfig(name="x5", parameter_type="int", values=[1]),
                 ],
                 name="foo",
             )
@@ -1290,25 +1287,23 @@ class TestClient(TestCase):
             experiment_config=ExperimentConfig(
                 parameters=[
                     RangeParameterConfig(
-                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                        name="x1", parameter_type="float", bounds=(-1, 1)
                     ),
                     RangeParameterConfig(
-                        name="x2", parameter_type=ParameterType.INT, bounds=(-1, 1)
+                        name="x2", parameter_type="int", bounds=(-1, 1)
                     ),
                     ChoiceParameterConfig(
                         name="x3",
-                        parameter_type=ParameterType.STRING,
+                        parameter_type="str",
                         values=["a", "b"],
                     ),
                     ChoiceParameterConfig(
                         name="x4",
-                        parameter_type=ParameterType.INT,
+                        parameter_type="int",
                         values=[1, 2, 3],
                         is_ordered=True,
                     ),
-                    ChoiceParameterConfig(
-                        name="x5", parameter_type=ParameterType.INT, values=[1]
-                    ),
+                    ChoiceParameterConfig(name="x5", parameter_type="int", values=[1]),
                 ],
                 name="unique_test_experiment",
             )
