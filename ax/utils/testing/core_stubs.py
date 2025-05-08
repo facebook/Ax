@@ -896,13 +896,14 @@ def get_experiment_with_observations(
     with_tracking_metrics: bool = False,
     search_space: SearchSpace | None = None,
     parameterizations: Sequence[TParameterization] | None = None,
-    with_sem: bool = False,
+    sems: list[list[float]] | None = None,
+    optimization_config: OptimizationConfig | None = None,
 ) -> Experiment:
     if observations:
         multi_objective = (len(observations[0]) - constrained) > 1
     else:
         multi_objective = False
-    if multi_objective:
+    if multi_objective and optimization_config is None:
         metrics = [
             Metric(name="m1", lower_is_better=minimize),
             Metric(name="m2", lower_is_better=False),
@@ -942,7 +943,7 @@ def get_experiment_with_observations(
                     else None
                 ),
             )
-    else:
+    elif optimization_config is None:
         if scalarized:
             raise NotImplementedError
         objective = Objective(metric=Metric(name="m1"), minimize=minimize)
@@ -970,8 +971,10 @@ def get_experiment_with_observations(
         runner=SyntheticRunner(),
         is_test=True,
     )
+    metrics = sorted(exp.metrics)
     sobol_generator = get_sobol(search_space=search_space)
-    for i, obs in enumerate(observations):
+    for i, obs_i in enumerate(observations):
+        sems_i = sems[i] if sems is not None else [None] * len(obs_i)
         if parameterizations is not None:
             trial = exp.new_trial(
                 generator_run=GeneratorRun(arms=[Arm(parameters=parameterizations[i])])
@@ -983,13 +986,13 @@ def get_experiment_with_observations(
             df=pd.DataFrame.from_records(
                 [
                     {
-                        "arm_name": f"{i}_0",
-                        "metric_name": f"m{j + 1}",
+                        "arm_name": trial.arms[0].name,
+                        "metric_name": m,
                         "mean": o,
-                        "sem": 0.1 if with_sem else None,
-                        "trial_index": i,
+                        "sem": s,
+                        "trial_index": trial.index,
                     }
-                    for j, o in enumerate(obs)
+                    for m, o, s in zip(metrics, obs_i, sems_i, strict=True)
                 ]
             )
         )

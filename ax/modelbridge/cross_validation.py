@@ -123,7 +123,7 @@ def cross_validate(
     arm_names_rnd = np.array(list(arm_names))
     # Not necessary to shuffle when using LOO, avoids differences in floating point
     # computations making equality tests brittle.
-    if folds != -1:
+    if folds != n:
         np.random.shuffle(arm_names_rnd)
     result = []
     for train_names, test_names in _gen_train_test_split(
