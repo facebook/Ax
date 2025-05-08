@@ -20,20 +20,15 @@ from ax.analysis.analysis import (  # Used as a return type
 )
 from ax.analysis.dispatch import choose_analyses
 from ax.analysis.summary import Summary
-from ax.api.configs import (
-    ChoiceParameterConfig,
-    ExperimentConfig,
-    GenerationStrategyConfig,
-    RangeParameterConfig,
-    StorageConfig,
-)
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
 from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TOutcome, TParameterization
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
-from ax.api.utils.instantiation.from_config import experiment_from_config
 from ax.api.utils.instantiation.from_string import optimization_config_from_string
+from ax.api.utils.instantiation.from_struct import experiment_from_struct
 from ax.api.utils.storage import db_settings_from_storage_config
+from ax.api.utils.structs import ExperimentStruct, GenerationStrategyDispatchStruct
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -128,7 +123,7 @@ class Client(WithDBSettingsBase):
                 "would like a new experiment."
             )
 
-        experiment_config = ExperimentConfig(
+        experiment_struct = ExperimentStruct(
             parameters=[*parameters],
             parameter_constraints=[*parameter_constraints]
             if parameter_constraints
@@ -139,7 +134,7 @@ class Client(WithDBSettingsBase):
             owner=owner,
         )
 
-        self._maybe_experiment = experiment_from_config(config=experiment_config)
+        self._maybe_experiment = experiment_from_struct(struct=experiment_struct)
 
         self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
@@ -199,7 +194,7 @@ class Client(WithDBSettingsBase):
         Saves to database on completion if ``storage_config`` is present.
         """
 
-        generation_strategy_config = GenerationStrategyConfig(
+        generation_strategy_dispatch_struct = GenerationStrategyDispatchStruct(
             method=method,
             initialization_budget=initialization_budget,
             initialization_random_seed=initialization_random_seed,
@@ -211,7 +206,7 @@ class Client(WithDBSettingsBase):
         )
 
         generation_strategy = choose_generation_strategy(
-            gs_config=generation_strategy_config
+            struct=generation_strategy_dispatch_struct
         )
 
         # Necessary for storage implications, may be removed in the future
