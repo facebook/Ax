@@ -9,9 +9,7 @@
 from __future__ import annotations
 
 from functools import partial
-
 from logging import Logger
-
 from typing import Any, TYPE_CHECKING
 
 from ax.core.arm import Arm
