@@ -10,7 +10,7 @@
 from typing import Any
 
 import torch
-from ax.api.configs import GenerationMethod, GenerationStrategyConfig
+from ax.api.configs import GenerationStrategyConfig
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -45,7 +45,7 @@ class TestDispatchUtils(TestCase):
         for case, config_kws in config_kws_cases.items():
             with self.subTest(case=case):
                 gs_config = GenerationStrategyConfig(
-                    method=GenerationMethod.RANDOM_SEARCH, **config_kws
+                    method="random_search", **config_kws
                 )
                 use_center = use_center_cases[case]
                 gs = choose_generation_strategy(gs_config=gs_config)
@@ -69,7 +69,7 @@ class TestDispatchUtils(TestCase):
     @mock_botorch_optimize
     def test_choose_gs_fast_with_options(self) -> None:
         gs_config = GenerationStrategyConfig(
-            method=GenerationMethod.FAST,
+            method="fast",
             initialization_budget=3,
             initialization_random_seed=0,
             use_existing_trials_for_initialization=False,
@@ -149,7 +149,7 @@ class TestDispatchUtils(TestCase):
     def test_choose_gs_balanced(self) -> None:
         gs = choose_generation_strategy(
             gs_config=GenerationStrategyConfig(
-                method=GenerationMethod.BALANCED, initialize_with_center=False
+                method="balanced", initialize_with_center=False
             ),
         )
         self.assertEqual(len(gs._nodes), 2)

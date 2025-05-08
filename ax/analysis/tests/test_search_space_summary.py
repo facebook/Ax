@@ -13,13 +13,7 @@ from ax.analysis.analysis import (
 )
 from ax.analysis.search_space_summary import SearchSpaceSummary
 from ax.api.client import Client
-from ax.api.configs import (
-    ChoiceParameterConfig,
-    ExperimentConfig,
-    ParameterScaling,
-    ParameterType,
-    RangeParameterConfig,
-)
+from ax.api.configs import ChoiceParameterConfig, ExperimentConfig, RangeParameterConfig
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
@@ -34,13 +28,13 @@ class TestSearchSpaceSummary(TestCase):
                 parameters=[
                     RangeParameterConfig(
                         name="x1",
-                        parameter_type=ParameterType.FLOAT,
+                        parameter_type="float",
                         bounds=(0.1, 1),
-                        scaling=ParameterScaling.LOG,
+                        scaling="log",
                     ),
                     ChoiceParameterConfig(
                         name="x2",
-                        parameter_type=ParameterType.INT,
+                        parameter_type="int",
                         values=[0, 1],
                     ),
                 ],
