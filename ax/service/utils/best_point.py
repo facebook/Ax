@@ -76,13 +76,17 @@ def get_best_raw_objective_point_with_trial_index(
     experiment: Experiment,
     optimization_config: OptimizationConfig | None = None,
     trial_indices: Iterable[int] | None = None,
-) -> tuple[int, TParameterization, dict[str, tuple[float, float]]]:
+) -> tuple[int, TParameterization, TModelPredictArm]:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
-    Note: This function will error with an invalid configuration. If you would
+    TModelPredictArm is of the form:
+        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
+
+    Note: This function will error with invalid inputs. If you would
     prefer for error logs rather than exceptions, use
-    `get_best_by_raw_objective_with_trial_index`.
+    `get_best_by_raw_objective_with_trial_index`, which returns None if
+    inputs are invalid.
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
@@ -92,8 +96,7 @@ def get_best_raw_objective_point_with_trial_index(
             retrieve data from all available trials.
 
     Returns:
-        Tuple of parameterization and a mapping from metric name to a tuple of
-            the corresponding objective mean and SEM.
+        Tuple of trial index, parameterization, and model predictions for it.
     """
     optimization_config = optimization_config or experiment.optimization_config
     if optimization_config is None:
@@ -171,8 +174,9 @@ def get_best_raw_objective_point_with_trial_index(
         row["metric_name"]: (row["mean"], row["sem"])
         for _, row in objective_rows.iterrows()
     }
+    predict_arm = _raw_values_to_model_predict_arm(values=vals)
 
-    return best_trial_index, none_throws(best_arm).parameters, vals
+    return best_trial_index, none_throws(best_arm).parameters, predict_arm
 
 
 def _extract_best_arm_from_gr(
@@ -320,7 +324,7 @@ def get_best_by_raw_objective_with_trial_index(
     experiment: Experiment,
     optimization_config: OptimizationConfig | None = None,
     trial_indices: Iterable[int] | None = None,
-) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
+) -> tuple[int, TParameterization, TModelPredictArm] | None:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
@@ -341,11 +345,7 @@ def get_best_by_raw_objective_with_trial_index(
         Tuple of trial index, parameterization, and model predictions for it.
     """
     try:
-        (
-            trial_index,
-            parameterization,
-            values,
-        ) = get_best_raw_objective_point_with_trial_index(
+        result = get_best_raw_objective_point_with_trial_index(
             experiment=experiment,
             optimization_config=optimization_config,
             trial_indices=trial_indices,
@@ -356,11 +356,7 @@ def get_best_by_raw_objective_with_trial_index(
             f"'{err}'. Returning None."
         )
         return None
-    return (
-        trial_index,
-        parameterization,
-        _raw_values_to_model_predict_arm(values),
-    )
+    return result
 
 
 def get_pareto_optimal_parameters(
