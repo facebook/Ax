@@ -5,7 +5,7 @@ title: Orchestration
 
 import orchestrator_loop from './assets/orchestrator_loop.png';
 import metric_runner_flowchart from './assets/metric_runner_flowchart.png';
-import close_loop_flowchart from './assets/close_loop_flowchart.png';
+import closed_loop_flowchart from './assets/closed_loop_flowchart.png';
 
 :::info
 
@@ -78,7 +78,7 @@ implementing the `IRunner` and `IMetric` interfaces, each requiring only one or
 two methods. Adding it to a previously "ask-tell" experiment with steps 1-4,
 adds steps 5-7 below:
 
-<center><img src={close_loop_flowchart} alt="Using the Orchestrator from the Client" width="60%" /></center>
+<center><img src={closed_loop_flowchart} alt="Using the Orchestrator from the Client" width="60%" /></center>
 
 More trials can always be run an ask-tell fashion after the Ax-orchestrated ones
 run via `Client.run_trials`.
