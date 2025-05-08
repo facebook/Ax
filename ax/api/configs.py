@@ -50,12 +50,12 @@ class ExperimentConfig:
     with other metadata.
     """
 
-    name: str
     parameters: list[RangeParameterConfig | ChoiceParameterConfig]
     # Parameter constraints will be parsed via SymPy
     # Ex: "num_layers1 <= num_layers2", "compound_a + compound_b <= 1"
     parameter_constraints: list[str] = field(default_factory=list)
 
+    name: str | None = None
     description: str | None = None
     experiment_type: str | None = None
     owner: str | None = None
