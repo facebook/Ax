@@ -13,7 +13,7 @@ results.
 ## Prerequisites
 
 We will assume you are already familiar with
-[basic Ax usage](../tutorials/getting_started).
+[basic Ax usage](../tutorials/getting_started/index.mdx).
 
 ## Setup
 
@@ -75,5 +75,5 @@ for parameters, metrics, trial_index, arm_name in frontier:
 
 Take a look at these other resources to continue your learning:
 
-- [Set scalarized-objective optimizations](../recipes/scalarized-objective)
-- [Set outcome constraints](../recipes/outcome-constraints)
+- [Set scalarized-objective optimizations](../recipes/scalarized-objective.md)
+- [Set outcome constraints](../recipes/outcome-constraints.md)

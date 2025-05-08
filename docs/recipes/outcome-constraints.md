@@ -10,7 +10,7 @@ ensuring that the optimized parameters do not degrade certain metrics.
 Instantiate the `Client` and configure your experiment and metrics.
 
 We will also assume you are already familiar with
-[basic Ax usage](../tutorials/getting_started).
+[basic Ax usage](../tutorials/getting_started/index.mdx).
 
 ```python
 client = Client()
@@ -78,5 +78,5 @@ client.complete_trial(...)
 
 Take a look at these other resources to continue your learning:
 
-- [Multi-objective Optimizations in Ax](../recipes/multi-objective-optimization)
-- [Scalarized Objective Optimizations with Ax](../recipes/scalarized-objective)
+- [Multi-objective Optimizations in Ax](../recipes/multi-objective-optimization.md)
+- [Scalarized Objective Optimizations with Ax](../recipes/scalarized-objective.md)

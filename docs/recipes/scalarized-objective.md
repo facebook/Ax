@@ -15,7 +15,7 @@ Using a scalarized objective is a good choice if you have a good idea of what
 the weights in the scalarization should be. If you're instead unclear about what
 the tradeoffs between the individual objectives are and want to run the
 optimization to understand those better, you should instead run a proper
-[multi-objective optimization](../recipes/multi-objective-optimization).
+[multi-objective optimization](../recipes/multi-objective-optimization.md).
 
 ## Setup
 
@@ -23,7 +23,7 @@ Before we begin you must instantiate the `Client` and configure it with your
 experiment and metrics.
 
 We will also assume you are already familiar with
-[basic Ax usage](../tutorials/getting_started).
+[basic Ax usage](../tutorials/getting_started/index.mdx).
 
 ```python
 client = Client()
@@ -85,5 +85,5 @@ for parameters, metrics, trial_index, arm_name in best_parameterization:
 
 Take a look at these other resources to continue your learning:
 
-- [Multi-objective Optimizations in Ax](../recipes/multi-objective-optimization)
-- [Set outcome constraints](../recipes/outcome-constraints)
+- [Multi-objective Optimizations in Ax](../recipes/multi-objective-optimization.md)
+- [Set outcome constraints](../recipes/outcome-constraints.md)

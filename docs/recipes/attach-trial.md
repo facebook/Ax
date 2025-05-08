@@ -17,7 +17,7 @@ manually attach a trial with a custom parameterization to our experiment.
 ## Prerequisites
 
 We will assume you are already familiar with
-[basic Ax usage](../tutorials/getting_started).
+[basic Ax usage](../tutorials/getting_started/index.mdx).
 
 ## Setup
 

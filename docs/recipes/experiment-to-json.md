@@ -104,4 +104,4 @@ client = Client(storage_config = storage_config)
 
 Take a look at these other recipes to continue your learning:
 
-- [Saving, Loading, and Updating an Ax Experiment from SQLite](../recipes/experiment-to-sqlite)
+- [Saving, Loading, and Updating an Ax Experiment from SQLite](../recipes/experiment-to-sqlite.md)
