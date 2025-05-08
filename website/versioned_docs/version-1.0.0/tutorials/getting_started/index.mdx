@@ -1,0 +1,452 @@
+---
+title: Getting Started with Ax
+sidebar_label: Getting Started with Ax
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/getting_started/getting_started.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/getting_started/getting_started.ipynb"
+/>
+
+# Getting Started with Ax
+
+Complex optimization problems where we wish to tune multiple parameters to improve
+metric performance, but the inter-parameter interactions are not fully understood, are
+common across various fields including machine learning, robotics, materials science,
+and chemistry. This category of problem is known as "black-box" optimization. The
+complexity of black-box optimization problems further increases if evaluations are
+expensive to conduct, time-consuming, or noisy.
+
+We can use Ax to efficiently conduct an experiment in which we "ask" for candidate
+points to evaluate, "tell" Ax the results, and repeat. We'll uses Ax's `Client`, a tool
+for managing the state of our experiment, and we'll learn how to define an optimization
+problem, configure an experiment, run trials, analyze results, and persist the
+experiment for later use using the `Client`.
+
+Because Ax is a black box optimizer, we can use it to optimize any arbitrary function.
+In this example we will minimize the
+[Hartmann6 function](https://www.sfu.ca/~ssurjano/hart6.html), a complicated
+6-dimensional function with multiple local minima. Hartmann6 is a challenging benchmark
+for optimization algorithms commonly used in the global optimization literature -- it
+tests the algorithm's ability to identify the true global minimum, rather than
+mistakenly converging on a local minimum. Looking at its analytic form we can see that
+it would be incredibly challenging to efficiently find the global minimum either by
+manual trial-and-error or traditional design of experiments like grid-search or
+random-search.
+
+$$
+
+f(\mathbf{x})=-\sum_{i=1}^4 \alpha_i \exp \left(-\sum_{j=1}^6 A_{i j}\left(x_j-P_{i j}\right)^2\right)
+
+$$
+
+### Learning Objectives
+
+- Understand the basic concepts of black box optimization
+- Learn how to define an optimization problem using Ax
+- Configure and run an experiment using Ax's `Client`
+- Analyze the results of the optimization
+
+### Prerequisites
+
+- Familiarity with Python and basic programming concepts
+- Understanding of [adaptive experimentation](../../intro-to-ae.mdx) and
+  [Bayesian optimization](../../intro-to-bo.mdx)
+
+## Step 1: Import Necessary Modules
+
+First, ensure you have all the necessary imports:
+
+```python
+import numpy as np
+from ax.api.client import Client
+from ax.api.configs import RangeParameterConfig
+```
+
+## Step 2: Initialize the Client
+
+Create an instance of the `Client` to manage the state of your experiment.
+
+```python
+client = Client()
+```
+
+## Step 3: Configure the Experiment
+
+The `Client` instance can be configured with a series of `Config`s that define how the
+experiment will be run.
+
+The Hartmann6 problem is usually evaluated on the hypercube $x_i \in (0, 1)$, so we will
+define six identical `RangeParameterConfig`s with these bounds.
+
+You may specify additional features like parameter constraints to further refine the
+search space and parameter scaling to help navigate parameters with nonuniform effects.
+
+```python
+# Define six float parameters x1, x2, x3, ... for the Hartmann6 function, which is typically evaluated on the unit hypercube
+parameters = [
+    RangeParameterConfig(
+        name="x1", parameter_type="float", bounds=(0, 1)
+    ),
+    RangeParameterConfig(
+        name="x2", parameter_type="float", bounds=(0, 1)
+    ),
+    RangeParameterConfig(
+        name="x3", parameter_type="float", bounds=(0, 1)
+    ),
+    RangeParameterConfig(
+        name="x4", parameter_type="float", bounds=(0, 1)
+    ),
+    RangeParameterConfig(
+        name="x5", parameter_type="float", bounds=(0, 1)
+    ),
+    RangeParameterConfig(
+        name="x6", parameter_type="float", bounds=(0, 1)
+    ),
+]
+
+client.configure_experiment(parameters=parameters)
+```
+
+## Step 4: Configure Optimization
+
+Now, we must configure the objective for this optimization, which we do using
+`Client.configure_optimization`. This method expects a string `objective`, an expression
+containing either a single metric to maximize, a linear combination of metrics to
+maximize, or a tuple of multiple metrics to jointly maximize. These expressions are
+parsed using [SymPy](https://www.sympy.org/en/index.html). For example:
+
+- `"score"` would direct Ax to maximize a metric named score
+- `"-loss"` would direct Ax to Ax to minimize a metric named loss
+- `"task_0 + 0.5 * task_1"` would direct Ax to maximize the sum of two task scores,
+  downweighting task_1 by a factor of 0.5
+- `"score, -flops"` would direct Ax to simultaneously maximize score while minimizing
+  flops
+
+See these recipes for more information on configuring
+[objectives](../../recipes/multi-objective-optimization) and
+[outcome constraints](../../recipes/outcome-constraints).
+
+```python
+metric_name = "hartmann6" # this name is used during the optimization loop in Step 5
+objective = f"-{metric_name}" # minimization is specified by the negative sign
+
+client.configure_optimization(objective=objective)
+```
+
+## Step 5: Run Trials
+
+Here, we will configure the ask-tell loop.
+
+We begin by defining the Hartmann6 function as written above. Remember, this is just an
+example problem and any Python function can be substituted here.
+
+```python
+# Hartmann6 function
+def hartmann6(x1, x2, x3, x4, x5, x6):
+    alpha = np.array([1.0, 1.2, 3.0, 3.2])
+    A = np.array([
+        [10, 3, 17, 3.5, 1.7, 8],
+        [0.05, 10, 17, 0.1, 8, 14],
+        [3, 3.5, 1.7, 10, 17, 8],
+        [17, 8, 0.05, 10, 0.1, 14]
+    ])
+    P = 10**-4 * np.array([
+        [1312, 1696, 5569, 124, 8283, 5886],
+        [2329, 4135, 8307, 3736, 1004, 9991],
+        [2348, 1451, 3522, 2883, 3047, 6650],
+        [4047, 8828, 8732, 5743, 1091, 381]
+    ])
+
+    outer = 0.0
+    for i in range(4):
+        inner = 0.0
+        for j, x in enumerate([x1, x2, x3, x4, x5, x6]):
+            inner += A[i, j] * (x - P[i, j])**2
+        outer += alpha[i] * np.exp(-inner)
+    return -outer
+
+hartmann6(0.1, 0.45, 0.8, 0.25, 0.552, 1.0)
+```
+
+<CellOutput>
+{
+`np.float64(-0.4878737485613134)`
+}
+</CellOutput>
+
+### Optimization Loop
+
+We will iteratively call `client.get_next_trials` to "ask" Ax for a parameterization to
+evaluate, then call `hartmann6` using those parameters, and finally "tell" Ax the result
+using `client.complete_trial`.
+
+This loop will run multiple trials to optimize the function.
+
+```python
+for _ in range(10): # Run 10 rounds of trials
+    # We will request three trials at a time in this example
+    trials = client.get_next_trials(max_trials=3)
+
+    for trial_index, parameters in trials.items():
+        x1 = parameters["x1"]
+        x2 = parameters["x2"]
+        x3 = parameters["x3"]
+        x4 = parameters["x4"]
+        x5 = parameters["x5"]
+        x6 = parameters["x6"]
+
+        result = hartmann6(x1, x2, x3, x4, x5, x6)
+
+        # Set raw_data as a dictionary with metric names as keys and results as values
+        raw_data = {metric_name: result}
+
+        # Complete the trial with the result
+        client.complete_trial(trial_index=trial_index, raw_data=raw_data)
+
+        print(f"Completed trial {trial_index} with {raw_data=}")
+```
+
+<CellOutput>
+{
+`[WARNING 05-08 22:37:26] ax.api.client: 3 trials requested but only 2 could be generated.
+Completed trial 0 with raw_data={'hartmann6': np.float64(-0.5053149917022333)}
+Completed trial 1 with raw_data={'hartmann6': np.float64(-0.03310945934004503)}
+Completed trial 2 with raw_data={'hartmann6': np.float64(-0.7192644678818096)}
+Completed trial 3 with raw_data={'hartmann6': np.float64(-0.1226662965091482)}
+Completed trial 4 with raw_data={'hartmann6': np.float64(-0.005110906469576646)}
+[WARNING 05-08 22:37:28] ax.api.client: 3 trials requested but only 1 could be generated.
+Completed trial 5 with raw_data={'hartmann6': np.float64(-0.28433994199804213)}
+Completed trial 6 with raw_data={'hartmann6': np.float64(-0.4431630799387781)}
+Completed trial 7 with raw_data={'hartmann6': np.float64(-0.39276915467513346)}
+Completed trial 8 with raw_data={'hartmann6': np.float64(-0.33451347277433247)}
+Completed trial 9 with raw_data={'hartmann6': np.float64(-0.7197381443313741)}
+Completed trial 10 with raw_data={'hartmann6': np.float64(-1.93959653051362)}
+Completed trial 11 with raw_data={'hartmann6': np.float64(-0.11347601819898986)}
+Completed trial 12 with raw_data={'hartmann6': np.float64(-1.6492602031293597)}
+Completed trial 13 with raw_data={'hartmann6': np.float64(-1.0471260893005265)}
+Completed trial 14 with raw_data={'hartmann6': np.float64(-1.0004681771683763)}
+Completed trial 15 with raw_data={'hartmann6': np.float64(-2.6423244505019654)}
+Completed trial 16 with raw_data={'hartmann6': np.float64(-1.1545563433636785)}
+Completed trial 17 with raw_data={'hartmann6': np.float64(-2.1014424360893953)}
+Completed trial 18 with raw_data={'hartmann6': np.float64(-3.036326577867195)}
+Completed trial 19 with raw_data={'hartmann6': np.float64(-1.7880985982021391)}
+Completed trial 20 with raw_data={'hartmann6': np.float64(-1.6949890791862243)}
+Completed trial 21 with raw_data={'hartmann6': np.float64(-2.972651062583115)}
+Completed trial 22 with raw_data={'hartmann6': np.float64(-2.308896697706749)}
+Completed trial 23 with raw_data={'hartmann6': np.float64(-3.196717562411591)}
+Completed trial 24 with raw_data={'hartmann6': np.float64(-2.7440377924112793)}
+Completed trial 25 with raw_data={'hartmann6': np.float64(-2.932827502010532)}
+Completed trial 26 with raw_data={'hartmann6': np.float64(-2.555993723947696)}`
+}
+</CellOutput>
+
+## Step 6: Analyze Results
+
+After running trials, you can analyze the results. Most commonly this means extracting
+the parameterization from the best performing trial you conducted.
+
+Hartmann6 has a known global minimum of $f(x*) = -3.322$ at
+$x* = (0.201, 0.150, 0.477, 0.273, 0.312, 0.657)$. Ax is able to identify a point very
+near to this true optimum **using just 30 evaluations.** This is possible due to the
+sample-efficiency of [Bayesian optimization](../../intro-to-bo), the optimization method
+we use under the hood in Ax.
+
+```python
+best_parameters, prediction, index, name = client.get_best_parameterization()
+print("Best Parameters:", best_parameters)
+print("Prediction (mean, variance):", prediction)
+```
+
+<CellOutput>
+{
+`Best Parameters: {'x1': 0.2213551543586989, 'x2': 0.10446156209053127, 'x3': 0.3711262881714367, 'x4': 0.26087666301497997, 'x5': 0.2992479221715121, 'x6': 0.6710144147769401}
+Prediction (mean, variance): {'hartmann6': (np.float64(-3.2046330002310466), np.float64(0.003192384861164765))}`
+}
+</CellOutput>
+
+## Step 7: Compute Analyses
+
+Ax can also produce a number of analyses to help interpret the results of the experiment
+via `client.compute_analyses`. Users can manually select which analyses to run, or can
+allow Ax to select which would be most relevant. In this case Ax selects the following:
+
+- **Parrellel Coordinates Plot** shows which parameterizations were evaluated and what
+  metric values were observed -- this is useful for getting a high level overview of how
+  thoroughly the search space was explored and which regions tend to produce which
+  outcomes
+- **Sensitivity Analysis Plot** shows which parameters have the largest affect on the
+  objective using
+  [Sobol Indicies](https://en.wikipedia.org/wiki/Variance-based_sensitivity_analysis)
+- **Slice Plot** shows how the model predicts a single parameter effects the objective
+  along with a confidence interval
+- **Contour Plot** shows how the model predicts a pair of parameters effects the
+  objective as a 2D surface
+- **Summary** lists all trials generated along with their parameterizations,
+  observations, and miscellaneous metadata
+- **Cross Validation** helps to visualize how well the surrogate model is able to
+  predict out of sample points
+
+```python
+# display=True instructs Ax to sort then render the resulting analyses
+cards = client.compute_analyses(display=True)
+```
+
+**Parallel Coordinates for hartmann6**
+
+The parallel coordinates plot displays multi-dimensional data by representing each
+parameter as a parallel axis. This plot helps in assessing how thoroughly the search
+space has been explored and in identifying patterns or clusterings associated with
+high-performing (good) or low-performing (bad) arms. By tracing lines across the axes,
+one can observe correlations and interactions between parameters, gaining insights into
+the relationships that contribute to the success or failure of different configurations
+within the experiment.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/b98e019d-6637-46db-9488-5250d7476a6b.json')} />
+
+
+**Sensitivity Analysis for hartmann6**
+
+Understand how each parameter affects hartmann6 according to a second-order sensitivity
+analysis.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/acb0a7ca-5efe-42ff-922f-e93292c278fa.json')} />
+
+
+**x2 vs. hartmann6**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/ccfcb659-8c7c-4bcd-9bf2-3df75ffe88fb.json')} />
+
+
+**x5 vs. hartmann6**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/6da1ee60-9dee-4ecb-b71a-3ecb8936bc82.json')} />
+
+
+**x2, x4 vs. hartmann6**
+
+The contour plot visualizes the predicted outcomes for hartmann6 across a
+two-dimensional parameter space, with other parameters held fixed at their status_quo
+value (or mean value if status_quo is unavailable). This plot helps in identifying
+regions of optimal performance and understanding how changes in the selected parameters
+influence the predicted outcomes. Contour lines represent levels of constant predicted
+values, providing insights into the gradient and potential optima within the parameter
+space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/7382df53-5fef-41f3-82eb-cdfa6a4bc660.json')} />
+
+
+**x4 vs. hartmann6**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/5df0360f-64f5-4d6d-a2c9-c7bcdf25a63b.json')} />
+
+
+**x2, x6 vs. hartmann6**
+
+The contour plot visualizes the predicted outcomes for hartmann6 across a
+two-dimensional parameter space, with other parameters held fixed at their status_quo
+value (or mean value if status_quo is unavailable). This plot helps in identifying
+regions of optimal performance and understanding how changes in the selected parameters
+influence the predicted outcomes. Contour lines represent levels of constant predicted
+values, providing insights into the gradient and potential optima within the parameter
+space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/a556af6c-0bc0-4f11-a013-10c2ba5f899f.json')} />
+
+
+**Summary for Experiment**
+
+High-level summary of the `Trial`-s in this `Experiment`
+
+
+
+
+|    |   trial_index |   arm_name | trial_status   | generation_node     |   hartmann6 |       x1 |       x2 |       x3 |       x4 |       x5 |       x6 |
+|---:|--------------:|-----------:|:---------------|:--------------------|------------:|---------:|---------:|---------:|---------:|---------:|---------:|
+|  0 |             0 |        0_0 | COMPLETED      | CenterOfSearchSpace |   -0.505315 | 0.5      | 0.5      | 0.5      | 0.5      | 0.5      | 0.5      |
+|  1 |             1 |        1_0 | COMPLETED      | Sobol               |   -0.033109 | 0.829692 | 0.611229 | 0.898946 | 0.210268 | 0.632114 | 0.439321 |
+|  2 |             2 |        2_0 | COMPLETED      | Sobol               |   -0.719264 | 0.254    | 0.498573 | 0.455983 | 0.620555 | 0.331295 | 0.617247 |
+|  3 |             3 |        3_0 | COMPLETED      | Sobol               |   -0.122666 | 0.085763 | 0.944121 | 0.549034 | 0.392632 | 0.088648 | 0.850153 |
+|  4 |             4 |        4_0 | COMPLETED      | Sobol               |   -0.005111 | 0.502261 | 0.071932 | 0.117548 | 0.810717 | 0.889345 | 0.218126 |
+|  5 |             5 |        5_0 | COMPLETED      | MBM                 |   -0.28434  | 0.243351 | 0.478278 | 0.174905 | 0.710845 | 0.210668 | 0.632279 |
+|  6 |             6 |        6_0 | COMPLETED      | MBM                 |   -0.443163 | 0.109579 | 0.42655  | 0.509846 | 0.716372 | 0.286373 | 0.659344 |
+|  7 |             7 |        7_0 | COMPLETED      | MBM                 |   -0.392769 | 0.057214 | 0.569768 | 0.435515 | 0.626793 | 0.463886 | 0.620595 |
+|  8 |             8 |        8_0 | COMPLETED      | MBM                 |   -0.334513 | 0.357151 | 0.5053   | 0.462032 | 0.613653 | 0.082598 | 0.694954 |
+|  9 |             9 |        9_0 | COMPLETED      | MBM                 |   -0.719738 | 0.323318 | 0.468876 | 0.461164 | 0.608391 | 0.379764 | 0.577071 |
+| 10 |            10 |       10_0 | COMPLETED      | MBM                 |   -1.9396   | 0.312342 | 0.494369 | 0.454845 | 0.323857 | 0.374812 | 0.655051 |
+| 11 |            11 |       11_0 | COMPLETED      | MBM                 |   -0.113476 | 0.322712 | 0.742154 | 0.463387 | 0.795783 | 0.3717   | 0.540326 |
+| 12 |            12 |       12_0 | COMPLETED      | MBM                 |   -1.64926  | 0.289784 | 0.399582 | 0.527435 | 0.2775   | 0.492215 | 0.625025 |
+| 13 |            13 |       13_0 | COMPLETED      | MBM                 |   -1.04713  | 0.310466 | 0.531889 | 0.054452 | 0.266821 | 0.446936 | 0.615061 |
+| 14 |            14 |       14_0 | COMPLETED      | MBM                 |   -1.00047  | 0.316595 | 0.520982 | 0.931985 | 0.274901 | 0.400087 | 0.688811 |
+| 15 |            15 |       15_0 | COMPLETED      | MBM                 |   -2.64232  | 0.357769 | 0.319926 | 0.464026 | 0.242773 | 0.354876 | 0.665626 |
+| 16 |            16 |       16_0 | COMPLETED      | MBM                 |   -1.15456  | 0.563077 | 0.52474  | 0.457539 | 0.253716 | 0.396527 | 0.698333 |
+| 17 |            17 |       17_0 | COMPLETED      | MBM                 |   -2.10144  | 0.088185 | 0.480571 | 0.477653 | 0.228649 | 0.343511 | 0.627042 |
+| 18 |            18 |       18_0 | COMPLETED      | MBM                 |   -3.03633  | 0.267547 | 0.259221 | 0.439733 | 0.225194 | 0.297987 | 0.676613 |
+| 19 |            19 |       19_0 | COMPLETED      | MBM                 |   -1.7881   | 0.296627 | 0.272105 | 0.454375 | 0.215554 | 0.297638 | 0.40646  |
+| 20 |            20 |       20_0 | COMPLETED      | MBM                 |   -1.69499  | 0.260209 | 0.26455  | 0.434289 | 0.230804 | 0.309942 | 0.934977 |
+| 21 |            21 |       21_0 | COMPLETED      | MBM                 |   -2.97265  | 0.262108 | 0.145759 | 0.4342   | 0.198873 | 0.261677 | 0.665699 |
+| 22 |            22 |       22_0 | COMPLETED      | MBM                 |   -2.3089   | 0.280074 | 0.230557 | 0.417327 | 0.128733 | 0.22742  | 0.668119 |
+| 23 |            23 |       23_0 | COMPLETED      | MBM                 |   -3.19672  | 0.221355 | 0.104462 | 0.371126 | 0.260877 | 0.299248 | 0.671014 |
+| 24 |            24 |       24_0 | COMPLETED      | MBM                 |   -2.74404  | 0.010634 | 0.193238 | 0.441395 | 0.307981 | 0.266081 | 0.665873 |
+| 25 |            25 |       25_0 | COMPLETED      | MBM                 |   -2.93283  | 0.274922 | 0.171637 | 0.426439 | 0.320246 | 0.236176 | 0.668496 |
+| 26 |            26 |       26_0 | COMPLETED      | MBM                 |   -2.55599  | 0        | 0.196103 | 0.260114 | 0.287883 | 0.288645 | 0.670042 |
+
+
+**Cross Validation for hartmann6**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/3a64a5ce-ff00-4388-92e2-0631a3f53016.json')} />
+
+## Conclusion
+
+This tutorial demonstrates how to use Ax's `Client` for ask-tell optimization of Python
+functions using the Hartmann6 function as an example. You can adjust the function and
+parameters to suit your specific optimization problem.
+

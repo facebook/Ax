@@ -1,0 +1,506 @@
+---
+title: Trial-level Early Stopping
+sidebar_label: Trial-level Early Stopping
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/early_stopping/early_stopping.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/early_stopping/early_stopping.ipynb"
+/>
+
+# Trial-level early stopping
+
+Trial-level early stopping aims to monitor the results of expensive evaluations with
+timeseries-like data and terminate those that are unlikely to produce promising results
+prior to completing that evaluation. This reduces computational waste, and enables the
+same amount of resources to explore more configurations. Early stopping is useful for
+expensive to evaluate problems where stepwise information is available on the way to the
+final measurement.
+
+Like the [Getting Started tutorial](../getting_started) we'll be minimizing the
+Hartmann6 function, but this time we've modified it to incorporate a new parameter $t$
+which allows the function to produce timeseries-like data where the value returned is
+closer and closer to Hartmann6's true value as $t$ increases. At $t = 100$ the function
+will simply return Hartmann6's unaltered value.
+
+$$
+
+f(x, t) = hartmann6(x) - log_2(t/100)
+
+$$
+
+While the function is synthetic, the workflow captures the intended principles for this
+tutorial and is similar to the process of training typical machine learning models.
+
+## Learning Objectives
+
+- Understand when time-series-like data can be used in an optimization experiment
+- Run a simple optimization experiment with early stopping
+- Configure details of an early stopping strategy
+- Analyze the results of the optimization
+
+## Prerequisites
+
+- Familiarity with Python and basic programming concepts
+- Understanding of [adaptive experimentation](../../intro-to-ae.mdx) and
+  [Bayesian optimization](../../intro-to-bo.mdx)
+- [Getting Started with Ax](../getting_started/index.mdx)
+
+## Step 1: Import Necessary Modules
+
+First, ensure you have all the necessary imports:
+
+```python
+import numpy as np
+from ax.api.client import Client
+from ax.api.configs import  RangeParameterConfig
+```
+
+## Step 2: Initialize the Client
+
+Create an instance of the `Client` to manage the state of your experiment.
+
+```python
+client = Client()
+```
+
+## Step 3: Configure the Experiment
+
+The `Client` instance can be configured with a series of `Config`s that define how the
+experiment will be run.
+
+The Hartmann6 problem is usually evaluated on the hypercube $x_i \in (0, 1)$, so we will
+define six identical `RangeParameterConfig`s with these bounds.
+
+You may specify additional features like parameter constraints to further refine the
+search space and parameter scaling to help navigate parameters with nonuniform effects.
+
+```python
+# Define six float parameters for the Hartmann6 function
+parameters = [
+    RangeParameterConfig(
+        name=f"x{i + 1}", parameter_type="float", bounds=(0, 1)
+    )
+    for i in range(6)
+]
+
+client.configure_experiment(parameters=parameters)
+```
+
+## Step 4: Configure Optimization
+
+Now, we must configure the objective for this optimization, which we do using
+`Client.configure_optimization`. This method expects a string `objective`, an expression
+containing either a single metric to maximize, a linear combination of metrics to
+maximize, or a tuple of multiple metrics to jointly maximize. These expressions are
+parsed using [SymPy](https://www.sympy.org/en/index.html). For example:
+
+- `"score"` would direct Ax to maximize a metric named score
+- `"-loss"` would direct Ax to Ax to minimize a metric named loss
+- `"task_0 + 0.5 * task_1"` would direct Ax to maximize the sum of two task scores,
+  downweighting task_1 by a factor of 0.5
+- `"score, -flops"` would direct Ax to simultaneously maximize score while minimizing
+  flops
+
+See these recipes for more information on configuring
+[objectives](../../recipes/multi-objective-optimization) and
+[outcome constraints](../../recipes/outcome-constraints).
+
+```python
+client.configure_optimization(objective="-hartmann6")
+```
+
+## Step 5: Run Trials with early stopping
+
+Here, we will configure the ask-tell loop.
+
+We begin by defining our Hartmann6 function as written above. Remember, this is just an
+example problem and any Python function can be substituted here.
+
+Then we will iteratively do the following:
+
+- Call `client.get_next_trials` to "ask" Ax for a parameterization to evaluate
+- Evaluate `hartmann6_curve` using those parameters in an inner loop to simulate the
+  generation of timeseries data
+- "Tell" Ax the partial result using `client.attach_data`
+- Query whether the trial should be stopped via `client.should_stop_trial_early`
+- Stop the underperforming trial and report back to Ax that is has been stopped
+
+This loop will run multiple trials to optimize the function.
+
+Ax will configure an EarlyStoppingStrategy when `should_stop_trial_early` is called for
+the first time. By default Ax uses a Percentile early stopping strategy which will
+terminate a trial early if its performance falls below a percentile threshold when
+compared to other trials at the same step. Early stopping can only occur after a minimum
+number of `progressions` to prevent premature early stopping. This validates that both
+enough data is gathered to make a decision and there is a minimum number of completed
+trials with curve data; these completed trials establish a baseline.
+
+```python
+# Hartmann6 function
+def hartmann6(x1, x2, x3, x4, x5, x6):
+    alpha = np.array([1.0, 1.2, 3.0, 3.2])
+    A = np.array(
+        [
+            [10, 3, 17, 3.5, 1.7, 8],
+            [0.05, 10, 17, 0.1, 8, 14],
+            [3, 3.5, 1.7, 10, 17, 8],
+            [17, 8, 0.05, 10, 0.1, 14],
+        ]
+    )
+    P = 10**-4 * np.array(
+        [
+            [1312, 1696, 5569, 124, 8283, 5886],
+            [2329, 4135, 8307, 3736, 1004, 9991],
+            [2348, 1451, 3522, 2883, 3047, 6650],
+            [4047, 8828, 8732, 5743, 1091, 381],
+        ]
+    )
+
+    outer = 0.0
+    for i in range(4):
+        inner = 0.0
+        for j, x in enumerate([x1, x2, x3, x4, x5, x6]):
+            inner += A[i, j] * (x - P[i, j]) ** 2
+        outer += alpha[i] * np.exp(-inner)
+    return -outer
+
+
+# Hartmann6 function with additional t term such that
+# hartmann6(X) == hartmann6_curve(X, t=100)
+def hartmann6_curve(x1, x2, x3, x4, x5, x6, t):
+    return hartmann6(x1, x2, x3, x4, x5, x6) - np.log2(t / 100)
+
+
+(
+    hartmann6(0.1, 0.45, 0.8, 0.25, 0.552, 1.0),
+    hartmann6_curve(0.1, 0.45, 0.8, 0.25, 0.552, 1.0, 100),
+)
+```
+
+<CellOutput>
+{
+`(np.float64(-0.4878737485613134), np.float64(-0.4878737485613134))`
+}
+</CellOutput>
+
+```python
+maximum_progressions = 100  # Observe hartmann6_curve over 100 progressions
+
+for _ in range(30):  # Run 30 rounds of trials
+    trials = client.get_next_trials(max_trials=3)
+    for trial_index, parameters in trials.items():
+        for t in range(1, maximum_progressions + 1):
+            raw_data = {"hartmann6": hartmann6_curve(t=t, **parameters)}
+
+            # On the final reading call complete_trial and break, else call attach_data
+            if t == maximum_progressions:
+                client.complete_trial(
+                    trial_index=trial_index, raw_data=raw_data, progression=t
+                )
+                break
+
+            client.attach_data(
+                trial_index=trial_index, raw_data=raw_data, progression=t
+            )
+
+            # If the trial is underperforming, stop it
+            if client.should_stop_trial_early(trial_index=trial_index):
+                client.mark_trial_early_stopped(trial_index=trial_index)
+                break
+```
+
+<CellOutput>
+{
+`[WARNING 05-08 22:39:58] ax.api.client: 3 trials requested but only 2 could be generated.
+[WARNING 05-08 22:40:03] ax.api.client: 3 trials requested but only 1 could be generated.
+[INFO 05-08 22:40:03] ax.early_stopping.strategies.percentile: Early stoppinging trial 5: Trial objective value 3.0327025238266283 is worse than 50.0-th percentile (2.9125437729634585) across comparable trials..
+[INFO 05-08 22:40:06] ax.early_stopping.strategies.percentile: Early stoppinging trial 6: Trial objective value 3.0280250997106677 is worse than 50.0-th percentile (3.0084744427417878) across comparable trials..
+[INFO 05-08 22:40:06] ax.early_stopping.strategies.percentile: Early stoppinging trial 7: Trial objective value 3.222023306740538 is worse than 50.0-th percentile (3.0182497712262277) across comparable trials..
+[INFO 05-08 22:40:12] ax.early_stopping.strategies.percentile: Early stoppinging trial 9: Trial objective value 3.055215267335546 is worse than 50.0-th percentile (3.0182497712262277) across comparable trials..
+[INFO 05-08 22:40:12] ax.early_stopping.strategies.percentile: Early stoppinging trial 10: Trial objective value 2.849956147175111 is worse than 50.0-th percentile (2.6791095794351945) across comparable trials..
+[INFO 05-08 22:40:12] ax.early_stopping.strategies.percentile: Early stoppinging trial 11: Trial objective value 3.2672275139828675 is worse than 50.0-th percentile (3.0182497712262277) across comparable trials..
+[INFO 05-08 22:40:15] ax.early_stopping.strategies.percentile: Early stoppinging trial 12: Trial objective value 3.0626591158693732 is worse than 50.0-th percentile (3.0280250997106677) across comparable trials..
+[INFO 05-08 22:40:15] ax.early_stopping.strategies.percentile: Early stoppinging trial 13: Trial objective value 2.8700461263403825 is worse than 50.0-th percentile (2.7645328633051527) across comparable trials..
+[INFO 05-08 22:40:15] ax.early_stopping.strategies.percentile: Early stoppinging trial 14: Trial objective value 3.2659131483131953 is worse than 50.0-th percentile (3.0280250997106677) across comparable trials..
+[INFO 05-08 22:40:18] ax.early_stopping.strategies.percentile: Early stoppinging trial 15: Trial objective value 3.049989574002824 is worse than 50.0-th percentile (3.030363811768648) across comparable trials..
+[INFO 05-08 22:40:18] ax.early_stopping.strategies.percentile: Early stoppinging trial 16: Trial objective value 2.8798770919945453 is worse than 50.0-th percentile (2.849956147175111) across comparable trials..
+[INFO 05-08 22:40:19] ax.early_stopping.strategies.percentile: Early stoppinging trial 17: Trial objective value 3.256120064389586 is worse than 50.0-th percentile (3.030363811768648) across comparable trials..
+[INFO 05-08 22:40:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 18: Trial objective value 3.047362801674962 is worse than 50.0-th percentile (3.0327025238266283) across comparable trials..
+[INFO 05-08 22:40:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 19: Trial objective value 2.8693276860868484 is worse than 50.0-th percentile (2.85964191663098) across comparable trials..
+[INFO 05-08 22:40:22] ax.early_stopping.strategies.percentile: Early stoppinging trial 20: Trial objective value 3.256930857959282 is worse than 50.0-th percentile (3.0327025238266283) across comparable trials..
+[INFO 05-08 22:40:24] ax.early_stopping.strategies.percentile: Early stoppinging trial 21: Trial objective value 3.0505949110969515 is worse than 50.0-th percentile (3.040032662750795) across comparable trials..
+[INFO 05-08 22:40:25] ax.early_stopping.strategies.percentile: Early stoppinging trial 22: Trial objective value 2.7001991920628736 is worse than 50.0-th percentile (2.5535786973513357) across comparable trials..
+[INFO 05-08 22:40:25] ax.early_stopping.strategies.percentile: Early stoppinging trial 23: Trial objective value 3.263837557345808 is worse than 50.0-th percentile (3.040032662750795) across comparable trials..
+[INFO 05-08 22:40:28] ax.early_stopping.strategies.percentile: Early stoppinging trial 24: Trial objective value 2.9078422448316807 is worse than 50.0-th percentile (2.85964191663098) across comparable trials..
+[INFO 05-08 22:40:28] ax.early_stopping.strategies.percentile: Early stoppinging trial 25: Trial objective value 2.7375826408508965 is worse than 50.0-th percentile (2.6268889447071047) across comparable trials..
+[INFO 05-08 22:40:28] ax.early_stopping.strategies.percentile: Early stoppinging trial 26: Trial objective value 3.255723033121399 is worse than 50.0-th percentile (3.0453457685816154) across comparable trials..
+[INFO 05-08 22:40:31] ax.early_stopping.strategies.percentile: Early stoppinging trial 27: Trial objective value 3.066723718860993 is worse than 50.0-th percentile (3.046354285128289) across comparable trials..
+[INFO 05-08 22:40:31] ax.early_stopping.strategies.percentile: Early stoppinging trial 28: Trial objective value 2.8639875181388907 is worse than 50.0-th percentile (2.863550520536823) across comparable trials..
+[INFO 05-08 22:40:31] ax.early_stopping.strategies.percentile: Early stoppinging trial 29: Trial objective value 3.256545047668587 is worse than 50.0-th percentile (3.046354285128289) across comparable trials..
+[INFO 05-08 22:40:34] ax.early_stopping.strategies.percentile: Early stoppinging trial 30: Trial objective value 3.0531520807285597 is worse than 50.0-th percentile (3.047362801674962) across comparable trials..
+[INFO 05-08 22:40:34] ax.early_stopping.strategies.percentile: Early stoppinging trial 31: Trial objective value 2.8818761943382913 is worse than 50.0-th percentile (2.8639875181388907) across comparable trials..
+[INFO 05-08 22:40:35] ax.early_stopping.strategies.percentile: Early stoppinging trial 32: Trial objective value 3.257416115906734 is worse than 50.0-th percentile (3.047362801674962) across comparable trials..
+[INFO 05-08 22:40:37] ax.early_stopping.strategies.percentile: Early stoppinging trial 33: Trial objective value 3.0477648148429637 is worse than 50.0-th percentile (3.047563808258963) across comparable trials..
+[INFO 05-08 22:40:38] ax.early_stopping.strategies.percentile: Early stoppinging trial 34: Trial objective value 2.7342806807223856 is worse than 50.0-th percentile (2.7001991920628736) across comparable trials..
+[INFO 05-08 22:40:38] ax.early_stopping.strategies.percentile: Early stoppinging trial 35: Trial objective value 3.256543639704061 is worse than 50.0-th percentile (3.047563808258963) across comparable trials..
+[INFO 05-08 22:40:41] ax.early_stopping.strategies.percentile: Early stoppinging trial 36: Trial objective value 3.055416023175452 is worse than 50.0-th percentile (3.0477648148429637) across comparable trials..
+[INFO 05-08 22:40:41] ax.early_stopping.strategies.percentile: Early stoppinging trial 37: Trial objective value 2.9065492337685033 is worse than 50.0-th percentile (2.8639875181388907) across comparable trials..
+[INFO 05-08 22:40:41] ax.early_stopping.strategies.percentile: Early stoppinging trial 38: Trial objective value 3.2595134872433995 is worse than 50.0-th percentile (3.0477648148429637) across comparable trials..
+[INFO 05-08 22:40:44] ax.early_stopping.strategies.percentile: Early stoppinging trial 39: Trial objective value 3.0592343439686154 is worse than 50.0-th percentile (3.048877194422894) across comparable trials..
+[INFO 05-08 22:40:44] ax.early_stopping.strategies.percentile: Early stoppinging trial 40: Trial objective value 2.887555485294307 is worse than 50.0-th percentile (2.86665760211287) across comparable trials..
+[INFO 05-08 22:40:44] ax.early_stopping.strategies.percentile: Early stoppinging trial 41: Trial objective value 3.2542356781505433 is worse than 50.0-th percentile (3.048877194422894) across comparable trials..
+[INFO 05-08 22:40:47] ax.early_stopping.strategies.percentile: Early stoppinging trial 42: Trial objective value 3.0552413801352842 is worse than 50.0-th percentile (3.049989574002824) across comparable trials..
+[INFO 05-08 22:40:48] ax.early_stopping.strategies.percentile: Early stoppinging trial 43: Trial objective value 2.728676244050916 is worse than 50.0-th percentile (2.714437718056895) across comparable trials..
+[INFO 05-08 22:40:48] ax.early_stopping.strategies.percentile: Early stoppinging trial 44: Trial objective value 3.2544026351092605 is worse than 50.0-th percentile (3.049989574002824) across comparable trials..
+[INFO 05-08 22:40:51] ax.early_stopping.strategies.percentile: Early stoppinging trial 45: Trial objective value 3.0505951981795705 is worse than 50.0-th percentile (3.0502922425498875) across comparable trials..
+[INFO 05-08 22:40:51] ax.early_stopping.strategies.percentile: Early stoppinging trial 46: Trial objective value 2.8839447534353395 is worse than 50.0-th percentile (2.86665760211287) across comparable trials..
+[INFO 05-08 22:40:51] ax.early_stopping.strategies.percentile: Early stoppinging trial 47: Trial objective value 3.2648946019802496 is worse than 50.0-th percentile (3.0502922425498875) across comparable trials..
+[INFO 05-08 22:40:54] ax.early_stopping.strategies.percentile: Early stoppinging trial 48: Trial objective value 3.0565678372177265 is worse than 50.0-th percentile (3.0505949110969515) across comparable trials..
+[INFO 05-08 22:40:54] ax.early_stopping.strategies.percentile: Early stoppinging trial 49: Trial objective value 2.740857403461911 is worse than 50.0-th percentile (2.728676244050916) across comparable trials..
+[INFO 05-08 22:40:54] ax.early_stopping.strategies.percentile: Early stoppinging trial 50: Trial objective value 3.2549156124343015 is worse than 50.0-th percentile (3.0505949110969515) across comparable trials..
+[INFO 05-08 22:40:57] ax.early_stopping.strategies.percentile: Early stoppinging trial 51: Trial objective value 2.902034329196531 is worse than 50.0-th percentile (2.8678579858163094) across comparable trials..
+[INFO 05-08 22:40:58] ax.early_stopping.strategies.percentile: Early stoppinging trial 52: Trial objective value 2.877012122595467 is worse than 50.0-th percentile (2.8693276860868484) across comparable trials..
+[INFO 05-08 22:40:58] ax.early_stopping.strategies.percentile: Early stoppinging trial 53: Trial objective value 3.2645236187825457 is worse than 50.0-th percentile (3.0502922425498875) across comparable trials..
+[INFO 05-08 22:41:01] ax.early_stopping.strategies.percentile: Early stoppinging trial 54: Trial objective value 2.909642566129345 is worse than 50.0-th percentile (2.8696869062136154) across comparable trials..
+[INFO 05-08 22:41:01] ax.early_stopping.strategies.percentile: Early stoppinging trial 55: Trial objective value 2.7407115953804344 is worse than 50.0-th percentile (2.731478462386651) across comparable trials..
+[INFO 05-08 22:41:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 56: Trial objective value 3.261942518028792 is worse than 50.0-th percentile (3.049989574002824) across comparable trials..
+[INFO 05-08 22:41:04] ax.early_stopping.strategies.percentile: Early stoppinging trial 57: Trial objective value 3.0530895884846765 is worse than 50.0-th percentile (3.0502922425498875) across comparable trials..
+[INFO 05-08 22:41:05] ax.early_stopping.strategies.percentile: Early stoppinging trial 58: Trial objective value 2.6183952935933488 is worse than 50.0-th percentile (2.438101479931399) across comparable trials..
+[INFO 05-08 22:41:05] ax.early_stopping.strategies.percentile: Early stoppinging trial 59: Trial objective value 3.262598020827807 is worse than 50.0-th percentile (3.0502922425498875) across comparable trials..
+[INFO 05-08 22:41:08] ax.early_stopping.strategies.percentile: Early stoppinging trial 60: Trial objective value 3.0541634528794757 is worse than 50.0-th percentile (3.0505949110969515) across comparable trials..
+[INFO 05-08 22:41:09] ax.early_stopping.strategies.percentile: Early stoppinging trial 61: Trial objective value 2.609921751677639 is worse than 50.0-th percentile (2.524011615804519) across comparable trials..
+[INFO 05-08 22:41:09] ax.early_stopping.strategies.percentile: Early stoppinging trial 62: Trial objective value 3.2563236414709427 is worse than 50.0-th percentile (3.0505949110969515) across comparable trials..
+[INFO 05-08 22:41:12] ax.early_stopping.strategies.percentile: Early stoppinging trial 63: Trial objective value 3.054174265103452 is worse than 50.0-th percentile (3.050595054638261) across comparable trials..
+[INFO 05-08 22:41:12] ax.early_stopping.strategies.percentile: Early stoppinging trial 64: Trial objective value 2.882067399553125 is worse than 50.0-th percentile (2.8678579858163094) across comparable trials..
+[INFO 05-08 22:41:12] ax.early_stopping.strategies.percentile: Early stoppinging trial 65: Trial objective value 3.267698499371308 is worse than 50.0-th percentile (3.050595054638261) across comparable trials..
+[INFO 05-08 22:41:15] ax.early_stopping.strategies.percentile: Early stoppinging trial 66: Trial objective value 2.9043340896828536 is worse than 50.0-th percentile (2.8693276860868484) across comparable trials..
+[INFO 05-08 22:41:15] ax.early_stopping.strategies.percentile: Early stoppinging trial 67: Trial objective value 2.9119475904888583 is worse than 50.0-th percentile (2.8696869062136154) across comparable trials..
+[INFO 05-08 22:41:16] ax.early_stopping.strategies.percentile: Early stoppinging trial 68: Trial objective value 3.2579693940219867 is worse than 50.0-th percentile (3.0505949110969515) across comparable trials..
+[INFO 05-08 22:41:19] ax.early_stopping.strategies.percentile: Early stoppinging trial 69: Trial objective value 3.054220428792026 is worse than 50.0-th percentile (3.050595054638261) across comparable trials..
+[INFO 05-08 22:41:19] ax.early_stopping.strategies.percentile: Early stoppinging trial 70: Trial objective value 2.73685143203884 is worse than 50.0-th percentile (2.733872511013285) across comparable trials..
+[INFO 05-08 22:41:19] ax.early_stopping.strategies.percentile: Early stoppinging trial 71: Trial objective value 3.25991292331897 is worse than 50.0-th percentile (3.050595054638261) across comparable trials..
+[INFO 05-08 22:41:22] ax.early_stopping.strategies.percentile: Early stoppinging trial 72: Trial objective value 3.059533731262662 is worse than 50.0-th percentile (3.0505951981795705) across comparable trials..
+[INFO 05-08 22:41:23] ax.early_stopping.strategies.percentile: Early stoppinging trial 73: Trial objective value 2.7430515212023843 is worse than 50.0-th percentile (2.734076595867835) across comparable trials..
+[INFO 05-08 22:41:23] ax.early_stopping.strategies.percentile: Early stoppinging trial 74: Trial objective value 3.2601318747650905 is worse than 50.0-th percentile (3.0505951981795705) across comparable trials..
+[INFO 05-08 22:41:26] ax.early_stopping.strategies.percentile: Early stoppinging trial 75: Trial objective value 3.0580062395781504 is worse than 50.0-th percentile (3.0518423933321235) across comparable trials..
+[INFO 05-08 22:41:26] ax.early_stopping.strategies.percentile: Early stoppinging trial 76: Trial objective value 2.8904014653701675 is worse than 50.0-th percentile (2.8693276860868484) across comparable trials..
+[INFO 05-08 22:41:26] ax.early_stopping.strategies.percentile: Early stoppinging trial 77: Trial objective value 3.259558976004444 is worse than 50.0-th percentile (3.0518423933321235) across comparable trials..
+[INFO 05-08 22:41:29] ax.early_stopping.strategies.percentile: Early stoppinging trial 78: Trial objective value 3.06316365393701 is worse than 50.0-th percentile (3.0530895884846765) across comparable trials..
+[INFO 05-08 22:41:30] ax.early_stopping.strategies.percentile: Early stoppinging trial 79: Trial objective value 3.054430053844818 is worse than 50.0-th percentile (3.0531208346066183) across comparable trials..
+[INFO 05-08 22:41:30] ax.early_stopping.strategies.percentile: Early stoppinging trial 80: Trial objective value 3.2414266861166703 is worse than 50.0-th percentile (3.0531520807285597) across comparable trials..
+[INFO 05-08 22:41:33] ax.early_stopping.strategies.percentile: Early stoppinging trial 81: Trial objective value 2.9147844610523985 is worse than 50.0-th percentile (2.8696869062136154) across comparable trials..
+[INFO 05-08 22:41:33] ax.early_stopping.strategies.percentile: Early stoppinging trial 82: Trial objective value 2.890997840065595 is worse than 50.0-th percentile (2.8700461263403825) across comparable trials..
+[INFO 05-08 22:41:34] ax.early_stopping.strategies.percentile: Early stoppinging trial 83: Trial objective value 3.263291117460385 is worse than 50.0-th percentile (3.0531208346066183) across comparable trials..
+[INFO 05-08 22:41:37] ax.early_stopping.strategies.percentile: Early stoppinging trial 84: Trial objective value 3.0608610084746033 is worse than 50.0-th percentile (3.0531520807285597) across comparable trials..
+[INFO 05-08 22:41:37] ax.early_stopping.strategies.percentile: Early stoppinging trial 85: Trial objective value 2.886726249483674 is worse than 50.0-th percentile (2.8705085226661176) across comparable trials..
+[INFO 05-08 22:41:37] ax.early_stopping.strategies.percentile: Early stoppinging trial 86: Trial objective value 3.2513048477072304 is worse than 50.0-th percentile (3.0531520807285597) across comparable trials..`
+}
+</CellOutput>
+
+## Step 6: Analyze Results
+
+After running trials, you can analyze the results. Most commonly this means extracting
+the parameterization from the best performing trial you conducted.
+
+```python
+best_parameters, prediction, index, name = client.get_best_parameterization()
+print("Best Parameters:", best_parameters)
+print("Prediction (mean, variance):", prediction)
+```
+
+<CellOutput>
+{
+`[WARNING 05-08 22:41:37] ax.modelbridge.cross_validation: Metric hartmann6 was unable to be reliably fit.
+[WARNING 05-08 22:41:37] ax.service.utils.best_point: Model fit is poor; falling back on raw data for best point.
+[WARNING 05-08 22:41:37] ax.service.utils.best_point: Model fit is poor and data on objective metric hartmann6 is noisy; interpret best points results carefully.
+Best Parameters: {'x1': 0.4343679593876004, 'x2': 0.9980283929035068, 'x3': 0.1761003788560629, 'x4': 0.6154002174735069, 'x5': 0.9330181563273072, 'x6': 0.0622741524130106}
+Prediction (mean, variance): {'hartmann6': (-2.5212755345410764, nan)}`
+}
+</CellOutput>
+
+## Step 7: Compute Analyses
+
+Ax can also produce a number of analyses to help interpret the results of the experiment
+via `client.compute_analyses`. Users can manually select which analyses to run, or can
+allow Ax to select which would be most relevant. In this case Ax selects the following:
+
+- **Parrellel Coordinates Plot** shows which parameterizations were evaluated and what
+  metric values were observed -- this is useful for getting a high level overview of how
+  thoroughly the search space was explored and which regions tend to produce which
+  outcomes
+- **Progression Plot** shows each partial observation observed by Ax for each trial in a
+  timeseries
+- **Sensitivity Analysis Plot** shows which parameters have the largest affect on the
+  objective using
+  [Sobol Indicies](https://en.wikipedia.org/wiki/Variance-based_sensitivity_analysis)
+- **Slice Plot** shows how the model predicts a single parameter effects the objective
+  along with a confidence interval
+- **Contour Plot** shows how the model predicts a pair of parameters effects the
+  objective as a 2D surface
+- **Summary** lists all trials generated along with their parameterizations,
+  observations, and miscellaneous metadata
+- **Cross Validation** helps to visualize how well the surrogate model is able to
+  predict out of sample points
+
+```python
+# display=True instructs Ax to sort then render the resulting analyses
+cards = client.compute_analyses(display=True)
+```
+
+**Parallel Coordinates for hartmann6**
+
+The parallel coordinates plot displays multi-dimensional data by representing each
+parameter as a parallel axis. This plot helps in assessing how thoroughly the search
+space has been explored and in identifying patterns or clusterings associated with
+high-performing (good) or low-performing (bad) arms. By tracing lines across the axes,
+one can observe correlations and interactions between parameters, gaining insights into
+the relationships that contribute to the success or failure of different configurations
+within the experiment.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/7cc5be14-6984-46e0-a39c-ef3db81e61e8.json')} />
+
+
+**hartmann6 by progression**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/5e84b19f-a5dd-4257-90fc-f6af00cc9f42.json')} />
+
+
+**Summary for Experiment**
+
+High-level summary of the `Trial`-s in this `Experiment`
+
+
+
+
+|     | trial_index   | arm_name   | trial_status   | generation_node     | hartmann6   | x1       | x2       | x3       | x4       | x5       | x6       |
+|:----|:--------------|:-----------|:---------------|:--------------------|:------------|:---------|:---------|:---------|:---------|:---------|:---------|
+| 0   | 0             | 0_0        | COMPLETED      | CenterOfSearchSpace | -0.505315   | 0.500000 | 0.500000 | 0.500000 | 0.500000 | 0.500000 | 0.500000 |
+| 1   | 1             | 1_0        | COMPLETED      | Sobol               | -0.313454   | 0.204020 | 0.080020 | 0.812021 | 0.027979 | 0.587602 | 0.362567 |
+| 2   | 2             | 2_0        | COMPLETED      | Sobol               | -0.033248   | 0.774593 | 0.658408 | 0.430996 | 0.855189 | 0.357228 | 0.980563 |
+| 3   | 3             | 3_0        | COMPLETED      | Sobol               | -1.157564   | 0.614314 | 0.263910 | 0.549343 | 0.251204 | 0.139711 | 0.656832 |
+| 4   | 4             | 4_0        | COMPLETED      | Sobol               | -2.521276   | 0.434368 | 0.998028 | 0.176100 | 0.615400 | 0.933018 | 0.062274 |
+| ... | ...           | ...        | ...            | ...                 | ...         | ...      | ...      | ...      | ...      | ...      | ...      |
+| 82  | 82            | 82_0       | EARLY_STOPPED  | MBM                 | 2.890998    | 0.076801 | 1.000000 | 0.000000 | 0.757873 | 0.883858 | 0.003789 |
+| 83  | 83            | 83_0       | EARLY_STOPPED  | MBM                 | 3.263291    | 0.504332 | 1.000000 | 0.000000 | 0.805335 | 0.981512 | 0.506626 |
+| 84  | 84            | 84_0       | EARLY_STOPPED  | MBM                 | 3.060861    | 0.741288 | 1.000000 | 0.000000 | 0.391960 | 1.000000 | 0.000000 |
+| 85  | 85            | 85_0       | EARLY_STOPPED  | MBM                 | 2.886726    | 0.078001 | 1.000000 | 0.000000 | 0.758195 | 0.885097 | 0.006479 |
+| 86  | 86            | 86_0       | EARLY_STOPPED  | MBM                 | 3.251305    | 0.525758 | 1.000000 | 0.000000 | 0.787916 | 0.982663 | 0.491975 |
+
+
+**Sensitivity Analysis for hartmann6**
+
+Understand how each parameter affects hartmann6 according to a second-order sensitivity
+analysis.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/516bfc78-90cf-4659-ad4b-ec9dfdde47b5.json')} />
+
+
+**x5 vs. hartmann6**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/0444c55f-bd8b-4d17-9f26-ab782da102d5.json')} />
+
+
+**x2, x5 vs. hartmann6**
+
+The contour plot visualizes the predicted outcomes for hartmann6 across a
+two-dimensional parameter space, with other parameters held fixed at their status_quo
+value (or mean value if status_quo is unavailable). This plot helps in identifying
+regions of optimal performance and understanding how changes in the selected parameters
+influence the predicted outcomes. Contour lines represent levels of constant predicted
+values, providing insights into the gradient and potential optima within the parameter
+space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/bd83cc89-2ea4-460a-aa01-fa9aa5fc5521.json')} />
+
+
+**x6 vs. hartmann6**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/98e570fe-c9e4-45b8-9a5a-7f8108618c5f.json')} />
+
+
+**x3 vs. hartmann6**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/d91ffde2-c02c-4565-83a8-23cf7d643a2e.json')} />
+
+
+**x3, x5 vs. hartmann6**
+
+The contour plot visualizes the predicted outcomes for hartmann6 across a
+two-dimensional parameter space, with other parameters held fixed at their status_quo
+value (or mean value if status_quo is unavailable). This plot helps in identifying
+regions of optimal performance and understanding how changes in the selected parameters
+influence the predicted outcomes. Contour lines represent levels of constant predicted
+values, providing insights into the gradient and potential optima within the parameter
+space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/1cf6cb50-61d2-4e7d-a988-181d2c28f7b6.json')} />
+
+
+**Cross Validation for hartmann6**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/dc93a34b-888c-4254-aa61-c4082709d6b0.json')} />
+
+## Conclusion
+
+This tutorial demonstates Ax's early stopping capabilities, which utilize
+timeseries-like data to monitor the results of expensive evaluations and terminate those
+that are unlikely to produce promising results, freeing up resources to explore more
+configurations. This can be used in a number of applications, and is especially useful
+in machine learning contexts.
+

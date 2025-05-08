@@ -1,0 +1,471 @@
+---
+title: Ax for Materials Science
+sidebar_label: Ax for Materials Science
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/materials_science/materials_science.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/materials_science/materials_science.ipynb"
+/>
+
+# Ax for Materials Science
+
+Some optimization experiments, like the one described in this
+[tutorial](../getting_started), can be conducted in a completely automated manner. Other
+experiments may require a human in the loop, for instance a scientist manually
+conducting and evaluating each trial in a lab. In this tutorial we demonstrate this
+ask-tell optimization in a human-in-the-loop setting by imagining the task of maximizing
+the strength of a 3D printed part using compression testing (i.e., crushing the part)
+where different print settings will have to be manually tried and evaluated.
+
+### Background
+
+In 3D printing, several parameters can significantly affect the mechanical properties of
+the printed object:
+
+- **Infill Density**: The percentage of material used inside the object. Higher infill
+  density generally increases strength but also weight and material usage.
+
+- **Layer Height**: The thickness of each layer of material. Smaller layer heights can
+  improve surface finish and detail but increase print time.
+
+- **Infill Type**: The pattern used to fill the interior of the object. Different
+  patterns (e.g., honeycomb, gyroid, lines, rectilinear) offer various balances of
+  strength, speed, and material efficiency.
+
+- **Strength Measurement**: In this tutorial, we assume the strength of the 3D printed
+  part is measured using compression testing, which evaluates how the object performs
+  under compressive stress.
+
+### Learning Objectives
+
+- Understand black box optimization concepts
+- Define an optimization problem using Ax
+- Configure and run an experiment using Ax's `Client`
+- Analyze the results of the optimization
+
+### Prerequisites
+
+- Familiarity with Python and basic programming concepts
+- Understanding of [adaptive experimentation](../../intro-to-ae.mdx) and
+  [Bayesian optimization](../../intro-to-bo.mdx)
+
+## Step 1: Import Necessary Modules
+
+```python
+from ax.api.client import Client
+from ax.api.configs import  RangeParameterConfig, ChoiceParameterConfig
+```
+
+## Step 2: Initialize Client
+
+Create an instance of the `Client` to manage the state of your experiment.
+
+```python
+client = Client()
+```
+
+## Step 3: Configure Experiment
+
+Define the parameters for the 3D printing optimization problem. The infill density and
+layer height can take on any value within their respective bounds so we will configure
+both using `RangeParameterConfig`s. On the other hand, infill type be either have one of
+four distinct values: "honeycomb", "gyroid", "lines", or "rectilinear". We will use a
+`ChoiceParameterConfig` to represent it in the optimization.
+
+```python
+infill_density = RangeParameterConfig(name="infill_density", parameter_type="float", bounds=(0, 100))
+layer_height = RangeParameterConfig(name="layer_height", parameter_type="float", bounds=(0.1, 0.4))
+infill_type = ChoiceParameterConfig(name="infill_type", parameter_type="str", values=["honeycomb", "gyroid", "lines", "rectilinear"])
+
+client.configure_experiment(
+    parameters=[infill_density, layer_height, infill_type],
+    # The following arguments are only necessary when saving to the DB
+    name="3d_print_strength_experiment",
+    description="Maximize strength of 3D printed parts",
+    owner="developer",
+)
+```
+
+<CellOutput>
+{
+`/home/runner/work/Ax/Ax/ax/api/utils/instantiation/from_config.py:75: AxParameterWarning: is_ordered is not specified for ChoiceParameter "infill_type". Defaulting to False  since the parameter is a string with more than 2 choices.. To override this behavior (or avoid this warning), specify is_ordered during ChoiceParameter construction. Note that choice parameters with exactly 2 choices are always considered ordered and that the user-supplied is_ordered has no effect in this particular case.
+  return ChoiceParameter(
+/home/runner/work/Ax/Ax/ax/api/utils/instantiation/from_config.py:75: AxParameterWarning: sort_values is not specified for ChoiceParameter "infill_type". Defaulting to False for parameters of ParameterType STRING. To override this behavior (or avoid this warning), specify sort_values during ChoiceParameter construction.
+  return ChoiceParameter(`
+}
+</CellOutput>
+
+## Step 4: Configure Optimization
+
+We want to maximize the compressive strength of our part, so we will set the objective
+to `compressive_strength`. However, we know that modifying the infill density, layer
+height, and infill type will affect the weight of the part as well. We'll include a
+requirement that the part must not weigh more than 10 grams by setting an outcome
+constraint when we call `configure_experiment`.
+
+The following code will tell the `Client` that we intend to maximize compressive
+strength while keeping the weight less than 10 grams.
+
+```python
+client.configure_optimization(objective="compressive_strength", outcome_constraints=["weight <= 10"])
+```
+
+## Step 5: Run Trials
+
+Now the `Client` has been configured we can begin conducting the experiment. Use
+`attach_trial` to attach any existing data, use `get_next_trials` to generate parameter
+suggestions, and use `complete_trial` to report manually observed results.
+
+### Attach Preexisting Trials
+
+Sometimes in our optimization experiments we may already have some previously collected
+data from manual "trials" conducted before the Ax experiment began. This can be
+incredibly useful! If we attach this data as custom trials, Ax will be able to use the
+data points in its optimization algorithm and improve performance.
+
+```python
+# Pairs of previously evaluated parameterizations and associated metric readings
+preexisting_trials = [
+    (
+        {"infill_density": 10.43, "layer_height": 0.3, "infill_type": "gyroid"},
+        {"compressive_strength": 1.74, "weight": 0.52},
+    ),
+    (
+        {"infill_density": 55.54, "layer_height": 0.12, "infill_type": "lines"},
+        {"compressive_strength": 4.63, "weight": 2.31},
+    ),
+    (
+        {"infill_density": 99.43, "layer_height": 0.35, "infill_type": "rectilinear"},
+        {"compressive_strength": 5.68, "weight": 2.84},
+    ),
+    (
+        {"infill_density": 41.44, "layer_height": 0.21, "infill_type": "rectilinear"},
+        {"compressive_strength": 3.95, "weight": 1.97},
+    ),
+    (
+        {"infill_density": 27.23, "layer_height": 0.37, "infill_type": "honeycomb"},
+        {"compressive_strength": 7.36, "weight": 3.31},
+    ),
+    (
+        {"infill_density": 33.57, "layer_height": 0.24, "infill_type": "honeycomb"},
+        {"compressive_strength": 13.99, "weight": 6.29},
+    ),
+]
+
+for parameters, data in preexisting_trials:
+    # Attach the parameterization to the Client as a trial and immediately complete it with the preexisting data
+    trial_index = client.attach_trial(parameters=parameters)
+    client.complete_trial(trial_index=trial_index, raw_data=data)
+```
+
+### Ask for trials
+
+Now, let's have Ax suggest which trials to evaluate so that we can find the optimal
+configuration more efficiently. We'll do this by calling `get_next_trials`. We'll make
+use of Ax's support for parallelism, i.e. suggesting more than one trial at a time --
+this can allow us to conduct our experiment much faster! If our lab had three identical
+3D printers, we could ask Ax for a batch of three trials and evaluate three different
+infill density, layer height, and infill types at once.
+
+Note that there will always be a tradeoff between "parallelism" and optimization
+performance since the quality of a suggested trial is often proportional to the amount
+of data Ax has access to.
+
+```python
+trials = client.get_next_trials(max_trials=3)
+trials
+```
+
+<CellOutput>
+{
+`{6: {'infill_density': 50.0, 'layer_height': 0.25, 'infill_type': 'lines'},
+ 7: {'infill_density': 63.66994380950928,
+  'layer_height': 0.18139435052871705,
+  'infill_type': 'gyroid'},
+ 8: {'infill_density': 55.5455832778283,
+  'layer_height': 0.2043214845070208,
+  'infill_type': 'honeycomb'}}`
+}
+</CellOutput>
+
+### Tell Ax the results
+
+In a real-world scenerio we would print parts using the three suggested
+parameterizations and measure the compressive strength and weight manually, though in
+this tutorial we will simulate by calling a function. Once the data is collected we will
+tell Ax the result by calling `complete_trial`.
+
+```python
+def evaluate(
+    infill_density: float, layer_height: float, infill_type: str
+) -> dict[str, float]:
+    strength_map = {"lines": 1, "rectilinear": 2, "gyroid": 5, "honeycomb": 10}
+    weight_map = {"lines": 1, "rectilinear": 2, "gyroid": 3, "honeycomb": 9}
+
+    return {
+        "compressive_strength": (
+            infill_density / layer_height * strength_map[infill_type]
+        )
+        / 100,
+        "weight": (infill_density / layer_height * weight_map[infill_type]) / 200,
+    }
+
+
+for trial_index, parameters in trials.items():
+    client.complete_trial(trial_index=trial_index, raw_data=evaluate(**parameters))
+```
+
+We'll repeat this process a number of times. Typically experimentation will continue
+until a satisfactory combination has been found, experimentation resources (in this
+example our 3D printing filliment) have been exhausted, or we feel we have spent enough
+time on optimization.
+
+```python
+# Ask Ax for the next trials
+trials = client.get_next_trials(max_trials=3)
+trials
+```
+
+<CellOutput>
+{
+`{9: {'infill_density': 42.75147562326184,
+  'layer_height': 0.123463764124029,
+  'infill_type': 'honeycomb'},
+ 10: {'infill_density': 72.76573270625342,
+  'layer_height': 0.2234125495505756,
+  'infill_type': 'honeycomb'},
+ 11: {'infill_density': 45.944164543600095,
+  'layer_height': 0.1,
+  'infill_type': 'honeycomb'}}`
+}
+</CellOutput>
+
+```python
+# Tell Ax the result of those trials
+for trial_index, parameters in trials.items():
+    client.complete_trial(trial_index=trial_index, raw_data=evaluate(**parameters))
+```
+
+```python
+# Ask Ax for the next trials
+trials = client.get_next_trials(max_trials=3)
+trials
+```
+
+<CellOutput>
+{
+`{12: {'infill_density': 0.0,
+  'layer_height': 0.38979593229689674,
+  'infill_type': 'lines'},
+ 13: {'infill_density': 100.0,
+  'layer_height': 0.39679420439370955,
+  'infill_type': 'honeycomb'},
+ 14: {'infill_density': 15.554641847623298,
+  'layer_height': 0.33463630813484546,
+  'infill_type': 'rectilinear'}}`
+}
+</CellOutput>
+
+```python
+# Tell Ax the result of those trials
+for trial_index, parameters in trials.items():
+    client.complete_trial(trial_index=trial_index, raw_data=evaluate(**parameters))
+```
+
+## Step 6: Analyze Results
+
+At any time during the experiment you may analyze the results of the experiment. Most
+commonly this means extracting the parameterization from the best performing trial you
+conducted. The best trial will have the optimal objective value **without violating any
+outcome constraints**.
+
+```python
+best_parameters, prediction, index, name = client.get_best_parameterization()
+print("Best Parameters:", best_parameters)
+print("Prediction (mean, variance):", prediction)
+```
+
+<CellOutput>
+{
+`Best Parameters: {'infill_density': 63.66994380950928, 'layer_height': 0.18139435052871705, 'infill_type': 'gyroid'}
+Prediction (mean, variance): {'weight': (np.float64(5.241676593341699), np.float64(0.5914311886320532)), 'compressive_strength': (np.float64(17.626494301644186), np.float64(5.039528566546781))}`
+}
+</CellOutput>
+
+## Step 7: Compute Analyses
+
+Ax can also produce a number of analyses to help interpret the results of the experiment
+via `client.compute_analyses`. Users can manually select which analyses to run, or can
+allow Ax to select which would be most relevant. In this case Ax selects the following:
+
+- **Parrellel Coordinates Plot** shows which parameterizations were evaluated and what
+  metric values were observed -- this is useful for getting a high level overview of how
+  thoroughly the search space was explored and which regions tend to produce which
+  outcomes
+- **Scatter Plot** shows the effects of each trial on two metrics, and is useful for
+  understanding the trade-off between the two outcomes
+- **Sensitivity Analysis Plot** shows which parameters have the largest affect on the
+  objective using
+  [Sobol Indicies](https://en.wikipedia.org/wiki/Variance-based_sensitivity_analysis)
+- **Slice Plot** shows how the model predicts a single parameter effects the objective
+  along with a confidence interval
+- **Contour Plot** shows how the model predicts a pair of parameters effects the
+  objective as a 2D surface
+- **Summary** lists all trials generated along with their parameterizations,
+  observations, and miscellaneous metadata
+- **Cross Validation** helps to visualize how well the surrogate model is able to
+  predict out of sample points
+
+```python
+# display=True instructs Ax to sort then render the resulting analyses
+cards = client.compute_analyses(display=True)
+```
+
+**Modeled compressive_strength vs. weight**
+
+This plot displays the effects of each arm on the two selected metrics. It is useful for
+understanding the trade-off between the two metrics and for visualizing the Pareto
+frontier.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/94a3da7d-c66f-4837-bb24-bed8757baf82.json')} />
+
+
+**Parallel Coordinates for compressive_strength**
+
+The parallel coordinates plot displays multi-dimensional data by representing each
+parameter as a parallel axis. This plot helps in assessing how thoroughly the search
+space has been explored and in identifying patterns or clusterings associated with
+high-performing (good) or low-performing (bad) arms. By tracing lines across the axes,
+one can observe correlations and interactions between parameters, gaining insights into
+the relationships that contribute to the success or failure of different configurations
+within the experiment.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/979f507c-7af6-429c-9d5c-748cfa2632a8.json')} />
+
+
+**Summary for 3d_print_strength_experiment**
+
+High-level summary of the `Trial`-s in this `Experiment`
+
+
+
+
+|    |   trial_index |   arm_name | trial_status   | generation_node     |    weight |   compressive_strength |   infill_density |   layer_height | infill_type   |
+|---:|--------------:|-----------:|:---------------|:--------------------|----------:|-----------------------:|-----------------:|---------------:|:--------------|
+|  0 |             0 |        0_0 | COMPLETED      | nan                 |  0.52     |               1.74     |          10.43   |       0.3      | gyroid        |
+|  1 |             1 |        1_0 | COMPLETED      | nan                 |  2.31     |               4.63     |          55.54   |       0.12     | lines         |
+|  2 |             2 |        2_0 | COMPLETED      | nan                 |  2.84     |               5.68     |          99.43   |       0.35     | rectilinear   |
+|  3 |             3 |        3_0 | COMPLETED      | nan                 |  1.97     |               3.95     |          41.44   |       0.21     | rectilinear   |
+|  4 |             4 |        4_0 | COMPLETED      | nan                 |  3.31     |               7.36     |          27.23   |       0.37     | honeycomb     |
+|  5 |             5 |        5_0 | COMPLETED      | nan                 |  6.29     |              13.99     |          33.57   |       0.24     | honeycomb     |
+|  6 |             6 |        6_0 | COMPLETED      | CenterOfSearchSpace |  1        |               2        |          50      |       0.25     | lines         |
+|  7 |             7 |        7_0 | COMPLETED      | Sobol               |  5.26504  |              17.5501   |          63.6699 |       0.181394 | gyroid        |
+|  8 |             8 |        8_0 | COMPLETED      | MBM                 | 12.2334   |              27.1854   |          55.5456 |       0.204321 | honeycomb     |
+|  9 |             9 |        9_0 | COMPLETED      | MBM                 | 15.582    |              34.6267   |          42.7515 |       0.123464 | honeycomb     |
+| 10 |            10 |       10_0 | COMPLETED      | MBM                 | 14.6566   |              32.5701   |          72.7657 |       0.223413 | honeycomb     |
+| 11 |            11 |       11_0 | COMPLETED      | MBM                 | 20.6749   |              45.9442   |          45.9442 |       0.1      | honeycomb     |
+| 12 |            12 |       12_0 | COMPLETED      | MBM                 |  0        |               0        |           0      |       0.389796 | lines         |
+| 13 |            13 |       13_0 | COMPLETED      | MBM                 | 11.3409   |              25.202    |         100      |       0.396794 | honeycomb     |
+| 14 |            14 |       14_0 | COMPLETED      | MBM                 |  0.464822 |               0.929645 |          15.5546 |       0.334636 | rectilinear   |
+
+
+**Sensitivity Analysis for compressive_strength**
+
+Understand how each parameter affects compressive_strength according to a second-order
+sensitivity analysis.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/33950a33-6447-41c1-9f57-cc23f3dc7a3f.json')} />
+
+
+**layer_height vs. compressive_strength**
+
+The slice plot provides a one-dimensional view of predicted outcomes for
+compressive_strength as a function of a single parameter, while keeping all other
+parameters fixed at their status_quo value (or mean value if status_quo is unavailable).
+This visualization helps in understanding the sensitivity and impact of changes in the
+selected parameter on the predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/f54db8a8-9df9-422b-ac22-bddaf2091c74.json')} />
+
+
+**infill_density vs. compressive_strength**
+
+The slice plot provides a one-dimensional view of predicted outcomes for
+compressive_strength as a function of a single parameter, while keeping all other
+parameters fixed at their status_quo value (or mean value if status_quo is unavailable).
+This visualization helps in understanding the sensitivity and impact of changes in the
+selected parameter on the predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/9408b491-830f-4268-b5d5-561048e638b9.json')} />
+
+
+**infill_density, layer_height vs. compressive_strength**
+
+The contour plot visualizes the predicted outcomes for compressive_strength across a
+two-dimensional parameter space, with other parameters held fixed at their status_quo
+value (or mean value if status_quo is unavailable). This plot helps in identifying
+regions of optimal performance and understanding how changes in the selected parameters
+influence the predicted outcomes. Contour lines represent levels of constant predicted
+values, providing insights into the gradient and potential optima within the parameter
+space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/0250b898-4ca9-43f2-af5a-98d910d95e2c.json')} />
+
+
+**Cross Validation for compressive_strength**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/95986c35-38c1-45e8-8dac-d1235e9ed3b6.json')} />
+
+
+**Cross Validation for weight**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/c629d52c-8778-48a1-b5c1-c7caec89e1b6.json')} />
+
+## Conclusion
+
+This tutorial demonstrates how to use Ax's `Client` for optimizing the strength of 3D
+printed parts in a human-in-the-loop setting. By iteratively collecting data and
+refining parameters, you can effectively apply black box optimization to real-world
+experiments.
+
