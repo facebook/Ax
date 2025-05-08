@@ -977,3 +977,21 @@ class ObservationsTest(TestCase):
                 observation.features.metadata.get(SOME_METADATA_KEY),
                 f"value_{observation.features.trial_index}",
             )
+
+    def test_observation_repr(self) -> None:
+        obs = Observation(
+            features=ObservationFeatures(parameters={"x": 20}),
+            data=ObservationData(
+                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+            ),
+            arm_name="0_0",
+        )
+        expected = (
+            "Observation(\n"
+            "    features=ObservationFeatures(parameters={'x': 20}),\n"
+            "    data=ObservationData(metric_names=['a'], "
+            "means=[1], covariance=[[2]]),\n"
+            "    arm_name='0_0',\n"
+            ")"
+        )
+        self.assertEqual(repr(obs), expected)

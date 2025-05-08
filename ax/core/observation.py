@@ -255,6 +255,15 @@ class Observation(Base):
         self.data = data
         self.arm_name = arm_name
 
+    def __repr__(self) -> str:
+        return (
+            "Observation(\n"
+            f"    features={self.features},\n"
+            f"    data={self.data},\n"
+            f"    arm_name='{self.arm_name}',\n"
+            ")"
+        )
+
 
 def _observations_from_dataframe(
     experiment: experiment.Experiment,
