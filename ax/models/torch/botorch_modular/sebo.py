@@ -11,7 +11,6 @@ import warnings
 from collections.abc import Callable
 from copy import deepcopy
 from functools import partial
-from logging import Logger
 from typing import Any
 
 import torch
@@ -21,7 +20,6 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch_base import TorchOptConfig
-from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
@@ -41,7 +39,6 @@ from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 CLAMP_TOL = 1e-2
-logger: Logger = get_logger(__name__)
 
 
 class SEBOAcquisition(Acquisition):
@@ -72,7 +69,7 @@ class SEBOAcquisition(Acquisition):
         self.sparsity_threshold: int = options.pop(
             "sparsity_threshold", surrogate.Xs[0].shape[-1]
         )
-        # construct determinsitic model for penalty term
+        # construct deterministic model for penalty term
         # pyre-fixme[4]: Attribute must be annotated.
         self.deterministic_model = self._construct_penalty()
         surrogate_f = deepcopy(surrogate)

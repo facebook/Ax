@@ -30,9 +30,9 @@ from ax.modelbridge.modelbridge_utils import (
     predicted_pareto_frontier,
 )
 from ax.modelbridge.registry import Cont_X_trans, ST_MTGP_trans, Y_trans
-from ax.modelbridge.torch import TorchModelBridge
-from ax.models.torch.botorch_modular.model import BoTorchModel
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.modelbridge.torch import TorchAdapter
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
+from ax.models.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.models.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
     pareto_frontier_evaluator,
@@ -44,10 +44,9 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_multi_objective,
     get_hierarchical_search_space,
     get_hss_trials_with_fixed_parameter,
-    get_non_monolithic_branin_moo_data,
     TEST_SOBOL_SEED,
 )
-from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize, skip_fit_gpytorch_mll
 from ax.utils.testing.modeling_stubs import transform_1, transform_2
 from botorch.utils.multi_objective.pareto import is_non_dominated
 from pyre_extensions import assert_is_instance, none_throws
@@ -58,14 +57,14 @@ PARETO_FRONTIER_EVALUATOR_PATH = (
 STUBS_PATH: str = get_branin_experiment_with_multi_objective.__module__
 
 
-class MultiObjectiveTorchModelBridgeTest(TestCase):
+class MultiObjectiveTorchAdapterTest(TestCase):
     @patch(
         # Mocking `BraninMetric` as not available while running, so it will
         # be grabbed from cache during `fetch_data`.
         f"{STUBS_PATH}.BraninMetric.is_available_while_running",
         return_value=False,
     )
-    @mock_botorch_optimize
+    @skip_fit_gpytorch_mll
     def helper_test_pareto_frontier(
         self, _, outcome_constraints: list[OutcomeConstraint] | None
     ) -> None:
@@ -104,9 +103,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 trial_indices=exp.trials.keys(), num_objectives=n_outcomes
             ),
         )
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=[transform_1, transform_2],
             experiment=exp,
@@ -276,11 +275,11 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 trial_indices=exp.trials.keys(), num_objectives=2
             ),
         )
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             experiment=exp,
             search_space=exp.search_space,
             data=exp.fetch_data(),
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             transforms=[],
         )
         observation_features = [
@@ -357,9 +356,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                     trial_indices=exp.trials.keys(), num_objectives=num_objectives
                 )
             )
-            modelbridge = TorchModelBridge(
+            modelbridge = TorchAdapter(
                 search_space=exp.search_space,
-                model=MultiObjectiveBotorchModel(),
+                model=MultiObjectiveLegacyBoTorchGenerator(),
                 optimization_config=optimization_config,
                 transforms=[],
                 experiment=exp,
@@ -443,9 +442,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             get_branin_data_multi_objective(trial_indices=exp.trials.keys())
         )
         data = exp.fetch_data()
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
@@ -568,14 +567,14 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             init_position=len(exp.arms_by_name) - 1,
         )
         sobol_run = sobol_generator.gen(n=2)
-        trial = exp.new_batch_trial(optimize_for_power=True)
+        trial = exp.new_batch_trial(add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
         trial.mark_running(no_runner_required=True).mark_completed()
         data = exp.fetch_data()
         set_rng_seed(0)  # make model fitting deterministic
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=ST_MTGP_trans,
             experiment=exp,
@@ -635,9 +634,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         # Update trials to match the search space.
         exp._search_space = hss
         exp._trials = get_hss_trials_with_fixed_parameter(exp=exp)
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=hss,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
@@ -682,9 +681,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             get_branin_data_multi_objective(trial_indices=exp.trials.keys())
         )
         data = exp.fetch_data()
-        modelbridge = TorchModelBridge(
+        modelbridge = TorchAdapter(
             search_space=exp.search_space,
-            model=BoTorchModel(),
+            model=BoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
@@ -705,31 +704,6 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         self.assertFalse(obj_thresholds[0].relative)
         self.assertFalse(obj_thresholds[1].relative)
 
-    @mock_botorch_optimize
-    def test_status_quo_for_non_monolithic_data(self) -> None:
-        exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
-        sobol_generator = get_sobol(
-            search_space=exp.search_space,
-        )
-        sobol_run = sobol_generator.gen(n=5)
-        exp.new_batch_trial(sobol_run).set_status_quo_and_optimize_power(
-            status_quo=exp.status_quo
-        ).run()
-
-        # create data where metrics vary in start and end times
-        data = get_non_monolithic_branin_moo_data()
-
-        bridge = TorchModelBridge(
-            search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
-            optimization_config=exp.optimization_config,
-            experiment=exp,
-            data=data,
-            transforms=[],
-        )
-        # pyre-fixme[16]: Optional type has no attribute `arm_name`.
-        self.assertEqual(bridge.status_quo.arm_name, "status_quo")
-
     def test_best_point(self) -> None:
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
@@ -739,9 +713,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         exp.attach_data(
             get_branin_data_multi_objective(trial_indices=exp.trials.keys())
         )
-        bridge = TorchModelBridge(
+        bridge = TorchAdapter(
             search_space=exp.search_space,
-            model=MultiObjectiveBotorchModel(),
+            model=MultiObjectiveLegacyBoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=[],
             experiment=exp,

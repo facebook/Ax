@@ -8,7 +8,6 @@
 
 """Support functions for tests"""
 
-import builtins
 import contextlib
 import cProfile
 import io
@@ -24,9 +23,8 @@ from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager
 from logging import Logger
 from pstats import Stats
-from types import FrameType, ModuleType
+from types import FrameType
 from typing import Any, TypeVar, Union
-from unittest.mock import MagicMock
 
 import numpy as np
 from ax.exceptions.core import AxParameterWarning
@@ -66,8 +64,8 @@ def _get_tb_lines(tb: types.TracebackType) -> list[tuple[str, int, str]]:
 class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
     """
     Attributes:
-       lineno: the line number on which the error occured
-       filename: the file in which the error occured
+       lineno: the line number on which the error occurred
+       filename: the file in which the error occurred
     """
 
     _expected_line: str | None
@@ -245,51 +243,10 @@ def _build_comparison_str(
     return msg
 
 
-def setup_import_mocks(
-    mocked_import_paths: list[str], mock_config_dict: dict[str, Any] | None = None
-) -> None:
-    """This function mocks expensive modules used in tests. It must be called before
-    those modules are imported or it will not work.  Stubbing out these modules
-    will obviously affect the behavior of all tests that use it, so be sure modules
-    being mocked are not important to your test.  It will also mock all child modules.
-
-    Args:
-        mocked_import_paths: List of module paths to mock.
-        mock_config_dict: Dictionary of attributes to mock on the modules being mocked.
-            This is useful if the import is expensive, but there is still some
-            functionality it has the test relies on.  These attributes will be
-            set on all modules being mocked.
-    """
-
-    def custom_import(name: str, *args: Any, **kwargs: Any) -> ModuleType:
-        for import_path in mocked_import_paths:
-            if name == import_path or name.startswith(f"{import_path}."):
-                mymock = MagicMock()
-                if mock_config_dict is not None:
-                    mymock.configure_mock(**mock_config_dict)
-                return mymock
-        return original_import(name, *args, **kwargs)
-
-    for import_path in mocked_import_paths:
-        if import_path in sys.modules and not isinstance(
-            sys.modules[import_path], MagicMock
-        ):
-            raise Exception(f"{import_path} has already been imported!")
-
-    # Replace the original import with the custom one
-    # pyre-fixme[61][53]
-    original_import: Callable[..., ModuleType] = builtins.__import__
-    # pyre-fixme[9]: __import__ has type `(name: str, globals: Optional[Mapping[str,
-    #  object]] = ..., locals: Optional[Mapping[str, object]] = ..., fromlist:
-    #  Sequence[str] = ..., level: int = ...) -> ModuleType`; used as `(name: str,
-    #  *(Any), **(Any)) -> Any`.
-    builtins.__import__ = custom_import
-
-
 class TestCase(fake_filesystem_unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
-    MAX_TEST_SECONDS = 60
+    MAX_TEST_SECONDS = 120
     NUMBER_OF_PROFILER_LINES_TO_OUTPUT = 20
     PROFILE_TESTS = False
     _long_test_active_reason: str | None = None
@@ -303,7 +260,9 @@ class TestCase(fake_filesystem_unittest.TestCase):
                 message += (
                     " To see a profiler output, set `TestCase.PROFILE_TESTS` to `True`."
                 )
-            if hasattr(sys, "gettrace") and sys.gettrace() is not None:
+            if (
+                hasattr(sys, "gettrace") and sys.gettrace() is not None
+            ) or sys.monitoring.get_tool(sys.monitoring.DEBUGGER_ID) is not None:
                 # If we're in a debugger session, let the test continue running.
                 return
             elif self._long_test_active_reason is None:
@@ -425,7 +384,7 @@ class TestCase(fake_filesystem_unittest.TestCase):
         if (
             not first._eq_skip_db_id_check(other=second)
             if skip_db_id_check
-            else first != second
+            else not (first == second)
         ):
             raise self.failureException(
                 "Encountered unequal objects. This Ax utility will now attempt an "

@@ -3,13 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-unsafe
+# pyre-strict
 
 from unittest.mock import patch
 
 import torch
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.arm_effects.insample_effects import InSampleEffectsPlot
 from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
 from ax.exceptions.core import DataRequiredError, UserInputError
@@ -63,7 +63,7 @@ class TestInsampleEffectsPlot(TestCase):
             f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
-            card = analysis.compute(
+            (card,) = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
         # THEN it uses the model from the GS
@@ -106,7 +106,7 @@ class TestInsampleEffectsPlot(TestCase):
             f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
-            card = analysis.compute(
+            (card,) = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
         # THEN it uses the empirical bayes model
@@ -130,10 +130,20 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(card.name, "ModeledEffectsPlot")
         self.assertEqual(card.title, "Modeled Effects for branin on trial 0")
         self.assertEqual(
-            card.subtitle, "View a trial and its arms' modeled metric values"
+            card.subtitle,
+            (
+                "The in-sample effects plot visualizes the modeled effects from "
+                "previously-run arms on a specific metric, providing insights into "
+                "their performance. This plot allows one to compare and contrast the "
+                "effectiveness of different arms, highlighting which configurations "
+                "have yielded the most favorable outcomes. Note, this plot applies "
+                "Empirical Bayes shrinkage by default, so metric effects may not "
+                "perfectly match raw observations."
+            ),
         )
         # +2 because it's on objective, +1 because it's modeled
         self.assertEqual(card.level, AnalysisCardLevel.MID + 3)
+        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
 
     def test_compute_modeled_can_use_ebts_for_no_gs(self) -> None:
         # GIVEN an experiment with a trial with data
@@ -154,7 +164,7 @@ class TestInsampleEffectsPlot(TestCase):
             f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
-            card = analysis.compute(experiment=experiment, generation_strategy=None)
+            (card,) = analysis.compute(experiment=experiment, generation_strategy=None)
         # THEN it uses the empirical bayes model
         models_used_for_prediction = [
             call[1]["model"]._model_key for call in predict_at_point_spy.call_args_list
@@ -176,7 +186,16 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(card.name, "ModeledEffectsPlot")
         self.assertEqual(card.title, "Modeled Effects for branin on trial 0")
         self.assertEqual(
-            card.subtitle, "View a trial and its arms' modeled metric values"
+            card.subtitle,
+            (
+                "The in-sample effects plot visualizes the modeled effects from "
+                "previously-run arms on a specific metric, providing insights into "
+                "their performance. This plot allows one to compare and contrast the "
+                "effectiveness of different arms, highlighting which configurations "
+                "have yielded the most favorable outcomes. Note, this plot applies "
+                "Empirical Bayes shrinkage by default, so metric effects may not "
+                "perfectly match raw observations."
+            ),
         )
         # +2 because it's on objective, +1 because it's modeled
         self.assertEqual(card.level, AnalysisCardLevel.MID + 3)
@@ -208,7 +227,7 @@ class TestInsampleEffectsPlot(TestCase):
             f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
-            card = analysis.compute(
+            (card,) = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
         # THEN it uses the thompson model
@@ -245,7 +264,16 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(card.name, "ObservedEffectsPlot")
         self.assertEqual(card.title, "Observed Effects for branin on trial 0")
         self.assertEqual(
-            card.subtitle, "View a trial and its arms' observed metric values"
+            card.subtitle,
+            (
+                "The in-sample effects plot visualizes the observed effects from "
+                "previously-run arms on a specific metric, providing insights into "
+                "their performance. This plot allows one to compare and contrast the "
+                "effectiveness of different arms, highlighting which configurations "
+                "have yielded the most favorable outcomes. Note, this plot applies "
+                "Empirical Bayes shrinkage by default, so metric effects may not "
+                "perfectly match raw observations."
+            ),
         )
         # +2 because it's on objective
         self.assertEqual(card.level, AnalysisCardLevel.MID + 2)
@@ -354,7 +382,7 @@ class TestInsampleEffectsPlot(TestCase):
                 f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
                 side_effect=lambda t: torch.as_tensor([[0.25]] * t.size()[0]).log(),
             ):
-                card = analysis.compute(
+                (card,) = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
             # THEN it marks that constraints are violated for the non-SQ arms
@@ -388,7 +416,7 @@ class TestInsampleEffectsPlot(TestCase):
                 f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
                 side_effect=lambda t: torch.as_tensor([[1]] * t.size()[0]).log(),
             ):
-                card = analysis.compute(
+                (card,) = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
             # THEN it marks that constraints are not violated
@@ -429,11 +457,10 @@ class TestInsampleEffectsPlot(TestCase):
             with self.subTest("objective is high"):
                 # WHEN we compute the analysis for an objective
                 analysis = InSampleEffectsPlot(
-                    # trial_index and use_modeled_effects don't affect the level
                     metric_name=metric,
                     trial_index=0,
                     use_modeled_effects=False,
                 )
-                card = analysis.compute(experiment=experiment)
+                (card,) = analysis.compute(experiment=experiment)
                 # THEN the card has the correct level
                 self.assertEqual(card.level, level)

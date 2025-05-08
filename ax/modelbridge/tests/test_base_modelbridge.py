@@ -12,27 +12,44 @@ from unittest import mock
 from unittest.mock import Mock
 
 import numpy as np
+import torch
 from ax.core.arm import Arm
-from ax.core.data import Data
+from ax.core.base_trial import TrialStatus
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import (
+    Observation,
+    ObservationData,
+    ObservationFeatures,
+    observations_from_data,
+)
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
+from ax.core.parameter_constraint import SumConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.model import ModelError
+from ax.metrics.branin import BraninMetric
 from ax.modelbridge.base import (
+    _combine_multiple_status_quo_observations,
+    Adapter,
     clamp_observation_features,
+    DataLoaderConfig,
     gen_arms,
     GenResults,
-    ModelBridge,
+    logger,
     unwrap_observation_data,
 )
 from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.registry import Models, Y_trans
+from ax.modelbridge.registry import Y_trans
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
-from ax.models.base import Model
+from ax.modelbridge.transforms.standardize_y import StandardizeY
+from ax.models.base import Generator
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
@@ -40,13 +57,15 @@ from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
+    get_branin_experiment_with_timestamp_map_metric,
     get_branin_optimization_config,
     get_experiment,
+    get_experiment_with_observations,
     get_experiment_with_repeated_arms,
+    get_map_metric,
     get_non_monolithic_branin_moo_data,
     get_optimization_config_no_constraints,
     get_search_space_for_range_value,
-    get_search_space_for_range_values,
     get_search_space_for_value,
 )
 from ax.utils.testing.modeling_stubs import (
@@ -55,16 +74,15 @@ from ax.utils.testing.modeling_stubs import (
     get_observation1trans,
     get_observation2,
     get_observation2trans,
-    get_observation_status_quo0,
-    get_observation_status_quo1,
     transform_1,
     transform_2,
 )
 from botorch.exceptions.warnings import InputDataWarning
-from pyre_extensions import none_throws
+from botorch.models.utils.assorted import validate_input_scaling
+from pyre_extensions import assert_is_instance, none_throws
 
 
-class BaseModelBridgeTest(TestCase):
+class BaseAdapterTest(TestCase):
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
@@ -75,108 +93,69 @@ class BaseModelBridgeTest(TestCase):
         autospec=True,
         return_value=([Arm(parameters={})], None),
     )
-    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    def test_ModelBridge(
+    @mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
+    def test_Adapter(
         self, mock_fit: Mock, mock_gen_arms: Mock, mock_observations_from_data: Mock
     ) -> None:
         # Test that on init transforms are stored and applied in the correct order
         transforms = [transform_1, transform_2]
         exp = get_experiment_for_value()
-        ss = get_search_space_for_value()
-        modelbridge = ModelBridge(
-            search_space=ss,
-            model=Model(),
-            # pyre-fixme[6]: For 3rd param expected
-            #  `Optional[List[Type[Transform]]]` but got `List[Type[Union[transform_1,
-            #  transform_2]]]`.
-            transforms=transforms,
-            experiment=exp,
-            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-            data=0,
-        )
-        self.assertFalse(
-            modelbridge._experiment_has_immutable_search_space_and_opt_config
-        )
+        adapter = Adapter(experiment=exp, model=Generator(), transforms=transforms)
+        self.assertFalse(adapter._experiment_has_immutable_search_space_and_opt_config)
         self.assertEqual(
-            list(modelbridge.transforms.keys()), ["Cast", "transform_1", "transform_2"]
+            list(adapter.transforms.keys()), ["Cast", "transform_1", "transform_2"]
         )
         fit_args = mock_fit.mock_calls[0][2]
         self.assertTrue(fit_args["search_space"] == get_search_space_for_value(8.0))
         self.assertTrue(fit_args["observations"] == [])
         self.assertTrue(mock_observations_from_data.called)
 
-        # Test deprecation error on update.
-        with self.assertRaisesRegex(DeprecationWarning, "ModelBridge.update"):
-            modelbridge.update(Mock(), Mock())
-
         # Test prediction with arms.
         with self.assertRaisesRegex(
             UserInputError, "Input to predict must be a list of `ObservationFeatures`."
         ):
             # pyre-ignore[6]: Intentionally wrong argument type.
-            modelbridge.predict([Arm(parameters={"x": 1.0})])
+            adapter.predict([Arm(parameters={"x": 1.0})])
 
-        # Test prediction on out of design features.
-        modelbridge._predict = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge._predict",
+        # Test errors on prediction.
+        adapter._predict = mock.MagicMock(
+            "ax.modelbridge.base.Adapter._predict",
             autospec=True,
-            side_effect=ValueError("Out of Design"),
+            side_effect=ValueError("Predict failed"),
         )
-        # This point is in design, and thus failures in predict are legitimate.
-        with mock.patch.object(
-            ModelBridge, "model_space", return_value=get_search_space_for_range_values
-        ):
-            with self.assertRaises(ValueError):
-                modelbridge.predict([get_observation2().features])
-
-        # This point is out of design, and not in training data.
-        with self.assertRaises(ValueError):
-            modelbridge.predict([get_observation_status_quo0().features])
-
-        # Now it's in the training data.
-        with mock.patch.object(
-            ModelBridge,
-            "get_training_data",
-            return_value=[get_observation_status_quo0()],
-        ):
-            # Return raw training value.
-            self.assertEqual(
-                modelbridge.predict([get_observation_status_quo0().features]),
-                unwrap_observation_data([get_observation_status_quo0().data]),
-            )
+        obs_features = [get_observation2().features]
+        with self.assertRaisesRegex(ValueError, "Predict failed"):
+            adapter.predict(obs_features)
 
         # Test that transforms are applied correctly on predict
-        modelbridge._predict = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge._predict",
+        mock_predict = mock.MagicMock(
+            "ax.modelbridge.base.Adapter._predict",
             autospec=True,
             return_value=[get_observation2trans().data],
         )
-        modelbridge.predict([get_observation2().features])
+        adapter._predict = mock_predict
+        adapter.predict(obs_features)
         # Observation features sent to _predict are un-transformed afterwards
-        # pyre-fixme[16]: Callable `_predict` has no attribute `assert_called_with`.
-        modelbridge._predict.assert_called_with([get_observation2().features])
-
-        # Check that _single_predict is equivalent here.
-        modelbridge._single_predict([get_observation2().features])
-        # Observation features sent to _predict are un-transformed afterwards
-        modelbridge._predict.assert_called_with([get_observation2().features])
+        mock_predict.assert_called_with(
+            observation_features=obs_features, use_posterior_predictive=False
+        )
 
         # Test transforms applied on gen
-        modelbridge._gen = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge._gen",
+        adapter._gen = mock.MagicMock(
+            "ax.modelbridge.base.Adapter._gen",
             autospec=True,
             return_value=GenResults(
                 observation_features=[get_observation1trans().features], weights=[2]
             ),
         )
         oc = get_optimization_config_no_constraints()
-        modelbridge._set_kwargs_to_save(
+        adapter._set_kwargs_to_save(
             model_key="TestModel", model_kwargs={}, bridge_kwargs={}
         )
         # Test input error when generating 0 candidates.
         with self.assertRaisesRegex(UserInputError, "Attempted to generate"):
-            modelbridge.gen(n=0)
-        gr = modelbridge.gen(
+            adapter.gen(n=0)
+        gr = adapter.gen(
             n=1,
             search_space=get_search_space_for_value(),
             optimization_config=oc,
@@ -185,7 +164,7 @@ class BaseModelBridgeTest(TestCase):
         )
         self.assertEqual(gr._model_key, "TestModel")
         # pyre-fixme[16]: Callable `_gen` has no attribute `assert_called_with`.
-        modelbridge._gen.assert_called_with(
+        adapter._gen.assert_called_with(
             n=1,
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             optimization_config=oc,
@@ -198,15 +177,15 @@ class BaseModelBridgeTest(TestCase):
         )
 
         # Gen with no pending observations and no fixed features
-        modelbridge.gen(
+        adapter.gen(
             n=1, search_space=get_search_space_for_value(), optimization_config=None
         )
-        modelbridge._gen.assert_called_with(
+        adapter._gen.assert_called_with(
             n=1,
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             optimization_config=None,
             pending_observations={},
-            fixed_features=None,
+            fixed_features=ObservationFeatures(parameters={}),
             model_gen_options=None,
         )
 
@@ -216,15 +195,15 @@ class BaseModelBridgeTest(TestCase):
                 metrics=[Metric(name="test_metric"), Metric(name="test_metric_2")]
             )
         )
-        modelbridge.gen(
+        adapter.gen(
             n=1, search_space=get_search_space_for_value(), optimization_config=oc2
         )
-        modelbridge._gen.assert_called_with(
+        adapter._gen.assert_called_with(
             n=1,
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             optimization_config=oc2,
             pending_observations={},
-            fixed_features=None,
+            fixed_features=ObservationFeatures(parameters={}),
             model_gen_options=None,
         )
 
@@ -236,18 +215,19 @@ class BaseModelBridgeTest(TestCase):
         ) -> list[ObservationData]:
             nonlocal called
             called = True
-            warnings.warn(
-                "Data (outcome observations) is not standardized",
-                InputDataWarning,
-                stacklevel=2,
+            validate_input_scaling(
+                # Dummy non-scaled values to trigger warnings if checks are enabled.
+                train_X=torch.randn(2, 5),
+                train_Y=torch.rand(2, 1),
             )
             return [get_observation1trans().data]
 
-        modelbridge._cross_validate = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge._cross_validate",
+        mock_cv = mock.MagicMock(
+            "ax.modelbridge.base.Adapter._cross_validate",
             autospec=True,
             side_effect=warn_and_return_mock_obs,
         )
+        adapter._cross_validate = mock_cv
         cv_training_data = [get_observation2()]
         cv_test_points = [get_observation1().features]
 
@@ -256,7 +236,7 @@ class BaseModelBridgeTest(TestCase):
             transformed_cv_training_data,
             transformed_cv_test_points,
             transformed_ss,
-        ) = modelbridge._transform_inputs_for_cv(
+        ) = adapter._transform_inputs_for_cv(
             cv_training_data=cv_training_data, cv_test_points=cv_test_points
         )
         self.assertEqual(transformed_cv_training_data, [get_observation2trans()])
@@ -266,15 +246,13 @@ class BaseModelBridgeTest(TestCase):
         )
 
         with warnings.catch_warnings(record=True) as ws:
-            cv_predictions = modelbridge.cross_validate(
+            cv_predictions = adapter.cross_validate(
                 cv_training_data=cv_training_data, cv_test_points=cv_test_points
             )
         self.assertTrue(called)
         self.assertFalse(any(w.category is InputDataWarning for w in ws))
 
-        # pyre-fixme[16]: Callable `_cross_validate` has no attribute
-        #  `assert_called_with`.
-        modelbridge._cross_validate.assert_called_with(
+        mock_cv.assert_called_with(
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             cv_training_data=[get_observation2trans()],
             cv_test_points=[get_observation1().features],  # untransformed after
@@ -283,13 +261,13 @@ class BaseModelBridgeTest(TestCase):
         self.assertTrue(cv_predictions == [get_observation1().data])
 
         # Test use_posterior_predictive in CV
-        modelbridge.cross_validate(
+        adapter.cross_validate(
             cv_training_data=cv_training_data,
             cv_test_points=cv_test_points,
             use_posterior_predictive=True,
         )
 
-        modelbridge._cross_validate.assert_called_with(
+        mock_cv.assert_called_with(
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             cv_training_data=[get_observation2trans()],
             cv_test_points=[get_observation1().features],  # untransformed after
@@ -297,54 +275,46 @@ class BaseModelBridgeTest(TestCase):
         )
 
         # Test stored training data
-        obs = modelbridge.get_training_data()
+        obs = adapter.get_training_data()
         self.assertTrue(obs == [get_observation1(), get_observation2()])
-        self.assertEqual(modelbridge.metric_names, {"a", "b"})
-        self.assertIsNone(modelbridge.status_quo)
-        self.assertTrue(modelbridge.model_space == get_search_space_for_value())
-        self.assertEqual(modelbridge.training_in_design, [False, False])
+        self.assertEqual(adapter.metric_names, {"a", "b"})
+        self.assertIsNone(adapter.status_quo)
+        self.assertTrue(adapter.model_space == get_search_space_for_value())
+        self.assertEqual(adapter.training_in_design, [False, False])
 
         with self.assertRaises(ValueError):
-            modelbridge.training_in_design = [True, True, False]
+            adapter.training_in_design = [True, True, False]
 
         with self.assertRaises(ValueError):
-            modelbridge.training_in_design = [True, True, False]
+            adapter.training_in_design = [True, True, False]
 
         # Test feature_importances
         with self.assertRaises(NotImplementedError):
-            modelbridge.feature_importances("a")
+            adapter.feature_importances("a")
 
         # Test transform observation features
         with mock.patch(
-            "ax.modelbridge.base.ModelBridge._transform_observation_features",
+            "ax.modelbridge.base.Adapter._transform_observation_features",
             autospec=True,
         ) as mock_tr:
-            modelbridge.transform_observation_features([get_observation2().features])
-        mock_tr.assert_called_with(modelbridge, [get_observation2trans().features])
+            adapter.transform_observation_features([get_observation2().features])
+        mock_tr.assert_called_with(adapter, [get_observation2trans().features])
 
         # Test that fit is not called when fit_on_init = False.
         mock_fit.reset_mock()
-        modelbridge = ModelBridge(
-            search_space=ss,
-            model=Model(),
-            fit_on_init=False,
-        )
+        adapter = Adapter(experiment=exp, model=Generator(), fit_on_init=False)
         self.assertEqual(mock_fit.call_count, 0)
 
         # Test error when fit_tracking_metrics is False and optimization
         # config is not specified.
         with self.assertRaisesRegex(UserInputError, "fit_tracking_metrics"):
-            ModelBridge(
-                search_space=ss,
-                model=Model(),
-                fit_tracking_metrics=False,
-            )
+            Adapter(experiment=exp, model=Generator(), fit_tracking_metrics=False)
 
         # Test error when fit_tracking_metrics is False and optimization
         # config is updated to include new metrics.
-        modelbridge = ModelBridge(
-            search_space=ss,
-            model=Model(),
+        adapter = Adapter(
+            experiment=exp,
+            model=Generator(),
             optimization_config=oc,
             fit_tracking_metrics=False,
         )
@@ -352,7 +322,7 @@ class BaseModelBridgeTest(TestCase):
             objective=Objective(metric=Metric(name="test_metric2"), minimize=False),
         )
         with self.assertRaisesRegex(UnsupportedError, "fit_tracking_metrics"):
-            modelbridge.gen(n=1, optimization_config=new_oc)
+            adapter.gen(n=1, optimization_config=new_oc)
 
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
@@ -364,28 +334,25 @@ class BaseModelBridgeTest(TestCase):
         autospec=True,
         return_value=([Arm(parameters={})], None),
     )
-    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    def test_repeat_candidates(
-        self, mock_fit: Mock, mock_gen_arms: Mock, mock_observations_from_data: Mock
-    ) -> None:
-        modelbridge = ModelBridge(
-            search_space=get_search_space_for_value(),
-            model=Model(),
+    @mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
+    def test_repeat_candidates(self, _: Mock, __: Mock, ___: Mock) -> None:
+        adapter = Adapter(
             experiment=get_experiment_for_value(),
+            model=Generator(),
         )
         # mock _gen to return 1 result
-        modelbridge._gen = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge._gen",
+        adapter._gen = mock.MagicMock(
+            "ax.modelbridge.base.Adapter._gen",
             autospec=True,
             return_value=GenResults(
                 observation_features=[get_observation1trans().features], weights=[2]
             ),
         )
-        modelbridge._set_kwargs_to_save(
+        adapter._set_kwargs_to_save(
             model_key="TestModel", model_kwargs={}, bridge_kwargs={}
         )
         with self.assertLogs("ax", level="INFO") as cm:
-            modelbridge.gen(
+            adapter.gen(
                 n=2,
             )
             self.assertTrue(
@@ -397,7 +364,7 @@ class BaseModelBridgeTest(TestCase):
             )
 
         with self.assertLogs("ax", level="INFO") as cm:
-            modelbridge.gen(
+            adapter.gen(
                 n=1,
             )
             get_logger("ax").info("log to prevent error if there are no other logs")
@@ -414,48 +381,42 @@ class BaseModelBridgeTest(TestCase):
         autospec=True,
         return_value=([Arm(parameters={"x1": 0.0, "x2": 0.0})], None),
     )
-    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    def test_with_status_quo(self, mock_fit: Mock, mock_gen_arms: Mock) -> None:
+    def test_with_status_quo(self, _: Mock) -> None:
         # Test init with a status quo.
         exp = get_branin_experiment(
             with_trial=True,
             with_status_quo=True,
             with_completed_trial=True,
         )
-        modelbridge = ModelBridge(
-            search_space=exp.search_space,
-            model=Model(),
-            transforms=Y_trans,
+        adapter = Adapter(
             experiment=exp,
-            data=exp.lookup_data(),
+            model=Generator(),
+            transforms=Y_trans,
         )
-        self.assertIsNotNone(modelbridge.status_quo)
-        self.assertEqual(
-            modelbridge.status_quo.features.parameters, {"x1": 0.0, "x2": 0.0}
-        )
+        self.assertIsNotNone(adapter.status_quo)
+        self.assertEqual(adapter.status_quo.features.parameters, {"x1": 0.0, "x2": 0.0})
 
-    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    @mock.patch("ax.modelbridge.base.ModelBridge._gen", autospec=True)
-    def test_timing(self, mock_fit: Mock, mock_gen: Mock) -> None:
+    @mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
+    @mock.patch("ax.modelbridge.base.Adapter._gen", autospec=True)
+    def test_timing(self, _: Mock, __: Mock) -> None:
         search_space = get_search_space_for_value()
-        modelbridge = ModelBridge(
-            search_space=search_space, model=Model(), fit_on_init=False
-        )
-        self.assertEqual(modelbridge.fit_time, 0.0)
-        modelbridge._fit_if_implemented(
+        experiment = Experiment(search_space=search_space)
+        adapter = Adapter(experiment=experiment, model=Generator(), fit_on_init=False)
+        self.assertEqual(adapter.fit_time, 0.0)
+        adapter._fit_if_implemented(
             search_space=search_space, observations=[], time_so_far=3.0
         )
-        modelbridge._fit_if_implemented(
+        adapter._fit_if_implemented(
             search_space=search_space, observations=[], time_so_far=2.0
         )
-        modelbridge._fit_if_implemented(
+        adapter._fit_if_implemented(
             search_space=search_space, observations=[], time_so_far=1.0
         )
-        self.assertAlmostEqual(modelbridge.fit_time, 6.0, places=1)
-        self.assertAlmostEqual(modelbridge.fit_time_since_gen, 6.0, places=1)
-        modelbridge.gen(1)
-        self.assertAlmostEqual(modelbridge.fit_time, 6.0, places=1)
-        self.assertAlmostEqual(modelbridge.fit_time_since_gen, 0.0, places=1)
+        self.assertAlmostEqual(adapter.fit_time, 6.0, places=1)
+        self.assertAlmostEqual(adapter.fit_time_since_gen, 6.0, places=1)
+        adapter.gen(1)
+        self.assertAlmostEqual(adapter.fit_time, 6.0, places=1)
+        self.assertAlmostEqual(adapter.fit_time_since_gen, 0.0, places=1)
 
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
@@ -463,234 +424,243 @@ class BaseModelBridgeTest(TestCase):
         return_value=([get_observation1(), get_observation2()]),
     )
     def test_ood_gen(self, _) -> None:
-        # Test fit_out_of_design by returning OOD candidats
-        exp = get_experiment_for_value()
+        # Test fit_out_of_design by returning OOD candidates
         ss = SearchSpace([RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0)])
-        modelbridge = ModelBridge(
-            search_space=ss,
-            model=Model(),
-            transforms=[],
-            experiment=exp,
-            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-            data=0,
+        experiment = Experiment(search_space=ss)
+        adapter = Adapter(
+            experiment=experiment,
+            model=Generator(),
             fit_out_of_design=True,
         )
         obs = ObservationFeatures(parameters={"x": 3.0})
-        modelbridge._gen = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge._gen",
+        adapter._gen = mock.MagicMock(
+            "ax.modelbridge.base.Adapter._gen",
             autospec=True,
             return_value=GenResults(observation_features=[obs], weights=[2]),
         )
-        gr = modelbridge.gen(n=1)
+        gr = adapter.gen(n=1)
         self.assertEqual(gr.arms[0].parameters, obs.parameters)
 
         # Test clamping arms by setting fit_out_of_design=False
-        modelbridge = ModelBridge(
-            search_space=ss,
-            model=Model(),
-            transforms=[],
-            experiment=exp,
-            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-            data=0,
+        adapter = Adapter(
+            experiment=experiment,
+            model=Generator(),
             fit_out_of_design=False,
         )
         obs = ObservationFeatures(parameters={"x": 3.0})
-        modelbridge._gen = mock.MagicMock(
-            "ax.modelbridge.base.ModelBridge._gen",
+        adapter._gen = mock.MagicMock(
+            "ax.modelbridge.base.Adapter._gen",
             autospec=True,
             return_value=GenResults(observation_features=[obs], weights=[2]),
         )
-        gr = modelbridge.gen(n=1)
+        gr = adapter.gen(n=1)
         self.assertEqual(gr.arms[0].parameters, {"x": 1.0})
 
-    @mock.patch(
-        "ax.modelbridge.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1()]),
-    )
-    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_SetStatusQuo(self, mock_fit, mock_observations_from_data):
-        # NOTE: If empty data object is not passed, observations are not
-        # extracted, even with mock.
-        modelbridge = ModelBridge(
-            search_space=get_search_space_for_value(),
-            model=0,
-            experiment=get_experiment_for_value(),
-            data=Data(),
-            status_quo_name="1_1",
-        )
-        self.assertEqual(modelbridge.status_quo, get_observation1())
-        self.assertEqual(modelbridge.status_quo_name, "1_1")
-
-        # Alternatively, we can specify by features
-        modelbridge = ModelBridge(
-            get_search_space_for_value(),
-            0,
-            [],
-            get_experiment_for_value(),
-            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-            0,
-            status_quo_features=get_observation1().features,
-        )
-        self.assertEqual(modelbridge.status_quo, get_observation1())
-        self.assertEqual(modelbridge.status_quo_name, "1_1")
-
-        # Alternatively, we can specify on experiment
-        # Put a dummy arm with SQ name 1_1 on the dummy experiment.
+    def test_set_status_quo(self) -> None:
         exp = get_experiment_for_value()
-        sq = Arm(name="1_1", parameters={"x": 3.0})
-        exp._status_quo = sq
-        # Check that we set SQ to arm 1_1
-        # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-        modelbridge = ModelBridge(get_search_space_for_value(), 0, [], exp, 0)
-        self.assertEqual(modelbridge.status_quo, get_observation1())
-        self.assertEqual(modelbridge.status_quo_name, "1_1")
+        exp._status_quo = Arm(parameters={"x": 3.0}, name="0_0")
+        with self.assertLogs(logger="ax", level="WARNING") as logs:
+            adapter = Adapter(experiment=exp, model=Generator())
+        self.assertTrue(
+            any("is not present in the training data" in log for log in logs.output)
+        )
+        # Status quo name is set but status quo itself is not, since there is no data.
+        self.assertEqual(adapter.status_quo_name, "0_0")
+        self.assertIsNone(adapter.status_quo)
 
-        # Errors if features and name both specified
-        with self.assertRaises(ValueError):
-            modelbridge = ModelBridge(
-                get_search_space_for_value(),
-                0,
-                [],
-                exp,
-                # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-                0,
-                status_quo_features=get_observation1().features,
-                status_quo_name="1_1",
+        for num_batch_trial in (1, 2):
+            # Experiment with status quo in num_batch_trial trials. Only one completed.
+            exp = get_branin_experiment(
+                with_batch=True,
+                with_status_quo=True,
+                num_batch_trial=num_batch_trial,
+                with_completed_batch=True,
             )
+            adapter = Adapter(experiment=exp, model=Generator())
+            # Status quo is set with the target trial index.
+            self.assertEqual(
+                none_throws(adapter.status_quo).features.trial_index,
+                get_target_trial_index(experiment=exp),
+            )
+            # Status quo data by trial extracts the data from all trials.
+            self.assertEqual(
+                set(none_throws(adapter.status_quo_data_by_trial).keys()),
+                set(range(num_batch_trial)),
+            )
+            # Status quo name is set.
+            self.assertEqual(adapter._status_quo_name, none_throws(exp.status_quo).name)
 
-        # Left as None if features or name don't exist
-        modelbridge = ModelBridge(
-            get_search_space_for_value(),
-            0,
-            [],
-            exp,
-            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-            0,
-            status_quo_name="1_0",
-        )
-        self.assertIsNone(modelbridge.status_quo)
-        self.assertIsNone(modelbridge.status_quo_name)
-        modelbridge = ModelBridge(
-            get_search_space_for_value(),
-            0,
-            [],
-            get_experiment_for_value(),
-            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-            0,
-            status_quo_features=ObservationFeatures(parameters={"x": 3.0, "y": 10.0}),
-        )
-        self.assertIsNone(modelbridge.status_quo)
-
-    @mock.patch(
-        "ax.modelbridge.base.ModelBridge._gen",
-        autospec=True,
-    )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_status_quo_for_non_monolithic_data(self, mock_gen):
-        mock_gen.return_value = GenResults(
-            observation_features=[
-                ObservationFeatures(
-                    parameters={"x1": float(i), "x2": float(i)}, trial_index=1
-                )
-                for i in range(5)
-            ],
-            weights=[1] * 5,
-        )
+    def test_status_quo_for_non_monolithic_data(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
-        sobol = Models.SOBOL(search_space=exp.search_space)
-        exp.new_batch_trial(sobol.gen(5)).set_status_quo_and_optimize_power(
-            status_quo=exp.status_quo
-        ).run()
+        sobol_generator = get_sobol(
+            search_space=exp.search_space,
+        )
+        sobol_run = sobol_generator.gen(n=5)
+        exp.new_batch_trial(
+            sobol_run, add_status_quo_arm=False
+        ).set_status_quo_with_weight(status_quo=exp.status_quo, weight=1.0).run()
 
         # create data where metrics vary in start and end times
         data = get_non_monolithic_branin_moo_data()
-        with warnings.catch_warnings(record=True) as ws:
-            bridge = ModelBridge(
-                experiment=exp,
-                data=data,
-                model=Model(),
-                search_space=exp.search_space,
-            )
-        # just testing it doesn't error
-        bridge.gen(5)
+        with warnings.catch_warnings(record=True) as ws, mock.patch.object(
+            exp, "lookup_data", return_value=data
+        ):
+            adapter = Adapter(experiment=exp, model=Generator(), data=data)
+        # Check that we get warnings about start and end time columns being discarded.
         self.assertTrue(any("start_time" in str(w.message) for w in ws))
         self.assertTrue(any("end_time" in str(w.message) for w in ws))
-        # pyre-fixme[16]: Optional type has no attribute `arm_name`.
-        self.assertEqual(bridge.status_quo.arm_name, "status_quo")
+        # Check that SQ is set.
+        self.assertEqual(adapter.status_quo_name, "status_quo")
+        self.assertIsNotNone(adapter.status_quo)
 
-    @mock.patch(
-        "ax.modelbridge.base.observations_from_data",
-        autospec=True,
-        return_value=(
-            [
-                get_observation_status_quo0(),
-                get_observation_status_quo1(),
-                get_observation1(),
-                get_observation2(),
-            ]
-        ),
-    )
-    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_SetStatusQuoMultipleObs(self, mock_fit, mock_observations_from_data):
-        exp = get_experiment_with_repeated_arms(2)
-
-        trial_index = 1
-        status_quo_features = ObservationFeatures(
-            # pyre-fixme[16]: `BaseTrial` has no attribute `status_quo`.
-            parameters=exp.trials[trial_index].status_quo.parameters,
-            trial_index=trial_index,
-        )
-        modelbridge = ModelBridge(
-            get_search_space_for_value(),
-            0,
-            [],
-            exp,
-            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-            0,
-            status_quo_features=status_quo_features,
-        )
+    def test_set_status_quo_with_multiple_trials_with_status_quo(self) -> None:
+        exp = get_experiment_with_repeated_arms(with_data=True)
+        exp.status_quo = assert_is_instance(exp.trials[1], BatchTrial).status_quo
+        adapter = Adapter(experiment=exp, model=Generator())
         # Check that for experiments with many trials the status quo is set
-        # to the value of the status quo of the last trial.
-        if len(exp.trials) >= 1:
-            self.assertEqual(modelbridge.status_quo, get_observation_status_quo1())
+        # to the value of the status quo of the last trial (target trial).
+        self.assertEqual(
+            adapter.status_quo,
+            Observation(
+                features=ObservationFeatures(
+                    parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
+                    trial_index=get_target_trial_index(experiment=exp),
+                    metadata={},
+                ),
+                data=ObservationData(
+                    means=np.array([2.0, 4.0]),
+                    covariance=np.array([[1.0, 0.0], [0.0, 16.0]]),
+                    metric_names=["a", "b"],
+                ),
+                arm_name="0_0",
+            ),
+        )
+
+    def test_set_status_quo_with_multiple_observations(self) -> None:
+        # Test for the case where the status quo arm has multiple observations
+        # for the target trial. This happens with MapData.
+
+        # Prevent data from being filtered down.
+        data_loader_config = DataLoaderConfig(
+            latest_rows_per_group=None, fit_only_completed_map_metrics=False
+        )
+
+        # Case 1: Experiment has an optimization config with single map key.
+        exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
+        # Add a second map metric, and a non-map metric.
+        exp.optimization_config = none_throws(exp.optimization_config).clone_with_args(
+            outcome_constraints=[
+                OutcomeConstraint(
+                    metric=get_map_metric("branin_map_constraint"),
+                    op=ComparisonOp.LEQ,
+                    bound=5.0,
+                ),
+                OutcomeConstraint(
+                    metric=BraninMetric(
+                        name="branin_constraint",
+                        param_names=["x1", "x2"],
+                        lower_is_better=True,
+                    ),
+                    op=ComparisonOp.LEQ,
+                    bound=5.0,
+                ),
+            ]
+        )
+        # Attach a trial with status quo & fetch some data.
+        exp.new_trial().add_arm(exp.status_quo).run()
+        for _ in range(3):
+            exp.fetch_data()
+        for additional_fetch in (False, True):
+            if additional_fetch:
+                # Fetch constraint metric an additional time. This will lead to two
+                # separate observations for the status quo arm.
+                exp.fetch_data(
+                    metrics=[exp.metrics["branin_map_constraint"]],
+                    combine_with_last_data=True,
+                )
+            with self.assertNoLogs(logger=logger, level="WARN"), mock.patch(
+                "ax.modelbridge.base._combine_multiple_status_quo_observations",
+                wraps=_combine_multiple_status_quo_observations,
+            ) as mock_combine:
+                adapter = Adapter(
+                    experiment=exp,
+                    model=Generator(),
+                    data_loader_config=data_loader_config,
+                )
+            mock_combine.assert_called_once()
+            call_kwargs = mock_combine.call_args.kwargs
+            self.assertEqual(
+                len(call_kwargs["status_quo_observations"]), 3 + additional_fetch
+            )
+            if additional_fetch:
+                # Last observation should only include the constraint metric.
+                self.assertEqual(
+                    set(call_kwargs["status_quo_observations"][-1].data.metric_names),
+                    {"branin_map_constraint"},
+                )
+            self.assertEqual(call_kwargs["map_key"], "timestamp")
+            opt_config_metrics = set(none_throws(exp.optimization_config).metrics)
+            self.assertEqual(call_kwargs["metrics"], opt_config_metrics)
+            adapter_sq = none_throws(adapter.status_quo)
+            self.assertEqual(
+                adapter_sq.features.parameters, none_throws(exp.status_quo).parameters
+            )
+            self.assertEqual(
+                adapter_sq.features.trial_index, get_target_trial_index(experiment=exp)
+            )
+            self.assertTrue(
+                set(adapter_sq.data.metric_names).issuperset(opt_config_metrics)
+            )
+
+        # Case 2: Experiment has an optimization config with !=1 map keys.
+        for num_map_keys in (0, 2):
+            with mock.patch(
+                "ax.modelbridge.base.extract_map_keys_from_opt_config",
+                return_value=set(["timestamp", "step"][:num_map_keys]),
+            ) as mock_extract, self.assertLogs(
+                logger=logger, level="WARN"
+            ) as mock_logs:
+                adapter = Adapter(
+                    experiment=exp,
+                    model=Generator(),
+                    data_loader_config=data_loader_config,
+                )
+            mock_extract.assert_called_once()
+            self.assertIsNone(adapter.status_quo)
+            self.assertTrue(
+                any(
+                    f"optimization config includes {num_map_keys} map keys" in log
+                    for log in mock_logs.output
+                )
+            )
+
+        # Case 3: Experiment doesn't have an optimization config.
+        metrics = none_throws(exp.optimization_config).metrics.values()
+        exp._optimization_config = None
+        # Attach as tracking metric to prevent data filtering.
+        for m in metrics:
+            exp.add_tracking_metric(m)
+        with self.assertLogs(logger=logger, level="WARN") as mock_logs:
+            adapter = Adapter(
+                experiment=exp, model=Generator(), data_loader_config=data_loader_config
+            )
+        self.assertIsNone(adapter.status_quo)
+        self.assertTrue(
+            any(
+                "the Adapter does not have an optimization config" in log
+                for log in mock_logs.output
+            )
+        )
 
     def test_transform_observations(self) -> None:
         """
         This functionality is unused, even in the subclass where it is implemented.
         """
-        ss = get_search_space_for_value()
-        modelbridge = ModelBridge(search_space=ss, model=Model())
+        adapter = Adapter(experiment=get_experiment_for_value(), model=Generator())
         with self.assertRaises(NotImplementedError):
-            modelbridge.transform_observations([])
+            adapter.transform_observations([])
         with self.assertRaises(NotImplementedError):
-            modelbridge.transform_observations([])
-
-    @mock.patch(
-        "ax.modelbridge.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1(), get_observation1()]),
-    )
-    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    def test_SetTrainingDataDupFeatures(
-        self, mock_fit: Mock, mock_observations_from_data: Mock
-    ) -> None:
-        # Throws an error if repeated features in observations.
-        with self.assertRaises(ValueError):
-            ModelBridge(
-                get_search_space_for_value(),
-                0,
-                [],
-                get_experiment_for_value(),
-                # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
-                0,
-                status_quo_name="1_1",
-            )
+            adapter.transform_observations([])
 
     def test_UnwrapObservationData(self) -> None:
         observation_data = [get_observation1().data, get_observation2().data]
@@ -741,28 +711,23 @@ class BaseModelBridgeTest(TestCase):
         )
 
     @mock.patch(
-        "ax.modelbridge.base.ModelBridge._gen",
+        "ax.modelbridge.base.Adapter._gen",
         autospec=True,
         return_value=GenResults(
             observation_features=[get_observation1trans().features], weights=[2]
         ),
     )
-    @mock.patch(
-        "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
-    )
-    def test_GenWithDefaults(self, _, mock_gen: Mock) -> None:
+    def test_GenWithDefaults(self, mock_gen: Mock) -> None:
         exp = get_experiment_for_value()
         exp.optimization_config = get_optimization_config_no_constraints()
         ss = get_search_space_for_range_value()
-        modelbridge = ModelBridge(
-            search_space=ss, model=Model(), transforms=[], experiment=exp
-        )
-        modelbridge.gen(1)
+        adapter = Adapter(experiment=exp, model=Generator(), search_space=ss)
+        adapter.gen(1)
         mock_gen.assert_called_with(
-            modelbridge,
+            adapter,
             n=1,
             search_space=ss,
-            fixed_features=None,
+            fixed_features=ObservationFeatures(parameters={}),
             model_gen_options=None,
             optimization_config=OptimizationConfig(
                 objective=Objective(metric=Metric("test_metric"), minimize=False),
@@ -772,92 +737,22 @@ class BaseModelBridgeTest(TestCase):
         )
 
     @mock.patch(
-        "ax.modelbridge.base.ModelBridge._gen",
+        "ax.modelbridge.base.Adapter._gen",
         autospec=True,
         return_value=GenResults(
             observation_features=[get_observation1trans().features], weights=[2]
         ),
     )
-    @mock.patch(
-        "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
-    )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_gen_on_experiment_with_imm_ss_and_opt_conf(self, _, __):
+    def test_gen_on_experiment_with_imm_ss_and_opt_conf(self, _) -> None:
         exp = get_experiment_for_value()
         exp._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = True
         exp.optimization_config = get_optimization_config_no_constraints()
-        ss = get_search_space_for_range_value()
-        modelbridge = ModelBridge(
-            search_space=ss, model=Model(), transforms=[], experiment=exp
-        )
-        self.assertTrue(
-            modelbridge._experiment_has_immutable_search_space_and_opt_config
-        )
-        gr = modelbridge.gen(1)
+        adapter = Adapter(experiment=exp, model=Generator())
+        self.assertTrue(adapter._experiment_has_immutable_search_space_and_opt_config)
+        gr = adapter.gen(1)
         self.assertIsNone(gr.optimization_config)
         self.assertIsNone(gr.search_space)
 
-    def test_set_status_quo(self) -> None:
-        # experiment with single status quo in trial
-        exp = get_branin_experiment(
-            with_batch=True,
-            with_status_quo=True,
-            num_batch_trial=1,
-            with_completed_batch=True,
-        )
-        modelbridge = ModelBridge(
-            search_space=exp.search_space,
-            experiment=exp,
-            model=Model,
-            data=exp.lookup_data(),
-        )
-
-        # we are able to set status_quo_data_by_trial when multiple
-        # status_quos present in each trial
-        self.assertIsNotNone(modelbridge.status_quo_data_by_trial)
-        # status_quo is set
-        self.assertIsNotNone(modelbridge.status_quo)
-        # Status quo name is logged
-        self.assertEqual(modelbridge._status_quo_name, none_throws(exp.status_quo).name)
-
-        # experiment with multiple status quos in different trials
-        exp = get_branin_experiment(
-            with_batch=True,
-            with_status_quo=True,
-            num_batch_trial=2,
-            with_completed_batch=True,
-        )
-        modelbridge = ModelBridge(
-            search_space=exp.search_space,
-            experiment=exp,
-            model=Model,
-            data=exp.lookup_data(),
-        )
-        # we are able to set status_quo_data_by_trial when multiple
-        # status_quos present in each trial
-        self.assertIsNotNone(modelbridge.status_quo_data_by_trial)
-        # status_quo is not set
-        self.assertIsNone(modelbridge.status_quo)
-        # Status quo name can still be logged
-        self.assertEqual(modelbridge._status_quo_name, none_throws(exp.status_quo).name)
-
-        # a unique status_quo can be identified (by trial index)
-        # if status_quo_features is specified
-        status_quo_features = ObservationFeatures(
-            parameters=none_throws(exp.status_quo).parameters,
-            trial_index=0,
-        )
-        modelbridge = ModelBridge(
-            search_space=exp.search_space,
-            experiment=exp,
-            model=Model,
-            data=exp.lookup_data(),
-            status_quo_features=status_quo_features,
-        )
-        self.assertIsNotNone(modelbridge.status_quo)
-
-
-class testClampObservationFeatures(TestCase):
     def test_ClampObservationFeaturesNearBounds(self) -> None:
         cases = [
             (
@@ -906,7 +801,7 @@ class testClampObservationFeatures(TestCase):
             actual_obs_ft = clamp_observation_features([obs_ft], search_space)
             self.assertEqual(actual_obs_ft[0], expected_obs_ft)
 
-    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    @mock.patch("ax.modelbridge.base.Adapter._fit", autospec=True)
     def test_FillMissingParameters(self, mock_fit: Mock) -> None:
         # Create experiment with arms from two search spaces
         ss1 = SearchSpace(
@@ -940,7 +835,7 @@ class testClampObservationFeatures(TestCase):
         gr2 = generator2.gen(n=5)
         sq_vals = {"x1": 5.0, "x2": 5.0}
         for gr in [gr1, gr2]:
-            trial = experiment.new_batch_trial(optimize_for_power=True)
+            trial = experiment.new_batch_trial(add_status_quo_arm=True)
             trial.add_generator_run(gr)
             trial.mark_running(no_runner_required=True)
             trial.mark_completed()
@@ -948,12 +843,7 @@ class testClampObservationFeatures(TestCase):
                 get_branin_data_batch(batch=trial, fill_vals=sq_vals)
             )
         # Fit model without filling missing parameters
-        m = ModelBridge(
-            search_space=ss1,
-            model=None,
-            experiment=experiment,
-            data=experiment.lookup_data(),
-        )
+        m = Adapter(experiment=experiment, model=Generator())
         self.assertEqual(
             [t.__name__ for t in m._raw_transforms],  # pyre-ignore[16]
             ["Cast"],
@@ -965,16 +855,15 @@ class testClampObservationFeatures(TestCase):
             set(ood_arms), {"status_quo", "1_0", "1_1", "1_2", "1_3", "1_4"}
         )
         # Fit with filling missing parameters
-        m = ModelBridge(
-            search_space=ss2,
-            model=None,
+        m = Adapter(
             experiment=experiment,
-            data=experiment.lookup_data(),
-            transforms=[FillMissingParameters],
+            model=Generator(),
+            search_space=ss2,
+            transforms=[],  # FillMissingParameters added by default.
             transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
         )
         self.assertEqual(
-            [t.__name__ for t in m._raw_transforms], ["Cast", "FillMissingParameters"]
+            [t.__name__ for t in m._raw_transforms], ["FillMissingParameters", "Cast"]
         )
         # All arms are in design now
         self.assertEqual(sum(m.training_in_design), 12)
@@ -1004,14 +893,23 @@ class testClampObservationFeatures(TestCase):
         trial.mark_running(no_runner_required=True)
         experiment.attach_data(get_branin_data_batch(batch=trial, fill_vals=sq_vals))
         trial.mark_completed()
-        data = experiment.lookup_data()
+        # Make search space with a parameter constraint
+        ss = experiment.search_space.clone()
+        ss.set_parameter_constraints(
+            [
+                SumConstraint(
+                    parameters=list(ss.parameters.values()),
+                    is_upper_bound=True,
+                    bound=30.0,
+                )
+            ]
+        )
 
         # Check that SQ and custom are OOD
-        m = ModelBridge(
-            search_space=experiment.search_space,
-            model=None,
+        m = Adapter(
             experiment=experiment,
-            data=data,
+            model=Generator(),
+            search_space=ss,
             expand_model_space=False,
         )
         arm_names = [obs.arm_name for obs in m.get_training_data()]
@@ -1019,28 +917,135 @@ class testClampObservationFeatures(TestCase):
         self.assertEqual(set(ood_arms), {"status_quo", "custom"})
         self.assertEqual(m.model_space.parameters["x1"].lower, -5.0)  # pyre-ignore[16]
         self.assertEqual(m.model_space.parameters["x2"].upper, 15.0)  # pyre-ignore[16]
+        self.assertEqual(len(m.model_space.parameter_constraints), 1)
 
         # With expand model space, custom is not OOD, and model space is expanded
-        m = ModelBridge(
-            search_space=experiment.search_space,
-            model=None,
+        m = Adapter(
             experiment=experiment,
-            data=data,
+            model=Generator(),
+            search_space=ss,
         )
         arm_names = [obs.arm_name for obs in m.get_training_data()]
         ood_arms = [a for i, a in enumerate(arm_names) if not m.training_in_design[i]]
         self.assertEqual(set(ood_arms), {"status_quo"})
         self.assertEqual(m.model_space.parameters["x1"].lower, -20.0)
         self.assertEqual(m.model_space.parameters["x2"].upper, 18.0)
+        self.assertEqual(m.model_space.parameter_constraints, [])
 
         # With fill values, SQ is also in design, and x2 is further expanded
-        m = ModelBridge(
-            search_space=experiment.search_space,
-            model=None,
+        m = Adapter(
             experiment=experiment,
-            data=data,
+            model=Generator(),
+            search_space=ss,
             transforms=[FillMissingParameters],
             transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
         )
         self.assertEqual(sum(m.training_in_design), 7)
         self.assertEqual(m.model_space.parameters["x2"].upper, 20)
+        self.assertEqual(m.model_space.parameter_constraints, [])
+
+    @mock.patch(
+        "ax.modelbridge.base.observations_from_data", wraps=observations_from_data
+    )
+    def test_fit_only_completed_map_metrics(
+        self, mock_observations_from_data: Mock
+    ) -> None:
+        # _prepare_observations is called in the constructor and itself calls
+        # observations_from_data with expanded statuses to include.
+        experiment = get_experiment_for_value()
+        experiment.status_quo = Arm(name="1_1", parameters={"x": 3.0})
+        adapter = Adapter(
+            experiment=experiment,
+            model=Generator(),
+            data=MapData(),
+            data_loader_config=DataLoaderConfig(
+                fit_only_completed_map_metrics=False,
+            ),
+        )
+        kwargs = mock_observations_from_data.call_args.kwargs
+        self.assertEqual(
+            kwargs["statuses_to_include_map_metric"],
+            adapter._data_loader_config.statuses_to_fit,
+        )
+        # assert `latest_rows_per_group` is 1
+        self.assertEqual(kwargs["latest_rows_per_group"], 1)
+        mock_observations_from_data.reset_mock()
+
+        # With fit_only_completed_map_metrics=True, statuses to fit is limited.
+        Adapter(
+            experiment=experiment,
+            model=Generator(),
+            data_loader_config=DataLoaderConfig(
+                fit_only_completed_map_metrics=True,
+            ),
+        )
+        kwargs = mock_observations_from_data.call_args.kwargs
+        self.assertEqual(
+            kwargs["statuses_to_include_map_metric"], {TrialStatus.COMPLETED}
+        )
+
+    def test_data_extraction_from_experiment(self) -> None:
+        # Checks that data is extracted from experiment both on __init__ and
+        # in _process_and_transform_data, if it is not provided.
+        exp = get_experiment_for_value()
+        lookup_patch = mock.patch.object(
+            exp, "lookup_data", return_value=exp.lookup_data()
+        ).start()
+        adapter = Adapter(experiment=exp, model=Generator())
+        lookup_patch.assert_called_once()
+        lookup_patch.reset_mock()
+        adapter._process_and_transform_data(experiment=exp)
+        lookup_patch.assert_called_once()
+        lookup_patch.reset_mock()
+        # Not called if data is provided.
+        adapter = Adapter(experiment=exp, model=Generator(), data=MapData())
+        adapter._process_and_transform_data(experiment=exp, data=MapData())
+        lookup_patch.assert_not_called()
+
+    def test_predict(self) -> None:
+        # Construct an experiment with observations having std dev = 2.0
+        np_obs = np.random.randn(5, 1)
+        np_obs = np_obs / np.std(np_obs, ddof=1) * 2.0
+        np_obs = np_obs - np.mean(np_obs)
+
+        experiment = get_experiment_with_observations(observations=np_obs.tolist())
+        adapter = Adapter(
+            experiment=experiment,
+            model=Generator(),
+            transforms=[StandardizeY],
+        )
+
+        def mock_predict(
+            observation_features: list[ObservationFeatures],
+            use_posterior_predictive: bool = False,
+        ) -> list[ObservationData]:
+            return [
+                ObservationData(
+                    metric_names=["m1"], means=np.ones((1)), covariance=np.ones((1, 1))
+                )
+                for _ in observation_features
+            ]
+
+        obs_features = [
+            ObservationFeatures(parameters={"x": 3.0, "y": 4.0}) for _ in range(3)
+        ]
+        with mock.patch.object(
+            adapter, "_predict", side_effect=mock_predict
+        ) as mock_pred:
+            f, _ = adapter.predict(observation_features=obs_features)
+        mock_pred.assert_called_once_with(
+            observation_features=obs_features, use_posterior_predictive=False
+        )
+        # Check that the predictions were un-transformed with std dev = 2.0.
+        self.assertTrue(np.allclose(f["m1"], np.ones(3) * 2.0))
+
+        # Test for error if an observation is dropped.
+        with mock.patch.object(
+            adapter, "_predict", side_effect=mock_predict
+        ), self.assertRaisesRegex(ModelError, "Predictions resulted in fewer"):
+            adapter.predict(
+                observation_features=[
+                    ObservationFeatures(parameters={"x": 3.0, "y": 4.0}),
+                    ObservationFeatures(parameters={"x": 3.0, "y": None}),
+                ]
+            )

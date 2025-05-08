@@ -3,14 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-unsafe
+# pyre-strict
 
-import json
 from datetime import datetime
-from typing import Optional
+from typing import Sequence
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
@@ -18,8 +17,9 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckStatus,
 )
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
-from pyre_extensions import none_throws
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
+from pyre_extensions import none_throws, override
 
 
 class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
@@ -44,17 +44,22 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
         self.reason = reason
         self.days_till_fail = days_till_fail
 
+    @override
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
-    ) -> HealthcheckAnalysisCard:
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> Sequence[HealthcheckAnalysisCard]:
         status = HealthcheckStatus.PASS
-        subtitle = self.reason
+        subtitle = (
+            "The candidate generation health check notifies users "
+            "if key criteria for candidate generation are missing. "
+        )
         title_status = "Success"
         level = AnalysisCardLevel.LOW
         if not self.can_generate_candidates:
-            subtitle = f"{self.REASON_PREFIX}{self.reason}"
+            subtitle += f"{self.REASON_PREFIX}{self.reason}"
             most_recent_run_time = max(
                 [
                     t.time_run_started
@@ -78,21 +83,17 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
                     level = AnalysisCardLevel.MID
                     title_status = "Warning"
                 subtitle += self.LAST_RUN_TEMPLATE.format(days=days_since_last_run)
+        else:
+            subtitle += f"{self.reason}"
 
-        return HealthcheckAnalysisCard(
-            name="CanGenerateCandidates",
-            title=f"Ax Candidate Generation {title_status}",
-            blob=json.dumps(
-                {
-                    "status": status,
-                }
-            ),
-            subtitle=subtitle,
-            df=pd.DataFrame(
-                {
-                    "status": [status],
-                    "reason": [self.reason],
-                }
-            ),
-            level=level,
-        )
+        return [
+            self._create_healthcheck_analysis_card(
+                title=f"Ax Candidate Generation {title_status}",
+                subtitle=subtitle,
+                df=pd.DataFrame(),
+                level=level,
+                status=status,
+                category=AnalysisCardCategory.DIAGNOSTIC,
+                reason=self.reason,
+            )
+        ]

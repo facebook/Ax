@@ -3,21 +3,25 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-unsafe
+# pyre-strict
 
 from unittest.mock import patch
 
 import torch
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import (
+    AnalysisBlobAnnotation,
+    AnalysisCardCategory,
+    AnalysisCardLevel,
+)
 from ax.analysis.plotly.arm_effects.predicted_effects import PredictedEffectsPlot
 from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
 from ax.core.observation import ObservationFeatures
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.modelbridge.prediction_utils import predict_at_point
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -43,14 +47,16 @@ class TestPredictedEffectsPlot(TestCase):
 
     def test_compute_for_requires_a_gs(self) -> None:
         analysis = PredictedEffectsPlot(metric_name="branin")
-        experiment = get_branin_experiment()
-        with self.assertRaisesRegex(UserInputError, "requires a GenerationStrategy"):
+        experiment = get_branin_experiment(with_batch=True, with_completed_batch=True)
+        with self.assertRaisesRegex(
+            UserInputError, "Must provide either a GenerationStrategy or an Adapter"
+        ):
             analysis.compute(experiment=experiment)
 
     def test_compute_for_requires_trials(self) -> None:
         analysis = PredictedEffectsPlot(metric_name="branin")
         experiment = get_branin_experiment()
-        generation_strategy = choose_generation_strategy(
+        generation_strategy = choose_generation_strategy_legacy(
             search_space=experiment.search_space,
             experiment=experiment,
         )
@@ -62,13 +68,11 @@ class TestPredictedEffectsPlot(TestCase):
     def test_compute_for_requires_a_model_that_predicts(self) -> None:
         analysis = PredictedEffectsPlot(metric_name="branin")
         experiment = get_branin_experiment(with_batch=True, with_completed_batch=True)
-        generation_strategy = choose_generation_strategy(
+        generation_strategy = choose_generation_strategy_legacy(
             search_space=experiment.search_space,
             experiment=experiment,
         )
-        with self.assertRaisesRegex(
-            UserInputError, "where the current model supports prediction"
-        ):
+        with self.assertRaisesRegex(UserInputError, "requires a predictive model."):
             analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
@@ -102,7 +106,7 @@ class TestPredictedEffectsPlot(TestCase):
             with self.subTest(metric=metric):
                 # WHEN we compute the analysis for a metric
                 analysis = PredictedEffectsPlot(metric_name=metric)
-                card = analysis.compute(
+                (card,) = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
                 # THEN it makes a card with the right name, title, and subtitle
@@ -110,22 +114,31 @@ class TestPredictedEffectsPlot(TestCase):
                 self.assertEqual(card.title, f"Predicted Effects for {metric}")
                 self.assertEqual(
                     card.subtitle,
-                    "View a candidate trial and its arms' predicted metric values",
+                    (
+                        "The predicted effects plot provides a visualization of the "
+                        "estimated metric effects for each arm in the upcoming trial. "
+                        "This plot helps in anticipating the potential outcomes and "
+                        "performance of different arms based on the model's "
+                        "predictions. Note that flat predictions across arms indicate "
+                        "that the model has not picked up on sufficient signal in "
+                        "the data, and instead is just predicting the mean."
+                    ),
                 )
                 # AND THEN it has an appropriate level based on whether we're
                 # optimizing for the metric
                 self.assertEqual(
                     card.level,
                     (
-                        AnalysisCardLevel.HIGH
+                        AnalysisCardLevel.HIGH + 2
                         if metric == "branin"
                         else (
-                            AnalysisCardLevel.HIGH - 1
+                            AnalysisCardLevel.HIGH + 1
                             if metric == "constraint_branin"
-                            else AnalysisCardLevel.HIGH - 2
+                            else AnalysisCardLevel.HIGH
                         )
                     ),
                 )
+                self.assertEqual(card.category, AnalysisCardCategory.ACTIONABLE)
                 # AND THEN it has the right rows and columns in the dataframe
                 self.assertEqual(
                     {*card.df.columns},
@@ -141,7 +154,7 @@ class TestPredictedEffectsPlot(TestCase):
                     },
                 )
                 self.assertIsNotNone(card.blob)
-                self.assertEqual(card.blob_annotation, "plotly")
+                self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
                 for trial in experiment.trials.values():
                     for arm in trial.arms:
                         self.assertIn(arm.name, card.df["arm_name"].unique())
@@ -176,7 +189,7 @@ class TestPredictedEffectsPlot(TestCase):
                 experiment.optimization_config
             ).objective.metric.name
         )
-        card = analysis.compute(
+        (card,) = analysis.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
         # THEN it has the right arms
@@ -231,7 +244,7 @@ class TestPredictedEffectsPlot(TestCase):
             f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
-            card = analysis.compute(
+            (card,) = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
         # THEN it has the right rows for arms with data, as well as the latest trial
@@ -288,7 +301,7 @@ class TestPredictedEffectsPlot(TestCase):
         arms_with_data = set(experiment.lookup_data().df["arm_name"].unique())
         # WHEN we compute the analysis
         analysis = PredictedEffectsPlot(metric_name="branin")
-        card = analysis.compute(
+        (card,) = analysis.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
         # THEN it has the right rows for arms with data, as well as the latest
@@ -310,12 +323,12 @@ class TestPredictedEffectsPlot(TestCase):
     def test_it_works_for_non_batch_experiments(self) -> None:
         # GIVEN an experiment with the default generation strategy
         experiment = get_branin_experiment(with_batch=False)
-        generation_strategy = choose_generation_strategy(
+        generation_strategy = choose_generation_strategy_legacy(
             search_space=experiment.search_space,
             experiment=experiment,
         )
         # AND GIVEN we generate all Sobol trials and one GPEI trial
-        sobol_key = Models.SOBOL.value
+        sobol_key = Generators.SOBOL.value
         last_model_key = sobol_key
         while last_model_key == sobol_key:
             trial = experiment.new_trial(
@@ -332,7 +345,7 @@ class TestPredictedEffectsPlot(TestCase):
 
         # WHEN we compute the analysis
         analysis = PredictedEffectsPlot(metric_name="branin")
-        card = analysis.compute(
+        (card,) = analysis.compute(
             experiment=experiment,
             generation_strategy=generation_strategy,
         )
@@ -373,7 +386,7 @@ class TestPredictedEffectsPlot(TestCase):
                 f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
                 side_effect=lambda t: torch.as_tensor([[0.25]] * t.size()[0]).log(),
             ):
-                card = analysis.compute(
+                (card,) = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
             # THEN it marks that constraints are violated for the non-SQ arms
@@ -407,7 +420,7 @@ class TestPredictedEffectsPlot(TestCase):
                 f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
                 side_effect=lambda t: torch.as_tensor([[1]] * t.size()[0]).log(),
             ):
-                card = analysis.compute(
+                (card,) = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
             # THEN it marks that constraints are not violated

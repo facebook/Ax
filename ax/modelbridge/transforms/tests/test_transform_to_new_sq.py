@@ -12,11 +12,11 @@ import numpy as np
 import numpy.typing as npt
 from ax.core.batch_trial import BatchTrial
 from ax.core.observation import observations_from_data
-from ax.modelbridge import ModelBridge
+from ax.modelbridge import Adapter
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.tests.test_relativize_transform import RelativizeDataTest
 from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
-from ax.models.base import Model
+from ax.models.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
@@ -73,12 +73,11 @@ class TransformToNewSQSpecificTest(TestCase):
         self._refresh_modelbridge()
 
     def _refresh_modelbridge(self) -> None:
-        self.modelbridge = ModelBridge(
+        self.modelbridge = Adapter(
             search_space=self.exp.search_space,
-            model=Model(),
+            model=Generator(),
             experiment=self.exp,
             data=self.exp.lookup_data(),
-            status_quo_name="status_quo",
         )
 
     def test_modelbridge_without_status_quo_name(self) -> None:
@@ -146,7 +145,7 @@ class TransformToNewSQSpecificTest(TestCase):
 
     def test_target_trial_index(self) -> None:
         sobol = get_sobol(search_space=self.exp.search_space)
-        self.exp.new_batch_trial(generator_run=sobol.gen(2), optimize_for_power=True)
+        self.exp.new_batch_trial(generator_run=sobol.gen(2), add_status_quo_arm=True)
         t = self.exp.trials[1]
         t = assert_is_instance(t, BatchTrial)
         t.mark_running(no_runner_required=True)

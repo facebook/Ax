@@ -9,11 +9,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Sequence
-from warnings import warn
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -42,7 +41,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
-from ax.modelbridge.base import gen_arms, GenResults, ModelBridge
+from ax.modelbridge.base import Adapter, DataLoaderConfig, gen_arms, GenResults
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
     extract_objective_thresholds,
@@ -63,10 +62,10 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
-from ax.models.torch.botorch_modular.model import BoTorchModel
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
+from ax.models.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
-from ax.models.torch_base import TorchModel, TorchOptConfig
+from ax.models.torch_base import TorchGenerator, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
@@ -78,11 +77,11 @@ logger: Logger = get_logger(__name__)
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
 
-class TorchModelBridge(ModelBridge):
+class TorchAdapter(Adapter):
     """A model bridge for using torch-based models.
 
-    Specifies an interface that is implemented by TorchModel. In particular,
-    model should have methods fit, predict, and gen. See TorchModel for the
+    Specifies an interface that is implemented by TorchGenerator. In particular,
+    model should have methods fit, predict, and gen. See TorchGenerator for the
     API for each of these methods.
 
     Requires that all parameters have been transformed to RangeParameters
@@ -92,51 +91,45 @@ class TorchModelBridge(ModelBridge):
     them to the model.
     """
 
-    model: TorchModel | None = None
-    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
-    outcomes: list[str]  # pyre-ignore[13]: These are initialized in _fit.
-    # pyre-fixme[13]: Attribute `parameters` is never initialized.
-    parameters: list[str]  # pyre-ignore[13]: These are initialized in _fit.
-    _default_model_gen_options: TConfig
-    _last_observations: list[Observation] | None = None
-
     def __init__(
         self,
+        *,
         experiment: Experiment,
-        search_space: SearchSpace,
-        data: Data,
-        model: TorchModel,
-        transforms: list[type[Transform]],
-        transform_configs: dict[str, TConfig] | None = None,
-        torch_dtype: torch.dtype | None = None,
-        torch_device: torch.device | None = None,
-        status_quo_name: str | None = None,
-        status_quo_features: ObservationFeatures | None = None,
+        model: TorchGenerator,
+        search_space: SearchSpace | None = None,
+        data: Data | None = None,
+        transforms: Sequence[type[Transform]] | None = None,
+        transform_configs: Mapping[str, TConfig] | None = None,
         optimization_config: OptimizationConfig | None = None,
         expand_model_space: bool = True,
-        fit_out_of_design: bool = False,
-        fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
         default_model_gen_options: TConfig | None = None,
+        torch_device: torch.device | None = None,
+        data_loader_config: DataLoaderConfig | None = None,
+        fit_out_of_design: bool | None = None,
+        fit_abandoned: bool | None = None,
+        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
-        # This warning is being added while we are on 0.4.3, so it will be
-        # released in 0.4.4 or 0.5.0. The `torch_dtype` argument can be removed
-        # in the subsequent minor version. It should also be removed from
-        # `TorchModelBridge` subclasses.
-        if torch_dtype is not None:
-            warn(
-                "The `torch_dtype` argument to `TorchModelBridge` is deprecated"
-                " and will be ignored; data will be in double precision.",
-                DeprecationWarning,
-            )
+        """In addition to common arguments documented in the base ``Adapter`` class,
+        ``TorchAdapter`` accepts the following arguments.
 
-        # Note: When `torch_dtype` is removed, this attribute can be removed
-        self.dtype: torch.dtype = torch.double
-        self.device = torch_device
-        # pyre-ignore [4]: Attribute `_default_model_gen_options` of class
-        # `TorchModelBridge` must have a type that does not contain `Any`.
-        self._default_model_gen_options = default_model_gen_options or {}
+        Args:
+            default_model_gen_options: A dictionary of default options to use
+                during candidate generation. These will be overridden by any
+                `model_gen_options` passed to the `Adapter.gen` method.
+            torch_device: The device to use for any torch tensors and operations
+                on these tensors.
+            data_loader_config: A DataLoaderConfig of options for loading data. See the
+                docstring of DataLoaderConfig for more details.
+            fit_out_of_design: Overwrites `data_loader_config.fit_out_of_design` if
+                not None.
+            fit_abandoned: Overwrites `data_loader_config.fit_abandoned` if not None.
+            fit_only_completed_map_metrics: If not None, overwrites
+                `data_loader_config.fit_only_completed_map_metrics`.
+        """
+        self.device: torch.device | None = torch_device
+        self._default_model_gen_options: TConfig = default_model_gen_options or {}
 
         # Handle init for multi-objective optimization.
         self.is_moo_problem: bool = False
@@ -146,6 +139,14 @@ class TorchModelBridge(ModelBridge):
             )
             self.is_moo_problem = optimization_config.is_moo_problem
 
+        # Tracks last set of observations used to fit the model, to skip
+        # model fitting when it's not necessary.
+        self._last_observations: list[Observation] | None = None
+
+        # These are set during model fitting.
+        self.parameters: list[str] = []
+        self.outcomes: list[str] = []
+
         super().__init__(
             experiment=experiment,
             search_space=search_space,
@@ -153,21 +154,24 @@ class TorchModelBridge(ModelBridge):
             model=model,
             transforms=transforms,
             transform_configs=transform_configs,
-            status_quo_name=status_quo_name,
-            status_quo_features=status_quo_features,
             optimization_config=optimization_config,
             expand_model_space=expand_model_space,
-            fit_out_of_design=fit_out_of_design,
-            fit_abandoned=fit_abandoned,
             fit_tracking_metrics=fit_tracking_metrics,
             fit_on_init=fit_on_init,
+            data_loader_config=data_loader_config,
+            fit_out_of_design=fit_out_of_design,
+            fit_abandoned=fit_abandoned,
+            fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
 
+        # Re-assign self.model for more precise typing.
+        self.model: TorchGenerator = model
+
     def feature_importances(self, metric_name: str) -> dict[str, float]:
-        importances_tensor = none_throws(self.model).feature_importances()
-        importances_dict = dict(zip(self.outcomes, importances_tensor))
+        importances_tensor = self.model.feature_importances()
+        importances_dict = dict(zip(self.outcomes, importances_tensor, strict=True))
         importances_arr = importances_dict[metric_name].flatten()
-        return dict(zip(self.parameters, importances_arr))
+        return dict(zip(self.parameters, importances_arr, strict=True))
 
     def infer_objective_thresholds(
         self,
@@ -198,7 +202,7 @@ class TorchModelBridge(ModelBridge):
             optimization_config=optimization_config,
             fixed_features=fixed_features,
         )
-        # Get transformed args from TorchModelbridge.
+        # Get transformed args from TorchAdapter.
         search_space_digest, torch_opt_config = self._get_transformed_model_gen_args(
             search_space=base_gen_args.search_space,
             fixed_features=base_gen_args.fixed_features,
@@ -210,17 +214,17 @@ class TorchModelBridge(ModelBridge):
                 "`infer_objective_thresholds` does not support risk measures."
             )
         # Infer objective thresholds.
-        if isinstance(self.model, MultiObjectiveBotorchModel):
+        if isinstance(self.model, MultiObjectiveLegacyBoTorchGenerator):
             model = self.model.model
             Xs = self.model.Xs
-        elif isinstance(self.model, BoTorchModel):
+        elif isinstance(self.model, BoTorchGenerator):
             model = self.model.surrogate.model
             Xs = self.model.surrogate.Xs
         else:
             raise UnsupportedError(
-                "Model must be a MultiObjectiveBotorchModel or an appropriate Modular "
-                "Botorch Model to infer_objective_thresholds. Found "
-                f"{type(self.model)}."
+                "Model must be a MultiObjectiveLegacyBoTorchGenerator or an "
+                "appropriate Modular Botorch Model to infer_objective_thresholds. "
+                f"Found {type(self.model)}."
             )
 
         obj_thresholds = infer_objective_thresholds(
@@ -236,7 +240,6 @@ class TorchModelBridge(ModelBridge):
         return self._untransform_objective_thresholds(
             objective_thresholds=obj_thresholds,
             objective_weights=torch_opt_config.objective_weights,
-            bounds=search_space_digest.bounds,
             opt_config_metrics=torch_opt_config.opt_config_metrics,
             fixed_features=torch_opt_config.fixed_features,
         )
@@ -264,11 +267,11 @@ class TorchModelBridge(ModelBridge):
             search_space=base_gen_args.search_space,
             pending_observations=base_gen_args.pending_observations,
             fixed_features=base_gen_args.fixed_features,
-            model_gen_options=None,
+            model_gen_options=model_gen_options,
             optimization_config=base_gen_args.optimization_config,
         )
         try:
-            xbest = none_throws(self.model).best_point(
+            xbest = self.model.best_point(
                 search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
             )
@@ -310,7 +313,7 @@ class TorchModelBridge(ModelBridge):
         return [self._array_to_tensor(x) for x in arrays]
 
     def _array_to_tensor(self, array: npt.NDArray | list[float]) -> Tensor:
-        return torch.as_tensor(array, dtype=self.dtype, device=self.device)
+        return torch.as_tensor(array, dtype=torch.double, device=self.device)
 
     def _convert_observations(
         self,
@@ -366,10 +369,10 @@ class TorchModelBridge(ModelBridge):
                 raise ValueError(f"Outcome `{outcome}` was not observed.")
             X = torch.stack(Xs[outcome], dim=0)
             Y = torch.tensor(
-                Ys[outcome], dtype=self.dtype, device=self.device
+                Ys[outcome], dtype=torch.double, device=self.device
             ).unsqueeze(-1)
             Yvar = torch.tensor(
-                Yvars[outcome], dtype=self.dtype, device=self.device
+                Yvars[outcome], dtype=torch.double, device=self.device
             ).unsqueeze(-1)
             if Yvar.isnan().all():
                 Yvar = None
@@ -451,14 +454,13 @@ class TorchModelBridge(ModelBridge):
         cv_test_points: list[ObservationFeatures],
         parameters: list[str] | None = None,
         use_posterior_predictive: bool = False,
-        **kwargs: Any,
     ) -> list[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
         """
-        if self.model is None:
+        if not self.parameters:
             raise ValueError(FIT_MODEL_ERROR.format(action="_cross_validate"))
-        datasets, candidate_metadata, search_space_digest = self._get_fit_args(
+        datasets, _, search_space_digest = self._get_fit_args(
             search_space=search_space,
             observations=cv_training_data,
             parameters=parameters,
@@ -468,16 +470,15 @@ class TorchModelBridge(ModelBridge):
             parameters = self.parameters
         X_test = torch.tensor(
             [[obsf.parameters[p] for p in parameters] for obsf in cv_test_points],
-            dtype=self.dtype,
+            dtype=torch.double,
             device=self.device,
         )
         # Use the model to do the cross validation
-        f_test, cov_test = none_throws(self.model).cross_validate(
+        f_test, cov_test = self.model.cross_validate(
             datasets=datasets,
-            X_test=torch.as_tensor(X_test, dtype=self.dtype, device=self.device),
+            X_test=torch.as_tensor(X_test, dtype=torch.double, device=self.device),
             search_space_digest=search_space_digest,
             use_posterior_predictive=use_posterior_predictive,
-            **kwargs,
         )
         # Convert array back to ObservationData
         return array_to_observation_data(
@@ -515,7 +516,7 @@ class TorchModelBridge(ModelBridge):
                 that metric.
             fixed_features: An ObservationFeatures object containing any features that
                 should be fixed at specified values during generation.
-            acq_options: Keyword arguments used to contruct the acquisition function.
+            acq_options: Keyword arguments used to construct the acquisition function.
 
         Returns:
             A list of acquisition function values, in the same order as the
@@ -526,7 +527,7 @@ class TorchModelBridge(ModelBridge):
         if optimization_config is None:
             raise ValueError(
                 "The `optimization_config` must be specified either while initializing "
-                "the ModelBridge or to the `evaluate_acquisition_function` call."
+                "the Adapter or to the `evaluate_acquisition_function` call."
             )
         # pyre-ignore Incompatible parameter type [9]
         obs_feats: list[list[ObservationFeatures]] = deepcopy(observation_features)
@@ -562,7 +563,7 @@ class TorchModelBridge(ModelBridge):
         fixed_features: ObservationFeatures | None = None,
         acq_options: dict[str, Any] | None = None,
     ) -> list[float]:
-        if self.model is None:
+        if not self.parameters:
             raise RuntimeError(
                 FIT_MODEL_ERROR.format(action="_evaluate_acquisition_function")
             )
@@ -578,7 +579,7 @@ class TorchModelBridge(ModelBridge):
                 for obsf in observation_features
             ]
         )
-        evals = none_throws(self.model).evaluate_acquisition_function(
+        evals = self.model.evaluate_acquisition_function(
             X=self._array_to_tensor(X),
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -624,7 +625,7 @@ class TorchModelBridge(ModelBridge):
         observation_features, observation_data = separate_observations(observations)
         # Only update outcomes if fitting a model on tracking metrics. Otherwise,
         # we will only fit models to the outcomes that are extracted from optimization
-        # config in ModelBridge.__init__.
+        # config in Adapter.__init__.
         if update_outcomes_and_parameters and self._fit_tracking_metrics:
             for od in observation_data:
                 all_metric_names.update(od.metric_names)
@@ -651,13 +652,12 @@ class TorchModelBridge(ModelBridge):
 
     def _fit(
         self,
-        model: TorchModel,
         search_space: SearchSpace,
         observations: list[Observation],
         parameters: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
-        if self.model is not None and observations == self._last_observations:
+        if observations == self._last_observations:
             logger.debug(
                 "The observations are identical to the last set of observations "
                 "used to fit the model. Skipping model fitting."
@@ -669,9 +669,7 @@ class TorchModelBridge(ModelBridge):
             parameters=parameters,
             update_outcomes_and_parameters=True,
         )
-        # Fit
-        self.model = model
-        none_throws(self.model).fit(
+        self.model.fit(
             datasets=datasets,
             search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
@@ -692,7 +690,7 @@ class TorchModelBridge(ModelBridge):
 
         The outcome constraints should be transformed to no longer be relative.
         """
-        if self.model is None:
+        if not self.parameters:
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
 
         augmented_model_gen_options = {
@@ -708,7 +706,7 @@ class TorchModelBridge(ModelBridge):
         )
 
         # Generate the candidates
-        gen_results = none_throws(self.model).gen(
+        gen_results = self.model.gen(
             n=n,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -727,7 +725,6 @@ class TorchModelBridge(ModelBridge):
                 self._untransform_objective_thresholds(
                     objective_thresholds=gen_metadata["objective_thresholds"],
                     objective_weights=torch_opt_config.objective_weights,
-                    bounds=search_space_digest.bounds,
                     opt_config_metrics=torch_opt_config.opt_config_metrics,
                     fixed_features=torch_opt_config.fixed_features,
                 )
@@ -739,7 +736,7 @@ class TorchModelBridge(ModelBridge):
             candidate_metadata=gen_results.candidate_metadata,
         )
         try:
-            xbest = none_throws(self.model).best_point(
+            xbest = self.model.best_point(
                 search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
             )
@@ -762,13 +759,18 @@ class TorchModelBridge(ModelBridge):
         )
 
     def _predict(
-        self, observation_features: list[ObservationFeatures]
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
-        if not self.model:
+        if not self.parameters:
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_predict"))
         # Convert observation features to array
         X = observation_features_to_array(self.parameters, observation_features)
-        f, cov = none_throws(self.model).predict(X=self._array_to_tensor(X))
+        f, cov = self.model.predict(
+            X=self._array_to_tensor(X),
+            use_posterior_predictive=use_posterior_predictive,
+        )
         f = f.detach().cpu().clone().numpy()
         cov = cov.detach().cpu().clone().numpy()
         if f.shape[-2] != X.shape[-2]:
@@ -777,7 +779,7 @@ class TorchModelBridge(ModelBridge):
                 f"predictions of shape {f.shape} for inputs of shape {X.shape}. "
                 "This was likely due to the use of one-to-many input transforms -- "
                 "typically used for robust optimization -- which are not supported in"
-                "TorchModelBridge.predict."
+                "TorchAdapter.predict."
             )
         # Convert resulting arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
@@ -800,8 +802,6 @@ class TorchModelBridge(ModelBridge):
         try:
             tobfs = np.array(
                 [
-                    # pyre-ignore[6]: Except statement below should catch wrongly
-                    # typed parameters.
                     [float(of.parameters[p]) for p in self.parameters]
                     for of in observation_features
                 ]
@@ -831,7 +831,7 @@ class TorchModelBridge(ModelBridge):
                 "to be specified"
             )
 
-        validate_optimization_config(optimization_config, self.outcomes)
+        validate_transformed_optimization_config(optimization_config, self.outcomes)
         objective_weights = extract_objective_weights(
             objective=optimization_config.objective, outcomes=self.outcomes
         )
@@ -874,10 +874,10 @@ class TorchModelBridge(ModelBridge):
             else None
         )
         if risk_measure is not None:
-            if not none_throws(self.model)._supports_robust_optimization:
+            if not self.model._supports_robust_optimization:
                 raise UnsupportedError(
                     f"{self.model.__class__.__name__} does not support robust "
-                    "optimization. Consider using modular BoTorch model instead."
+                    "optimization. Consider using modular BoTorch generator instead."
                 )
             else:
                 risk_measure = extract_risk_measure(risk_measure=risk_measure)
@@ -893,7 +893,7 @@ class TorchModelBridge(ModelBridge):
             opt_config_metrics=opt_config_metrics,
             is_moo=optimization_config.is_moo_problem,
             risk_measure=risk_measure,
-            fit_out_of_design=self._fit_out_of_design,
+            fit_out_of_design=self._data_loader_config.fit_out_of_design,
         )
         return search_space_digest, torch_opt_config
 
@@ -923,24 +923,38 @@ class TorchModelBridge(ModelBridge):
         self,
         objective_thresholds: Tensor,
         objective_weights: Tensor,
-        bounds: list[tuple[int | float, int | float]],
         opt_config_metrics: dict[str, Metric],
         fixed_features: dict[int, float] | None,
     ) -> list[ObjectiveThreshold]:
-        thresholds_np = objective_thresholds.cpu().numpy()
+        """Converts tensor-valued (possibly inferred) objective thresholds to
+        ``ObjectiveThreshold`` objects, and untransforms to ensure they are
+        on the same raw scale as the original optimization config.
+
+        Args:
+            objective_thresholds: A tensor of (possibly inferred) objective thresholds
+                of shape `(num_metrics)`.
+            objective_weights: A tensor of objective weights that denote whether each
+                objective is being minimized (-1) or maximized (+1). May also include
+                0 values, which represents outcome constraints and tracking metrics.
+            opt_config_metrics: A dictionary mapping the metric name to the ``Metric``
+                object from the original optimization config.
+            fixed_features: A map {feature_index: value} for features that should be
+                fixed to a particular value during generation. This typically includes
+                the target trial index for multi-task applications.
+
+        Returns:
+            A list of ``ObjectiveThreshold``s on the raw, untransformed scale.
+        """
         idxs = objective_weights.nonzero().view(-1).tolist()
 
-        # Create transformed ObjectiveThresholds from numpy thresholds.
+        # Create transformed ObjectiveThresholds from tensor thresholds.
         thresholds = []
         for idx in idxs:
             sign = torch.sign(objective_weights[idx])
             thresholds.append(
                 ObjectiveThreshold(
                     metric=opt_config_metrics[self.outcomes[idx]],
-                    # pyre-fixme[6]: In call `ObjectiveThreshold.__init__`,
-                    # for argument `bound`, expected `float` but got
-                    # `ndarray[typing.Any, typing.Any]`
-                    bound=thresholds_np[idx],
+                    bound=float(objective_thresholds[idx].item()),
                     relative=False,
                     op=ComparisonOp.LEQ if sign < 0 else ComparisonOp.GEQ,
                 )
@@ -1028,7 +1042,7 @@ class TorchModelBridge(ModelBridge):
             try:
                 x = torch.tensor(
                     [obsf.parameters[p] for p in parameters],
-                    dtype=self.dtype,
+                    dtype=torch.double,
                     device=self.device,
                 )
             except (KeyError, TypeError):
@@ -1063,7 +1077,7 @@ class TorchModelBridge(ModelBridge):
         )
 
 
-def validate_optimization_config(
+def validate_transformed_optimization_config(
     optimization_config: OptimizationConfig, outcomes: list[str]
 ) -> None:
     """Validate optimization config against model fitted outcomes.
@@ -1072,14 +1086,23 @@ def validate_optimization_config(
         optimization_config: Config to validate.
         outcomes: List of metric names w/ valid model fits.
 
-    Raises:
-        ValueError if:
-            1. Relative constraints are found
+    Raises if:
+            1. In the modeling layer, absolute constraints are required, however,
+               specifying relative constraints is supported. We handle this by
+               either 1) transforming the observations to be relative (so that the
+               constraints are absolute w.r.t relativized metrics), or 2)
+               derelativizing the constraint. If relative constraints are found at
+               this layer, we raise an error as likely either `Relativize` or
+               `Derelativized` transforms were expected to be applied but were not.
             2. Optimization metrics are not present in model fitted outcomes.
     """
     for c in optimization_config.outcome_constraints:
         if c.relative:
-            raise ValueError(f"{c} is a relative constraint.")
+            raise ValueError(
+                f"Passed {c} as a relative constraint. This likely indicates that "
+                "either a `Relativize` or `Derelativize` transform was expected to be"
+                " applied but was not."
+            )
         if isinstance(c, ScalarizedOutcomeConstraint):
             for c_metric in c.metrics:
                 if c_metric.name not in outcomes:

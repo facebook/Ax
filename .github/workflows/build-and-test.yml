@@ -38,9 +38,6 @@ jobs:
         uv pip install git+https://github.com/cornellius-gp/gpytorch.git
         uv pip install git+https://github.com/pytorch/botorch.git
         uv pip install -e ".[unittest]"
-    - name: Validate Sphinx
-      run: |
-        python scripts/validate_sphinx.py -p "${pwd}"
     - name: Run Sphinx
       # run even if previous step (validate Sphinx) failed
       if: ${{ always() }}

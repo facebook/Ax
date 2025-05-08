@@ -14,19 +14,26 @@ from functools import partial
 import numpy as np
 import torch
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
+from ax.core.auxiliary import AuxiliaryExperimentPurpose
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
-from ax.modelbridge.generation_node import GenerationStep
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.generation_strategy.center_generation_node import CenterGenerationNode
+from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import DataLoaderConfig
+from ax.modelbridge.registry import Generators
+from ax.modelbridge.transforms.log import Log
+from ax.modelbridge.transforms.one_hot import OneHot
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoder import (
     _DEPRECATED_MODEL_TO_REPLACEMENT,
+    generation_node_from_json,
     generation_strategy_from_json,
     object_from_json,
 )
@@ -114,6 +121,7 @@ from ax.utils.testing.core_stubs import (
     get_scheduler_options_batch_trial,
     get_search_space,
     get_sebo_acquisition_class,
+    get_sorted_choice_parameter,
     get_sum_constraint1,
     get_sum_constraint2,
     get_surrogate,
@@ -148,6 +156,7 @@ TEST_CASES = [
     ("AndEarlyStoppingStrategy", get_and_early_stopping_strategy),
     ("Arm", get_arm),
     ("AuxiliaryExperiment", get_auxiliary_experiment),
+    ("AuxiliaryExperimentPurpose", lambda: AuxiliaryExperimentPurpose.PE_EXPERIMENT),
     ("BackendSimulator", get_backend_simulator_with_trials),
     ("BatchTrial", get_batch_trial),
     (
@@ -162,13 +171,17 @@ TEST_CASES = [
         get_benchmark_map_unavailable_while_running_metric,
     ),
     ("BenchmarkResult", get_benchmark_result),
-    ("BoTorchModel", get_botorch_model),
-    ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
-    ("BoTorchModel", get_botorch_model_with_surrogate_spec),
-    ("BoTorchModel", get_botorch_model_with_surrogate_specs),
+    ("BoTorchGenerator", get_botorch_model),
+    ("BoTorchGenerator", get_botorch_model_with_default_acquisition_class),
+    ("BoTorchGenerator", get_botorch_model_with_surrogate_spec),
+    ("BoTorchGenerator", get_botorch_model_with_surrogate_specs),
     ("BraninMetric", get_branin_metric),
+    ("CenterGenerationNode", partial(CenterGenerationNode, next_node_name="SOBOL")),
     ("ChainedInputTransform", get_chained_input_transform),
     ("ChoiceParameter", get_choice_parameter),
+    ("ChoiceParameter", get_sorted_choice_parameter),
+    # testing with non-default argument
+    ("DataLoaderConfig", partial(DataLoaderConfig, fit_out_of_design=True)),
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("Experiment", get_experiment_with_trial_with_ttl),
     ("Experiment", get_experiment_with_data),
@@ -228,12 +241,6 @@ TEST_CASES = [
         "GenerationStrategy",
         partial(
             sobol_gpei_generation_node_gs, with_input_constructors_target_trial=True
-        ),
-    ),
-    (
-        "GenerationStrategy",
-        partial(
-            sobol_gpei_generation_node_gs, with_input_constructors_sq_features=True
         ),
     ),
     (
@@ -523,7 +530,7 @@ class JSONStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertGreater(len(new_generation_strategy._steps), 0)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
         # Model has not yet been initialized on this GS since it hasn't generated
         # anything yet.
         self.assertIsNone(new_generation_strategy.model)
@@ -549,7 +556,7 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
 
         # Check that we can encode and decode the generation strategy after
         # it has generated some trials and been updated with some data.
@@ -572,7 +579,7 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
+        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
 
     def test_EncodeDecodeNumpy(self) -> None:
         arr = np.array([[1, 2, 3], [4, 5, 6]])
@@ -747,7 +754,7 @@ class JSONStoreTest(TestCase):
             class_from_json({"index": 0, "class": "unknown_path"})
 
     def test_unregistered_model_not_supported_in_nodes(self) -> None:
-        """Support for callables within model kwargs on ModelSpecs stored on
+        """Support for callables within model kwargs on GeneratorSpecs stored on
         GenerationNodes is currently not supported. This is supported for
         GenerationSteps due to legacy compatibility.
         """
@@ -794,17 +801,23 @@ class JSONStoreTest(TestCase):
         self.assertTrue(objective_loaded.metric.lower_is_better)
 
     def test_generation_step_backwards_compatibility(self) -> None:
-        # Test that we can load a generation step with fit_on_update.
+        # Test that we can load a generation step with deprecated kwargs.
         json = {
             "__type": "GenerationStep",
-            "model": {"__type": "Models", "name": "BOTORCH_MODULAR"},
+            "model": {"__type": "Generators", "name": "BOTORCH_MODULAR"},
             "num_trials": 5,
             "min_trials_observed": 0,
             "completion_criteria": [],
             "max_parallelism": None,
             "use_update": False,
             "enforce_num_trials": True,
-            "model_kwargs": {"fit_on_update": False, "other_kwarg": 5},
+            "model_kwargs": {
+                "fit_on_update": False,
+                "torch_dtype": torch.double,
+                "status_quo_name": "status_quo",
+                "status_quo_features": None,
+                "other_kwarg": 5,
+            },
             "model_gen_kwargs": {},
             "index": -1,
             "should_deduplicate": False,
@@ -812,6 +825,148 @@ class JSONStoreTest(TestCase):
         generation_step = object_from_json(json)
         self.assertIsInstance(generation_step, GenerationStep)
         self.assertEqual(generation_step.model_kwargs, {"other_kwarg": 5})
+
+    def test_generator_run_backwards_compatibility(self) -> None:
+        # Test that we can load a generator run with deprecated kwargs.
+        json = {
+            "__type": "GeneratorRun",
+            "arms": [
+                {
+                    "__type": "Arm",
+                    "parameters": {"x1": 0.17783968150615692, "x2": 0.8026256756857038},
+                    "name": None,
+                }
+            ],
+            "weights": [1.0],
+            "optimization_config": None,
+            "search_space": None,
+            "time_created": {
+                "__type": "datetime",
+                "value": "2025-02-27 07:06:36.675760",
+            },
+            "model_predictions": None,
+            "best_arm_predictions": None,
+            "generator_run_type": None,
+            "index": None,
+            "fit_time": 0.00037617841735482216,
+            "gen_time": 0.00448690727353096,
+            "model_key": "Sobol",
+            "model_kwargs": {
+                "deduplicate": False,
+                "seed": None,
+                "torch_dtype": None,
+            },
+            "bridge_kwargs": {
+                "transforms": {},
+                "transform_configs": None,
+                "status_quo_name": None,
+                "status_quo_features": None,
+                "optimization_config": None,
+                "fit_on_update": False,
+                "fit_out_of_design": False,
+                "fit_abandoned": False,
+                "fit_tracking_metrics": True,
+                "fit_on_init": True,
+            },
+            "gen_metadata": {},
+            "model_state_after_gen": None,
+            "generation_step_index": None,
+            "candidate_metadata_by_arm_signature": None,
+            "generation_node_name": None,
+        }
+        generator_run = object_from_json(json)
+        self.assertIsInstance(generator_run, GeneratorRun)
+        self.assertEqual(
+            generator_run._model_kwargs,
+            {"deduplicate": False, "seed": None},
+        )
+        self.assertEqual(
+            generator_run._bridge_kwargs,
+            {
+                "transforms": {},
+                "transform_configs": None,
+                "optimization_config": None,
+                "fit_out_of_design": False,
+                "fit_abandoned": False,
+                "fit_tracking_metrics": True,
+                "fit_on_init": True,
+            },
+        )
+
+    def test_generation_node_backwards_compatibility(self) -> None:
+        # Checks that deprecated input constructors are discarded gracefully.
+        json = {
+            "node_name": "Test",
+            "model_specs": [
+                {
+                    "__type": "GeneratorSpec",
+                    "model_enum": {"__type": "Generators", "name": "BOTORCH_MODULAR"},
+                    "model_kwargs": {
+                        "transforms": [
+                            {
+                                "__type": "Type[Transform]",
+                                "index_in_registry": 6,
+                                "transform_type": (
+                                    "<class 'ax.modelbridge.transforms"
+                                    ".one_hot.OneHot'>"
+                                ),
+                            },
+                            {
+                                "__type": "Type[Transform]",
+                                "index_in_registry": 5,
+                                "transform_type": (
+                                    "<class 'ax.modelbridge.transforms.log.Log'>"
+                                ),
+                            },
+                        ]
+                    },
+                    "model_gen_kwargs": {
+                        "model_gen_options": {
+                            "optimizer_kwargs": {"num_restarts": 10},
+                            "acquisition_function_kwargs": {},
+                        }
+                    },
+                }
+            ],
+            "best_model_selector": None,
+            "should_deduplicate": False,
+            "transition_criteria": [
+                {
+                    "transition_to": "BOTORCH_MODULAR",
+                    "auxiliary_experiment_purposes_to_include": None,
+                    "auxiliary_experiment_purposes_to_exclude": [],
+                    "block_transition_if_unmet": True,
+                    "block_gen_if_met": False,
+                    "continue_trial_generation": False,
+                    "__type": "AuxiliaryExperimentCheck",
+                }
+            ],
+            "model_spec_to_gen_from": None,
+            "previous_node_name": None,
+            "trial_type": {"__type": "Keys", "name": "SHORT_RUN"},
+            "input_constructors": {
+                "N": {"__type": "NodeInputConstructors", "name": "REMAINING_N"},
+                "FIXED_FEATURES": {
+                    "__type": "NodeInputConstructors",
+                    "name": "TARGET_TRIAL_FIXED_FEATURES",
+                },
+                "STATUS_QUO_FEATURES": {
+                    "__type": "NodeInputConstructors",
+                    "name": "STATUS_QUO_FEATURES",
+                },
+            },
+        }
+        node = generation_node_from_json(json)
+        self.assertIsInstance(node, GenerationNode)
+        self.assertEqual(node.node_name, "Test")
+        self.assertEqual(len(node.transition_criteria), 1)
+        # Status quo is discarded, so we have 2 input constructors left.
+        self.assertEqual(len(node.input_constructors), 2)
+        # Check that transforms got correctly deserialized.
+        self.assertEqual(
+            node.model_specs[0].model_kwargs["transforms"],
+            [OneHot, Log],
+        )
 
     def test_SobolQMCNormalSampler(self) -> None:
         # This fails default equality checks, so testing it separately.
@@ -970,11 +1125,11 @@ class JSONStoreTest(TestCase):
         # Check for models with listed replacements.
         for name, replacement in _DEPRECATED_MODEL_TO_REPLACEMENT.items():
             with self.assertLogs(logger="ax", level="ERROR"):
-                from_json = object_from_json({"__type": "Models", "name": name})
-            self.assertEqual(from_json, Models[replacement])
+                from_json = object_from_json({"__type": "Generators", "name": name})
+            self.assertEqual(from_json, Generators[replacement])
         # Check for non-deprecated models.
         from_json = object_from_json({"__type": "Models", "name": "BO_MIXED"})
-        self.assertEqual(from_json, Models.BO_MIXED)
+        self.assertEqual(from_json, Generators.BO_MIXED)
         # Check for models with no replacement.
         with self.assertRaisesRegex(KeyError, "nonexistent"):
             object_from_json({"__type": "Models", "name": "nonexistent_model"})

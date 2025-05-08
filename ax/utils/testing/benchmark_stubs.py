@@ -5,10 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
@@ -28,6 +30,8 @@ from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFu
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
+from ax.benchmark.problems.surrogate.lcbench.data import LCBenchData
+from ax.benchmark.problems.surrogate.lcbench.utils import get_lcbench_parameters
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_search_space
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
@@ -38,10 +42,10 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import TParameterization, TParamValue
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
-from ax.modelbridge.external_generation_node import ExternalGenerationNode
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.torch import TorchModelBridge
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.generation_strategy.external_generation_node import ExternalGenerationNode
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.torch import TorchAdapter
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -92,10 +96,10 @@ def get_multi_objective_benchmark_problem(
 
 def get_soo_surrogate_test_function(lazy: bool = True) -> SurrogateTestFunction:
     experiment = get_branin_experiment(with_completed_trial=True)
-    surrogate = TorchModelBridge(
+    surrogate = TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
-        model=BoTorchModel(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
+        model=BoTorchGenerator(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
         data=experiment.lookup_data(),
         transforms=[],
     )
@@ -134,10 +138,10 @@ def get_soo_surrogate() -> BenchmarkProblem:
 
 def get_moo_surrogate() -> BenchmarkProblem:
     experiment = get_branin_experiment_with_multi_objective(with_completed_trial=True)
-    surrogate = TorchModelBridge(
+    surrogate = TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
-        model=BoTorchModel(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
+        model=BoTorchGenerator(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
         data=experiment.lookup_data(),
         transforms=[],
     )
@@ -177,6 +181,7 @@ def get_benchmark_result() -> BenchmarkResult:
         ),
         inference_trace=np.ones(4),
         oracle_trace=np.zeros(4),
+        cost_trace=np.zeros(4),
         optimization_trace=np.array([3, 2, 1, 0.1]),
         score_trace=np.array([3, 2, 1, 0.1]),
         fit_time=0.1,
@@ -315,6 +320,7 @@ def get_discrete_search_space(n_values: int = 20) -> SearchSpace:
 
 def get_async_benchmark_method(
     early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
+    max_pending_trials: int = 2,
 ) -> BenchmarkMethod:
     gs = GenerationStrategy(
         nodes=[DeterministicGenerationNode(search_space=get_discrete_search_space())]
@@ -322,7 +328,7 @@ def get_async_benchmark_method(
     return BenchmarkMethod(
         generation_strategy=gs,
         distribute_replications=False,
-        max_pending_trials=2,
+        max_pending_trials=max_pending_trials,
         batch_size=1,
         early_stopping_strategy=early_stopping_strategy,
     )
@@ -371,3 +377,26 @@ def get_benchmark_map_unavailable_while_running_metric() -> (
     BenchmarkMapUnavailableWhileRunningMetric
 ):
     return BenchmarkMapUnavailableWhileRunningMetric(name="test", lower_is_better=True)
+
+
+def get_mock_lcbench_data() -> LCBenchData:
+    """
+    Used for mocking out `load_lcbench_data` to avoid downloading data from the
+    internet.
+    """
+    timestamp_series = pd.Series([0], index=pd.Index([0], name="trial"))
+    parameters = get_lcbench_parameters()
+
+    parameter_df = pd.DataFrame(
+        {name: [param.lower, param.upper] for name, param in parameters.items()}
+    )
+    metric_series = pd.Series(
+        [0],
+        index=pd.MultiIndex.from_tuples([(0, 0)], names=["trial", "epoch"]),
+    )
+
+    return LCBenchData(
+        parameter_df=parameter_df,
+        metric_series=metric_series,
+        timestamp_series=timestamp_series,
+    )

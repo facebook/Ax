@@ -19,8 +19,8 @@ import plotly.graph_objs as go
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationFeatures
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.registry import Models
+from ax.modelbridge.base import Adapter
+from ax.modelbridge.registry import Generators
 from ax.plot.base import (
     AxPlotConfig,
     AxPlotTypes,
@@ -299,7 +299,7 @@ def _error_scatter_trace(
 
 
 def _multiple_metric_traces(
-    model: ModelBridge,
+    model: Adapter,
     metric_x: str,
     metric_y: str,
     generator_runs_dict: TNullableGeneratorRunsDict,
@@ -384,7 +384,7 @@ def _multiple_metric_traces(
 
 
 def plot_multiple_metrics(
-    model: ModelBridge,
+    model: Adapter,
     metric_x: str,
     metric_y: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
@@ -541,7 +541,7 @@ def plot_multiple_metrics(
 
 
 def plot_objective_vs_constraints(
-    model: ModelBridge,
+    model: Adapter,
     objective: str,
     subset_metrics: list[str] | None = None,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
@@ -800,14 +800,16 @@ def _check_label_lengths(labels: list[str]) -> None:
     if long_labels:
         logger.info(
             "This plot may be malformed due to long labels. You"
-            " can override long labels by passing a label_dict dictionary"
-            " to plotting functions that support it.\nHere's a list of labels"
+            " can override long labels by passing a label_dict dictionary."
+        )
+        logger.debug(
+            "Here's a list of labels"
             f" longer than {max_len} characters:\n" + "\n".join(long_labels)
         )
 
 
 def lattice_multiple_metrics(
-    model: ModelBridge,
+    model: Adapter,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     show_arm_details_on_hover: bool = False,
@@ -1077,7 +1079,7 @@ def lattice_multiple_metrics(
 
 # Single metric fitted values
 def _single_metric_traces(
-    model: ModelBridge,
+    model: Adapter,
     metric: str,
     generator_runs_dict: TNullableGeneratorRunsDict,
     rel: bool,
@@ -1164,7 +1166,7 @@ def _single_metric_traces(
 
 
 def plot_fitted(
-    model: ModelBridge,
+    model: Adapter,
     metric: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
@@ -1300,7 +1302,7 @@ def plot_fitted(
 
 
 def tile_fitted(
-    model: ModelBridge,
+    model: Adapter,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     show_arm_details_on_hover: bool = False,
@@ -1478,7 +1480,7 @@ def tile_fitted(
 
 
 def interact_fitted_plotly(
-    model: ModelBridge,
+    model: Adapter,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     show_arm_details_on_hover: bool = True,
@@ -1626,7 +1628,7 @@ def interact_fitted_plotly(
 
 
 def interact_fitted(
-    model: ModelBridge,
+    model: Adapter,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     show_arm_details_on_hover: bool = True,
@@ -1715,7 +1717,7 @@ def tile_observations(
         data = experiment.fetch_data()
     if arm_names is not None:
         data = Data(data.df[data.df["arm_name"].isin(arm_names)])
-    m_ts = Models.THOMPSON(
+    m_ts = Generators.THOMPSON(
         data=data,
         search_space=experiment.search_space,
         experiment=experiment,

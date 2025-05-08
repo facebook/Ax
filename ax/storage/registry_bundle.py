@@ -23,9 +23,16 @@ from ax.storage.json_store.registry import (
 )
 from ax.storage.metric_registry import register_metrics
 from ax.storage.runner_registry import register_runners
-from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.encoder import Encoder
-from ax.storage.sqa_store.sqa_config import SQAConfig
+
+# Allow Ax to be used without SQLAlchemy.
+try:
+    from ax.storage.sqa_store.decoder import Decoder
+    from ax.storage.sqa_store.encoder import Encoder
+    from ax.storage.sqa_store.sqa_config import SQAConfig
+except (ModuleNotFoundError, TypeError):
+    Decoder = None
+    Encoder = None
+    SQAConfig = None
 
 
 class RegistryBundleBase(ABC):

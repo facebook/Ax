@@ -6,27 +6,62 @@
 # pyre-strict
 
 
+from typing import Sequence
+
 import pandas as pd
-from ax.analysis.analysis import Analysis, AnalysisCard
+from ax.analysis.analysis import Analysis, AnalysisBlobAnnotation, AnalysisCard
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
-from IPython.display import display, Markdown
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from plotly import graph_objects as go, io as pio
+from pyre_extensions import override
+
+# Body HTML template for Plotly figures with a couple tricks for rendering in Jupyter.
+# 1. It is necessary to use the UTF-8 encoding with plotly graphics to get e.g.
+# negativesigns to render correctly
+# 2. Need to define a fixed height for the content so that the plotly figure doesn't
+# get squished.
+# 3. require.js is not compatible with ES6 import used by plotly.js so we null out
+# define
+body_html_template = """
+<meta charset="utf-8" />
+<style>
+.content {{
+    overflow-x: auto;
+    overflow-y: auto;
+    height: 500px;
+}}
+</style>
+<script>define = null;</script>
+<div class="content">
+    {figure_html}
+</div>
+"""
 
 
 class PlotlyAnalysisCard(AnalysisCard):
-    blob_annotation = "plotly"
+    blob_annotation: AnalysisBlobAnnotation = AnalysisBlobAnnotation.PLOTLY
 
     def get_figure(self) -> go.Figure:
         return pio.from_json(self.blob)
 
-    def _ipython_display_(self) -> None:
+    def _body_html(self) -> str:
         """
-        IPython display hook. This is called when the AnalysisCard is printed in an
-        IPython environment (ex. Jupyter). Here we want to display the Plotly figure.
+        Return the standalone HTML of the Plotly figure that can be rendered in an
+        IPython environment (ex. Jupyter).
         """
-        display(Markdown(f"## {self.title}\n\n### {self.subtitle}"))
-        display(self.get_figure())
+
+        return body_html_template.format(
+            figure_html=self.get_figure().to_html(
+                full_html=False, include_plotlyjs=True
+            )
+        )
+
+    def _body_papermill(self) -> go.Figure:
+        """
+        Return the Plotly figure directly to use the default renderer.
+        """
+        return self.get_figure()
 
 
 class PlotlyAnalysis(Analysis):
@@ -34,11 +69,13 @@ class PlotlyAnalysis(Analysis):
     An Analysis that computes a Plotly figure.
     """
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
-    ) -> PlotlyAnalysisCard: ...
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> Sequence[PlotlyAnalysisCard]: ...
 
     def _create_plotly_analysis_card(
         self,
@@ -47,6 +84,7 @@ class PlotlyAnalysis(Analysis):
         level: int,
         df: pd.DataFrame,
         fig: go.Figure,
+        category: int,
     ) -> PlotlyAnalysisCard:
         """
         Make a PlotlyAnalysisCard from this Analysis using provided fields and
@@ -60,4 +98,5 @@ class PlotlyAnalysis(Analysis):
             level=level,
             df=df,
             blob=pio.to_json(fig),
+            category=category,
         )

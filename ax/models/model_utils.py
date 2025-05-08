@@ -30,16 +30,22 @@ Tensoray = Union[torch.Tensor, np.ndarray]
 TTensoray = TypeVar("TTensoray", bound=Tensoray)
 
 
-class TorchModelLike(Protocol):
+class TorchGeneratorLike(Protocol):
     """A protocol that stands in for ``TorchModel`` like objects that
     have a ``predict`` method.
     """
 
-    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
+    def predict(
+        self, X: Tensor, use_posterior_predictive: bool = False
+    ) -> tuple[Tensor, Tensor]:
         """Predicts outcomes given an input tensor.
 
         Args:
             X: A ``n x d`` tensor of input parameters.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
+                This option is only supported by the ``BoTorchGenerator``.
 
         Returns:
             Tensor: The predicted posterior mean as an ``n x o``-dim tensor.
@@ -68,13 +74,13 @@ def rejection_sample(
     """Rejection sample in parameter space. Parameter space is typically
     [0, 1] for all tunable parameters.
 
-    Models must implement a `gen_unconstrained` method in order to support
+    Generators must implement a `gen_unconstrained` method in order to support
     rejection sampling via this utility.
 
     Args:
         gen_unconstrained: A callable that generates unconstrained points in
             the parameter space. This is typically the `_gen_unconstrained` method
-            of a `RandomModel`.
+            of a `RandomGenerator`.
         n: Number of samples to generate.
         d: Dimensionality of the parameter space.
         tunable_feature_indices: Indices of the tunable features in the
@@ -269,13 +275,13 @@ def validate_bounds(
         if bound[0] != 0 or bound[1] != 1:
             raise ValueError(
                 "This generator operates on [0,1]^d. Please make use "
-                "of the UnitX transform in the ModelBridge, and ensure "
+                "of the UnitX transform in the Adapter, and ensure "
                 "task features are fixed."
             )
 
 
 def best_observed_point(
-    model: TorchModelLike,
+    model: TorchGeneratorLike,
     bounds: Sequence[tuple[float, float]],
     objective_weights: TTensoray | None,
     outcome_constraints: tuple[TTensoray, TTensoray] | None = None,
@@ -351,7 +357,7 @@ def best_observed_point(
 
 def best_in_sample_point(
     Xs: Sequence[TTensoray],
-    model: TorchModelLike,
+    model: TorchGeneratorLike,
     bounds: Sequence[tuple[float, float]],
     objective_weights: TTensoray | None,
     outcome_constraints: tuple[TTensoray, TTensoray] | None = None,

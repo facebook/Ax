@@ -6,13 +6,10 @@
 
 # pyre-strict
 
-from abc import ABCMeta, abstractmethod
+from abc import ABC
 from collections.abc import Iterable
-from functools import partial
-from logging import Logger
 
 import numpy as np
-import torch
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.objective import ScalarizedObjective
@@ -23,41 +20,22 @@ from ax.core.optimization_config import (
 from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.modelbridge_utils import (
-    extract_objective_thresholds,
-    extract_objective_weights,
-    extract_outcome_constraints,
-    observed_hypervolume,
-    predicted_hypervolume,
-    validate_and_apply_final_transform,
-)
-from ax.modelbridge.registry import ModelRegistryBase
-from ax.modelbridge.torch import TorchModelBridge
-from ax.modelbridge.transforms.derelativize import Derelativize
-from ax.models.torch.botorch_moo_defaults import (
-    get_outcome_constraint_transforms,
-    get_weighted_mc_objective_and_objective_thresholds,
-)
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.modelbridge_utils import observed_hypervolume, predicted_hypervolume
+from ax.modelbridge.torch import TorchAdapter
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils import best_point as best_point_utils
-from ax.service.utils.best_point import (
-    extract_Y_from_data,
-    fill_missing_thresholds_from_nadir,
-)
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
-from ax.utils.common.logger import get_logger
-from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 from pyre_extensions import assert_is_instance, none_throws
 
-
-logger: Logger = get_logger(__name__)
 
 NUM_BINS_PER_TRIAL = 3
 
 
-class BestPointMixin(metaclass=ABCMeta):
-    @abstractmethod
+class BestPointMixin(ABC):
+    experiment: Experiment
+    generation_strategy: GenerationStrategy
+
     def get_best_trial(
         self,
         optimization_config: OptimizationConfig | None = None,
@@ -87,7 +65,13 @@ class BestPointMixin(metaclass=ABCMeta):
         Returns:
             Tuple of trial index, parameterization and model predictions for it.
         """
-        pass
+        return self._get_best_trial(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+            use_model_predictions=use_model_predictions,
+        )
 
     def get_best_parameters(
         self,
@@ -130,7 +114,6 @@ class BestPointMixin(metaclass=ABCMeta):
         _, parameterization, vals = res
         return parameterization, vals
 
-    @abstractmethod
     def get_pareto_optimal_parameters(
         self,
         optimization_config: OptimizationConfig | None = None,
@@ -168,9 +151,14 @@ class BestPointMixin(metaclass=ABCMeta):
             Raises a `NotImplementedError` if extracting the Pareto frontier is
             not possible. Note that the returned dict may be empty.
         """
-        pass
+        return self._get_pareto_optimal_parameters(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+            use_model_predictions=use_model_predictions,
+        )
 
-    @abstractmethod
     def get_hypervolume(
         self,
         optimization_config: MultiObjectiveOptimizationConfig | None = None,
@@ -191,31 +179,16 @@ class BestPointMixin(metaclass=ABCMeta):
                 also be based on model predictions and may differ from the
                 observed values.
         """
-        pass
+        return self._get_hypervolume(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+            use_model_predictions=use_model_predictions,
+        )
 
-    @abstractmethod
-    def get_trace(
-        optimization_config: OptimizationConfig | None = None,
-    ) -> list[float]:
-        """Get the optimization trace of the given experiment.
-
-        The output is equivalent to calling `_get_hypervolume` or `_get_best_trial`
-        repeatedly, with an increasing sequence of `trial_indices` and with
-        `use_model_predictions = False`, though this does it more efficiently.
-
-        Args:
-            experiment: The experiment to get the trace for.
-            optimization_config: An optional optimization config to use for computing
-                the trace. This allows computing the traces under different objectives
-                or constraints without having to modify the experiment.
-
-        Returns:
-            A list of observed hypervolumes or best values.
-        """
-        pass
-
-    @abstractmethod
     def get_trace_by_progression(
+        self,
         optimization_config: OptimizationConfig | None = None,
         bins: list[float] | None = None,
         final_progression_only: bool = False,
@@ -251,7 +224,12 @@ class BestPointMixin(metaclass=ABCMeta):
             A tuple containing (1) the list of observed hypervolumes or best values and
             (2) a list of associated x-values (i.e., progressions) useful for plotting.
         """
-        pass
+        return self._get_trace_by_progression(
+            experiment=self.experiment,
+            optimization_config=optimization_config,
+            bins=bins,
+            final_progression_only=final_progression_only,
+        )
 
     @staticmethod
     def _get_best_trial(
@@ -269,30 +247,17 @@ class BestPointMixin(metaclass=ABCMeta):
                 "Please use `get_pareto_optimal_parameters` for multi-objective "
                 "problems."
             )
-        # TODO[drfreund]: Find a way to include data for last trial in the
-        # calculation of best parameters.
+
         if use_model_predictions:
-            current_model = generation_strategy._curr.model_spec_to_gen_from.model_enum
-            # Cover for the case where source of `self._curr.model` was not a `Models`
-            # enum but a factory function, in which case we cannot do
-            # `get_model_from_generator_run` (since we don't have model type and inputs
-            # recorded on the generator run.
-            models_enum = (
-                current_model.__class__
-                if isinstance(current_model, ModelRegistryBase)
-                else None
+            res = best_point_utils.get_best_parameters_from_model_predictions_with_trial_index(  # noqa
+                experiment=experiment,
+                adapter=generation_strategy.model,
+                optimization_config=optimization_config,
+                trial_indices=trial_indices,
             )
 
-            if models_enum is not None:
-                res = best_point_utils.get_best_parameters_from_model_predictions_with_trial_index(  # noqa
-                    experiment=experiment,
-                    models_enum=models_enum,
-                    optimization_config=optimization_config,
-                    trial_indices=trial_indices,
-                )
-
-                if res is not None:
-                    return res
+            if res is not None:
+                return res
 
         return best_point_utils.get_best_by_raw_objective_with_trial_index(
             experiment=experiment,
@@ -389,11 +354,11 @@ class BestPointMixin(metaclass=ABCMeta):
         if use_model_predictions:
             # Make sure that the model is fitted. If model is fitted already,
             # this should be a no-op.
-            generation_strategy._fit_current_model(data=None)
+            generation_strategy._curr._fit(experiment=experiment)
             model = generation_strategy.model
-            if not isinstance(model, TorchModelBridge):
+            if not isinstance(model, TorchAdapter):
                 raise ValueError(
-                    f"Model {model} is not of type TorchModelBridge, cannot "
+                    f"Model {model} is not of type TorchAdapter, cannot "
                     "calculate predicted hypervolume."
                 )
             return predicted_hypervolume(
@@ -408,148 +373,6 @@ class BestPointMixin(metaclass=ABCMeta):
         return observed_hypervolume(
             modelbridge=minimal_model, optimization_config=moo_optimization_config
         )
-
-    @staticmethod
-    def _get_trace(
-        experiment: Experiment,
-        optimization_config: OptimizationConfig | None = None,
-    ) -> list[float]:
-        """Compute the optimization trace at each iteration.
-
-        Given an experiment and an optimization config, compute the performance
-        at each iteration. For multi-objective, the performance is computed as
-        the hypervolume. For single objective, the performance is computed as
-        the best observed objective value.
-
-        An iteration here refers to a completed or early-stopped (batch) trial.
-        There will be one performance metric in the trace for each iteration.
-
-        Args:
-            experiment: The experiment to get the trace for.
-            optimization_config: Optimization config to use in place of the one
-                stored on the experiment.
-
-        Returns:
-            A list of performance values at each iteration.
-        """
-        optimization_config = optimization_config or none_throws(
-            experiment.optimization_config
-        )
-        # Get the names of the metrics in optimization config.
-        metric_names = set(optimization_config.objective.metric_names)
-        for cons in optimization_config.outcome_constraints:
-            metric_names.update({cons.metric.name})
-        metric_names = list(metric_names)
-        # Convert data into a tensor.
-        Y, trial_indices = extract_Y_from_data(
-            experiment=experiment, metric_names=metric_names
-        )
-        if Y.numel() == 0:
-            return []
-
-        # Derelativize the optimization config.
-        tf = Derelativize(
-            search_space=None, observations=None, config={"use_raw_status_quo": True}
-        )
-        optimization_config = tf.transform_optimization_config(
-            optimization_config=optimization_config.clone(),
-            modelbridge=get_tensor_converter_model(
-                experiment=experiment, data=experiment.lookup_data()
-            ),
-            fixed_features=None,
-        )
-
-        # Extract weights, constraints, and objective_thresholds.
-        objective_weights = extract_objective_weights(
-            objective=optimization_config.objective, outcomes=metric_names
-        )
-        outcome_constraints = extract_outcome_constraints(
-            outcome_constraints=optimization_config.outcome_constraints,
-            outcomes=metric_names,
-        )
-        to_tensor = partial(
-            torch.as_tensor, dtype=torch.double, device=torch.device("cpu")
-        )
-        if optimization_config.is_moo_problem:
-            objective_thresholds = extract_objective_thresholds(
-                objective_thresholds=fill_missing_thresholds_from_nadir(
-                    experiment=experiment, optimization_config=optimization_config
-                ),
-                objective=optimization_config.objective,
-                outcomes=metric_names,
-            )
-            objective_thresholds = to_tensor(none_throws(objective_thresholds))
-        else:
-            objective_thresholds = None
-        (
-            objective_weights,
-            outcome_constraints,
-            _,
-            _,
-            _,
-        ) = validate_and_apply_final_transform(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=None,
-            pending_observations=None,
-            final_transform=to_tensor,
-        )
-        # Get weighted tensor objectives.
-        if optimization_config.is_moo_problem:
-            (
-                obj,
-                weighted_objective_thresholds,
-            ) = get_weighted_mc_objective_and_objective_thresholds(
-                objective_weights=objective_weights,
-                objective_thresholds=none_throws(objective_thresholds),
-            )
-            Y_obj = obj(Y)
-            infeas_value = weighted_objective_thresholds
-        else:
-            Y_obj = Y @ objective_weights
-            infeas_value = Y_obj.min()
-        # Account for feasibility.
-        if outcome_constraints is not None:
-            cons_tfs = none_throws(
-                get_outcome_constraint_transforms(outcome_constraints)
-            )
-            feas = torch.all(torch.stack([c(Y) <= 0 for c in cons_tfs], dim=-1), dim=-1)
-            # Set the infeasible points to reference point or the worst observed value.
-            Y_obj[~feas] = infeas_value
-        # Get unique trial indices. Note: only completed/early-stopped
-        # trials are present.
-        unique_trial_indices = trial_indices.unique().sort().values.tolist()
-        # compute the performance at each iteration (completed/early-stopped
-        # trial).
-        # For `BatchTrial`s, there is one performance value per iteration, even
-        # if the iteration (`BatchTrial`) has multiple arms.
-        if optimization_config.is_moo_problem:
-            # Compute the hypervolume trace.
-            partitioning = DominatedPartitioning(
-                ref_point=weighted_objective_thresholds.double()
-            )
-            # compute hv for each iteration (trial_index)
-            hvs = []
-            for trial_index in unique_trial_indices:
-                new_Y = Y_obj[trial_indices == trial_index]
-                # update with new point
-                partitioning.update(Y=new_Y)
-                hv = partitioning.compute_hypervolume().item()
-                hvs.append(hv)
-            return hvs
-        running_max = float("-inf")
-        raw_maximum = np.zeros(len(unique_trial_indices))
-        # Find the best observed value for each iterations.
-        # Enumerate the unique trial indices because only indices
-        # of completed/early-stopped trials are present.
-        for i, trial_index in enumerate(unique_trial_indices):
-            new_Y = Y_obj[trial_indices == trial_index]
-            running_max = max(running_max, new_Y.max().item())
-            raw_maximum[i] = running_max
-        if optimization_config.objective.minimize:
-            # Negate the result if it is a minimization problem.
-            raw_maximum = -raw_maximum
-        return raw_maximum.tolist()
 
     @staticmethod
     def _get_trace_by_progression(

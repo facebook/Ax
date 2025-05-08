@@ -7,6 +7,10 @@
 # pyre-strict
 
 
+from typing import Mapping, Sequence
+
+from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -18,7 +22,7 @@ from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValueList
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import GenResults, ModelBridge
+from ax.modelbridge.base import Adapter, DataLoaderConfig, GenResults
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
     get_fixed_features,
@@ -26,37 +30,67 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.torch import (
     extract_objective_weights,
     extract_outcome_constraints,
-    validate_optimization_config,
+    validate_transformed_optimization_config,
 )
-from ax.models.discrete_base import DiscreteModel
+from ax.modelbridge.transforms.base import Transform
+from ax.models.discrete_base import DiscreteGenerator
 from ax.models.types import TConfig
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
 
-class DiscreteModelBridge(ModelBridge):
+class DiscreteAdapter(Adapter):
     """A model bridge for using models based on discrete parameters.
 
-    Requires that all parameters have been transformed to ChoiceParameters.
+    Requires that all parameters to have been transformed to ChoiceParameters.
     """
 
-    # pyre-fixme[13]: Attribute `model` is never initialized.
-    model: DiscreteModel
-    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
-    outcomes: list[str]
-    # pyre-fixme[13]: Attribute `parameters` is never initialized.
-    parameters: list[str]
-    # pyre-fixme[13]: Attribute `search_space` is never initialized.
-    search_space: SearchSpace | None
+    def __init__(
+        self,
+        *,
+        experiment: Experiment,
+        model: DiscreteGenerator,
+        search_space: SearchSpace | None = None,
+        data: Data | None = None,
+        transforms: Sequence[type[Transform]] | None = None,
+        transform_configs: Mapping[str, TConfig] | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        expand_model_space: bool = True,
+        fit_tracking_metrics: bool = True,
+        fit_on_init: bool = True,
+        data_loader_config: DataLoaderConfig | None = None,
+        fit_out_of_design: bool | None = None,
+        fit_abandoned: bool | None = None,
+        fit_only_completed_map_metrics: bool | None = None,
+    ) -> None:
+        # These are set in _fit.
+        self.parameters: list[str] = []
+        self.outcomes: list[str] = []
+        super().__init__(
+            experiment=experiment,
+            model=model,
+            search_space=search_space,
+            data=data,
+            transforms=transforms,
+            transform_configs=transform_configs,
+            optimization_config=optimization_config,
+            expand_model_space=expand_model_space,
+            data_loader_config=data_loader_config,
+            fit_out_of_design=fit_out_of_design,
+            fit_abandoned=fit_abandoned,
+            fit_tracking_metrics=fit_tracking_metrics,
+            fit_on_init=fit_on_init,
+            fit_only_completed_map_metrics=fit_only_completed_map_metrics,
+        )
+        # Re-assing for more precise typing.
+        self.model: DiscreteGenerator = model
 
     def _fit(
         self,
-        model: DiscreteModel,
         search_space: SearchSpace,
         observations: list[Observation],
     ) -> None:
-        self.model = model
         # Convert observations to arrays
         self.parameters = list(search_space.parameters.keys())
         all_metric_names: set[str] = set()
@@ -82,14 +116,18 @@ class DiscreteModelBridge(ModelBridge):
         )
 
     def _predict(
-        self, observation_features: list[ObservationFeatures]
+        self,
+        observation_features: list[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
         # Convert observations to array
         X = [
             [of.parameters[param] for param in self.parameters]
             for of in observation_features
         ]
-        f, cov = self.model.predict(X=X)
+        f, cov = self.model.predict(
+            X=X, use_posterior_predictive=use_posterior_predictive
+        )
         # Convert arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
 
@@ -102,7 +140,7 @@ class DiscreteModelBridge(ModelBridge):
         fixed_features: ObservationFeatures | None = None,
         model_gen_options: TConfig | None = None,
     ) -> None:
-        """Validate inputs to `ModelBridge.gen`.
+        """Validate inputs to `Adapter.gen`.
 
         Currently, this is only used to ensure that `n` is a positive integer or -1.
         """
@@ -124,7 +162,9 @@ class DiscreteModelBridge(ModelBridge):
         """Generate new candidates according to search_space and
         optimization_config.
 
-        The outcome constraints should be transformed to no longer be relative.
+        Any outcome constraints should be transformed to no longer be relative, this
+        can be achieved using either ``Relativize`` or ``Derelativize`` transforms.
+        An error will be raised during validation if transform has not been applied.
         """
         # Validation
         if not self.parameters:
@@ -136,7 +176,7 @@ class DiscreteModelBridge(ModelBridge):
             objective_weights = None
             outcome_constraints = None
         else:
-            validate_optimization_config(optimization_config, self.outcomes)
+            validate_transformed_optimization_config(optimization_config, self.outcomes)
             objective_weights = extract_objective_weights(
                 objective=optimization_config.objective, outcomes=self.outcomes
             )

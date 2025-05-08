@@ -19,13 +19,14 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.utils.common.constants import Keys
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 TArmTrial = tuple[str, int]
 
@@ -33,7 +34,7 @@ TArmTrial = tuple[str, int]
 MANY_TRIALS_IN_EXPERIMENT = 100
 
 
-# --------------------------- Data intergrity utils. ---------------------------
+# --------------------------- Data integrity utils. ---------------------------
 
 
 class MissingMetrics(NamedTuple):
@@ -46,7 +47,7 @@ def get_missing_metrics(
     data: Data, optimization_config: OptimizationConfig
 ) -> MissingMetrics:
     """Return all arm_name, trial_index pairs, for which some of the
-    observatins of optimization config metrics are missing.
+    observations of optimization config metrics are missing.
 
     Args:
         data: Data to search.
@@ -397,32 +398,31 @@ def get_pending_observation_features_based_on_trial_status(
 def extend_pending_observations(
     experiment: Experiment,
     pending_observations: dict[str, list[ObservationFeatures]],
-    generator_runs: list[GeneratorRun],
-) -> dict[str, list[ObservationFeatures]]:
+    generator_run: GeneratorRun,
+) -> None:
     """Extend given pending observations dict (from metric name to observations
     that are pending for that metric), with arms in a given generator run.
+
+    Note: This function performs this operation in-place for performance reasons.
+    It is only used within the ``GenerationStrategy`` class, and is not intended
+    for wide re-use. Please use caution when re-using this function.
 
     Args:
         experiment: Experiment, for which the generation strategy is producing
             ``GeneratorRun``s.
         pending_observations: Dict from metric name to pending observations for
             that metric, used to avoid resuggesting arms that will be explored soon.
-        generator_runs: List of ``GeneratorRun``s currently produced by the
-            ``GenerationStrategy``.
+        generator_run: ``GeneratorRun`` currently produced by the
+            ``GenerationStrategy`` to add to the pending points.
 
-    Returns:
-        A new dictionary of pending observations to avoid in-place modification
     """
-    pending_observations = deepcopy(pending_observations)
-    extended_observations: dict[str, list[ObservationFeatures]] = {}
     for m in experiment.metrics:
-        extended_obs_set = set(pending_observations.get(m, []))
-        for generator_run in generator_runs:
-            for a in generator_run.arms:
-                ob_ft = ObservationFeatures.from_arm(a)
-                extended_obs_set.add(ob_ft)
-        extended_observations[m] = list(extended_obs_set)
-    return extended_observations
+        if m not in pending_observations:
+            pending_observations[m] = []
+        pending_observations[m].extend(
+            ObservationFeatures.from_arm(a) for a in generator_run.arms
+        )
+    return
 
 
 # -------------------- Get target trial utils. ---------------------
@@ -431,10 +431,13 @@ def extend_pending_observations(
 def get_target_trial_index(experiment: Experiment) -> int | None:
     """Get the index of the target trial in the ``Experiment``.
 
-    Find the target trial giving priority in the following order:
-        1. a running long-run trial
+    Find the target trial, among the trials with data for status quo arm, giving
+    priority in the following order:
+        1. a running long-run trial. Note if there is a running long-run trial on the
+            experiment without data, or if there is no data on the experiment, then
+            this will return None.
         2. Most recent trial expecting data with running trials be considered the most
-            recent
+            recent.
 
     In the event of any ties, the tie breaking order is:
         a. longest running trial by duration
@@ -450,47 +453,63 @@ def get_target_trial_index(experiment: Experiment) -> int | None:
     # TODO: @mgarrard improve logic to include trial_obsolete_threshold that
     # takes into account the age of the trial, and consider more heavily weighting
     # long run trials.
+    df = experiment.lookup_data().df
+    status_quo = experiment.status_quo
+    if df.empty or status_quo is None:
+        return None
+    # Filter to only trials with data for status quo arm.
+    df = df[df["arm_name"] == status_quo.name]
+    trial_indices_with_data = set(df.trial_index.unique())
+    # only consider running trials with data
     running_trials = [
-        assert_is_instance(trial, BatchTrial)
+        trial
         for trial in experiment.trials_by_status[TrialStatus.RUNNING]
+        if trial.index in trial_indices_with_data
     ]
     sorted_running_trials = _sort_trials(trials=running_trials, trials_are_running=True)
     # Priority 1: Any running long-run trial
-    target_trial_idx = next(
-        (
-            trial.index
-            for trial in sorted_running_trials
-            if trial.trial_type == Keys.LONG_RUN
-        ),
-        None,
+    has_running_long_run_trial = any(
+        trial.trial_type == Keys.LONG_RUN
+        for trial in experiment.trials_by_status[TrialStatus.RUNNING]
     )
-    if target_trial_idx is not None:
-        return target_trial_idx
+    if has_running_long_run_trial:
+        # This returns a running long-run trial with data or None
+        # if there are running long-run trials on the experiment, but
+        # no data for that trial
+        return next(
+            (
+                trial.index
+                for trial in sorted_running_trials
+                if trial.trial_type == Keys.LONG_RUN
+            ),
+            None,
+        )
 
-    # Priority 2: longest running currently running trial
+    # Priority 2: longest running currently running trial with data
     if len(sorted_running_trials) > 0:
         return sorted_running_trials[0].index
 
-    # Priortiy 3: the longest running trial expecting data, discounting running trials
+    # Priortiy 3: the longest running trial with data, discounting running trials
     # as we handled those above
-    trials_expecting_data = [
-        assert_is_instance(trial, BatchTrial)
-        for trial in experiment.trials_expecting_data
-        if trial.status != TrialStatus.RUNNING
+    non_running_trial_indices_with_data = trial_indices_with_data - {
+        t.index for t in running_trials
+    }
+    non_running_trials_with_data = [
+        experiment.trials[i] for i in non_running_trial_indices_with_data
     ]
-    sorted_trials_expecting_data = _sort_trials(
-        trials=trials_expecting_data, trials_are_running=False
+    sorted_non_running_trials_with_data = _sort_trials(
+        trials=non_running_trials_with_data, trials_are_running=False
     )
-    if len(sorted_trials_expecting_data) > 0:
-        return sorted_trials_expecting_data[0].index
+    if len(sorted_non_running_trials_with_data) > 0:
+        return sorted_non_running_trials_with_data[0].index
 
     return None
 
 
 def _sort_trials(
-    trials: list[BatchTrial],
+    trials: list[BaseTrial],
     trials_are_running: bool,
-) -> list[BatchTrial]:
+) -> list[BaseTrial]:
     """Sort a list of trials by (1) duration of trial, (2) number of arms in trial.
 
     Args:
@@ -563,3 +582,26 @@ def _time_trial_completed_safe(trial: BatchTrial) -> datetime:
         if trial.time_completed is not None
         else datetime.fromtimestamp(0)
     )
+
+
+# -------------------- MapMetric related utils. ---------------------
+
+
+def extract_map_keys_from_opt_config(
+    optimization_config: OptimizationConfig,
+) -> set[str]:
+    """Extract names of the map keys of all map metrics from the optimization config.
+
+    Args:
+        optimization_config: Optimization config.
+
+    Returns:
+        A set of map keys.
+    """
+    map_metrics = {
+        name: metric
+        for name, metric in optimization_config.metrics.items()
+        if isinstance(metric, MapMetric)
+    }
+    map_key_names = {m.map_key_info.key for m in map_metrics.values()}
+    return map_key_names

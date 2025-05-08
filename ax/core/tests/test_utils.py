@@ -12,7 +12,6 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -20,6 +19,7 @@ from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
     best_feasible_objective,
@@ -30,12 +30,14 @@ from ax.core.utils import (
     get_model_trace_of_times,
     get_pending_observation_features,
     get_pending_observation_features_based_on_trial_status as get_pending_status,
+    get_target_trial_index,
     MissingMetrics,
 )
-
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_data,
+    get_branin_experiment,
     get_experiment,
     get_hierarchical_search_space_experiment,
     get_robust_branin_experiment,
@@ -330,7 +332,6 @@ class UtilsTest(TestCase):
                 ),
             ):
                 pending = get_pending_observation_features(self.experiment)
-                print(pending)
                 self.assertEqual(
                     pending,
                     {
@@ -435,22 +436,19 @@ class UtilsTest(TestCase):
             ),
         ):
             pending = get_pending_observation_features(hss_exp)
-            self.assertEqual(
-                pending,
-                {
-                    "m1": [self.hss_obs_feat],
-                    "m2": [self.hss_obs_feat],
-                },
-            )
-            # Check that candidate metadata is property propagated for abandoned arm.
-            for p in none_throws(pending).values():
-                for pf in p:
-                    self.assertEqual(
-                        none_throws(pf.metadata),
-                        none_throws(self.hss_gr.candidate_metadata_by_arm_signature)[
-                            self.hss_arm.signature
-                        ],
-                    )
+        self.assertEqual(
+            pending,
+            {"m1": [self.hss_obs_feat], "m2": [self.hss_obs_feat]},
+        )
+        # Check that candidate metadata is property propagated for abandoned arm.
+        for p in none_throws(pending).values():
+            for pf in p:
+                self.assertEqual(
+                    none_throws(pf.metadata),
+                    none_throws(self.hss_gr.candidate_metadata_by_arm_signature)[
+                        self.hss_arm.signature
+                    ],
+                )
 
         # Checking with data for all metrics.
         with patch.object(
@@ -662,3 +660,18 @@ class UtilsTest(TestCase):
             mock_pending_ts.assert_called_once_with(
                 experiment=exp_with_many_trials, include_out_of_design_points=True
             )
+
+    def test_get_target_trial_index_non_batch(self) -> None:
+        # Testing with non-BatchTrial. Should only return the index of the
+        # SQ trial if it exists and has data.
+        experiment = get_branin_experiment(with_completed_trial=True)
+        self.assertIsNone(get_target_trial_index(experiment=experiment))
+        # Add SQ but it is doesn't have data yet.
+        experiment.status_quo = Arm(
+            name="status_quo", parameters={"x1": 0.0, "x2": 0.0}
+        )
+        self.assertIsNone(get_target_trial_index(experiment=experiment))
+        # Add data to SQ.
+        trial = experiment.new_trial().add_arm(experiment.status_quo)
+        experiment.attach_data(get_branin_data(trials=[trial]))
+        self.assertEqual(get_target_trial_index(experiment=experiment), trial.index)

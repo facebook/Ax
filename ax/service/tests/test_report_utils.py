@@ -7,8 +7,9 @@
 # pyre-strict
 
 import itertools
+import logging
 from collections import namedtuple
-from logging import INFO, WARN
+from logging import DEBUG, INFO, WARN
 from unittest import mock
 from unittest.mock import patch, PropertyMock
 
@@ -22,11 +23,12 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
-from ax.modelbridge.generation_node import GenerationStep
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.generation_strategy.generation_node import GenerationStep
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.registry import Generators
 from ax.service.scheduler import Scheduler
 from ax.service.utils.report_utils import (
+    _find_sigfigs,
     _format_comparison_string,
     _get_cross_validation_plots,
     _get_curve_plot_dropdown,
@@ -348,7 +350,6 @@ class ReportUtilsTest(TestCase):
         exp.trials[0].run()
         exp.fetch_data()
         relative_df = exp_to_df(exp=exp, show_relative_metrics=True)
-        print(relative_df)
         self.assertTrue(f"{OBJECTIVE_NAME}_%CH" in relative_df.columns.tolist())
         self.assertEqual(relative_df[f"{OBJECTIVE_NAME}_%CH"].values[0], 0.0)
 
@@ -366,6 +367,12 @@ class ReportUtilsTest(TestCase):
         )
         self.assertDictEqual(expected_output, actual_output)
 
+    @TestCase.ax_long_test(
+        reason=(
+            "get_standard_plots still too slow under @mock_botorch_optimize for this "
+            "test. Will be deprecated soon."
+        )
+    )
     @mock_botorch_optimize
     def test_get_standard_plots(self) -> None:
         exp = get_branin_experiment()
@@ -380,7 +387,7 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment(with_batch=True, minimize=True)
         exp.trials[0].run()
         exp.trials[0].mark_completed()
-        model = Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
+        model = Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
         for gsa, true_objective_metric_name in itertools.product(
             [False, True], ["branin", None]
         ):
@@ -414,7 +421,7 @@ class ReportUtilsTest(TestCase):
                     global_sensitivity_analysis=True,
                     true_objective_metric_name="branin",
                 )
-            self.assertEqual(len(plots), num_expected_plots)  # TODO: this failed
+            self.assertEqual(len(plots), num_expected_plots)
             self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
 
     @mock_botorch_optimize
@@ -433,16 +440,13 @@ class ReportUtilsTest(TestCase):
             ),
         ]
         exp.trials[0].run()
-        # NOTE: level set to INFO in this block, because the global sensitivity
-        # analysis raises an INFO level log entry here. Leaving level=WARN here
-        # actually passes on Python 3.8 because of a language internal bug. See
-        # https://bugs.python.org/issue41943 for more information.
-        with self.assertLogs(logger="ax", level=INFO) as log:
+        logger = logging.getLogger("ax.service.utils.report_utils")
+        logger.setLevel(DEBUG)
+        with self.assertLogs(logger="ax", level=DEBUG) as log:
             plots = get_standard_plots(
                 experiment=exp,
-                model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
+                model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
             )
-            self.assertEqual(len(log.output), 3)
             self.assertIn(
                 "Pareto plotting not supported for experiments with relative objective "
                 "thresholds.",
@@ -457,10 +461,15 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(len(plots), 6)
 
     @mock_botorch_optimize
-    def test_get_standard_plots_moo_relative_constraints(self) -> None:
+    def _test_get_standard_plots_moo_relative_constraints(
+        self, trial_is_complete: bool
+    ) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        exp.optimization_config.objective.objectives[0].minimize = False
-        exp.optimization_config.objective.objectives[1].minimize = True
+        first_obj = assert_is_instance(
+            none_throws(exp.optimization_config).objective, MultiObjective
+        ).objectives[0]
+        first_obj.minimize = False
+        first_obj.metric.lower_is_better = False
         assert_is_instance(
             exp.optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds = [
@@ -472,6 +481,8 @@ class ReportUtilsTest(TestCase):
             ),
         ]
         exp.trials[0].run()
+        if trial_is_complete:
+            exp.trials[0].mark_completed()
 
         for ot in assert_is_instance(
             exp.optimization_config, MultiObjectiveOptimizationConfig
@@ -479,9 +490,16 @@ class ReportUtilsTest(TestCase):
             ot.relative = False
         plots = get_standard_plots(
             experiment=exp,
-            model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
+            model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
         )
         self.assertEqual(len(plots), 8)
+
+    def test_get_standard_plots_moo_relative_constraints(self) -> None:
+        for trial_is_complete in [False, True]:
+            with self.subTest(trial_is_complete=trial_is_complete):
+                self._test_get_standard_plots_moo_relative_constraints(
+                    trial_is_complete=trial_is_complete
+                )
 
     @mock_botorch_optimize
     def test_get_standard_plots_moo_no_objective_thresholds(self) -> None:
@@ -491,7 +509,7 @@ class ReportUtilsTest(TestCase):
         exp.trials[0].run()
         plots = get_standard_plots(
             experiment=exp,
-            model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
+            model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
         )
         self.assertEqual(len(plots), 8)
 
@@ -501,14 +519,14 @@ class ReportUtilsTest(TestCase):
         exp.new_trial().add_arm(exp.status_quo)
         exp.trials[0].run()
         exp.new_trial(
-            generator_run=Models.SOBOL(search_space=exp.search_space).gen(n=1)
+            generator_run=Generators.SOBOL(search_space=exp.search_space).gen(n=1)
         )
         exp.trials[1].run()
         for t in exp.trials.values():
             t.mark_completed()
         plots = get_standard_plots(
             experiment=exp,
-            model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
+            model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
             true_objective_metric_name="branin",
         )
 
@@ -524,7 +542,7 @@ class ReportUtilsTest(TestCase):
         ):
             plots = get_standard_plots(
                 experiment=exp,
-                model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
+                model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
                 true_objective_metric_name="not_present",
             )
 
@@ -532,14 +550,16 @@ class ReportUtilsTest(TestCase):
     def test_skip_contour_high_dimensional(self) -> None:
         exp = get_high_dimensional_branin_experiment()
         # Initial Sobol points
-        sobol = Models.SOBOL(search_space=exp.search_space)
+        sobol = Generators.SOBOL(search_space=exp.search_space)
         for _ in range(1):
             exp.new_trial(sobol.gen(1)).run()
-        model = Models.BOTORCH_MODULAR(
+        model = Generators.BOTORCH_MODULAR(
             experiment=exp,
             data=exp.fetch_data(),
         )
-        with self.assertLogs(logger="ax", level=INFO) as log:
+        logger = logging.getLogger("ax.service.utils.report_utils")
+        logger.setLevel(DEBUG)
+        with self.assertLogs(logger="ax", level=DEBUG) as log:
             _get_objective_v_param_plots(
                 experiment=exp, model=model, max_num_contour_plots=2
             )
@@ -855,6 +875,8 @@ class ReportUtilsTest(TestCase):
             "optimal": Arm(name="optimal", parameters={}),
             "bad_optimal": Arm(name="bad_optimal", parameters={}),
         }
+        logger = logging.getLogger("ax.service.utils.report_utils")
+        logger.setLevel(DEBUG)
 
         with patch(
             "ax.service.utils.report_utils.exp_to_df",
@@ -865,7 +887,7 @@ class ReportUtilsTest(TestCase):
             new_callable=PropertyMock,
             return_value=arms_by_name_mock,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 self.assertEqual(
                     compare_to_baseline(
                         experiment=experiment,
@@ -892,7 +914,7 @@ class ReportUtilsTest(TestCase):
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 self.assertEqual(
                     compare_to_baseline(
                         experiment=experiment,
@@ -919,7 +941,7 @@ class ReportUtilsTest(TestCase):
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 exp_no_opt = Experiment(
                     search_space=get_branin_search_space(),
                     tracking_metrics=[true_obj_metric],
@@ -972,11 +994,13 @@ class ReportUtilsTest(TestCase):
         arms_df = pd.DataFrame(data)
 
         # no arms df
+        logger = logging.getLogger("ax.service.utils.report_utils")
+        logger.setLevel(DEBUG)
         with patch(
             "ax.service.utils.report_utils.exp_to_df",
             return_value=None,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 self.assertEqual(
                     compare_to_baseline(
                         experiment=experiment,
@@ -999,7 +1023,7 @@ class ReportUtilsTest(TestCase):
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 comparison_arm_not_found = ["unknown_arm"]
                 self.assertEqual(
                     compare_to_baseline(
@@ -1030,7 +1054,7 @@ class ReportUtilsTest(TestCase):
                 parameters={"x1": 0, "x2": 0},
             )
             baseline_arm_name = "not_baseline_arm_in_dataframe"
-            with self.assertLogs("ax", level=INFO) as log:
+            with self.assertLogs("ax", level=DEBUG) as log:
                 self.assertEqual(
                     compare_to_baseline(
                         experiment=experiment_with_status_quo,
@@ -1241,13 +1265,13 @@ class ReportUtilsTest(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL,
+                    model=Generators.SOBOL,
                     num_trials=3,
                     min_trials_observed=3,
                     max_parallelism=3,
                 ),
                 GenerationStep(
-                    model=Models.BOTORCH_MODULAR, num_trials=-1, max_parallelism=3
+                    model=Generators.BOTORCH_MODULAR, num_trials=-1, max_parallelism=3
                 ),
             ]
         )
@@ -1313,3 +1337,12 @@ class ReportUtilsTest(TestCase):
                 model_fit_threshold=1.0,
                 metric_names=["bad_metric_name"],
             )
+
+    def test_find_sigfigs(self) -> None:
+        self.assertEqual(_find_sigfigs(0.4, 0.5), 2)
+        self.assertEqual(_find_sigfigs(0.49, 0.5), 2)
+        self.assertEqual(_find_sigfigs(0.499, 0.5), 3)
+        self.assertEqual(_find_sigfigs(0.111122, 0.111100), 5)
+        self.assertEqual(_find_sigfigs(50.0, 50.0001), 4)
+        self.assertEqual(_find_sigfigs(0.04390, 0.03947), 3)
+        self.assertEqual(_find_sigfigs(49.1, 50.00001, 2), 2)

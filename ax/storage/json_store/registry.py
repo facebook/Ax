@@ -23,7 +23,6 @@ from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import (
     AbandonedArm,
     BatchTrial,
@@ -58,6 +57,7 @@ from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.risk_measures import RiskMeasure
 from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
@@ -67,30 +67,19 @@ from ax.early_stopping.strategies.logical import (
     AndEarlyStoppingStrategy,
     OrEarlyStoppingStrategy,
 )
-from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.metrics.branin import BraninMetric, NegativeBraninMetric
-from ax.metrics.branin_map import BraninTimestampMapMetric
-from ax.metrics.chemistry import ChemistryMetric, ChemistryProblemType
-from ax.metrics.factorial import FactorialMetric
-from ax.metrics.hartmann6 import Hartmann6Metric
-from ax.metrics.l2norm import L2NormMetric
-from ax.metrics.noisy_function import NoisyFunctionMetric
-from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
-from ax.modelbridge.best_model_selector import (
+from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
-from ax.modelbridge.factory import Models
-from ax.modelbridge.generation_node import GenerationNode, GenerationStep
-from ax.modelbridge.generation_node_input_constructors import (
+from ax.generation_strategy.center_generation_node import CenterGenerationNode
+from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
+from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import ModelRegistryBase
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transition_criterion import (
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
     IsSingleObjective,
@@ -101,8 +90,21 @@ from ax.modelbridge.transition_criterion import (
     MinTrials,
     TransitionCriterion,
 )
+from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
+from ax.metrics.branin import BraninMetric, NegativeBraninMetric
+from ax.metrics.branin_map import BraninTimestampMapMetric
+from ax.metrics.chemistry import ChemistryMetric, ChemistryProblemType
+from ax.metrics.factorial import FactorialMetric
+from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.metrics.l2norm import L2NormMetric
+from ax.metrics.noisy_function import NoisyFunctionMetric
+from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
+from ax.modelbridge.base import DataLoaderConfig
+from ax.modelbridge.factory import Generators
+from ax.modelbridge.registry import ModelRegistryBase
+from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.models.winsorization_config import WinsorizationConfig
@@ -199,7 +201,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     BenchmarkMapMetric: metric_to_dict,
     BenchmarkTimeVaryingMetric: metric_to_dict,
     BenchmarkMapUnavailableWhileRunningMetric: metric_to_dict,
-    BoTorchModel: botorch_model_to_dict,
+    BoTorchGenerator: botorch_model_to_dict,
     BraninMetric: metric_to_dict,
     BraninTimestampMapMetric: metric_to_dict,
     ChainedInputTransform: botorch_component_to_dict,
@@ -229,7 +231,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     MinimumTrialsInStatus: transition_criterion_to_dict,
     MinimumPreferenceOccurances: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
-    ModelSpec: model_spec_to_dict,
+    GeneratorSpec: model_spec_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,
@@ -297,6 +299,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
     "AutoTransitionAfterGen": AutoTransitionAfterGen,
     "AuxiliaryExperiment": AuxiliaryExperiment,
+    "AuxiliaryExperimentCheck": AuxiliaryExperimentCheck,
     "AuxiliaryExperimentPurpose": AuxiliaryExperimentPurpose,
     "Arm": Arm,
     "AggregatedBenchmarkResult": AggregatedBenchmarkResult,
@@ -312,15 +315,18 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     ),
     "BenchmarkResult": BenchmarkResult,
     "BenchmarkTrialMetadata": BenchmarkTrialMetadata,
-    "BoTorchModel": BoTorchModel,
+    "BoTorchGenerator": BoTorchGenerator,
+    "BoTorchModel": BoTorchGenerator,
     "BraninMetric": BraninMetric,
     "BraninTimestampMapMetric": BraninTimestampMapMetric,
+    "CenterGenerationNode": CenterGenerationNode,
     "ChainedInputTransform": ChainedInputTransform,
     "ChemistryMetric": ChemistryMetric,
     "ChemistryProblemType": ChemistryProblemType,
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
     "Data": Data,
+    "DataLoaderConfig": DataLoaderConfig,
     "DataType": DataType,
     "DomainType": DomainType,
     "Experiment": Experiment,
@@ -332,6 +338,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "GenerationStep": GenerationStep,
     "GeneratorRun": GeneratorRun,
     "GeneratorRunStruct": GeneratorRunStruct,
+    "Generators": Generators,
+    "GeneratorSpec": GeneratorSpec,
     "Hartmann6Metric": Hartmann6Metric,
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
@@ -352,11 +360,10 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MinTrials": MinTrials,
     "MinimumTrialsInStatus": MinimumTrialsInStatus,
     "MinimumPreferenceOccurances": MinimumPreferenceOccurances,
-    "AuxiliaryExperimentCheck": AuxiliaryExperimentCheck,
-    "Models": Models,
     "ModelRegistryBase": ModelRegistryBase,
     "ModelConfig": ModelConfig,
-    "ModelSpec": ModelSpec,
+    "Models": Generators,
+    "ModelSpec": GeneratorSpec,
     "MultiObjective": MultiObjective,
     "MultiObjectiveOptimizationConfig": MultiObjectiveOptimizationConfig,
     "MultiTypeExperiment": MultiTypeExperiment,

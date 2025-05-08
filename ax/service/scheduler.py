@@ -15,12 +15,11 @@ from datetime import datetime
 from enum import IntEnum
 from logging import LoggerAdapter
 from time import sleep
-from typing import Any, cast, NamedTuple, Optional
+from typing import Any, cast, NamedTuple
 
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.multi_type_experiment import (
@@ -28,12 +27,7 @@ from ax.core.multi_type_experiment import (
     get_trial_indices_for_statuses,
     MultiTypeExperiment,
 )
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
 from ax.core.runner import Runner
-from ax.core.types import TModelPredictArm, TParameterization
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 
 from ax.exceptions.core import (
@@ -48,15 +42,14 @@ from ax.exceptions.generation_strategy import (
     MaxParallelismReachedException,
     OptimizationConfigRequired,
 )
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.utils.common.constants import Keys
-from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import (
     build_file_handler,
@@ -163,7 +156,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     """
 
     experiment: Experiment
-    generation_strategy: GenerationStrategyInterface
+    generation_strategy: GenerationStrategy
     # pyre-fixme[24]: Generic type `LoggerAdapter` expects 1 type parameter.
     logger: LoggerAdapter
     # Mapping of form {short string identifier -> message to show in reported
@@ -212,9 +205,9 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def __init__(
         self,
         experiment: Experiment,
-        generation_strategy: GenerationStrategyInterface,
+        generation_strategy: GenerationStrategy,
         options: SchedulerOptions,
-        db_settings: Optional[DBSettings] = None,
+        db_settings: DBSettings | None = None,
         _skip_experiment_save: bool = False,
     ) -> None:
         self.experiment = experiment
@@ -228,7 +221,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
 
         if not isinstance(experiment, Experiment):
             raise TypeError("{experiment} is not an Ax experiment.")
-        if not isinstance(generation_strategy, GenerationStrategyInterface):
+        if not isinstance(generation_strategy, GenerationStrategy):
             raise TypeError("{generation_strategy} is not a generation strategy.")
 
         # Initialize storage layer for the scheduler.
@@ -278,7 +271,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         cls,
         experiment_name: str,
         options: SchedulerOptions,
-        db_settings: Optional[DBSettings] = None,
+        db_settings: DBSettings | None = None,
         generation_strategy: GenerationStrategy | None = None,
         reduced_state: bool = True,
         **kwargs: Any,
@@ -491,21 +484,6 @@ class Scheduler(AnalysisBase, BestPointMixin):
             )
         return runner
 
-    @property
-    def standard_generation_strategy(self) -> GenerationStrategy:
-        """Used for operations in the scheduler that can only be done with
-        and instance of ``GenerationStrategy``.
-        """
-        gs = self.generation_strategy
-        if not isinstance(gs, GenerationStrategy):
-            raise NotImplementedError(
-                "This functionality is only supported with instances of "
-                "`GenerationStrategy` (one that uses `GenerationStrategy` "
-                "class) and not yet with other types of "
-                "`GenerationStrategyInterface`."
-            )
-        return gs
-
     def __repr__(self) -> str:
         """Short user-friendly string representation."""
         if not hasattr(self, "experiment"):
@@ -547,7 +525,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
             stale_candidate_trials = self.experiment.trials_by_status[
                 TrialStatus.CANDIDATE
             ]
-            self.logger.info(
+            self.logger.debug(
                 "Marking the following trials as failed because they are stale: "
                 f"{[t.index for t in stale_candidate_trials]}"
             )
@@ -575,7 +553,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
         timeout_hours: float | None = None,
-        idle_callback: Optional[Callable[[Scheduler], None]] = None,
+        idle_callback: Callable[[Scheduler], None] | None = None,
     ) -> OptimizationResult:
         """Run up to ``max_trials`` trials; will run all ``max_trials`` unless
         completion criterion is reached. For base ``Scheduler``, completion criterion
@@ -624,7 +602,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def run_all_trials(
         self,
         timeout_hours: float | None = None,
-        idle_callback: Optional[Callable[[Scheduler], None]] = None,
+        idle_callback: Callable[[Scheduler], None] | None = None,
     ) -> OptimizationResult:
         """Run all trials until ``should_consider_optimization_complete`` yields
         true (by default, ``should_consider_optimization_complete`` will yield true when
@@ -1258,75 +1236,6 @@ class Scheduler(AnalysisBase, BestPointMixin):
 
         return updated_any_trial_status
 
-    @copy_doc(BestPointMixin.get_best_trial)
-    def get_best_trial(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
-        return self._get_best_trial(
-            experiment=self.experiment,
-            generation_strategy=self.standard_generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
-    def get_pareto_optimal_parameters(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
-        return self._get_pareto_optimal_parameters(
-            experiment=self.experiment,
-            generation_strategy=self.standard_generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_hypervolume)
-    def get_hypervolume(
-        self,
-        optimization_config: MultiObjectiveOptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> float:
-        return BestPointMixin._get_hypervolume(
-            experiment=self.experiment,
-            generation_strategy=self.standard_generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_trace)
-    def get_trace(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-    ) -> list[float]:
-        return BestPointMixin._get_trace(
-            experiment=self.experiment,
-            optimization_config=optimization_config,
-        )
-
-    @copy_doc(BestPointMixin.get_trace_by_progression)
-    def get_trace_by_progression(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        bins: list[float] | None = None,
-        final_progression_only: bool = False,
-    ) -> tuple[list[float], list[float]]:
-        return BestPointMixin._get_trace_by_progression(
-            experiment=self.experiment,
-            optimization_config=optimization_config,
-            bins=bins,
-            final_progression_only=final_progression_only,
-        )
-
     # ------------------------- III. Protected helpers. -----------------------
 
     def _fetch_data_and_return_trial_indices_with_new_data(
@@ -1526,7 +1435,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         # for all metrics. By pre-caching the data now, we remove the need to
         # fetch it during candidate generation.
         idcs = make_indices_str(indices=newly_completed)
-        self.logger.info(f"Fetching data for trials: {idcs}.")
+        self.logger.debug(f"Fetching data for trials: {idcs}.")
         self._fetch_and_process_trials_data_results(
             trial_indices=newly_completed,
         )
@@ -1541,7 +1450,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def _complete_optimization(
         self,
         num_preexisting_trials: int,
-        idle_callback: Optional[Callable[[Scheduler], None]] = None,
+        idle_callback: Callable[[Scheduler], None] | None = None,
     ) -> dict[str, Any]:
         """Conclude optimization with waiting for anymore running trials and
         return final results via `wait_for_completed_trials_and_report_results`.
@@ -1780,16 +1689,16 @@ class Scheduler(AnalysisBase, BestPointMixin):
             pending = get_pending_observation_features_based_on_trial_status(
                 experiment=self.experiment
             )
-            grs = self.generation_strategy._gen_multiple(
+            grs = self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
                 experiment=self.experiment,
-                num_generator_runs=num_trials,
+                num_trials=num_trials,
                 n=1,
                 pending_observations=pending,
                 fixed_features=get_fixed_features_from_experiment(
                     experiment=self.experiment
                 ),
             )
-            return [[gr] for gr in grs]
+            return grs
         # TODO: pass self.trial_type to GS.gen for multi-type experiments
 
     def _update_and_save_trials(
@@ -1907,7 +1816,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         """Ensure that the experiment specifies runner and metrics; check that metrics
         are not base ``Metric``-s, which do not implement fetching logic.
         """
-        # this will raise an exception if no runner is set on the expeirment
+        # this will raise an exception if no runner is set on the experiment
         self.runner
         metrics_are_invalid = False
         if not experiment.metrics:
@@ -2142,10 +2051,8 @@ class Scheduler(AnalysisBase, BestPointMixin):
         )
 
 
-def get_fitted_model_bridge(
-    scheduler: Scheduler, force_refit: bool = False
-) -> ModelBridge:
-    """Returns a fitted ModelBridge object. If the model is fit already, directly
+def get_fitted_adapter(scheduler: Scheduler, force_refit: bool = False) -> Adapter:
+    """Returns a fitted Adapter object. If the model is fit already, directly
     returns the already fitted model. Otherwise, fits and returns a new one.
 
     Args:
@@ -2153,11 +2060,11 @@ def get_fitted_model_bridge(
         force_refit: If True, will force a data lookup and a refit of the model.
 
     Returns:
-        A ModelBridge object fitted to the observations of the scheduler's experiment.
+        A Adapter object fitted to the observations of the scheduler's experiment.
     """
-    gs = scheduler.standard_generation_strategy
-    model_bridge = gs.model  # Optional[ModelBridge]
-    if model_bridge is None or force_refit:  # Need to re-fit the model.
-        gs._fit_current_model(data=None)  # Will lookup_data if none is provided.
-        model_bridge = cast(ModelBridge, gs.model)
-    return model_bridge
+    gs = scheduler.generation_strategy
+    adapter = gs.model  # Optional[Adapter]
+    if adapter is None or force_refit:  # Need to re-fit the model.
+        gs._curr._fit(experiment=scheduler.experiment)
+        adapter = cast(Adapter, gs.model)
+    return adapter

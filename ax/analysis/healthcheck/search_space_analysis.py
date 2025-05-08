@@ -5,27 +5,27 @@
 
 # pyre-strict
 
-import json
-from typing import Union
+from typing import Sequence, Union
 
 import numpy as np
 import pandas as pd
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 
 from ax.core.parameter import ChoiceParameter, Parameter, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
-from pyre_extensions import assert_is_instance
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
+from pyre_extensions import assert_is_instance, override
 
 
 class SearchSpaceAnalysis(HealthcheckAnalysis):
@@ -51,29 +51,24 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
         self.trial_index = trial_index
         self.boundary_proportion_threshold = boundary_proportion_threshold
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
-    ) -> HealthcheckAnalysisCard:
-        r"""
-        Args:
-            experiment: Ax experiment.
-            generation_strategy: Ax generation strategy.
-
-        Returns:
-            A HealthcheckAnalysisCard object with the information on the parameters
-            and parameter constraints whose boundaries are recommended to be expanded.
-        """
-
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> Sequence[HealthcheckAnalysisCard]:
         if experiment is None:
             raise UserInputError("SearchSpaceAnalysis requires an Experiment.")
 
         status = HealthcheckStatus.PASS
-        subtitle = "Search space does not need to be updated."
+        subtitle_base = (
+            "The search space analysis health check is designed "
+            "to notify users that would likely see from a search space expansion "
+            "in the form of increased optimization performance.\n\n"
+        )
         title_status = "Success"
         level = AnalysisCardLevel.LOW
-        df = pd.DataFrame({"status": [status]})
 
         trial = experiment.trials[self.trial_index]
         arms = trial.arms
@@ -90,21 +85,22 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
                 boundary_proportion_threshold=self.boundary_proportion_threshold,
             )
             status = HealthcheckStatus.WARNING
-            subtitle = msg
+            additional_subtitle = msg
             title_status = "Warning"
             level = AnalysisCardLevel.LOW
-            df = boundary_proportions_df[["boundary", "proportion", "bound"]]
-            df["status"] = status
+        else:
+            additional_subtitle = "Search space does not need to be updated."
 
-        return HealthcheckAnalysisCard(
-            name="SearchSpaceAnalysis",
-            title=f"Ax Search Space Analysis {title_status}",
-            blob=json.dumps({"status": status}),
-            subtitle=subtitle,
-            df=df,
-            level=level,
-            attributes={"trial_index": self.trial_index},
-        )
+        return [
+            self._create_healthcheck_analysis_card(
+                title=f"Ax Search Space Analysis {title_status}",
+                subtitle=subtitle_base + additional_subtitle,
+                df=boundary_proportions_df[["boundary", "proportion", "bound"]],
+                level=level,
+                status=status,
+                category=AnalysisCardCategory.DIAGNOSTIC,
+            ),
+        ]
 
 
 def search_space_boundary_proportions(
@@ -114,7 +110,7 @@ def search_space_boundary_proportions(
 ) -> pd.DataFrame:
     r"""
     Compute the fractions of parametrizations that landed at the parameter and
-    parameter constraint boundaies of the search space.
+    parameter constraint boundaries of the search space.
 
     Args:
         search_space: Search space.
@@ -217,7 +213,7 @@ def boundary_proportions_message(
     Construct a message explaning what parameter or parameter constraints bounds
     to change based on the proportions of the parametrizations that landed at
     the search spaces boundaries.
-    A proportion should be above the theshold in order to recommend expanding
+    A proportion should be above the threshold in order to recommend expanding
     the search space along the corresponding parameter or parameter constraint.
 
     Args:

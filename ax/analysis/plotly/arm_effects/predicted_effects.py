@@ -3,13 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-unsafe
+# pyre-strict
 
 from itertools import chain
-from typing import Any
+from typing import Any, Sequence
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.arm_effects.utils import (
     get_predictions_by_arm,
@@ -17,21 +17,21 @@ from ax.analysis.plotly.arm_effects.utils import (
 )
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import is_predictive
+from ax.analysis.plotly.utils import get_nudge_value, is_predictive
+from ax.analysis.utils import extract_relevant_adapter
 from ax.core import OutcomeConstraint
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.derelativize import Derelativize
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws, override
 
 
 class PredictedEffectsPlot(PlotlyAnalysis):
     """
-    Plotly Predicted Effecs plot for a single metric, with one point per unique arm
+    Plotly Predicted Effects plot for a single metric, with one point per unique arm
     across all trials. It plots all observed points, as well as predictions for the
     most recently generated trial.
 
@@ -39,7 +39,7 @@ class PredictedEffectsPlot(PlotlyAnalysis):
     to perform.
 
     The DataFrame computed will contain one row per arm and the following columns:
-        - source: In-sample or model key that geneerated the candidate
+        - source: In-sample or model key that generated the candidate
         - arm_name: The name of the arm
         - mean: The observed or predicted mean of the metric specified
         - sem: The observed or predicted sem of the metric specified
@@ -65,21 +65,15 @@ class PredictedEffectsPlot(PlotlyAnalysis):
         """
         self.metric_name = metric_name
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
-    ) -> PlotlyAnalysisCard:
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> Sequence[PlotlyAnalysisCard]:
         if experiment is None:
             raise UserInputError("PredictedEffectsPlot requires an Experiment.")
-        try:
-            generation_strategy = assert_is_instance(
-                generation_strategy, GenerationStrategy
-            )
-        except TypeError as e:
-            raise UserInputError(
-                "PredictedEffectsPlot requires a GenerationStrategy."
-            ) from e
 
         try:
             trial_indices = [
@@ -96,15 +90,15 @@ class PredictedEffectsPlot(PlotlyAnalysis):
                 "because it has no trials."
             )
 
-        if generation_strategy.model is None:
-            generation_strategy._fit_current_model(data=experiment.lookup_data())
+        relevant_adapter = extract_relevant_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
 
-        model = none_throws(generation_strategy.model)
-        if not is_predictive(model=model):
+        if not is_predictive(adapter=relevant_adapter):
             raise UserInputError(
-                "PredictedEffectsPlot requires a GenerationStrategy which is "
-                "in a state where the current model supports prediction.  The current "
-                f"model is {model._model_key} and does not support prediction."
+                "PredictedEffectsPlot requires a predictive model to compute."
             )
 
         outcome_constraints = (
@@ -114,12 +108,12 @@ class PredictedEffectsPlot(PlotlyAnalysis):
             .transform_optimization_config(
                 # TODO[T203521207]: move cloning into transform_optimization_config
                 optimization_config=none_throws(experiment.optimization_config).clone(),
-                modelbridge=model,
+                modelbridge=relevant_adapter,
             )
             .outcome_constraints
         )
         df = _prepare_data(
-            model=model,
+            adapter=relevant_adapter,
             metric_name=self.metric_name,
             candidate_trial=candidate_trial,
             outcome_constraints=outcome_constraints,
@@ -127,35 +121,36 @@ class PredictedEffectsPlot(PlotlyAnalysis):
         fig = prepare_arm_effects_plot(
             df=df, metric_name=self.metric_name, outcome_constraints=outcome_constraints
         )
+        nudge = get_nudge_value(metric_name=self.metric_name, experiment=experiment)
 
-        level = AnalysisCardLevel.HIGH
-        nudge = -2
-        if experiment.optimization_config is not None:
-            if (
-                self.metric_name
-                in experiment.optimization_config.objective.metric_names
-            ):
-                nudge = 0
-            elif self.metric_name in experiment.optimization_config.metrics:
-                nudge = -1
-
-        return self._create_plotly_analysis_card(
-            title=f"Predicted Effects for {self.metric_name}",
-            subtitle="View a candidate trial and its arms' predicted metric values",
-            level=level + nudge,
-            df=df,
-            fig=fig,
-        )
+        return [
+            self._create_plotly_analysis_card(
+                title=f"Predicted Effects for {self.metric_name}",
+                subtitle=(
+                    "The predicted effects plot provides a visualization of the "
+                    "estimated metric effects for each arm in the upcoming trial. "
+                    "This plot helps in anticipating the potential outcomes and "
+                    "performance of different arms based on the model's predictions. "
+                    "Note that flat predictions across arms indicate that the model "
+                    "has not picked up on sufficient signal in the data, and instead "
+                    "is just predicting the mean."
+                ),
+                level=AnalysisCardLevel.HIGH + nudge,
+                df=df,
+                fig=fig,
+                category=AnalysisCardCategory.ACTIONABLE,
+            )
+        ]
 
 
 def _prepare_data(
-    model: ModelBridge,
+    adapter: Adapter,
     metric_name: str,
     candidate_trial: BaseTrial,
     outcome_constraints: list[OutcomeConstraint],
 ) -> pd.DataFrame:
     """Prepare data for plotting.  Data should include columns for:
-    - source: In-sample or model key that geneerated the candidate
+    - source: In-sample or model key that generated the candidate
     - arm_name: Name of the arm
     - mean: Predicted metric value
     - error_margin: 1.96 * predicted sem for plotting 95% CI
@@ -167,12 +162,12 @@ def _prepare_data(
     candidate trial.
 
     Args:
-        model: ModelBridge being used for prediction
+        model: Adapter being used for prediction
         metric_name: Name of metric to plot
         candidate_trial: Trial to plot candidates for by generator run
     """
     predictions_for_observed_arms: list[dict[str, Any]] = get_predictions_by_arm(
-        model=model,
+        model=adapter,
         metric_name=metric_name,
         outcome_constraints=outcome_constraints,
     )
@@ -181,7 +176,7 @@ def _prepare_data(
         if candidate_trial is None
         else [
             get_predictions_by_arm(
-                model=model,
+                model=adapter,
                 metric_name=metric_name,
                 outcome_constraints=outcome_constraints,
                 gr=gr,

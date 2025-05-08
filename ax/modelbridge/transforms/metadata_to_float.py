@@ -8,8 +8,9 @@
 
 from __future__ import annotations
 
-from logging import Logger
-from typing import Any, Iterable, Optional, SupportsFloat, TYPE_CHECKING
+from collections.abc import Iterable
+
+from typing import Any, SupportsFloat, TYPE_CHECKING
 
 from ax.core import ParameterType
 
@@ -19,15 +20,11 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
-from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401
-
-
-logger: Logger = get_logger(__name__)
 
 
 class MetadataToFloat(Transform):
@@ -37,7 +34,10 @@ class MetadataToFloat(Transform):
 
     It allows the user to specify the `config` with `parameters` as the key, where
     each entry maps a metadata key to a dictionary of keyword arguments for the
-    corresponding RangeParameter constructor.
+    corresponding RangeParameter constructor. The `config` can also be used to
+    override `default_log_scale` for all parameters. Note that any parameter
+    with a lower bound <= 0 will not be set to log scale regardless of the
+    specified log scale setting.
 
     Transform is done in-place.
     """
@@ -51,7 +51,7 @@ class MetadataToFloat(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         if observations is None or not observations:
@@ -62,6 +62,7 @@ class MetadataToFloat(Transform):
         self.parameters: dict[str, dict[str, Any]] = assert_is_instance(
             config.get("parameters", {}), dict
         )
+        default_log_scale = config.get("default_log_scale", self.DEFAULT_LOG_SCALE)
 
         self._parameter_list: list[RangeParameter] = []
         for name in self.parameters:
@@ -74,7 +75,7 @@ class MetadataToFloat(Transform):
             lower: float = self.parameters[name].get("lower", min(values))
             upper: float = self.parameters[name].get("upper", max(values))
 
-            log_scale = self.parameters[name].get("log_scale", self.DEFAULT_LOG_SCALE)
+            log_scale = self.parameters[name].get("log_scale", default_log_scale)
             logit_scale = self.parameters[name].get(
                 "logit_scale", self.DEFAULT_LOGIT_SCALE
             )
@@ -90,7 +91,7 @@ class MetadataToFloat(Transform):
                 parameter_type=ParameterType.FLOAT,
                 lower=lower,
                 upper=upper,
-                log_scale=log_scale,
+                log_scale=log_scale and lower > 0.0,
                 logit_scale=logit_scale,
                 digits=digits,
                 is_fidelity=is_fidelity,

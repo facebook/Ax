@@ -116,10 +116,10 @@ class BatchTrial(BaseTrial):
             trial's associated generator run is immutable once set.  This cannot
             be combined with the `generator_run` argument.
         trial_type: Type of this trial, if used in MultiTypeExperiment.
-        optimize_for_power: Whether to optimize the weights of arms in this
-            trial such that the experiment's power to detect effects of
-            certain size is as high as possible. Refer to documentation of
-            `BatchTrial.set_status_quo_and_optimize_power` for more detail.
+        add_status_quo_arm: If True, adds the status quo arm to the trial with a
+            weight of 1.0. If False, the _status_quo is still set on the trial for
+            tracking purposes, but without a weight it will not be an Arm present on
+            the trial
         ttl_seconds: If specified, trials will be considered failed after
             this many seconds since the time the trial was ran, unless the
             trial is completed before then. Meant to be used to detect
@@ -140,7 +140,7 @@ class BatchTrial(BaseTrial):
         generator_run: GeneratorRun | None = None,
         generator_runs: list[GeneratorRun] | None = None,
         trial_type: str | None = None,
-        optimize_for_power: bool | None = False,
+        add_status_quo_arm: bool | None = False,
         ttl_seconds: int | None = None,
         index: int | None = None,
         lifecycle_stage: LifecycleStage | None = None,
@@ -166,14 +166,16 @@ class BatchTrial(BaseTrial):
             for gr in generator_runs:
                 self.add_generator_run(generator_run=gr)
 
-        self.optimize_for_power = optimize_for_power
+        self.add_status_quo_arm = add_status_quo_arm
         status_quo = experiment.status_quo
-        if optimize_for_power:
+        if add_status_quo_arm:
             if status_quo is None:
                 raise ValueError(
-                    "Can only optimize for power if experiment has a status quo."
+                    "Experiment does not have a status quo arm so "
+                    "no weight can be set for it."
                 )
-            self.set_status_quo_and_optimize_power(status_quo=status_quo)
+            else:
+                self.set_status_quo_with_weight(status_quo=status_quo, weight=1.0)
         else:
             # Set the status quo for tracking purposes
             # It will not be included in arm_weights
@@ -316,9 +318,9 @@ class BatchTrial(BaseTrial):
         )
         generator_run.index = len(self._generator_run_structs) - 1
 
-        if self.status_quo is not None and self.optimize_for_power:
-            self.set_status_quo_and_optimize_power(
-                status_quo=none_throws(self.status_quo)
+        if self.status_quo is not None and self.add_status_quo_arm:
+            self.set_status_quo_with_weight(
+                status_quo=none_throws(self.status_quo), weight=1.0
             )
 
         if generator_run._generation_step_index is not None:
@@ -336,9 +338,7 @@ class BatchTrial(BaseTrial):
     @status_quo.setter
     def status_quo(self, status_quo: Arm | None) -> None:
         raise NotImplementedError(
-            "Use `set_status_quo_with_weight` or "
-            "`set_status_quo_and_optimize_power` "
-            "to set the status quo arm."
+            "Use `set_status_quo_with_weight` to set the status quo arm."
         )
 
     def unset_status_quo(self) -> None:
@@ -375,42 +375,6 @@ class BatchTrial(BaseTrial):
         self._status_quo = status_quo.clone() if status_quo is not None else None
         self._status_quo_weight_override = weight
         self._refresh_arms_by_name()
-        return self
-
-    @immutable_once_run
-    def set_status_quo_and_optimize_power(self, status_quo: Arm) -> BatchTrial:
-        """Adds a status quo arm to the batch and optimizes for power.
-
-        NOTE: this optimization based on the arms that are currently attached
-        to the batch. If you add more arms later, you should re-run this function.
-        If you want the optimization to happen automatically,
-        set batch.optimize_for_power = True.
-
-        This function will maximize power across the multiple pair-wise
-        comparisons of existing arms against the status_quo.
-
-        Specifically, this function assigns sqrt(sum_weights) weight to the
-        status quo, where sum_weights is the sum of the weights of the existing
-        arms, excluding the status quo. This will be optimal in terms of
-        statistical power in the case where:
-            1) status quo is the only arm to compare against,
-            2) all other arms are of equal interest.
-        """
-
-        status_quo_is_only_arm = len(self.arms) == 1 and self._status_quo is not None
-        if len(self.arms) == 0 or status_quo_is_only_arm:
-            # If status quo is the only arm, just set its weight to 1
-            # Can't use logic below, because it will choose 0
-            self.set_status_quo_with_weight(status_quo=status_quo, weight=1)
-            return self
-
-        # arm_weights should always have at least one arm now
-        arm_weights = none_throws(self.arm_weights)
-        sum_weights = sum(w for arm, w in arm_weights.items() if arm != status_quo)
-        optimal_status_quo_weight_override = np.sqrt(sum_weights)
-        self.set_status_quo_with_weight(
-            status_quo=status_quo, weight=optimal_status_quo_weight_override
-        )
         return self
 
     @property
@@ -653,7 +617,7 @@ class BatchTrial(BaseTrial):
 
         data_for_logging = _round_floats_for_logging(item=evaluations)
 
-        logger.info(
+        logger.debug(
             f"Updated trial {self.index} with data: "
             f"{_round_floats_for_logging(item=data_for_logging)}."
         )
@@ -690,7 +654,7 @@ class BatchTrial(BaseTrial):
                         # is not stored in Ax data.
                         cand_metadata[arm.name] = gr_cand_metadata.get(arm.signature)
                 if warn:
-                    logger.warning(
+                    logger.debug(
                         "The same arm appears in multiple generator runs in batch "
                         f"{self.index}. Candidate metadata will only contain metadata "
                         "for one of those generator runs, and the candidate metadata "
@@ -729,7 +693,7 @@ class BatchTrial(BaseTrial):
 
         for metric_name in data.df["metric_name"].values:
             if metric_name not in self.experiment.metrics:
-                logger.info(
+                logger.debug(
                     f"Data was logged for metric {metric_name} that was not yet "
                     "tracked on the experiment. Please specify `tracking_metric_"
                     "names` argument in AxClient.create_experiment to add tracking "

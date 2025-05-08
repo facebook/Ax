@@ -7,22 +7,22 @@
 # pyre-strict
 
 import numpy as np
-from ax.models.discrete_base import DiscreteModel
+from ax.models.discrete_base import DiscreteGenerator
 from ax.utils.common.testutils import TestCase
 
 
-class DiscreteModelTest(TestCase):
+class DiscreteGeneratorTest(TestCase):
     def test_discrete_model_get_state(self) -> None:
-        discrete_model = DiscreteModel()
+        discrete_model = DiscreteGenerator()
         self.assertEqual(discrete_model._get_state(), {})
 
     def test_discrete_model_feature_importances(self) -> None:
-        discrete_model = DiscreteModel()
+        discrete_model = DiscreteGenerator()
         with self.assertRaises(NotImplementedError):
             discrete_model.feature_importances()
 
-    def test_DiscreteModelFit(self) -> None:
-        discrete_model = DiscreteModel()
+    def test_DiscreteGeneratorFit(self) -> None:
+        discrete_model = DiscreteGenerator()
         discrete_model.fit(
             Xs=[[[0]]],
             Ys=[[0]],
@@ -32,19 +32,19 @@ class DiscreteModelTest(TestCase):
         )
 
     def test_discreteModelPredict(self) -> None:
-        discrete_model = DiscreteModel()
+        discrete_model = DiscreteGenerator()
         with self.assertRaises(NotImplementedError):
             discrete_model.predict([[0]])
 
     def test_discreteModelGen(self) -> None:
-        discrete_model = DiscreteModel()
+        discrete_model = DiscreteGenerator()
         with self.assertRaises(NotImplementedError):
             discrete_model.gen(
                 n=1, parameter_values=[[0, 1]], objective_weights=np.array([1])
             )
 
     def test_discreteModelCrossValidate(self) -> None:
-        discrete_model = DiscreteModel()
+        discrete_model = DiscreteGenerator()
         with self.assertRaises(NotImplementedError):
             discrete_model.cross_validate(
                 Xs_train=[[[0]]], Ys_train=[[1]], Yvars_train=[[1]], X_test=[[1]]

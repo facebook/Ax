@@ -17,7 +17,6 @@ from typing import Any, TYPE_CHECKING, TypeVar
 
 import torch
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import (
     AbandonedArm,
     BatchTrial,
@@ -27,6 +26,7 @@ from ax.core.batch_trial import (
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.transforms.base import Transform
 from ax.storage.botorch_modular_registry import (
@@ -34,7 +34,11 @@ from ax.storage.botorch_modular_registry import (
     REVERSE_INPUT_TRANSFORM_REGISTRY,
     REVERSE_OUTCOME_TRANSFORM_REGISTRY,
 )
-from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
+from ax.storage.transform_registry import (
+    DEPRECATED_TRANSFORMS,
+    REMOVED_TRANSFORMS,
+    REVERSE_TRANSFORM_REGISTRY,
+)
 from ax.utils.common.kwargs import warn_on_kwargs
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils_torch import torch_type_from_str
@@ -71,7 +75,6 @@ def batch_trial_from_json(
     num_arms_created: int,
     status_quo: Arm | None,
     status_quo_weight_override: float,
-    optimize_for_power: bool | None,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
     failed_reason: str | None = None,
@@ -89,7 +92,10 @@ def batch_trial_from_json(
     does not allow us to exactly recreate an existing object.
     """
 
-    batch = BatchTrial(experiment=experiment, ttl_seconds=ttl_seconds)
+    batch = BatchTrial(
+        experiment=experiment,
+        ttl_seconds=ttl_seconds,
+    )
     batch._index = index
     batch._trial_type = trial_type
     batch._status = status
@@ -107,11 +113,16 @@ def batch_trial_from_json(
     batch._num_arms_created = num_arms_created
     batch._status_quo = status_quo
     batch._status_quo_weight_override = status_quo_weight_override
-    batch.optimize_for_power = optimize_for_power
     batch._generation_step_index = generation_step_index
     batch._lifecycle_stage = lifecycle_stage
     batch._properties = properties
     batch._refresh_arms_by_name()  # Trigger cache build
+
+    # Trial.arms_by_name only returns arms with weights
+    batch.add_status_quo_arm = (
+        batch.status_quo is not None and batch.status_quo.name in batch.arms_by_name
+    )
+
     warn_on_kwargs(callable_with_kwargs=BatchTrial, **kwargs)
     return batch
 
@@ -172,10 +183,26 @@ def trial_from_json(
 
 def transform_type_from_json(object_json: dict[str, Any]) -> type[Transform]:
     """Load the transform type from JSON."""
-    index_in_registry = object_json.pop("index_in_registry")
-    if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:
-        raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
-    return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
+    transform_type = object_json.pop("transform_type")
+    # As the encoder is implemented, this transform type will just be the
+    # name of the transform. However, the previous implementation utilized
+    # the str(transform_type), which produces a string including the
+    # module path. If this is the case, first we need to extract the class name.
+    if transform_type.startswith("<class '"):
+        # The string is "<class 'ax.modelbridge.transforms.transform_type'>".
+        transform_type = transform_type[:-2].split(".")[-1]
+    # Handle deprecated & removed transforms.
+    if transform_type in DEPRECATED_TRANSFORMS:
+        return DEPRECATED_TRANSFORMS[transform_type]
+    if transform_type in REMOVED_TRANSFORMS:
+        logger.exception(
+            f"Transform {transform_type} has been deprecated and removed from Ax. "
+            "We are unable to load this transform and will return the base "
+            "`Transform` class instead. The models on the loaded generation strategy "
+            "may not work correctly!"
+        )
+        return Transform
+    return REVERSE_TRANSFORM_REGISTRY[transform_type]
 
 
 def input_transform_type_from_json(object_json: dict[str, Any]) -> type[InputTransform]:

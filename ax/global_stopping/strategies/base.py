@@ -9,8 +9,9 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
+
+from ax.core.trial_status import TrialStatus
 from ax.utils.common.base import Base
 
 
@@ -21,7 +22,7 @@ class BaseGlobalStoppingStrategy(ABC, Base):
     the functionality of which is to decide whether a trial with partial
     results available during evaluation should be stopped before
     fully completing. In global early stopping, the decision is about
-    whether or not to stop the overall optimzation altogether (e.g. b/c
+    whether or not to stop the overall optimization altogether (e.g. b/c
     the expected marginal gains of running additional evaluations do not
     justify the cost of running these trials).
     """
@@ -81,7 +82,7 @@ class BaseGlobalStoppingStrategy(ABC, Base):
         if num_completed_trials < self.min_trials:
             message = (
                 f"There are only {num_completed_trials} completed trials, "
-                f"but {self} has a minumum of {self.min_trials}."
+                f"but {self} has a minimum of {self.min_trials}."
             )
             return False, message
 

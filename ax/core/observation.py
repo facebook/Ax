@@ -19,16 +19,16 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base_trial import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
+from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -255,16 +255,23 @@ class Observation(Base):
         self.data = data
         self.arm_name = arm_name
 
+    def __repr__(self) -> str:
+        return (
+            "Observation(\n"
+            f"    features={self.features},\n"
+            f"    data={self.data},\n"
+            f"    arm_name='{self.arm_name}',\n"
+            ")"
+        )
+
 
 def _observations_from_dataframe(
     experiment: experiment.Experiment,
     df: pd.DataFrame,
     cols: list[str],
-    arm_name_only: bool,
     map_keys: Iterable[str],
     statuses_to_include: set[TrialStatus],
     statuses_to_include_map_metric: set[TrialStatus],
-    map_keys_as_parameters: bool = False,
 ) -> list[Observation]:
     """Helper method for extracting observations grouped by `cols` from `df`.
 
@@ -272,15 +279,13 @@ def _observations_from_dataframe(
         experiment: Experiment with arm parameters.
         df: DataFrame derived from experiment Data.
         cols: columns used to group data into different observations.
-        arm_name_only: whether arm_name is the only column in `cols`.
+            `cols` must always include `arm_name`.
         map_keys: columns that map dict-like Data
             e.g. `timestamp` in timeseries data, `epoch` in ML training traces.
         statuses_to_include: data from non-MapMetrics will only be included for trials
             with statuses in this set.
         statuses_to_include_map_metric: data from MapMetrics will only be included for
             trials with statuses in this set.
-        map_keys_as_parameters: Whether map_keys should be returned as part of
-            the parameters of the Observation objects.
 
     Returns:
         List of Observation objects.
@@ -289,16 +294,13 @@ def _observations_from_dataframe(
         return []
     observations = []
     abandoned_arms_dict = {}
-    for g, d in df.groupby(by=cols if len(cols) > 1 else cols[0]):
+    # NOTE: dropna is important to avoid dropping the whole or part of the df if
+    # a feature column is filled with NaN / NaT values.
+    for g, d in df.groupby(by=cols, dropna=False):
         obs_kwargs = {}
-        if arm_name_only:
-            features = {"arm_name": g}
-            arm_name = g
-            trial_index = None
-        else:
-            features = dict(zip(cols, g))
-            arm_name = features["arm_name"]
-            trial_index = features.get("trial_index", None)
+        features = dict(zip(cols, g, strict=True))
+        arm_name = features["arm_name"]
+        trial_index = features.get("trial_index", None)
 
         is_arm_abandoned = False
         trial_status = None
@@ -327,7 +329,7 @@ def _observations_from_dataframe(
         if obs_parameters:
             obs_kwargs["parameters"] = obs_parameters
         for f, val in features.items():
-            if f in OBS_KWARGS:
+            if f in OBS_KWARGS and not pd.isna(val):
                 obs_kwargs[f] = val
         # add start and end time of trial if the start and end time
         # is the same for all metrics and arms
@@ -341,10 +343,7 @@ def _observations_from_dataframe(
             obs_parameters.update(json.loads(fidelities))
 
         for map_key in map_keys:
-            if map_key in obs_parameters or map_keys_as_parameters:
-                obs_parameters[map_key] = features[map_key]
-            else:
-                obs_kwargs[Keys.METADATA][map_key] = features[map_key]
+            obs_kwargs[Keys.METADATA][map_key] = features[map_key]
         d = _filter_data_on_status(
             df=d,
             experiment=experiment,
@@ -373,13 +372,31 @@ def _filter_data_on_status(
     df: pd.DataFrame,
     experiment: experiment.Experiment,
     trial_status: TrialStatus | None,
-    # Arms on a BatchTrial can be abandoned even if the BatchTrial is not.
-    # Data will be filtered out if is_arm_abandoned is True and the corresponding
-    # statuses_to_include does not contain TrialStatus.ABANDONED.
     is_arm_abandoned: bool,
     statuses_to_include: set[TrialStatus],
     statuses_to_include_map_metric: set[TrialStatus],
 ) -> pd.DataFrame:
+    """Filters the dataframe to only include observations for the metrics attached
+    to the experiment, and only the observations from the trials with statuses in
+    corresponding `statuses_to_include` for each metric attached to the experiment.
+
+    Args:
+        df: Dataframe of observations to filter.
+        experiment: The experiment to which the data belongs. Used to check whether
+            the metric is attached to the experiment and the type of the metric.
+        trial_status: The status of the trial to which the data belongs.
+        is_arm_abandoned: Whether the arm to which the data belongs is abandoned.
+            This is used to handle abandoned arms on a ``BatchTrial``. ``BatchTrial``
+            may include abandoned arms even when the trial itself is not abandoned.
+            Abandoned arms are treated as if they belong to an abandoned trial.
+        statuses_to_include: Data from non-``MapMetric`` sub-classes will be filtered to
+            only include observations from trials with statuses in this set.
+        statuses_to_include_map_metric: Data from ``MapMetric`` sub-classes will be
+            filtered to only include observations from trials with statuses in this set.
+
+    Returns:
+        A dataframe with filtered observations.
+    """
     if "metric_name" not in df.columns:
         raise ValueError(f"`metric_name` column is missing from {df!r}.")
     dfs = []
@@ -412,23 +429,19 @@ def _filter_data_on_status(
     return df
 
 
-def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
+def get_feature_cols(data: Data) -> list[str]:
     """Get the columns used to identify and group observations from a Data object.
 
     Args:
         data: the Data object from which to extract the feature columns.
-        is_map_data: If True, the Data object's map_keys will be included.
+            If the Data object is an instance of MapData, the map_keys will be
+            included in the feature columns.
 
     Returns:
         A list of column names to be used to group observations.
     """
-    feature_cols = OBS_COLS.intersection(data.df.columns)
-    # note we use this check, rather than isinstance, since
-    # only some Modelbridges (e.g. MapTorchModelBridge)
-    # use observations_from_map_data, which is required
-    # to properly handle MapData features (e.g. fidelity).
-    if is_map_data:
-        data = assert_is_instance(data, MapData)
+    feature_cols = OBS_COLS.intersection(data.true_df.columns)
+    if isinstance(data, MapData):
         feature_cols = feature_cols.union(data.map_keys)
 
     for column in TIME_COLS:
@@ -441,7 +454,7 @@ def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
             feature_cols.discard(column)
     # NOTE: This ensures the order of feature_cols is deterministic so that the order
     # of lists of observations are deterministic, to avoid nondeterministic tests.
-    # Necessary for test_TorchModelBridge.
+    # Necessary for test_TorchAdapter.
     return sorted(feature_cols)
 
 
@@ -450,115 +463,40 @@ def observations_from_data(
     data: Data,
     statuses_to_include: set[TrialStatus] | None = None,
     statuses_to_include_map_metric: set[TrialStatus] | None = None,
-) -> list[Observation]:
-    """Convert Data to observations.
-
-    Converts a Data object to a list of Observation objects. Pulls arm parameters from
-    from experiment. Overrides fidelity parameters in the arm with those found in the
-    Data object.
-
-    Uses a diagonal covariance matrix across metric_names.
-
-    Args:
-        experiment: Experiment with arm parameters.
-        data: Data of observations.
-        statuses_to_include: data from non-MapMetrics will only be included for trials
-            with statuses in this set. Defaults to all statuses except abandoned.
-        statuses_to_include_map_metric: data from MapMetrics will only be included for
-            trials with statuses in this set. Defaults to completed status only.
-
-    Returns:
-        List of Observation objects.
-    """
-    if statuses_to_include is None:
-        statuses_to_include = NON_ABANDONED_STATUSES
-    if statuses_to_include_map_metric is None:
-        statuses_to_include_map_metric = {TrialStatus.COMPLETED}
-    feature_cols = get_feature_cols(data)
-    observations = []
-    arm_name_only = len(feature_cols) == 1  # there will always be an arm name
-    # One DataFrame where all rows have all features.
-    isnull = data.df[feature_cols].isnull()
-    isnull_any = isnull.any(axis=1)
-    incomplete_df_cols = isnull[isnull_any].any()
-
-    # Get the incomplete_df columns that are complete, and usable as groupby keys.
-    complete_feature_cols = list(
-        OBS_COLS.intersection(incomplete_df_cols.index[~incomplete_df_cols])
-    )
-
-    if set(feature_cols) == set(complete_feature_cols):
-        complete_df = data.df
-        incomplete_df = None
-    else:
-        # The groupby and filter is expensive, so do it only if we have to.
-        grouped = data.df.groupby(by=complete_feature_cols)
-        complete_df = grouped.filter(lambda r: ~r[feature_cols].isnull().any().any())
-        incomplete_df = grouped.filter(lambda r: r[feature_cols].isnull().any().any())
-
-    # Get Observations from complete_df
-    observations.extend(
-        _observations_from_dataframe(
-            experiment=experiment,
-            df=complete_df,
-            cols=feature_cols,
-            arm_name_only=arm_name_only,
-            statuses_to_include=statuses_to_include,
-            statuses_to_include_map_metric=statuses_to_include_map_metric,
-            map_keys=[],
-        )
-    )
-    if incomplete_df is not None:
-        # Get Observations from incomplete_df
-        observations.extend(
-            _observations_from_dataframe(
-                experiment=experiment,
-                df=incomplete_df,
-                cols=complete_feature_cols,
-                arm_name_only=arm_name_only,
-                statuses_to_include=statuses_to_include,
-                statuses_to_include_map_metric=statuses_to_include_map_metric,
-                map_keys=[],
-            )
-        )
-    return observations
-
-
-def observations_from_map_data(
-    experiment: experiment.Experiment,
-    map_data: MapData,
-    statuses_to_include: set[TrialStatus] | None = None,
-    statuses_to_include_map_metric: set[TrialStatus] | None = None,
-    map_keys_as_parameters: bool = False,
+    latest_rows_per_group: int | None = None,
     limit_rows_per_metric: int | None = None,
     limit_rows_per_group: int | None = None,
 ) -> list[Observation]:
-    """Convert MapData to observations.
+    """Convert Data (or MapData) to observations.
 
-    Converts a MapData object to a list of Observation objects. Pulls arm parameters
-    from experiment. Overrides fidelity parameters in the arm with those found in the
-    Data object.
+    Converts a Data (or MapData) object to a list of Observation objects.
+    Pulls arm parameters from from experiment. Overrides fidelity parameters
+    in the arm with those found in the Data object.
 
     Uses a diagonal covariance matrix across metric_names.
 
     Args:
         experiment: Experiment with arm parameters.
-        map_data: MapData of observations.
+        data: Data (or MapData) of observations.
         statuses_to_include: data from non-MapMetrics will only be included for trials
             with statuses in this set. Defaults to all statuses except abandoned.
         statuses_to_include_map_metric: data from MapMetrics will only be included for
             trials with statuses in this set. Defaults to all statuses except abandoned.
-        map_keys_as_parameters: Whether map_keys should be returned as part of
-            the parameters of the Observation objects.
-        limit_rows_per_metric: If specified, uses MapData.subsample() with
-            `limit_rows_per_metric` equal to the specified value on the first
-            map_key (map_data.map_keys[0]) to subsample the MapData. This is
-            useful in, e.g., cases where learning curves are frequently
-            updated, leading to an intractable number of Observation objects
-            created.
-        limit_rows_per_group: If specified, uses MapData.subsample() with
-            `limit_rows_per_group` equal to the specified value on the first
-            map_key (map_data.map_keys[0]) to subsample the MapData.
+        latest_rows_per_group: If specified and data is an instance of MapData,
+            uses MapData.latest() with `rows_per_group=latest_rows_per_group` to
+            retrieve the most recent rows for each group. Useful in cases where
+            learning curves are frequently updated, preventing an excessive
+            number of Observation objects. Overrides `limit_rows_per_metric`
+            and `limit_rows_per_group`.
+        limit_rows_per_metric: If specified and data is an instance of MapData,
+            uses MapData.subsample() with `limit_rows_per_metric` on the first
+            map_key (map_data.map_keys[0]) to subsample the MapData. Useful for
+            managing the number of Observation objects when learning curves are
+            frequently updated. Ignored if `latest_rows_per_group` is specified.
+        limit_rows_per_group: If specified and data is an instance of MapData,
+            uses MapData.subsample() with `limit_rows_per_group` on the first
+            map_key (map_data.map_keys[0]) to subsample the MapData. Ignored if
+            `latest_rows_per_group` is specified.
 
     Returns:
         List of Observation objects.
@@ -567,70 +505,29 @@ def observations_from_map_data(
         statuses_to_include = NON_ABANDONED_STATUSES
     if statuses_to_include_map_metric is None:
         statuses_to_include_map_metric = NON_ABANDONED_STATUSES
-    if limit_rows_per_metric is not None or limit_rows_per_group is not None:
-        map_data = map_data.subsample(
-            map_key=map_data.map_keys[0],
-            limit_rows_per_metric=limit_rows_per_metric,
-            limit_rows_per_group=limit_rows_per_group,
-            include_first_last=True,
-        )
-    feature_cols = get_feature_cols(map_data, is_map_data=True)
-    observations = []
-    arm_name_only = len(feature_cols) == 1  # there will always be an arm name
-    # One DataFrame where all rows have all features.
-    isnull = map_data.map_df[feature_cols].isnull()
-    isnull_any = isnull.any(axis=1)
-    incomplete_df_cols = isnull[isnull_any].any()
-
-    # Get the incomplete_df columns that are complete, and usable as groupby keys.
-    obs_cols_and_map = OBS_COLS.union(map_data.map_keys)
-    complete_feature_cols = list(
-        obs_cols_and_map.intersection(incomplete_df_cols.index[~incomplete_df_cols])
-    )
-
-    if set(feature_cols) == set(complete_feature_cols):
-        complete_df = map_data.map_df
-        incomplete_df = None
+    if isinstance(data, MapData):
+        map_keys = data.map_keys
+        if latest_rows_per_group is not None:
+            data = data.latest(map_keys=map_keys, rows_per_group=latest_rows_per_group)
+        elif limit_rows_per_metric is not None or limit_rows_per_group is not None:
+            data = data.subsample(
+                map_key=data.map_keys[0],
+                limit_rows_per_metric=limit_rows_per_metric,
+                limit_rows_per_group=limit_rows_per_group,
+                include_first_last=True,
+            )
+        df = data.map_df
     else:
-        # The groupby and filter is expensive, so do it only if we have to.
-        grouped = map_data.map_df.groupby(
-            by=(
-                complete_feature_cols
-                if len(complete_feature_cols) > 1
-                else complete_feature_cols[0]
-            )
-        )
-        complete_df = grouped.filter(lambda r: ~r[feature_cols].isnull().any().any())
-        incomplete_df = grouped.filter(lambda r: r[feature_cols].isnull().any().any())
-
-    # Get Observations from complete_df
-    observations.extend(
-        _observations_from_dataframe(
-            experiment=experiment,
-            df=complete_df,
-            cols=feature_cols,
-            arm_name_only=arm_name_only,
-            map_keys=map_data.map_keys,
-            statuses_to_include=statuses_to_include,
-            statuses_to_include_map_metric=statuses_to_include_map_metric,
-            map_keys_as_parameters=map_keys_as_parameters,
-        )
+        map_keys = []
+        df = data.df
+    return _observations_from_dataframe(
+        experiment=experiment,
+        df=df,
+        cols=get_feature_cols(data=data),
+        map_keys=map_keys,
+        statuses_to_include=statuses_to_include,
+        statuses_to_include_map_metric=statuses_to_include_map_metric,
     )
-    if incomplete_df is not None:
-        # Get Observations from incomplete_df
-        observations.extend(
-            _observations_from_dataframe(
-                experiment=experiment,
-                df=incomplete_df,
-                cols=complete_feature_cols,
-                arm_name_only=arm_name_only,
-                map_keys=map_data.map_keys,
-                statuses_to_include=statuses_to_include,
-                statuses_to_include_map_metric=statuses_to_include_map_metric,
-                map_keys_as_parameters=map_keys_as_parameters,
-            )
-        )
-    return observations
 
 
 def separate_observations(

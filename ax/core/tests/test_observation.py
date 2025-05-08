@@ -12,26 +12,29 @@ from unittest.mock import Mock, patch, PropertyMock
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
+from ax.core.metric import Metric
 from ax.core.observation import (
     _filter_data_on_status,
     Observation,
     ObservationData,
     ObservationFeatures,
     observations_from_data,
-    observations_from_map_data,
     recombine_observations,
     separate_observations,
 )
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.core.types import TParameterization
 from ax.utils.common.testutils import TestCase
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class ObservationsTest(TestCase):
@@ -402,88 +405,94 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.arm_name, t["arm_name"])
 
     def test_ObservationsFromMapData(self) -> None:
-        truth = {
-            0.5: {
+        truth = [
+            {
                 "arm_name": "0_0",
                 "parameters": {"x": 0, "y": "a", "z": 1},
                 "mean": 2.0,
                 "sem": 2.0,
-                "trial_index": 1,
+                "trial_index": 0,
                 "metric_name": "a",
-                "updated_parameters": {"x": 0, "y": "a", "z": 0.5},
                 "mean_t": np.array([2.0]),
                 "covariance_t": np.array([[4.0]]),
-                "z": 0.5,
+                "step": 0.5,
                 "timestamp": 50,
             },
-            0.25: {
+            {
                 "arm_name": "0_1",
                 "parameters": {"x": 1, "y": "b", "z": 0.5},
                 "mean": 3.0,
                 "sem": 3.0,
-                "trial_index": 2,
+                "trial_index": 1,
                 "metric_name": "a",
-                "updated_parameters": {"x": 1, "y": "b", "z": 0.25},
                 "mean_t": np.array([3.0]),
                 "covariance_t": np.array([[9.0]]),
-                "z": 0.25,
+                "step": 0.25,
                 "timestamp": 25,
             },
-            1: {
+            {
                 "arm_name": "0_0",
                 "parameters": {"x": 0, "y": "a", "z": 1},
                 "mean": 4.0,
                 "sem": 4.0,
-                "trial_index": 1,
+                "trial_index": 2,
                 "metric_name": "b",
-                "updated_parameters": {"x": 0, "y": "a", "z": 1},
                 "mean_t": np.array([4.0]),
                 "covariance_t": np.array([[16.0]]),
-                "z": 1,
+                "step": 1,
                 "timestamp": 100,
             },
-        }
-        arms = {
-            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
-            #  `Union[Dict[str, Union[float, str]], Dict[str, Union[int, str]], float,
-            #  ndarray, str]`.
-            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Union[Dict[str, Union[float, str]],
-            #  Dict[str, Union[int, str]], float, ndarray, str]`.
-            obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
-            for _, obs in truth.items()
-        }
-        experiment = Mock()
-        experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
-        trials = {
-            obs["trial_index"]: Trial(
-                experiment, GeneratorRun(arms=[arms[obs["arm_name"]]])
+        ]
+        arms = [
+            Arm(
+                name=assert_is_instance(obs["arm_name"], str),
+                # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,...
+                parameters=obs["parameters"],
             )
-            for _, obs in truth.items()
-        }
-        type(experiment).arms_by_name = PropertyMock(return_value=arms)
-        type(experiment).trials = PropertyMock(return_value=trials)
-        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
+            for obs in truth
+        ]
+        parameters = [
+            RangeParameter(
+                name="x", parameter_type=ParameterType.INT, lower=0, upper=1
+            ),
+            ChoiceParameter(
+                name="y", parameter_type=ParameterType.STRING, values=["a", "b"]
+            ),
+            RangeParameter(
+                name="z", parameter_type=ParameterType.FLOAT, lower=0.25, upper=1
+            ),
+        ]
+        experiment = Experiment(
+            search_space=SearchSpace(parameters=parameters),
+            tracking_metrics=[Metric(name="a"), Metric(name="b")],
+        )
+        for arm in arms:
+            experiment.new_trial(generator_run=GeneratorRun(arms=[arm]))
 
-        df = pd.DataFrame(list(truth.values()))[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name", "z", "timestamp"]
+        df = pd.DataFrame(truth)[
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "step",
+                "timestamp",
+            ]
         ]
         data = MapData(
             df=df,
             map_key_infos=[
-                MapKeyInfo(key="z", default_value=0.0),
+                MapKeyInfo(key="step", default_value=0.0),
                 MapKeyInfo(key="timestamp", default_value=0.0),
             ],
         )
-        observations = observations_from_map_data(experiment, data)
-
+        observations = observations_from_data(experiment=experiment, data=data)
         self.assertEqual(len(observations), 3)
 
-        for obs in observations:
-            # pyre-fixme[6]: For 1st param expected `float` but got `Union[None,
-            #  bool, float, int, str]`.
-            t = truth[obs.features.parameters["z"]]
-            self.assertEqual(obs.features.parameters, t["updated_parameters"])
+        truth_reordered = [truth[0], truth[2], truth[1]]
+        for t, obs in zip(truth_reordered, observations, strict=True):
+            self.assertEqual(obs.features.parameters, t["parameters"])
             self.assertEqual(obs.features.trial_index, t["trial_index"])
             self.assertEqual(obs.data.metric_names, [t["metric_name"]])
             # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
@@ -491,7 +500,17 @@ class ObservationsTest(TestCase):
             # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
             self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
             self.assertEqual(obs.arm_name, t["arm_name"])
-            self.assertEqual(obs.features.metadata, {"timestamp": t["timestamp"]})
+            self.assertEqual(
+                obs.features.metadata, {"step": t["step"], "timestamp": t["timestamp"]}
+            )
+
+        # testing that we can handle empty data with latest_rows_per_group
+        empty_data = MapData()
+        observations = observations_from_data(
+            experiment,
+            empty_data,
+            latest_rows_per_group=1,
+        )
 
     def test_ObservationsFromDataAbandoned(self) -> None:
         truth = [
@@ -742,7 +761,9 @@ class ObservationsTest(TestCase):
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
 
-    def test_ObservationsFromDataWithDifferentTimesSingleTrial(self) -> None:
+    def test_ObservationsFromDataWithDifferentTimesSingleTrial(
+        self, with_nat: bool = False
+    ) -> None:
         params0: TParameterization = {"x": 0, "y": "a"}
         params1: TParameterization = {"x": 1, "y": "a"}
         truth = [
@@ -754,7 +775,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 0,
                 "metric_name": "a",
                 "start_time": "2024-03-20 08:45:00",
-                "end_time": "2024-03-20 08:47:00",
+                "end_time": pd.NaT if with_nat else "2024-03-20 08:47:00",
             },
             {
                 "arm_name": "0_0",
@@ -764,6 +785,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 0,
                 "metric_name": "b",
                 "start_time": "2024-03-20 08:45:00",
+                "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
             },
             {
                 "arm_name": "0_1",
@@ -773,7 +795,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 0,
                 "metric_name": "a",
                 "start_time": "2024-03-20 08:43:00",
-                "end_time": "2024-03-20 08:46:00",
+                "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
             },
             {
                 "arm_name": "0_1",
@@ -783,7 +805,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 0,
                 "metric_name": "b",
                 "start_time": "2024-03-20 08:45:00",
-                "end_time": "2024-03-20 08:46:00",
+                "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
             },
         ]
         arms_by_name = {
@@ -848,10 +870,16 @@ class ObservationsTest(TestCase):
                 self.assertIsNone(obs.features.end_time)
             else:
                 self.assertIsNone(obs.features.start_time)
-                self.assertEqual(
-                    none_throws(obs.features.end_time).strftime("%Y-%m-%d %X"),
-                    "2024-03-20 08:46:00",
-                )
+                if with_nat:
+                    self.assertIsNone(obs.features.end_time)
+                else:
+                    self.assertEqual(
+                        none_throws(obs.features.end_time).strftime("%Y-%m-%d %X"),
+                        "2024-03-20 08:46:00",
+                    )
+
+    def test_observations_from_dataframe_with_nat_timestamps(self) -> None:
+        self.test_ObservationsFromDataWithDifferentTimesSingleTrial(with_nat=True)
 
     def test_SeparateObservations(self) -> None:
         obs_arm_name = "0_0"
@@ -949,3 +977,21 @@ class ObservationsTest(TestCase):
                 observation.features.metadata.get(SOME_METADATA_KEY),
                 f"value_{observation.features.trial_index}",
             )
+
+    def test_observation_repr(self) -> None:
+        obs = Observation(
+            features=ObservationFeatures(parameters={"x": 20}),
+            data=ObservationData(
+                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+            ),
+            arm_name="0_0",
+        )
+        expected = (
+            "Observation(\n"
+            "    features=ObservationFeatures(parameters={'x': 20}),\n"
+            "    data=ObservationData(metric_names=['a'], "
+            "means=[1], covariance=[[2]]),\n"
+            "    arm_name='0_0',\n"
+            ")"
+        )
+        self.assertEqual(repr(obs), expected)

@@ -11,15 +11,16 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any
+from typing import Any, cast, Mapping
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxError, AxWarning, UnsupportedError
+from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.models.torch_base import TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
@@ -27,6 +28,7 @@ from botorch.acquisition.multi_objective.logei import (
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models.fully_bayesian import FullyBayesianSingleTaskGP
+from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
@@ -37,7 +39,7 @@ from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import SupervisedDataset
-from botorch.utils.transforms import is_fully_bayesian
+from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.likelihoods import Likelihood
@@ -62,7 +64,7 @@ class ModelConfig:
         model_options: Dictionary of options / kwargs for the BoTorch
             ``Model`` constructed during ``Surrogate.fit``.
             Note that the corresponding attribute will later be updated to include any
-            additional kwargs passed into ``BoTorchModel.fit``.
+            additional kwargs passed into ``BoTorchGenerator.fit``.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
         mll_options: Dictionary of options / kwargs for the MLL.
         outcome_transform_classes: List of BoTorch outcome transforms classes. Passed
@@ -260,12 +262,27 @@ def construct_acquisition_and_optimizer_options(
     opt_options = {}
 
     if model_gen_options:
+        # Define the allowed paths
+
+        if (
+            len(
+                extra_keys_in_model_gen_options := set(model_gen_options.keys())
+                - {Keys.OPTIMIZER_KWARGS.value, Keys.ACQF_KWARGS.value}
+            )
+            > 0
+        ):
+            raise ValueError(
+                "Found forbidden keys in `model_gen_options`: "
+                f"{extra_keys_in_model_gen_options}."
+            )
+
         acq_options.update(
             assert_is_instance(
                 model_gen_options.get(Keys.ACQF_KWARGS, {}),
                 dict,
             )
         )
+
         # TODO: Add this if all acq. functions accept the `subset_model`
         # kwarg or opt for kwarg filtering.
         # acq_options[SUBSET_MODEL] = model_gen_options.get(SUBSET_MODEL)
@@ -382,140 +399,8 @@ def _get_shared_rows(Xs: list[Tensor]) -> tuple[Tensor, list[Tensor]]:
     return X_shared, idcs_shared
 
 
-def fit_botorch_model(
-    model: Model,
-    mll_class: type[MarginalLogLikelihood],
-    mll_options: dict[str, Any] | None = None,
-) -> None:
-    """Fit a BoTorch model."""
-    mll_options = mll_options or {}
-    models = model.models if isinstance(model, ModelList) else [model]
-    for m in models:
-        # TODO: Support deterministic models when we support `ModelList`
-        if is_fully_bayesian(m):
-            fit_fully_bayesian_model_nuts(
-                m,
-                disable_progbar=True,
-                **mll_options,
-            )
-        elif isinstance(m, (GPyTorchModel, PairwiseGP)):
-            mll_options = mll_options or {}
-            mll = mll_class(likelihood=m.likelihood, model=m, **mll_options)
-            fit_gpytorch_mll(mll)
-        else:
-            raise NotImplementedError(
-                f"Model of type {m.__class__.__name__} is currently not supported."
-            )
-
-
-def _tensor_difference(A: Tensor, B: Tensor) -> Tensor:
-    """Used to return B sans any Xs that also appear in A"""
-    C = torch.cat((A, B), dim=0)
-    D, inverse_ind = torch.unique(C, return_inverse=True, dim=0)
-    n = A.shape[0]
-    A_indices = inverse_ind[:n].tolist()
-    B_indices = inverse_ind[n:].tolist()
-    Bi_set = set(B_indices) - set(A_indices)
-    return D[list(Bi_set)]
-
-
-def check_outcome_dataset_match(
-    outcome_names: Sequence[str],
-    datasets: Sequence[SupervisedDataset],
-    exact_match: bool,
-) -> None:
-    """Check that the given outcome names match those of datasets.
-
-    Based on `exact_match` we either require that outcome names are
-    a subset of all outcomes or require the them to be the same.
-
-    Also checks that there are no duplicates in outcome names.
-
-    Args:
-        outcome_names: A list of outcome names.
-        datasets: A list of `SupervisedDataset` objects.
-        exact_match: If True, outcome_names must be the same as the union of
-            outcome names of the datasets. Otherwise, we check that the
-            outcome_names are a subset of all outcomes.
-
-    Raises:
-        ValueError: If there is no match.
-    """
-    all_outcomes = sum((ds.outcome_names for ds in datasets), [])
-    set_all_outcomes = set(all_outcomes)
-    set_all_spec_outcomes = set(outcome_names)
-    if len(set_all_outcomes) != len(all_outcomes):
-        raise AxError("Found duplicate outcomes in the datasets.")
-    if len(set_all_spec_outcomes) != len(outcome_names):
-        raise AxError("Found duplicate outcome names.")
-
-    if not exact_match:
-        if not set_all_spec_outcomes.issubset(set_all_outcomes):
-            raise AxError(
-                "Outcome names must be a subset of the outcome names of the datasets."
-                f"Got {outcome_names=} but the datasets model {set_all_outcomes}."
-            )
-    elif set_all_spec_outcomes != set_all_outcomes:
-        raise AxError(
-            "Each outcome name must correspond to an outcome in the datasets. "
-            f"Got {outcome_names=} but the datasets model {set_all_outcomes}."
-        )
-
-
-def get_subset_datasets(
-    datasets: Sequence[SupervisedDataset],
-    subset_outcome_names: Sequence[str],
-) -> list[SupervisedDataset]:
-    """Get the list of datasets corresponding to the given subset of
-    outcome names. This is used to separate out datasets that are
-    used by one surrogate.
-
-    Args:
-        datasets: A list of `SupervisedDataset` objects.
-        subset_outcome_names: A list of outcome names to get datasets for.
-
-    Returns:
-        A list of `SupervisedDataset` objects corresponding to the given
-        subset of outcome names.
-    """
-    check_outcome_dataset_match(
-        outcome_names=subset_outcome_names, datasets=datasets, exact_match=False
-    )
-    single_outcome_datasets = {
-        ds.outcome_names[0]: ds for ds in datasets if len(ds.outcome_names) == 1
-    }
-    multi_outcome_datasets = {
-        tuple(ds.outcome_names): ds for ds in datasets if len(ds.outcome_names) > 1
-    }
-    subset_datasets = []
-    outcomes_processed = []
-    for outcome_name in subset_outcome_names:
-        if outcome_name in outcomes_processed:
-            # This can happen if the outcome appears in a multi-outcome
-            # dataset that is already processed.
-            continue
-        if outcome_name in single_outcome_datasets:
-            # The default case of outcome with a corresponding dataset.
-            ds = single_outcome_datasets[outcome_name]
-        else:
-            # The case of outcome being part of a multi-outcome dataset.
-            for outcome_names in multi_outcome_datasets.keys():
-                if outcome_name in outcome_names:
-                    ds = multi_outcome_datasets[outcome_names]
-                    if not set(ds.outcome_names).issubset(subset_outcome_names):
-                        raise UnsupportedError(
-                            "Breaking up a multi-outcome dataset between "
-                            "surrogates is not supported."
-                        )
-                    break
-        # Pyre-ignore [61]: `ds` may not be defined but it is guaranteed to be defined.
-        subset_datasets.append(ds)
-        outcomes_processed.extend(ds.outcome_names)
-    return subset_datasets
-
-
 def subset_state_dict(
-    state_dict: OrderedDict[str, Tensor],
+    state_dict: Mapping[str, Tensor],
     submodel_index: int,
 ) -> OrderedDict[str, Tensor]:
     """Get the state dict for a submodel from the state dict of a model list.
@@ -535,3 +420,59 @@ def subset_state_dict(
         if k.startswith(expected_substring)
     ]
     return OrderedDict(new_items)
+
+
+# ----------------------- Model fitting helpers ----------------------- #
+
+
+fit_botorch_model = Dispatcher(name="fit_botorch_model", encoder=_argparse_type_encoder)
+
+
+@fit_botorch_model.register(ModelList)
+def _fit_botorch_model_list(
+    model: Model,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    for m in cast(list[Model], model.models):
+        fit_botorch_model(m, mll_class=mll_class, mll_options=mll_options)
+
+
+@fit_botorch_model.register(GPyTorchModel)
+@fit_botorch_model.register(PairwiseGP)
+def _fit_botorch_model_gpytorch(
+    model: GPyTorchModel | PairwiseGP,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    """Fit a GPyTorch based BoTorch model."""
+    mll_options = mll_options or {}
+    mll = mll_class(likelihood=model.likelihood, model=model, **mll_options)
+    fit_gpytorch_mll(mll)
+
+
+@fit_botorch_model.register(FullyBayesianSingleTaskGP)
+@fit_botorch_model.register(SaasFullyBayesianMultiTaskGP)
+def _fit_botorch_model_fully_bayesian_nuts(
+    model: FullyBayesianSingleTaskGP | SaasFullyBayesianMultiTaskGP,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    mll_options = mll_options or {}
+    mll_options.setdefault("disable_progbar", True)
+    fit_fully_bayesian_model_nuts(model, **mll_options)
+
+
+@fit_botorch_model.register(object)
+def _fit_botorch_model_not_implemented(
+    model: Model,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    raise NotImplementedError(
+        f"fit_botorch_model is not implemented for {model.__class__.__name__}. "
+        "You can register a model fitting routine for it by adding new case "
+        "to the `fit_botorch_model` dispatcher. To do so, decorate a function "
+        "that accepts `model`, `mll_class` and `mll_options` inputs with "
+        f"`@fit_botorch_model.register({model.__class__.__name__})`."
+    )

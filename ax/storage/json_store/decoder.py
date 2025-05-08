@@ -33,19 +33,21 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError, STORAGE_DOCS_SUFFIX
-from ax.modelbridge.generation_node_input_constructors import InputConstructorPurpose
-from ax.modelbridge.generation_strategy import (
+from ax.generation_strategy.generation_node_input_constructors import (
+    InputConstructorPurpose,
+)
+from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import _decode_callables_from_references, ModelRegistryBase
-from ax.modelbridge.transition_criterion import (
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
     AuxiliaryExperimentCheck,
     TransitionCriterion,
     TrialBasedCriterion,
 )
+from ax.modelbridge.registry import _decode_callables_from_references, ModelRegistryBase
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoders import (
@@ -82,6 +84,18 @@ _DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
     "ST_MTGP_LEGACY": "ST_MTGP",
     "ST_MTGP_NEHVI": "ST_MTGP",
 }
+
+# Deprecated model kwargs, to be removed from GStep / GNodes.
+_DEPRECATED_MODEL_KWARGS: tuple[str, ...] = (
+    "fit_on_update",
+    "torch_dtype",
+    "status_quo_name",
+    "status_quo_features",
+)
+
+# Deprecated node input constructors, removed from GNodes.
+# NOTE: These are the enum keys, which are typically upper-case.
+_DEPRECATED_NODE_INPUT_CONSTRUCTORS: tuple[str, ...] = ("STATUS_QUO_FEATURES",)
 
 
 @dataclass
@@ -183,7 +197,7 @@ def object_from_json(
             return generation_node_from_json(
                 generation_node_json=object_json, **vars(registry_kwargs)
             )
-        elif _class == ModelSpec:
+        elif _class == GeneratorSpec:
             return model_spec_from_json(
                 model_spec_json=object_json, **vars(registry_kwargs)
             )
@@ -306,6 +320,9 @@ def generator_run_from_json(
     time_created_json = object_json.pop("time_created")
     type_json = object_json.pop("generator_run_type")
     index_json = object_json.pop("index")
+    # Remove `objective_thresholds` to avoid issues with registries, since
+    # `ObjectiveThreshold` depend on `Metric` objects.
+    object_json.pop("objective_thresholds", None)
     generator_run = GeneratorRun(
         **{
             k: object_from_json(
@@ -316,6 +333,19 @@ def generator_run_from_json(
             for k, v in object_json.items()
         }
     )
+    # Remove deprecated kwargs from model kwargs & bridge kwargs.
+    if generator_run._model_kwargs is not None:
+        generator_run._model_kwargs = {
+            k: v
+            for k, v in generator_run._model_kwargs.items()
+            if k not in _DEPRECATED_MODEL_KWARGS
+        }
+    if generator_run._bridge_kwargs is not None:
+        generator_run._bridge_kwargs = {
+            k: v
+            for k, v in generator_run._bridge_kwargs.items()
+            if k not in _DEPRECATED_MODEL_KWARGS
+        }
     generator_run._time_created = object_from_json(
         time_created_json,
         decoder_registry=decoder_registry,
@@ -639,14 +669,16 @@ def generation_node_from_json(
     # recursively decode dictionary key values.
     decoded_input_constructors = None
     if "input_constructors" in generation_node_json.keys():
-        decoded_input_constructors = {
-            InputConstructorPurpose[key]: object_from_json(
+        decoded_input_constructors = {}
+        for key, value in generation_node_json.pop("input_constructors").items():
+            if key in _DEPRECATED_NODE_INPUT_CONSTRUCTORS:
+                # Skip deprecated input constructors.
+                continue
+            decoded_input_constructors[InputConstructorPurpose[key]] = object_from_json(
                 value,
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
-            for key, value in generation_node_json.pop("input_constructors").items()
-        }
 
     return GenerationNode(
         node_name=generation_node_json.pop("node_name"),
@@ -696,7 +728,7 @@ def _extract_surrogate_spec_from_surrogate_specs(
     key with the value of that element.
 
     This helper will keep deserialization of MBM models backwards compatible
-    even after we remove the ``surrogate_specs`` argument from ``BoTorchModel``.
+    even after we remove the ``surrogate_specs`` argument from ``BoTorchGenerator``.
 
     Args:
         model_kwargs: A dictionary of model kwargs to update.
@@ -725,7 +757,9 @@ def generation_step_from_json(
         generation_step_json
     )
     kwargs = generation_step_json.pop("model_kwargs", None)
-    kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
+    for k in _DEPRECATED_MODEL_KWARGS:
+        # Remove deprecated kwargs.
+        kwargs.pop(k, None)
     if kwargs is not None:
         kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
     gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
@@ -783,14 +817,16 @@ def model_spec_from_json(
     model_spec_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> ModelSpec:
-    """Load ModelSpec from JSON."""
+) -> GeneratorSpec:
+    """Load GeneratorSpec from JSON."""
     kwargs = model_spec_json.pop("model_kwargs", None)
-    kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
+    for k in _DEPRECATED_MODEL_KWARGS:
+        # Remove deprecated model kwargs.
+        kwargs.pop(k, None)
     if kwargs is not None:
         kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
     gen_kwargs = model_spec_json.pop("model_gen_kwargs", None)
-    return ModelSpec(
+    return GeneratorSpec(
         model_enum=object_from_json(
             model_spec_json.pop("model_enum"),
             decoder_registry=decoder_registry,
@@ -1086,15 +1122,15 @@ def _update_deprecated_model_registry(name: str) -> str:
     will error out while looking it up in the corresponding enum.
 
     Args:
-        name: The name of the ``Models`` enum.
+        name: The name of the ``Generators`` enum.
 
     Returns:
-        Either the given name or the name of a replacement ``Models`` enum.
+        Either the given name or the name of a replacement ``Generators`` enum.
     """
     if name in _DEPRECATED_MODEL_TO_REPLACEMENT:
         new_name = _DEPRECATED_MODEL_TO_REPLACEMENT[name]
         logger.exception(
-            f"{name} model is deprecated and replaced by Models.{new_name}. "
+            f"{name} model is deprecated and replaced by Generators.{new_name}. "
             f"Please use {new_name} in the future. Note that this warning only "
             "enables deserialization of experiments with deprecated models. "
             "Model fitting with the loaded experiment may still fail. "

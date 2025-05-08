@@ -7,7 +7,6 @@
 # pyre-strict
 
 from collections import defaultdict
-from logging import Logger
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
@@ -20,15 +19,12 @@ from ax.core.types import TParamValue
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.standardize_y import compute_standardization_parameters
 from ax.models.types import TConfig
-from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401
-
-logger: Logger = get_logger(__name__)
 
 
 class StratifiedStandardizeY(Transform):
@@ -51,7 +47,7 @@ class StratifiedStandardizeY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         """Initialize StratifiedStandardizeY.
@@ -99,7 +95,9 @@ class StratifiedStandardizeY(Transform):
             ]
             if len(task_parameters) == 0:
                 raise ValueError(
-                    "Must specify parameter for stratified standardization"
+                    "Must specify parameter for stratified standardization. This can "
+                    "happen if TrialAsTask is a no-op, due to there only being a single"
+                    " task level."
                 )
             elif len(task_parameters) != 1:
                 raise ValueError(
@@ -148,7 +146,7 @@ class StratifiedStandardizeY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         if len(optimization_config.all_constraints) == 0:

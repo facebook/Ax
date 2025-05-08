@@ -9,16 +9,15 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from copy import deepcopy
-from logging import Logger
 from typing import Any, Optional
 
 import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import AxWarning, DataRequiredError
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     get_qLogNEI,
@@ -30,25 +29,21 @@ from ax.models.torch.utils import (
     _datasets_to_legacy_inputs,
     _get_X_pending_and_observed,
     _to_inequality_constraints,
-    normalize_indices,
     predict_from_model,
     subset_model,
 )
-from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
+from ax.models.torch_base import TorchGenerator, TorchGenResults, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models import ModelList
 from botorch.models.model import Model
 from botorch.utils.datasets import SupervisedDataset
-from botorch.utils.transforms import is_ensemble
-from pyre_extensions import assert_is_instance
+from botorch.utils.transforms import is_ensemble, normalize_indices
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 from torch.nn import ModuleList  # @manual
-
-logger: Logger = get_logger(__name__)
 
 
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.
@@ -84,7 +79,7 @@ TOptimizer = Callable[
 ]
 TBestPointRecommender = Callable[
     [
-        TorchModel,
+        TorchGenerator,
         list[tuple[float, float]],
         Tensor,
         Optional[tuple[Tensor, Tensor]],
@@ -97,7 +92,7 @@ TBestPointRecommender = Callable[
 ]
 
 
-class BotorchModel(TorchModel):
+class LegacyBoTorchGenerator(TorchGenerator):
     r"""
     Customizable botorch model.
 
@@ -158,9 +153,9 @@ class BotorchModel(TorchModel):
     `fidelity_features` is a list of ints that specify the positions of fidelity
     parameters in 'Xs', `metric_names` provides the names of each `Y` in `Ys`,
     `state_dict` is a pytorch module state dict, and `model` is a BoTorch `Model`.
-    Optional kwargs are being passed through from the `BotorchModel` constructor.
-    This callable is assumed to return a fitted BoTorch model that has the same
-    dtype and lives on the same device as the input tensors.
+    Optional kwargs are being passed through from the `LegacyBoTorchGenerator`
+    constructor. This callable is assumed to return a fitted BoTorch model that has
+    the same dtype and lives on the same device as the input tensors.
 
     ::
 
@@ -222,7 +217,7 @@ class BotorchModel(TorchModel):
             target_fidelities,
         ) -> candidates
 
-    Here `model` is a TorchModel, `bounds` is a list of tuples containing bounds
+    Here `model` is a TorchGenerator, `bounds` is a list of tuples containing bounds
     on the parameters, `objective_weights` is a tensor of weights for the model outputs,
     `outcome_constraints` is a tuple of tensors describing the (linear) outcome
     constraints, `linear_constraints` is a tuple of tensors describing constraints
@@ -257,12 +252,12 @@ class BotorchModel(TorchModel):
         **kwargs: Any,
     ) -> None:
         warnings.warn(
-            "The legacy `BotorchModel` and its subclasses, including the current"
-            f"class `{self.__class__.__name__}`, slated for deprecation. "
+            "The legacy `LegacyBoTorchGenerator` and its subclasses, including the "
+            f"current class `{self.__class__.__name__}`, slated for deprecation. "
             "These models will not be supported going forward and may be "
             "fully removed in a future release. Please consider using the "
-            "Modular BoTorch Model (MBM) setup (ax/models/torch/botorch_modular) "
-            "instead. If you run into a use case that is not supported by MBM, "
+            "Modular BoTorch Generator (MBG) setup (ax/models/torch/botorch_modular) "
+            "instead. If you run into a use case that is not supported by MBG, "
             "please raise this with an issue at https://github.com/facebook/Ax",
             DeprecationWarning,
             stacklevel=2,
@@ -289,26 +284,30 @@ class BotorchModel(TorchModel):
         self.fidelity_features: list[int] = []
         self.metric_names: list[str] = []
 
-    @copy_doc(TorchModel.fit)
+    @copy_doc(TorchGenerator.fit)
     def fit(
         self,
-        datasets: list[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
         if len(datasets) == 0:
-            raise DataRequiredError("BotorchModel.fit requires non-empty data sets.")
+            raise DataRequiredError(
+                "LegacyBoTorchGenerator.fit requires non-empty data sets."
+            )
         self.Xs, self.Ys, self.Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         self.metric_names = sum((ds.outcome_names for ds in datasets), [])
         # Store search space info for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
         self.dtype = self.Xs[0].dtype
         self.device = self.Xs[0].device
-        self.task_features = normalize_indices(
-            search_space_digest.task_features, d=self.Xs[0].size(-1)
+        self.task_features = none_throws(
+            normalize_indices(search_space_digest.task_features, d=self.Xs[0].size(-1))
         )
-        self.fidelity_features = normalize_indices(
-            search_space_digest.fidelity_features, d=self.Xs[0].size(-1)
+        self.fidelity_features = none_throws(
+            normalize_indices(
+                search_space_digest.fidelity_features, d=self.Xs[0].size(-1)
+            )
         )
         extra_kwargs = {} if self.prior is None else {"prior": self.prior}
         self._model = self.model_constructor(  # pyre-ignore [28]
@@ -324,11 +323,20 @@ class BotorchModel(TorchModel):
             **self._kwargs,
         )
 
-    @copy_doc(TorchModel.predict)
-    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
+    @copy_doc(TorchGenerator.predict)
+    def predict(
+        self, X: Tensor, use_posterior_predictive: bool = False
+    ) -> tuple[Tensor, Tensor]:
+        if use_posterior_predictive:
+            warnings.warn(
+                f"{self.__class__.__name__} does not support posterior-predictive "
+                "predictions. Ignoring `use_posterior_predictive`. ",
+                AxWarning,
+                stacklevel=2,
+            )
         return self.model_predictor(model=self.model, X=X)  # pyre-ignore [28]
 
-    @copy_doc(TorchModel.gen)
+    @copy_doc(TorchGenerator.gen)
     def gen(
         self,
         n: int,
@@ -341,7 +349,7 @@ class BotorchModel(TorchModel):
 
         if search_space_digest.fidelity_features:
             raise NotImplementedError(
-                "Base BotorchModel does not support fidelity_features."
+                "Base LegacyBoTorchGenerator does not support fidelity_features."
             )
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,
@@ -439,7 +447,7 @@ class BotorchModel(TorchModel):
             gen_metadata=gen_metadata,
         )
 
-    @copy_doc(TorchModel.best_point)
+    @copy_doc(TorchGenerator.best_point)
     def best_point(
         self,
         search_space_digest: SearchSpaceDigest,
@@ -465,13 +473,13 @@ class BotorchModel(TorchModel):
             target_fidelities=target_fidelities,
         )
 
-    @copy_doc(TorchModel.cross_validate)
-    def cross_validate(  # pyre-ignore [14]: `search_space_digest` arg not needed here
+    @copy_doc(TorchGenerator.cross_validate)
+    def cross_validate(
         self,
-        datasets: list[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         X_test: Tensor,
+        search_space_digest: SearchSpaceDigest,
         use_posterior_predictive: bool = False,
-        **kwargs: Any,
     ) -> tuple[Tensor, Tensor]:
         if self._model is None:
             raise RuntimeError("Cannot cross-validate model that has not been fitted.")

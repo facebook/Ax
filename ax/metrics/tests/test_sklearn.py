@@ -49,6 +49,7 @@ class SklearnMetricTest(TestCase):
             "target": np.random.randint(0, 3, (5,)),
         }
         with ExitStack() as es:
+            # mocks sklearn.datasets.load_digits, which loads a datast from disk
             mock_load_digits = es.enter_context(
                 mock.patch(
                     "ax.metrics.sklearn.datasets.load_digits",
@@ -56,6 +57,8 @@ class SklearnMetricTest(TestCase):
                 )
             )
             cv_scores = np.random.random(5)
+            # mocks sklearn.cross_val_score so that the RandomForestClassifier
+            # won't be cross-validated
             mock_cv = es.enter_context(
                 mock.patch(
                     "ax.metrics.sklearn.cross_val_score",
@@ -68,9 +71,7 @@ class SklearnMetricTest(TestCase):
                     wraps=RandomForestClassifier,
                 )
             )
-            metric = SklearnMetric(
-                name="test_metric",
-            )
+            metric = SklearnMetric(name="test_metric")
             self.assertIs(metric.dataset, SklearnDataset.DIGITS)
             self.assertIs(metric.model_type, SklearnModelType.RF)
             self.assertFalse(metric.lower_is_better)

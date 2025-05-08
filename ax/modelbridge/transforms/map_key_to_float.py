@@ -6,14 +6,14 @@
 
 # pyre-strict
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
-from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
+from ax.core.utils import extract_map_keys_from_opt_config
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.metadata_to_float import MetadataToFloat
 from ax.models.types import TConfig
-from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -22,10 +22,10 @@ if TYPE_CHECKING:
 
 class MapKeyToFloat(MetadataToFloat):
     """
-    This transform extracts the entry from the metadata field of the
-    observation features corresponding to the default map key
-    (`MapMetric.map_key_info.key`) and inserts it into the
-    parameter field.
+    This transform extracts the entry from the metadata field of the observation
+    features corresponding to the `parameters` specified in the transform config
+    and inserts it into the parameter field. If no parameters are specified in the
+    config, the transform will extract all map key names from the optimization config.
 
     Inheriting from the `MetadataToFloat` transform, this transform
     also adds a range (float) parameter to the search space.
@@ -37,21 +37,33 @@ class MapKeyToFloat(MetadataToFloat):
     Transform is done in-place.
     """
 
+    # NOTE: This will be ignored if the lower bound is <= 0.
     DEFAULT_LOG_SCALE: bool = True
-    DEFAULT_MAP_KEY: str = MapMetric.map_key_info.key
 
     def __init__(
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         config = config or {}
-        self.parameters: dict[str, dict[str, Any]] = assert_is_instance(
-            config.setdefault("parameters", {}), dict
-        )
-        self.parameters.setdefault(self.DEFAULT_MAP_KEY, {})
+        if "parameters" not in config:
+            # Extract map keys from the optimization config, if no parameters are
+            # specified in the config.
+            if modelbridge is not None and modelbridge._optimization_config is not None:
+                config["parameters"] = {
+                    key: {}
+                    for key in extract_map_keys_from_opt_config(
+                        optimization_config=modelbridge._optimization_config
+                    )
+                }
+            else:
+                raise UserInputError(
+                    f"{self.__class__.__name__} requires either `parameters` to be "
+                    "specified in the transform config or a modelbridge with an "
+                    "optimization config, from which the map keys can be extracted."
+                )
         super().__init__(
             search_space=search_space,
             observations=observations,
@@ -60,8 +72,9 @@ class MapKeyToFloat(MetadataToFloat):
         )
 
     def _transform_observation_feature(self, obsf: ObservationFeatures) -> None:
-        if not obsf.parameters:
-            for p in self._parameter_list:
-                obsf.parameters[p.name] = p.upper
+        if len(obsf.parameters) == 0:
+            obsf.parameters = {p.name: p.upper for p in self._parameter_list}
             return
+        if obsf.metadata is None or len(obsf.metadata) == 0:
+            obsf.metadata = {p.name: p.upper for p in self._parameter_list}
         super()._transform_observation_feature(obsf)

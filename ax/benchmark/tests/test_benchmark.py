@@ -7,6 +7,7 @@
 
 import logging
 import tempfile
+from datetime import datetime
 from itertools import product
 from logging import WARNING
 from math import pi
@@ -16,17 +17,20 @@ from unittest.mock import patch
 import numpy as np
 import torch
 from ax.benchmark.benchmark import (
+    _get_inference_trace_from_params,
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
     compute_baseline_value_from_sobol,
     compute_score_trace,
+    get_benchmark_result_with_cumulative_steps,
     get_benchmark_scheduler_options,
-    get_oracle_experiment_from_experiment,
+    get_opt_trace_by_steps,
     get_oracle_experiment_from_params,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
+    BenchmarkProblem,
     create_problem_from_botorch,
     get_moo_opt_config,
     get_soo_opt_config,
@@ -47,10 +51,13 @@ from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
-from ax.modelbridge.external_generation_node import ExternalGenerationNode
-from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import Models
+from ax.generation_strategy.external_generation_node import ExternalGenerationNode
+from ax.generation_strategy.generation_strategy import (
+    GenerationNode,
+    GenerationStrategy,
+)
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.modelbridge.registry import Generators
 from ax.service.utils.scheduler_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
@@ -68,7 +75,7 @@ from ax.utils.testing.benchmark_stubs import (
     TestDataset,
 )
 
-from ax.utils.testing.core_stubs import get_branin_experiment, get_experiment
+from ax.utils.testing.core_stubs import get_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
@@ -85,6 +92,26 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestBenchmark(TestCase):
+    def benchmark_replication(
+        self,
+        problem: BenchmarkProblem,
+        method: BenchmarkMethod,
+        seed: int,
+        strip_runner_before_saving: bool = True,
+    ) -> BenchmarkResult:
+        """
+        Run benchmark_replication with logs set to WARNING.
+
+        Suppresses voluminous INFO logs from the scheduler.
+        """
+        return benchmark_replication(
+            problem=problem,
+            method=method,
+            seed=seed,
+            strip_runner_before_saving=strip_runner_before_saving,
+            scheduler_logging_level=WARNING,
+        )
+
     @mock_botorch_optimize
     def test_batch(self) -> None:
         batch_size = 5
@@ -123,9 +150,7 @@ class TestBenchmark(TestCase):
     def _test_storage(self, map_data: bool) -> None:
         problem = get_async_benchmark_problem(map_data=map_data)
         method = get_async_benchmark_method()
-        res = benchmark_replication(
-            problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
-        )
+        res = self.benchmark_replication(problem=problem, method=method, seed=0)
         # Experiment is not in storage yet
         self.assertTrue(res.experiment is not None)
         self.assertEqual(res.experiment_storage_id, None)
@@ -160,6 +185,7 @@ class TestBenchmark(TestCase):
                 oracle_trace=np.array([]),
                 optimization_trace=np.array([]),
                 score_trace=np.array([]),
+                cost_trace=np.array([]),
                 fit_time=0.0,
                 gen_time=0.0,
                 experiment=get_experiment(),
@@ -176,6 +202,7 @@ class TestBenchmark(TestCase):
                 oracle_trace=np.array([]),
                 optimization_trace=np.array([]),
                 score_trace=np.array([]),
+                cost_trace=np.array([]),
                 fit_time=0.0,
                 gen_time=0.0,
             )
@@ -187,9 +214,7 @@ class TestBenchmark(TestCase):
             get_problem("jenatton", num_trials=6),
         ]
         for problem in problems:
-            res = benchmark_replication(
-                problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
-            )
+            res = self.benchmark_replication(problem=problem, method=method, seed=0)
 
             self.assertEqual(
                 problem.num_trials, len(none_throws(res.experiment).trials)
@@ -240,12 +265,7 @@ class TestBenchmark(TestCase):
             ("moo", get_moo_surrogate()),
         ]:
             with self.subTest(name, problem=problem):
-                res = benchmark_replication(
-                    problem=problem,
-                    method=method,
-                    seed=0,
-                    scheduler_logging_level=WARNING,
-                )
+                res = self.benchmark_replication(problem=problem, method=method, seed=0)
 
                 self.assertEqual(
                     problem.num_trials,
@@ -311,20 +331,31 @@ class TestBenchmark(TestCase):
             "Complete out of order": [0, 0, 1, 2],
         }
         expected_pending_in_each_gen = {
-            "All complete at different times": [[], [0], [1], [2]],
-            "Trials complete immediately": [[], [0], [], [2]],
-            "Trials complete at same time": [[], [0], [], [2]],
-            "Complete out of order": [[], [0], [0], [2]],
+            "All complete at different times": [[None], [0], [1], [2]],
+            "Trials complete immediately": [[None], [0], [None], [2]],
+            "Trials complete at same time": [[None], [0], [None], [2]],
+            "Complete out of order": [[None], [0], [0], [2]],
         }
         # When two trials complete at the same time, the inference trace uses
         # data from both to get the best point, and repeats it.
-        # The oracle trace is the same.
-        expected_inference_traces = {
+        expected_traces = {
             "All complete at different times": [0, 1, 2, 3],
             # 0 and 1 complete at the same time, as do 2 and 3
-            "Trials complete immediately": [1, 1, 3, 3],
-            "Trials complete at same time": [1, 1, 3, 3],
+            "Trials complete immediately": [1, 3],
+            "Trials complete at same time": [1, 3],
             "Complete out of order": [1, 1, 3, 3],
+        }
+        expected_costs = {
+            "All complete at different times": [1, 3, 7, 12],
+            "Trials complete immediately": [1, 2],
+            "Trials complete at same time": [1, 2],
+            "Complete out of order": [1, 2, 3, 4],
+        }
+        expected_backend_simulator_time = {
+            "All complete at different times": 12,
+            "Trials complete immediately": 2,
+            "Trials complete at same time": 2,
+            "Complete out of order": 4,
         }
 
         for case_name, step_runtime_fn in step_runtime_fns.items():
@@ -340,12 +371,11 @@ class TestBenchmark(TestCase):
                     ),
                     original_method=ExternalGenerationNode._gen,
                 ) as mock_gen:
-                    result = benchmark_replication(
+                    result = self.benchmark_replication(
                         problem=problem,
                         method=method,
                         seed=0,
                         strip_runner_before_saving=False,
-                        scheduler_logging_level=WARNING,
                     )
                 pending_in_each_gen = [
                     [
@@ -365,15 +395,27 @@ class TestBenchmark(TestCase):
                 backend_simulator = none_throws(
                     runner.simulated_backend_runner
                 ).simulator
+                self.assertEqual(
+                    backend_simulator.time,
+                    expected_backend_simulator_time[case_name],
+                    msg=case_name,
+                )
                 completed_trials = backend_simulator.state().completed
                 self.assertEqual(len(completed_trials), 4)
+
+                params_dict = {
+                    idx: trial.arms[0].parameters
+                    for idx, trial in experiment.trials.items()
+                }
+                expected_runtimes = {
+                    idx: step_runtime_fn(params=params)
+                    for idx, params in params_dict.items()
+                }
                 for trial_index, expected_start_time in enumerate(
                     expected_start_times[case_name]
                 ):
-                    trial = experiment.trials[trial_index]
-                    params = trial.arms[0].parameters
-                    self.assertEqual(trial.index, params["x0"])
-                    expected_runtime = step_runtime_fn(params=params)
+                    self.assertEqual(trial_index, params_dict[trial_index]["x0"])
+                    expected_runtime = expected_runtimes[trial_index]
                     self.assertEqual(
                         backend_simulator.get_sim_trial_by_index(
                             trial_index=trial_index
@@ -391,16 +433,85 @@ class TestBenchmark(TestCase):
                 self.assertFalse(np.isnan(result.inference_trace).any())
                 self.assertEqual(
                     result.inference_trace.tolist(),
-                    expected_inference_traces[case_name],
+                    expected_traces[case_name],
+                    msg=case_name,
+                )
+                self.assertEqual(
+                    result.oracle_trace.tolist(),
+                    expected_traces[case_name],
+                    msg=case_name,
+                )
+                self.assertEqual(
+                    result.cost_trace.tolist(),
+                    expected_costs[case_name],
+                    msg=case_name,
                 )
                 if map_data:
                     data = assert_is_instance(experiment.lookup_data(), MapData)
                     self.assertEqual(len(data.df), 4, msg=case_name)
                     self.assertEqual(len(data.map_df), 4, msg=case_name)
 
+                # Check trial start and end times
+                start_of_time = datetime.fromtimestamp(0)
+                created_times = [
+                    (trial.time_created - start_of_time).total_seconds()
+                    for i, trial in experiment.trials.items()
+                ]
+                self.assertEqual(created_times, expected_start_times[case_name])
+                queued_times = [
+                    (
+                        none_throws(experiment.trials[i].time_run_started)
+                        - start_of_time
+                    ).total_seconds()
+                    for i in range(4)
+                ]
+                self.assertEqual(queued_times, expected_start_times[case_name])
+                completed_times = [
+                    (
+                        none_throws(experiment.trials[i].time_completed) - start_of_time
+                    ).total_seconds()
+                    for i in range(4)
+                ]
+                expected_completed_times = [
+                    expected_start_times[case_name][i] + expected_runtimes[i]
+                    for i in range(4)
+                ]
+                self.assertEqual(completed_times, expected_completed_times)
+
     def test_replication_async(self) -> None:
         self._test_replication_async(map_data=False)
         self._test_replication_async(map_data=True)
+
+    def test_logging(self) -> None:
+        method = get_async_benchmark_method()
+        problem = get_async_benchmark_problem(
+            map_data=True,
+        )
+        logger = get_logger("utils.testing.backend_simulator")
+
+        with self.subTest("Logs produced if level is DEBUG"):
+            with self.assertLogs(level=logging.DEBUG, logger=logger):
+                result = benchmark_replication(
+                    problem=problem,
+                    method=method,
+                    seed=0,
+                    strip_runner_before_saving=False,
+                    scheduler_logging_level=logging.DEBUG,
+                )
+            experiment = none_throws(result.experiment)
+            runner = assert_is_instance(experiment.runner, BenchmarkRunner)
+            self.assertFalse(
+                none_throws(runner.simulated_backend_runner).simulator._verbose_logging
+            )
+
+        with self.subTest("Logs not produced by default"), self.assertNoLogs(
+            level=logging.INFO, logger=logger
+        ), self.assertNoLogs(logger=logger):
+            benchmark_replication(
+                problem=problem,
+                method=method,
+                seed=0,
+            )
 
     def test_early_stopping(self) -> None:
         """
@@ -438,12 +549,11 @@ class TestBenchmark(TestCase):
             n_steps=progression_length_if_not_stopped,
             lower_is_better=True,
         )
-        result = benchmark_replication(
+        result = self.benchmark_replication(
             problem=problem,
             method=method,
             seed=0,
             strip_runner_before_saving=False,
-            scheduler_logging_level=WARNING,
         )
         data = assert_is_instance(none_throws(result.experiment).lookup_data(), MapData)
         expected_n_steps = {
@@ -491,6 +601,79 @@ class TestBenchmark(TestCase):
         }
         self.assertEqual(start_times, expected_start_times)
 
+        with self.subTest("max_pending_trials = 1"):
+            method = get_async_benchmark_method(
+                early_stopping_strategy=early_stopping_strategy,
+                max_pending_trials=1,
+            )
+            result = self.benchmark_replication(
+                problem=problem,
+                method=method,
+                seed=0,
+                strip_runner_before_saving=False,
+            )
+            experiment = none_throws(result.experiment)
+            simulated_backend_runner = assert_is_instance(
+                experiment.runner, BenchmarkRunner
+            ).simulated_backend_runner
+            self.assertIsNotNone(simulated_backend_runner)
+            expected_start_times = {
+                0: 0,
+                1: 5,  # Early-stopped at t=8
+                2: 9,  # Early-stopped at t=11
+                3: 13,  # Early-stopped at t=16
+            }
+            simulator = none_throws(simulated_backend_runner).simulator
+            trials = {
+                trial_index: none_throws(simulator.get_sim_trial_by_index(trial_index))
+                for trial_index in range(4)
+            }
+            start_times = {
+                trial_index: sim_trial.sim_start_time
+                for trial_index, sim_trial in trials.items()
+            }
+            self.assertEqual(start_times, expected_start_times)
+            map_df = assert_is_instance(experiment.lookup_data(), MapData).map_df
+            max_run = map_df.groupby("trial_index")["step"].max().to_dict()
+            self.assertEqual(max_run, {0: 4, 1: 2, 2: 2, 3: 2})
+
+    def test_replication_variable_runtime(self) -> None:
+        method = get_async_benchmark_method(max_pending_trials=1)
+        for map_data in [False, True]:
+            with self.subTest(map_data=map_data):
+                problem = get_async_benchmark_problem(
+                    map_data=map_data,
+                    step_runtime_fn=lambda params: params["x0"] + 1,
+                )
+                result = self.benchmark_replication(
+                    problem=problem,
+                    method=method,
+                    seed=0,
+                    strip_runner_before_saving=False,
+                )
+                simulated_backend_runner = assert_is_instance(
+                    none_throws(result.experiment).runner, BenchmarkRunner
+                ).simulated_backend_runner
+                self.assertIsNotNone(simulated_backend_runner)
+                expected_start_times = {
+                    0: 0,
+                    1: 1,
+                    2: 3,
+                    3: 6,
+                }
+                simulator = none_throws(simulated_backend_runner).simulator
+                trials = {
+                    trial_index: none_throws(
+                        simulator.get_sim_trial_by_index(trial_index)
+                    )
+                    for trial_index in range(4)
+                }
+                start_times = {
+                    trial_index: sim_trial.sim_start_time
+                    for trial_index, sim_trial in trials.items()
+                }
+                self.assertEqual(start_times, expected_start_times)
+
     @mock_botorch_optimize
     def _test_replication_with_inference_value(
         self,
@@ -514,9 +697,7 @@ class TestBenchmark(TestCase):
             report_inference_value_as_trace=report_inference_value_as_trace,
             noise_std=100.0,
         )
-        res = benchmark_replication(
-            problem=problem, method=method, seed=seed, scheduler_logging_level=WARNING
-        )
+        res = self.benchmark_replication(problem=problem, method=method, seed=seed)
         # The inference trace could coincide with the oracle trace, but it won't
         # happen in this example with high noise and a seed
         self.assertEqual(
@@ -641,12 +822,7 @@ class TestBenchmark(TestCase):
             ),
         ]:
             with self.subTest(method=method, problem=problem):
-                res = benchmark_replication(
-                    problem=problem,
-                    method=method,
-                    seed=0,
-                    scheduler_logging_level=WARNING,
-                )
+                res = self.benchmark_replication(problem=problem, method=method, seed=0)
                 self.assertEqual(
                     problem.num_trials,
                     len(none_throws(res.experiment).trials),
@@ -658,11 +834,10 @@ class TestBenchmark(TestCase):
     def test_replication_moo_sobol(self) -> None:
         problem = get_multi_objective_benchmark_problem()
 
-        res = benchmark_replication(
+        res = self.benchmark_replication(
             problem=problem,
             method=get_sobol_benchmark_method(distribute_replications=False),
             seed=0,
-            scheduler_logging_level=WARNING,
         )
 
         self.assertEqual(
@@ -675,13 +850,20 @@ class TestBenchmark(TestCase):
         )
 
         self.assertTrue(np.all(res.score_trace <= 100))
+        self.assertEqual(len(res.cost_trace), problem.num_trials)
+        self.assertEqual(len(res.inference_trace), problem.num_trials)
+        # since inference trace is not supported for MOO, it should be all NaN
+        self.assertTrue(np.isnan(res.inference_trace).all())
 
     def test_benchmark_one_method_problem(self) -> None:
         problem = get_single_objective_benchmark_problem()
         method = get_sobol_benchmark_method(distribute_replications=False)
         with self.assertNoLogs(level="INFO"):
             agg = benchmark_one_method_problem(
-                problem=problem, method=method, seeds=(0, 1)
+                problem=problem,
+                method=method,
+                seeds=(0, 1),
+                scheduler_logging_level=WARNING,
             )
 
         self.assertEqual(len(agg.results), 2)
@@ -769,7 +951,9 @@ class TestBenchmark(TestCase):
                     GenerationNode(
                         node_name="Sobol",
                         model_specs=[
-                            ModelSpec(Models.SOBOL, model_kwargs={"deduplicate": True})
+                            GeneratorSpec(
+                                Generators.SOBOL, model_kwargs={"deduplicate": True}
+                            )
                         ],
                     )
                 ]
@@ -777,7 +961,7 @@ class TestBenchmark(TestCase):
         )
         problem = get_single_objective_benchmark_problem()
         with self.assertNoLogs(logger=get_logger("ax.core.experiment"), level="INFO"):
-            res = benchmark_replication(problem=problem, method=method, seed=0)
+            res = self.benchmark_replication(problem=problem, method=method, seed=0)
 
         # Check that logger level has been reset
         self.assertEqual(get_logger("ax.core.experiment").level, logging.INFO)
@@ -826,38 +1010,6 @@ class TestBenchmark(TestCase):
             get_oracle_experiment_from_params(
                 problem=problem, dict_of_dict_of_params={0: {}}
             )
-
-    def test_get_oracle_experiment_from_experiment(self) -> None:
-        problem = create_problem_from_botorch(
-            test_problem_class=Branin,
-            test_problem_kwargs={},
-            num_trials=5,
-        )
-
-        # empty experiment
-        empty_experiment = get_branin_experiment(with_trial=False)
-        oracle_experiment = get_oracle_experiment_from_experiment(
-            problem=problem, experiment=empty_experiment
-        )
-        self.assertEqual(oracle_experiment.search_space, problem.search_space)
-        self.assertEqual(
-            oracle_experiment.optimization_config, problem.optimization_config
-        )
-        self.assertEqual(oracle_experiment.trials.keys(), set())
-
-        experiment = get_branin_experiment(
-            with_trial=True,
-            search_space=problem.search_space,
-            with_status_quo=False,
-        )
-        oracle_experiment = get_oracle_experiment_from_experiment(
-            problem=problem, experiment=experiment
-        )
-        self.assertEqual(oracle_experiment.search_space, problem.search_space)
-        self.assertEqual(
-            oracle_experiment.optimization_config, problem.optimization_config
-        )
-        self.assertEqual(oracle_experiment.trials.keys(), experiment.trials.keys())
 
     def _test_multi_fidelity_or_multi_task(self, fidelity_or_task: str) -> None:
         """
@@ -958,9 +1110,7 @@ class TestBenchmark(TestCase):
         problem = get_single_objective_benchmark_problem(
             status_quo_params={"x0": 0.0, "x1": 0.0}
         )
-        res = benchmark_replication(
-            problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
-        )
+        res = self.benchmark_replication(problem=problem, method=method, seed=0)
 
         self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
         for t in none_throws(res.experiment).trials.values():
@@ -1027,3 +1177,128 @@ class TestBenchmark(TestCase):
             )
             # (5-0) * (5-0)
             self.assertEqual(result, 25)
+
+    def test_get_inference_trace_from_params(self) -> None:
+        problem = get_single_objective_benchmark_problem()
+        with self.subTest("No params"):
+            n_elements = 4
+            result = _get_inference_trace_from_params(
+                best_params_list=[], problem=problem, n_elements=n_elements
+            )
+            self.assertEqual(len(result), n_elements)
+            self.assertTrue(np.isnan(result).all())
+
+        with self.subTest("Wrong number of params"):
+            n_elements = 4
+            with self.assertRaisesRegex(RuntimeError, "Expected 4 elements"):
+                _get_inference_trace_from_params(
+                    best_params_list=[{"x0": 0.0, "x1": 0.0}],
+                    problem=problem,
+                    n_elements=n_elements,
+                )
+
+        with self.subTest("Correct number of params"):
+            n_elements = 2
+            best_params_list = [{"x0": 0.0, "x1": 0.0}, {"x0": 1.0, "x1": 1.0}]
+            result = _get_inference_trace_from_params(
+                best_params_list=best_params_list,
+                problem=problem,
+                n_elements=n_elements,
+            )
+            self.assertEqual(len(result), n_elements)
+            self.assertFalse(np.isnan(result).any())
+            expected_trace = [
+                problem.test_function.evaluate_true(params=params).item()
+                for params in best_params_list
+            ]
+            self.assertEqual(result.tolist(), expected_trace)
+
+    def test_get_opt_trace_by_cumulative_epochs(self) -> None:
+        # Time  | trial 0 | trial 1 | trial 2 | trial 3 | new steps
+        #  t=0  |   ..    |  start  |         |         |   0, 0
+        #  t=1  |         |    .    |  start  |         |   1
+        #  t=2  |         |    ..   |         |  start  |   1
+        #  t=3  |         |         |    .    |         |   2
+        #  t=4  |         |         |         |         |
+        #  t=5  |         |         |    ..   |    .    |   3, 2
+
+        # ...
+        problem = get_async_benchmark_problem(
+            map_data=True,
+            n_steps=2,
+            # Ensure we don't have two finishing at the same time, for
+            # determinism
+            step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
+        )
+        method = get_async_benchmark_method()
+
+        with self.subTest("Without early stopping"):
+            result = self.benchmark_replication(problem=problem, method=method, seed=0)
+            new_opt_trace = get_opt_trace_by_steps(
+                experiment=none_throws(result.experiment)
+            )
+
+            self.assertEqual(
+                list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0]
+            )
+
+        with self.subTest("With early stopping"):
+            es_method = get_async_benchmark_method(
+                early_stopping_strategy=ThresholdEarlyStoppingStrategy(
+                    metric_threshold=10.0, min_progression=0, min_curves=2
+                )
+            )
+            result = self.benchmark_replication(
+                problem=problem, method=es_method, seed=0
+            )
+            new_opt_trace = get_opt_trace_by_steps(
+                experiment=none_throws(result.experiment)
+            )
+            self.assertEqual(list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0])
+        return
+
+        with self.subTest("MOO"):
+            problem = get_multi_objective_benchmark_problem()
+            result = self.benchmark_replication(problem=problem, method=method, seed=0)
+            with self.assertRaisesRegex(
+                NotImplementedError, "only supported for single objective"
+            ):
+                get_opt_trace_by_steps(experiment=none_throws(result.experiment))
+
+        with self.subTest("Constrained"):
+            problem = get_problem("constrained_gramacy_observed_noise")
+            result = self.benchmark_replication(problem=problem, method=method, seed=0)
+            with self.assertRaisesRegex(
+                NotImplementedError,
+                "not supported for problems with outcome constraints",
+            ):
+                get_opt_trace_by_steps(experiment=none_throws(result.experiment))
+
+    def test_get_benchmark_result_with_cumulative_steps(self) -> None:
+        """See test_get_opt_trace_by_cumulative_epochs for more info."""
+        problem = get_async_benchmark_problem(
+            map_data=True,
+            n_steps=2,
+            # Ensure we don't have two finishing at the same time, for
+            # determinism
+            step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
+        )
+        method = get_async_benchmark_method()
+        result = self.benchmark_replication(problem=problem, method=method, seed=0)
+        transformed = get_benchmark_result_with_cumulative_steps(
+            result=result,
+            optimal_value=problem.optimal_value,
+            baseline_value=problem.baseline_value,
+        )
+        map_df = assert_is_instance(
+            none_throws(result.experiment).lookup_data(), MapData
+        ).map_df
+        self.assertEqual(len(map_df), len(transformed.optimization_trace))
+        self.assertEqual(
+            list(transformed.optimization_trace),
+            [0.0, 0.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0],
+        )
+        self.assertTrue(np.isnan(transformed.oracle_trace).all())
+        self.assertTrue(np.isnan(transformed.inference_trace).all())
+        self.assertEqual(transformed.score_trace.max(), result.score_trace.max())
+        self.assertLessEqual(transformed.score_trace.min(), result.score_trace.min())

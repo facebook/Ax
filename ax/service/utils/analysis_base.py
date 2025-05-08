@@ -4,18 +4,14 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-import traceback
-from typing import Iterable
 
-import pandas as pd
+from collections.abc import Iterable
 
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel, AnalysisE
-from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardCategory
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
-from pyre_extensions import assert_is_instance
 
 
 class AnalysisBase(WithDBSettingsBase):
@@ -27,11 +23,13 @@ class AnalysisBase(WithDBSettingsBase):
     # `AnalysisBase` to have type `Experiment` but is never initialized
     experiment: Experiment
     # pyre-fixme[13]: Attribute `generation_strategy` is declared in class
-    # `AnalysisBase` to have type `GenerationStrategyInterface` but
+    # `AnalysisBase` to have type `GenerationStrategy` but
     # is never initialized
-    generation_strategy: GenerationStrategyInterface
+    generation_strategy: GenerationStrategy
 
-    def _choose_analyses(self) -> list[Analysis]:
+    def _choose_analyses(
+        self, categories: list[AnalysisCardCategory] | None = None
+    ) -> list[Analysis]:
         """
         Choose Analyses to compute based on the Experiment, GenerationStrategy, etc.
         """
@@ -40,20 +38,32 @@ class AnalysisBase(WithDBSettingsBase):
         return [ParallelCoordinatesPlot()]
 
     def compute_analyses(
-        self, analyses: Iterable[Analysis] | None = None
+        self,
+        analyses: Iterable[Analysis] | None = None,
     ) -> list[AnalysisCard]:
         """
-        Compute Analyses for the Experiment and GenerationStrategy associated with this
-        Scheduler instance and save them to the DB if possible. If an Analysis fails to
-        compute (e.g. due to a missing metric), it will be skipped and a warning will
-        be logged.
+        Compute AnalysisCards (data about the optimization for end-user consumption)
+        using the Experiment and GenerationStrategy. If no analyses are provided use
+        some heuristic to determine which analyses to run. If some analyses fail, log
+        failure and continue to compute the rest.
+
+        Note that the Analysis class is NOT part of the API and its methods are subject
+        to change incompatibly between minor versions. Users are encouraged to use the
+        provided analyses or leave this argument as None to use the default analyses.
+
+        Saves to database on completion if storage_config is present.
 
         Args:
-            analyses: Analyses to compute. If None, the Scheduler will choose a set of
-                Analyses to compute based on the Experiment and GenerationStrategy.
+            analyses: A list of Analysis classes to run. If None Ax will choose which
+                analyses to run based on the state of the experiment.
+        Returns:
+            A list of AnalysisCards.
         """
+
         analyses = analyses if analyses is not None else self._choose_analyses()
 
+        # Compute Analyses one by one and accumulate Results holding either the
+        # AnalysisCard or an Exception and some metadata
         results = [
             analysis.compute_result(
                 experiment=self.experiment,
@@ -62,39 +72,16 @@ class AnalysisBase(WithDBSettingsBase):
             for analysis in analyses
         ]
 
-        # TODO Accumulate Es into their own card, perhaps via unwrap_or_else
-        cards = [result.unwrap() for result in results if result.is_ok()]
+        # Turn Exceptions into MarkdownAnalysisCards with the traceback as the message
+        cards = [
+            card
+            for result in results
+            for card in result.unwrap_or_else(lambda e: e.error_card())
+        ]
 
-        for result in results:
-            if result.is_err():
-                e = assert_is_instance(
-                    result.err,
-                    AnalysisE,
-                )
-                traceback_str = "".join(
-                    traceback.format_exception(
-                        type(result.err.exception),
-                        e.exception,
-                        e.exception.__traceback__,
-                    )
-                )
-                cards.append(
-                    MarkdownAnalysisCard(
-                        name=e.analysis.name,
-                        # It would be better if we could reliably compute the title
-                        # without risking another error
-                        title=f"{e.analysis.name} Error",
-                        subtitle=f"An error occurred while computing {e.analysis}",
-                        attributes=e.analysis.attributes,
-                        blob=traceback_str,
-                        df=pd.DataFrame(),
-                        level=AnalysisCardLevel.DEBUG,
-                    )
-                )
-
+        # Save the AnalysisCards to the database if possible
         self._save_analysis_cards_to_db_if_possible(
-            analysis_cards=cards,
-            experiment=self.experiment,
+            experiment=self.experiment, analysis_cards=cards
         )
 
         return cards

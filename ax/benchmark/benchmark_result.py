@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-# NOTE: Do not add `from __future__ import annotatations` to this file. Adding
+# NOTE: Do not add `from __future__ import annotations` to this file. Adding
 # `annotations` postpones evaluation of types and will break FBLearner's usage of
 # `BenchmarkResult` as return type annotation, used for serialization and rendering
 # in the UI.
@@ -32,40 +32,58 @@ class BenchmarkResult(Base):
         name: Name of the benchmark. Should make it possible to determine the
             problem and the method.
         seed: Seed used for determinism.
-        oracle_trace: For single-objective problems, element i of the
-            optimization trace is the best oracle value of the arms evaluated
-            after the first i trials.  For multi-objective problems, element i
-            of the optimization trace is the hypervolume of the oracle values of
-            the arms in the first i trials (which may be ``BatchTrial``s).
-            Oracle values are typically ground-truth (rather than noisy) and
-            evaluated at the target task and fidelity.
-        inference_trace: Inference trace comes from choosing a "best" point
-            based only on data that would be observable in realistic settings,
-            as specified by `BenchmarkMethod.get_best_parameters`,
-            and then evaluating the oracle value of that point according to the
-            problem's `OptimizationConfig`. For multi-objective problems, the
-            hypervolume of a set of points is considered.
+        oracle_trace: For single-objective problems, the oracle trace is the
+            best oracle objective value seen on completed trials up to that
+            point. For multi-objective problems, it is the cumulative
+            hypervolume of feasible oracle objective values.
+
+            Oracle values are typically objective values that are at the ground
+            truth (not noisy) and evaluated at the target task and fidelity.
+
+            The trace may have fewer elements than the number of trials run if
+            multiple trials stop at the same time; the trace is updated whenever
+            trials stop (TrialStatus COMPLETED or EARLY_STOPPED). The number of
+            trials completed is reflected in the `cost_trace`, which is updated
+            at the same time as the `oracle_trace`. For example, if each trial
+            has a cost of 1, and `cost_trace[i] = 4`, then `oracle_trace[i]` is
+            the value of the best of the first four trials to complete, or the
+            feasible hypervolume of those trials.
+        inference_trace: Inference values come from choosing a "best" point or
+            points based only on data that would be observable in realistic
+            settings, as specified by `BenchmarkMethod.get_best_parameters`, and
+            then evaluating the oracle objective value of that point according
+            to the problem's `OptimizationConfig`.
 
             By default, if it is not overridden,
             `BenchmarkMethod.get_best_parameters` uses the empirical best point
             if `use_model_predictions_for_best_point` is False and the best
             point of those evaluated so far if it is True.
 
-            Note: This is not "inference regret", which is a lower-is-better value
-            that is relative to the best possible value. The inference value
-            trace is higher-is-better if the problem is a maximization problem
-            or if the problem is multi-objective (in which case hypervolume is
-            used). Hence, it is signed the same as ``oracle_trace`` and
-            ``optimization_trace``. ``score_trace`` is higher-is-better and
-            relative to the optimum.
-        optimization_trace: Either the ``oracle_trace`` or the
-            ``inference_trace``, depending on whether the ``BenchmarkProblem``
-            specifies ``report_inference_value``. Having ``optimization_trace``
-            specified separately is useful when we need just one value to
-            evaluate how well the benchmark went.
+            As with the oracle trace, the inference trace is updated whenever a
+            trial completes or stops early and may have fewer elements than the
+            number of trials of multiple trials complete at the same time.
+
+            Note: This is scaled differently from "inference regret", which is a
+            lower-is-better value that is relative to the best possible value.
+            The inference value trace is higher-is-better if the problem is a
+            maximization problem or if the problem is multi-objective (in which
+            case hypervolume is used). Hence, it is signed the same as
+            `oracle_trace` and `optimization_trace`. `score_trace`, meanwhile,
+            is higher-is-better and relative to the optimum.
+        optimization_trace: Either the `oracle_trace` or the `inference_trace`,
+            depending on whether the `BenchmarkProblem` specifies
+            `report_inference_value`. Having `optimization_trace` specified
+            separately is useful when we need just one value to evaluate how
+            well the benchmark went.
         score_trace: The scores associated with the problem, typically either
             the optimization_trace or inference_value_trace normalized to a
             0-100 scale for comparability between problems.
+        cost_trace: The cumulative cost of completed trials. The `cost_trace` is
+            updated whenever a trial completes, so, like the `oracle_trace` and
+            `inference_trace`, it can have fewer elements than the number of
+            trials if multiple trials complete at the same time. Trials that do
+            not produce `MapData` have a cost of 1, and trials that produce
+            `MapData` have a cost equal to the length of the `MapData`.
         fit_time: Total time spent fitting models.
         gen_time: Total time spent generating candidates.
         experiment: If not ``None``, the Ax experiment associated with the
@@ -81,6 +99,7 @@ class BenchmarkResult(Base):
     inference_trace: npt.NDArray
     optimization_trace: npt.NDArray
     score_trace: npt.NDArray
+    cost_trace: npt.NDArray
 
     fit_time: float
     gen_time: float

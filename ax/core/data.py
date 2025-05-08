@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from abc import abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from hashlib import md5
 from io import StringIO
@@ -48,24 +48,27 @@ class BaseData(Base, SerializationMixin):
 
     """
 
-    REQUIRED_COLUMNS = {"arm_name"}
+    REQUIRED_COLUMNS = {"trial_index", "arm_name"}
 
+    # Note on text data: https://pandas.pydata.org/docs/user_guide/text.html
+    # Its type can either be `numpy.dtypes.ObjectDType` or StringDtype extension
+    # type; the later is still experimental. So we are using object.
     COLUMN_DATA_TYPES: dict[str, Any] = {
         # Ubiquitous columns.
-        "arm_name": str,
+        "trial_index": int,
+        "arm_name": np.dtype("O"),
         # Metric data-related columns.
-        "metric_name": str,
+        "metric_name": np.dtype("O"),
         "mean": np.float64,
         "sem": np.float64,
         # Metadata columns available for all subclasses.
-        "trial_index": int,
         "start_time": pd.Timestamp,
         "end_time": pd.Timestamp,
         "n": int,
         # Metadata columns available for only some subclasses.
         "frac_nonnull": np.float64,
         "random_split": int,
-        "fidelities": str,  # Dictionary stored as json
+        "fidelities": np.dtype("O"),  # Dictionary stored as json
     }
 
     _df: pd.DataFrame
@@ -101,12 +104,12 @@ class BaseData(Base, SerializationMixin):
             extra_columns = columns - self.supported_columns()
             if extra_columns:
                 raise ValueError(f"Columns {list(extra_columns)} are not supported.")
-            df = df.dropna(axis=0, how="all").reset_index(drop=True)
+            df = df.dropna(axis=0, how="all", ignore_index=True)
             df = self._safecast_df(df=df)
 
             # Reorder the columns for easier viewing
             col_order = [c for c in self.column_data_types() if c in df.columns]
-            self._df = df[col_order]
+            self._df = df.reindex(columns=col_order, copy=False)
 
         self.description = description
 
@@ -116,7 +119,7 @@ class BaseData(Base, SerializationMixin):
         df: pd.DataFrame,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
-        extra_column_types: dict[str, type] | None = None,
+        extra_column_types: Mapping[str, type] | None = None,
     ) -> pd.DataFrame:
         """Function for safely casting df to standard data types.
 
@@ -132,27 +135,22 @@ class BaseData(Base, SerializationMixin):
             safe_df: DataFrame cast to standard dtypes.
 
         """
-        extra_column_types = extra_column_types or {}
-        dtype = {
-            # Pandas timestamp handlng is weird
-            col: "datetime64[ns]" if coltype is pd.Timestamp else coltype
-            for col, coltype in cls.column_data_types(
-                extra_column_types=extra_column_types
-            ).items()
-            if col in df.columns.values
-            and not (
-                cls.column_data_types(extra_column_types)[col] is int
-                and df.loc[:, col].isnull().any()
-            )
-            and coltype is not Any
-        }
+        dtypes = df.dtypes
+        for col, coltype in cls.column_data_types(
+            extra_column_types=extra_column_types
+        ).items():
+            if col in df.columns.values and coltype is not Any:
+                # Pandas timestamp handlng is weird
+                dtype = "datetime64[ns]" if coltype is pd.Timestamp else coltype
+                if (dtype != dtypes[col]) and not (
+                    coltype is int and df.loc[:, col].isnull().any()
+                ):
+                    df[col] = df[col].astype(dtype)
+        return df
 
-        return assert_is_instance(df.astype(dtype=dtype), pd.DataFrame)
-
-    @classmethod
-    def required_columns(cls) -> set[str]:
+    def required_columns(self) -> set[str]:
         """Names of columns that must be present in the underlying ``DataFrame``."""
-        return cls.REQUIRED_COLUMNS
+        return self.REQUIRED_COLUMNS
 
     @classmethod
     def supported_columns(
@@ -170,7 +168,7 @@ class BaseData(Base, SerializationMixin):
         cls,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
-        extra_column_types: dict[str, type] | None = None,
+        extra_column_types: Mapping[str, type] | None = None,
         excluded_columns: Iterable[str] | None = None,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
@@ -297,9 +295,9 @@ class BaseData(Base, SerializationMixin):
     @classmethod
     def from_evaluations(
         cls: type[TBaseData],
-        evaluations: dict[str, TTrialEvaluation],
+        evaluations: Mapping[str, TTrialEvaluation],
         trial_index: int,
-        sample_sizes: dict[str, int] | None = None,
+        sample_sizes: Mapping[str, int] | None = None,
         start_time: int | str | None = None,
         end_time: int | str | None = None,
     ) -> TBaseData:
@@ -336,16 +334,16 @@ class BaseData(Base, SerializationMixin):
     @staticmethod
     @abstractmethod
     def _get_records(
-        evaluations: dict[str, TTrialEvaluation], trial_index: int
+        evaluations: Mapping[str, TTrialEvaluation], trial_index: int
     ) -> list[dict[str, Any]]:
         pass
 
     @classmethod
     def from_fidelity_evaluations(
         cls: type[TBaseData],
-        evaluations: dict[str, TFidelityTrialEvaluation],
+        evaluations: Mapping[str, TFidelityTrialEvaluation],
         trial_index: int,
-        sample_sizes: dict[str, int] | None = None,
+        sample_sizes: Mapping[str, int] | None = None,
         start_time: int | None = None,
         end_time: int | None = None,
     ) -> TBaseData:
@@ -381,14 +379,14 @@ class BaseData(Base, SerializationMixin):
     @staticmethod
     @abstractmethod
     def _get_fidelity_records(
-        evaluations: dict[str, TFidelityTrialEvaluation], trial_index: int
+        evaluations: Mapping[str, TFidelityTrialEvaluation], trial_index: int
     ) -> list[dict[str, Any]]:
         pass
 
     @staticmethod
     def _add_cols_to_records(
         records: list[dict[str, Any]],
-        sample_sizes: dict[str, int] | None = None,
+        sample_sizes: Mapping[str, int] | None = None,
         start_time: int | str | None = None,
         end_time: int | str | None = None,
     ) -> list[dict[str, Any]]:
@@ -450,7 +448,7 @@ class Data(BaseData):
 
     @staticmethod
     def _get_records(
-        evaluations: dict[str, TTrialEvaluation], trial_index: int
+        evaluations: Mapping[str, TTrialEvaluation], trial_index: int
     ) -> list[dict[str, Any]]:
         return [
             {
@@ -466,7 +464,7 @@ class Data(BaseData):
 
     @staticmethod
     def _get_fidelity_records(
-        evaluations: dict[str, TFidelityTrialEvaluation], trial_index: int
+        evaluations: Mapping[str, TFidelityTrialEvaluation], trial_index: int
     ) -> list[dict[str, Any]]:
         return [
             {
@@ -571,7 +569,7 @@ def _ms_epoch_to_isoformat(epoch: int) -> str:
 def custom_data_class(
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    column_data_types: dict[str, type] | None = None,
+    column_data_types: Mapping[str, type] | None = None,
     required_columns: set[str] | None = None,
     time_columns: set[str] | None = None,
 ) -> type[Data]:
@@ -596,7 +594,7 @@ def custom_data_class(
 
         @classmethod
         def column_data_types(
-            cls, extra_column_types: dict[str, type] | None = None
+            cls, extra_column_types: Mapping[str, type] | None = None
         ) -> dict[str, type]:
             return super().column_data_types(
                 {**(extra_column_types or {}), **(column_data_types or {})}

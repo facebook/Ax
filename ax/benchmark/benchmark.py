@@ -20,35 +20,65 @@ Key terms used:
 """
 
 import warnings
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import replace
+from datetime import datetime
 from itertools import product
 from logging import Logger, WARNING
 from time import monotonic, time
-from typing import Set
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
-from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_runner import BenchmarkRunner, get_total_runtime
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.methods.sobol import get_sobol_generation_strategy
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
+from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TParameterization, TParamValue
+from ax.core.trial import BaseTrial, Trial
+from ax.core.trial_status import TrialStatus
+from ax.core.types import TParamValue
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
-from ax.service.utils.best_point_mixin import BestPointMixin
+from ax.service.utils.best_point import get_trace
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
+from ax.utils.testing.backend_simulator import BackendSimulator
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
+
+
+def update_trials_to_use_sim_time_in_place(
+    trials: dict[int, BaseTrial], simulator: BackendSimulator
+) -> None:
+    """
+    Update the start and end times of all trials to be in simulated time
+    (represented as datetime objects -- seconds since the start of time).
+    """
+    fromtimestamp = datetime.fromtimestamp
+    for trial_index, trial in trials.items():
+        sim_trial = none_throws(
+            simulator.get_sim_trial_by_index(trial_index=trial_index)
+        )
+        trial._time_created = fromtimestamp(
+            timestamp=none_throws(sim_trial.sim_queued_time)
+        )
+        trial._time_staged = fromtimestamp(
+            timestamp=none_throws(sim_trial.sim_queued_time)
+        )
+        trial._time_completed = fromtimestamp(
+            timestamp=none_throws(sim_trial.sim_completed_time)
+        )
+        trial._time_run_started = fromtimestamp(none_throws(sim_trial.sim_start_time))
 
 
 def compute_score_trace(
@@ -80,7 +110,9 @@ def compute_score_trace(
 
 
 def get_benchmark_runner(
-    problem: BenchmarkProblem, max_concurrency: int = 1
+    problem: BenchmarkProblem,
+    max_concurrency: int = 1,
+    force_use_simulated_backend: bool = False,
 ) -> BenchmarkRunner:
     """
     Construct a ``BenchmarkRunner`` for the given problem and concurrency.
@@ -96,6 +128,10 @@ def get_benchmark_runner(
         max_concurrency: The maximum number of trials that can be run concurrently.
             Typically, ``max_pending_trials`` from ``SchedulerOptions``, which are
             stored on the ``BenchmarkMethod``.
+        force_use_simulated_backend: Whether to use a simulated backend even if
+            ``max_concurrency`` is 1 and ``problem.step_runtime_function`` is
+            None. Recommended for use with a ``BenchmarkMethod`` that uses early
+            stopping.
     """
 
     return BenchmarkRunner(
@@ -103,6 +139,7 @@ def get_benchmark_runner(
         noise_std=problem.noise_std,
         step_runtime_function=problem.step_runtime_function,
         max_concurrency=max_concurrency,
+        force_use_simulated_backend=force_use_simulated_backend,
     )
 
 
@@ -173,23 +210,6 @@ def get_oracle_experiment_from_params(
     return experiment
 
 
-def get_oracle_experiment_from_experiment(
-    problem: BenchmarkProblem, experiment: Experiment
-) -> Experiment:
-    """
-    Get an ``Experiment`` that is the same as the original experiment but has
-    metrics evaluated at oracle values (noiseless ground-truth values
-    evaluated at the target task and fidelity)
-    """
-    return get_oracle_experiment_from_params(
-        problem=problem,
-        dict_of_dict_of_params={
-            trial.index: {arm.name: arm.parameters for arm in trial.arms}
-            for trial in experiment.trials.values()
-        },
-    )
-
-
 def get_benchmark_scheduler_options(
     method: BenchmarkMethod,
     include_sq: bool = False,
@@ -205,7 +225,7 @@ def get_benchmark_scheduler_options(
     Returns:
         ``SchedulerOptions``
     """
-    if method.batch_size > 1 or include_sq:
+    if method.batch_size is None or method.batch_size > 1 or include_sq:
         trial_type = TrialType.BATCH_TRIAL
     else:
         trial_type = TrialType.TRIAL
@@ -224,6 +244,164 @@ def get_benchmark_scheduler_options(
         status_quo_weight=1.0 if include_sq else 0.0,
         logging_level=logging_level,
     )
+
+
+def _get_cumulative_cost(
+    previous_cost: float,
+    new_trials: set[int],
+    experiment: Experiment,
+) -> float:
+    """
+    Get the total cost of running a benchmark where `new_trials` have just
+    completed, and the cost up to that point was `previous_cost`.
+
+    If a backend simulator is used to track runtime the cost is just the
+    simulated time. If there is no backend simulator, it is still possible that
+    trials have varying runtimes without that being simulated, so in that case,
+    runtimes are computed.
+    """
+    runner = assert_is_instance(experiment.runner, BenchmarkRunner)
+    if runner.simulated_backend_runner is not None:
+        return runner.simulated_backend_runner.simulator.time
+
+    per_trial_times = (
+        get_total_runtime(
+            trial=experiment.trials[i],
+            step_runtime_function=runner.step_runtime_function,
+            n_steps=runner.test_function.n_steps,
+        )
+        for i in new_trials
+    )
+    return previous_cost + sum(per_trial_times)
+
+
+def _get_oracle_value_of_params(
+    params: Mapping[str, TParamValue], problem: BenchmarkProblem
+) -> float:
+    """
+    A roundabout way of getting the value of a parameterization:
+    1. Construct an experiment with the parameterization as its only trial,
+        using the BenchmarkProblem to get the oracle value of that
+        parameterization.
+    2. Get the optimization trace of that experiment.
+    """
+    dummy_experiment = get_oracle_experiment_from_params(
+        problem=problem, dict_of_dict_of_params={0: {"0_0": params}}
+    )
+    (inference_value,) = get_trace(
+        experiment=dummy_experiment, optimization_config=problem.optimization_config
+    )
+    return inference_value
+
+
+def _get_oracle_trace_from_arms(
+    evaluated_arms_list: Iterable[set[Arm]], problem: BenchmarkProblem
+) -> npt.NDArray:
+    """
+    Get the oracle trace from a list of arms.
+
+    1. Construct a dummy experiment where trial ``i`` contains the arms in
+        ``evaluated_arms_list[i]``; if there are multiple arms, it will be a
+        ``BatchTrial``. Its data will be at oracle values.
+    2. Get the optimization trace of that experiment.
+    """
+    dummy_experiment = get_oracle_experiment_from_params(
+        problem=problem,
+        dict_of_dict_of_params={
+            i: {arm.name: arm.parameters for arm in arms}
+            for i, arms in enumerate(evaluated_arms_list)
+        },
+    )
+    oracle_trace = get_trace(
+        experiment=dummy_experiment,
+        optimization_config=problem.optimization_config,
+    )
+    return np.array(oracle_trace)
+
+
+def _get_inference_trace_from_params(
+    best_params_list: Sequence[Mapping[str, TParamValue]],
+    problem: BenchmarkProblem,
+    n_elements: int,
+) -> npt.NDArray:
+    """
+    Get the inference value of each parameterization in ``best_params_list``.
+
+    ``best_params_list`` can be empty, indicating that inference value is not
+    supported for this benchmark, in which case the returned array will be all
+    NaNs with length ``n_elements``. If it is not empty, it must have length
+    ``n_elements``.
+    """
+    if len(best_params_list) == 0:
+        return np.full(n_elements, np.nan)
+    if len(best_params_list) != n_elements:
+        raise RuntimeError(
+            f"Expected {n_elements} elements in `best_params_list`, got "
+            f"{len(best_params_list)}."
+        )
+    return np.array(
+        [
+            _get_oracle_value_of_params(params=params, problem=problem)
+            for params in best_params_list
+        ]
+    )
+
+
+def _update_benchmark_tracking_vars_in_place(
+    experiment: Experiment,
+    method: BenchmarkMethod,
+    problem: BenchmarkProblem,
+    cost_trace: list[float],
+    evaluated_arms_list: list[set[Arm]],
+    best_params_list: list[Mapping[str, TParamValue]],
+    completed_trial_idcs: set[int],
+) -> None:
+    """
+    Update cost_trace, evaluated_arms_list, best_params_list, and
+    completed_trial_idcs in place.
+    """
+    currently_completed_trial_idcs = {
+        t.index
+        for t in experiment.trials.values()
+        if t.status
+        in (
+            TrialStatus.COMPLETED,
+            TrialStatus.EARLY_STOPPED,
+        )
+    }
+    newly_completed_trials = currently_completed_trial_idcs - completed_trial_idcs
+    completed_trial_idcs |= newly_completed_trials
+
+    is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
+    compute_best_params = not (problem.is_moo or is_mf_or_mt)
+
+    if len(newly_completed_trials) > 0:
+        previous_cost = cost_trace[-1] if len(cost_trace) > 0 else 0.0
+        cost = _get_cumulative_cost(
+            new_trials=newly_completed_trials,
+            experiment=experiment,
+            previous_cost=previous_cost,
+        )
+        cost_trace.append(cost)
+
+        # Track what params are newly evaluated from those trials, for
+        # the oracle trace
+        params = {
+            arm for i in newly_completed_trials for arm in experiment.trials[i].arms
+        }
+        evaluated_arms_list.append(params)
+
+        # Inference trace: Not supported for MOO.
+        # It's also not supported for multi-fidelity or multi-task
+        # problems, because Ax's best-point functionality doesn't know
+        # to predict at the target task or fidelity.
+        if compute_best_params:
+            (best_params,) = method.get_best_parameters(
+                experiment=experiment,
+                optimization_config=problem.optimization_config,
+                n_points=problem.n_best_points,
+            )
+            best_params_list.append(best_params)
 
 
 def benchmark_replication(
@@ -248,6 +426,11 @@ def benchmark_replication(
         seed: The seed to use for this replication.
         strip_runner_before_saving: Whether to strip the runner from the
             experiment before saving it. This enables serialization.
+        scheduler_logging_level: If >INFO, logs will only appear when unexpected
+            things happen. If INFO, logs will update when a trial is completed
+            and when an early stopping strategy, if present, decides whether or
+            not to continue a trial. If DEBUG, logs additionaly include
+            information from a `BackendSimulator`, if present.
 
     Return:
         ``BenchmarkResult`` object.
@@ -265,6 +448,7 @@ def benchmark_replication(
     runner = get_benchmark_runner(
         problem=problem,
         max_concurrency=scheduler_options.max_pending_trials,
+        force_use_simulated_backend=method.early_stopping_strategy is not None,
     )
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",
@@ -281,11 +465,13 @@ def benchmark_replication(
         options=scheduler_options,
     )
 
-    # list of parameters for each trial
-    best_params_by_trial: list[list[TParameterization]] = []
-
-    is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
-    trials_used_for_best_point: Set[int] = set()
+    # Each of these lists is added to when a trial completes or stops early.
+    # Since multiple trials can complete at once, there may be fewer elements in
+    # these traces than the number of trials run.
+    cost_trace: list[float] = []
+    best_params_list: list[Mapping[str, TParamValue]] = []  # For inference trace
+    evaluated_arms_list: list[set[Arm]] = []  # For oracle trace
+    completed_trial_idcs: set[int] = set()
 
     # Run the optimization loop.
     timeout_hours = method.timeout_hours
@@ -299,7 +485,8 @@ def benchmark_replication(
             module="ax.modelbridge.cross_validation",
         )
         start = monotonic()
-        # These next several lines do the same thing as `run_n_trials`, but
+        # These next several lines do the same thing as
+        # `scheduler.run_n_trials`, but
         # decrement the timeout with each step, so that the timeout refers to
         # the total time spent in the optimization loop, not time per trial.
         scheduler.poll_and_process_results()
@@ -307,6 +494,16 @@ def benchmark_replication(
             max_trials=problem.num_trials,
             timeout_hours=remaining_hours,
         ):
+            _update_benchmark_tracking_vars_in_place(
+                experiment=experiment,
+                method=method,
+                problem=problem,
+                cost_trace=cost_trace,
+                evaluated_arms_list=evaluated_arms_list,
+                best_params_list=best_params_list,
+                completed_trial_idcs=completed_trial_idcs,
+            )
+
             if timeout_hours is not None:
                 elapsed_hours = (monotonic() - start) / 3600
                 remaining_hours = timeout_hours - elapsed_hours
@@ -314,69 +511,24 @@ def benchmark_replication(
                     logger.warning("The optimization loop timed out.")
                     break
 
-            if problem.is_moo or is_mf_or_mt:
-                # Inference trace is not supported for MOO.
-                # It's also not supported for multi-fidelity or multi-task
-                # problems, because Ax's best-point functionality doesn't know
-                # to predict at the target task or fidelity.
-                continue
-
-            currently_completed_trials = {
-                t.index
-                for t in experiment.trials.values()
-                if t.status
-                in (
-                    TrialStatus.COMPLETED,
-                    TrialStatus.EARLY_STOPPED,
-                )
-            }
-            newly_completed_trials = (
-                currently_completed_trials - trials_used_for_best_point
-            )
-            if len(newly_completed_trials) == 0:
-                continue
-            for t in newly_completed_trials:
-                trials_used_for_best_point.add(t)
-
-            best_params = method.get_best_parameters(
-                experiment=experiment,
-                optimization_config=problem.optimization_config,
-                n_points=problem.n_best_points,
-            )
-            # If multiple trials complete at the same time, add that number of
-            # points to the inference trace so that the trace has length equal to
-            # the number of trials.
-            for _ in newly_completed_trials:
-                best_params_by_trial.append(best_params)
-
         scheduler.summarize_final_result()
 
-    # Construct inference trace from best parameters
-    inference_trace = np.full(problem.num_trials, np.nan)
-    for trial_index, best_params in enumerate(best_params_by_trial):
-        if len(best_params) == 0:
-            inference_trace[trial_index] = np.nan
-            continue
-        # Construct an experiment with one BatchTrial
-        best_params_oracle_experiment = get_oracle_experiment_from_params(
-            problem=problem,
-            dict_of_dict_of_params={0: {str(i): p for i, p in enumerate(best_params)}},
+    sim_runner = runner.simulated_backend_runner
+    if sim_runner is not None:
+        simulator = sim_runner.simulator
+        update_trials_to_use_sim_time_in_place(
+            trials=experiment.trials, simulator=simulator
         )
-        # Get the optimization trace. It will have only one point.
-        inference_trace[trial_index] = BestPointMixin._get_trace(
-            experiment=best_params_oracle_experiment,
-            optimization_config=problem.optimization_config,
-        )[0]
 
-    actual_params_oracle_experiment = get_oracle_experiment_from_experiment(
-        problem=problem, experiment=experiment
+    inference_trace = _get_inference_trace_from_params(
+        best_params_list=best_params_list,
+        problem=problem,
+        n_elements=len(cost_trace),
     )
-    oracle_trace = np.array(
-        BestPointMixin._get_trace(
-            experiment=actual_params_oracle_experiment,
-            optimization_config=problem.optimization_config,
-        )
+    oracle_trace = _get_oracle_trace_from_arms(
+        evaluated_arms_list=evaluated_arms_list, problem=problem
     )
+
     optimization_trace = (
         inference_trace if problem.report_inference_value_as_trace else oracle_trace
     )
@@ -401,6 +553,7 @@ def benchmark_replication(
         inference_trace=inference_trace,
         optimization_trace=optimization_trace,
         score_trace=score_trace,
+        cost_trace=np.array(cost_trace),
         fit_time=fit_time,
         gen_time=gen_time,
     )
@@ -440,15 +593,18 @@ def compute_baseline_value_from_sobol(
     higher_is_better = isinstance(optimization_config.objective, MultiObjective) or (
         not optimization_config.objective.minimize
     )
-    dummy_optimal_value = float("inf") if higher_is_better else float("-inf")
     dummy_problem = BenchmarkProblem(
         name="dummy",
         optimization_config=optimization_config,
         search_space=search_space,
         num_trials=5,
         test_function=test_function,
-        optimal_value=dummy_optimal_value,
-        baseline_value=-dummy_optimal_value,
+        # Optimal value and baseline value are only used
+        # to compute the score_trace, which we don't use here.
+        # The order of baseline and optimal value needs to be correct,
+        # though, as a ValueError is raised otherwise.
+        optimal_value=1.0 if higher_is_better else -1.0,
+        baseline_value=0.0,
         target_fidelity_and_task=target_fidelity_and_task,
     )
 
@@ -505,3 +661,102 @@ def benchmark_multiple_problems_methods(
         )
         for p, m in product(problems, methods)
     ]
+
+
+def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
+    """
+    Transform an optimization trace in the standard format produced by
+    `benchmark_replication`, with one element per trial completion, into a trace
+    that is in terms of steps, with one element added each time a step
+    completes.
+
+    Args:
+        experiment: An experiment produced by `benchmark_replication`; it must
+            have `BenchmarkTrialMetadata` (as produced by `BenchmarkRunner`) for
+            each trial, and its data must be `MapData`.
+    """
+    optimization_config = none_throws(experiment.optimization_config)
+
+    if optimization_config.is_moo_problem:
+        raise NotImplementedError(
+            "Cumulative epochs only supported for single objective problems."
+        )
+    if len(optimization_config.outcome_constraints) > 0:
+        raise NotImplementedError(
+            "Cumulative epochs not supported for problems with outcome constraints."
+        )
+
+    objective_name = optimization_config.objective.metric.name
+    data = assert_is_instance(experiment.lookup_data(), MapData)
+    map_key = data.map_key_infos[0].key
+    map_df = data.map_df
+    if len(data.map_key_infos) > 1:
+        raise ValueError("Multiple map keys are not supported")
+
+    # Has timestamps; needs to be merged with map_df because it contains
+    # data on epochs that didn't actually run due to early stopping, and we need
+    # to know which actually ran
+    def _get_df(trial: Trial) -> pd.DataFrame:
+        """
+        Get the (virtual) time each epoch finished at.
+        """
+        metadata = trial.run_metadata["benchmark_metadata"]
+        backend_simulator = none_throws(metadata.backend_simulator)
+        # Data for the first metric, which is the only metric
+        df = next(iter(metadata.dfs.values()))
+        start_time = backend_simulator.get_sim_trial_by_index(
+            trial.index
+        ).sim_start_time
+        df["time"] = df["virtual runtime"] + start_time
+        return df
+
+    with_timestamps = pd.concat(
+        (
+            _get_df(trial=assert_is_instance(trial, Trial))
+            for trial in experiment.trials.values()
+        ),
+        axis=0,
+        ignore_index=True,
+    )[["trial_index", map_key, "time"]]
+
+    df = (
+        map_df.loc[
+            map_df["metric_name"] == objective_name,
+            ["trial_index", "arm_name", "mean", map_key],
+        ]
+        .merge(with_timestamps, how="left")
+        .sort_values("time", ignore_index=True)
+    )
+    return (
+        df["mean"].cummin()
+        if optimization_config.objective.minimize
+        else df["mean"].cummax()
+    ).to_numpy()
+
+
+def get_benchmark_result_with_cumulative_steps(
+    result: BenchmarkResult,
+    optimal_value: float,
+    baseline_value: float,
+) -> BenchmarkResult:
+    """
+    Replaces the cost trace with the cumulative number of steps run and
+    recomputes the optimization trace accordingly, using
+    `get_opt_trace_by_steps`.
+    """
+
+    experiment = none_throws(result.experiment)
+    opt_trace = get_opt_trace_by_steps(experiment=experiment)
+    return replace(
+        result,
+        optimization_trace=opt_trace,
+        cost_trace=np.arange(1, len(opt_trace) + 1, dtype=int),
+        # Empty
+        oracle_trace=np.full(len(opt_trace), np.nan),
+        inference_trace=np.full(len(opt_trace), np.nan),
+        score_trace=compute_score_trace(
+            optimization_trace=opt_trace,
+            baseline_value=baseline_value,
+            optimal_value=optimal_value,
+        ),
+    )

@@ -10,9 +10,9 @@ from collections import defaultdict
 from logging import Logger
 
 import pandas as pd
-from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.core.trial_status import TrialStatus
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance
 
@@ -98,12 +98,9 @@ def align_partial_results(
                     # do forward fill (with valid observations) to handle instances
                     # where one task only has data for early progressions
                     df_interp = df_interp.fillna(method="pad")
-            except ValueError as e:
+            except ValueError:
                 df_interp = df_ridx
-                logger.info(
-                    f"Got exception `{e}` during interpolation. "
-                    "Using uninterpolated values instead."
-                )
+
             # renaming column to trial index, append results
             dfs_mean[metric].append(df_interp["mean"].rename(tidx))
             if has_sem:

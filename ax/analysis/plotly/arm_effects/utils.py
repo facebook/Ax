@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-unsafe
+# pyre-strict
 
 from typing import Any
 
@@ -19,7 +19,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.prediction_utils import predict_at_point
 from plotly import express as px, graph_objects as go
 from pyre_extensions import none_throws
@@ -48,7 +48,7 @@ def prepare_arm_effects_plot(
             determine if the metric is a constraint, and if so, what the bound is
             so the bound can be rendered in the plot.
         df: A dataframe of data to plot with the following columns:
-            - source: In-sample or model key that geneerated the candidate
+            - source: In-sample or model key that generated the candidate
             - arm_name: The name of the arm
             - mean: The observed or predicted mean of the metric specified
             - sem: The observed or predicted sem of the metric specified
@@ -203,7 +203,7 @@ def _add_style_to_effects_by_arm_plot(
     )
 
 
-def _get_trial_index_for_predictions(model: ModelBridge) -> int | None:
+def _get_trial_index_for_predictions(model: Adapter) -> int | None:
     """Returns status quo features index if defined on the model.  Otherwise, returns
     the max observed trial index to appease multitask models for prediction
     by giving fixed features. The max index is not necessarily accurate and should
@@ -224,7 +224,7 @@ def _get_trial_index_for_predictions(model: ModelBridge) -> int | None:
 
 
 def get_predictions_by_arm(
-    model: ModelBridge,
+    model: Adapter,
     metric_name: str,
     outcome_constraints: list[OutcomeConstraint],
     gr: GeneratorRun | None = None,

@@ -13,6 +13,7 @@ import numpy.typing as npt
 import torch
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -22,6 +23,7 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.modelbridge_utils import (
     _array_to_tensor,
+    _get_modelbridge_training_data,
     extract_risk_measure,
     extract_robust_digest,
     extract_search_space_digest,
@@ -31,23 +33,18 @@ from ax.modelbridge.modelbridge_utils import (
     transform_search_space,
 )
 from ax.modelbridge.registry import Cont_X_trans, Y_trans
+from ax.modelbridge.torch import TorchAdapter
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_robust_search_space, get_search_space
 from botorch.acquisition.risk_measures import VaR
 from botorch.utils.datasets import ContextualDataset, SupervisedDataset
 from pyre_extensions import none_throws
+from torch import Tensor
 
 
-class TestModelBridgeUtils(TestCase):
+class TestAdapterUtils(TestCase):
     def test__array_to_tensor(self) -> None:
-        from ax.modelbridge import ModelBridge
-
-        @dataclass
-        class MockModelbridge(ModelBridge):
-            def _array_to_tensor(self, array: npt.NDArray | list[float]):
-                return _array_to_tensor(array=array)
-
-        mock_modelbridge = MockModelbridge()
+        mock_modelbridge = MockAdapter()
         arr = [0.0]
         res = _array_to_tensor(array=arr)
         self.assertEqual(len(res.size()), 1)
@@ -351,7 +348,7 @@ class TestModelBridgeUtils(TestCase):
             self.assertIsInstance(d, ContextualDataset)
 
     def test_extract_search_space_digest(self) -> None:
-        # This is also tested as part of broader TorchModelBridge tests.
+        # This is also tested as part of broader TorchAdapter tests.
         # Test log & logit scale parameters.
         for log_scale, logit_scale in [(True, False), (False, True)]:
             ss = SearchSpace(
@@ -368,3 +365,81 @@ class TestModelBridgeUtils(TestCase):
             )
             with self.assertRaisesRegex(UserInputError, "Log and Logit"):
                 extract_search_space_digest(ss, list(ss.parameters))
+
+    def test_get_in_desing_modelbridge_training_data(self) -> None:
+        adapter = MockAdapter()
+
+        # Add training data to adapter.
+        adapter._training_data = [
+            Observation(
+                features=ObservationFeatures(
+                    parameters={"x": 2.0, "y": 10.0}, trial_index=0
+                ),
+                data=ObservationData(
+                    means=np.array([2.0, 4.0]),
+                    covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
+                    metric_names=["a", "b"],
+                ),
+                arm_name="0_0",
+            ),
+            Observation(
+                features=ObservationFeatures(
+                    parameters={"x": 20.0, "y": 1.0}, trial_index=0
+                ),
+                data=ObservationData(
+                    means=np.array([20.0, 40.0]),
+                    covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
+                    metric_names=["a", "b"],
+                ),
+                arm_name="1_0",
+            ),
+        ]
+
+        # Test _get_modelbridge_training_data and
+        # _get_in_design_modelbridge_training_data return the same observations when
+        # all are is in-design.
+        adapter._training_in_design = [True, True]
+        obs_feats, obs_data, arm_names = _get_modelbridge_training_data(
+            modelbridge=adapter
+        )
+        in_design_obs_feats, in_design_obs_data, in_design_arm_names = (
+            _get_modelbridge_training_data(modelbridge=adapter, in_design_only=True)
+        )
+        self.assertEqual(obs_feats, in_design_obs_feats)
+        self.assertEqual(obs_data, in_design_obs_data)
+        self.assertEqual(arm_names, in_design_arm_names)
+
+        # Test results are different when some data is out-of-design.
+        adapter._training_in_design = [False, True]
+        obs_feats, obs_data, arm_names = _get_modelbridge_training_data(
+            modelbridge=adapter
+        )
+        in_design_obs_feats, in_design_obs_data, in_design_arm_names = (
+            _get_modelbridge_training_data(modelbridge=adapter, in_design_only=True)
+        )
+        self.assertEqual(len(obs_feats), 2)
+        self.assertEqual(len(obs_data), 2)
+        self.assertEqual(len(arm_names), 2)
+
+        self.assertEqual(len(in_design_obs_feats), 1)
+        self.assertEqual(len(in_design_obs_data), 1)
+        self.assertEqual(len(in_design_arm_names), 1)
+
+        self.assertEqual(obs_feats[1], in_design_obs_feats[0])
+        self.assertEqual(obs_data[1], in_design_obs_data[0])
+        self.assertEqual(arm_names[1], in_design_arm_names[0])
+
+        # Test nothing is returned when all are out-of-design.
+        adapter._training_in_design = [False, False]
+        in_design_obs_feats, in_design_obs_data, in_design_arm_names = (
+            _get_modelbridge_training_data(modelbridge=adapter, in_design_only=True)
+        )
+        self.assertEqual(len(in_design_obs_feats), 0)
+        self.assertEqual(len(in_design_obs_data), 0)
+        self.assertEqual(len(in_design_arm_names), 0)
+
+
+@dataclass
+class MockAdapter(TorchAdapter):
+    def _array_to_tensor(self, array: npt.NDArray | list[float]) -> Tensor:
+        return _array_to_tensor(array=array)

@@ -178,7 +178,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             trial should be stopped, and `reason` is an (optional) string providing
             information on why the trial should or should not be stopped.
         """
-        logger.info(f"Considering trial {trial_index} for early stopping.")
 
         stopping_eligible, reason = self.is_eligible(
             trial_index=trial_index, experiment=experiment, df=df_raw, map_key=map_key
@@ -192,22 +191,16 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         df_trial = none_throws(df[trial_index].dropna())
         trial_last_prog = df_trial.index.max()
         data_at_last_progression = df.loc[trial_last_prog].dropna()
-        logger.info(
-            "Early stopping objective at last progression is:\n"
-            f"{data_at_last_progression}."
-        )
 
         # check for enough number of trials with data
         if (
             self.min_curves is not None
             and len(data_at_last_progression) < self.min_curves  # pyre-ignore[58]
         ):
-            return self._log_and_return_num_trials_with_data(
-                logger=logger,
-                trial_index=trial_index,
-                trial_last_progression=trial_last_prog,
-                num_trials_with_data=len(data_at_last_progression),
-                min_curves=self.min_curves,  # pyre-ignore[6]
+            return False, (
+                f"Number of trials with data ({len(data_at_last_progression)}) at "
+                f"last progression ({trial_last_prog}) is less than the "
+                f"specified minimum number for early stopping ({self.min_curves})."
             )
 
         # percentile early stopping logic
@@ -227,8 +220,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             f"{percentile_threshold:.1f}-th percentile ({percentile_value}) "
             "across comparable trials."
         )
-        logger.info(
-            f"Early stopping decision for {trial_index}: {should_early_stop}. "
-            f"Reason: {reason}"
-        )
+
+        if should_early_stop:
+            logger.info(f"Early stoppinging trial {trial_index}: {reason}.")
+
         return should_early_stop, reason

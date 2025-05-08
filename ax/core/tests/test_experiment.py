@@ -6,9 +6,7 @@
 
 # pyre-strict
 
-import logging
 from collections import OrderedDict
-from enum import unique
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -36,14 +34,14 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import AxError, RunnerNotFoundError, UnsupportedError
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.load import load_experiment
 from ax.storage.sqa_store.save import save_experiment
-from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
+from ax.utils.common.constants import Keys
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -739,7 +737,6 @@ class ExperimentTest(TestCase):
             ],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
-            optimize_for_power=True,
         )
 
         self.assertEqual(len(self.experiment.trials), num_trials + 1)
@@ -761,7 +758,6 @@ class ExperimentTest(TestCase):
             arm_names=["arm1", "arm2", "arm3"],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
-            optimize_for_power=True,
         )
 
         self.assertEqual(len(self.experiment.trials), num_trials + 1)
@@ -782,7 +778,6 @@ class ExperimentTest(TestCase):
             parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True}],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
-            optimize_for_power=True,
         )
 
         self.assertEqual(len(self.experiment.trials), num_trials + 1)
@@ -796,7 +791,6 @@ class ExperimentTest(TestCase):
             arm_names=["arm1"],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
-            optimize_for_power=True,
         )
 
         self.assertEqual(len(self.experiment.trials), num_trials + 1)
@@ -973,52 +967,6 @@ class ExperimentTest(TestCase):
         self.assertEqual(
             len(map_data_experiment.trials), len(old_experiment.trials) - 1
         )
-
-    def test_is_test_warning(self) -> None:
-        experiments_module = "ax.core.experiment"
-        with self.subTest("it warns on construction for a test"):
-            with self.assertLogs(experiments_module, level=logging.INFO) as logger:
-                exp = Experiment(
-                    search_space=get_search_space(),
-                    is_test=True,
-                )
-                self.assertIn(
-                    f"INFO:{experiments_module}:{EXPERIMENT_IS_TEST_WARNING}",
-                    logger.output,
-                )
-
-        with self.subTest("it does not warn on construction for a non test"):
-            with self.assertLogs(experiments_module, level=logging.INFO) as logger:
-                logging.getLogger(experiments_module).info(
-                    "there must be at least one log or the assertLogs statement fails"
-                )
-                exp = Experiment(
-                    search_space=get_search_space(),
-                    is_test=False,
-                )
-                self.assertNotIn(
-                    f"INFO:{experiments_module}:{EXPERIMENT_IS_TEST_WARNING}",
-                    logger.output,
-                )
-
-        with self.subTest("it warns on setting is_test to True"):
-            with self.assertLogs(experiments_module, level=logging.INFO) as logger:
-                exp.is_test = True
-                self.assertIn(
-                    f"INFO:{experiments_module}:{EXPERIMENT_IS_TEST_WARNING}",
-                    logger.output,
-                )
-
-        with self.subTest("it does not warn on setting is_test to False"):
-            with self.assertLogs(experiments_module, level=logging.INFO) as logger:
-                logging.getLogger(experiments_module).info(
-                    "there must be at least one log or the assertLogs statement fails"
-                )
-                exp.is_test = False
-                self.assertNotIn(
-                    f"INFO:{experiments_module}:{EXPERIMENT_IS_TEST_WARNING}",
-                    logger.output,
-                )
 
     def test_clone_with(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
@@ -1249,7 +1197,15 @@ class ExperimentTest(TestCase):
                     "track",
                     "track",
                 ],
-                "Bound": ["None", ">= 5.1", ">= 1%", "<= -7.8", "None", "None", "None"],
+                "Bound": [
+                    "None",
+                    ">= 5.1",
+                    ">= 1.0%",
+                    "<= -7.8",
+                    "None",
+                    "None",
+                    "None",
+                ],
                 "Lower is Better": [True, "None", False, "None", True, False, "None"],
             }
         )
@@ -1298,7 +1254,9 @@ class ExperimentTest(TestCase):
         self.assertEqual(experiment.trial_indices_expecting_data, {2, 4})
         experiment.trials[4].mark_failed()
         self.assertEqual(experiment.trial_indices_expecting_data, {2})
-        experiment.trials[5].mark_running(no_runner_required=True).mark_early_stopped()
+        experiment.trials[5].mark_running(no_runner_required=True).mark_early_stopped(
+            unsafe=True
+        )
         self.assertEqual(experiment.trial_indices_expecting_data, {2, 5})
 
     def test_stop_trial(self) -> None:
@@ -1324,24 +1282,18 @@ class ExperimentTest(TestCase):
         experiment = get_experiment_with_observations(
             observations=[[1.0, 2.0], [3.0, 4.0]]
         )
+        experiment.new_trial(generator_run=experiment.trials[0].generator_runs[0])
         df = experiment.to_df()
-        xs = [
-            experiment.trials[0].arms[0].parameters["x"],
-            experiment.trials[1].arms[0].parameters["x"],
-        ]
-        ys = [
-            experiment.trials[0].arms[0].parameters["y"],
-            experiment.trials[1].arms[0].parameters["y"],
-        ]
+        xs = [experiment.trials[i].arms[0].parameters["x"] for i in range(3)]
+        ys = [experiment.trials[i].arms[0].parameters["y"] for i in range(3)]
         expected_df = pd.DataFrame.from_dict(
             {
-                "trial_index": [0, 1],
-                "arm_name": ["0_0", "1_0"],
-                "trial_status": ["COMPLETED", "COMPLETED"],
-                "generation_method": ["Sobol", "Sobol"],
-                "name": ["0", "1"],  # the metadata
-                "m1": [1.0, 3.0],
-                "m2": [2.0, 4.0],
+                "trial_index": [0, 1, 2],
+                "arm_name": ["0_0", "1_0", "0_0"],
+                "trial_status": ["COMPLETED", "COMPLETED", "CANDIDATE"],
+                "name": ["0", "1", None],  # the metadata
+                "m1": [1.0, 3.0, None],
+                "m2": [2.0, 4.0, None],
                 "x": xs,
                 "y": ys,
             }
@@ -1356,7 +1308,6 @@ class ExperimentTest(TestCase):
                 "arm_name",
                 "trial_status",
                 "fail_reason",
-                "generation_method",
                 "generation_node",
                 "name",
                 "m1",
@@ -1372,7 +1323,7 @@ class ExperimentWithMapDataTest(TestCase):
         super().setUp()
         self.experiment = get_experiment_with_map_data_type()
 
-    def _setupBraninExperiment(self, n: int, incremental: bool = False) -> Experiment:
+    def _setupBraninExperiment(self, n: int) -> Experiment:
         exp = get_branin_experiment_with_timestamp_map_metric()
         batch = exp.new_batch_trial()
         batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
@@ -1537,7 +1488,7 @@ class ExperimentWithMapDataTest(TestCase):
                 trial._properties["source"], "Warm start.*Experiment.*trial"
             )
             self.assertEqual(
-                trial._properties["generation_model_key"], Models.SOBOL.value
+                trial._properties["generation_model_key"], Generators.SOBOL.value
             )
             self.assertDictEqual(trial.run_metadata, DUMMY_RUN_METADATA)
             i_old_trial += 1
@@ -1565,15 +1516,17 @@ class ExperimentWithMapDataTest(TestCase):
         # set seed to avoid transient errors caused by duplicate arms,
         # which leads to fewer arms in the trial than expected.
         seed = 0
-        sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space, seed=seed)
+        sobol = Generators.SOBOL(
+            experiment=exp, search_space=exp.search_space, seed=seed
+        )
         exp.new_batch_trial(generator_runs=[sobol.gen(n=7)]).run().complete()
 
         data = exp.fetch_data()
         set_rng_seed(seed)
-        gp = Models.BOTORCH_MODULAR(
+        gp = Generators.BOTORCH_MODULAR(
             experiment=exp, search_space=exp.search_space, data=data
         )
-        ts = Models.EMPIRICAL_BAYES_THOMPSON(
+        ts = Generators.EMPIRICAL_BAYES_THOMPSON(
             experiment=exp, search_space=exp.search_space, data=data
         )
         exp.new_batch_trial(generator_runs=[gp.gen(n=3), ts.gen(n=1)]).run().complete()
@@ -1586,7 +1539,7 @@ class ExperimentWithMapDataTest(TestCase):
 
     def test_it_does_not_take_both_single_and_multiple_gr_ars(self) -> None:
         exp = get_branin_experiment()
-        sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space)
+        sobol = Generators.SOBOL(experiment=exp, search_space=exp.search_space)
         gr1 = sobol.gen(n=7)
         gr2 = sobol.gen(n=7)
         with self.assertRaisesRegex(
@@ -1599,57 +1552,106 @@ class ExperimentWithMapDataTest(TestCase):
             )
 
     def test_experiment_with_aux_experiments(self) -> None:
-        @unique
-        class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
-            MyAuxExpPurpose = "my_auxiliary_experiment_purpose"
-            MyOtherAuxExpPurpose = "my_other_auxiliary_experiment_purpose"
-
         for get_exp_func in [get_experiment, get_experiment_with_data]:
-            exp = get_exp_func()
-            data = exp.lookup_data()
+            # different names for Ax equality purposes
+            A_experiment_1 = get_exp_func()
+            A_experiment_1.name = "A_experiment_1"
+            B_experiment_1 = get_exp_func()
+            B_experiment_1.name = "B_experiment_1"
+            B_experiment_2 = get_exp_func()
+            B_experiment_2.name = "B_experiment_2"
 
-            aux_exp = AuxiliaryExperiment(experiment=exp)
-            another_aux_exp = AuxiliaryExperiment(experiment=exp, data=data)
+            A_auxiliary_experiment_1 = AuxiliaryExperiment(experiment=A_experiment_1)
+            B_auxiliary_experiment_1 = AuxiliaryExperiment(experiment=B_experiment_1)
+            B_auxiliary_experiment_2 = AuxiliaryExperiment(
+                experiment=B_experiment_2, data=B_experiment_2.lookup_data()
+            )
 
             # init experiment with auxiliary experiments
-            exp_w_aux_exp = Experiment(
+            experiment = Experiment(
                 name="test",
                 search_space=get_search_space(),
                 auxiliary_experiments_by_purpose={
-                    TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
-                },
-            )
-
-            # in-place modification of auxiliary experiments
-            exp_w_aux_exp.auxiliary_experiments_by_purpose[
-                TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose
-            ] = [aux_exp]
-            self.assertEqual(
-                exp_w_aux_exp.auxiliary_experiments_by_purpose,
-                {
-                    TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
-                    TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose: [aux_exp],
-                },
-            )
-
-            # test setter
-            exp_w_aux_exp.auxiliary_experiments_by_purpose = {
-                TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
-                TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose: [
-                    aux_exp,
-                    another_aux_exp,
-                ],
-            }
-            self.assertEqual(
-                exp_w_aux_exp.auxiliary_experiments_by_purpose,
-                {
-                    TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
-                    TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose: [
-                        aux_exp,
-                        another_aux_exp,
+                    AuxiliaryExperimentPurpose.PE_EXPERIMENT: [
+                        A_auxiliary_experiment_1
+                    ],
+                    AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
+                        B_auxiliary_experiment_1
                     ],
                 },
             )
+
+            with self.subTest("in-place modification of auxiliary experiments"):
+                experiment.auxiliary_experiments_by_purpose[
+                    AuxiliaryExperimentPurpose.BO_EXPERIMENT
+                ] = [B_auxiliary_experiment_2]
+                self.assertEqual(
+                    experiment.auxiliary_experiments_by_purpose,
+                    {
+                        AuxiliaryExperimentPurpose.PE_EXPERIMENT: [
+                            A_auxiliary_experiment_1
+                        ],
+                        AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
+                            B_auxiliary_experiment_2
+                        ],
+                    },
+                )
+
+            with self.subTest("test setter"):
+                experiment.auxiliary_experiments_by_purpose = {
+                    AuxiliaryExperimentPurpose.PE_EXPERIMENT: [
+                        A_auxiliary_experiment_1
+                    ],
+                    AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
+                        B_auxiliary_experiment_1,
+                        B_auxiliary_experiment_2,
+                    ],
+                }
+                self.assertEqual(
+                    experiment.auxiliary_experiments_by_purpose,
+                    {
+                        AuxiliaryExperimentPurpose.PE_EXPERIMENT: [
+                            A_auxiliary_experiment_1
+                        ],
+                        AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
+                            B_auxiliary_experiment_1,
+                            B_auxiliary_experiment_2,
+                        ],
+                    },
+                )
+
+            with self.subTest("test auxiliary experiments for storage"):
+                # remove initial auxiliary experiments and add others
+                experiment.auxiliary_experiments_by_purpose = {
+                    AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
+                        B_auxiliary_experiment_2,
+                    ],
+                }
+                # confirm that auxiliary experiments were set properly
+                self.assertEqual(
+                    experiment.auxiliary_experiments_by_purpose,
+                    {
+                        AuxiliaryExperimentPurpose.BO_EXPERIMENT: [
+                            B_auxiliary_experiment_2,
+                        ],
+                    },
+                )
+                # confirm that deleted auxiliary experiments are still stored as
+                # inactive auxiliary experiments
+                A_auxiliary_experiment_1.is_active = False
+                B_auxiliary_experiment_1.is_active = False
+                self.assertAxBaseEqual(
+                    experiment.auxiliary_experiments_by_purpose_for_storage[
+                        AuxiliaryExperimentPurpose.PE_EXPERIMENT
+                    ][0],
+                    A_auxiliary_experiment_1,
+                )
+                self.assertAxBaseEqual(
+                    experiment.auxiliary_experiments_by_purpose_for_storage[
+                        AuxiliaryExperimentPurpose.BO_EXPERIMENT
+                    ][1],
+                    B_auxiliary_experiment_1,
+                )
 
     def test_name_and_store_arm_if_not_exists_same_name_different_signature(
         self,

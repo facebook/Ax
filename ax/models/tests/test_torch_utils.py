@@ -130,6 +130,16 @@ class TorchUtilsTest(TestCase):
         )
         self.assertIsInstance(obj, GenericMCObjective)
         self.assertIsNone(tf)
+        # test no X_observed (e.g., if there are no feasible points) with qLogNEI
+        obj, tf = get_botorch_objective_and_transform(
+            botorch_acqf_class=qLogNoisyExpectedImprovement,
+            model=self.mock_botorch_model,
+            outcome_constraints=self.outcome_constraints,
+            objective_weights=self.objective_weights,
+            X_observed=None,
+        )
+        self.assertIsInstance(obj, GenericMCObjective)
+        self.assertIsNone(tf)
 
         # By default, `ScalarizedPosteriorTransform` should be picked in absence of
         # outcome constraints.

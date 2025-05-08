@@ -20,43 +20,41 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 
 REPR_1000: str = (
-    "Data(df=\n"
-    + "|    |   arm_name | metric_name   |   mean |   sem |   trial_index "
-    + "| start_time          | end_time            |\n"
-    + "|---:|-----------:|:--------------|-------:|------:|--------------:"
-    + "|:--------------------|:--------------------|\n"
-    + "|  0 |        0_0 | a             |    2   |   0.2 |             1 "
-    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    + "|  1 |        0_0 | b             |    1.8 |   0.3 |             1 "
-    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    + "|  2 |        0_1 | a             |    4   |   0.6 |             1 "
-    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    + "|  3 |        0_1 | b             |    3.7 |   0.5 |             1 "
-    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    + "|  4 |        0_2 | a             |    0.5 | nan   |             1 "
-    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    + "|  5 |        0_2 | b             |    3   | nan   |             1 "
-    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |)"
+    "Data(df=\n|    |   trial_index |   arm_name | metric_name   |   mean |   sem "
+    "| start_time          | end_time            |\n"
+    "|---:|--------------:|-----------:|:--------------|-------:|------:"
+    "|:--------------------|:--------------------|\n"
+    "|  0 |             1 |        0_0 | a             |    2   |   0.2 "
+    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  1 |             1 |        0_0 | b             |    1.8 |   0.3 "
+    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  2 |             1 |        0_1 | a             |    4   |   0.6 "
+    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  3 |             1 |        0_1 | b             |    3.7 |   0.5 "
+    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  4 |             1 |        0_2 | a             |    0.5 | nan   "
+    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  5 |             1 |        0_2 | b             |    3   | nan   "
+    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |)"
 )
 
 REPR_500: str = (
-    "Data(df=\n"
-    + "|    |   arm_name | metric_name   |   mean |   sem |   trial_index "
-    + "| start_time          | end_time            |\n"
-    + "|---:|-----------:|:--------------|-------:|------:|--------------:"
-    + "|:--------------------|:--------------------|\n"
-    + "|  0 |        0_0 | a             |    2   |   0.2 |             1 "
-    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    + "|  1 |        0_0 | b             |    1.8 |   0.3 |             1 "
-    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    + "|  2 |        0_1 | a             |    4   |   0...)"
+    "Data(df=\n|    |   trial_index |   arm_name | metric_name   |   mean |   sem "
+    "| start_time          | end_time            |\n"
+    "|---:|--------------:|-----------:|:--------------|-------:|------:"
+    "|:--------------------|:--------------------|\n"
+    "|  0 |             1 |        0_0 | a             |    2   |   0.2 "
+    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  1 |             1 |        0_0 | b             |    1.8 |   0.3 "
+    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  2 |             1 |        0_1 | a           ...)"
 )
 
 
 class DataTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.df_hash = "3dd7ab8c67942d43c78ea4af05bbb1c4"
+        self.df_hash = "be6ca1edb2d83e08c460665476d32caa"
         self.df = pd.DataFrame(
             [
                 {
@@ -171,20 +169,13 @@ class DataTest(TestCase):
         merged_data = set_single_trial(data)
         self.assertTrue((merged_data.df["trial_index"] == 0).all())
 
-        data = Data(
-            df=pd.DataFrame(
-                [{"arm_name": "0_1", "mean": 3.7, "sem": 0.5, "metric_name": "b"}]
-            )
-        )
-        merged_data = set_single_trial(data)
-        self.assertTrue("trial_index" not in merged_data.df)
-
     def test_CustomData(self) -> None:
         CustomData = custom_data_class(
             column_data_types={"metadata": str, "created_time": pd.Timestamp},
             required_columns={"metadata"},
         )
         data_entry = {
+            "trial_index": 0,
             "arm_name": "0_1",
             "mean": 3.7,
             "sem": 0.5,
@@ -197,6 +188,7 @@ class DataTest(TestCase):
         self.assertTrue(isinstance(data.df.iloc[0]["created_time"], pd.Timestamp))
 
         data_entry2 = {
+            "trial_index": 0,
             "arm_name": "0_1",
             "mean": 3.7,
             "sem": 0.5,
@@ -375,8 +367,6 @@ class DataTest(TestCase):
                 ]
             )
         ).df
-        print(actual_filtered)
-        print(expected_filtered)
         self.assertTrue(actual_filtered.equals(expected_filtered))
 
     def test_data_column_data_types_default(self) -> None:

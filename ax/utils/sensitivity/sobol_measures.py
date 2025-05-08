@@ -12,9 +12,12 @@ from typing import Any
 
 import numpy.typing as npt
 import torch
-from ax.modelbridge.torch import TorchModelBridge
-from ax.models.torch.botorch import BotorchModel
-from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
+from ax.core.search_space import SearchSpaceDigest
+from ax.modelbridge.torch import TorchAdapter
+from ax.models.torch.botorch import LegacyBoTorchGenerator
+from ax.models.torch.botorch_modular.model import (
+    BoTorchGenerator as ModularBoTorchGenerator,
+)
 from ax.utils.sensitivity.derivative_measures import (
     compute_derivatives_from_model_list,
     sample_discrete_parameters,
@@ -834,14 +837,14 @@ def compute_sobol_indices_from_model_list(
 
 
 def ax_parameter_sens(
-    model_bridge: TorchModelBridge,
+    model_bridge: TorchAdapter,
     metrics: list[str] | None = None,
     order: str = "first",
     signed: bool = True,
     **sobol_kwargs: Any,
 ) -> dict[str, dict[str, npt.NDArray]]:
     """
-    Compute sensitivity for all metrics on an TorchModelBridge.
+    Compute sensitivity for all metrics on an TorchAdapter.
 
     Sobol measures are always positive regardless of the direction in which the
     parameter influences f. If `signed` is set to True, then the Sobol measure for each
@@ -851,7 +854,7 @@ def ax_parameter_sens(
     will have values close to 0.
 
     Args:
-        model_bridge: A ModelBridge object with models that were fit.
+        model_bridge: A Adapter object with models that were fit.
         metrics: The names of the metrics and outcomes for which to compute
             sensitivities. This should preferably be metrics with a good model fit.
             Defaults to model_bridge.outcomes.
@@ -872,14 +875,10 @@ def ax_parameter_sens(
             f"Order {order} is not supported. Plese choose one of"
             " 'first', 'total' or 'second'."
         )
-    if order == "second" and signed:
-        raise NotImplementedError("Second order is not supported for signed indices.")
     if metrics is None:
         metrics = model_bridge.outcomes
-    # can safely access _search_space_digest after type check
-    torch_model = _get_torch_model(model_bridge)
-    digest = torch_model.search_space_digest
-    model_list = _get_model_per_metric(torch_model, metrics)
+    generator, digest = _get_generator_and_digest(adapter=model_bridge)
+    model_list = _get_model_per_metric(generator=generator, metrics=metrics)
     bounds = torch.tensor(digest.bounds).T  # transposing to make it 2 x d
 
     # for second order indices, we need to compute first order indices first
@@ -891,6 +890,10 @@ def ax_parameter_sens(
         order="first" if order == "second" else order,
         discrete_features=digest.categorical_features + digest.ordinal_features,
         **sobol_kwargs,
+    )
+    feature_names = digest.feature_names
+    indices_unsigned = array_with_string_indices_to_dict(
+        rows=metrics, cols=feature_names, A=ind.numpy()
     )
     if signed:
         ind_deriv = compute_derivatives_from_model_list(
@@ -909,7 +912,6 @@ def ax_parameter_sens(
             ind_deriv[:, i] = 1.0
         ind *= torch.sign(ind_deriv)
 
-    feature_names = digest.feature_names
     indices = array_with_string_indices_to_dict(
         rows=metrics, cols=feature_names, A=ind.numpy()
     )
@@ -919,7 +921,7 @@ def ax_parameter_sens(
             bounds=bounds,
             order="second",
             discrete_features=digest.categorical_features + digest.ordinal_features,
-            first_order_idcs=indices,
+            first_order_idcs=indices_unsigned,
             **sobol_kwargs,
         )
         second_order_feature_names = [
@@ -937,36 +939,35 @@ def ax_parameter_sens(
     return indices
 
 
-def _get_torch_model(
-    model_bridge: TorchModelBridge,
-) -> BotorchModel | ModularBoTorchModel:
-    """Returns the TorchModel of the model_bridge, if it is a type that stores
-    SearchSpaceDigest during model fitting. At this point, this is BotorchModel, and
-    ModularBoTorchModel.
+def _get_generator_and_digest(
+    adapter: TorchAdapter,
+) -> tuple[LegacyBoTorchGenerator | ModularBoTorchGenerator, SearchSpaceDigest]:
+    """Returns the generator of the adapter and the SearchSpaceDigest
+    that was used to fit the adapter.
     """
-    if not isinstance(model_bridge, TorchModelBridge):
+    if not isinstance(adapter, TorchAdapter):
         raise NotImplementedError(
-            f"{type(model_bridge)=}, but only TorchModelBridge is supported."
+            f"{type(adapter)=}, but only TorchAdapter is supported."
         )
-    model = model_bridge.model  # should be of type TorchModel
-    if not (isinstance(model, BotorchModel) or isinstance(model, ModularBoTorchModel)):
+    generator = adapter.model
+    if not isinstance(generator, (LegacyBoTorchGenerator, ModularBoTorchGenerator)):
         raise NotImplementedError(
-            f"{type(model_bridge.model)=}, but only "
-            "Union[BotorchModel, ModularBoTorchModel] is supported."
+            f"{type(generator)=}, but only LegacyBoTorchGenerator and "
+            "ModularBoTorchGenerator are supported."
         )
-    return model
+    return generator, generator.search_space_digest
 
 
 def _get_model_per_metric(
-    model: BotorchModel | ModularBoTorchModel, metrics: list[str]
+    generator: LegacyBoTorchGenerator | ModularBoTorchGenerator, metrics: list[str]
 ) -> list[Model]:
-    """For a given TorchModel model, returns a list of botorch.models.model.Model
+    """For a given TorchGenerator model, returns a list of botorch.models.model.Model
     objects corresponding to - and in the same order as - the given metrics.
     """
-    if isinstance(model, BotorchModel):
+    if isinstance(generator, LegacyBoTorchGenerator):
         # guaranteed not to be None after accessing search_space_digest
-        gp_model = model.model
-        model_idx = [model.metric_names.index(m) for m in metrics]
+        gp_model = generator.model
+        model_idx = [generator.metric_names.index(m) for m in metrics]
         if not isinstance(gp_model, ModelList):
             if gp_model.num_outputs == 1:  # can accept single output models
                 return [gp_model for _ in model_idx]
@@ -975,14 +976,14 @@ def _get_model_per_metric(
                 "but only ModelList is supported."
             )
         return [gp_model.models[i] for i in model_idx]
-    else:  # isinstance(model, ModularBoTorchModel):
-        surrogate = model.surrogate
+    else:  # isinstance(model, ModularBoTorchGenerator):
+        surrogate = generator.surrogate
         outcomes = surrogate.outcomes
         model_list = []
         for m in metrics:  # for each metric, find a corresponding surrogate
             i = outcomes.index(m)
             metric_model = surrogate.model
-            # since model is a ModularBoTorchModel, metric_model will be a
+            # since model is a ModularBoTorchGenerator, metric_model will be a
             # `botorch.models.model.Model` object, which have the `num_outputs`
             # property and `subset_outputs` method.
             if metric_model.num_outputs > 1:  # subset to relevant output

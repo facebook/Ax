@@ -13,6 +13,7 @@ import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
+from ax.core.types import TModelCov, TModelMean
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import unwrap_observation_data
 from ax.modelbridge.transforms.base import Transform
@@ -47,7 +48,7 @@ class Derelativize(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional["modelbridge_module.base.Adapter"] = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         use_raw_sq = self.config.get("use_raw_status_quo", False)
@@ -59,7 +60,7 @@ class Derelativize(Transform):
         # Else, we have at least one relative constraint.
         # Estimate the value at the status quo.
         if modelbridge is None:
-            raise ValueError("ModelBridge not supplied to transform.")
+            raise ValueError("Adapter not supplied to transform.")
         # Unobserved status quo corresponds to a modelbridge.status_quo of None.
         if modelbridge.status_quo is None:
             raise DataRequiredError(
@@ -68,15 +69,25 @@ class Derelativize(Transform):
             )
 
         sq = none_throws(modelbridge.status_quo)
-        # Only use model predictions if the status quo is in the search space (including
-        # parameter constraints) and `use_raw_sq` is false.
+        sq_data = ivw_metric_merge(obsd=sq.data, conflicting_noiseless="raise")
+        raw_f, _ = unwrap_observation_data([sq_data])
         if not use_raw_sq and modelbridge.model_space.check_membership(
             sq.features.parameters
         ):
-            f, _ = modelbridge.predict([sq.features])
+            # Only use model predictions if the status quo is in the search space
+            # (including parameter constraints) and `use_raw_sq` is false.
+            f, cov = modelbridge.predict(
+                observation_features=[sq.features], use_posterior_predictive=True
+            )
+            # Warn if the raw SQ values are outside of the CI for the predictions.
+            _warn_if_raw_sq_is_out_of_CI(
+                optimization_config=optimization_config,
+                raw_f=raw_f,
+                pred_f=f,
+                pred_cov=cov,
+            )
         else:
-            sq_data = ivw_metric_merge(obsd=sq.data, conflicting_noiseless="raise")
-            f, _ = unwrap_observation_data([sq_data])
+            f = raw_f
 
         # Plug in the status quo value to each relative constraint.
         for c in optimization_config.all_constraints:
@@ -117,6 +128,40 @@ class Derelativize(Transform):
         # We intentionally leave outcome constraints derelativized when
         # untransforming.
         return outcome_constraints
+
+
+def _warn_if_raw_sq_is_out_of_CI(
+    optimization_config: OptimizationConfig,
+    raw_f: TModelMean,
+    pred_f: TModelMean,
+    pred_cov: TModelCov,
+) -> None:
+    """Warn if the raw SQ values for relative constraint metrics deviate
+    by more than 1.96 standard deviation from the predictions.
+    """
+    relative_metrics = {
+        oc.metric.name
+        for oc in optimization_config.all_constraints
+        if oc.relative and not isinstance(oc, ScalarizedOutcomeConstraint)
+    }.union(
+        {
+            metric.name
+            for oc in optimization_config.all_constraints
+            if oc.relative and isinstance(oc, ScalarizedOutcomeConstraint)
+            for metric in oc.metrics
+        }
+    )
+    for metric_name in relative_metrics:
+        raw_obs = raw_f[metric_name][0]
+        pred_mean = pred_f[metric_name][0]
+        pred_std = np.sqrt(pred_cov[metric_name][metric_name][0])
+        if abs(raw_obs - pred_mean) > 1.96 * pred_std:
+            logger.warning(
+                "Model predictions for status quo arm for metric "
+                f"{metric_name} deviate more than two standard deviations "
+                "from the raw status quo value. "
+                f"{raw_obs=}, {pred_mean=}, {pred_std=}."
+            )
 
 
 def derelativize_bound(

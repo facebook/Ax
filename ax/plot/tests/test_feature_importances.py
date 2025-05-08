@@ -9,8 +9,9 @@
 import json
 
 import torch
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.registry import Models
+from ax.modelbridge.base import Adapter
+from ax.modelbridge.registry import Generators
+from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.plot.base import AxPlotConfig
 from ax.plot.feature_importances import (
     plot_feature_importance_by_feature,
@@ -24,14 +25,15 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
 from plotly import graph_objects as go
+from pyre_extensions import assert_is_instance
 
 DUMMY_CAPTION = "test_caption"
 
 
-def get_modelbridge() -> ModelBridge:
+def get_modelbridge() -> Adapter:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
-    return Models.LEGACY_BOTORCH(
+    return Generators.LEGACY_BOTORCH(
         # Model bridge kwargs
         experiment=exp,
         data=exp.fetch_data(),
@@ -40,16 +42,19 @@ def get_modelbridge() -> ModelBridge:
 
 # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
 #  to avoid runtime subscripting errors.
-def get_sensitivity_values(ax_model: ModelBridge) -> dict:
+def get_sensitivity_values(ax_model: Adapter) -> dict:
     """
     Compute lengscale sensitivity value for on an ax model.
 
     Returns map {'metric_name': {'parameter_name': sensitivity_value}}
     """
-    if hasattr(ax_model.model.model.covar_module, "outputscale"):
-        ls = ax_model.model.model.covar_module.base_kernel.lengthscale.squeeze()
+    generator = assert_is_instance(ax_model.model, LegacyBoTorchGenerator)
+    if hasattr(generator.model.covar_module, "outputscale"):
+        # pyre-ignore [16]: Covar modules are difficult to type.
+        ls = generator.model.covar_module.base_kernel.lengthscale.squeeze()
     else:
-        ls = ax_model.model.model.covar_module.lengthscale.squeeze()
+        # pyre-ignore [16]: Covar modules are difficult to type.
+        ls = generator.model.covar_module.lengthscale.squeeze()
     if len(ls.shape) > 1:
         ls = ls.mean(dim=0)
     # pyre-fixme[16]: `float` has no attribute `detach`.
@@ -58,7 +63,7 @@ def get_sensitivity_values(ax_model: ModelBridge) -> dict:
     res = {}
     for metric_name in ax_model.outcomes:
         importances_arr = importances_dict[metric_name].numpy()
-        # pyre-fixme[16]: `ModelBridge` has no attribute `parameters`.
+        # pyre-fixme[16]: `Adapter` has no attribute `parameters`.
         res[metric_name] = dict(zip(ax_model.parameters, importances_arr))
     return res
 

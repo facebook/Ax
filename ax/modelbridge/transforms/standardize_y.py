@@ -41,7 +41,7 @@ class StandardizeY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
+        modelbridge: Optional["base_modelbridge.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         if observations is None or len(observations) == 0:
@@ -68,7 +68,7 @@ class StandardizeY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
+        modelbridge: Optional["base_modelbridge.Adapter"] = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
@@ -159,7 +159,7 @@ def compute_standardization_parameters(
         # Don't standardize if variance is too small.
         if s < 1e-8:
             Ystd[k] = 1.0
-            logger.info(f"Outcome {k} is constant, within tolerance.")
+            logger.warning(f"Outcome {k} is constant, within tolerance.")
     # pyre-fixme[7]: Expected `Tuple[Dict[Union[Tuple[str, str], str], float],
     #  Dict[Union[Tuple[str, str], str], float]]` but got `Tuple[Dict[Union[Tuple[str,
     #  Union[None, bool, float, int, str]], str], typing.Any], Dict[Union[Tuple[str,

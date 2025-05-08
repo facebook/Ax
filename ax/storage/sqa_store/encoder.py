@@ -9,12 +9,10 @@
 import json
 from datetime import datetime
 from enum import Enum
-
 from logging import Logger
 from typing import Any, cast
 
 from ax.analysis.analysis import AnalysisCard
-
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
@@ -45,8 +43,9 @@ from ax.core.runner import Runner
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
+from ax.storage.sqa_store.load import _get_experiment_id
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAAnalysisCard,
@@ -147,12 +146,6 @@ class Encoder:
         ParameterConstraints, and Runner owned by this Experiment.
         """
 
-        logger.error(
-            "ATTENTION: The Ax team is considering deprecating SQLAlchemy storage. "
-            "If you are currently using SQLAlchemy storage, please reach out to us "
-            "via GitHub Issues here: https://github.com/facebook/Ax/issues/2975"
-        )
-
         optimization_metrics = self.optimization_config_to_sqa(
             experiment.optimization_config
         )
@@ -188,7 +181,26 @@ class Encoder:
             aux_exps,
         ) in experiment.auxiliary_experiments_by_purpose.items():
             aux_exp_type = aux_exp_type_enum.value
-            aux_exp_jsons = [aux_exp.experiment.name for aux_exp in aux_exps]
+            aux_exp_jsons = []
+            for aux_exp in aux_exps:
+                name = aux_exp.experiment.name
+                if (
+                    name is None
+                    or _get_experiment_id(experiment_name=name, config=self.config)
+                    is None
+                ):
+                    raise SQAEncodeError(
+                        f"Cannot save experiment {experiment.name} because it has an "
+                        f"auxiliary experiment {name} that does not exist in the "
+                        "database. Make sure that all auxiliary experiments are "
+                        "available in the database before saving the main experiment."
+                    )
+                aux_exp_jsons.append(
+                    {
+                        "__type": aux_exp.__class__.__name__,
+                        "experiment_name": name,
+                    }
+                )
             auxiliary_experiments_by_purpose[aux_exp_type] = aux_exp_jsons
 
         properties = experiment._properties
@@ -779,10 +791,18 @@ class Encoder:
         best_arm_name = None
         best_arm_parameters = None
         best_arm_predictions = None
+
         if generator_run.best_arm_predictions is not None:
-            best_arm = generator_run.best_arm_predictions[0]
-            # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
-            best_arm_predictions = list(generator_run.best_arm_predictions[1])
+            best_arm, model_predict_arm = generator_run.best_arm_predictions
+
+            if model_predict_arm is not None:
+                best_arm_predictions = list(model_predict_arm)
+            else:
+                logger.warning(
+                    f"No model predictions found with best arm '{best_arm._name}'."
+                    " Setting best_arm_predictions=None in storage"
+                )
+
             best_arm_name = best_arm._name
             best_arm_parameters = best_arm.parameters
         model_predictions = (
@@ -959,7 +979,6 @@ class Encoder:
         abandoned_arms = []
         generator_runs = []
         status_quo_name = None
-        optimize_for_power = None
         lifecycle_stage = None
 
         if isinstance(trial, Trial) and trial.generator_run:
@@ -1010,12 +1029,6 @@ class Encoder:
                 generator_runs.append(gr_sqa)
                 status_quo_name = trial_status_quo.name
 
-            optimize_for_power = getattr(trial, "optimize_for_power", None)
-            if optimize_for_power is None:
-                logger.warning(
-                    f"optimize_for_power not present in BatchTrial: {trial.__dict__}"
-                )
-
         # pyre-ignore[9]: Expected `Base` for 1st...ot `typing.Type[Trial]`.
         trial_class: SQATrial = self.config.class_to_sqa_class[Trial]
         trial_sqa = trial_class(  # pyre-fixme[29]: `SQATrial` is not a function.
@@ -1026,7 +1039,6 @@ class Encoder:
             index=trial.index,
             is_batch=isinstance(trial, BatchTrial),
             num_arms_created=trial._num_arms_created,
-            optimize_for_power=optimize_for_power,
             ttl_seconds=trial.ttl_seconds,
             run_metadata=trial.run_metadata,
             stop_metadata=trial.stop_metadata,
@@ -1096,11 +1108,20 @@ class Encoder:
             name=analysis_card.name,
             title=analysis_card.title,
             subtitle=analysis_card.subtitle,
-            level=analysis_card.level,
+            # AnalysisCard.level is an int, but is also set as an AnalysisCardLevel
+            # enum. Directly saving the enum leads to MySQL warnings.
+            level=int(analysis_card.level),
             dataframe_json=analysis_card.df.to_json(),
             blob=analysis_card.blob,
-            blob_annotation=analysis_card.blob_annotation,
+            # AnalysisCard.blob_annotation is a string, but is also set as an
+            # AnalysisBlobAnnotation enum. Directly saving the enum leads to MySQL
+            # warnings.
+            blob_annotation=analysis_card.blob_annotation.value,
             time_created=timestamp,
             experiment_id=experiment_id,
             attributes=json.dumps(analysis_card.attributes),
+            # AnalysisCard.category is an int, but is also set as an
+            # AnalysisCardCategory enum. Directly saving the enum leads to MySQL
+            # warnings.
+            category=int(analysis_card.category),
         )

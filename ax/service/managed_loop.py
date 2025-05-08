@@ -12,6 +12,9 @@ import inspect
 import logging
 from collections.abc import Iterable
 
+# Manual import to avoid strange error, see Diff for details.
+import ax.generation_strategy.generation_node_input_constructors  # noqa
+
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
@@ -27,13 +30,12 @@ from ax.core.types import (
 from ax.core.utils import get_pending_observation_features
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted, UserInputError
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
-    get_best_raw_objective_point,
+    get_best_raw_objective_point_with_trial_index,
 )
 from ax.service.utils.instantiation import (
     DEFAULT_OBJECTIVE_NAME,
@@ -76,7 +78,7 @@ class OptimizationLoop:
         self.experiment = experiment
         if generation_strategy is None:
             # pyre-fixme[4]: Attribute must be annotated.
-            self.generation_strategy = choose_generation_strategy(
+            self.generation_strategy = choose_generation_strategy_legacy(
                 search_space=experiment.search_space,
                 use_batch_trials=self.arms_per_trial > 1,
                 random_seed=self.random_seed,
@@ -251,26 +253,19 @@ class OptimizationLoop:
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
         best_point = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=self.experiment, models_enum=Models
+            experiment=self.experiment, adapter=self.generation_strategy.model
         )
         if best_point is not None:
             _, parameterizations, predictions = best_point
             return parameterizations, predictions
 
         # Could not find through model, default to using raw objective.
-        parameterization, values = get_best_raw_objective_point(
-            experiment=self.experiment
+        _, parameterization, predict_arm = (
+            get_best_raw_objective_point_with_trial_index(experiment=self.experiment)
         )
-        # For values, grab just the means to conform to TModelPredictArm format.
-        return (
-            parameterization,
-            (
-                {k: v[0] for k, v in values.items()},  # v[0] is mean
-                {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
-            ),
-        )
+        return parameterization, predict_arm
 
-    def get_current_model(self) -> ModelBridge | None:
+    def get_current_model(self) -> Adapter | None:
         """Obtain the most recently used model in optimization."""
         return self.generation_strategy.model
 
@@ -287,7 +282,7 @@ def optimize(
     arms_per_trial: int = 1,
     random_seed: int | None = None,
     generation_strategy: GenerationStrategy | None = None,
-) -> tuple[TParameterization, TModelPredictArm | None, Experiment, ModelBridge | None]:
+) -> tuple[TParameterization, TModelPredictArm | None, Experiment, Adapter | None]:
     """Construct and run a full optimization loop."""
     loop = OptimizationLoop.with_evaluation_function(
         parameters=parameters,

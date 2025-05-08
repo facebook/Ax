@@ -127,7 +127,7 @@ def get_total_runtime(
     # By default, each step takes 1 virtual second.
     if step_runtime_function is not None:
         max_step_runtime = max(
-            (step_runtime_function(arm.parameters) for arm in trial.arms)
+            step_runtime_function(arm.parameters) for arm in trial.arms
         )
     else:
         max_step_runtime = 1
@@ -149,13 +149,15 @@ class BenchmarkRunner(Runner):
           viewing them as noiseless problems where the observed values are the
           ground truth. The observed values will be used for tracking the
           progress of optimization.
-        - If they are not deterministc, they are not supported. It is not
+        - If they are not deterministic, they are not supported. It is not
           conceptually clear how to benchmark such problems, so we decided to
           not over-engineer for that before such a use case arrives.
 
-    If ``max_concurrency`` is left as default (1), trials run serially and
-    complete immediately. Otherwise, a ``SimulatedBackendRunner`` is constructed
-    to track the status of trials.
+    If ``max_concurrency`` is left as default (1), ``step_runtime_function`` is
+    None, and ``force_use_simulated_backend`` is False, then trials run serially
+    and complete immediately. Otherwise, a ``SimulatedBackendRunner`` is
+    constructed to track the status of trials and the (virtual) times at which
+    they start and stop.
 
     Args:
         test_function: A ``BenchmarkTestFunction`` from which to generate
@@ -167,16 +169,26 @@ class BenchmarkRunner(Runner):
         max_concurrency: The maximum number of trials that can be running at a
             given time. Typically, this is ``max_pending_trials`` from the
             ``scheduler_options`` on the ``BenchmarkMethod``.
+        force_use_simulated_backend: If True, use the simulated backend even if
+            ``max_concurrency`` is 1 and ``step_runtime_function`` is None. This
+            is recommended when used with a ``BenchmarkMethod`` that does early
+            stopping.
     """
 
     test_function: BenchmarkTestFunction
     noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
     max_concurrency: int = 1
+    force_use_simulated_backend: bool = False
     simulated_backend_runner: SimulatedBackendRunner | None = field(init=False)
 
     def __post_init__(self) -> None:
-        if self.max_concurrency > 1:
+        use_simulated_backend = (
+            (self.max_concurrency > 1)
+            or (self.step_runtime_function is not None)
+            or self.force_use_simulated_backend
+        )
+        if use_simulated_backend:
             simulator = BackendSimulator(
                 options=BackendSimulatorOptions(
                     max_concurrency=self.max_concurrency,
@@ -184,6 +196,7 @@ class BenchmarkRunner(Runner):
                     internal_clock=0,
                     use_update_as_start_time=True,
                 ),
+                verbose_logging=False,
             )
             self.simulated_backend_runner = SimulatedBackendRunner(
                 simulator=simulator,
@@ -216,8 +229,8 @@ class BenchmarkRunner(Runner):
 
     def get_noise_stds(self) -> dict[str, float]:
         noise_std = self.noise_std
-        if isinstance(noise_std, float):
-            return {name: noise_std for name in self.outcome_names}
+        if isinstance(noise_std, float | int):
+            return {name: float(noise_std) for name in self.outcome_names}
         elif isinstance(noise_std, dict):
             if not set(noise_std.keys()) == set(self.outcome_names):
                 raise ValueError(
@@ -330,7 +343,7 @@ class BenchmarkRunner(Runner):
         if self.simulated_backend_runner is None:
             raise UnsupportedError(
                 "stop() is not supported for a `BenchmarkRunner` without a "
-                "`simulated_backend_runner`, becauase trials complete "
+                "`simulated_backend_runner`, because trials complete "
                 "immediately."
             )
         return self.simulated_backend_runner.stop(trial=trial, reason=reason)

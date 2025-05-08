@@ -10,7 +10,6 @@
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -24,6 +23,7 @@ from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.global_stopping.strategies.improvement import (
     constraint_satisfaction,
@@ -53,7 +53,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertFalse(stop)
         self.assertEqual(
             message,
-            f"There are only 0 completed trials, but {gss_2} has a minumum of 2.",
+            f"There are only 0 completed trials, but {gss_2} has a minimum of 2.",
         )
 
         # Insufficient trials to stop.
@@ -62,7 +62,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertFalse(stop)
         self.assertEqual(
             message,
-            f"There are only 1 completed trials, but {gss} has a minumum of 2.",
+            f"There are only 1 completed trials, but {gss} has a minimum of 2.",
         )
 
         # Check that we properly count completed trials.
@@ -363,7 +363,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertFalse(stop)
         self.assertEqual(
             message,
-            f"There are only 0 completed trials, but {gss} has a minumum of 2.",
+            f"There are only 0 completed trials, but {gss} has a minimum of 2.",
         )
 
     def test_improvement_bar_nonnegative(self) -> None:

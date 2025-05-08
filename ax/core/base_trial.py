@@ -12,20 +12,21 @@ from abc import ABC, abstractmethod, abstractproperty
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timedelta
-from enum import Enum
 from typing import Any, TYPE_CHECKING
 
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.formatting_utils import data_and_evaluations_from_raw_data
-from ax.core.generator_run import GeneratorRun
+from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchResult
 from ax.core.runner import Runner
+from ax.core.trial_status import TrialStatus
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
+from ax.utils.common.constants import Keys
 from pyre_extensions import none_throws
 
 
@@ -33,143 +34,9 @@ if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401
 
-
-class TrialStatus(int, Enum):
-    """Enum of trial status.
-
-    General lifecycle of a trial is:::
-
-        CANDIDATE --> STAGED --> RUNNING --> COMPLETED
-                  ------------->         --> FAILED (retryable)
-                                         --> EARLY_STOPPED (deemed unpromising)
-                  -------------------------> ABANDONED (non-retryable)
-
-    Trial is marked as a ``CANDIDATE`` immediately upon its creation.
-
-    Trials may be abandoned at any time prior to completion or failure.
-    The difference between abandonment and failure is that the ``FAILED`` state
-    is meant to express a possibly transient or retryable error, so trials in
-    that state may be re-run and arm(s) in them may be resuggested by Ax models
-    to be added to new trials.
-
-    ``ABANDONED`` trials on the other end, indicate
-    that the trial (and arms(s) in it) should not be rerun or added to new
-    trials. A trial might be marked ``ABANDONED`` as a result of human-initiated
-    action (if some trial in experiment is poorly-performing, deterministically
-    failing etc., and should not be run again in the experiment). It might also
-    be marked ``ABANDONED`` in an automated way if the trial's execution
-    encounters an error that indicates that the arm(s) in the trial should bot
-    be evaluated in the experiment again (e.g. the parameterization in a given
-    arm deterministically causes trial evaluation to fail). Note that it's also
-    possible to abandon a single arm in a `BatchTrial` via
-    ``batch.mark_arm_abandoned``.
-
-    Early-stopped refers to trials that were deemed
-    unpromising by an early-stopping strategy and therefore terminated.
-
-    Additionally, when trials are deployed, they may be in an intermediate
-    staged state (e.g. scheduled but waiting for resources) or immediately
-    transition to running. Note that ``STAGED`` trial status is not always
-    applicable and depends on the ``Runner`` trials are deployed with
-    (and whether a ``Runner`` is present at all; for example, in Ax Service
-    API, trials are marked as ``RUNNING`` immediately when generated from
-    ``get_next_trial``, skipping the ``STAGED`` status).
-
-    NOTE: Data for abandoned trials (or abandoned arms in batch trials) is
-    not passed to the model as part of training data, unless ``fit_abandoned``
-    option is specified to model bridge. Additionally, data from MapMetrics is
-    typically excluded unless the corresponding trial is completed.
-    """
-
-    CANDIDATE = 0
-    STAGED = 1
-    FAILED = 2
-    COMPLETED = 3
-    RUNNING = 4
-    ABANDONED = 5
-    DISPATCHED = 6  # Deprecated.
-    EARLY_STOPPED = 7
-
-    @property
-    def is_terminal(self) -> bool:
-        """True if trial is completed."""
-        return (
-            self == TrialStatus.ABANDONED
-            or self == TrialStatus.COMPLETED
-            or self == TrialStatus.FAILED
-            or self == TrialStatus.EARLY_STOPPED
-        )
-
-    @property
-    def expecting_data(self) -> bool:
-        """True if trial is expecting data."""
-        return self in STATUSES_EXPECTING_DATA
-
-    @property
-    def is_deployed(self) -> bool:
-        """True if trial has been deployed but not completed."""
-        return self == TrialStatus.STAGED or self == TrialStatus.RUNNING
-
-    @property
-    def is_failed(self) -> bool:
-        """True if this trial is a failed one."""
-        return self == TrialStatus.FAILED
-
-    @property
-    def is_abandoned(self) -> bool:
-        """True if this trial is an abandoned one."""
-        return self == TrialStatus.ABANDONED
-
-    @property
-    def is_candidate(self) -> bool:
-        """True if this trial is a candidate."""
-        return self == TrialStatus.CANDIDATE
-
-    @property
-    def is_completed(self) -> bool:
-        """True if this trial is a successfully completed one."""
-        return self == TrialStatus.COMPLETED
-
-    @property
-    def is_running(self) -> bool:
-        """True if this trial is a running one."""
-        return self == TrialStatus.RUNNING
-
-    @property
-    def is_early_stopped(self) -> bool:
-        """True if this trial is an early stopped one."""
-        return self == TrialStatus.EARLY_STOPPED
-
-    def __format__(self, fmt: str) -> str:
-        """Define `__format__` to avoid pulling the `__format__` from the `int`
-        mixin (since its better for statuses to show up as `RUNNING` than as
-        just an int that is difficult to interpret).
-
-        E.g. batch trial representation with the overridden method is:
-        "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)".
-
-        Docs on enum formatting: https://docs.python.org/3/library/enum.html#others.
-        """
-        return f"{self!s}"
-
-    def __repr__(self) -> str:
-        return f"{self.__class__}.{self.name}"
-
-
-DEFAULT_STATUSES_TO_WARM_START: list[TrialStatus] = [
-    TrialStatus.RUNNING,
-    TrialStatus.COMPLETED,
-    TrialStatus.ABANDONED,
-    TrialStatus.EARLY_STOPPED,
-]
-
-NON_ABANDONED_STATUSES: set[TrialStatus] = set(TrialStatus) - {TrialStatus.ABANDONED}
-
-STATUSES_EXPECTING_DATA: list[TrialStatus] = [
-    TrialStatus.RUNNING,
-    TrialStatus.COMPLETED,
-    TrialStatus.EARLY_STOPPED,
-]
+MANUAL_GENERATION_METHOD_STR = "Manual"
+UNKNOWN_GENERATION_METHOD_STR = "Unknown"
+STATUS_QUO_GENERATION_METHOD_STR = "Status Quo"
 
 
 def immutable_once_run(func: Callable) -> Callable:
@@ -754,8 +621,16 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
-        if self._status != TrialStatus.RUNNING:
-            raise ValueError("Can only early stop trial that is currently running.")
+        if not unsafe:
+            if self._status != TrialStatus.RUNNING:
+                raise ValueError("Can only early stop trial that is currently running.")
+
+            if self.lookup_data().df.empty:
+                raise UnsupportedError(
+                    "Cannot mark trial early stopped without data. Please mark trial "
+                    "abandoned instead."
+                )
+
         self._status = TrialStatus.EARLY_STOPPED
         self._time_completed = datetime.now()
         return self
@@ -795,6 +670,43 @@ class BaseTrial(ABC, SortableBase):
         raise NotImplementedError(
             "Abandoning arms is only supported for `BatchTrial`. "
             "Use `trial.mark_abandoned` if applicable."
+        )
+
+    @property
+    def generation_method_str(self) -> str:
+        """Returns the generation method(s) used to generate this trial's arms,
+        as a human-readable string (e.g. 'Sobol', 'BoTorch', 'Manual', etc.).
+        Returns a comma-delimited string if multiple generation methods were used.
+        """
+        # Use model key provided during warm-starting if present, since the
+        # generator run may not be present on warm-started trials.
+        if (
+            warm_start_model_key := self._properties.get(Keys.WARMSTART_TRIAL_MODEL_KEY)
+        ) is not None:
+            return warm_start_model_key
+
+        generation_methods = {
+            none_throws(generator_run._model_key)
+            for generator_run in self.generator_runs
+            if generator_run._model_key is not None
+        }
+
+        # Add generator-run-type strings for non-ModelBridge generator runs.
+        gr_type_name_to_str = {
+            GeneratorRunType.MANUAL.name: MANUAL_GENERATION_METHOD_STR,
+            GeneratorRunType.STATUS_QUO.name: STATUS_QUO_GENERATION_METHOD_STR,
+        }
+        generation_methods |= {
+            gr_type_name_to_str[generator_run.generator_run_type]
+            for generator_run in self.generator_runs
+            if generator_run.generator_run_type in gr_type_name_to_str
+        }
+
+        return (
+            # Sort for deterministic output
+            ", ".join(sorted(generation_methods))
+            if generation_methods
+            else UNKNOWN_GENERATION_METHOD_STR
         )
 
     def _mark_failed_if_past_TTL(self) -> None:
@@ -918,4 +830,4 @@ class BaseTrial(ABC, SortableBase):
         if self.status == TrialStatus.FAILED:
             new_trial.mark_failed(reason=self.failed_reason)
             return
-        new_trial.mark_as(self.status)
+        new_trial.mark_as(self.status, unsafe=True)

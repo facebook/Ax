@@ -25,14 +25,15 @@ class RandomForestTest(TestCase):
             )
             for i in range(2)
         ]
+        search_space_digest = SearchSpaceDigest(
+            feature_names=["x1", "x2"],
+            bounds=[(0, 1)] * 2,
+        )
 
         m = RandomForest(num_trees=5)
         m.fit(
             datasets=datasets,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=["x1", "x2"],
-                bounds=[(0, 1)] * 2,
-            ),
+            search_space_digest=search_space_digest,
         )
         self.assertEqual(len(m.models), 2)
         # pyre-fixme[16]: `RandomForestRegressor` has no attribute `estimators_`.
@@ -42,6 +43,10 @@ class RandomForestTest(TestCase):
         self.assertEqual(f.shape, torch.Size((5, 2)))
         self.assertEqual(cov.shape, torch.Size((5, 2, 2)))
 
-        f, cov = m.cross_validate(datasets=datasets, X_test=torch.rand(3, 2))
+        f, cov = m.cross_validate(
+            datasets=datasets,
+            search_space_digest=search_space_digest,
+            X_test=torch.rand(3, 2),
+        )
         self.assertEqual(f.shape, torch.Size((3, 2)))
         self.assertEqual(cov.shape, torch.Size((3, 2, 2)))

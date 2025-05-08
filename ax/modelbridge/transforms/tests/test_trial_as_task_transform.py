@@ -9,30 +9,42 @@
 from copy import deepcopy
 
 import numpy as np
+from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
-from ax.core.search_space import SearchSpace
+from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.exceptions.core import UnsupportedError
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
+from ax.models.base import Generator
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_robust_search_space
+from ax.utils.testing.core_stubs import get_branin_experiment, get_robust_search_space
 
 
 class TrialAsTaskTransformTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.search_space = SearchSpace(
-            parameters=[
-                RangeParameter(
-                    "x", lower=1, upper=4, parameter_type=ParameterType.FLOAT
-                )
-            ]
+        self.exp = get_branin_experiment(with_status_quo=True, with_batch=True)
+        self.modelbridge = Adapter(
+            search_space=self.exp.search_space,
+            model=Generator(),
+            experiment=self.exp,
         )
+        self.exp.new_batch_trial().add_arm(
+            Arm(parameters={"x1": 0, "x2": 0}, name="status_quo")
+        ).add_arm(Arm(parameters={"x1": 1, "x2": 1}))
+        self.exp.new_batch_trial().add_arm(
+            Arm(parameters={"x1": 0, "x2": 0}, name="status_quo")
+        ).add_arm(Arm(parameters={"x1": 3, "x2": 3}))
+        for t in self.exp.trials.values():
+            t.mark_running(no_runner_required=True)
+        self.exp.trials[0].mark_completed()
+        self.exp.fetch_data()
+
         self.training_feats = [
-            ObservationFeatures({"x": 1}, trial_index=0),
-            ObservationFeatures({"x": 2}, trial_index=0),
-            ObservationFeatures({"x": 3}, trial_index=1),
-            ObservationFeatures({"x": 4}, trial_index=2),
+            ObservationFeatures({"x1": 1, "x2": 1}, trial_index=0),
+            ObservationFeatures({"x1": 2, "x2": 2}, trial_index=0),
+            ObservationFeatures({"x1": 3, "x2": 3}, trial_index=1),
+            ObservationFeatures({"x1": 4, "x2": 4}, trial_index=2),
         ]
         self.training_obs = [
             Observation(
@@ -45,8 +57,9 @@ class TrialAsTaskTransformTest(TestCase):
         ]
 
         self.t = TrialAsTask(
-            search_space=self.search_space,
+            search_space=self.exp.search_space,
             observations=self.training_obs,
+            modelbridge=self.modelbridge,
         )
         self.bm = {
             "bp1": {0: "v1", 1: "v2", 2: "v3"},
@@ -54,13 +67,15 @@ class TrialAsTaskTransformTest(TestCase):
         }
 
         self.t2 = TrialAsTask(
-            search_space=self.search_space,
+            search_space=self.exp.search_space,
             observations=self.training_obs,
+            modelbridge=self.modelbridge,
             config={"trial_level_map": self.bm},
         )
         self.t3 = TrialAsTask(
-            search_space=self.search_space,
+            search_space=self.exp.search_space,
             observations=self.training_obs,
+            modelbridge=self.modelbridge,
             config={"trial_level_map": {}},
         )
         # test string trial indices
@@ -69,8 +84,9 @@ class TrialAsTaskTransformTest(TestCase):
             for p_name, value_dict in self.bm.items()
         }
         self.t4 = TrialAsTask(
-            search_space=self.search_space,
+            search_space=self.exp.search_space,
             observations=self.training_obs,
+            modelbridge=self.modelbridge,
             config={"trial_level_map": self.bm2, "target_trial": 2},
         )
 
@@ -79,29 +95,32 @@ class TrialAsTaskTransformTest(TestCase):
             self.t.trial_level_map, {"TRIAL_PARAM": {i: str(i) for i in range(3)}}
         )
         self.assertEqual(self.t.inverse_map, {str(i): i for i in range(3)})
-        self.assertEqual(self.t.target_values, {"TRIAL_PARAM": "0"})
+        # based on `get_target_trial_index``, the longest running trial is trial 1
+        self.assertEqual(self.t.target_values, {"TRIAL_PARAM": "1"})
         self.assertEqual(self.t2.trial_level_map, self.bm)
         self.assertIsNone(self.t2.inverse_map)
-        self.assertEqual(self.t2.target_values, {"bp1": "v1", "bp2": "u1"})
+        self.assertEqual(self.t2.target_values, {"bp1": "v2", "bp2": "u1"})
         # check that strings were converted to integers
         self.assertEqual(self.t4.trial_level_map, self.bm)
         self.assertIsNone(self.t4.inverse_map)
         self.assertEqual(self.t4.target_values, {"bp1": "v3", "bp2": "u2"})
         # Test validation
-        obsf = ObservationFeatures({"x": 2})
+        obsf = ObservationFeatures({"x1": 2, "x2": 2})
         obs = Observation(
             data=ObservationData([], np.array([]), np.empty((0, 0))), features=obsf
         )
         with self.assertRaises(ValueError):
             TrialAsTask(
-                search_space=self.search_space,
+                search_space=self.exp.search_space,
                 observations=self.training_obs + [obs],
+                modelbridge=self.modelbridge,
             )
-        bm = {"p": {0: "x1", 1: "x2"}}
+        bm = {"p": {0: "y", 1: "z"}}
         with self.assertRaises(ValueError):
             TrialAsTask(
-                search_space=self.search_space,
+                search_space=self.exp.search_space,
                 observations=self.training_obs,
+                modelbridge=self.modelbridge,
                 config={"trial_level_map": bm},
             )
 
@@ -109,16 +128,16 @@ class TrialAsTaskTransformTest(TestCase):
         obs_ft1 = deepcopy(self.training_feats)
         obs_ft2 = deepcopy(self.training_feats)
         obs_ft_trans1 = [
-            ObservationFeatures({"x": 1, "TRIAL_PARAM": "0"}),
-            ObservationFeatures({"x": 2, "TRIAL_PARAM": "0"}),
-            ObservationFeatures({"x": 3, "TRIAL_PARAM": "1"}),
-            ObservationFeatures({"x": 4, "TRIAL_PARAM": "2"}),
+            ObservationFeatures({"x1": 1, "x2": 1, "TRIAL_PARAM": "0"}),
+            ObservationFeatures({"x1": 2, "x2": 2, "TRIAL_PARAM": "0"}),
+            ObservationFeatures({"x1": 3, "x2": 3, "TRIAL_PARAM": "1"}),
+            ObservationFeatures({"x1": 4, "x2": 4, "TRIAL_PARAM": "2"}),
         ]
         obs_ft_trans2 = [
-            ObservationFeatures({"x": 1, "bp1": "v1", "bp2": "u1"}),
-            ObservationFeatures({"x": 2, "bp1": "v1", "bp2": "u1"}),
-            ObservationFeatures({"x": 3, "bp1": "v2", "bp2": "u1"}),
-            ObservationFeatures({"x": 4, "bp1": "v3", "bp2": "u2"}),
+            ObservationFeatures({"x1": 1, "x2": 1, "bp1": "v1", "bp2": "u1"}),
+            ObservationFeatures({"x1": 2, "x2": 2, "bp1": "v1", "bp2": "u1"}),
+            ObservationFeatures({"x1": 3, "x2": 3, "bp1": "v2", "bp2": "u1"}),
+            ObservationFeatures({"x1": 4, "x2": 4, "bp1": "v3", "bp2": "u2"}),
         ]
         obs_ft1 = self.t.transform_observation_features(obs_ft1)
         self.assertEqual(obs_ft1, obs_ft_trans1)
@@ -136,22 +155,22 @@ class TrialAsTaskTransformTest(TestCase):
         obs_ft_no_trial_index = deepcopy(self.training_feats)
         obs_ft_no_trial_index.append(
             ObservationFeatures(
-                {"x": 20},
+                {"x1": 20, "x2": 20},
             )
         )
         obs_ft_trans = [
-            ObservationFeatures({"x": 1, "TRIAL_PARAM": "0"}),
-            ObservationFeatures({"x": 2, "TRIAL_PARAM": "0"}),
-            ObservationFeatures({"x": 3, "TRIAL_PARAM": "1"}),
-            ObservationFeatures({"x": 4, "TRIAL_PARAM": "2"}),
-            ObservationFeatures({"x": 20, "TRIAL_PARAM": "2"}),
+            ObservationFeatures({"x1": 1, "x2": 1, "TRIAL_PARAM": "0"}),
+            ObservationFeatures({"x1": 2, "x2": 2, "TRIAL_PARAM": "0"}),
+            ObservationFeatures({"x1": 3, "x2": 3, "TRIAL_PARAM": "1"}),
+            ObservationFeatures({"x1": 4, "x2": 4, "TRIAL_PARAM": "2"}),
+            ObservationFeatures({"x1": 20, "x2": 20, "TRIAL_PARAM": "2"}),
         ]
         obs_ft_trans2 = [
-            ObservationFeatures({"x": 1, "bp1": "v1", "bp2": "u1"}),
-            ObservationFeatures({"x": 2, "bp1": "v1", "bp2": "u1"}),
-            ObservationFeatures({"x": 3, "bp1": "v2", "bp2": "u1"}),
-            ObservationFeatures({"x": 4, "bp1": "v3", "bp2": "u2"}),
-            ObservationFeatures({"x": 20, "bp1": "v3", "bp2": "u2"}),
+            ObservationFeatures({"x1": 1, "x2": 1, "bp1": "v1", "bp2": "u1"}),
+            ObservationFeatures({"x1": 2, "x2": 2, "bp1": "v1", "bp2": "u1"}),
+            ObservationFeatures({"x1": 3, "x2": 3, "bp1": "v2", "bp2": "u1"}),
+            ObservationFeatures({"x1": 4, "x2": 4, "bp1": "v3", "bp2": "u2"}),
+            ObservationFeatures({"x1": 20, "x2": 20, "bp1": "v3", "bp2": "u2"}),
         ]
 
         # test can transform and untransform with no config
@@ -173,9 +192,9 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(obs_ft4, obs_ft_no_trial_index)
 
     def test_TransformSearchSpace(self) -> None:
-        ss2 = deepcopy(self.search_space)
+        ss2 = deepcopy(self.exp.search_space)
         ss2 = self.t.transform_search_space(ss2)
-        self.assertEqual(set(ss2.parameters.keys()), {"x", "TRIAL_PARAM"})
+        self.assertEqual(set(ss2.parameters.keys()), {"x1", "x2", "TRIAL_PARAM"})
         p = ss2.parameters["TRIAL_PARAM"]
         self.assertEqual(p.parameter_type, ParameterType.STRING)
         # pyre-fixme[16]: `Parameter` has no attribute `values`.
@@ -184,17 +203,17 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertTrue(p.is_task)
         # pyre-fixme[16]: `Parameter` has no attribute `is_ordered`.
         self.assertFalse(p.is_ordered)
-        self.assertEqual(p.target_value, "0")
-        ss2 = deepcopy(self.search_space)
+        self.assertEqual(p.target_value, "1")
+        ss2 = deepcopy(self.exp.search_space)
         ss2 = self.t2.transform_search_space(ss2)
-        self.assertEqual(set(ss2.parameters.keys()), {"x", "bp1", "bp2"})
+        self.assertEqual(set(ss2.parameters.keys()), {"x1", "x2", "bp1", "bp2"})
         p = ss2.parameters["bp1"]
         self.assertTrue(isinstance(p, ChoiceParameter))
         self.assertEqual(p.parameter_type, ParameterType.STRING)
         self.assertEqual(set(p.values), {"v1", "v2", "v3"})
         self.assertTrue(p.is_task)
         self.assertFalse(p.is_ordered)
-        self.assertEqual(p.target_value, "v1")
+        self.assertEqual(p.target_value, "v2")
         p = ss2.parameters["bp2"]
         self.assertTrue(isinstance(p, ChoiceParameter))
         self.assertEqual(p.parameter_type, ParameterType.STRING)
@@ -203,8 +222,9 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertTrue(p.is_ordered)  # 2 choices so always ordered
         self.assertEqual(p.target_value, "u1")
         t = TrialAsTask(
-            search_space=self.search_space,
+            search_space=self.exp.search_space,
             observations=self.training_obs,
+            modelbridge=self.modelbridge,
             config={
                 "trial_level_map": {
                     "trial_index": {0: 10, 1: 11, 2: 12},
@@ -212,7 +232,7 @@ class TrialAsTaskTransformTest(TestCase):
                 "target_trial": 1,
             },
         )
-        ss2 = deepcopy(self.search_space)
+        ss2 = deepcopy(self.exp.search_space)
         ss2 = t.transform_search_space(ss2)
         p = ss2.parameters["trial_index"]
         self.assertEqual(p.parameter_type, ParameterType.INT)
@@ -228,4 +248,61 @@ class TrialAsTaskTransformTest(TestCase):
             TrialAsTask(
                 search_space=rss,
                 observations=[],
+                modelbridge=self.modelbridge,
             )
+
+    def test_less_than_two_trials(self) -> None:
+        # test transform is a no-op with less than two trials
+        exp = get_branin_experiment()
+        exp.new_trial().add_arm(Arm(parameters={"x": 1}))
+        modelbridge = Adapter(
+            search_space=exp.search_space,
+            model=Generator(),
+            experiment=exp,
+        )
+        training_obs = self.training_obs[:1]
+        t = TrialAsTask(
+            search_space=exp.search_space,
+            observations=training_obs,
+            modelbridge=modelbridge,
+        )
+        self.assertEqual(t.trial_level_map, {})
+        training_feats = [training_obs[0].features]
+        training_feats_clone = deepcopy(training_feats)
+        self.assertEqual(
+            t.transform_observation_features(training_feats_clone), training_feats
+        )
+        self.assertEqual(
+            t.untransform_observation_features(training_feats), training_feats_clone
+        )
+        ss2 = exp.search_space.clone()
+        self.assertEqual(t.transform_search_space(ss2), exp.search_space)
+
+    def test_less_than_two_levels(self) -> None:
+        # test transform is a no-op with less than two trials
+        exp = get_branin_experiment()
+        exp.new_trial().add_arm(Arm(parameters={"x": 1}))
+        exp.new_trial().add_arm(Arm(parameters={"x": 2}))
+        modelbridge = Adapter(
+            search_space=exp.search_space,
+            model=Generator(),
+            experiment=exp,
+        )
+        training_obs = self.training_obs[:1]
+        t = TrialAsTask(
+            search_space=exp.search_space,
+            observations=training_obs,
+            modelbridge=modelbridge,
+            config={"trial_level_map": {"t": {0: "v1", 1: "v1"}}},
+        )
+        self.assertEqual(t.trial_level_map, {})
+        training_feats = [training_obs[0].features]
+        training_feats_clone = deepcopy(training_feats)
+        self.assertEqual(
+            t.transform_observation_features(training_feats_clone), training_feats
+        )
+        self.assertEqual(
+            t.untransform_observation_features(training_feats), training_feats_clone
+        )
+        ss2 = exp.search_space.clone()
+        self.assertEqual(t.transform_search_space(ss2), exp.search_space)

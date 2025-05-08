@@ -6,10 +6,10 @@
 # pyre-strict
 
 import math
-from typing import Optional
+from typing import Sequence
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.surface.utils import (
@@ -17,15 +17,19 @@ from ax.analysis.plotly.surface.utils import (
     is_axis_log_scale,
     select_fixed_value,
 )
-from ax.analysis.plotly.utils import select_metric
+from ax.analysis.plotly.utils import (
+    METRIC_CONTINUOUS_COLOR_SCALE,
+    select_metric,
+    truncate_label,
+)
+from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from plotly import graph_objects as go
-from pyre_extensions import none_throws
+from pyre_extensions import none_throws, override
 
 
 class ContourPlot(PlotlyAnalysis):
@@ -38,6 +42,7 @@ class ContourPlot(PlotlyAnalysis):
         - PARAMETER_NAME: The value of the x parameter specified
         - PARAMETER_NAME: The value of the y parameter specified
         - METRIC_NAME: The predected mean of the metric specified
+        - sampled: Whether the parameter values were sampled in at least one trial
     """
 
     def __init__(
@@ -45,40 +50,42 @@ class ContourPlot(PlotlyAnalysis):
         x_parameter_name: str,
         y_parameter_name: str,
         metric_name: str | None = None,
+        display_sampled: bool = True,
     ) -> None:
         """
         Args:
             y_parameter_name: The name of the parameter to plot on the x-axis.
             y_parameter_name: The name of the parameter to plot on the y-axis.
             metric_name: The name of the metric to plot
+            display_sampled: If True, plot "x"s at x coordinates which have been
+                sampled in at least one trial.
         """
-        # TODO: Add a flag to specify whether or not to plot markers at the (x, y)
-        # coordinates of arms (with hover text). This is fine to exlude for now because
-        # this Analysis is only used in the InteractionPlot, but when we want to use it
-        # a-la-carte we should add this feature.
         self.x_parameter_name = x_parameter_name
         self.y_parameter_name = y_parameter_name
         self.metric_name = metric_name
+        self._display_sampled = display_sampled
 
+    @override
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
-    ) -> PlotlyAnalysisCard:
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> Sequence[PlotlyAnalysisCard]:
         if experiment is None:
             raise UserInputError("ContourPlot requires an Experiment")
 
-        if not isinstance(generation_strategy, GenerationStrategy):
-            raise UserInputError("ContourPlot requires a GenerationStrategy")
-
-        if generation_strategy.model is None:
-            generation_strategy._fit_current_model(None)
+        relevant_adapter = extract_relevant_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
 
         metric_name = self.metric_name or select_metric(experiment=experiment)
 
         df = _prepare_data(
             experiment=experiment,
-            model=none_throws(generation_strategy.model),
+            model=relevant_adapter,
             x_parameter_name=self.x_parameter_name,
             y_parameter_name=self.y_parameter_name,
             metric_name=metric_name,
@@ -95,36 +102,57 @@ class ContourPlot(PlotlyAnalysis):
             log_y=is_axis_log_scale(
                 parameter=experiment.search_space.parameters[self.y_parameter_name]
             ),
+            display_sampled=self._display_sampled,
         )
 
-        return self._create_plotly_analysis_card(
-            title=(
-                f"{self.x_parameter_name}, {self.y_parameter_name} vs. {metric_name}"
-            ),
-            subtitle=(
-                "2D contour of the surrogate model's predicted outcomes for "
-                f"{metric_name}"
-            ),
-            level=AnalysisCardLevel.LOW,
-            df=df,
-            fig=fig,
-        )
+        return [
+            self._create_plotly_analysis_card(
+                title=(
+                    f"{self.x_parameter_name}, {self.y_parameter_name} vs. "
+                    f"{metric_name}"
+                ),
+                subtitle=(
+                    "The contour plot visualizes the predicted outcomes "
+                    f"for {metric_name} across a two-dimensional parameter space, "
+                    "with other parameters held fixed at their status_quo value "
+                    "(or mean value if status_quo is unavailable). This plot helps "
+                    "in identifying regions of optimal performance and understanding "
+                    "how changes in the selected parameters influence the predicted "
+                    "outcomes. Contour lines represent levels of constant predicted "
+                    "values, providing insights into the gradient and potential optima "
+                    "within the parameter space."
+                ),
+                level=AnalysisCardLevel.LOW,
+                df=df,
+                fig=fig,
+                category=AnalysisCardCategory.INSIGHT,
+            )
+        ]
 
 
 def _prepare_data(
     experiment: Experiment,
-    model: ModelBridge,
+    model: Adapter,
     x_parameter_name: str,
     y_parameter_name: str,
     metric_name: str,
 ) -> pd.DataFrame:
+    sampled = [
+        (arm.parameters[x_parameter_name], arm.parameters[y_parameter_name])
+        for trial in experiment.trials.values()
+        for arm in trial.arms
+    ]
+
     # Choose which parameter values to predict points for.
-    xs = get_parameter_values(
+    unsampled_xs = get_parameter_values(
         parameter=experiment.search_space.parameters[x_parameter_name], density=10
     )
-    ys = get_parameter_values(
+    unsampled_ys = get_parameter_values(
         parameter=experiment.search_space.parameters[y_parameter_name], density=10
     )
+
+    xs = [*[sample[0] for sample in sampled], *unsampled_xs]
+    ys = [*[sample[1] for sample in sampled], *unsampled_ys]
 
     # Construct observation features for each parameter value previously chosen by
     # fixing all other parameters to their status-quo value or mean.
@@ -145,19 +173,35 @@ def _prepare_data(
         )
         for x in xs
         for y in ys
+        # Do not create features for any out of sample points
+        if experiment.search_space.check_membership(
+            parameterization={
+                x_parameter_name: x,
+                y_parameter_name: y,
+            },
+            raise_error=False,
+            check_all_parameters_present=False,
+        )
     ]
 
     predictions = model.predict(observation_features=features)
 
-    return pd.DataFrame.from_records(
-        [
-            {
-                x_parameter_name: features[i].parameters[x_parameter_name],
-                y_parameter_name: features[i].parameters[y_parameter_name],
-                f"{metric_name}_mean": predictions[0][metric_name][i],
-            }
-            for i in range(len(features))
-        ]
+    return none_throws(
+        pd.DataFrame.from_records(
+            [
+                {
+                    x_parameter_name: features[i].parameters[x_parameter_name],
+                    y_parameter_name: features[i].parameters[y_parameter_name],
+                    f"{metric_name}_mean": predictions[0][metric_name][i],
+                    "sampled": (
+                        features[i].parameters[x_parameter_name],
+                        features[i].parameters[y_parameter_name],
+                    )
+                    in sampled,
+                }
+                for i in range(len(features))
+            ]
+        ).drop_duplicates()
     )
 
 
@@ -168,9 +212,14 @@ def _prepare_plot(
     metric_name: str,
     log_x: bool,
     log_y: bool,
+    display_sampled: bool,
 ) -> go.Figure:
-    z_grid = df.pivot(
-        index=y_parameter_name, columns=x_parameter_name, values=f"{metric_name}_mean"
+    z_grid = df.pivot_table(
+        index=y_parameter_name,
+        columns=x_parameter_name,
+        values=f"{metric_name}_mean",
+        # aggfunc is required to gracefully handle duplicate values
+        aggfunc="mean",
     )
 
     fig = go.Figure(
@@ -178,14 +227,32 @@ def _prepare_plot(
             z=z_grid.values,
             x=z_grid.columns.values,
             y=z_grid.index.values,
-            contours_coloring="heatmap",
+            colorscale=METRIC_CONTINUOUS_COLOR_SCALE,
             showscale=False,
         ),
         layout=go.Layout(
-            xaxis_title=x_parameter_name,
-            yaxis_title=y_parameter_name,
+            xaxis_title=truncate_label(label=x_parameter_name),
+            yaxis_title=truncate_label(label=y_parameter_name),
         ),
     )
+
+    if display_sampled:
+        x_sampled = df[df["sampled"]][x_parameter_name].tolist()
+        y_sampled = df[df["sampled"]][y_parameter_name].tolist()
+
+        samples = go.Scatter(
+            x=x_sampled,
+            y=y_sampled,
+            mode="markers",
+            marker={
+                "symbol": "x",
+                "color": "black",
+            },
+            name="Sampled",
+            showlegend=False,
+        )
+
+        fig.add_trace(samples)
 
     # Set the x-axis scale to log if relevant
     if log_x:

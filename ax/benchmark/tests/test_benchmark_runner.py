@@ -25,11 +25,11 @@ from ax.benchmark.problems.synthetic.hss.jenatton import (
     Jenatton,
 )
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
@@ -248,7 +248,7 @@ class TestBenchmarkRunner(TestCase):
                 for i, df in enumerate(res.values()):
                     if isinstance(noise_std, list):
                         self.assertEqual(df["sem"].item(), noise_std[i])
-                        if all((n == 0 for n in noise_std)):
+                        if all(n == 0 for n in noise_std):
                             self.assertTrue(np.array_equal(df["mean"], Y[i, :]))
                     else:  # float
                         self.assertEqual(df["sem"].item(), noise_std)
@@ -302,6 +302,30 @@ class TestBenchmarkRunner(TestCase):
         self.assertLess(np.abs(z_scores).min(), 2)
         self.assertGreater(z_scores.max(), 0.05)
 
+    def test_get_noise_stds(self) -> None:
+        test_function = BoTorchTestFunction(
+            botorch_problem=Hartmann(dim=6),
+            outcome_names=["objective_0"],
+        )
+        expected_noise_sd_dict = {"objective_0": 1.0}
+        with self.subTest("float noise_std"):
+            runner = BenchmarkRunner(test_function=test_function, noise_std=1.0)
+            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
+
+        with self.subTest("int noise_std"):
+            runner = BenchmarkRunner(test_function=test_function, noise_std=1)
+            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
+
+        with self.subTest("dict noise_std"):
+            runner = BenchmarkRunner(
+                test_function=test_function, noise_std=expected_noise_sd_dict
+            )
+            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
+
+        with self.subTest("list noise_std"):
+            runner = BenchmarkRunner(test_function=test_function, noise_std=[1.0])
+            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
+
     def test_heterogeneous_noise(self) -> None:
         outcome_names = ["objective_0", "constraint"]
         noise_dict = {"objective_0": 0.1, "constraint": 0.05}
@@ -350,8 +374,8 @@ class TestBenchmarkRunner(TestCase):
             self.assertEqual(res["constraint"]["sem"].item(), 0.05)
 
             with self.subTest("heterogeneous arm weights"):
-                arm_0 = Arm(name="0_0", parameters={"x0": 0.0})
-                arm_1 = Arm(name="0_1", parameters={"x0": 2.0})
+                arm_0 = Arm(name="0_0", parameters={f"x{i}": 0.0 for i in range(6)})
+                arm_1 = Arm(name="0_1", parameters={f"x{i}": 0.5 for i in range(6)})
                 trial = Mock(spec=BatchTrial)
                 trial.arms = [arm_0, arm_1]
                 trial.index = 0

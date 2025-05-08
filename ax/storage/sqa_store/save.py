@@ -25,7 +25,7 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.exceptions.storage import SQADecodeError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope, SQABase
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -308,7 +308,9 @@ def save_or_update_data_for_trials(
                 experiment_id=experiment.db_id
             ).filter(data_sqa_class.trial_index.isnot(None)).filter(
                 data_sqa_class.trial_index.in_(trial_idcs)
-            ).filter(data_sqa_class.id not in datas_to_keep).delete()
+                # pyre-fixme [16]: sqlalchemy.sql.schema.Column` has no attribute
+                # `not_in`.
+            ).filter(data_sqa_class.id.not_in(datas_to_keep)).delete()
 
     _bulk_merge_into_session(
         objs=datas,

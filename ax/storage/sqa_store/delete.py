@@ -8,7 +8,7 @@
 from logging import Logger
 
 from ax.core.experiment import Experiment
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.sqa_classes import SQAExperiment
@@ -29,7 +29,7 @@ def delete_experiment(exp_name: str) -> None:
         session.delete(exp)
         session.flush()
 
-    logger.info(
+    logger.warning(
         f"You are deleting {exp_name} and all its associated data from the database."
     )
 
@@ -68,7 +68,7 @@ def delete_generation_strategy(
         )
 
     if sqa_gs_ids is None:
-        logger.info(f"No generation strategy found for experiment {exp_name}.")
+        logger.debug(f"No generation strategy found for experiment {exp_name}.")
         return None
 
     if len(sqa_gs_ids) > max_gs_to_delete:

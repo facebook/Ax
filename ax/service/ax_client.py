@@ -9,11 +9,11 @@
 import json
 import logging
 import warnings
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from functools import partial
 
 from logging import Logger
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
@@ -23,25 +23,15 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import DataType, Experiment
 from ax.core.formatting_utils import data_and_evaluations_from_raw_data
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
 from ax.core.runner import Runner
 from ax.core.trial import Trial
-from ax.core.types import (
-    TEvaluationOutcome,
-    TModelPredictArm,
-    TParameterization,
-    TParamValue,
-)
+from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
 
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
@@ -56,10 +46,10 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import constraint_satisfaction
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.prediction_utils import predict_by_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
@@ -73,7 +63,7 @@ from ax.service.utils.instantiation import (
     InstantiationBase,
     ObjectiveProperties,
 )
-from ax.service.utils.with_db_settings_base import DBSettings
+from ax.service.utils.with_db_settings_base import TDBSettings
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -163,7 +153,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             generation strategies.
 
         verbose_logging: Whether Ax should log significant optimization events,
-            defaults to `True`.
+            defaults to `True`. Float values are rounded to 6 decimal places.
 
         suppress_storage_errors: Whether to suppress SQL storage-related errors if
             encountered. Only use if SQL storage is not important for the given use
@@ -183,7 +173,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     def __init__(
         self,
         generation_strategy: GenerationStrategy | None = None,
-        db_settings: Optional[DBSettings] = None,
+        db_settings: TDBSettings = None,
         enforce_sequential_optimization: bool = True,
         random_seed: int | None = None,
         torch_device: torch.device | None = None,
@@ -199,13 +189,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         if not verbose_logging:
             logger.setLevel(logging.WARNING)
-        else:
-            logger.info(
-                "Starting optimization with verbose logging. To disable logging, "
-                "set the `verbose_logging` argument to `False`. Note that float "
-                "values in the logs are rounded to "
-                f"{ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES} decimal points."
-            )
+
         if generation_strategy is not None and torch_device is not None:
             warnings.warn(
                 "Both a `generation_strategy` and a `torch_device` were specified. "
@@ -369,6 +353,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         )
         self._set_generation_strategy(
             choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
+        )
+        self._save_experiment_to_db_if_possible(
+            experiment=self.experiment,
         )
         self._save_generation_strategy_to_db_if_possible()
 
@@ -1071,11 +1058,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             )
         if self.generation_strategy.model is not None:
             try:
-                logger.info(
-                    f"Retrieving contour plot with parameter '{param_x}' on X-axis "
-                    f"and '{param_y}' on Y-axis, for metric '{metric_name}'. "
-                    "Remaining parameters are affixed to the middle of their range."
-                )
                 return plot_contour(
                     model=none_throws(self.generation_strategy.model),
                     param_x=param_x,
@@ -1086,7 +1068,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             except NotImplementedError:
                 # Some models don't implement '_predict', which is needed
                 # for the contour plots.
-                logger.info(
+                logger.error(
                     f"Model {self.generation_strategy.model} does not implement "
                     "`predict`, so it cannot be used to generate a response "
                     "surface plot."
@@ -1115,10 +1097,10 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             try:
                 return plot_feature_importance_by_feature(cur_model, relative=relative)
             except NotImplementedError:
-                logger.info(
+                logger.error(
                     f"Model {self.generation_strategy.model} does not implement "
                     "`feature_importances`, so it cannot be used to generate "
-                    "this plot. Only certain models, implement feature importances."
+                    "this plot."
                 )
 
         raise ValueError(
@@ -1148,7 +1130,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         self._experiment = none_throws(
             experiment, f"Experiment by name '{experiment_name}' not found."
         )
-        logger.info(f"Loaded {experiment}.")
+        logger.debug(f"Loaded {experiment}.")
         if generation_strategy is None:
             if choose_generation_strategy_kwargs is None:
                 raise UserInputError(
@@ -1158,10 +1140,11 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             self._set_generation_strategy(
                 choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
             )
+            self._save_experiment_to_db_if_possible(experiment=self.experiment)
             self._save_generation_strategy_to_db_if_possible()
         else:
             self._generation_strategy = generation_strategy
-            logger.info(
+            logger.debug(
                 f"Using generation strategy associated with the loaded experiment:"
                 f" {generation_strategy}."
             )
@@ -1257,11 +1240,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         # Predict on user-provided data
         if parameterizations is not None:
-            logger.info(
-                '"parameterizations" have been provided, only these data '
-                "points will be predicted. No trial data prediction will be "
-                "returned."
-            )
             for label in parameterizations.keys():
                 label_to_feature_dict[label] = ObservationFeatures(
                     parameters=parameterizations[label]
@@ -1305,7 +1283,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             )
         # Check if we should transition before generating the next candidate.
         self.generation_strategy._maybe_transition_to_next_node()
-        self.generation_strategy._fit_current_model(data=None)
+        self.generation_strategy._curr._fit(experiment=self.experiment)
 
     def verify_trial_parameterization(
         self, trial_index: int, parameterization: TParameterization
@@ -1394,7 +1372,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         with open(filepath, "w+") as file:
             file.write(json.dumps(self.to_json_snapshot()))
-            logger.info(f"Saved JSON-serialized state of optimization to `{filepath}`.")
+            logger.debug(
+                f"Saved JSON-serialized state of optimization to `{filepath}`."
+            )
 
     @classmethod
     def load_from_json_file(
@@ -1575,73 +1555,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """Update the global stopping strategy."""
         self._global_stopping_strategy = gss
 
-    @copy_doc(BestPointMixin.get_best_trial)
-    def get_best_trial(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
-        return self._get_best_trial(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
-    def get_pareto_optimal_parameters(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
-        return self._get_pareto_optimal_parameters(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_hypervolume)
-    def get_hypervolume(
-        self,
-        optimization_config: MultiObjectiveOptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> float:
-        return BestPointMixin._get_hypervolume(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_trace)
-    def get_trace(
-        self,
-        optimization_config: MultiObjectiveOptimizationConfig | None = None,
-    ) -> list[float]:
-        return BestPointMixin._get_trace(
-            experiment=self.experiment,
-            optimization_config=optimization_config,
-        )
-
-    @copy_doc(BestPointMixin.get_trace_by_progression)
-    def get_trace_by_progression(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        bins: list[float] | None = None,
-        final_progression_only: bool = False,
-    ) -> tuple[list[float], list[float]]:
-        return BestPointMixin._get_trace_by_progression(
-            experiment=self.experiment,
-            optimization_config=optimization_config,
-            bins=bins,
-            final_progression_only=final_progression_only,
-        )
-
     def _update_trial_with_raw_data(
         self,
         trial_index: int,
@@ -1715,7 +1628,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             if overwrite_existing_experiment:
                 exp_name = self.experiment._name or "untitled"
                 new_exp_name = name or "untitled"
-                logger.info(
+                logger.debug(
                     f"Overwriting existing experiment ({exp_name}) on this client "
                     f"with new experiment ({new_exp_name}) and restarting the "
                     "generation strategy."
@@ -1769,7 +1682,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             "enforce_sequential_optimization", self._enforce_sequential_optimization
         )
         if self._generation_strategy is None:
-            self._generation_strategy = choose_generation_strategy(
+            self._generation_strategy = choose_generation_strategy_legacy(
                 search_space=self.experiment.search_space,
                 optimization_config=self.experiment.optimization_config,
                 enforce_sequential_optimization=enforce_sequential_optimization,
@@ -1783,7 +1696,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def _save_generation_strategy_to_db_if_possible(
         self,
-        generation_strategy: GenerationStrategyInterface | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> bool:
         return super()._save_generation_strategy_to_db_if_possible(
             generation_strategy=generation_strategy or self.generation_strategy,

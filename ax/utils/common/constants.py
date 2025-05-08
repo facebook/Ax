@@ -23,13 +23,6 @@ TESTENV_ENV_VAL = "True"
 # --------------------------- Warnings ---------------------------
 
 
-EXPERIMENT_IS_TEST_WARNING = (
-    "The is_test flag has been set to True. "
-    "This flag is meant purely for development and integration testing purposes. "
-    "If you are running a live experiment, please set this flag to False"
-)
-
-
 # ------------------------ Error messages ------------------------
 
 
@@ -92,5 +85,8 @@ class Keys(str, Enum):
     SUBSET_MODEL = "subset_model"
     TASK_FEATURES = "task_features"
     TRIAL_COMPLETION_TIMESTAMP = "trial_completion_timestamp"
+    UNKNOWN_GENERATION_NODE = "unknown_gen_node"
+    UNNAMED_ARM = "unnamed_arm"
     WARM_START_REFITTING = "warm_start_refitting"
+    WARMSTART_TRIAL_MODEL_KEY = "generation_model_key"
     X_BASELINE = "X_baseline"

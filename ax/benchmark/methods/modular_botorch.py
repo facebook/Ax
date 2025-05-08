@@ -8,9 +8,9 @@
 from typing import Any
 
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.modelbridge.generation_node import GenerationStep
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.generation_strategy.generation_node import GenerationStep
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement
@@ -90,12 +90,12 @@ def get_sobol_mbm_generation_strategy(
         name=name,
         steps=[
             GenerationStep(
-                model=Models.SOBOL,
+                model=Generators.SOBOL,
                 num_trials=num_sobol_trials,
                 min_trials_observed=num_sobol_trials,
             ),
             GenerationStep(
-                model=Models.BOTORCH_MODULAR,
+                model=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs=model_kwargs,
                 model_gen_kwargs=model_gen_kwargs or {},

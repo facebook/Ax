@@ -21,7 +21,6 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objects as go
-from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
@@ -33,16 +32,17 @@ from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.trial import BaseTrial
+from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.modelbridge import ModelBridge
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge import Adapter
 from ax.modelbridge.cross_validation import (
-    compute_model_fit_metrics_from_modelbridge,
+    compute_model_fit_metrics_from_adapter,
     cross_validate,
 )
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.random import RandomAdapter
+from ax.modelbridge.torch import TorchAdapter
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
 from ax.plot.feature_importances import plot_feature_importance_by_feature_plotly
@@ -60,7 +60,7 @@ from ax.plot.trace import (
     map_data_multiple_metrics_dropdown_plotly,
     plot_objective_value_vs_trial_index,
 )
-from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
+from ax.service.utils.best_point import _is_row_feasible, derelativize_opt_config
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
@@ -91,7 +91,7 @@ UNPREDICTABLE_METRICS_MESSAGE = (
 )
 
 
-def _get_cross_validation_plots(model: ModelBridge) -> list[go.Figure]:
+def _get_cross_validation_plots(model: Adapter) -> list[go.Figure]:
     cv = cross_validate(model=model)
     return [
         interact_cross_validation_plotly(
@@ -149,7 +149,7 @@ def _get_objective_trace_plot(
 
 def _get_objective_v_param_plots(
     experiment: Experiment,
-    model: ModelBridge,
+    model: Adapter,
     importance: None
     | (dict[str, dict[str, npt.NDArray]] | dict[str, dict[str, float]]) = None,
     # Chosen to take ~1min on local benchmarks.
@@ -238,7 +238,7 @@ def _get_objective_v_param_plots(
                             parameters_to_use=params_to_use,
                         )
                     )
-                logger.info(
+                logger.debug(
                     f"Created contour plots for metric {metric_name} and parameters "
                     f"{params_to_use}."
                 )
@@ -316,7 +316,7 @@ def _get_shortest_unique_suffix_dict(
 
 def get_standard_plots(
     experiment: Experiment,
-    model: ModelBridge | None,
+    model: Adapter | None,
     data: Data | None = None,
     true_objective_metric_name: str | None = None,
     early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
@@ -325,14 +325,14 @@ def get_standard_plots(
 ) -> list[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
-    Extracts a list of plots from an ``Experiment`` and ``ModelBridge`` of general
+    Extracts a list of plots from an ``Experiment`` and ``Adapter`` of general
     interest to an Ax user. Currently not supported are
     - TODO: multi-objective optimization
     - TODO: ChoiceParameter plots
 
     Args:
         - experiment: The ``Experiment`` from which to obtain standard plots.
-        - model: The ``ModelBridge`` used to suggest trial parameters.
+        - model: The ``Adapter`` used to suggest trial parameters.
         - true_objective_metric_name: Name of the metric to use as the true objective.
         - early_stopping_strategy: Early stopping strategy used throughout the
             experiment; used for visualizing when curves are stopped.
@@ -394,8 +394,8 @@ def get_standard_plots(
     # Objective vs. parameter plot requires a `Model`, so add it only if model
     # is alrady available. In cases where initially custom trials are attached,
     # model might not yet be set on the generation strategy. Additionally, if
-    # the model is a RandomModelBridge, skip plots that require predictions.
-    if model is not None and not isinstance(model, RandomModelBridge):
+    # the model is a RandomAdapter, skip plots that require predictions.
+    if model is not None and not isinstance(model, RandomAdapter):
         try:
             if true_objective_metric_name is not None:
                 logger.debug("Starting objective vs. true objective scatter plot.")
@@ -414,7 +414,7 @@ def get_standard_plots(
         # features to plot.
         sens = None
         importance_measure = ""
-        if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
+        if global_sensitivity_analysis and isinstance(model, TorchAdapter):
             try:
                 logger.debug("Starting global sensitivity analysis.")
                 sens = ax_parameter_sens(model, order="total")
@@ -424,16 +424,14 @@ def get_standard_plots(
                 )
                 logger.debug("Finished global sensitivity analysis.")
             except Exception as e:
-                logger.info(
+                logger.debug(
                     f"Failed to compute signed global feature sensitivities: {e}"
                     "Trying to get unsigned feature sensitivities."
                 )
                 try:
                     sens = ax_parameter_sens(model, order="total", signed=False)
                 except Exception as e:
-                    logger.exception(
-                        f"Failed to compute unsigned feature sensitivities: {e}"
-                    )
+                    logger.exception(f"Failed to compute feature sensitivities: {e}")
         if sens is None:
             try:
                 sens = {
@@ -441,7 +439,7 @@ def get_standard_plots(
                     for i, metric_name in enumerate(sorted(model.metric_names))
                 }
             except Exception as e:
-                logger.info(f"Failed to compute feature importances: {e}")
+                logger.warning(f"Failed to compute feature importances: {e}")
 
         try:
             logger.debug("Starting objective vs. param plots.")
@@ -541,7 +539,7 @@ def _transform_progression_to_walltime(
         )
         return transformed_times
     except Exception as e:
-        logger.info(f"Failed to transform progression to walltime: {e}")
+        logger.debug(f"Failed to transform progression to walltime: {e}")
         return None
 
 
@@ -678,7 +676,7 @@ def _merge_trials_dict_with_df(
         if not all(
             v is not None for v in trials_dict.values()
         ):  # not present for all trials
-            logger.info(
+            logger.debug(
                 f"Column {column_name} missing for some trials. "
                 "Filling with None when missing."
             )
@@ -719,7 +717,7 @@ def _merge_results_if_no_duplicates(
             ``results_key_col``
     """
     if len(results.index) == 0:
-        logger.info(
+        logger.debug(
             f"No results present for the specified metrics `{metrics}`. "
             "Returning arm parameters and metadata only."
         )
@@ -882,7 +880,7 @@ def exp_to_df(
         optimization_config = none_throws(exp.optimization_config)
         try:
             if any(oc.relative for oc in optimization_config.all_constraints):
-                optimization_config = _derel_opt_config_wrapper(
+                optimization_config = derelativize_opt_config(
                     optimization_config=optimization_config,
                     experiment=exp,
                 )
@@ -1163,7 +1161,7 @@ def pareto_frontier_scatter_2d_plotly(
 
 
 def _objective_vs_true_objective_scatter(
-    model: ModelBridge,
+    model: Adapter,
     objective_metric_name: str,
     true_objective_metric_name: str,
 ) -> go.Figure:
@@ -1186,8 +1184,8 @@ def _objective_vs_true_objective_scatter(
 # TODO: may want to have a way to do this with a plot_fn
 # that returns a list of plots, such as get_standard_plots
 def get_figure_and_callback(
-    plot_fn: Callable[["Scheduler"], go.Figure],
-) -> tuple[go.Figure, Callable[["Scheduler"], None]]:
+    plot_fn: Callable[[Scheduler], go.Figure],
+) -> tuple[go.Figure, Callable[[Scheduler], None]]:
     """
     Produce a figure and a callback for updating the figure in place.
 
@@ -1199,7 +1197,7 @@ def get_figure_and_callback(
 
     Args:
         plot_fn: A function for producing a Plotly figure from a scheduler.
-            If `plot_fn` raises a `RuntimeError`, the update wil be skipped
+            If `plot_fn` raises a `RuntimeError`, the update will be skipped
             and optimization will proceed.
 
     Example:
@@ -1212,7 +1210,7 @@ def get_figure_and_callback(
     fig = go.FigureWidget(layout=go.Layout())
 
     # pyre-fixme[53]: Captured variable `fig` is not annotated.
-    def _update_fig_in_place(scheduler: "Scheduler") -> None:
+    def _update_fig_in_place(scheduler: Scheduler) -> None:
         try:
             new_fig = plot_fn(scheduler)
         except RuntimeError as e:
@@ -1268,11 +1266,10 @@ def _construct_comparison_message(
     baseline_value: float,
     comparison_arm_name: str,
     comparison_value: float,
-    digits: int = 2,
+    digits: int | None = None,
 ) -> str | None:
-    # TODO: allow for user configured digits value
     if baseline_value == 0:
-        logger.info(
+        logger.debug(
             "compare_to_baseline: baseline has value of 0"
             + ", can't compute percent change."
         )
@@ -1287,6 +1284,7 @@ def _construct_comparison_message(
         )
         return None
     percent_change = ((abs(comparison_value - baseline_value)) / baseline_value) * 100
+    digits = _find_sigfigs(baseline_value, comparison_value)
 
     return _format_comparison_string(
         comparison_arm_name=comparison_arm_name,
@@ -1297,6 +1295,38 @@ def _construct_comparison_message(
         comparison_value=comparison_value,
         digits=digits,
     )
+
+
+def _find_sigfigs(
+    baseline_value: float,
+    comparison_value: float,
+    max_precision: int = 10,
+    default_digits: int = 2,
+) -> int:
+    """Find the number of significant figures to display in a comparison message.
+    This is done by finding the number of significant figures in the difference
+    between baseline_value and comparison_value, so that the displayed values
+    have at least one differing digit after rounding (if the abs difference is > 1).
+    This compares up to max_precision digits after the decimal point,
+    and defaults to default_digits if no differing digits are found.
+
+    e.g.
+    0.4 and 0.5 => 2 (round to 0.40 and 0.50)
+    0.04390 and 0.03947 => 3 (round to 0.043 and 0.039)
+    0.111122 and 0.111100 -> 0.111122 and 0.111100
+    50.0 and 50.0001 -> 50.00 and 50.0001
+    49.1 and 50.001 => 2 (round to 49.10 and 50.00)
+    """
+    diff = abs(baseline_value - comparison_value)
+    str_diff = f"{diff:.{max_precision}f}"
+    ints, decimals = str_diff.split(".")
+    if int(ints) > 0:
+        return default_digits
+    for i, d in enumerate(decimals):
+        if d != "0":
+            return max(i + 1, default_digits)
+
+    return default_digits
 
 
 def _build_result_tuple(
@@ -1356,13 +1386,13 @@ def maybe_extract_baseline_comparison_values(
     # TODO: extract and use best arms if comparison_arm_names is not provided.
     #   Can do this automatically using optimization_config.
     if not comparison_arm_names:
-        logger.info(
+        logger.debug(
             "compare_to_baseline: comparison_arm_names not provided. Returning None."
         )
         return None
     if not optimization_config:
         if experiment.optimization_config is None:
-            logger.info(
+            logger.debug(
                 "compare_to_baseline: optimization_config neither"
                 + " provided in inputs nor present on experiment."
             )
@@ -1371,13 +1401,13 @@ def maybe_extract_baseline_comparison_values(
 
     arms_df = exp_to_df(experiment)
     if arms_df is None:
-        logger.info("compare_to_baseline: arms_df is None.")
+        logger.debug("compare_to_baseline: arms_df is None.")
         return None
 
     comparison_arm_df = arms_df[arms_df["arm_name"].isin(comparison_arm_names)]
 
     if comparison_arm_df is None or len(comparison_arm_df) == 0:
-        logger.info("compare_to_baseline: comparison_arm_df has no rows.")
+        logger.debug("compare_to_baseline: comparison_arm_df has no rows.")
         return None
 
     try:
@@ -1385,7 +1415,7 @@ def maybe_extract_baseline_comparison_values(
             experiment=experiment, baseline_arm_name=baseline_arm_name
         )
     except Exception as e:
-        logger.info(f"compare_to_baseline: could not select baseline arm. Reason: {e}")
+        logger.debug(f"compare_to_baseline: could not select baseline arm. Reason: {e}")
         return None
 
     baseline_rows = arms_df[arms_df["arm_name"] == baseline_arm_name]
@@ -1502,18 +1532,18 @@ def warn_if_unpredictable_metrics(
         A string warning the user about unpredictable metrics, if applicable.
     """
     # Get fit quality dict.
-    model_bridge = generation_strategy.model  # Optional[ModelBridge]
-    if model_bridge is None:  # Need to re-fit the model.
-        generation_strategy._fit_current_model(data=None)
-        model_bridge = cast(ModelBridge, generation_strategy.model)
-    if isinstance(model_bridge, RandomModelBridge):
+    adapter = generation_strategy.model  # Optional[Adapter]
+    if adapter is None:  # Need to re-fit the model.
+        generation_strategy._curr._fit(experiment=experiment)
+        adapter = cast(Adapter, generation_strategy.model)
+    if isinstance(adapter, RandomAdapter):
         logger.debug(
-            "Current modelbridge on GenerationStrategy is RandomModelBridge. "
+            "Current adapter on GenerationStrategy is RandomAdapter. "
             "Not checking metric predictability."
         )
         return None
-    model_fit_dict = compute_model_fit_metrics_from_modelbridge(
-        model_bridge=model_bridge,
+    model_fit_dict = compute_model_fit_metrics_from_adapter(
+        adapter=adapter,
         generalization=True,  # use generalization metrics for user warning
         untransform=False,
     )

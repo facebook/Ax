@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from unittest import mock
@@ -50,172 +51,174 @@ def _get_fake_multiplexer(
     return mul
 
 
+def tb_smooth(scalars: list[float], weight: float) -> list[float]:
+    """
+    Debiased EMA implementation according to Tensorboard Github:
+    https://fburl.com/6v6q8scg
+
+    This function is used to test that the smoothing functaionality
+    of pandas.series.ewm is equivalent to the smoothing functionality
+    of Tensorboard.
+    """
+    last = 0
+    smoothed = []
+    num_acc = 0
+    for next_val in scalars:
+        last = last * weight + (1 - weight) * next_val
+        num_acc += 1
+        # de-bias
+        debias_weight = 1
+        if weight != 1:
+            debias_weight = 1 - math.pow(weight, num_acc)
+        smoothed_val = last / debias_weight
+        smoothed.append(smoothed_val)
+
+    return smoothed
+
+
 class TensorboardMetricTest(TestCase):
     def test_fetch_trial_data(self) -> None:
         fake_data = [8.0, 9.0, 2.0, 1.0]
         fake_multiplexer = _get_fake_multiplexer(fake_data=fake_data)
+        metric = TensorboardMetric(
+            name="loss", tag="loss", lower_is_better=True, smoothing=0
+        )
+        trial = get_trial()
 
+        # This is mocked to avoid an xdb call
         with mock.patch.object(
             TensorboardMetric,
             "_get_event_multiplexer_for_trial",
             return_value=fake_multiplexer,
         ):
-            metric = TensorboardMetric(
-                name="loss", tag="loss", lower_is_better=True, smoothing=0
-            )
-            trial = get_trial()
-
             result = metric.fetch_trial_data(trial=trial)
 
-            df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = assert_is_instance(result.unwrap(), MapData).map_df
 
-            expected_df = pd.DataFrame(
-                [
-                    {
-                        "arm_name": "0_0",
-                        "metric_name": "loss",
-                        "mean": fake_data[i],
-                        "sem": float("nan"),
-                        "trial_index": 0,
-                        "step": float(i),
-                    }
-                    for i in range(len(fake_data))
-                ]
-            )
+        expected_df = pd.DataFrame(
+            [
+                {
+                    "trial_index": 0,
+                    "arm_name": "0_0",
+                    "metric_name": "loss",
+                    "mean": fake_data[i],
+                    "sem": float("nan"),
+                    "step": float(i),
+                }
+                for i in range(len(fake_data))
+            ]
+        )
 
-            self.assertTrue(df.equals(expected_df))
+        self.assertTrue(df.equals(expected_df))
 
     def test_fetch_trial_data_with_bad_data(self) -> None:
         nan_data = [1, 2, np.nan, 4]
         nan_multiplexer = _get_fake_multiplexer(fake_data=nan_data)
+        metric = TensorboardMetric(name="loss", tag="loss")
 
+        trial = get_trial()
         with mock.patch.object(
             TensorboardMetric,
             "_get_event_multiplexer_for_trial",
             return_value=nan_multiplexer,
         ):
-            metric = TensorboardMetric(
-                name="loss",
-                tag="loss",
-            )
-
-            trial = get_trial()
-
             result = metric.fetch_trial_data(trial=trial)
 
-            err = assert_is_instance(result.unwrap_err(), MetricFetchE)
-            self.assertEqual(
-                err.message,
-                "Failed to fetch data for loss",
-            )
-            self.assertEqual(
-                str(err.exception),
-                "Found NaNs or Infs in data",
-            )
+        err = assert_is_instance(result.unwrap_err(), MetricFetchE)
+        self.assertEqual(err.message, "Failed to fetch data for loss")
+        self.assertEqual(str(err.exception), "Found NaNs or Infs in data")
 
         inf_data = [1, 2, np.inf, 4]
         inf_multiplexer = _get_fake_multiplexer(fake_data=inf_data)
 
+        metric = TensorboardMetric(name="loss", tag="loss")
+
+        trial = get_trial()
         with mock.patch.object(
             TensorboardMetric,
             "_get_event_multiplexer_for_trial",
             return_value=inf_multiplexer,
         ):
-            metric = TensorboardMetric(
-                name="loss",
-                tag="loss",
-            )
-
-            trial = get_trial()
-
             result = metric.fetch_trial_data(trial=trial)
 
-            err = assert_is_instance(result.unwrap_err(), MetricFetchE)
-            self.assertEqual(
-                err.message,
-                "Failed to fetch data for loss",
-            )
-            self.assertEqual(
-                str(err.exception),
-                "Found NaNs or Infs in data",
-            )
+        err = assert_is_instance(result.unwrap_err(), MetricFetchE)
+        self.assertEqual(err.message, "Failed to fetch data for loss")
+        self.assertEqual(str(err.exception), "Found NaNs or Infs in data")
 
     def test_smoothing(self) -> None:
         fake_data = [8.0, 4.0, 2.0, 1.0]
         smoothing = 0.5
-        smooth_data = pd.Series(fake_data).ewm(alpha=smoothing).mean().tolist()
+        smooth_data = tb_smooth(fake_data, smoothing)
 
         fake_multiplexer = _get_fake_multiplexer(fake_data=fake_data)
+        metric = TensorboardMetric(
+            name="loss", tag="loss", lower_is_better=True, smoothing=smoothing
+        )
+        trial = get_trial()
 
         with mock.patch.object(
             TensorboardMetric,
             "_get_event_multiplexer_for_trial",
             return_value=fake_multiplexer,
         ):
-            metric = TensorboardMetric(
-                name="loss", tag="loss", lower_is_better=True, smoothing=smoothing
-            )
-            trial = get_trial()
-
             result = metric.fetch_trial_data(trial=trial)
 
-            df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = assert_is_instance(result.unwrap(), MapData).map_df
 
-            expected_df = pd.DataFrame(
-                [
-                    {
-                        "arm_name": "0_0",
-                        "metric_name": "loss",
-                        "mean": smooth_data[i],
-                        "sem": float("nan"),
-                        "trial_index": 0,
-                        "step": float(i),
-                    }
-                    for i in range(len(fake_data))
-                ]
-            )
+        expected_df = pd.DataFrame(
+            [
+                {
+                    "trial_index": 0,
+                    "arm_name": "0_0",
+                    "metric_name": "loss",
+                    "mean": smooth_data[i],
+                    "sem": float("nan"),
+                    "step": float(i),
+                }
+                for i in range(len(fake_data))
+            ]
+        )
 
-            self.assertTrue(df.equals(expected_df))
+        self.assertTrue(df.equals(expected_df))
 
     def test_cumulative_best(self) -> None:
         fake_data = [4.0, 8.0, 2.0, 1.0]
         cummin_data = pd.Series(fake_data).cummin().tolist()
 
         fake_multiplexer = _get_fake_multiplexer(fake_data=fake_data)
+        metric = TensorboardMetric(
+            name="loss",
+            tag="loss",
+            lower_is_better=True,
+            cumulative_best=True,
+            smoothing=0,
+        )
+        trial = get_trial()
 
         with mock.patch.object(
             TensorboardMetric,
             "_get_event_multiplexer_for_trial",
             return_value=fake_multiplexer,
         ):
-            metric = TensorboardMetric(
-                name="loss",
-                tag="loss",
-                lower_is_better=True,
-                cumulative_best=True,
-                smoothing=0,
-            )
-            trial = get_trial()
-
             result = metric.fetch_trial_data(trial=trial)
 
-            df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = assert_is_instance(result.unwrap(), MapData).map_df
 
-            expected_df = pd.DataFrame(
-                [
-                    {
-                        "arm_name": "0_0",
-                        "metric_name": "loss",
-                        "mean": cummin_data[i],
-                        "sem": float("nan"),
-                        "trial_index": 0,
-                        "step": float(i),
-                    }
-                    for i in range(len(fake_data))
-                ]
-            )
+        expected_df = pd.DataFrame(
+            [
+                {
+                    "trial_index": 0,
+                    "arm_name": "0_0",
+                    "metric_name": "loss",
+                    "mean": cummin_data[i],
+                    "sem": float("nan"),
+                    "step": float(i),
+                }
+                for i in range(len(fake_data))
+            ]
+        )
 
-            self.assertTrue(df.equals(expected_df))
+        self.assertTrue(df.equals(expected_df))
 
     def test_percentile(self) -> None:
         fake_data = [8.0, 4.0, 2.0, 1.0]
@@ -237,11 +240,11 @@ class TensorboardMetricTest(TestCase):
         expected_df = pd.DataFrame(
             [
                 {
+                    "trial_index": 0,
                     "arm_name": "0_0",
                     "metric_name": "loss",
                     "mean": percentile_data[i],
                     "sem": float("nan"),
-                    "trial_index": 0,
                     "step": float(i),
                 }
                 for i in range(len(fake_data))

@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import warnings
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from copy import deepcopy
@@ -18,9 +17,9 @@ from warnings import warn
 
 import numpy as np
 import numpy.typing as npt
-from ax.core.observation import Observation, ObservationData, recombine_observations
+from ax.core.observation import Observation, ObservationData
 from ax.core.optimization_config import OptimizationConfig
-from ax.modelbridge.base import ModelBridge, unwrap_observation_data
+from ax.modelbridge.base import Adapter, unwrap_observation_data
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.model_fit_stats import (
     coefficient_of_determination,
@@ -31,7 +30,7 @@ from ax.utils.stats.model_fit_stats import (
     ModelFitMetricProtocol,
     std_of_the_standardized_error,
 )
-from botorch.exceptions.warnings import InputDataWarning
+from botorch.settings import validate_input_scaling
 
 logger: Logger = get_logger(__name__)
 
@@ -53,7 +52,7 @@ class AssessModelFitResult(NamedTuple):
 
 
 def cross_validate(
-    model: ModelBridge,
+    model: Adapter,
     folds: int = -1,
     test_selector: Callable | None = None,
     untransform: bool = True,
@@ -70,19 +69,19 @@ def cross_validate(
 
     The test set can be limited to a specific set of observations by passing in
     a test_selector callable. This function should take in an Observation
-    and return a boolean indiciating if it should be used in the test set or
+    and return a boolean indicating if it should be used in the test set or
     not. For example, we can limit the test set to arms with trial 0 with
     test_selector = lambda obs: obs.features.trial_index == 0
     If not provided, all observations will be available for the test set.
 
     Args:
-        model: Fitted model (ModelBridge) to cross validate.
+        model: Fitted model (Adapter) to cross validate.
         folds: Number of folds. Use -1 for leave-one-out, otherwise will be
             k-fold.
         test_selector: Function for selecting observations for the test set.
         untransform: Whether to untransform the model predictions before
             cross validating.
-            Models are trained on transformed data, and candidate generation
+            Generators are trained on transformed data, and candidate generation
             is performed in the transformed space. Computing the model
             quality metric based on the cross-validation results in the
             untransformed space may not be representative of the model that
@@ -124,7 +123,7 @@ def cross_validate(
     arm_names_rnd = np.array(list(arm_names))
     # Not necessary to shuffle when using LOO, avoids differences in floating point
     # computations making equality tests brittle.
-    if folds != -1:
+    if folds != n:
         np.random.shuffle(arm_names_rnd)
     result = []
     for train_names, test_names in _gen_train_test_split(
@@ -161,15 +160,10 @@ def cross_validate(
             ) = model._transform_inputs_for_cv(
                 cv_training_data=cv_training_data, cv_test_points=cv_test_points
             )
-            with warnings.catch_warnings():
-                # Since each CV fold removes points from the training data, the
-                # remaining observations will not pass the standardization test.
-                # To avoid confusing users with this warning, we filter it out.
-                warnings.filterwarnings(
-                    "ignore",
-                    message=r"Data \(outcome observations\) is not standardized",
-                    category=InputDataWarning,
-                )
+            # Since each CV fold removes points from the training data, the
+            # remaining observations will not pass the input scaling checks.
+            # To avoid confusing users with warnings, we disable these checks.
+            with validate_input_scaling(False):
                 cv_test_predictions = model._cross_validate(
                     search_space=search_space,
                     cv_training_data=cv_training_data,
@@ -183,67 +177,6 @@ def cross_validate(
         # Form CVResult objects
         for i, obs in enumerate(cv_test_data):
             result.append(CVResult(observed=obs, predicted=cv_test_predictions[i]))
-    return result
-
-
-def cross_validate_by_trial(
-    model: ModelBridge, trial: int = -1, use_posterior_predictive: bool = False
-) -> list[CVResult]:
-    """Cross validation for model predictions on a particular trial.
-
-    Uses all of the data up until the specified trial to predict each of the
-    arms that was launched in that trial. Defaults to the last trial.
-
-    Args:
-        model: Fitted model (ModelBridge) to cross validate.
-        trial: Trial for which predictions are evaluated.
-        use_posterior_predictive: A boolean indicating if the predictions
-            should be from the posterior predictive (i.e. including
-            observation noise).
-
-    Returns:
-        A CVResult for each observation in the training data.
-    """
-    # Get in-design training points
-    training_data = [
-        obs
-        for i, obs in enumerate(model.get_training_data())
-        if model.training_in_design[i]
-    ]
-    all_trials = {
-        int(d.features.trial_index)
-        for d in training_data
-        if d.features.trial_index is not None
-    }
-    if len(all_trials) < 2:
-        raise ValueError(f"Training data has fewer than 2 trials ({all_trials})")
-    if trial < 0:
-        trial = max(all_trials)
-    elif trial not in all_trials:
-        raise ValueError(f"Trial {trial} not found in training data")
-    # Construct train/test data
-    cv_training_data = []
-    cv_test_data = []
-    cv_test_points = []
-    for obs in training_data:
-        if obs.features.trial_index is None:
-            continue
-        elif obs.features.trial_index < trial:
-            cv_training_data.append(obs)
-        elif obs.features.trial_index == trial:
-            cv_test_points.append(obs.features)
-            cv_test_data.append(obs)
-    # Make the prediction
-    cv_test_predictions = model.cross_validate(
-        cv_training_data=cv_training_data,
-        cv_test_points=cv_test_points,
-        use_posterior_predictive=use_posterior_predictive,
-    )
-    # Form CVResult objects
-    result = [
-        CVResult(observed=obs, predicted=cv_test_predictions[i])
-        for i, obs in enumerate(cv_test_data)
-    ]
     return result
 
 
@@ -407,14 +340,14 @@ def _gen_train_test_split(
 
 
 def get_fit_and_std_quality_and_generalization_dict(
-    fitted_model_bridge: ModelBridge,
+    fitted_adapter: Adapter,
 ) -> dict[str, float | None]:
     """
-    Get stats and gen from a fitted ModelBridge for analytics purposes.
+    Get stats and gen from a fitted Adapter for analytics purposes.
     """
     try:
-        model_fit_dict = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=fitted_model_bridge,
+        model_fit_dict = compute_model_fit_metrics_from_adapter(
+            adapter=fitted_adapter,
             generalization=False,
             untransform=False,
         )
@@ -422,8 +355,8 @@ def get_fit_and_std_quality_and_generalization_dict(
         std = list(model_fit_dict["std_of_the_standardized_error"].values())
 
         # generalization metrics
-        model_gen_dict = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=fitted_model_bridge,
+        model_gen_dict = compute_model_fit_metrics_from_adapter(
+            adapter=fitted_adapter,
             generalization=True,
             untransform=False,
         )
@@ -433,6 +366,16 @@ def get_fit_and_std_quality_and_generalization_dict(
             "model_std_quality": _model_std_quality(np.array(std)),
             "model_fit_generalization": _model_fit_metric(model_gen_dict),
             "model_std_generalization": _model_std_quality(np.array(gen_std)),
+        }
+
+    # Do not warn if the Adapter does not implement a predict method
+    # (ex. RandomAdapter).
+    except NotImplementedError:
+        return {
+            "model_fit_quality": None,
+            "model_std_quality": None,
+            "model_fit_generalization": None,
+            "model_std_generalization": None,
         }
 
     except Exception as e:
@@ -445,18 +388,18 @@ def get_fit_and_std_quality_and_generalization_dict(
         }
 
 
-def compute_model_fit_metrics_from_modelbridge(
-    model_bridge: ModelBridge,
+def compute_model_fit_metrics_from_adapter(
+    adapter: Adapter,
     fit_metrics_dict: dict[str, ModelFitMetricProtocol] | None = None,
     generalization: bool = False,
     untransform: bool = False,
 ) -> dict[str, dict[str, float]]:
-    """Computes the model fit metrics given a ModelBridge and an Experiment.
+    """Computes the model fit metrics given a Adapter and an Experiment.
 
     Args:
-        model_bridge: The ModelBridge for which to compute the model fit metrics.
+        adapter: The Adapter for which to compute the model fit metrics.
         experiment: The experiment with whose data to compute the metrics if
-            generalization == False. Otherwise, the data is taken from the ModelBridge.
+            generalization == False. Otherwise, the data is taken from the Adapter.
         fit_metrics_dict: An optional dictionary with model fit metric functions,
             i.e. a ModelFitMetricProtocol, as values and their names as keys.
         generalization: Boolean indicating whether to compute the generalization
@@ -475,7 +418,7 @@ def compute_model_fit_metrics_from_modelbridge(
         error after training an expensive model, with respect to hyper-parameters:
 
         ```
-        model_fit_dict = compute_model_fit_metrics_from_modelbridge(model_bridge, exp)
+        model_fit_dict = compute_model_fit_metrics_from_adapter(adapter, exp)
         model_fit_dict["coefficient_of_determination"]["test error"] =
             `coefficient of determination of the test error predictions`
         ```
@@ -485,9 +428,7 @@ def compute_model_fit_metrics_from_modelbridge(
         if generalization
         else _predict_on_training_data
     )
-    y_obs, y_pred, se_pred = predict_func(
-        model_bridge=model_bridge, untransform=untransform
-    )
+    y_obs, y_pred, se_pred = predict_func(adapter=adapter, untransform=untransform)
     if fit_metrics_dict is None:
         fit_metrics_dict = {
             "coefficient_of_determination": coefficient_of_determination,
@@ -500,6 +441,19 @@ def compute_model_fit_metrics_from_modelbridge(
         y_pred=y_pred,
         se_pred=se_pred,
         fit_metrics_dict=fit_metrics_dict,
+    )
+
+
+def compute_model_fit_metrics_from_modelbridge(
+    model_bridge: Adapter,
+    fit_metrics_dict: dict[str, ModelFitMetricProtocol] | None = None,
+    generalization: bool = False,
+    untransform: bool = False,
+) -> dict[str, dict[str, float]]:
+    raise DeprecationWarning(
+        "`compute_model_fit_metrics_from_modelbridge` has been renamed to "
+        "`compute_model_fit_metrics_from_adapter`. Please use the new method "
+        "with the `model_bridge` argument replaced by `adapter`. "
     )
 
 
@@ -536,52 +490,33 @@ def _model_std_quality(std: npt.NDArray) -> float:
 
 
 def _predict_on_training_data(
-    model_bridge: ModelBridge,
+    adapter: Adapter,
     untransform: bool = False,
 ) -> tuple[
     dict[str, npt.NDArray],
     dict[str, npt.NDArray],
     dict[str, npt.NDArray],
 ]:
-    """Makes predictions on the training data of a given experiment using a ModelBridge
+    """Makes predictions on the training data of a given experiment using a Adapter
     and returning the observed values, and the corresponding predictive means and
     predictive standard deviations of the model, in transformed space.
 
-    NOTE: This is a helper function for `compute_model_fit_metrics_from_modelbridge`.
+    NOTE: This is a helper function for `compute_model_fit_metrics_from_adapter`.
 
     Args:
-        model_bridge: A ModelBridge object with which to make predictions.
+        adapter: A Adapter object with which to make predictions.
         untransform: Boolean indicating whether to untransform model predictions.
 
     Returns:
         A tuple containing three dictionaries for 1) observed metric values, and the
         model's associated 2) predictive means and 3) predictive standard deviations.
     """
-    observations = model_bridge.get_training_data()  # List[Observation]
-
-    # NOTE: the following up to the end of the untransform block could be replaced
-    # with model_bridge's public predict / private _batch_predict method, if the
-    # latter had a boolean untransform flag.
-
-    # Transform observations -- this will transform both obs data and features
-    for t in model_bridge.transforms.values():
-        observations = t.transform_observations(observations)
-
+    observations = adapter.get_training_data()  # List[Observation]
     observation_features = [obs.features for obs in observations]
-
-    # Make predictions in transformed space
-    observation_data_pred = model_bridge._predict(observation_features)
-
-    if untransform:
-        # Apply reverse transforms, in reverse order
-        pred_observations = recombine_observations(
-            observation_features=observation_features,
-            observation_data=observation_data_pred,
-        )
-        for t in reversed(list(model_bridge.transforms.values())):
-            pred_observations = t.untransform_observations(pred_observations)
-
-        observation_data_pred = [obs.data for obs in pred_observations]
+    observation_data_pred = adapter._predict_observation_data(
+        observation_features=observation_features,
+        untransform=untransform,
+    )
 
     mean_predicted, cov_predicted = unwrap_observation_data(observation_data_pred)
     mean_observed = [
@@ -600,7 +535,7 @@ def _predict_on_training_data(
 
 
 def _predict_on_cross_validation_data(
-    model_bridge: ModelBridge,
+    adapter: Adapter,
     untransform: bool = False,
 ) -> tuple[
     dict[str, npt.NDArray],
@@ -608,14 +543,14 @@ def _predict_on_cross_validation_data(
     dict[str, npt.NDArray],
 ]:
     """Makes leave-one-out cross-validation predictions on the training data of the
-    ModelBridge and returns the observed values, and the corresponding predictive means
+    Adapter and returns the observed values, and the corresponding predictive means
     and predictive standard deviations of the model as numpy arrays,
     in transformed space.
 
-    NOTE: This is a helper function for `compute_model_fit_metrics_from_modelbridge`.
+    NOTE: This is a helper function for `compute_model_fit_metrics_from_adapter`.
 
     Args:
-        model_bridge: A ModelBridge object with which to make predictions.
+        adapter: A Adapter object with which to make predictions.
         untransform: Boolean indicating whether to untransform model predictions
             before cross validating. False by default.
 
@@ -625,11 +560,7 @@ def _predict_on_cross_validation_data(
             2. LOOCV predicted mean at each observed point, and
             3. LOOCV predicted standard deviation at each observed point.
     """
-    # IDEA: could use cross_validate_by_trial on the last few trials, since the
-    # cross-validation performance on these is likely more correlated with the
-    # performance of the model on an upcoming trial due to the sequential nature
-    # of the data generated by BO.
-    cv = cross_validate(model=model_bridge, untransform=untransform)
+    cv = cross_validate(model=adapter, untransform=untransform)
 
     metric_names = cv[0].observed.data.metric_names
     mean_observed = {k: [] for k in metric_names}

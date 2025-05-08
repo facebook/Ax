@@ -6,6 +6,7 @@
 # pyre-strict
 
 
+import numpy as np
 import pandas as pd
 from ax.core.data import Data
 from ax.core.map_data import MapData, MapKeyInfo
@@ -17,6 +18,15 @@ class MapDataTest(TestCase):
         super().setUp()
         self.df = pd.DataFrame(
             [
+                {
+                    "arm_name": "0_0",
+                    "epoch": 0,
+                    "mean": 3.0,
+                    "sem": 0.3,
+                    "trial_index": 0,
+                    "metric_name": "a",
+                },
+                # repeated arm 0_0
                 {
                     "arm_name": "0_0",
                     "epoch": 0,
@@ -77,6 +87,10 @@ class MapDataTest(TestCase):
 
         self.mmd = MapData(df=self.df, map_key_infos=self.map_key_infos)
 
+    def test_df(self) -> None:
+        df = self.mmd.df
+        self.assertEqual(set(df["trial_index"].drop_duplicates()), {0, 1})
+
     def test_map_key_info(self) -> None:
         self.assertEqual(self.map_key_infos, self.mmd.map_key_infos)
 
@@ -87,6 +101,18 @@ class MapDataTest(TestCase):
     def test_init(self) -> None:
         empty = MapData()
         self.assertTrue(empty.map_df.empty)
+        # Check that the required columns do not include any map keys.
+        self.assertEqual(empty.REQUIRED_COLUMNS, empty.required_columns())
+        self.assertEqual(set(empty.map_df.columns), empty.REQUIRED_COLUMNS)
+
+        # Initialize empty with map key infos.
+        empty = MapData(map_key_infos=self.map_key_infos)
+        self.assertTrue(empty.map_df.empty)
+        # Check that the required columns include the map keys.
+        self.assertEqual(
+            empty.REQUIRED_COLUMNS.union(["epoch"]), empty.required_columns()
+        )
+        self.assertEqual(set(empty.map_df.columns), empty.required_columns())
 
         with self.assertRaisesRegex(ValueError, "map_key_infos may be `None` iff"):
             MapData(df=self.df, map_key_infos=None)
@@ -236,7 +262,17 @@ class MapDataTest(TestCase):
 
         self.assertIsNotNone(fresh._memo_df)  # Assert df is cached after first call
 
-    def test_subsample(self) -> None:
+        self.assertTrue(
+            fresh.df.equals(
+                fresh.map_df.sort_values(fresh.map_keys).drop_duplicates(
+                    MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
+                )
+            )
+        )
+
+    def test_latest(self) -> None:
+        seed = 8888
+
         arm_names = ["0_0", "1_0", "2_0", "3_0"]
         max_epochs = [25, 50, 75, 100]
         metric_names = ["a", "b"]
@@ -259,6 +295,68 @@ class MapDataTest(TestCase):
         )
         large_map_data = MapData(df=large_map_df, map_key_infos=self.map_key_infos)
 
+        shuffled_large_map_df = large_map_data.map_df.groupby(
+            MapData.DEDUPLICATE_BY_COLUMNS
+        ).sample(frac=1, random_state=seed)
+        shuffled_large_map_data = MapData(
+            df=shuffled_large_map_df, map_key_infos=self.map_key_infos
+        )
+
+        for rows_per_group in [1, 40]:
+            large_map_data_latest = large_map_data.latest(rows_per_group=rows_per_group)
+
+            if rows_per_group == 1:
+                self.assertTrue(
+                    large_map_data_latest.map_df.groupby("metric_name")
+                    .epoch.transform(lambda col: set(col) == set(max_epochs))
+                    .all()
+                )
+
+            # when rows_per_group is larger than the number of rows
+            # actually observed in a group
+            actual_rows_per_group = large_map_data_latest.map_df.groupby(
+                MapData.DEDUPLICATE_BY_COLUMNS
+            ).size()
+            expected_rows_per_group = np.minimum(
+                large_map_data_latest.map_df.groupby(
+                    MapData.DEDUPLICATE_BY_COLUMNS
+                ).epoch.max(),
+                rows_per_group,
+            )
+            self.assertTrue(actual_rows_per_group.equals(expected_rows_per_group))
+
+            # behavior should be consistent even if map_keys are not in ascending order
+            shuffled_large_map_data_latest = shuffled_large_map_data.latest(
+                rows_per_group=rows_per_group
+            )
+            self.assertTrue(
+                shuffled_large_map_data_latest.map_df.equals(
+                    large_map_data_latest.map_df
+                )
+            )
+
+    def test_subsample(self) -> None:
+        arm_names = ["0_0", "1_0", "2_0", "3_0"]
+        max_epochs = [25, 50, 75, 100]
+        metric_names = ["a", "b"]
+        large_map_df = pd.DataFrame(
+            [
+                {
+                    "arm_name": arm_name,
+                    "epoch": epoch + 1,
+                    "mean": epoch * 0.1,
+                    "sem": 0.1,
+                    "trial_index": trial_index,
+                    "metric_name": metric_name,
+                }
+                for metric_name in metric_names
+                for trial_index, (arm_name, max_epoch) in enumerate(
+                    zip(arm_names, max_epochs)
+                )
+                for epoch in range(max_epoch)
+            ]
+        )
+        large_map_data = MapData(df=large_map_df, map_key_infos=self.map_key_infos)
         large_map_df_sparse_metric = pd.DataFrame(
             [
                 {

@@ -10,11 +10,11 @@ from collections.abc import Sequence
 
 import numpy.typing as npt
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
-from ax.models.base import Model
+from ax.models.base import Generator
 from ax.models.types import TConfig
 
 
-class DiscreteModel(Model):
+class DiscreteGenerator(Generator):
     """This class specifies the interface for a model based on discrete parameters.
 
     These methods should be implemented to have access to all of the features
@@ -44,12 +44,16 @@ class DiscreteModel(Model):
         pass
 
     def predict(
-        self, X: Sequence[Sequence[TParamValue]]
+        self, X: Sequence[Sequence[TParamValue]], use_posterior_predictive: bool = False
     ) -> tuple[npt.NDArray, npt.NDArray]:
         """Predict
 
         Args:
             X: List of the j parameterizations at which to make predictions.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
+                This option is only supported by the ``BoTorchGenerator``.
 
         Returns:
             2-element tuple containing

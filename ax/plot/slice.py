@@ -12,7 +12,7 @@ from typing import Any, Optional, Union
 import numpy as np
 import numpy.typing as npt
 from ax.core.observation import ObservationFeatures
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
 from ax.plot.helper import (
     axis_range,
@@ -46,7 +46,7 @@ SlicePredictions = tuple[
 
 
 def _get_slice_predictions(
-    model: ModelBridge,
+    model: Adapter,
     param_name: str,
     metric_name: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
@@ -59,7 +59,7 @@ def _get_slice_predictions(
     """Computes slice prediction configuration values for a single metric name.
 
     Args:
-        model: ModelBridge that contains model for predictions
+        model: Adapter that contains model for predictions
         param_name: Name of parameter that will be sliced
         metric_name: Name of metric to plot
         generator_runs_dict: A dictionary {name: generator run} of generator runs
@@ -128,7 +128,7 @@ def _get_slice_predictions(
 
 
 def plot_slice_plotly(
-    model: ModelBridge,
+    model: Adapter,
     param_name: str,
     metric_name: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
@@ -141,7 +141,7 @@ def plot_slice_plotly(
     """Plot predictions for a 1-d slice of the parameter space.
 
     Args:
-        model: ModelBridge that contains model for predictions
+        model: Adapter that contains model for predictions
         param_name: Name of parameter that will be sliced
         metric_name: Name of metric to plot
         generator_runs_dict: A dictionary {name: generator run} of generator runs
@@ -242,7 +242,7 @@ def plot_slice_plotly(
 
 
 def plot_slice(
-    model: ModelBridge,
+    model: Adapter,
     param_name: str,
     metric_name: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
@@ -255,7 +255,7 @@ def plot_slice(
     """Plot predictions for a 1-d slice of the parameter space.
 
     Args:
-        model: ModelBridge that contains model for predictions
+        model: Adapter that contains model for predictions
         param_name: Name of parameter that will be sliced
         metric_name: Name of metric to plot
         generator_runs_dict: A dictionary {name: generator run} of generator runs
@@ -293,7 +293,7 @@ def plot_slice(
 
 
 def interact_slice_plotly(
-    model: ModelBridge,
+    model: Adapter,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
@@ -305,7 +305,7 @@ def interact_slice_plotly(
     space.
 
     Args:
-        model: ModelBridge that contains model for predictions
+        model: Adapter that contains model for predictions
         generator_runs_dict: A dictionary {name: generator run} of generator runs
             whose arms will be plotted, if they lie in the slice.
         relative: Predictions relative to status quo
@@ -548,7 +548,7 @@ def interact_slice_plotly(
 
 
 def interact_slice(
-    model: ModelBridge,
+    model: Adapter,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
@@ -560,7 +560,7 @@ def interact_slice(
     space.
 
     Args:
-        model: ModelBridge that contains model for predictions
+        model: Adapter that contains model for predictions
         generator_runs_dict: A dictionary {name: generator run} of generator runs
             whose arms will be plotted, if they lie in the slice.
         relative: Predictions relative to status quo

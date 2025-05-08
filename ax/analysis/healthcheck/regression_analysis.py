@@ -5,11 +5,10 @@
 
 # pyre-strict
 
-import json
-from typing import Tuple
+from typing import Sequence
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
     HealthcheckAnalysisCard,
@@ -19,9 +18,10 @@ from ax.analysis.healthcheck.regression_detection_utils import (
     detect_regressions_by_trial,
 )
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import UserInputError
-from pyre_extensions import none_throws
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
+from pyre_extensions import none_throws, override
 
 
 class RegressionAnalysis(HealthcheckAnalysis):
@@ -38,25 +38,27 @@ class RegressionAnalysis(HealthcheckAnalysis):
     def __init__(self, prob_threshold: float = 0.95) -> None:
         r"""
         Args:
-            prob_theshold: The threshold for the probability of metric regression.
+            prob_threshold: The threshold for the probability of metric regression.
                 Regressions are defined as the arms that have a probability of
                 regression above this threshold.
 
-        Returns None
         """
         self.prob_threshold = prob_threshold
 
+    @override
     def compute(
         self,
         experiment: Experiment | None,
-        generation_strategy: GenerationStrategyInterface | None = None,
-    ) -> HealthcheckAnalysisCard:
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> Sequence[HealthcheckAnalysisCard]:
         r"""
         Detect the regressing arms for all trials that have data.
 
         Args:
             experiment: Ax experiment.
             generation_strategy: Ax generation strategy.
+            adapter: Ax modelbridge adapter
 
         Returns:
             A HealthcheckAnalysisCard object with the information on regressing arms
@@ -84,34 +86,43 @@ class RegressionAnalysis(HealthcheckAnalysis):
             regressions_by_trial=regressions_by_trial
         )
 
+        subtitle_base = (
+            "The regression analysis health check detects arms "
+            "across all trials that are regressing metrics. While metric "
+            "regressions can happen (especially in exploratory rounds that use "
+            "randomized parameters), users may choose to stop arms that are "
+            "regressing company-critical metrics.\n\n"
+        )
+
         if regressions_by_trial_df.shape[0] > 0:
-            df = regressions_by_trial_df
             status = HealthcheckStatus.WARNING
-            df["status"] = status
-            subtitle = (
-                "The following arms are regressing the following metrics "
-                f"for the respective trials: \n {regressions_msg}"
+            subtitle = subtitle_base + (
+                "The following arms are regressing the "
+                "following metrics for the respective trials: \n"
+                f"{regressions_msg}"
             )
+
             title_status = "Warning"
         else:
             status = HealthcheckStatus.PASS
-            df = pd.DataFrame({"status": [status]})
-            subtitle = "No metric regessions detected."
+            subtitle = subtitle_base + "No metric regessions detected."
             title_status = "Success"
 
-        return HealthcheckAnalysisCard(
-            name="RegressionAnalysis",
-            title=f"Ax Regression Analysis {title_status}",
-            blob=json.dumps({"status": status}),
-            subtitle=subtitle,
-            df=df,
-            level=AnalysisCardLevel.LOW,
-        )
+        return [
+            self._create_healthcheck_analysis_card(
+                title=f"Ax Regression Analysis {title_status}",
+                subtitle=subtitle,
+                df=regressions_by_trial_df,
+                level=AnalysisCardLevel.LOW,
+                status=status,
+                category=AnalysisCardCategory.DIAGNOSTIC,
+            ),
+        ]
 
 
 def process_regression_dict(
     regressions_by_trial: dict[int, dict[str, dict[str, float]]],
-) -> Tuple[pd.DataFrame, str]:
+) -> tuple[pd.DataFrame, str]:
     r"""
     Process the dictionary of trial indices, regressing arms and metrics into
         a dataframe and a string.

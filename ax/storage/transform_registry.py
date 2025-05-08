@@ -8,6 +8,7 @@
 
 
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.bilog_y import BilogY
 from ax.modelbridge.transforms.choice_encode import (
     ChoiceEncode,
     ChoiceToNumericChoice,
@@ -23,7 +24,7 @@ from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.logit import Logit
-from ax.modelbridge.transforms.map_unit_x import MapUnitX
+from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
 from ax.modelbridge.transforms.merge_repeated_measurements import (
     MergeRepeatedMeasurements,
 )
@@ -46,70 +47,87 @@ from ax.modelbridge.transforms.unit_x import UnitX
 from ax.modelbridge.transforms.winsorize import Winsorize
 
 
-# TODO: Annotate and add `register_transform`
-
 """
-Mapping of Transform classes to ints.
+A registry of transform classes for storage.
 
-All transforms will be stored in the same table in the database. When
-saving, we look up the transform subclass in TRANSFORM_REGISTRY, and store
-the corresponding type field in the database. When loading, we look
-up the type field in REVERSE_TRANSFORM_REGISTRY, and initialize the
-corresponding transform subclass.
+Transforms are stored in the DB as part of the JSON-encoded
+GenerationNode (or Step) objects. When loading the GenerationStrategy,
+we will look up the transform class that matches the stringified
+transform type in JSON object, and return the matching transform class.
+
+NOTE: If removing a transform, please add it to REMOVED_TRANSFORMS.
+These will be discarded while loading experiments from the DB.
+If deprecating a transform in favor of a new one (i.e. renaming),
+please add it to DEPRECATED_TRANSFORMS. When loading from the DB,
+we will return the replacement class.
 """
-TRANSFORM_REGISTRY: dict[type[Transform], int] = {
-    ConvertMetricNames: 0,
-    Derelativize: 1,
-    IntRangeToChoice: 2,
-    IntToFloat: 3,
-    IVW: 4,
-    Log: 5,
-    OneHot: 6,
-    OrderedChoiceEncode: 7,  # TO BE DEPRECATED
-    OrderedChoiceToIntegerRange: 7,
+TRANSFORM_REGISTRY: set[type[Transform]] = {
+    ConvertMetricNames,
+    Derelativize,
+    IntRangeToChoice,
+    IntToFloat,
+    IVW,
+    Log,
+    OneHot,
+    OrderedChoiceEncode,  # TO BE DEPRECATED
+    OrderedChoiceToIntegerRange,
     # This transform was upstreamed into the base modelbridge.
-    # Old transforms serialized with this will have the OutOfDesign transform
-    # replaced with a no-op, the base transform.
-    # DEPRECATED: OutOfDesign: 8
-    Transform: 8,
-    RemoveFixed: 9,
-    SearchSpaceToChoice: 10,
-    StandardizeY: 11,
-    StratifiedStandardizeY: 12,
-    TaskEncode: 13,  # TO BE DEPRECATED
-    TaskChoiceToIntTaskChoice: 13,
-    TrialAsTask: 14,
-    UnitX: 15,
-    Winsorize: 16,
-    # CapParameter: 17,  DEPRECATED
-    PowerTransformY: 18,
-    ChoiceEncode: 19,  # TO BE DEPRECATED
-    ChoiceToNumericChoice: 19,
-    Logit: 20,
-    MapUnitX: 21,
-    MetricsAsTask: 22,
-    LogY: 23,
-    Relativize: 24,
-    RelativizeWithConstantControl: 25,
-    MergeRepeatedMeasurements: 26,
-    TimeAsFeature: 27,
-    TransformToNewSQ: 28,
-    FillMissingParameters: 29,
-    LogIntToFloat: 30,
+    # DEPRECATED: OutOfDesign
+    RemoveFixed,
+    SearchSpaceToChoice,
+    StandardizeY,
+    StratifiedStandardizeY,
+    TaskEncode,  # TO BE DEPRECATED
+    TaskChoiceToIntTaskChoice,
+    TrialAsTask,
+    UnitX,
+    Winsorize,
+    # CapParameter,  DEPRECATED
+    PowerTransformY,
+    ChoiceEncode,  # TO BE DEPRECATED
+    ChoiceToNumericChoice,
+    Logit,
+    # MapUnitX, DEPRECATED
+    MetricsAsTask,
+    LogY,
+    Relativize,
+    RelativizeWithConstantControl,
+    MergeRepeatedMeasurements,
+    TimeAsFeature,
+    TransformToNewSQ,
+    FillMissingParameters,
+    LogIntToFloat,
+    MapKeyToFloat,
+    BilogY,
+}
+
+REMOVED_TRANSFORMS: set[str] = {
+    "OutOfDesign",
+    "CapParameter",
+    "MapUnitX",
 }
 
 """
-List transforms which are be deprecated.
+Dict mapping transforms which are being deprecated to the transforms replacing them.
 These will be present in TRANSFORM_REGISTRY so that old call sites
-can still store properly, but when loading back the new class will
-be used.
+can still store properly, but when loading back the new class will be used.
 """
-DEPRECATED_TRANSFORMS: list[type[Transform]] = [
-    OrderedChoiceEncode,  # replaced by OrderedChoiceToIntegerRange
-    ChoiceEncode,  # replaced by ChoiceToNumericChoice
-    TaskEncode,  # replaced by TaskChoiceToIntTaskChoice
-]
-
-REVERSE_TRANSFORM_REGISTRY: dict[int, type[Transform]] = {
-    v: k for k, v in TRANSFORM_REGISTRY.items() if k not in DEPRECATED_TRANSFORMS
+DEPRECATED_TRANSFORMS: dict[str, type[Transform]] = {
+    "OrderedChoiceEncode": OrderedChoiceToIntegerRange,
+    "ChoiceEncode": ChoiceToNumericChoice,
+    "TaskEncode": TaskChoiceToIntTaskChoice,
 }
+
+REVERSE_TRANSFORM_REGISTRY: dict[str, type[Transform]] = {
+    k.__name__: k for k in TRANSFORM_REGISTRY if k not in DEPRECATED_TRANSFORMS
+}
+
+
+def register_transform(transform: type[Transform]) -> None:
+    """Register a transform class for storage.
+
+    This is intended for external additions. Transforms that are available in
+    the core library should be added to the TRANSFORM_REGISTRY directly.
+    """
+    TRANSFORM_REGISTRY.add(transform)
+    REVERSE_TRANSFORM_REGISTRY[transform.__name__] = transform

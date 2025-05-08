@@ -16,8 +16,11 @@ from threading import Event, Lock
 import numpy as np
 
 from ax.core.types import TEvaluationOutcome, TParameterization
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.modelbridge.registry import Generators
 from ax.service.ax_client import AxClient
 from ax.service.interactive_loop import (
     ax_client_data_attacher,
@@ -32,7 +35,9 @@ from ax.utils.measurement.synthetic_functions import hartmann6
 class TestInteractiveLoop(TestCase):
     def setUp(self) -> None:
         generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, max_parallelism=1, num_trials=-1)]
+            steps=[
+                GenerationStep(model=Generators.SOBOL, max_parallelism=1, num_trials=-1)
+            ]
         )
         self.ax_client = AxClient(generation_strategy=generation_strategy)
         self.ax_client.create_experiment(

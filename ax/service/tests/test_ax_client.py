@@ -48,16 +48,16 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
-from ax.metrics.branin import branin, BraninMetric
-from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
-from ax.modelbridge.generation_strategy import (
+from ax.generation_strategy.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
+from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.registry import Cont_X_trans, Models
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.metrics.branin import branin, BraninMetric
+from ax.modelbridge.random import RandomAdapter
+from ax.modelbridge.registry import Cont_X_trans, Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
@@ -188,6 +188,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
 def get_branin_optimization(
     generation_strategy: GenerationStrategy | None = None,
     torch_device: torch.device | None = None,
+    support_intermediate_data: bool = False,
 ) -> AxClient:
     ax_client = AxClient(
         generation_strategy=generation_strategy, torch_device=torch_device
@@ -199,6 +200,7 @@ def get_branin_optimization(
             {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
         ],
         objectives={"branin": ObjectiveProperties(minimize=True)},
+        support_intermediate_data=support_intermediate_data,
     )
     return ax_client
 
@@ -217,9 +219,9 @@ def get_client_with_simple_discrete_moo_problem(
 ) -> AxClient:
     gs = GenerationStrategy(
         steps=[
-            GenerationStep(model=Models.SOBOL, num_trials=3),
+            GenerationStep(model=Generators.SOBOL, num_trials=3),
             GenerationStep(
-                model=Models.BOTORCH_MODULAR,
+                model=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs={
                     # To avoid search space exhausted errors.
@@ -263,7 +265,7 @@ def get_client_with_simple_discrete_moo_problem(
             metrics = [-m for m in metrics]
         y0, y1, y2 = metrics
         raw_data = {"y0": (y0, 0.0), "y1": (y1, 0.0), "y2": (y2, 0.0)}
-        # pyre-fixme [6]: In call `AxClient.complete_trial`, for 2nd parameter
+        # pyre-fixme[6]: In call `AxClient.complete_trial`, for 2nd parameter
         #  `raw_data`
         #  expected `Union[Dict[str, Union[Tuple[Union[float, floating, integer],
         #  Union[None, float, floating, integer]], float, floating, integer]],
@@ -484,17 +486,17 @@ class TestAxClient(TestCase):
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge.get_training_data",
+        "ax.modelbridge.random.RandomAdapter.get_training_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge._predict",
+        "ax.modelbridge.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge.feature_importances",
+        "ax.modelbridge.random.RandomAdapter.feature_importances",
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
@@ -506,7 +508,7 @@ class TestAxClient(TestCase):
         ax_client = get_branin_optimization()
         self.assertEqual(
             [s.model for s in none_throws(ax_client.generation_strategy)._steps],
-            [Models.SOBOL, Models.BOTORCH_MODULAR],
+            [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
             ax_client.get_optimization_trace(objective_optimum=branin.fmin)
@@ -605,7 +607,7 @@ class TestAxClient(TestCase):
     def test_sobol_generation_strategy_completion(self) -> None:
         ax_client = get_branin_optimization(
             generation_strategy=GenerationStrategy(
-                [GenerationStep(Models.SOBOL, num_trials=3)]
+                [GenerationStep(Generators.SOBOL, num_trials=3)]
             )
         )
         # All Sobol trials should be able to be generated at once and optimization
@@ -625,7 +627,7 @@ class TestAxClient(TestCase):
         decoder = Decoder(config=config)
         db_settings = DBSettings(encoder=encoder, decoder=decoder)
         generation_strategy = GenerationStrategy(
-            [GenerationStep(Models.SOBOL, num_trials=3)]
+            [GenerationStep(Generators.SOBOL, num_trials=3)]
         )
         ax_client = AxClient(
             db_settings=db_settings, generation_strategy=generation_strategy
@@ -692,17 +694,17 @@ class TestAxClient(TestCase):
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge.get_training_data",
+        "ax.modelbridge.random.RandomAdapter.get_training_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge._predict",
+        "ax.modelbridge.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     @patch(
-        "ax.modelbridge.random.RandomModelBridge.feature_importances",
+        "ax.modelbridge.random.RandomAdapter.feature_importances",
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
@@ -724,7 +726,7 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(
             [s.model for s in none_throws(ax_client.generation_strategy)._steps],
-            [Models.SOBOL, Models.BOTORCH_MODULAR],
+            [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
             ax_client.get_optimization_trace(objective_optimum=branin.fmin)
@@ -789,7 +791,7 @@ class TestAxClient(TestCase):
         """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -929,7 +931,7 @@ class TestAxClient(TestCase):
         """
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
             )
         )
         ax_client.create_experiment(
@@ -1026,7 +1028,7 @@ class TestAxClient(TestCase):
     def test_create_single_objective_experiment_with_objectives_dict(self) -> None:
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -1354,7 +1356,7 @@ class TestAxClient(TestCase):
         """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -1518,7 +1520,7 @@ class TestAxClient(TestCase):
         """Check that we do not allow constraints on the objective metric."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaises(ValueError):
@@ -1580,7 +1582,7 @@ class TestAxClient(TestCase):
         ax_client = get_branin_optimization()
         for _ in range(5):
             parameterization, trial_index = ax_client.get_next_trial()
-        with self.assertRaisesRegex(DataRequiredError, "All trials for current model"):
+        with self.assertRaisesRegex(DataRequiredError, "All trials for current node"):
             ax_client.get_next_trial()
         # Check that with enforce_sequential_optimization off, we can keep
         # generating.
@@ -1700,17 +1702,25 @@ class TestAxClient(TestCase):
         self.assertTrue(math.isnan(best_trial_values[1]["branin"]["branin"]))
 
     def test_update_trial_data(self) -> None:
-        ax_client = get_branin_optimization()
+        ax_client = get_branin_optimization(support_intermediate_data=True)
         params, idx = ax_client.get_next_trial()
         # Can't update before completing.
         with self.assertRaisesRegex(ValueError, ".* not in a terminal state"):
-            ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (0, 0.0)})
-        ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
+            ax_client.update_trial_data(
+                trial_index=idx, raw_data=[({"t": 0}, {"branin": (0, 0.0)})]
+            )
+        ax_client.complete_trial(
+            trial_index=idx, raw_data=[({"t": 0}, {"branin": (0, 0.0)})]
+        )
         # Cannot complete a trial twice, should use `update_trial_data`.
         with self.assertRaisesRegex(UnsupportedError, ".* already been completed"):
-            ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
+            ax_client.complete_trial(
+                trial_index=idx, raw_data=[({"t": 0}, {"branin": (0, 0.0)})]
+            )
         # Check that the update changes the data.
-        ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (1, 0.0)})
+        ax_client.update_trial_data(
+            trial_index=idx, raw_data=[({"t": 0}, {"branin": (1, 0.0)})]
+        )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(len(df), 1)
         self.assertEqual(df["mean"].item(), 1.0)
@@ -1718,10 +1728,18 @@ class TestAxClient(TestCase):
 
         # With early stopped trial.
         params, idx = ax_client.get_next_trial()
+        ax_client.update_running_trial_with_intermediate_data(
+            idx,
+            # pyre-fixme[6]: For 2nd argument expected `Union[floating[typing...
+            raw_data=[({"t": 0}, {"branin": (branin(*params.values()), 0.0)})],
+        )
+
         ax_client.stop_trial_early(trial_index=idx)
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
-        self.assertEqual(len(df), 0)
-        ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (2, 0.0)})
+        self.assertEqual(len(df), 1)
+        ax_client.update_trial_data(
+            trial_index=idx, raw_data=[({"t": 0}, {"branin": (2, 0.0)})]
+        )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(len(df), 1)
         self.assertEqual(df["mean"].item(), 2.0)
@@ -1730,13 +1748,17 @@ class TestAxClient(TestCase):
         # Failed trial.
         params, idx = ax_client.get_next_trial()
         ax_client.log_trial_failure(trial_index=idx)
-        ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (3, 0.0)})
+        ax_client.update_trial_data(
+            trial_index=idx, raw_data=[({"t": 0}, {"branin": (3, 0.0)})]
+        )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(df["mean"].item(), 3.0)
 
         # Incomplete trial fails
         params, idx = ax_client.get_next_trial()
-        ax_client.complete_trial(trial_index=idx, raw_data={"missing_metric": (1, 0.0)})
+        ax_client.complete_trial(
+            trial_index=idx, raw_data=[({"t": 0}, {"missing_metric": (0, 0.0)})]
+        )
         self.assertTrue(ax_client.get_trial(idx).status.is_failed)
 
     def test_incomplete_multi_fidelity_trial(self) -> None:
@@ -1775,10 +1797,10 @@ class TestAxClient(TestCase):
             },
         )
         with patch.object(
-            RandomModelBridge, "_fit", autospec=True, side_effect=RandomModelBridge._fit
+            RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
         ) as mock_fit:
             ax_client.get_next_trial()
-            mock_fit.assert_called_once()
+            self.assertEqual(mock_fit.call_count, 1)
             features = mock_fit.call_args_list[0][1]["observations"][0].features
             # we're asserting it's actually created real Timestamp objects
             # for the observation features
@@ -1797,10 +1819,10 @@ class TestAxClient(TestCase):
             },
         )
         with patch.object(
-            RandomModelBridge, "_fit", autospec=True, side_effect=RandomModelBridge._fit
+            RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
         ) as mock_fit:
             ax_client.get_next_trial()
-            mock_fit.assert_called_once()
+            self.assertEqual(mock_fit.call_count, 1)
             features = mock_fit.call_args_list[0][1]["observations"][0].features
             # we're asserting it's actually created real Timestamp objects
             # for the observation features
@@ -2026,12 +2048,12 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        with self.assertRaisesRegex(DataRequiredError, "All trials for current model "):
+        with self.assertRaisesRegex(DataRequiredError, "All trials for current node"):
             run_trials_using_recommended_parallelism(ax_client, [(6, 6), (-1, 3)], 20)
 
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
     @patch.dict(sys.modules, {"sqalchemy": None})
-    @patch("ax.service.ax_client.DBSettings", None)
+    @patch("ax.service.ax_client.TDBSettings", None)
     def test_no_sqa(self) -> None:
         # Make sure we couldn't import sqa_store.structs (this could happen when
         # SQLAlchemy is not installed).
@@ -2104,13 +2126,14 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
+            support_intermediate_data=True,
         )
         for _ in range(5):
             parameters, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(
                 trial_index=trial_index,
                 # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
-                raw_data=branin(*parameters.values()),
+                raw_data=[({"t": 0}, {"branin": (branin(*parameters.values()), 0.0)})],
             )
         gs = ax_client.generation_strategy
         ax_client = AxClient(db_settings=db_settings)
@@ -2144,6 +2167,11 @@ class TestAxClient(TestCase):
 
         # Attach an early stopped trial.
         parameters, trial_index = ax_client.get_next_trial()
+        ax_client.update_running_trial_with_intermediate_data(
+            trial_index=trial_index,
+            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
+            raw_data=[({"t": 0}, {"branin": (branin(*parameters.values()), 0.0)})],
+        )
         ax_client.stop_trial_early(trial_index=trial_index)
 
         # Reload experiment and check that trial status is accurate.
@@ -2283,7 +2311,7 @@ class TestAxClient(TestCase):
         self.assertIsNone(ax_client.experiment._name)
 
     @patch(
-        "ax.modelbridge.random.RandomModelBridge._predict",
+        "ax.modelbridge.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
@@ -2514,7 +2542,7 @@ class TestAxClient(TestCase):
         # Check that we did not specify objective threshold overrides (because we
         # did not have to infer them)
         self.assertIsNone(
-            mock_predicted_pareto.call_args[1].get("objective_thresholds")
+            mock_predicted_pareto.call_args.kwargs.get("objective_thresholds")
         )
         # Observed Pareto values should be better than the reference point.
         for obs in observed_pareto.values():
@@ -2656,10 +2684,7 @@ class TestAxClient(TestCase):
             num_trials=20, include_objective_thresholds=False
         )
         ax_client.generation_strategy._maybe_transition_to_next_node()
-        ax_client.generation_strategy._fit_current_model(
-            data=ax_client.experiment.lookup_data()
-        )
-
+        ax_client.generation_strategy._curr._fit(experiment=ax_client.experiment)
         with with_rng_seed(seed=RANDOM_SEED):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
 
@@ -2685,6 +2710,7 @@ class TestAxClient(TestCase):
         self.assertGreater(len(observed_pareto), 0)
 
     # Part 1/2 of tests run by helper_test_get_pareto_optimal_parameters_simple
+    @mock_botorch_optimize
     def test_get_pareto_optimal_parameters_simple_with_minimize_false(self) -> None:
         minimize = False
         for use_y0_threshold, use_y2_constraint in product(
@@ -2697,6 +2723,7 @@ class TestAxClient(TestCase):
             )
 
     # Part 2/2 of tests run by helper_test_get_pareto_optimal_parameters_simple
+    @mock_botorch_optimize
     def test_get_pareto_optimal_parameters_simple_with_minimize_true(self) -> None:
         minimize = True
         for use_y0_threshold, use_y2_constraint in product(
@@ -2804,7 +2831,7 @@ class TestAxClient(TestCase):
         )
 
         # Cannot get predicted hypervolume with sobol model
-        with self.assertRaisesRegex(ValueError, "is not of type TorchModelBridge"):
+        with self.assertRaisesRegex(ValueError, "is not of type TorchAdapter"):
             ax_client.get_hypervolume(use_model_predictions=True)
 
         # Run one more trial and check predicted hypervolume gets returned
@@ -2875,9 +2902,7 @@ class TestAxClient(TestCase):
         ax_client.attach_trial(
             {"model": "Linear", "learning_rate": 0.001, "l2_reg_weight": 0.0001}
         )
-        with self.assertRaisesRegex(
-            ValueError, "1 is not a valid value for parameter RangeParameter"
-        ):
+        with self.assertWarnsRegex(RuntimeWarning, "out-of-design"):
             ax_client.attach_trial(
                 {"model": "Linear", "learning_rate": 1, "l2_reg_weight": 0.0001}
             )
@@ -2910,7 +2935,12 @@ class TestAxClient(TestCase):
             ],
             support_intermediate_data=True,
         )
-        _, idx = ax_client.get_next_trial()
+        parameters, idx = ax_client.get_next_trial()
+        ax_client.update_running_trial_with_intermediate_data(
+            idx,
+            # pyre-fixme[6]: For 2nd argument expected `Union[floating[typing...
+            raw_data=[({"t": 0}, {"branin": (branin(*parameters.values()), 0.0)})],
+        )
         ax_client.stop_trial_early(idx)
         trial = ax_client.get_trial(idx)
         self.assertTrue(trial.status.is_early_stopped)
@@ -2925,7 +2955,7 @@ class TestAxClient(TestCase):
             support_intermediate_data=True,
         )
         _, idx = ax_client.get_next_trial()
-        ax_client.stop_trial_early(idx)
+        ax_client.experiment.trials[idx].mark_early_stopped(unsafe=True)
 
         self.assertEqual(ax_client.estimate_early_stopping_savings(), 0)
 
@@ -2939,17 +2969,14 @@ class TestAxClient(TestCase):
             support_intermediate_data=True,
         )
 
-        exception = MaxParallelismReachedException(
-            step_index=1, model_name="test", num_running=10
-        )
+        exception = MaxParallelismReachedException(step_index=1, num_running=10)
 
         # pyre-fixme[53]: Captured variable `exception` is not annotated.
         # pyre-fixme[2]: Parameter must be annotated.
         def fake_new_trial(*args, **kwargs) -> None:
             raise exception
 
-        # pyre-fixme[16]: `Optional` has no attribute `new_trial`.
-        ax_client._experiment.new_trial = fake_new_trial
+        ax_client.experiment.new_trial = fake_new_trial
 
         # Without early stopping.
         with self.assertRaises(MaxParallelismReachedException) as cm:
@@ -2979,7 +3006,7 @@ class TestAxClient(TestCase):
         with self.assertWarnsRegex(RuntimeWarning, "a `torch_device` were specified."):
             AxClient(
                 generation_strategy=GenerationStrategy(
-                    [GenerationStep(Models.SOBOL, num_trials=3)]
+                    [GenerationStep(Generators.SOBOL, num_trials=3)]
                 ),
                 torch_device=device,
             )
@@ -3048,7 +3075,7 @@ class TestAxClient(TestCase):
         ]
 
         with mock.patch(
-            "ax.modelbridge.dispatch_utils.logger.info",
+            "ax.generation_strategy.dispatch_utils.logger.info",
             side_effect=(lambda log: logs.append(log)),
         ):
             ax_client.create_experiment(
@@ -3080,7 +3107,7 @@ class TestAxClient(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="Sobol",
-                    model_specs=[ModelSpec(model_enum=Models.SOBOL)],
+                    model_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
                 )
             ],
         )

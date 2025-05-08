@@ -15,15 +15,15 @@ import numpy as np
 import numpy.typing as npt
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
 from ax.exceptions.constants import TS_MIN_WEIGHT_ERROR, TS_NO_FEASIBLE_ARMS_ERROR
+from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.exceptions.model import ModelError
-from ax.models.discrete_base import DiscreteModel
+from ax.models.discrete_base import DiscreteGenerator
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
-
 from pyre_extensions import assert_is_instance, none_throws
 
 
-class ThompsonSampler(DiscreteModel):
+class ThompsonSampler(DiscreteGenerator):
     """Generator for Thompson sampling.
 
     The generator performs Thompson sampling on the data passed in via `fit`.
@@ -36,6 +36,7 @@ class ThompsonSampler(DiscreteModel):
         num_samples: int = 10000,
         min_weight: float | None = None,
         uniform_weights: bool = False,
+        topk: int = 1,
     ) -> None:
         """
         Args:
@@ -45,10 +46,26 @@ class ThompsonSampler(DiscreteModel):
                 specified, will be set to 2 / (number of arms).
             uniform_weights: If True, the arms returned from the
                 generator will each be given a weight of 1 / (number of arms).
+            topk : Number of “top” arms to count in each posterior sample when
+                estimating selection probabilities.
+
+                - `topk=1` yields standard Thompson sampling: each draw
+                contributes 1 count to only the single best arm.
+                - `topk=2` approximates the top-two Thompson sampling (TTTS)
+                batch strategy with mixing parameter beta=0.5, by counting both
+                the best and runner-up in each draw and then normalizing.
+                - More generally, `topk=k` counts the k highest-valued arms per
+                draw and divides by k, which corresponds to an implicit
+                assumption that we mix equally across the first through
+                k-th best positions. Implicit assumption is beta=1/k.
+
+                See Russo (2016) "Simple Bayesian Algorithms for Best Arm
+                Identification" for details on TTTS.
         """
         self.num_samples = num_samples
         self.min_weight = min_weight
         self.uniform_weights = uniform_weights
+        self.topk = topk
 
         self.X: Sequence[Sequence[TParamValue]] | None = None
         self.Ys: Sequence[Sequence[float]] | None = None
@@ -57,7 +74,7 @@ class ThompsonSampler(DiscreteModel):
             list[dict[TParamValueList, tuple[float, float]]] | None
         ) = None
 
-    @copy_doc(DiscreteModel.fit)
+    @copy_doc(DiscreteGenerator.fit)
     def fit(
         self,
         Xs: Sequence[Sequence[Sequence[TParamValue]]],
@@ -76,7 +93,7 @@ class ThompsonSampler(DiscreteModel):
             Yvars=none_throws(self.Yvars),
         )
 
-    @copy_doc(DiscreteModel.gen)
+    @copy_doc(DiscreteGenerator.gen)
     def gen(
         self,
         n: int,
@@ -87,6 +104,9 @@ class ThompsonSampler(DiscreteModel):
         pending_observations: Sequence[Sequence[Sequence[TParamValue]]] | None = None,
         model_gen_options: TConfig | None = None,
     ) -> tuple[list[Sequence[TParamValue]], list[float], TGenMetadata]:
+        if n <= 0:
+            # TODO: use more informative error types
+            raise ValueError("ThompsonSampler requires n > 0.")
         if objective_weights is None:
             raise ValueError("ThompsonSampler requires objective weights.")
 
@@ -104,7 +124,6 @@ class ThompsonSampler(DiscreteModel):
             objective_weights=objective_weights, outcome_constraints=outcome_constraints
         )
         min_weight = self.min_weight if self.min_weight is not None else 2.0 / k
-
         # Second entry is used for tie-breaking
         weighted_arms = [
             (weights[i], np.random.random(), arms[i])
@@ -120,7 +139,7 @@ class ThompsonSampler(DiscreteModel):
             )
 
         weighted_arms.sort(reverse=True)
-        top_weighted_arms = weighted_arms[:n] if n > 0 else weighted_arms
+        top_weighted_arms = weighted_arms[:n]
         top_arms = [arm for _, _, arm in top_weighted_arms]
         top_weights = [weight for weight, _, _ in top_weighted_arms]
 
@@ -128,9 +147,7 @@ class ThompsonSampler(DiscreteModel):
         if self.uniform_weights:
             top_weights = [1.0 for _ in top_weights]
         else:
-            top_weights = [
-                (x * len(top_weights)) / sum(top_weights) for x in top_weights
-            ]
+            top_weights = [(x * n) / sum(top_weights) for x in top_weights]
         return (
             top_arms,
             top_weights,
@@ -140,10 +157,17 @@ class ThompsonSampler(DiscreteModel):
             },
         )
 
-    @copy_doc(DiscreteModel.predict)
+    @copy_doc(DiscreteGenerator.predict)
     def predict(
-        self, X: Sequence[Sequence[TParamValue]]
+        self, X: Sequence[Sequence[TParamValue]], use_posterior_predictive: bool = False
     ) -> tuple[npt.NDArray, npt.NDArray]:
+        if use_posterior_predictive:
+            warnings.warn(
+                f"{self.__class__.__name__} does not support posterior-predictive "
+                "predictions. Ignoring `use_posterior_predictive`. ",
+                AxWarning,
+                stacklevel=2,
+            )
         n = len(X)  # number of parameterizations at which to make predictions
         m = len(none_throws(self.Ys))  # number of outcomes
         f = np.zeros((n, m))  # array of outcome predictions
@@ -154,8 +178,9 @@ class ThompsonSampler(DiscreteModel):
             for j, x in enumerate(predictX):
                 # iterate through parameterizations at which to make predictions
                 if x not in X_to_Y_and_Yvar:
-                    raise ValueError(
-                        "ThompsonSampler does not support out-of-sample prediction."
+                    raise UnsupportedError(
+                        "ThompsonSampler does not support out-of-sample prediction. "
+                        f"(X: {X[j]} - note that this is post-transform application)."
                     )
                 f[j, i], cov[j, i, i] = X_to_Y_and_Yvar[
                     assert_is_instance(x, TParamValue)
@@ -189,10 +214,13 @@ class ThompsonSampler(DiscreteModel):
             samples = np.concatenate([samples, new_samples], axis=1)
             num_valid_samples = samples.shape[1]
 
-        winner_indices = np.argmax(samples, axis=0)  # (num_samples,)
         winner_counts = np.zeros(len(none_throws(self.X)))  # (k,)
-        for index in winner_indices:
-            winner_counts[index] += 1
+        # sort each sample, take top k, and count
+        sorted_idxs = np.argsort(samples, axis=0)  # shape (num_arms, samples)
+        topk_idxs = sorted_idxs[-self.topk :, :]  # shape (topk, samples)
+        winner_arms, counts = np.unique(topk_idxs.flatten(), return_counts=True)
+        winner_counts[winner_arms] = counts
+
         weights = winner_counts / winner_counts.sum()
         return weights.tolist()
 
@@ -261,6 +289,11 @@ class ThompsonSampler(DiscreteModel):
             raise ValueError(
                 "ThompsonSampler requires all rows of X to be unique; "
                 "i.e. that there is only one observation per parameterization."
+            )
+
+        if getattr(self, "topk", 1) > len(X):
+            raise ModelError(
+                f"ThompsonSampler `topk={self.topk}` exceeds number of arms ({len(X)})"
             )
 
     def _fit_X(

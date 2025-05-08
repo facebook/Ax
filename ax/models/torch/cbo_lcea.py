@@ -6,17 +6,16 @@
 
 # pyre-strict
 
-from logging import Logger
+from collections.abc import Sequence
 from typing import Any, cast, Union
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.models.torch.botorch import BotorchModel
+from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.models.torch.botorch_defaults import get_qLogNEI
 from ax.models.torch.cbo_sac import generate_model_space_decomposition
-from ax.models.torch_base import TorchModel, TorchOptConfig
+from ax.models.torch_base import TorchGenerator, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
 from botorch.fit import fit_gpytorch_mll
 from botorch.models.contextual import LCEAGP
 from botorch.models.gpytorch import GPyTorchModel
@@ -27,7 +26,6 @@ from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
-logger: Logger = get_logger(__name__)
 
 
 def get_map_model(
@@ -66,7 +64,7 @@ def get_map_model(
     return model, mll
 
 
-class LCEABO(BotorchModel):
+class LCEABO(LegacyBoTorchGenerator):
     r"""Does Bayesian optimization with Latent Context Embedding Additive (LCE-A) GP.
     The parameter space decomposition must be provided.
 
@@ -114,10 +112,10 @@ class LCEABO(BotorchModel):
             model_constructor=self.get_and_fit_model, acqf_constructor=get_qLogNEI
         )
 
-    @copy_doc(TorchModel.fit)
+    @copy_doc(TorchGenerator.fit)
     def fit(
         self,
-        datasets: list[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
@@ -129,7 +127,7 @@ class LCEABO(BotorchModel):
             search_space_digest=search_space_digest,
         )
 
-    @copy_doc(TorchModel.best_point)
+    @copy_doc(TorchGenerator.best_point)
     def best_point(
         self,
         search_space_digest: SearchSpaceDigest,

@@ -12,7 +12,7 @@ import torch
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.observation import ObservationFeatures
 from ax.core.types import TParamValue
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.torch import TorchAdapter
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from pyre_extensions import none_throws
@@ -28,7 +28,7 @@ class SurrogateTestFunction(BenchmarkTestFunction):
         name: The name of the runner.
         outcome_names: Names of outcomes to return in `evaluate_true`, if the
             surrogate produces more outcomes than are needed.
-        _surrogate: Either `None`, or a `TorchModelBridge` surrogate to use
+        _surrogate: Either `None`, or a `TorchAdapter` surrogate to use
             for generating observations. If `None`, `get_surrogate`
             must not be None and will be used to generate the surrogate when it
             is needed.
@@ -39,8 +39,8 @@ class SurrogateTestFunction(BenchmarkTestFunction):
 
     name: str
     outcome_names: Sequence[str]
-    _surrogate: TorchModelBridge | None = None
-    get_surrogate: None | Callable[[], TorchModelBridge] = None
+    _surrogate: TorchAdapter | None = None
+    get_surrogate: None | Callable[[], TorchAdapter] = None
 
     def __post_init__(self) -> None:
         if self.get_surrogate is None and self._surrogate is None:
@@ -50,7 +50,7 @@ class SurrogateTestFunction(BenchmarkTestFunction):
             )
 
     @property
-    def surrogate(self) -> TorchModelBridge:
+    def surrogate(self) -> TorchAdapter:
         if self._surrogate is None:
             self._surrogate = none_throws(self.get_surrogate)()
         return none_throws(self._surrogate)
@@ -66,7 +66,7 @@ class SurrogateTestFunction(BenchmarkTestFunction):
         return torch.tensor(
             means,
             device=self.surrogate.device,
-            dtype=self.surrogate.dtype,
+            dtype=torch.double,
         )
 
     @equality_typechecker

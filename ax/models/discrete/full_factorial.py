@@ -14,7 +14,7 @@ from operator import mul
 
 import numpy.typing as npt
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
-from ax.models.discrete_base import DiscreteModel
+from ax.models.discrete_base import DiscreteGenerator
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
@@ -23,7 +23,7 @@ from ax.utils.common.logger import get_logger
 logger: logging.Logger = get_logger(__name__)
 
 
-class FullFactorialGenerator(DiscreteModel):
+class FullFactorialGenerator(DiscreteGenerator):
     """Generator for full factorial designs.
 
     Generates arms for all possible combinations of parameter values,
@@ -48,7 +48,7 @@ class FullFactorialGenerator(DiscreteModel):
         self.max_cardinality = max_cardinality
         self.check_cardinality = check_cardinality
 
-    @copy_doc(DiscreteModel.gen)
+    @copy_doc(DiscreteGenerator.gen)
     # pyre-fixme[15]: Inconsistent override in return
     def gen(
         self,
@@ -60,13 +60,6 @@ class FullFactorialGenerator(DiscreteModel):
         pending_observations: Sequence[Sequence[Sequence[TParamValue]]] | None = None,
         model_gen_options: TConfig | None = None,
     ) -> tuple[list[TParamValueList], list[float], TGenMetadata]:
-        if n != -1:
-            logger.warning(
-                "FullFactorialGenerator will ignore the specified value of n. "
-                "The generator automatically determines how many arms to "
-                "generate."
-            )
-
         if fixed_features:
             # Make a copy so as to not mutate it
             parameter_values = list(parameter_values)
@@ -74,6 +67,12 @@ class FullFactorialGenerator(DiscreteModel):
                 parameter_values[fixed_feature_index] = [fixed_feature_value]
 
         num_arms = reduce(mul, [len(values) for values in parameter_values], 1)
+        if n != num_arms:
+            logger.warning(
+                "FullFactorialGenerator will ignore the specified value of n. "
+                "The generator automatically determines how many arms to "
+                "generate."
+            )
         if self.check_cardinality and num_arms > self.max_cardinality:
             raise ValueError(
                 f"FullFactorialGenerator generated {num_arms} arms, "

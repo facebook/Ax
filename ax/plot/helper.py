@@ -19,7 +19,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.types import TParameterization
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.prediction_utils import (
     _compute_scalarized_outcome,
     predict_at_point,
@@ -149,7 +149,7 @@ def _filter_dict(
 
 
 def _get_in_sample_arms(
-    model: ModelBridge,
+    model: Adapter,
     metric_names: set[str],
     fixed_features: ObservationFeatures | None = None,
     data_selector: Callable[[Observation], bool] | None = None,
@@ -185,12 +185,13 @@ def _get_in_sample_arms(
     observations = model.get_training_data()
     training_in_design = model.training_in_design
     if data_selector is not None:
-        observations = [obs for obs in observations if data_selector(obs)]
-        training_in_design = [
-            model.training_in_design[i]
-            for i, obs in enumerate(observations)
-            if data_selector(obs)
-        ]
+        new_observations = []
+        training_in_design = []
+        for i, obs in enumerate(observations):
+            if data_selector(obs):
+                training_in_design.append(model.training_in_design[i])
+                new_observations.append(obs)
+        observations = new_observations
     trial_selector = None
     if fixed_features is not None:
         trial_selector = fixed_features.trial_index
@@ -217,7 +218,7 @@ def _get_in_sample_arms(
     if ("TrialAsTask" not in model.transforms.keys() or trial_selector is None) and (
         len(arm_name_to_parameters) != len(observations)
     ):
-        logger.error(
+        logger.debug(
             "Have observations of arms with different features but same"
             " name. Arbitrary one will be plotted."
         )
@@ -282,7 +283,7 @@ def _get_in_sample_arms(
 
 
 def _get_out_of_sample_arms(
-    model: ModelBridge,
+    model: Adapter,
     generator_runs_dict: dict[str, GeneratorRun],
     metric_names: set[str],
     fixed_features: ObservationFeatures | None = None,
@@ -336,7 +337,7 @@ def _get_out_of_sample_arms(
 
 
 def get_plot_data(
-    model: ModelBridge,
+    model: Adapter,
     generator_runs_dict: dict[str, GeneratorRun],
     metric_names: set[str] | None = None,
     fixed_features: ObservationFeatures | None = None,
@@ -401,7 +402,7 @@ def get_plot_data(
     return plot_data, raw_data, cond_name_to_parameters
 
 
-def get_range_parameter(model: ModelBridge, param_name: str) -> RangeParameter:
+def get_range_parameter(model: Adapter, param_name: str) -> RangeParameter:
     """
     Get the range parameter with the given name from the model.
 
@@ -444,7 +445,7 @@ def get_range_parameters_from_list(
 
 
 def get_range_parameters(
-    model: ModelBridge, min_num_values: int = 0
+    model: Adapter, min_num_values: int = 0
 ) -> list[RangeParameter]:
     """
     Get a list of range parameters from a model.
@@ -482,7 +483,7 @@ def get_grid_for_parameter(parameter: RangeParameter, density: int) -> npt.NDArr
 
 
 def get_fixed_values(
-    model: ModelBridge,
+    model: Adapter,
     slice_values: dict[str, Any] | None = None,
     trial_index: int | None = None,
 ) -> TParameterization:
@@ -494,7 +495,7 @@ def get_fixed_values(
     Any value in slice_values will override the above.
 
     Args:
-        model: ModelBridge being used for plotting
+        model: Adapter being used for plotting
         slice_values: Map from parameter name to value at which is should be
             fixed.
 
@@ -774,7 +775,7 @@ def rgb(arr: list[int]) -> str:
 
 
 def infer_is_relative(
-    model: ModelBridge, metrics: list[str], non_constraint_rel: bool
+    model: Adapter, metrics: list[str], non_constraint_rel: bool
 ) -> dict[str, bool]:
     """Determine whether or not to relativize a metric.
 

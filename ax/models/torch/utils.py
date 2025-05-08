@@ -6,9 +6,8 @@
 
 # pyre-strict
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from logging import Logger
 from typing import Any, cast
 
 import numpy as np
@@ -19,7 +18,6 @@ from ax.models.model_utils import filter_constraints_and_fixed_features, get_obs
 from ax.models.random.sobol import SobolGenerator
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
-from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.monte_carlo import (
@@ -59,8 +57,6 @@ from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor
-
-logger: Logger = get_logger(__name__)
 
 
 # Distributions
@@ -232,27 +228,6 @@ def _generate_sobol_points(
         model_gen_options=model_gen_options,
     )
     return torch.from_numpy(array_X).to(device)
-
-
-def normalize_indices(indices: list[int], d: int) -> list[int]:
-    r"""Normalize a list of indices to ensure that they are positive.
-
-    Args:
-        indices: A list of indices (may contain negative indices for indexing
-            "from the back").
-        d: The dimension of the tensor to index.
-
-    Returns:
-        A normalized list of indices such that each index is between `0` and `d-1`.
-    """
-    normalized_indices = []
-    for i in indices:
-        if i < 0:
-            i = i + d
-        if i < 0 or i > d - 1:
-            raise ValueError(f"Index {i} out of bounds for tensor or length {d}.")
-        normalized_indices.append(i)
-    return normalized_indices
 
 
 def subset_model(
@@ -464,10 +439,6 @@ def get_botorch_objective_and_transform(
         # We are doing multi-objective optimization.
         return _get_weighted_mo_objective(objective_weights=objective_weights), None
     if outcome_constraints:
-        if X_observed is None:
-            raise UnsupportedError(
-                "X_observed is required to construct a constrained BoTorch objective."
-            )
         # If there are outcome constraints, we use MC Acquisition functions.
         obj_tf: Callable[[Tensor, Tensor | None], Tensor] = (
             get_objective_weights_transform(objective_weights)
@@ -481,13 +452,17 @@ def get_botorch_objective_and_transform(
         # Acquisition object.
         if issubclass(botorch_acqf_class, SampleReducingMCAcquisitionFunction):
             return GenericMCObjective(objective=objective), None
-        else:  # this is still used by KG
-            con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-            inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
-            objective = ConstrainedMCObjective(
-                objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
+        # this is still used by KG
+        if X_observed is None:
+            raise UnsupportedError(
+                "X_observed is required to construct a constrained BoTorch objective."
             )
-            return objective, None
+        con_tfs = get_outcome_constraint_transforms(outcome_constraints)
+        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
+        objective = ConstrainedMCObjective(
+            objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
+        )
+        return objective, None
     # Case of linear weights - use ScalarizedPosteriorTransform
     transform = ScalarizedPosteriorTransform(weights=objective_weights)
     return None, transform
@@ -586,7 +561,7 @@ def randomize_objective_weights(
 
 
 def _datasets_to_legacy_inputs(
-    datasets: list[SupervisedDataset],
+    datasets: Sequence[SupervisedDataset],
 ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
     """Convert a dictionary of dataset containers to legacy X, Y, Yvar inputs"""
     Xs, Ys, Yvars = [], [], []

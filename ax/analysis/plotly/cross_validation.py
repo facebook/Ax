@@ -6,18 +6,19 @@
 # pyre-strict
 
 
+from typing import Mapping, Sequence
+
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import select_metric
+from ax.analysis.plotly.utils import get_nudge_value, get_scatter_point_color
+from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
-from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.cross_validation import cross_validate
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from plotly import express as px, graph_objects as go
-from pyre_extensions import assert_is_instance, none_throws
 
 
 class CrossValidationPlot(PlotlyAnalysis):
@@ -45,20 +46,20 @@ class CrossValidationPlot(PlotlyAnalysis):
 
     def __init__(
         self,
-        metric_name: str | None = None,
+        metric_names: Sequence[str] | None = None,
         folds: int = -1,
         untransform: bool = True,
         trial_index: int | None = None,
+        labels: Mapping[str, str] | None = None,
     ) -> None:
         """
         Args:
-            metric_name: The name of the metric to plot. If not specified the objective
-                will be used. Note that the metric cannot be inferred for
-                multi-objective or scalarized-objective experiments.
+            metric_names: The name of the metric to plot. If not specified all metrics
+                available on the underyling model will be used.
             folds: Number of subsamples to partition observations into. Use -1 for
                 leave-one-out cross validation.
             untransform: Whether to untransform the model predictions before cross
-                validating. Models are trained on transformed data, and candidate
+                validating. Generators are trained on transformed data, and candidate
                 generation is performed in the transformed space. Computing the model
                 quality metric based on the cross-validation results in the
                 untransformed space may not be representative of the model that
@@ -69,98 +70,162 @@ class CrossValidationPlot(PlotlyAnalysis):
                 reflect the how good the model used for candidate generation actually
                 is.
             trial_index: Optional trial index that the model from generation_strategy
-                was used to generate.  We should therefore only have observations from
-                trials prior to this trial index in our plot.  If this is not True, we
-                should error out.
+                was used to generate. Useful card attribute to filter to only specific
+                trial.
+            labels: Optional dictionary of labels for the plot. Useful for when metric
+                names are too long or otherwise challenging to read.
         """
 
-        self.metric_name = metric_name
+        self.metric_names = metric_names
         self.folds = folds
         self.untransform = untransform
         self.trial_index = trial_index
+        self.labels: dict[str, str] = {**labels} if labels is not None else {}
 
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
-    ) -> PlotlyAnalysisCard:
-        if generation_strategy is None:
-            raise UserInputError("CrossValidation requires a GenerationStrategy")
-
-        metric_name = self.metric_name or select_metric(
-            experiment=generation_strategy.experiment
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> Sequence[PlotlyAnalysisCard]:
+        relevant_adapter = extract_relevant_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
         )
 
-        df = _prepare_data(
-            # CrossValidationPlot requires a native Ax GenerationStrategy and cannot be
-            # used with a GenerationStrategyInterface.
-            generation_strategy=assert_is_instance(
-                generation_strategy, GenerationStrategy
-            ),
-            metric_name=metric_name,
-            folds=self.folds,
-            untransform=self.untransform,
-            trial_index=self.trial_index,
+        cards = []
+        for metric_name in self.metric_names or relevant_adapter.metric_names:
+            df = _prepare_data(
+                adapter=relevant_adapter,
+                metric_name=metric_name,
+                folds=self.folds,
+                untransform=self.untransform,
+            )
+
+            fig = _prepare_plot(df=df)
+
+            k_folds_substring = (
+                f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
+            )
+            nudge = get_nudge_value(metric_name=metric_name, experiment=experiment)
+
+            # If a human readable metric name is provided, use it in the title
+            metric_title = self.labels.get(metric_name, metric_name)
+
+            # Define the cross-validation description based on the number of folds
+            cv_description = (
+                (
+                    f"the data is split into {self.folds} subsets and the model is "
+                    f"trained on {self.folds - 1} subsets while the remaining subset "
+                    "is used for validation"
+                )
+                if self.folds > 0
+                else (
+                    "the model is trained on all data except one sample, which is "
+                    "used for validation"
+                )
+            )
+
+            card = self._create_plotly_analysis_card(
+                title=f"Cross Validation for {metric_title}",
+                subtitle=(
+                    "The cross-validation plot displays the model fit for each "
+                    f"metric in the experiment. It employs a {k_folds_substring} "
+                    f"approach, where {cv_description}. The plot shows the "
+                    "predicted outcome for the validation set on the y-axis against "
+                    "its actual value on the x-axis. Points that align closely with "
+                    "the dotted diagonal line indicate a strong model fit, signifying "
+                    "accurate predictions. Additionally, the plot includes 95% "
+                    "confidence intervals that provide insight into the noise in "
+                    "observations and the uncertainty in model predictions. A "
+                    "horizontal, flat line of predictions indicates that the model "
+                    "has not picked up on sufficient signal in the data, and instead "
+                    "is just predicting the mean."
+                ),
+                level=AnalysisCardLevel.LOW.value + nudge,
+                df=df,
+                fig=fig,
+                category=AnalysisCardCategory.INSIGHT,
+            )
+
+            cards.append(card)
+
+        return cards
+
+
+def compute_cross_validation_adhoc(
+    metric_names: Sequence[str] | None = None,
+    folds: int = -1,
+    untransform: bool = True,
+    labels: Mapping[str, str] | None = None,
+    experiment: Experiment | None = None,
+    generation_strategy: GenerationStrategy | None = None,
+    adapter: Adapter | None = None,
+) -> list[PlotlyAnalysisCard]:
+    """
+    Helper method to expose adhoc cross validation plotting. Only for advanced users in
+    a notebook setting.
+
+    Args:
+        metric_names: The name of the metric to plot. If not specified all metrics
+            available on the underyling model will be used.
+        folds: Number of subsamples to partition observations into. Use -1 for
+            leave-one-out cross validation.
+        untransform: Whether to untransform the model predictions before cross
+            validating. Generators are trained on transformed data, and candidate
+            generation is performed in the transformed space. Computing the model
+            quality metric based on the cross-validation results in the
+            untransformed space may not be representative of the model that
+            is actually used for candidate generation in case of non-invertible
+            transforms, e.g., Winsorize or LogY. While the model in the
+            transformed space may not be representative of the original data in
+            regions where outliers have been removed, we have found it to better
+            reflect the how good the model used for candidate generation actually
+            is.
+        labels: Optional dictionary of labels for the plot. Useful for when metric
+            names are too long or otherwise challenging to read.
+        experiment: Optional. The experiment to extract data from.
+        generation_strategy: Optional. The generation strategy to extract the adapter
+            from.
+        adapter: Optional. The adapter to cross validate. If provided, this adapter
+            will be used instead of the current adapter on the ``GenerationStrategy``
+    """
+    relevant_adapter = extract_relevant_adapter(
+        experiment=experiment,
+        generation_strategy=generation_strategy,
+        adapter=adapter,
+    )
+
+    analysis = CrossValidationPlot(
+        metric_names=metric_names,
+        folds=folds,
+        untransform=untransform,
+        labels=labels,
+    )
+
+    return [
+        *analysis.compute(
+            experiment=experiment,
+            adapter=relevant_adapter,
         )
-        fig = _prepare_plot(df=df)
-
-        k_folds_substring = f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
-
-        # Nudge the priority if the metric is important to the experiment
-        if (
-            experiment is not None
-            and (optimization_config := experiment.optimization_config) is not None
-            and (objective := optimization_config.objective) is not None
-            and metric_name in objective.metric_names
-        ):
-            nudge = 2
-        elif (
-            experiment is not None
-            and (optimization_config := experiment.optimization_config) is not None
-            and metric_name in optimization_config.outcome_constraints
-        ):
-            nudge = 1
-        else:
-            nudge = 0
-
-        return self._create_plotly_analysis_card(
-            title=f"Cross Validation for {metric_name}",
-            subtitle=f"Out-of-sample predictions using {k_folds_substring} CV",
-            level=AnalysisCardLevel.LOW.value + nudge,
-            df=df,
-            fig=fig,
-        )
+    ]
 
 
 def _prepare_data(
-    generation_strategy: GenerationStrategy,
+    adapter: Adapter,
     metric_name: str,
     folds: int,
     untransform: bool,
-    trial_index: int | None,
 ) -> pd.DataFrame:
-    # If model is not fit already, fit it
-    if generation_strategy.model is None:
-        generation_strategy._fit_current_model(None)
-
     cv_results = cross_validate(
-        model=none_throws(generation_strategy.model),
+        model=adapter,
         folds=folds,
         untransform=untransform,
     )
 
     records = []
     for observed, predicted in cv_results:
-        if trial_index is not None:
-            if (
-                observed.features.trial_index is not None
-                and observed.features.trial_index >= trial_index
-            ):
-                raise UserInputError(
-                    "CrossValidationPlot was specified to be for the generation of "
-                    f"trial {trial_index}, but has observations from trial "
-                    f"{observed.features.trial_index}."
-                )
         # Find the index of the metric in observed and predicted
         observed_i = next(
             (
@@ -180,42 +245,86 @@ def _prepare_data(
                 "arm_name": observed.arm_name,
                 "observed": observed.data.means[observed_i],
                 "predicted": predicted.means[predicted_i],
-                # Take the square root of the SEM to get the standard deviation
-                "observed_sem": observed.data.covariance[observed_i][observed_i] ** 0.5,
-                "predicted_sem": predicted.covariance[predicted_i][predicted_i] ** 0.5,
+                # Compute the 95% confidence intervals for plotting purposes
+                "observed_95_ci": observed.data.covariance[observed_i][observed_i]
+                ** 0.5
+                * 1.96,
+                "predicted_95_ci": predicted.covariance[predicted_i][predicted_i] ** 0.5
+                * 1.96,
             }
             records.append(record)
     return pd.DataFrame.from_records(records)
 
 
-def _prepare_plot(df: pd.DataFrame) -> go.Figure:
-    fig = px.scatter(
-        df,
-        x="observed",
-        y="predicted",
-        error_x="observed_sem",
-        error_y="predicted_sem",
-        hover_data=["arm_name", "observed", "predicted"],
+def _prepare_plot(
+    df: pd.DataFrame,
+) -> go.Figure:
+    # Create a scatter plot using Plotly Graph Objects for more control
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=df["observed"],
+            y=df["predicted"],
+            mode="markers",
+            marker={
+                # Plotly blue
+                "color": get_scatter_point_color(
+                    hex_color=px.colors.qualitative.Plotly[0],
+                    ci_transparency=False,
+                ),
+            },
+            error_x={
+                "type": "data",
+                "array": df["observed_95_ci"],
+                "visible": True,
+                "color": get_scatter_point_color(
+                    hex_color=px.colors.qualitative.Plotly[0],
+                    ci_transparency=True,
+                ),
+            },
+            error_y={
+                "type": "data",
+                "array": df["predicted_95_ci"],
+                "visible": True,
+                "color": get_scatter_point_color(
+                    hex_color=px.colors.qualitative.Plotly[0],
+                    ci_transparency=True,
+                ),
+            },
+            text=df["arm_name"],
+            hovertemplate=(
+                "<b>Arm Name: %{text}</b><br>"
+                + "Predicted: %{y}<br>"
+                + "Observed: %{x}<br>"
+                + "<extra></extra>"  # Removes the trace name from the hover
+            ),
+            hoverlabel={
+                "bgcolor": get_scatter_point_color(
+                    hex_color=px.colors.qualitative.Plotly[0],
+                    ci_transparency=True,
+                ),
+                "font": {"color": "black"},
+            },
+        )
     )
 
     # Add a gray dashed line at y=x starting and ending just outside of the region of
-    # interest for reference. A well fit model should have points clustered around this
-    # line.
+    # interest for reference. A well fit model should have points clustered around
+    # this line.
     lower_bound = (
         min(
-            (df["observed"] - df["observed_sem"].fillna(0)).min(),
-            (df["predicted"] - df["predicted_sem"].fillna(0)).min(),
+            (df["observed"] - df["observed_95_ci"].fillna(0)).min(),
+            (df["predicted"] - df["predicted_95_ci"].fillna(0)).min(),
         )
-        * 0.99
+        * 0.999  # tight autozoom
     )
     upper_bound = (
         max(
-            (df["observed"] + df["observed_sem"].fillna(0)).max(),
-            (df["predicted"] + df["predicted_sem"].fillna(0)).max(),
+            (df["observed"] + df["observed_95_ci"].fillna(0)).max(),
+            (df["predicted"] + df["predicted_95_ci"].fillna(0)).max(),
         )
-        * 1.01
+        * 1.001  # tight autozoom
     )
-
     fig.add_shape(
         type="line",
         x0=lower_bound,
@@ -225,11 +334,14 @@ def _prepare_plot(df: pd.DataFrame) -> go.Figure:
         line={"color": "gray", "dash": "dot"},
     )
 
-    # Force plot to display as a square
-    fig.update_xaxes(range=[lower_bound, upper_bound], constrain="domain")
+    # Update axes with tight autozoom that remains square
+    fig.update_xaxes(
+        range=[lower_bound, upper_bound], constrain="domain", title="Actual Outcome"
+    )
     fig.update_yaxes(
+        range=[lower_bound, upper_bound],
         scaleanchor="x",
         scaleratio=1,
+        title="Predicted Outcome",
     )
-
     return fig

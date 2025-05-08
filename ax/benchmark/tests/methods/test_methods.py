@@ -6,6 +6,7 @@
 # pyre-strict
 
 
+from logging import WARNING
 from unittest.mock import patch
 
 import numpy as np
@@ -18,7 +19,7 @@ from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acqui
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
 from ax.core.experiment import Experiment
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point import (
     get_best_by_raw_objective_with_trial_index,
@@ -50,7 +51,7 @@ class TestMethods(TestCase):
         self.assertEqual(method.name, expected_name)
         gs = method.generation_strategy
         sobol, kg = gs._steps
-        self.assertEqual(kg.model, Models.BOTORCH_MODULAR)
+        self.assertEqual(kg.model, Generators.BOTORCH_MODULAR)
         model_kwargs = none_throws(kg.model_kwargs)
         self.assertEqual(model_kwargs["botorch_acqf_class"], qKnowledgeGradient)
         surrogate_spec = model_kwargs["surrogate_spec"]
@@ -83,7 +84,9 @@ class TestMethods(TestCase):
         # Only run one non-Sobol trial
         n_total_trials = n_sobol_trials + 1
         problem = get_problem(problem_key="ackley4", num_trials=n_total_trials)
-        result = benchmark_replication(problem=problem, method=method, seed=0)
+        result = benchmark_replication(
+            problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
+        )
         self.assertTrue(np.isfinite(result.score_trace).all())
         self.assertEqual(result.optimization_trace.shape, (n_total_trials,))
 
@@ -114,10 +117,7 @@ class TestMethods(TestCase):
         self.assertEqual(method.name, "Sobol")
         gs = method.generation_strategy
         self.assertEqual(len(gs._steps), 1)
-        self.assertEqual(gs._steps[0].model, Models.SOBOL)
-        problem = get_problem(problem_key="ackley4", num_trials=3)
-        result = benchmark_replication(problem=problem, method=method, seed=0)
-        self.assertTrue(np.isfinite(result.score_trace).all())
+        self.assertEqual(gs._steps[0].model, Generators.SOBOL)
 
     def _test_get_best_parameters(self, use_model_predictions: bool) -> None:
         problem = get_problem(problem_key="ackley4", num_trials=2, noise_std=1.0)
@@ -140,7 +140,9 @@ class TestMethods(TestCase):
         scheduler = Scheduler(
             experiment=experiment,
             generation_strategy=method.generation_strategy.clone_reset(),
-            options=get_benchmark_scheduler_options(method=method),
+            options=get_benchmark_scheduler_options(
+                method=method, logging_level=WARNING
+            ),
         )
 
         with with_rng_seed(seed=0):

@@ -7,7 +7,6 @@
 # pyre-strict
 
 from itertools import groupby
-from logging import Logger
 
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -20,9 +19,7 @@ from ax.core.outcome_constraint import (
 from ax.core.risk_measures import RiskMeasure
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
-from ax.utils.common.logger import get_logger
 
-logger: Logger = get_logger(__name__)
 
 TRefPoint = list[ObjectiveThreshold]
 
@@ -60,7 +57,7 @@ class OptimizationConfig(Base):
         constraints: list[OutcomeConstraint] = (
             [] if outcome_constraints is None else outcome_constraints
         )
-        self._validate_optimization_config(
+        self._validate_transformed_optimization_config(
             objective=objective,
             outcome_constraints=constraints,
             risk_measure=risk_measure,
@@ -104,7 +101,7 @@ class OptimizationConfig(Base):
     @objective.setter
     def objective(self, objective: Objective) -> None:
         """Set objective if not present in outcome constraints."""
-        self._validate_optimization_config(
+        self._validate_transformed_optimization_config(
             objective, self.outcome_constraints, self.risk_measure
         )
         self._objective = objective
@@ -146,7 +143,7 @@ class OptimizationConfig(Base):
     @outcome_constraints.setter
     def outcome_constraints(self, outcome_constraints: list[OutcomeConstraint]) -> None:
         """Set outcome constraints if valid, else raise."""
-        self._validate_optimization_config(
+        self._validate_transformed_optimization_config(
             objective=self.objective,
             outcome_constraints=outcome_constraints,
             risk_measure=self.risk_measure,
@@ -154,7 +151,7 @@ class OptimizationConfig(Base):
         self._outcome_constraints = outcome_constraints
 
     @staticmethod
-    def _validate_optimization_config(
+    def _validate_transformed_optimization_config(
         objective: Objective,
         outcome_constraints: list[OutcomeConstraint] | None = None,
         risk_measure: RiskMeasure | None = None,
@@ -282,7 +279,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             [] if outcome_constraints is None else outcome_constraints
         )
         objective_thresholds = objective_thresholds or []
-        self._validate_optimization_config(
+        self._validate_transformed_optimization_config(
             objective=objective,
             outcome_constraints=constraints,
             objective_thresholds=objective_thresholds,
@@ -333,7 +330,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
     @objective.setter
     def objective(self, objective: MultiObjective | ScalarizedObjective) -> None:
         """Set objective if not present in outcome constraints."""
-        self._validate_optimization_config(
+        self._validate_transformed_optimization_config(
             objective=objective,
             outcome_constraints=self.outcome_constraints,
             objective_thresholds=self.objective_thresholds,
@@ -356,7 +353,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         self, objective_thresholds: list[ObjectiveThreshold]
     ) -> None:
         """Set outcome constraints if valid, else raise."""
-        self._validate_optimization_config(
+        self._validate_transformed_optimization_config(
             objective=self.objective,
             objective_thresholds=objective_thresholds,
             risk_measure=self.risk_measure,
@@ -371,7 +368,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         return {ot.metric.name: ot for ot in self._objective_thresholds}
 
     @staticmethod
-    def _validate_optimization_config(
+    def _validate_transformed_optimization_config(
         objective: Objective,
         outcome_constraints: list[OutcomeConstraint] | None = None,
         objective_thresholds: list[ObjectiveThreshold] | None = None,
@@ -389,7 +386,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         Args:
             objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints to validate.
-            objective_thesholds: Thresholds objectives must exceed.
+            objective_thresholds: Thresholds objectives must exceed.
             risk_measure: An optional risk measure to validate.
         """
         if not isinstance(objective, (MultiObjective, ScalarizedObjective)):

@@ -11,6 +11,7 @@ from unittest.mock import Mock
 import numpy as np
 import numpy.typing as npt
 from ax.core import BatchTrial
+from ax.core.experiment import Experiment
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -21,15 +22,15 @@ from ax.core.observation import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge import ModelBridge
-from ax.modelbridge.registry import Models
+from ax.modelbridge import Adapter
+from ax.modelbridge.registry import Generators
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.relativize import (
     BaseRelativize,
     Relativize,
     RelativizeWithConstantControl,
 )
-from ax.models.base import Model
+from ax.models.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import (
@@ -40,7 +41,6 @@ from ax.utils.testing.core_stubs import (
     get_branin_with_multi_task,
     get_search_space,
 )
-from hypothesis import assume, given, settings, strategies as st
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -92,7 +92,7 @@ class RelativizeDataTest(TestCase):
     ) -> None:
         for relativize_cls in self.relativize_classes:
             # modelbridge has no status quo
-            sobol = Models.SOBOL(search_space=get_search_space())
+            sobol = Generators.SOBOL(experiment=get_branin_experiment())
             self.assertIsNone(sobol.status_quo)
             with self.assertRaisesRegex(
                 AssertionError, f"{relativize_cls.__name__} requires status quo data."
@@ -129,9 +129,9 @@ class RelativizeDataTest(TestCase):
                 )
                 t.mark_completed()
             data = exp.fetch_data()
-            modelbridge = ModelBridge(
+            modelbridge = Adapter(
                 search_space=exp.search_space,
-                model=Model(),
+                model=Generator(),
                 transforms=[relativize_cls],
                 experiment=exp,
                 data=data,
@@ -146,9 +146,9 @@ class RelativizeDataTest(TestCase):
             )
             # reset SQ
             none_throws(exp._status_quo)._parameters["x1"] = 0.0
-            modelbridge = ModelBridge(
+            modelbridge = Adapter(
                 search_space=exp.search_space,
-                model=Model(),
+                model=Generator(),
                 transforms=[relativize_cls],
                 experiment=exp,
                 data=data,
@@ -328,60 +328,51 @@ class RelativizeDataTest(TestCase):
                     modelbridge=None,
                 )
 
-    # pyre-fixme[56]: Pyre was not able to infer the type of argument
-    #  `hypothesis.strategies.floats($parameter$min_value = - 10.000000,
-    #  $parameter$max_value = 10.000000)` to decorator factory `hypothesis.given`.
-    @given(
-        st.floats(min_value=-10.0, max_value=10.0),
-        st.floats(min_value=0, max_value=10.0),
-        st.floats(min_value=-10.0, max_value=10.0),
-        st.floats(min_value=0, max_value=10.0),
-    )
-    @settings(max_examples=1000, deadline=None)
-    def test_transform_status_quos_always_zero(
-        self,
-        sq_mean: float,
-        sq_sem: float,
-        mean: float,
-        sem: float,
-    ) -> None:
-        assume(abs(sq_mean) >= 1e-10)
-        assume(abs(sq_mean) != sq_sem)
+    def test_transform_status_quos_always_zero(self) -> None:
+        for _ in range(1000):
+            sq_mean = np.random.uniform(-10.0, 10.0)
+            sq_sem = np.random.uniform(0, 10.0)
+            mean = np.random.uniform(-10.0, 10.0)
+            sem = np.random.uniform(0, 10.0)
+            if abs(sq_mean) < 1e-10 or abs(sq_mean) == sq_sem:
+                continue
 
-        arm_names = ["status_quo", "0_0"]
-        obs_data = [
-            ObservationData(
-                metric_names=["foo"],
-                means=np.array([sq_mean]),
-                covariance=np.array([[sq_sem]]),
-            ),
-            ObservationData(
-                metric_names=["foo"],
-                means=np.array([mean]),
-                covariance=np.array([[sem]]),
-            ),
-        ]
-        obs_features = [
-            ObservationFeatures(parameters={"x": 1}, trial_index=0),
-            ObservationFeatures(parameters={"x": 2}, trial_index=0),
-        ]
-        modelbridge = Mock(
-            status_quo=Mock(
-                data=obs_data[0], features=obs_features[0], arm_name=arm_names[0]
-            ),
-            status_quo_data_by_trial={0: obs_data[0]},
-        )
-        observations = recombine_observations(obs_features, obs_data, arm_names)
-        for relativize_cls in [Relativize, RelativizeWithConstantControl]:
-            transform = relativize_cls(
-                search_space=None,
-                observations=observations,
-                modelbridge=modelbridge,
+            arm_names = ["status_quo", "0_0"]
+            obs_data = [
+                ObservationData(
+                    metric_names=["foo"],
+                    means=np.array([sq_mean]),
+                    covariance=np.array([[sq_sem]]),
+                ),
+                ObservationData(
+                    metric_names=["foo"],
+                    means=np.array([mean]),
+                    covariance=np.array([[sem]]),
+                ),
+            ]
+            obs_features = [
+                ObservationFeatures(parameters={"x": 1}, trial_index=0),
+                ObservationFeatures(parameters={"x": 2}, trial_index=0),
+            ]
+            modelbridge = Mock(
+                status_quo=Mock(
+                    data=obs_data[0], features=obs_features[0], arm_name=arm_names[0]
+                ),
+                status_quo_data_by_trial={0: obs_data[0]},
             )
-            relative_obs = transform.transform_observations(observations)
-            self.assertEqual(relative_obs[0].data.metric_names, ["foo"])
-            self.assertAlmostEqual(relative_obs[0].data.means[0], 0, places=4)
-            self.assertAlmostEqual(relative_obs[0].data.covariance[0][0], 0, places=4)
+            observations = recombine_observations(obs_features, obs_data, arm_names)
+            for relativize_cls in [Relativize, RelativizeWithConstantControl]:
+                transform = relativize_cls(
+                    search_space=None,
+                    observations=observations,
+                    modelbridge=modelbridge,
+                )
+                relative_obs = transform.transform_observations(observations)
+                self.assertEqual(relative_obs[0].data.metric_names, ["foo"])
+                self.assertAlmostEqual(relative_obs[0].data.means[0], 0, places=4)
+                self.assertAlmostEqual(
+                    relative_obs[0].data.covariance[0][0], 0, places=4
+                )
 
     def test_multitask_data(self) -> None:
         experiment = get_branin_with_multi_task()
@@ -408,7 +399,7 @@ class RelativizeDataTest(TestCase):
             ]
             sq_obs_data.append(
                 ObservationData(
-                    metric_names=status_quo_data["metric_name"].to_numpy(),
+                    metric_names=status_quo_data["metric_name"].to_list(),
                     means=status_quo_data["mean"].to_numpy(),
                     covariance=status_quo_data["sem"].to_numpy()[np.newaxis, :] ** 2,
                 )
@@ -467,7 +458,7 @@ class RelativizeDataOptConfigTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         search_space = get_search_space()
-        gr = Models.SOBOL(search_space=search_space).gen(n=1)
+        gr = Generators.SOBOL(experiment=Experiment(search_space=search_space)).gen(n=1)
         self.model = Mock(
             search_space=search_space,
             status_quo=Mock(

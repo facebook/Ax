@@ -14,7 +14,7 @@ from typing import Any, Protocol
 
 import torch
 from ax.models.model_utils import best_observed_point
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenerator
 from ax.models.types import TConfig
 from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -520,7 +520,7 @@ def scipy_optimizer(
 
 
 def recommend_best_observed_point(
-    model: TorchModel,
+    model: TorchGenerator,
     bounds: list[tuple[float, float]],
     objective_weights: Tensor,
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
@@ -530,12 +530,12 @@ def recommend_best_observed_point(
     target_fidelities: dict[int, float] | None = None,
 ) -> Tensor | None:
     """
-    A wrapper around `ax.models.model_utils.best_observed_point` for TorchModel
+    A wrapper around `ax.models.model_utils.best_observed_point` for TorchGenerator
     that recommends a best point from previously observed points using either a
     "max_utility" or "feasible_threshold" strategy.
 
     Args:
-        model: A TorchModel.
+        model: A TorchGenerator.
         bounds: A list of (lower, upper) tuples for each column of X.
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
@@ -558,7 +558,7 @@ def recommend_best_observed_point(
     """
     if target_fidelities:
         raise NotImplementedError(
-            "target_fidelities not implemented for base BotorchModel"
+            "target_fidelities not implemented for base LegacyBoTorchGenerator"
         )
 
     x_best = best_observed_point(

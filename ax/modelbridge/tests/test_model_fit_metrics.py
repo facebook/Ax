@@ -14,17 +14,20 @@ import numpy as np
 from ax.core.experiment import Experiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.cross_validation import (
     _predict_on_cross_validation_data,
     _predict_on_training_data,
-    compute_model_fit_metrics_from_modelbridge,
+    compute_model_fit_metrics_from_adapter,
     get_fit_and_std_quality_and_generalization_dict,
 )
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.scheduler import get_fitted_model_bridge, Scheduler, SchedulerOptions
+from ax.service.scheduler import get_fitted_adapter, Scheduler, SchedulerOptions
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import _entropy_via_kde, entropy_of_observations
@@ -33,7 +36,7 @@ from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_search
 NUM_SOBOL = 5
 
 
-class TestModelBridgeFitMetrics(TestCase):
+class TestAdapterFitMetrics(TestCase):
     def setUp(self) -> None:
         super().setUp()
         # setting up experiment and generation strategy
@@ -56,9 +59,11 @@ class TestModelBridgeFitMetrics(TestCase):
         self.generation_strategy = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Models.SOBOL, num_trials=NUM_SOBOL, max_parallelism=NUM_SOBOL
+                    model=Generators.SOBOL,
+                    num_trials=NUM_SOBOL,
+                    max_parallelism=NUM_SOBOL,
                 ),
-                GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1),
+                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=-1),
             ]
         )
 
@@ -68,18 +73,18 @@ class TestModelBridgeFitMetrics(TestCase):
             generation_strategy=self.generation_strategy,
             options=SchedulerOptions(),
         )
-        # need to run some trials to initialize the ModelBridge
+        # need to run some trials to initialize the Adapter
         scheduler.run_n_trials(max_trials=NUM_SOBOL + 1)
 
-        model_bridge = get_fitted_model_bridge(scheduler)
-        self.assertEqual(len(model_bridge.get_training_data()), NUM_SOBOL)
+        adapter = get_fitted_adapter(scheduler)
+        self.assertEqual(len(adapter.get_training_data()), NUM_SOBOL)
 
-        model_bridge = get_fitted_model_bridge(scheduler, force_refit=True)
-        self.assertEqual(len(model_bridge.get_training_data()), NUM_SOBOL + 1)
+        adapter = get_fitted_adapter(scheduler, force_refit=True)
+        self.assertEqual(len(adapter.get_training_data()), NUM_SOBOL + 1)
 
-        # testing compute_model_fit_metrics_from_modelbridge with default metrics
-        fit_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=model_bridge,
+        # testing compute_model_fit_metrics_from_adapter with default metrics
+        fit_metrics = compute_model_fit_metrics_from_adapter(
+            adapter=adapter,
             untransform=False,
         )
         r2 = fit_metrics.get("coefficient_of_determination")
@@ -99,8 +104,8 @@ class TestModelBridgeFitMetrics(TestCase):
         # checking non-default model-fit-metric
         for untransform, generalization in product([True, False], [True, False]):
             with self.subTest(untransform=untransform):
-                fit_metrics = compute_model_fit_metrics_from_modelbridge(
-                    model_bridge=model_bridge,
+                fit_metrics = compute_model_fit_metrics_from_adapter(
+                    adapter=adapter,
                     generalization=generalization,
                     untransform=untransform,
                     fit_metrics_dict={"Entropy": entropy_of_observations},
@@ -117,16 +122,14 @@ class TestModelBridgeFitMetrics(TestCase):
                     if generalization
                     else _predict_on_training_data
                 )
-                y_obs, _, _ = predict(
-                    model_bridge=model_bridge, untransform=untransform
-                )
+                y_obs, _, _ = predict(adapter=adapter, untransform=untransform)
                 y_obs_branin = np.array(y_obs["branin"])[:, np.newaxis]
                 entropy_truth = _entropy_via_kde(y_obs_branin)
                 self.assertAlmostEqual(entropy_branin, entropy_truth)
 
                 # testing with empty metrics
-                empty_metrics = compute_model_fit_metrics_from_modelbridge(
-                    model_bridge=model_bridge,
+                empty_metrics = compute_model_fit_metrics_from_adapter(
+                    adapter=adapter,
                     fit_metrics_dict={},
                 )
                 self.assertIsInstance(empty_metrics, dict)
@@ -134,8 +137,8 @@ class TestModelBridgeFitMetrics(TestCase):
 
                 # testing log filtering
                 with warnings.catch_warnings(record=True) as ws:
-                    fit_metrics = compute_model_fit_metrics_from_modelbridge(
-                        model_bridge=model_bridge,
+                    fit_metrics = compute_model_fit_metrics_from_adapter(
+                        adapter=adapter,
                         untransform=untransform,
                         generalization=generalization,
                     )
@@ -148,12 +151,17 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.experiment = get_branin_experiment()
-        self.sobol = Models.SOBOL(search_space=self.experiment.search_space)
+        self.sobol = Generators.SOBOL(experiment=self.experiment)
 
     def test_it_returns_empty_data_for_sobol(self) -> None:
-        results = get_fit_and_std_quality_and_generalization_dict(
-            fitted_model_bridge=self.sobol,
-        )
+        with warnings.catch_warnings(record=True) as ws:
+            results = get_fit_and_std_quality_and_generalization_dict(
+                fitted_adapter=self.sobol,
+            )
+
+            # Ensure we did not warn since we are using a Sobol Generator
+            self.assertEqual(len(ws), 0)
+
         expected = {
             "model_fit_quality": None,
             "model_std_quality": None,
@@ -169,19 +177,17 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
             sobol_run
         ).run().mark_completed()
         data = self.experiment.fetch_data()
-        botorch_modelbridge = Models.BOTORCH_MODULAR(
-            experiment=self.experiment, data=data
-        )
+        adapter = Generators.BOTORCH_MODULAR(experiment=self.experiment, data=data)
 
         # WHEN we call get_fit_and_std_quality_and_generalization_dict
         results = get_fit_and_std_quality_and_generalization_dict(
-            fitted_model_bridge=botorch_modelbridge,
+            fitted_adapter=adapter,
         )
 
         # THEN we get expected results
         # CALCULATE EXPECTED RESULTS
-        fit_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=botorch_modelbridge,
+        fit_metrics = compute_model_fit_metrics_from_adapter(
+            adapter=adapter,
             generalization=False,
             untransform=False,
         )
@@ -196,8 +202,8 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
         model_std_quality = 1 / std_branin
 
         # check generalization metrics
-        gen_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=botorch_modelbridge,
+        gen_metrics = compute_model_fit_metrics_from_adapter(
+            adapter=adapter,
             generalization=True,
             untransform=False,
         )

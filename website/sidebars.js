@@ -9,18 +9,7 @@
 
 const tutorials = () => {
   const allTutorialMetadata = require('./tutorials.json');
-  const tutorialsSidebar = [{
-    type: 'category',
-    label: 'Tutorials',
-    collapsed: false,
-    items: [
-      {
-        type: 'doc',
-        id: 'tutorials/index',
-        label: 'Overview',
-      },
-    ],
-  },];
+  const tutorialsSidebar = [];
   for (var category in allTutorialMetadata) {
     const categoryItems = allTutorialMetadata[category];
     const items = [];
@@ -35,6 +24,7 @@ const tutorials = () => {
     tutorialsSidebar.push({
       type: 'category',
       label: category,
+      collapsed: false,
       items: items,
     });
   }
@@ -42,11 +32,43 @@ const tutorials = () => {
 };
 
 export default {
-  docs: {
-    "Introduction": ["why-ax"],
-    "Getting Started": ["installation", "api", "glossary"],
-    "Algorithms": ["bayesopt", "banditopt"],
-    "Components": ["core", "trial-evaluation", "data", "models", "storage"],
-  },
-  tutorials: tutorials(),
+  docs: [
+    {
+      type: 'category',
+      label: 'Introduction',
+      collapsed: false,
+      items: ['why-ax', 'installation', 'intro-to-ae', 'intro-to-bo'],
+    },
+    {
+      type: 'category',
+      label: 'Internal Organization of Ax',
+      collapsed: false,
+      items: ['experiment', 'orchestration', 'generation_strategy'],
+    },
+    {
+      type: 'category',
+      label: 'Reference',
+      collapsed: false,
+      items: ['glossary'],
+    },
+  ],
+  tutorials: [
+    ...tutorials(),
+    {
+      type: 'category',
+      label: 'Recipes',
+      collapsed: false,
+      items: [
+        'recipes/attach-trial',
+        'recipes/existing-data',
+        'recipes/tracking-metrics',
+        'recipes/experiment-to-json',
+        'recipes/experiment-to-sqlite',
+        'recipes/multi-objective-optimization',
+        'recipes/scalarized-objective',
+        'recipes/outcome-constraints',
+        'recipes/influence-gs-choice',
+      ],
+    },
+  ],
 };

@@ -17,6 +17,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.model import ModelError
 from ax.models.torch.botorch import (
     get_feature_importances_from_botorch_model,
     get_rounding_func,
@@ -24,24 +25,24 @@ from ax.models.torch.botorch import (
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import (
-    check_outcome_dataset_match,
     choose_botorch_acqf_class,
     construct_acquisition_and_optimizer_options,
     ModelConfig,
 )
 from ax.models.torch.utils import _to_inequality_constraints
-from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
+from ax.models.torch_base import TorchGenerator, TorchGenResults, TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.deterministic import FixedSingleSampleModel
+from botorch.settings import validate_input_scaling
 from botorch.utils.datasets import SupervisedDataset
 from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
-class BoTorchModel(TorchModel, Base):
+class BoTorchGenerator(TorchGenerator, Base):
     """**All classes in 'botorch_modular' directory are under
     construction, incomplete, and should be treated as alpha
     versions only.**
@@ -66,12 +67,13 @@ class BoTorchModel(TorchModel, Base):
         surrogate: In lieu of ``SurrogateSpec``, an instance of ``Surrogate`` may
             be provided. In most cases, ``surrogate_spec`` should be used instead.
         refit_on_cv: Whether to reoptimize model parameters during call to
-            ``BoTorchmodel.cross_validate``.
+            ``BoTorchGenerator.cross_validate``.
         warm_start_refit: Whether to load parameters from either the provided
             state dict or the state dict of the current BoTorch ``Model`` during
             refitting. If False, model parameters will be reoptimized from
             scratch on refit. NOTE: This setting is ignored during
-            ``cross_validate`` if ``refit_on_cv`` is False.
+            ``cross_validate`` if ``refit_on_cv`` is False. This is also used in
+            Surrogate.model_selection.
     """
 
     acquisition_class: type[Acquisition]
@@ -81,7 +83,6 @@ class BoTorchModel(TorchModel, Base):
     _surrogate: Surrogate | None
 
     _botorch_acqf_class: type[AcquisitionFunction] | None
-    _search_space_digest: SearchSpaceDigest | None = None
     _supports_robust_optimization: bool = True
 
     def __init__(
@@ -130,7 +131,7 @@ class BoTorchModel(TorchModel, Base):
     def surrogate(self) -> Surrogate:
         """Returns the ``Surrogate``, if it has been constructed."""
         if self._surrogate is None:
-            raise ValueError("Surrogate has not yet been constructed.")
+            raise ModelError("Surrogate has not yet been constructed.")
         return self._surrogate
 
     @property
@@ -171,19 +172,11 @@ class BoTorchModel(TorchModel, Base):
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
             state_dict: An optional model statedict for the underlying ``Surrogate``.
-                Primarily used in ``BoTorchModel.cross_validate``.
+                Primarily used in ``BoTorchGenerator.cross_validate``.
             refit: Whether to re-optimize model parameters.
             additional_model_inputs: Additional kwargs to pass to the
                 model input constructor in ``Surrogate.fit``.
         """
-        outcome_names = sum((ds.outcome_names for ds in datasets), [])
-        check_outcome_dataset_match(
-            outcome_names=outcome_names, datasets=datasets, exact_match=True
-        )  # Checks for duplicate outcome names
-
-        # Store search space info for later use (e.g. during generation)
-        self._search_space_digest = search_space_digest
-
         # If a surrogate has not been constructed, construct it.
         if self._surrogate is None:
             surrogate_spec = (
@@ -192,7 +185,9 @@ class BoTorchModel(TorchModel, Base):
                 else self.surrogate_spec
             )
             self._surrogate = Surrogate(
-                surrogate_spec=surrogate_spec, refit_on_cv=self.refit_on_cv
+                surrogate_spec=surrogate_spec,
+                refit_on_cv=self.refit_on_cv,
+                warm_start_refit=self.warm_start_refit,
             )
 
         # Fit the surrogate.
@@ -209,6 +204,7 @@ class BoTorchModel(TorchModel, Base):
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=refit,
+            repeat_model_selection_if_dataset_changed=True,
         )
 
     def predict(
@@ -228,7 +224,7 @@ class BoTorchModel(TorchModel, Base):
             X=X, use_posterior_predictive=use_posterior_predictive
         )
 
-    @copy_doc(TorchModel.gen)
+    @copy_doc(TorchGenerator.gen)
     def gen(
         self,
         n: int,
@@ -239,13 +235,6 @@ class BoTorchModel(TorchModel, Base):
             acqf_options=self.acquisition_options,
             model_gen_options=torch_opt_config.model_gen_options,
         )
-        # update bounds / target values
-        search_space_digest = dataclasses.replace(
-            self.search_space_digest,
-            bounds=search_space_digest.bounds,
-            target_values=search_space_digest.target_values or {},
-        )
-
         acqf = self._instantiate_acquisition(
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -306,7 +295,7 @@ class BoTorchModel(TorchModel, Base):
                 gen_metadata["outcome_model_fixed_draw_weights"] = outcome_model.w
         return gen_metadata
 
-    @copy_doc(TorchModel.best_point)
+    @copy_doc(TorchGenerator.best_point)
     def best_point(
         self,
         search_space_digest: SearchSpaceDigest,
@@ -320,7 +309,7 @@ class BoTorchModel(TorchModel, Base):
         except ValueError:
             return None
 
-    @copy_doc(TorchModel.evaluate_acquisition_function)
+    @copy_doc(TorchGenerator.evaluate_acquisition_function)
     def evaluate_acquisition_function(
         self,
         X: Tensor,
@@ -335,14 +324,13 @@ class BoTorchModel(TorchModel, Base):
         )
         return acqf.evaluate(X=X)
 
-    @copy_doc(TorchModel.cross_validate)
+    @copy_doc(TorchGenerator.cross_validate)
     def cross_validate(
         self,
         datasets: Sequence[SupervisedDataset],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
         use_posterior_predictive: bool = False,
-        **additional_model_inputs: Any,
     ) -> tuple[Tensor, Tensor]:
         current_surrogate = self.surrogate
         # If we should be refitting but not warm-starting the refit, set
@@ -365,15 +353,17 @@ class BoTorchModel(TorchModel, Base):
         )
 
         try:
-            self.fit(
-                datasets=datasets,
-                search_space_digest=search_space_digest,
-                # pyre-fixme [6]: state_dict() has a generic dict[str, Any] return type
-                # but it is actually an OrderedDict[str, Tensor].
-                state_dict=state_dict,
-                refit=self.refit_on_cv,
-                **additional_model_inputs,
-            )
+            # Since each CV fold removes points from the training data, the
+            # remaining observations will not pass the input scaling checks.
+            # To avoid confusing users with warnings, we disable these checks.
+            with validate_input_scaling(False):
+                self.surrogate.fit(
+                    datasets=datasets,
+                    search_space_digest=search_space_digest,
+                    state_dict=state_dict,
+                    refit=self.refit_on_cv,
+                    repeat_model_selection_if_dataset_changed=False,
+                )
             X_test_prediction = self.predict(
                 X=X_test,
                 use_posterior_predictive=use_posterior_predictive,
@@ -444,12 +434,11 @@ class BoTorchModel(TorchModel, Base):
 
     @property
     def search_space_digest(self) -> SearchSpaceDigest:
-        if self._search_space_digest is None:
-            raise RuntimeError(
+        """Returns the ``SearchSpaceDigest`` that was used while fitting the underlying
+        surrogate. If the surrogate has not been fit, raises a ``ModelError``.
+        """
+        if self.surrogate._last_search_space_digest is None:
+            raise ModelError(
                 "`search_space_digest` is not initialized. Must `fit` the model first."
             )
-        return self._search_space_digest
-
-    @search_space_digest.setter
-    def search_space_digest(self, value: SearchSpaceDigest) -> None:
-        raise RuntimeError("Setting search_space_digest manually is disallowed.")
+        return self.surrogate._last_search_space_digest

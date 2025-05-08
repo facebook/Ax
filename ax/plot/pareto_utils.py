@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import warnings
 from copy import deepcopy
 from itertools import combinations
 from logging import Logger
@@ -29,16 +30,17 @@ from ax.core.outcome_constraint import (
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.modelbridge_utils import (
     _get_modelbridge_training_data,
     get_pareto_frontier_and_configs,
     observed_pareto_frontier,
 )
-from ax.modelbridge.registry import Models
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.registry import Generators
+from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.derelativize import derelativize_bound
 from ax.modelbridge.transforms.search_space_to_float import SearchSpaceToFloat
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenerator
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
 from botorch.acquisition.monte_carlo import qSimpleRegret
@@ -313,7 +315,7 @@ def to_nonrobust_search_space(search_space: SearchSpace) -> SearchSpace:
         return search_space
 
 
-def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchModelBridge:
+def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchAdapter:
     """
     Constructs a minimal model for converting things to tensors.
 
@@ -331,13 +333,15 @@ def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchModel
     """
     # Transforms is the minimal set that will work for converting any search
     # space to tensors.
-    return TorchModelBridge(
+    return TorchAdapter(
         experiment=experiment,
         search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
-        model=TorchModel(),
+        model=TorchGenerator(),
         transforms=[SearchSpaceToFloat],
-        fit_out_of_design=True,
+        data_loader_config=DataLoaderConfig(
+            fit_out_of_design=True,
+        ),
     )
 
 
@@ -406,7 +410,9 @@ def compute_posterior_pareto_frontier(
                 else experiment.fetch_data()
             )
         except Exception as e:
-            logger.info(f"Could not fetch data from experiment or trial: {e}")
+            warnings.warn(
+                f"Could not fetch data from experiment or trial: {e}", stacklevel=2
+            )
 
     # The weights here are just dummy weights that we pass in to construct the
     # modelbridge. We set the weight to -1 if `lower_is_better` is `True` and
@@ -422,7 +428,7 @@ def compute_posterior_pareto_frontier(
         secondary_objective=secondary_objective,
         outcome_constraints=outcome_constraints,
     )
-    model = Models.BOTORCH_MODULAR(
+    model = Generators.BOTORCH_MODULAR(
         experiment=experiment,
         data=data,
         optimization_config=oc,

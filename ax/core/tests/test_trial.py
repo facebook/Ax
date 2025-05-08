@@ -12,7 +12,12 @@ from unittest import mock
 from unittest.mock import Mock, patch
 
 import pandas as pd
-from ax.core.base_trial import BaseTrial, TrialStatus
+from ax.core.base_trial import (
+    BaseTrial,
+    MANUAL_GENERATION_METHOD_STR,
+    TrialStatus,
+    UNKNOWN_GENERATION_METHOD_STR,
+)
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.runner import Runner
@@ -87,10 +92,13 @@ class TrialTest(TestCase):
         self.assertEqual(
             self.trial.generator_run.generator_run_type, GeneratorRunType.MANUAL.name
         )
+        self.assertEqual(self.trial.generation_method_str, MANUAL_GENERATION_METHOD_STR)
 
         # Test empty arms
+        t = self.experiment.new_trial()
         with self.assertRaises(AttributeError):
-            self.experiment.new_trial().arm_weights
+            t.arm_weights
+        self.assertEqual(t.generation_method_str, UNKNOWN_GENERATION_METHOD_STR)
 
         self.trial.mark_running(no_runner_required=True)
         self.assertTrue(self.trial.status.is_running)
@@ -197,6 +205,11 @@ class TrialTest(TestCase):
                     kwargs["reason"] = "test_reason_abandon"
                 if status == TrialStatus.FAILED:
                     kwargs["reason"] = "test_reason_failed"
+
+                # Trial must have data before it can be marked EARLY_STOPPED
+                if status == TrialStatus.EARLY_STOPPED:
+                    self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
+
                 self.trial.mark_as(status=status, **kwargs)
                 self.assertTrue(self.trial.status == status)
 
@@ -246,6 +259,7 @@ class TrialTest(TestCase):
             self.trial._runner = DummyStopRunner()
             self.trial.mark_running()
             self.assertEqual(self.trial.status, TrialStatus.RUNNING)
+            self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
             self.trial.stop(new_status=new_status, reason=reason)
             self.assertEqual(self.trial.status, new_status)
             self.assertEqual(

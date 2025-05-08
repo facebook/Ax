@@ -16,7 +16,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.trial import Trial
 from ax.exceptions.core import DataRequiredError
-from ax.service.utils.best_point import extract_Y_from_data
+from ax.service.utils.best_point import get_trace
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -31,18 +31,32 @@ from pyre_extensions import assert_is_instance, none_throws
 
 class TestBestPointMixin(TestCase):
     def test_get_trace(self) -> None:
-        # Alias for easier access.
-        get_trace = BestPointMixin._get_trace
-
         # Single objective, minimize.
         exp = get_experiment_with_observations(
             observations=[[11], [10], [9], [15], [5]], minimize=True
         )
         self.assertEqual(get_trace(exp), [11, 10, 9, 9, 5])
+
         # Same experiment with maximize via new optimization config.
         opt_conf = none_throws(exp.optimization_config).clone()
         opt_conf.objective.minimize = False
         self.assertEqual(get_trace(exp, opt_conf), [11, 11, 11, 15, 15])
+
+        with self.subTest("Single objective with constraints"):
+            # The second metric is the constraint and needs to be >= 0
+            exp = get_experiment_with_observations(
+                observations=[[11, -1], [10, 1], [9, 1], [15, -1], [11, 1]],
+                minimize=False,
+                constrained=True,
+            )
+            self.assertEqual(get_trace(exp), [float("-inf"), 10, 10, 10, 11])
+
+            exp = get_experiment_with_observations(
+                observations=[[11, -1], [10, 1], [9, 1], [15, -1], [11, 1]],
+                minimize=True,
+                constrained=True,
+            )
+            self.assertEqual(get_trace(exp), [float("inf"), 10, 9, 9, 9])
 
         # Scalarized.
         exp = get_experiment_with_observations(
@@ -63,7 +77,7 @@ class TestBestPointMixin(TestCase):
         ).objective_thresholds = []
         self.assertEqual(get_trace(exp), [0.0, 0.0, 2.0, 8.0, 11.0, 11.0])
 
-        # W/ constraints.
+        # Multi-objective w/ constraints.
         exp = get_experiment_with_observations(
             observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 1, 1]],
             constrained=True,
@@ -174,17 +188,16 @@ class TestBestPointMixin(TestCase):
         )
         self.assertEqual(get_best(exp), 6)
 
-    def test_extract_Y_from_data(self) -> None:
-        # Single objective, minimize.
+        # Exclude out of design arms
         exp = get_experiment_with_observations(
-            observations=[[11], [10], [9], [15], [5]], minimize=True
+            observations=[[11], [10], [9], [15], [5]],
+            parameterizations=[
+                {"x": 0.0, "y": 0.0},
+                {"x": 0.1, "y": 0.0},
+                {"x": 10.0, "y": 10.0},  # out of design
+                {"x": 0.2, "y": 0.0},
+                {"x": 10.1, "y": 10.0},  # out of design
+            ],
+            minimize=True,
         )
-        self.assertNotEqual(len(exp.lookup_data().df), 0)
-
-        if not exp.optimization_config:
-            raise TypeError("No objective")
-
-        metric_names = exp.optimization_config.objective.metric_names
-
-        output, _ = extract_Y_from_data(experiment=exp, metric_names=metric_names)
-        self.assertNotEqual(len(output), 0)
+        self.assertEqual(get_best(exp), 10)  # 5 and 9 are out of design

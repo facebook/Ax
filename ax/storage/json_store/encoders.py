@@ -43,19 +43,24 @@ from ax.early_stopping.strategies import (
 )
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONEncodeError, STORAGE_DOCS_SUFFIX
+from ax.generation_strategy.best_model_selector import BestModelSelector
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.generation_strategy.model_spec import (
+    FactoryFunctionGeneratorSpec,
+    GeneratorSpec,
+)
+from ax.generation_strategy.transition_criterion import TransitionCriterion
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.modelbridge.best_model_selector import BestModelSelector
-from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transition_criterion import TransitionCriterion
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
-from ax.storage.transform_registry import TRANSFORM_REGISTRY
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from ax.utils.testing.backend_simulator import (
@@ -124,7 +129,6 @@ def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:
         "runner": batch.runner,
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,
-        "optimize_for_power": batch.optimize_for_power,
         "generation_step_index": batch._generation_step_index,
         "lifecycle_stage": batch.lifecycle_stage,
         "properties": batch._properties,
@@ -183,6 +187,7 @@ def choice_parameter_to_dict(parameter: ChoiceParameter) -> dict[str, Any]:
         "is_fidelity": parameter.is_fidelity,
         "target_value": parameter.target_value,
         "dependents": parameter.dependents if parameter.is_hierarchical else None,
+        "sort_values": parameter.sort_values,
     }
 
 
@@ -408,8 +413,7 @@ def transform_type_to_dict(transform_type: type[Transform]) -> dict[str, Any]:
     """Convert a transform class to a dictionary."""
     return {
         "__type": "Type[Transform]",
-        "index_in_registry": TRANSFORM_REGISTRY[transform_type],
-        "transform_type": f"{transform_type}",
+        "transform_type": transform_type.__name__,
     }
 
 
@@ -490,12 +494,12 @@ def transition_criterion_to_dict(criterion: TransitionCriterion) -> dict[str, An
     return properties
 
 
-def model_spec_to_dict(model_spec: ModelSpec) -> dict[str, Any]:
+def model_spec_to_dict(model_spec: GeneratorSpec) -> dict[str, Any]:
     """Convert Ax model spec to a dictionary."""
-    if isinstance(model_spec, FactoryFunctionModelSpec):
+    if isinstance(model_spec, FactoryFunctionGeneratorSpec):
         raise NotImplementedError(
             f"JSON serialization not yet implemented for model spec: {model_spec}"
-            " because it leverages a factory function instead of `Models` registry."
+            " because it leverages a factory function instead of `Generators` registry."
         )
     return {
         "__type": model_spec.__class__.__name__,
@@ -528,7 +532,7 @@ def observation_features_to_dict(obs_features: ObservationFeatures) -> dict[str,
     }
 
 
-def botorch_model_to_dict(model: BoTorchModel) -> dict[str, Any]:
+def botorch_model_to_dict(model: BoTorchGenerator) -> dict[str, Any]:
     """Convert Ax model to a dictionary."""
     return {
         "__type": model.__class__.__name__,

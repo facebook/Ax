@@ -15,19 +15,13 @@ from collections import defaultdict, OrderedDict
 from collections.abc import Hashable, Iterable, Mapping
 from datetime import datetime
 from functools import partial, reduce
-
 from typing import Any, cast
 
 import ax.core.observation as observation
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import (
-    BaseTrial,
-    DEFAULT_STATUSES_TO_WARM_START,
-    STATUSES_EXPECTING_DATA,
-    TrialStatus,
-)
+from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
 from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
@@ -41,6 +35,11 @@ from ax.core.parameter import Parameter
 from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
+from ax.core.trial_status import (
+    DEFAULT_STATUSES_TO_WARM_START,
+    STATUSES_EXPECTING_DATA,
+    TrialStatus,
+)
 from ax.core.types import ComparisonOp, TParameterization
 from ax.exceptions.core import (
     AxError,
@@ -49,7 +48,7 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.utils.common.base import Base
-from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
+from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -110,7 +109,9 @@ class Experiment(Base):
             runner: Default runner used for trials on this experiment.
             status_quo: Arm representing existing "control" arm.
             description: Description of the experiment.
-            is_test: Convenience metadata tracker for the user to mark test experiments.
+            is_test: Mark experiment as test in metadata. This flag is meant purely
+                for development and integration testing purposes. Leave as False for
+                live experiments.
             experiment_type: The class of experiments this one belongs to.
             properties: Dictionary of this experiment's properties.  It is meant to
                 only store primitives that pertain to Ax experiment state. Any trial
@@ -154,9 +155,25 @@ class Experiment(Base):
         self._arms_by_signature: dict[str, Arm] = {}
         self._arms_by_name: dict[str, Arm] = {}
 
-        self.auxiliary_experiments_by_purpose: dict[
+        # Used to keep track of auxiliary experiments that were removed.
+        self._initial_auxiliary_experiments_by_purpose: dict[
             AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
         ] = auxiliary_experiments_by_purpose or {}
+
+        # Only tracks active auxiliary experiments.
+        self.auxiliary_experiments_by_purpose: dict[
+            AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
+        ] = {
+            purpose: [
+                auxiliary_experiment
+                for auxiliary_experiment in auxiliary_experiments
+                if auxiliary_experiment.is_active
+            ]
+            for (
+                purpose,
+                auxiliary_experiments,
+            ) in self._initial_auxiliary_experiments_by_purpose.items()
+        }
 
         self.add_tracking_metrics(tracking_metrics or [])
 
@@ -191,8 +208,6 @@ class Experiment(Base):
     @is_test.setter
     def is_test(self, is_test: bool) -> None:
         """Set whether the experiment is a test."""
-        if is_test:
-            logger.info(EXPERIMENT_IS_TEST_WARNING)
         self._is_test = is_test
 
     @property
@@ -674,7 +689,7 @@ class Experiment(Base):
                 "this experiment, and none were passed in to `fetch_data`."
             )
         if not any(t.status.expecting_data for t in trials):
-            logger.info("No trials are in a state expecting data.")
+            logger.debug("No trials are in a state expecting data.")
             return {}
         metrics_to_fetch = list(metrics or self.metrics.values())
         metrics_by_class = self._metrics_by_class(metrics=metrics_to_fetch)
@@ -784,13 +799,13 @@ class Experiment(Base):
             )
         data_type = type(data)
         data_init_args = data.deserialize_init_args(data.serialize_init_args(data))
-        if data.df.empty:
+        if data.true_df.empty:
             raise ValueError("Data to attach is empty.")
         metrics_not_on_exp = set(data.true_df["metric_name"].values) - set(
             self.metrics.keys()
         )
         if metrics_not_on_exp:
-            logger.info(
+            logger.debug(
                 f"Attached data has some metrics ({metrics_not_on_exp}) that are "
                 "not among the metrics on this experiment. Note that attaching data "
                 "will not automatically add those metrics to the experiment. "
@@ -821,7 +836,13 @@ class Experiment(Base):
             elif overwrite_existing_data:
                 if len(current_trial_data) > 0:
                     _, last_data = list(current_trial_data.items())[-1]
-                    last_data_metrics = set(last_data.df["metric_name"])
+                    # It may seem odd to use `true_df` here, because with
+                    # MapData, `df` is shorter, and since it is cached, it won't
+                    # be constructed too often. However, constructing MapData's
+                    # `df` is sufficiently expensive due to the groupby-apply
+                    # and sort operations needed that using `true_df` is much
+                    # faster even if repeated many times.
+                    last_data_metrics = set(last_data.true_df["metric_name"])
                     new_data_metrics = set(trial_df["metric_name"])
                     difference = last_data_metrics.difference(new_data_metrics)
                     if len(difference) > 0:
@@ -1093,9 +1114,7 @@ class Experiment(Base):
         return self._default_data_type
 
     @property
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    def default_data_constructor(self) -> type:
+    def default_data_constructor(self) -> type[Data]:
         return DATA_TYPE_LOOKUP[self.default_data_type]
 
     def new_trial(
@@ -1133,8 +1152,8 @@ class Experiment(Base):
         self,
         generator_run: GeneratorRun | None = None,
         generator_runs: list[GeneratorRun] | None = None,
+        add_status_quo_arm: bool | None = False,
         trial_type: str | None = None,
-        optimize_for_power: bool | None = False,
         ttl_seconds: int | None = None,
         lifecycle_stage: LifecycleStage | None = None,
     ) -> BatchTrial:
@@ -1148,11 +1167,11 @@ class Experiment(Base):
                 also be set later through `add_arm` or `add_generator_run`, but a
                 trial's associated generator run is immutable once set.  This cannot
                 be combined with the `generator_run` argument.
+            add_status_quo_arm: If True, adds the status quo arm to the trial with a
+            weight of 1.0. If False, the _status_quo is still set on the trial for
+            tracking purposes, but without a weight it will not be an Arm present on
+            the trial
             trial_type: Type of this trial, if used in MultiTypeExperiment.
-            optimize_for_power: Whether to optimize the weights of arms in this
-                trial such that the experiment's power to detect effects of
-                certain size is as high as possible. Refer to documentation of
-                `BatchTrial.set_status_quo_and_optimize_power` for more detail.
             ttl_seconds: If specified, trials will be considered failed after
                 this many seconds since the time the trial was ran, unless the
                 trial is completed before then. Meant to be used to detect
@@ -1169,7 +1188,7 @@ class Experiment(Base):
             trial_type=trial_type,
             generator_run=generator_run,
             generator_runs=generator_runs,
-            optimize_for_power=optimize_for_power,
+            add_status_quo_arm=add_status_quo_arm,
             ttl_seconds=ttl_seconds,
             lifecycle_stage=lifecycle_stage,
         )
@@ -1286,7 +1305,7 @@ class Experiment(Base):
         trial_statuses_to_copy: list[TrialStatus] | None = None,
         search_space_check_membership_raise_error: bool = True,
     ) -> list[Trial]:
-        """Copy all completed trials with data from an old Ax expeirment to this one.
+        """Copy all completed trials with data from an old Ax experiment to this one.
         This function checks that the parameters of each trial are members of the
         current experiment's search_space.
 
@@ -1385,15 +1404,16 @@ class Experiment(Base):
                     inplace=True,
                 )
                 # Attach updated data to new trial on experiment.
+                data_constructor = old_experiment.default_data_constructor
                 old_data = (
-                    old_experiment.default_data_constructor(
+                    cast(type[MapData], data_constructor)(
                         df=new_df,
                         map_key_infos=assert_is_instance(
                             old_experiment.lookup_data(), MapData
                         ).map_key_infos,
                     )
-                    if old_experiment.default_data_type == DataType.MAP_DATA
-                    else old_experiment.default_data_constructor(df=new_df)
+                    if data_constructor == MapData
+                    else data_constructor(df=new_df)
                 )
                 self.attach_data(data=old_data)
             if trial.status == TrialStatus.ABANDONED:
@@ -1403,12 +1423,12 @@ class Experiment(Base):
             copied_trials.append(new_trial)
 
         if self._name is not None:
-            logger.info(
+            logger.debug(
                 f"Copied {len(copied_trials)} completed trials and their data "
                 f"from {old_experiment._name} to {self._name}."
             )
         else:
-            logger.info(
+            logger.debug(
                 f"Copied {len(copied_trials)} completed trials and their data "
                 f"from {old_experiment._name}."
             )
@@ -1533,9 +1553,9 @@ class Experiment(Base):
         self,
         parameterizations: list[TParameterization],
         arm_names: list[str] | None = None,
+        add_status_quo_arm: bool = False,
         ttl_seconds: int | None = None,
         run_metadata: dict[str, Any] | None = None,
-        optimize_for_power: bool = False,
     ) -> tuple[dict[str, TParameterization], int]:
         """Attach a new trial with the given parameterization to the experiment.
 
@@ -1544,15 +1564,14 @@ class Experiment(Base):
                 only one is provided a single-arm Trial is created. If multiple
                 arms are provided a BatchTrial is created.
             arm_names: Names of arm(s) in the new trial.
+            add_status_quo_arm: If True, adds the status quo arm to the trial with a
+            weight of 1.0. If False, the _status_quo is still set on the trial for
+            tracking purposes, but without a weight it will not be an Arm present on
+            the trial
             ttl_seconds: If specified, will consider the trial failed after this
                 many seconds. Used to detect dead trials that were not marked
                 failed properly.
             run_metadata: Metadata to attach to the trial.
-            optimize_for_power: For BatchTrial only.
-                Whether to optimize the weights of arms in this
-                trial such that the experiment's power to detect effects of
-                certain size is as high as possible. Refer to documentation of
-                `BatchTrial.set_status_quo_and_optimize_power` for more detail.
 
         Returns:
             Tuple of arm name to parameterization dict, and trial index from
@@ -1565,7 +1584,20 @@ class Experiment(Base):
 
         # Validate search space membership for all parameterizations
         for parameterization in parameterizations:
-            self.search_space.validate_membership(parameters=parameterization)
+            try:
+                self.search_space.validate_membership(parameters=parameterization)
+            except ValueError as e:
+                # To not raise on out-of-design parameterizations
+                if "is not a valid value for parameter" in str(e):
+                    warnings.warn(
+                        f"Parameterization {parameterization} is in out-of-design. "
+                        "Ax will still attach the trial for use in candidate "
+                        "generation.",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+                else:
+                    raise e
 
         # Validate number of arm names if any arm names are provided.
         named_arms = False
@@ -1592,7 +1624,7 @@ class Experiment(Base):
         trial = None
         if is_batch:
             trial = self.new_batch_trial(
-                ttl_seconds=ttl_seconds, optimize_for_power=optimize_for_power
+                ttl_seconds=ttl_seconds, add_status_quo_arm=add_status_quo_arm
             ).add_arms_and_weights(arms=arms)
 
         else:
@@ -1619,7 +1651,7 @@ class Experiment(Base):
 
         trial.mark_running(no_runner_required=True)
 
-        logger.info(
+        logger.debug(
             "Attached custom parameterizations "
             f"{round_floats_for_logging(item=parameterizations)} "
             f"as trial {trial.index}."
@@ -1841,7 +1873,6 @@ class Experiment(Base):
             - arm_name: The name of the arm
             - trial_status: The status of the trial (e.g. RUNNING, SUCCEDED, FAILED)
             - failure_reason: The reason for the failure, if applicable
-            - generation_method: The model_key of the model that generated the arm
             - generation_node: The name of the ``GenerationNode`` that generated the arm
             - **METADATA: Any metadata associated with the trial, as specified by the
                 Experiment's runner.run_metadata_report_keys field
@@ -1858,16 +1889,18 @@ class Experiment(Base):
                 for metric in self.metrics.keys():
                     try:
                         observed_means[metric] = data_df[
-                            (data_df["arm_name"] == arm.name)
+                            (data_df["trial_index"] == index)
+                            & (data_df["arm_name"] == arm.name)
                             & (data_df["metric_name"] == metric)
                         ]["mean"].item()
-                    except ValueError:
+                    except (ValueError, KeyError):
+                        # ValueError if there is no row for the (trial, arm, metric).
+                        # KeyError if the df is empty and missing one of the columns.
                         observed_means[metric] = None
 
                 # Find the arm's associated generation method from the trial via the
                 # GeneratorRuns if possible
                 grs = [gr for gr in trial.generator_runs if arm in gr.arms]
-                generation_method = grs[0]._model_key if len(grs) > 0 else None
                 generation_node = grs[0]._generation_node_name if len(grs) > 0 else None
 
                 # Find other metadata from the trial to include from the trial based
@@ -1888,7 +1921,6 @@ class Experiment(Base):
                     "arm_name": arm.name,
                     "trial_status": trial.status.name,
                     "fail_reason": trial.run_metadata.get("fail_reason", None),
-                    "generation_method": generation_method,
                     "generation_node": generation_node,
                     **metadata,
                     **observed_means,
@@ -1901,6 +1933,40 @@ class Experiment(Base):
         if omit_empty_columns:
             df = df.loc[:, df.notnull().any()]
         return df
+
+    @property
+    def auxiliary_experiments_by_purpose_for_storage(
+        self,
+    ) -> dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]:
+        """Tracks removed auxiliary experiments to be stored as inactive auxiliary
+        experiments."""
+        # Start with the current active auxiliary experiments.
+        result = {
+            purpose: list(auxiliary_experiments)
+            for (
+                purpose,
+                auxiliary_experiments,
+            ) in self.auxiliary_experiments_by_purpose.items()
+        }
+        # Iterate through the auxiliary experiments that were loaded and mark any
+        # deleted ones as inactive.
+        for (
+            purpose,
+            prev_auxiliary_experiments,
+        ) in self._initial_auxiliary_experiments_by_purpose.items():
+            # If the purpose is not in the new auxiliary experiments, mark all
+            # previous auxiliary experiments as inactive.
+            if purpose not in result:
+                for pre_experiment in prev_auxiliary_experiments:
+                    pre_experiment.is_active = False
+                result[purpose] = prev_auxiliary_experiments
+                continue
+            # Mark any removed auxiliary experiments as inactive.
+            for prev_auxiliary_experiment in prev_auxiliary_experiments:
+                if prev_auxiliary_experiment not in result[purpose]:
+                    prev_auxiliary_experiment.is_active = False
+                    result[purpose].append(prev_auxiliary_experiment)
+        return result
 
 
 def add_arm_and_prevent_naming_collision(

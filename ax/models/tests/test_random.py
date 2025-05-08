@@ -8,34 +8,34 @@
 
 import numpy as np
 import torch
-from ax.models.random.base import RandomModel
+from ax.models.random.base import RandomGenerator
 from ax.utils.common.testutils import TestCase
 from pyre_extensions import none_throws
 
 
-class RandomModelTest(TestCase):
+class RandomGeneratorTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.random_model = RandomModel()
+        self.random_model = RandomGenerator()
 
     def test_seed(self) -> None:
         # With manual seed.
-        random_model = RandomModel(seed=5)
+        random_model = RandomGenerator(seed=5)
         self.assertEqual(random_model.seed, 5)
         # With no seed.
         self.assertIsInstance(self.random_model.seed, int)
 
     def test_state(self) -> None:
-        for model in (self.random_model, RandomModel(seed=5)):
+        for model in (self.random_model, RandomGenerator(seed=5)):
             state = model._get_state()
             self.assertEqual(state["seed"], model.seed)
-            self.assertEqual(state["generated_points"], model.generated_points)
+            self.assertEqual(state["init_position"], model.init_position)
 
-    def test_RandomModelGenSamples(self) -> None:
+    def test_RandomGeneratorGenSamples(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.random_model._gen_samples(n=1, tunable_d=1)
 
-    def test_RandomModelGenUnconstrained(self) -> None:
+    def test_RandomGeneratorGenUnconstrained(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.random_model._gen_unconstrained(
                 n=1, d=2, tunable_feature_indices=np.array([])
@@ -79,12 +79,3 @@ class RandomModelTest(TestCase):
         # pyre-fixme[6]: For 1st param expected `List[Tuple[float, float]]` but got
         #  `None`.
         self.assertEqual(self.random_model._convert_bounds(None), None)
-
-    def test_GetLastPoint(self) -> None:
-        generated_points = np.array([[1, 2, 3], [4, 5, 6]])
-        RandomModelWithPoints = RandomModel(generated_points=generated_points)
-        result = RandomModelWithPoints._get_last_point()
-        expected = torch.tensor([[4], [5], [6]])
-        comparison = result == expected
-        # pyre-fixme[16]: `bool` has no attribute `any`.
-        self.assertEqual(comparison.any(), True)

@@ -17,10 +17,11 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning
+from ax.exceptions.model import ModelError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import (
-    BoTorchModel,
+    BoTorchGenerator,
     choose_botorch_acqf_class,
 )
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
@@ -61,7 +62,7 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 CURRENT_PATH: str = __name__
-MODEL_PATH: str = BoTorchModel.__module__
+MODEL_PATH: str = BoTorchGenerator.__module__
 SURROGATE_PATH: str = Surrogate.__module__
 ACQUISITION_PATH: str = Acquisition.__module__
 
@@ -70,7 +71,7 @@ ACQ_OPTIONS: dict[str, SobolQMCNormalSampler] = {
 }
 
 
-class BoTorchModelTest(TestCase):
+class BoTorchGeneratorTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.botorch_model_class = SingleTaskGP
@@ -78,7 +79,7 @@ class BoTorchModelTest(TestCase):
         self.acquisition_class = Acquisition
         self.botorch_acqf_class = qExpectedImprovement
         self.acquisition_options = ACQ_OPTIONS
-        self.model = BoTorchModel(
+        self.model = BoTorchGenerator(
             surrogate=self.surrogate,
             acquisition_class=self.acquisition_class,
             botorch_acqf_class=self.botorch_acqf_class,
@@ -182,10 +183,10 @@ class BoTorchModelTest(TestCase):
 
     def test_init(self) -> None:
         # Default model with no specifications.
-        model = BoTorchModel()
+        model = BoTorchGenerator()
         self.assertEqual(model.acquisition_class, Acquisition)
         # Model that specifies `botorch_acqf_class`.
-        model = BoTorchModel(botorch_acqf_class=qExpectedImprovement)
+        model = BoTorchGenerator(botorch_acqf_class=qExpectedImprovement)
         self.assertEqual(model.acquisition_class, Acquisition)
         self.assertEqual(model.botorch_acqf_class, qExpectedImprovement)
 
@@ -194,7 +195,7 @@ class BoTorchModelTest(TestCase):
         self.assertTrue(model.warm_start_refit)
 
         # Check setting non-default refitting settings
-        mdl2 = BoTorchModel(
+        mdl2 = BoTorchGenerator(
             surrogate=self.surrogate,
             acquisition_class=self.acquisition_class,
             acquisition_options=self.acquisition_options,
@@ -311,13 +312,12 @@ class BoTorchModelTest(TestCase):
     # is only constructed when `model.fit` is called
     @mock.patch(f"{SURROGATE_PATH}.Surrogate._construct_model")
     def test_fit(self, mock_fit: Mock) -> None:
-        # If surrogate is not yet set, initialize it with dispatcher functions.
+        # If surrogate is not yet set, initialize it internally.
         self.model._surrogate = None
-        with self.assertRaisesRegex(RuntimeError, "is not initialized. Must `fit`"):
+        with self.assertRaisesRegex(
+            ModelError, "Surrogate has not yet been constructed."
+        ):
             self.model.search_space_digest  # can't access before fit
-
-        with self.assertRaisesRegex(RuntimeError, "manually is disallowed"):
-            self.model.search_space_digest = self.mf_search_space_digest
 
         self.model.fit(
             datasets=self.block_design_training_data,
@@ -374,10 +374,10 @@ class BoTorchModelTest(TestCase):
             ),
         }
         with self.assertRaisesRegex(DeprecationWarning, "Support for multiple"):
-            BoTorchModel(surrogate_specs=surrogate_specs)
+            BoTorchGenerator(surrogate_specs=surrogate_specs)
 
         with self.assertWarnsRegex(DeprecationWarning, "surrogate_specs"):
-            model = BoTorchModel(surrogate_specs={"s": spec1})
+            model = BoTorchGenerator(surrogate_specs={"s": spec1})
         self.assertIs(model.surrogate_spec, spec1)
 
     @mock_botorch_optimize
@@ -389,6 +389,7 @@ class BoTorchModelTest(TestCase):
         )
 
         old_surrogate = self.model.surrogate
+        clone_surrogate = old_surrogate.clone_reset()
 
         for refit_on_cv, warm_start_refit, use_posterior_predictive in product(
             (True, False), (True, False), (True, False)
@@ -396,8 +397,13 @@ class BoTorchModelTest(TestCase):
             self.model.refit_on_cv = refit_on_cv
             self.model.warm_start_refit = warm_start_refit
             with ExitStack() as es:
+                mock_clone = es.enter_context(
+                    mock.patch.object(
+                        old_surrogate, "clone_reset", return_value=clone_surrogate
+                    )
+                )
                 mock_fit = es.enter_context(
-                    mock.patch.object(self.model, "fit", wraps=self.model.fit)
+                    mock.patch.object(clone_surrogate, "fit", wraps=clone_surrogate.fit)
                 )
                 mock_predict_orig_surrogate = es.enter_context(
                     mock.patch.object(
@@ -417,6 +423,7 @@ class BoTorchModelTest(TestCase):
                     search_space_digest=self.search_space_digest,
                     use_posterior_predictive=use_posterior_predictive,
                 )
+            mock_clone.assert_called_once()
             # Check that `predict` is called on the cloned surrogate, not
             # on the original one.
             mock_predict_orig_surrogate.assert_not_called()
@@ -452,7 +459,7 @@ class BoTorchModelTest(TestCase):
         """Test cross-validation with multiple configs."""
         for refit_on_cv in (True, False):
             with self.subTest(refit_on_cv=refit_on_cv):
-                self.model = BoTorchModel(
+                self.model = BoTorchGenerator(
                     surrogate_spec=SurrogateSpec(
                         model_configs=[
                             ModelConfig(),
@@ -517,13 +524,13 @@ class BoTorchModelTest(TestCase):
             torch.tensor([1.0]),
         )
         surrogate = Surrogate(botorch_model_class=botorch_model_class)
-        model = BoTorchModel(
+        model = BoTorchGenerator(
             surrogate=surrogate,
             acquisition_class=Acquisition,
             acquisition_options=self.acquisition_options,
         )
         # Assert that error is raised if we haven't fit the model
-        with self.assertRaises(RuntimeError):
+        with self.assertRaisesRegex(ModelError, "fit the model first"):
             model.gen(
                 n=1,
                 search_space_digest=search_space_digest,
@@ -536,7 +543,7 @@ class BoTorchModelTest(TestCase):
         with ExitStack() as es:
             mock_init_acqf = es.enter_context(
                 mock.patch.object(
-                    BoTorchModel,
+                    BoTorchGenerator,
                     "_instantiate_acquisition",
                     wraps=model._instantiate_acquisition,
                 )
@@ -608,7 +615,6 @@ class BoTorchModelTest(TestCase):
             torch.equal(ckwargs["X_baseline"], none_throws(expected_X_baseline))
         )
 
-        # Assert `construct_acquisition_and_optimizer_options` called with kwargs
         mock_construct_options.assert_called_with(
             acqf_options=self.acquisition_options,
             model_gen_options=self.model_gen_options,
@@ -657,7 +663,7 @@ class BoTorchModelTest(TestCase):
     def test_feature_importances(self) -> None:
         for botorch_model_class in [SingleTaskGP, SaasFullyBayesianSingleTaskGP]:
             surrogate = Surrogate(botorch_model_class=botorch_model_class)
-            model = BoTorchModel(
+            model = BoTorchGenerator(
                 surrogate=surrogate,
                 acquisition_class=Acquisition,
                 acquisition_options=self.acquisition_options,
@@ -721,7 +727,7 @@ class BoTorchModelTest(TestCase):
         # Test model is None
         model.surrogate._model = None
         with self.assertRaisesRegex(
-            ValueError, "BoTorch `Model` has not yet been constructed"
+            ModelError, "BoTorch `Model` has not yet been constructed"
         ):
             model.feature_importances()
 
@@ -756,7 +762,7 @@ class BoTorchModelTest(TestCase):
 
     @mock_botorch_optimize
     def test_evaluate_acquisition_function(self) -> None:
-        model = BoTorchModel(
+        model = BoTorchGenerator(
             surrogate=self.surrogate,
             acquisition_class=Acquisition,
             acquisition_options=self.acquisition_options,
@@ -778,30 +784,34 @@ class BoTorchModelTest(TestCase):
     @mock_botorch_optimize
     def test_surrogate_model_options_propagation(self) -> None:
         surrogate_spec = SurrogateSpec()
-        model = BoTorchModel(surrogate_spec=surrogate_spec)
+        model = BoTorchGenerator(surrogate_spec=surrogate_spec)
         with mock.patch(f"{MODEL_PATH}.Surrogate", wraps=Surrogate) as mock_init:
             model.fit(
                 datasets=self.non_block_design_training_data,
                 search_space_digest=self.mf_search_space_digest,
                 candidate_metadata=self.candidate_metadata,
             )
-        mock_init.assert_called_with(surrogate_spec=surrogate_spec, refit_on_cv=False)
+        mock_init.assert_called_with(
+            surrogate_spec=surrogate_spec, refit_on_cv=False, warm_start_refit=True
+        )
 
     @mock_botorch_optimize
     def test_surrogate_options_propagation(self) -> None:
         surrogate_spec = SurrogateSpec(allow_batched_models=False)
-        model = BoTorchModel(surrogate_spec=surrogate_spec)
+        model = BoTorchGenerator(surrogate_spec=surrogate_spec)
         with mock.patch(f"{MODEL_PATH}.Surrogate", wraps=Surrogate) as mock_init:
             model.fit(
                 datasets=self.non_block_design_training_data,
                 search_space_digest=self.mf_search_space_digest,
                 candidate_metadata=self.candidate_metadata,
             )
-        mock_init.assert_called_with(surrogate_spec=surrogate_spec, refit_on_cv=False)
+        mock_init.assert_called_with(
+            surrogate_spec=surrogate_spec, refit_on_cv=False, warm_start_refit=True
+        )
 
     @mock_botorch_optimize
     def test_model_list_choice(self) -> None:
-        model = BoTorchModel()
+        model = BoTorchGenerator()
         model.fit(
             datasets=self.non_block_design_training_data,
             search_space_digest=self.mf_search_space_digest,
@@ -828,7 +838,7 @@ class BoTorchModelTest(TestCase):
             input_constructor=mock_input_constructor,
         )
 
-        model = BoTorchModel()
+        model = BoTorchGenerator()
         model.fit(
             datasets=self.moo_training_data,
             search_space_digest=self.search_space_digest,
@@ -982,7 +992,7 @@ class BoTorchModelTest(TestCase):
         self.assertTrue(np.isnan(obj_t[2].item()))
 
         # Avoid polluting the registry for other tests; re-register correct input
-        # contructor for qLogNEHVI.
+        # constructor for qLogNEHVI.
         _register_acqf_input_constructor(
             acqf_cls=qLogNoisyExpectedHypervolumeImprovement,
             input_constructor=qLogNEHVI_input_constructor,

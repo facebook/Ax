@@ -14,25 +14,23 @@ from logging import Logger
 
 import numpy.typing as npt
 import pandas as pd
-from ax.core.base_trial import TrialStatus
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
-
+from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import estimate_early_stopping_savings
-from ax.modelbridge.map_torch import MapTorchModelBridge
+from ax.modelbridge.base import DataLoaderConfig
 from ax.modelbridge.modelbridge_utils import (
     _unpack_observations,
     observation_data_to_array,
     observation_features_to_array,
 )
 from ax.modelbridge.registry import Cont_X_trans, Y_trans
+from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.map_unit_x import MapUnitX
-
-from ax.models.torch_base import TorchModel
+from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
+from ax.models.torch_base import TorchGenerator
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
@@ -255,46 +253,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         )
         return False, reason
 
-    @staticmethod
-    def _log_and_return_completed_trials(
-        logger: logging.Logger, num_completed: int, min_curves: float
-    ) -> tuple[bool, str]:
-        """Helper function for logging/constructing a reason when min number of
-        completed trials is not yet reached."""
-        logger.info(
-            f"The number of completed trials ({num_completed}) is less than "
-            "the minimum number of curves needed for early stopping "
-            f"({min_curves}). Not early stopping."
-        )
-        reason = (
-            f"Need {min_curves} completed trials, but only {num_completed} "
-            "completed trials so far."
-        )
-        return False, reason
-
-    @staticmethod
-    def _log_and_return_num_trials_with_data(
-        logger: logging.Logger,
-        trial_index: int,
-        trial_last_progression: float,
-        num_trials_with_data: int,
-        min_curves: int,
-    ) -> tuple[bool, str]:
-        """Helper function for logging/constructing a reason when min number of
-        trials with data is not yet reached."""
-        logger.info(
-            f"The number of trials with data ({num_trials_with_data}) "
-            f"at trial {trial_index}'s last progression ({trial_last_progression}) "
-            "is less than the specified minimum number for early stopping "
-            f"({min_curves}). Not early stopping."
-        )
-        reason = (
-            f"Number of trials with data ({num_trials_with_data}) at "
-            f"last progression ({trial_last_progression}) is less than the "
-            f"specified minimum number for early stopping ({min_curves})."
-        )
-        return False, reason
-
     def is_eligible_any(
         self,
         trial_indices: set[int],
@@ -315,11 +273,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         # check that there are sufficient completed trials
         num_completed = len(experiment.trial_indices_by_status[TrialStatus.COMPLETED])
         if self.min_curves is not None and num_completed < self.min_curves:
-            self._log_and_return_completed_trials(
-                logger=logger,
-                num_completed=num_completed,
-                min_curves=none_throws(self.min_curves),
-            )
             return False
 
         # check that at least one trial has reached `self.min_progression`
@@ -327,15 +280,11 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         any_last_prog = 0
         if not df_trials[map_key].empty:
             any_last_prog = df_trials[map_key].max()
-        logger.info(
-            f"Last progression of any candidate for trial stopping is {any_last_prog}."
-        )
+
         if self.min_progression is not None and any_last_prog < self.min_progression:
-            logger.info(
-                f"No trials have reached {self.min_progression}. "
-                "Not stopping any trials."
-            )
+            # No trials have reached `self.min_progression`, not stopping any trials
             return False
+
         return True
 
     def is_eligible(
@@ -392,9 +341,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
             # check for min/max progression
             trial_last_prog = df_trial[map_key].max()
-            logger.info(
-                f"Last progression of Trial {trial_index} is {trial_last_prog}."
-            )
             if (
                 self.min_progression is not None
                 and trial_last_prog < self.min_progression
@@ -549,12 +495,8 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         transform_model = get_transform_helper_model(
             experiment=experiment, data=map_data
         )
-        observations_raw = transform_model.get_training_data()
-        observations, _ = transform_model._transform_data(
-            observations=observations_raw,
-            search_space=transform_model._model_space,
-            transforms=transform_model._raw_transforms,
-            transform_configs=None,
+        observations, _ = transform_model._process_and_transform_data(
+            experiment=experiment, data=map_data
         )
         obs_features, obs_data, arm_names = _unpack_observations(observations)
         X = observation_features_to_array(parameters=parameters, obsf=obs_features)
@@ -566,11 +508,11 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
 def get_transform_helper_model(
     experiment: Experiment,
-    data: Data,
-    transforms: list[type[Transform]] | None = None,
-) -> MapTorchModelBridge:
+    data: MapData,
+    transforms: Sequence[type[Transform]] | None = None,
+) -> TorchAdapter:
     """
-    Constructs a TorchModelBridge, to be used as a helper for transforming parameters.
+    Constructs a TorchAdapter, to be used as a helper for transforming parameters.
     We perform the default `Cont_X_trans` for parameters but do not perform any
     transforms on the observations.
 
@@ -581,12 +523,18 @@ def get_transform_helper_model(
     Returns: A torch modelbridge.
     """
     if transforms is None:
-        transforms = Cont_X_trans + [MapUnitX] + Y_trans
-    return MapTorchModelBridge(
+        transforms = [MapKeyToFloat] + Cont_X_trans + Y_trans
+    return TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
         data=data,
-        model=TorchModel(),
+        model=TorchGenerator(),
         transforms=transforms,
-        fit_out_of_design=True,
+        transform_configs={"MapKeyToFloat": {"default_log_scale": False}},
+        data_loader_config=DataLoaderConfig(
+            fit_out_of_design=True,
+            latest_rows_per_group=None,
+            fit_only_completed_map_metrics=False,
+        ),
+        fit_on_init=False,  # Since we're only using it to extract data.
     )

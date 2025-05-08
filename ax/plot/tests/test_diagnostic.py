@@ -8,7 +8,7 @@
 
 import plotly.graph_objects as go
 from ax.modelbridge.cross_validation import cross_validate
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.plot.base import AxPlotConfig
 from ax.plot.diagnostic import (
     interact_cross_validation,
@@ -25,7 +25,7 @@ class DiagnosticTest(TestCase):
         super().setUp()
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
-        self.model = Models.BOTORCH_MODULAR(
+        self.model = Generators.BOTORCH_MODULAR(
             # Model bridge kwargs
             experiment=exp,
             data=exp.fetch_data(),

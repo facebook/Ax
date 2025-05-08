@@ -8,13 +8,17 @@
 
 from __future__ import annotations
 
+import warnings
+from collections.abc import Sequence
+
 import numpy as np
 import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
+from ax.exceptions.core import AxWarning
 from ax.models.torch.utils import _datasets_to_legacy_inputs
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenerator
 from ax.utils.common.docutils import copy_doc
 from botorch.utils.datasets import SupervisedDataset
 from sklearn.ensemble import RandomForestRegressor
@@ -22,7 +26,7 @@ from sklearn.tree import DecisionTreeRegressor
 from torch import Tensor
 
 
-class RandomForest(TorchModel):
+class RandomForest(TorchGenerator):
     """A Random Forest model.
 
     Uses a parametric bootstrap to handle uncertainty in Y.
@@ -42,10 +46,10 @@ class RandomForest(TorchModel):
         self.num_trees = num_trees
         self.models: list[RandomForestRegressor] = []
 
-    @copy_doc(TorchModel.fit)
+    @copy_doc(TorchGenerator.fit)
     def fit(
         self,
-        datasets: list[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
@@ -61,15 +65,25 @@ class RandomForest(TorchModel):
                 )
             )
 
-    @copy_doc(TorchModel.predict)
-    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
+    @copy_doc(TorchGenerator.predict)
+    def predict(
+        self, X: Tensor, use_posterior_predictive: bool = False
+    ) -> tuple[Tensor, Tensor]:
+        if use_posterior_predictive:
+            warnings.warn(
+                f"{self.__class__.__name__} does not support posterior-predictive "
+                "predictions. Ignoring `use_posterior_predictive`. ",
+                AxWarning,
+                stacklevel=2,
+            )
         return _rf_predict(self.models, X)
 
-    @copy_doc(TorchModel.cross_validate)
-    def cross_validate(  # pyre-ignore [14]: not using metric_names or ssd
+    @copy_doc(TorchGenerator.cross_validate)
+    def cross_validate(
         self,
-        datasets: list[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         X_test: Tensor,
+        search_space_digest: SearchSpaceDigest,
         use_posterior_predictive: bool = False,
     ) -> tuple[Tensor, Tensor]:
         Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)

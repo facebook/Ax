@@ -30,9 +30,6 @@ module.exports={
   },
   "onBrokenLinks": "throw",
   "onBrokenMarkdownLinks": "warn",
-  "future": {
-    "experimental_faster": true,
-  },
   "presets": [
     [
       "@docusaurus/preset-classic",
@@ -88,14 +85,14 @@ module.exports={
       "items": [
         {
           "type": "docSidebar",
-          "sidebarId": "docs",
-          "label": "Docs",
+          "sidebarId": "tutorials",
+          "label": "Tutorials",
           "position": "left"
         },
         {
           "type": "docSidebar",
-          "sidebarId": "tutorials",
-          "label": "Tutorials",
+          "sidebarId": "docs",
+          "label": "Docs",
           "position": "left"
         },
         {
@@ -119,7 +116,7 @@ module.exports={
               },
               {
                 href: 'https://archive.ax.dev/versions.html',
-                label: '0.x.x',
+                label: '<= 0.4.3',
               },
             ],
         },
@@ -133,7 +130,7 @@ module.exports={
     },
     "docs": {
         "sidebar": {
-          autoCollapseCategories: true,
+          autoCollapseCategories: false,
           hideable: true,
         },
     },

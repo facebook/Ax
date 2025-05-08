@@ -8,7 +8,8 @@
 
 from unittest.mock import Mock, patch
 
-from ax.core.base_trial import TrialStatus
+from ax.core.trial_status import TrialStatus
+from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
 from ax.utils.testing.utils_testing_stubs import get_backend_simulator_with_trials
@@ -72,6 +73,20 @@ class BackendSimulatorTest(TestCase):
         self.assertEqual(sim3.num_running, 0)
         self.assertEqual(sim3.num_failed, 1)
         self.assertEqual(sim3.num_completed, 0)
+
+        with self.subTest("Test logging"):
+            with self.assertLogs(
+                logger=get_logger("utils.testing.backend_simulator"), level="INFO"
+            ):
+                sim3.update()
+
+            non_verbose_simulator = BackendSimulator(
+                options=options, verbose_logging=False
+            )
+            with self.assertLogs(
+                logger=get_logger("utils.testing.backend_simulator"), level="DEBUG"
+            ):
+                non_verbose_simulator.update()
 
     def test_backend_simulator_internal_clock(self) -> None:
         sim = get_backend_simulator_with_trials()

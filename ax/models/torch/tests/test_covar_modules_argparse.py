@@ -11,10 +11,11 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import torch
+from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch_modular.input_constructors.covar_modules import (
     covar_module_argparse,
 )
-from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.models.torch.botorch_modular.kernels import DefaultRBFKernel, ScaleMaternKernel
 from ax.utils.common.testutils import TestCase
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.multitask import MultiTaskGP
@@ -92,6 +93,7 @@ class CovarModuleArgparseTest(TestCase):
                 "outputscale_prior_concentration": 2.0,
                 "outputscale_prior_rate": 0.15,
                 "batch_shape": torch.Size([2]),
+                "active_dims": None,
             },
             {
                 "ard_num_dims": 9,
@@ -100,6 +102,7 @@ class CovarModuleArgparseTest(TestCase):
                 "outputscale_prior_concentration": 2.0,
                 "outputscale_prior_rate": 0.15,
                 "batch_shape": torch.Size([]),
+                "active_dims": None,
             },
         ]
 
@@ -150,3 +153,41 @@ class CovarModuleArgparseTest(TestCase):
         )
 
         self.assertEqual(covar_module_kwargs["batch_shape"], torch.Size([]))
+
+    def test_argparse_default_rbf(self) -> None:
+        with self.assertRaisesRegex(UserInputError, "Only one of"):
+            covar_module_argparse(
+                DefaultRBFKernel,
+                botorch_model_class=SingleTaskGP,
+                dataset=self.dataset,
+                inactive_features=["x1"],
+                active_dims=[0],
+            )
+        # Test with inactive features.
+        covar_module_kwargs = covar_module_argparse(
+            DefaultRBFKernel,
+            botorch_model_class=SingleTaskGP,
+            dataset=self.dataset,
+            inactive_features=["x9"],
+        )
+        expected = {
+            "active_dims": list(range(9)),
+            "batch_shape": torch.Size([2]),  # For 2 outputs.
+            "ard_num_dims": 9,
+        }
+        self.assertEqual(covar_module_kwargs, expected)
+        # Test other inputs.
+        covar_module_kwargs = covar_module_argparse(
+            DefaultRBFKernel,
+            botorch_model_class=SingleTaskGP,
+            dataset=self.dataset,
+            active_dims=[-3, -2],
+            ard_num_dims=1,
+            batch_shape=torch.Size([]),
+        )
+        expected = {
+            "active_dims": [7, 8],
+            "batch_shape": torch.Size([]),
+            "ard_num_dims": 1,
+        }
+        self.assertEqual(covar_module_kwargs, expected)

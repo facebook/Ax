@@ -38,14 +38,14 @@ class FullFactorialGeneratorTest(TestCase):
                 objective_weights=np.ones(1),
             )
 
-        # Raise error because n != -1
+        # Raise error because n != num_arms
         generator = FullFactorialGenerator()
         parameter_values = [[1, 2], ["foo", "bar"]]
         with self.assertLogs(
             FullFactorialGenerator.__module__, logging.WARNING
         ) as logger:
             generated_points, weights, _ = generator.gen(
-                n=5,
+                n=-1,
                 parameter_values=parameter_values,
                 objective_weights=np.ones(1),
             )

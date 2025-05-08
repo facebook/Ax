@@ -649,9 +649,10 @@ class InstantiationBase:
             )
 
         if not objective_thresholds:
-            logger.info(
-                "Due to non-specification, we will use the heuristic for selecting "
-                "objective thresholds."
+            logger.warning(
+                "Objective thresholds were not set. They will be selected using a "
+                "heuristic, but should be specified on the objective for best "
+                "performance."
             )
 
         return MultiObjectiveOptimizationConfig(
@@ -770,10 +771,10 @@ class InstantiationBase:
             parameter_constraints=typed_parameter_constraints,
         )
 
-        logger.info(f"Created search space: {ss}.")
+        logger.debug(f"Created search space: {ss}.")
         if is_hss:
             hss = assert_is_instance(ss, HierarchicalSearchSpace)
-            logger.info(
+            logger.debug(
                 "Hieararchical structure of the search space: \n"
                 f"{hss.hierarchical_structure_str(parameter_names_only=True)}"
             )

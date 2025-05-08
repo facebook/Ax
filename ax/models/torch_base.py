@@ -8,16 +8,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import torch
 from ax.core.metric import Metric
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.models.base import Model as BaseModel
+from ax.models.base import Generator as BaseGenerator
 from ax.models.types import TConfig
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.utils.datasets import SupervisedDataset
@@ -110,7 +109,7 @@ class TorchGenResults:
     candidate_metadata: Sequence[TCandidateMetadata] | None = None
 
 
-class TorchModel(BaseModel):
+class TorchGenerator(BaseGenerator):
     """This class specifies the interface for a torch-based model.
 
     These methods should be implemented to have access to all of the features
@@ -123,7 +122,7 @@ class TorchModel(BaseModel):
 
     def fit(
         self,
-        datasets: list[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
@@ -139,11 +138,17 @@ class TorchModel(BaseModel):
         """
         pass
 
-    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
+    def predict(
+        self, X: Tensor, use_posterior_predictive: bool = False
+    ) -> tuple[Tensor, Tensor]:
         """Predict
 
         Args:
             X: (j x d) tensor of the j points at which to make predictions.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
+                This option is only supported by the ``BoTorchGenerator``.
 
         Returns:
             2-element tuple containing
@@ -199,7 +204,7 @@ class TorchModel(BaseModel):
 
     def cross_validate(
         self,
-        datasets: list[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
         use_posterior_predictive: bool = False,
@@ -243,7 +248,7 @@ class TorchModel(BaseModel):
             search_space_digest: A dataclass used to compactly represent a search space.
             torch_opt_config: A TorchOptConfig object containing optimization
                 arguments (e.g., objective weights, constraints).
-            acq_options: Keyword arguments used to contruct the acquisition function.
+            acq_options: Keyword arguments used to construct the acquisition function.
 
         Returns:
             A single-element tensor with the acquisition value for these points.

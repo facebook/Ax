@@ -12,7 +12,7 @@ import torch
 
 # Ax `Acquisition` & other MBM imports
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.models.torch.botorch_modular.kernels import DefaultRBFKernel, ScaleMaternKernel
 from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
 
 # BoTorch `AcquisitionFunction` imports
@@ -48,7 +48,10 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.parego import qLogNParEGO
-from botorch.acquisition.preference import AnalyticExpectedUtilityOfBestOption
+from botorch.acquisition.preference import (
+    AnalyticExpectedUtilityOfBestOption,
+    qExpectedUtilityOfBestOption,
+)
 from botorch.models import SaasFullyBayesianSingleTaskGP
 from botorch.models.contextual import LCEAGP
 from botorch.models.fully_bayesian import FullyBayesianLinearSingleTaskGP
@@ -73,6 +76,7 @@ from botorch.models.transforms.outcome import (
     ChainedOutcomeTransform,
     OutcomeTransform,
     Standardize,
+    StratifiedStandardize,
 )
 from botorch.sampling.normal import SobolQMCNormalSampler
 
@@ -127,6 +131,7 @@ Mapping of Botorch `AcquisitionFunction` classes to class name strings.
 ACQUISITION_FUNCTION_REGISTRY: dict[type[AcquisitionFunction], str] = {
     ExpectedImprovement: "ExpectedImprovement",
     AnalyticExpectedUtilityOfBestOption: "AnalyticExpectedUtilityOfBestOption",
+    qExpectedUtilityOfBestOption: "qExpectedUtilityOfBestOption",
     NoisyExpectedImprovement: "NoisyExpectedImprovement",
     qExpectedHypervolumeImprovement: "qExpectedHypervolumeImprovement",
     qNoisyExpectedHypervolumeImprovement: "qNoisyExpectedHypervolumeImprovement",
@@ -160,6 +165,7 @@ KERNEL_REGISTRY: dict[type[Kernel], str] = {
     LinearKernel: "LinearKernel",
     ScaleMaternKernel: "ScaleMaternKernel",
     RBFKernel: "RBFKernel",
+    DefaultRBFKernel: "DefaultRBFKernel",
 }
 
 LIKELIHOOD_REGISTRY: dict[type[GaussianLikelihood], str] = {
@@ -190,6 +196,7 @@ Mapping of BoTorch `OutcomeTransform` classes to class name strings.
 OUTCOME_TRANSFORM_REGISTRY: dict[type[OutcomeTransform], str] = {
     ChainedOutcomeTransform: "ChainedOutcomeTransform",
     Standardize: "Standardize",
+    StratifiedStandardize: "StratifiedStandardize",
 }
 
 """

@@ -6,8 +6,13 @@
 
 # pyre-strict
 
+from ax.core.experiment import Experiment
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
-from ax.modelbridge.discrete import DiscreteModelBridge
+from ax.modelbridge.discrete import DiscreteAdapter
 from ax.modelbridge.factory import (
     get_empirical_bayes_thompson,
     get_factorial,
@@ -15,7 +20,7 @@ from ax.modelbridge.factory import (
     get_thompson,
     get_uniform,
 )
-from ax.modelbridge.random import RandomModelBridge
+from ax.modelbridge.random import RandomAdapter
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
@@ -24,13 +29,12 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_multi_objective,
     get_factorial_experiment,
 )
+from pyre_extensions import assert_is_instance, none_throws
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def get_multi_obj_exp_and_opt_config():
+def get_multi_obj_exp_and_opt_config() -> tuple[Experiment, OptimizationConfig]:
     multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
-    # pyre-fixme[16]: Optional type has no attribute `objective`.
-    metrics = multi_obj_exp.optimization_config.objective.metrics
+    metrics = none_throws(multi_obj_exp.optimization_config).objective.metrics
     multi_objective_thresholds = [
         ObjectiveThreshold(
             metric=metrics[0], bound=5.0, relative=False, op=ComparisonOp.LEQ
@@ -39,21 +43,20 @@ def get_multi_obj_exp_and_opt_config():
             metric=metrics[1], bound=10.0, relative=False, op=ComparisonOp.LEQ
         ),
     ]
-    # pyre-fixme[16]: Optional type has no attribute `clone_with_args`.
-    optimization_config = multi_obj_exp.optimization_config.clone_with_args(
-        objective_thresholds=multi_objective_thresholds
-    )
+    optimization_config = assert_is_instance(
+        multi_obj_exp.optimization_config, MultiObjectiveOptimizationConfig
+    ).clone_with_args(objective_thresholds=multi_objective_thresholds)
     return multi_obj_exp, optimization_config
 
 
-class ModelBridgeFactoryTestSingleObjective(TestCase):
+class TestAdapterFactorySingleObjective(TestCase):
     def test_model_kwargs(self) -> None:
         """Tests that model kwargs are passed correctly."""
         exp = get_branin_experiment()
         sobol = get_sobol(
             search_space=exp.search_space, init_position=2, scramble=False, seed=239
         )
-        self.assertIsInstance(sobol, RandomModelBridge)
+        self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
             sobol_run = sobol.gen(1)
             exp.new_batch_trial().add_generator_run(sobol_run).run().mark_completed()
@@ -65,7 +68,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         """Tests factorial instantiation."""
         exp = get_factorial_experiment()
         factorial = get_factorial(exp.search_space)
-        self.assertIsInstance(factorial, DiscreteModelBridge)
+        self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         self.assertEqual(len(factorial_run.arms), 24)
 
@@ -73,14 +76,14 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         """Tests EB/TS instantiation."""
         exp = get_factorial_experiment()
         factorial = get_factorial(exp.search_space)
-        self.assertIsInstance(factorial, DiscreteModelBridge)
+        self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
         data = exp.fetch_data()
         eb_thompson = get_empirical_bayes_thompson(
             experiment=exp, data=data, min_weight=0.0
         )
-        self.assertIsInstance(eb_thompson, DiscreteModelBridge)
+        self.assertIsInstance(eb_thompson, DiscreteAdapter)
         self.assertIsInstance(eb_thompson.model, EmpiricalBayesThompsonSampler)
         thompson_run = eb_thompson.gen(n=5)
         self.assertEqual(len(thompson_run.arms), 5)
@@ -89,7 +92,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         """Tests TS instantiation."""
         exp = get_factorial_experiment()
         factorial = get_factorial(exp.search_space)
-        self.assertIsInstance(factorial, DiscreteModelBridge)
+        self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
         data = exp.fetch_data()
@@ -99,6 +102,6 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
     def test_uniform(self) -> None:
         exp = get_branin_experiment()
         uniform = get_uniform(exp.search_space)
-        self.assertIsInstance(uniform, RandomModelBridge)
+        self.assertIsInstance(uniform, RandomAdapter)
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)

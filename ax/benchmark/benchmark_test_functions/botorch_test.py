@@ -13,6 +13,8 @@ import torch
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from botorch.test_functions.synthetic import BaseTestProblem, ConstrainedBaseTestProblem
 from botorch.utils.transforms import normalize, unnormalize
+from pyre_extensions import assert_is_instance
+from torch import Tensor
 
 
 @dataclass(kw_only=True)
@@ -24,6 +26,11 @@ class BoTorchTestFunction(BenchmarkTestFunction):
         outcome_names: Names of outcomes. Should have the same length as the
             dimension of the test function, including constraints.
         botorch_problem: The BoTorch ``BaseTestProblem``.
+        use_shifted_function: Whether to use the shifted version of the test function.
+            If True, an offset tensor is randomly drawn from the test problem bounds,
+            and the we evaluate `f(X-offset)` rather than `f(X)`. This is useful for
+            changing the location of the optima for test functions that favor the
+            center of the search space.
         modified_bounds: The bounds that are used by the Ax search space
             while optimizing the problem. If different from the bounds of the
             test problem, we project the parameters into the test problem
@@ -37,7 +44,10 @@ class BoTorchTestFunction(BenchmarkTestFunction):
 
     outcome_names: Sequence[str]
     botorch_problem: BaseTestProblem
+    use_shifted_function: bool = False
     modified_bounds: Sequence[tuple[float, float]] | None = None
+    _offset: torch.Tensor | None = None
+    _original_bounds: torch.Tensor | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -48,8 +58,33 @@ class BoTorchTestFunction(BenchmarkTestFunction):
                 "noise should be set on the `BenchmarkRunner`, not the test function."
             )
         self.botorch_problem = self.botorch_problem.to(dtype=torch.double)
+        self._original_bounds = self.botorch_problem.bounds.clone()
+        if self.use_shifted_function:
+            lo, hi = self.botorch_problem.bounds.unbind(dim=0)
+            self._offset = lo + (hi - lo) * torch.rand(
+                self.botorch_problem.dim, dtype=torch.double
+            )
+            # Modify the bounds to match the shifted problem.
+            # The Ax-specified bounds are [2 * lo, 2 * hi] which implies that
+            # X - offset is in [2 * lo - offset, 2 * hi - offset].
+            self.botorch_problem._bounds = [
+                (2 * bound[0] - offset, 2 * bound[1] - offset)
+                for bound, offset in zip(self.botorch_problem._bounds, self._offset)
+            ]
+            self.botorch_problem.bounds = (
+                2.0 * self.botorch_problem.bounds
+                - assert_is_instance(self._offset, Tensor)
+            )
 
     def tensorize_params(self, params: Mapping[str, int | float]) -> torch.Tensor:
+        """Converts parameters to a tensor.
+
+        If modified bounds are provided, we normalize the parameters from the modified
+        bounds to the unit cube, and then unnormalize to the original problem bounds.
+
+        If `use_shifted_function=True`, we subtract the offset from the resulting tensor
+        before returning it.
+        """
         X = torch.tensor(
             list(islice(params.values(), self.botorch_problem.dim)),
             dtype=torch.double,
@@ -61,7 +96,9 @@ class BoTorchTestFunction(BenchmarkTestFunction):
                 X, torch.tensor(self.modified_bounds, dtype=torch.double).T
             )
             # Unnormalize from unit cube to original problem bounds.
-            X = unnormalize(unit_X, self.botorch_problem.bounds)
+            X = unnormalize(unit_X, assert_is_instance(self._original_bounds, Tensor))
+        if self.use_shifted_function:
+            X = X - assert_is_instance(self._offset, torch.Tensor)
         return X
 
     # pyre-fixme [14]: inconsistent override

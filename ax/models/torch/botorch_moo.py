@@ -7,15 +7,14 @@
 # pyre-strict
 
 from collections.abc import Callable
-from logging import Logger
 from typing import Any, Optional
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
-    BotorchModel,
     get_rounding_func,
+    LegacyBoTorchGenerator,
     TBestPointRecommender,
     TModelConstructor,
     TModelPredictor,
@@ -41,17 +40,14 @@ from ax.models.torch.utils import (
     randomize_objective_weights,
     subset_model,
 )
-from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
+from ax.models.torch_base import TorchGenerator, TorchGenResults, TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
-
-logger: Logger = get_logger(__name__)
 
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TOptimizerList = Callable[
@@ -67,7 +63,7 @@ TOptimizerList = Callable[
 ]
 
 
-class MultiObjectiveBotorchModel(BotorchModel):
+class MultiObjectiveLegacyBoTorchGenerator(LegacyBoTorchGenerator):
     r"""
     Customizable multi-objective model.
 
@@ -113,9 +109,9 @@ class MultiObjectiveBotorchModel(BotorchModel):
     `fidelity_features` is a list of ints that specify the positions of fidelity
     parameters in 'Xs', `metric_names` provides the names of each `Y` in `Ys`,
     `state_dict` is a pytorch module state dict, and `model` is a BoTorch `Model`.
-    Optional kwargs are being passed through from the `BotorchModel` constructor.
-    This callable is assumed to return a fitted BoTorch model that has the same
-    dtype and lives on the same device as the input tensors.
+    Optional kwargs are being passed through from the `LegacyBoTorchGenerator`
+    constructor. This callable is assumed to return a fitted BoTorch model that has
+    the same dtype and lives on the same device as the input tensors.
 
     ::
 
@@ -236,7 +232,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         self.fidelity_features: list[int] = []
         self.metric_names: list[str] = []
 
-    @copy_doc(TorchModel.gen)
+    @copy_doc(TorchGenerator.gen)
     def gen(
         self,
         n: int,
@@ -249,7 +245,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
 
         if search_space_digest.fidelity_features:  # untested
             raise NotImplementedError(
-                "fidelity_features not implemented for base BotorchModel"
+                "fidelity_features not implemented for base LegacyBoTorchGenerator"
             )
         if (
             torch_opt_config.objective_thresholds is not None

@@ -205,7 +205,7 @@ def object_attribute_dicts_find_unequal_fields(
             if one_val is None or other_val is None:
                 equal = one_val is None and other_val is None
             else:
-                # We compare `name` because it is set dynimically in
+                # We compare `name` because it is set dynamically in
                 # some cases (see `GenerationStrategy.name` attribute).
                 equal = one_val.name == other_val.name
         elif field == "analysis_scheduler":
@@ -214,7 +214,7 @@ def object_attribute_dicts_find_unequal_fields(
         elif field == "_db_id":
             equal = skip_db_id_check or one_val == other_val
         elif field == "_model":
-            # TODO[T52643706]: replace with per-`ModelBridge` method like
+            # TODO[T52643706]: replace with per-`Adapter` method like
             # `equivalent_models`, to compare models more meaningfully.
             if not hasattr(one_val, "model") or not hasattr(other_val, "model"):
                 equal = not hasattr(other_val, "model") and not hasattr(
@@ -229,7 +229,6 @@ def object_attribute_dicts_find_unequal_fields(
                     and hasattr(other_val, "model")
                     and isinstance(one_val.model, type(other_val.model))
                 )
-
         else:
             equal = is_ax_equal(one_val, other_val)
 

@@ -23,7 +23,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.modelbridge import ModelBridge
+from ax.modelbridge import Adapter
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 from ax.utils.stats.statstools import relativize, unrelativize
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 class BaseRelativize(Transform, ABC):
     """
     Change the relative flag of the given relative optimization configuration
-    to False. This is needed in order for the new opt config to pass ModelBridge
+    to False. This is needed in order for the new opt config to pass Adapter
     that requires non-relativized opt config.
 
     Also transforms absolute data and opt configs to relative.
@@ -53,7 +53,7 @@ class BaseRelativize(Transform, ABC):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         cls_name = self.__class__.__name__
@@ -65,7 +65,7 @@ class BaseRelativize(Transform, ABC):
             config=config,
         )
         # self.modelbridge should NOT be modified
-        self.modelbridge: ModelBridge = none_throws(
+        self.modelbridge: Adapter = none_throws(
             modelbridge, f"{cls_name} transform requires a modelbridge"
         )
 
@@ -86,12 +86,12 @@ class BaseRelativize(Transform, ABC):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        modelbridge: modelbridge_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         r"""
         Change the relative flag of the given relative optimization configuration
-        to False. This is needed in order for the new opt config to pass ModelBridge
+        to False. This is needed in order for the new opt config to pass Adapter
         that requires non-relativized opt config.
 
         Args:
@@ -231,9 +231,9 @@ class BaseRelativize(Transform, ABC):
         for i, metric in enumerate(data.metric_names):
             j = get_metric_index(data=status_quo_data, metric_name=metric)
             means_t = data.means[i]
-            sems_t = sqrt(data.covariance[i][i])
+            sems_t = sqrt(data.covariance[i, i])
             mean_c = status_quo_data.means[j]
-            sem_c = sqrt(status_quo_data.covariance[j][j])
+            sem_c = sqrt(status_quo_data.covariance[j, j])
 
             means_rel, sems_rel = self._get_rel_mean_sem(
                 means_t=means_t,
@@ -273,9 +273,7 @@ class BaseRelativize(Transform, ABC):
 def get_metric_index(data: ObservationData, metric_name: str) -> int:
     """Get the index of a metric in the ObservationData."""
     try:
-        return next(
-            k for k, name in enumerate(data.metric_names) if name == metric_name
-        )
+        return data.metric_names.index(metric_name)
     except (IndexError, StopIteration):
         raise ValueError(
             "Relativization cannot be performed because "

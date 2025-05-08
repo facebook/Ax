@@ -12,10 +12,10 @@ from typing import cast
 from unittest.mock import patch, PropertyMock
 
 import torch
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.registry import Models
-from ax.modelbridge.torch import TorchModelBridge
-from ax.models.torch.botorch import BotorchModel
+from ax.modelbridge.base import Adapter
+from ax.modelbridge.registry import Generators
+from ax.modelbridge.torch import TorchAdapter
+from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
@@ -44,28 +44,28 @@ from torch import Tensor
 
 
 @mock_botorch_optimize
-def get_modelbridge(modular: bool = False, saasbo: bool = False) -> ModelBridge:
+def get_adapter(modular: bool = False, saasbo: bool = False) -> Adapter:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
     if modular:
-        return Models.BOTORCH_MODULAR(
+        return Generators.BOTORCH_MODULAR(
             experiment=exp,
             data=exp.fetch_data(),
         )
     if saasbo:
-        return Models.SAASBO(
+        return Generators.SAASBO(
             experiment=exp,
             data=exp.fetch_data(),
         )
     else:
-        return Models.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
+        return Generators.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
 
 
 class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.model = get_modelbridge().model.model
-        self.saas_model = get_modelbridge(saasbo=True).model.surrogate.model
+        self.model = get_adapter().model.model
+        self.saas_model = get_adapter(saasbo=True).model.surrogate.model
 
     def test_DgsmGpMean(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
@@ -197,12 +197,12 @@ class SensitivityAnalysisTest(TestCase):
         first_order = sensitivity_mean_bootstrap.first_order_indices()
         self.assertEqual(first_order.shape, torch.Size([2, 3]))
 
-        with self.assertRaises(ValueError):
-            sensitivity_mean = SobolSensitivityGPMean(
-                self.model, num_mc_samples=10, bounds=bounds, second_order=False
-            )
-            first_order = sensitivity_mean.first_order_indices()
-            total_order = sensitivity_mean.total_order_indices()
+        sensitivity_mean = SobolSensitivityGPMean(
+            self.model, num_mc_samples=10, bounds=bounds, second_order=False
+        )
+        first_order = sensitivity_mean.first_order_indices()
+        total_order = sensitivity_mean.total_order_indices()
+        with self.assertRaisesRegex(ValueError, "Second order indices"):
             second_order = sensitivity_mean.second_order_indices()
 
         # testing compute_sobol_indices_from_model_list
@@ -240,13 +240,13 @@ class SensitivityAnalysisTest(TestCase):
                     )
                 )
 
-        # testing ax sensitivity utils
-        # model_bridge = cast(TorchModelBridge, get_modelbridge())
+    def test_SobolGPMean_SAASBO_Ax_utils(self) -> None:
+        num_mc_samples = 10
         for modular in [False, True]:
-            model_bridge = cast(TorchModelBridge, get_modelbridge(modular=modular))
+            model_bridge = cast(TorchAdapter, get_adapter(modular=modular))
             with self.assertRaisesRegex(
                 NotImplementedError,
-                "but only TorchModelBridge is supported",
+                "but only TorchAdapter is supported",
             ):
                 # pyre-ignore
                 ax_parameter_sens(1, model_bridge.outcomes)
@@ -254,11 +254,11 @@ class SensitivityAnalysisTest(TestCase):
             with patch.object(model_bridge, "model", return_value=None):
                 with self.assertRaisesRegex(
                     NotImplementedError,
-                    r"but only Union\[BotorchModel, ModularBoTorchModel\] is supported",
+                    "but only LegacyBoTorchGenerator and ModularBoTorchGenerator",
                 ):
                     ax_parameter_sens(model_bridge, model_bridge.outcomes)
 
-            torch_model = cast(BotorchModel, model_bridge.model)
+            torch_model = cast(LegacyBoTorchGenerator, model_bridge.model)
             if not modular:
                 with self.assertRaisesRegex(
                     NotImplementedError,
@@ -273,7 +273,7 @@ class SensitivityAnalysisTest(TestCase):
                         mock.return_value = 2
                         ax_parameter_sens(model_bridge, model_bridge.outcomes)
 
-                # since only ModelList is supported for BotorchModel:
+                # since only ModelList is supported for LegacyBoTorchGenerator:
                 gpytorch_model = ModelListGP(cast(GPyTorchModel, torch_model.model))
                 torch_model.model = gpytorch_model
 
@@ -355,7 +355,7 @@ class SensitivityAnalysisTest(TestCase):
                 )
 
         # Test with signed
-        model_bridge = get_modelbridge(modular=True)
+        model_bridge = get_adapter(modular=True)
 
         # adding a categorical feature
         cat_model_bridge = copy.deepcopy(model_bridge)
@@ -483,7 +483,7 @@ class SensitivityAnalysisTest(TestCase):
         self.assertFalse(torch.allclose(Brnd, B))
 
     def test_Sobol_raises(self) -> None:
-        bridge = get_modelbridge(modular=True)
+        bridge = get_adapter(modular=True)
         with self.assertRaisesRegex(
             NotImplementedError,
             "Order third and fourth is not supported. Plese choose one of"
@@ -494,16 +494,6 @@ class SensitivityAnalysisTest(TestCase):
                 metrics=None,
                 order="third and fourth",
                 signed=False,
-            )
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "Second order is not supported for signed indices.",
-        ):
-            ax_parameter_sens(
-                model_bridge=bridge,
-                metrics=None,
-                order="second",
-                signed=True,
             )
 
     def test_Sobol_computed_correctly_first_order(self) -> None:

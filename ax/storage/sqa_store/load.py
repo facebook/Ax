@@ -10,13 +10,12 @@ from math import ceil
 from typing import Any, cast
 
 from ax.analysis.analysis import AnalysisCard
-
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.trial import Trial
 from ax.exceptions.core import ExperimentNotFoundError, ObjectNotFoundError
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.reduced_state import (
@@ -32,7 +31,6 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-
 from ax.storage.utils import MetricIntent
 from ax.utils.common.constants import Keys
 from pyre_extensions import assert_is_instance, none_throws
@@ -54,7 +52,7 @@ def load_experiment(
     """Load experiment by name.
 
     Args:
-        experiment_name: Name of the expeirment to load.
+        experiment_name: Name of the experiment to load.
         config: `SQAConfig`, from which to retrieve the decoder. Optional,
             defaults to base `SQAConfig`.
         reduced_state: Whether to load experiment with a slightly reduced state

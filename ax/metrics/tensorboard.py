@@ -168,36 +168,7 @@ try:
                                 f"Found tag {metric.tag}, but no data found for it. Is "
                                 "the curve empty in the TensorBoard UI?"
                             )
-
-                    df = (
-                        pd.DataFrame(records)
-                        # If a metric has multiple records for the same arm, metric, and
-                        # step (sometimes caused by restarts, etc) take the mean
-                        .groupby(["arm_name", "metric_name", self.map_key_info.key])
-                        .mean()
-                        .reset_index()
-                    )
-
-                    # If there are any NaNs or Infs in the data, raise an Exception
-                    if np.any(~np.isfinite(df["mean"])):
-                        raise ValueError("Found NaNs or Infs in data")
-
-                    # Apply per-metric post-processing
-                    # Apply cumulative "best" (min if lower_is_better)
-                    if metric.cumulative_best:
-                        if metric.lower_is_better:
-                            df["mean"] = df["mean"].cummin()
-                        else:
-                            df["mean"] = df["mean"].cummax()
-
-                    # Apply smoothing
-                    if metric.smoothing > 0:
-                        df["mean"] = df["mean"].ewm(alpha=metric.smoothing).mean()
-
-                    # Apply rolling percentile
-                    if metric.percentile is not None:
-                        df["mean"] = df["mean"].expanding().quantile(metric.percentile)
-
+                    df = self._process_records_to_df(metric=metric, records=records)
                     # Accumulate successfully extracted timeseries
                     res[metric.name] = Ok(
                         MapData(
@@ -247,6 +218,41 @@ try:
             important for managing memory consumption.
             """
             pass
+
+        def _process_records_to_df(
+            self, metric: TensorboardMetric, records: list[dict[str, Any]]
+        ) -> pd.DataFrame:
+            """Process records to a MapData dataframe."""
+            df = (
+                pd.DataFrame(records)
+                # If a metric has multiple records for the same arm, metric, and
+                # step (sometimes caused by restarts, etc) take the mean
+                .groupby(["arm_name", "metric_name", self.map_key_info.key])
+                .mean()
+                .reset_index()
+            )
+
+            # If there are any NaNs or Infs in the data, raise an Exception
+            if np.any(~np.isfinite(df["mean"])):
+                raise ValueError("Found NaNs or Infs in data")
+
+            # Apply per-metric post-processing
+            # Apply cumulative "best" (min if lower_is_better)
+            if metric.cumulative_best:
+                if metric.lower_is_better:
+                    df["mean"] = df["mean"].cummin()
+                else:
+                    df["mean"] = df["mean"].cummax()
+
+            # Apply smoothing
+            if metric.smoothing > 0:
+                df["mean"] = df["mean"].ewm(alpha=1 - metric.smoothing).mean()
+
+            # Apply rolling percentile
+            if metric.percentile is not None:
+                df["mean"] = df["mean"].expanding().quantile(metric.percentile)
+
+            return df
 
 except ImportError:
     logger.warning(

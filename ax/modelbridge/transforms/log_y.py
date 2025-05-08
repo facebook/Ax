@@ -8,8 +8,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from logging import Logger
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
@@ -51,7 +53,7 @@ class LogY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
-        modelbridge: base_modelbridge.ModelBridge | None = None,
+        modelbridge: base_modelbridge.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         if config is None:
@@ -83,7 +85,7 @@ class LogY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: base_modelbridge.ModelBridge | None = None,
+        modelbridge: base_modelbridge.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:

@@ -16,7 +16,12 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.exceptions.core import AxParameterWarning, AxWarning, UserInputError
+from ax.exceptions.core import (
+    AxParameterWarning,
+    AxWarning,
+    UnsupportedError,
+    UserInputError,
+)
 from ax.utils.common.testutils import TestCase
 from pyre_extensions import none_throws
 
@@ -147,7 +152,8 @@ class RangeParameterTest(TestCase):
     def test_Cast(self) -> None:
         self.assertEqual(self.param2.cast(2.5), 2)
         self.assertEqual(self.param2.cast(3), 3)
-        self.assertEqual(self.param2.cast(None), None)
+        with self.assertRaisesRegex(UnsupportedError, "None values"):
+            self.param2.cast(None)
 
     def test_Clone(self) -> None:
         param_clone = self.param1.clone()
@@ -610,7 +616,8 @@ class FixedParameterTest(TestCase):
     def test_Cast(self) -> None:
         self.assertEqual(self.param1.cast(1), True)
         self.assertEqual(self.param1.cast(False), False)
-        self.assertEqual(self.param1.cast(None), None)
+        with self.assertRaisesRegex(UnsupportedError, "None values"):
+            self.param1.cast(None)
 
     def test_HierarchicalValidation(self) -> None:
         self.assertFalse(self.param1.is_hierarchical)

@@ -6,27 +6,30 @@
 # pyre-strict
 
 
-import traceback
+from typing import Sequence
+
+import markdown
 
 import pandas as pd
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel, AnalysisE
+from ax.analysis.analysis import Analysis, AnalysisBlobAnnotation, AnalysisCard
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
-from IPython.display import display, Markdown
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
+from IPython.display import Markdown
+from pyre_extensions import override
 
 
 class MarkdownAnalysisCard(AnalysisCard):
-    blob_annotation = "markdown"
+    blob_annotation: AnalysisBlobAnnotation = AnalysisBlobAnnotation.MARKDOWN
 
     def get_markdown(self) -> str:
         return self.blob
 
-    def _ipython_display_(self) -> None:
-        """
-        IPython display hook. This is called when the AnalysisCard is printed in an
-        IPython environment (ex. Jupyter). Here we want to render the Markdown.
-        """
-        display(Markdown(f"## {self.title}\n\n### {self.subtitle}\n\n{self.blob}"))
+    def _body_html(self) -> str:
+        return f"<div class='content'>{markdown.markdown(self.get_markdown())}<div>"
+
+    def _body_papermill(self) -> Markdown:
+        return Markdown(self.get_markdown())
 
 
 class MarkdownAnalysis(Analysis):
@@ -34,11 +37,13 @@ class MarkdownAnalysis(Analysis):
     An Analysis that computes a paragraph of Markdown formatted text.
     """
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
-    ) -> MarkdownAnalysisCard: ...
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> Sequence[MarkdownAnalysisCard]: ...
 
     def _create_markdown_analysis_card(
         self,
@@ -47,6 +52,7 @@ class MarkdownAnalysis(Analysis):
         level: int,
         df: pd.DataFrame,
         message: str,
+        category: int,
     ) -> MarkdownAnalysisCard:
         """
         Make a MarkdownAnalysisCard from this Analysis using provided fields and
@@ -60,24 +66,5 @@ class MarkdownAnalysis(Analysis):
             level=level,
             df=df,
             blob=message,
+            category=category,
         )
-
-
-def markdown_analysis_card_from_analysis_e(
-    analysis_e: AnalysisE,
-) -> MarkdownAnalysisCard:
-    return MarkdownAnalysisCard(
-        name=analysis_e.analysis.name,
-        title=f"{analysis_e.analysis.name} Error",
-        subtitle=f"An error occurred while computing {analysis_e.analysis}",
-        attributes=analysis_e.analysis.attributes,
-        blob="".join(
-            traceback.format_exception(
-                type(analysis_e.exception),
-                analysis_e.exception,
-                analysis_e.exception.__traceback__,
-            )
-        ),
-        df=pd.DataFrame(),
-        level=AnalysisCardLevel.DEBUG,
-    )

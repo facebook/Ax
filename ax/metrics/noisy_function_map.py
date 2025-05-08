@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
-from logging import Logger
-
 from typing import Any
 
 import numpy as np
@@ -21,10 +19,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric, MapMetricFetchResult
 from ax.core.metric import MetricFetchE
-from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok
-
-logger: Logger = get_logger(__name__)
 
 
 class NoisyFunctionMapMetric(MapMetric):
@@ -100,7 +95,12 @@ class NoisyFunctionMapMetric(MapMetric):
                     "metric_name": self.name,
                     "sem": self.noise_sd if noisy else 0.0,
                     "trial_index": trial.index,
-                    "mean": [item["mean"] for item in res],
+                    "mean": [
+                        item["mean"] + self.noise_sd * np.random.randn()
+                        if noisy
+                        else 0.0
+                        for item in res
+                    ],
                     self.map_key_info.key: [
                         item[self.map_key_info.key] for item in res
                     ],

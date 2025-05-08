@@ -8,7 +8,7 @@ import os
 
 from setuptools import find_packages, setup
 
-PINNED_BOTORCH_VERSION = "0.13.0"
+PINNED_BOTORCH_VERSION = "0.14.0"
 
 if os.environ.get("ALLOW_BOTORCH_LATEST"):
     # allows a more recent previously installed version of botorch to remain
@@ -29,14 +29,12 @@ REQUIRES = [
     "plotly>=5.12.0",
     "pyre-extensions",
     "sympy",
+    "markdown",
 ]
 
 # pytest-cov requires pytest >= 3.6
 DEV_REQUIRES = [
     "beautifulsoup4",
-    "black==24.2.0",
-    "flake8",
-    "hypothesis",
     "Jinja2",
     "pyfakefs",
     "pytest>=4.6",
@@ -47,19 +45,28 @@ DEV_REQUIRES = [
     "torchvision>=0.5.0",
     "nbconvert",
     "jupyter-client==6.1.12",
-    # Replace with `tensorboard >= x.x` once tb cuts a release.
-    # https://github.com/tensorflow/tensorboard/issues/6869#issuecomment-2273718763
-    "numpy<2.0",
     "lxml",
     "mdformat-myst",
 ]
+
+
+def read_deps_from_file(filename):
+    """Read in requirements file and return items as list of strings"""
+    root_dir = os.path.dirname(__file__)
+    with open(os.path.join(root_dir, filename), "r") as fh:
+        return [line.strip() for line in fh.readlines() if not line.startswith("#")]
+
+
+# Read in pinned versions of the formatting tools
+DEV_REQUIRES += read_deps_from_file("requirements-fmt.txt")
 
 MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
 
 UNITTEST_MINIMAL_REQUIRES = [
-    "tensorboard",  # For tensorboard unit tests.
+    # For tensorboard unit tests (min req: numpy 2.0 compatibility).
+    "tensorboard>=2.18.0",
     "torchvision",  # For torchvision unit tests.
     "torchx",  # For torchx unit tests.
     # Required for building RayTune tutorial notebook and

@@ -10,40 +10,45 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
-from ax.core.base_trial import TrialStatus
+from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
+from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.best_model_selector import (
+from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
-from ax.modelbridge.cross_validation import FISHER_EXACT_TEST_P
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.generation_node import GenerationNode
+from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
+from ax.generation_strategy.generation_node import GenerationNode
 
-from ax.modelbridge.generation_node_input_constructors import (
+from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import Models
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.int_to_float import IntToFloat
-from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
-from ax.modelbridge.transition_criterion import (
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     IsSingleObjective,
     MaxGenerationParallelism,
     MinimumPreferenceOccurances,
     MinTrials,
 )
+from ax.modelbridge.base import Adapter
+from ax.modelbridge.cross_validation import FISHER_EXACT_TEST_P
+from ax.modelbridge.factory import get_sobol
+from ax.modelbridge.registry import Generators
+from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -115,24 +120,6 @@ def get_observation_status_quo0(
     )
 
 
-def get_observation_status_quo1(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
-) -> Observation:
-    return Observation(
-        features=ObservationFeatures(
-            parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
-            trial_index=1,
-        ),
-        data=ObservationData(
-            means=np.array([2.0, 4.0]),
-            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
-        ),
-        arm_name="0_0",
-    )
-
-
 def get_observation1trans(
     first_metric_name: str = "a",
     second_metric_name: str = "b",
@@ -189,19 +176,12 @@ def get_generation_strategy(
 ) -> GenerationStrategy:
     if with_generation_nodes:
         gs = sobol_gpei_generation_node_gs()
-        gs._nodes[0]._model_spec_to_gen_from = ModelSpec(
-            model_enum=Models.SOBOL,
-            model_kwargs={"init_position": 3},
-            model_gen_kwargs={"some_gen_kwarg": "some_value"},
-        )
         if with_callable_model_kwarg:
-            # pyre-ignore[16]: testing hack to test serialization of callable kwargs
-            # in generation steps.
-            gs._nodes[0]._model_spec_to_gen_from.model_kwargs["model_constructor"] = (
+            gs._curr.model_spec_to_gen_from.model_kwargs["model_constructor"] = (
                 get_sobol
             )
     else:
-        gs = choose_generation_strategy(
+        gs = choose_generation_strategy_legacy(
             search_space=get_search_space(), should_deduplicate=True
         )
         if with_callable_model_kwarg:
@@ -219,6 +199,19 @@ def get_generation_strategy(
     return gs
 
 
+def get_default_generation_strategy_at_MBM_node(
+    experiment: Experiment,
+) -> GenerationStrategy:
+    gs = choose_generation_strategy(struct=GenerationStrategyDispatchStruct())
+
+    gs._experiment = experiment
+
+    mbm_node = next(node for name, node in gs.nodes_dict.items() if "MBM" in name)
+    gs._curr = mbm_node
+
+    return gs
+
+
 def sobol_gpei_generation_node_gs(
     with_model_selection: bool = False,
     with_auto_transition: bool = False,
@@ -227,7 +220,6 @@ def sobol_gpei_generation_node_gs(
     with_input_constructors_remaining_n: bool = False,
     with_input_constructors_repeat_n: bool = False,
     with_input_constructors_target_trial: bool = False,
-    with_input_constructors_sq_features: bool = False,
     with_unlimited_gen_mbm: bool = False,
     with_trial_type: bool = False,
     with_is_SOO_transition: bool = False,
@@ -235,7 +227,7 @@ def sobol_gpei_generation_node_gs(
     """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
 
     Args:
-        with_model_selection: If True, will add a second ModelSpec in the MBM node.
+        with_model_selection: If True, will add a second GeneratorSpec in the MBM node.
             This can be used for testing model selection.
     """
     if sum([with_auto_transition, with_unlimited_gen_mbm, with_is_SOO_transition]) > 1:
@@ -250,7 +242,6 @@ def sobol_gpei_generation_node_gs(
                 with_input_constructors_remaining_n,
                 with_input_constructors_repeat_n,
                 with_input_constructors_target_trial,
-                with_input_constructors_sq_features,
             ]
         )
         > 1
@@ -298,14 +289,14 @@ def sobol_gpei_generation_node_gs(
     auto_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
     is_SOO_mbm_criterion = [IsSingleObjective(transition_to="MBM_node")]
     step_model_kwargs = {"silently_filter_kwargs": True}
-    sobol_model_spec = ModelSpec(
-        model_enum=Models.SOBOL,
+    sobol_model_spec = GeneratorSpec(
+        model_enum=Generators.SOBOL,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
     mbm_model_specs = [
-        ModelSpec(
-            model_enum=Models.BOTORCH_MODULAR,
+        GeneratorSpec(
+            model_enum=Generators.BOTORCH_MODULAR,
             model_kwargs=step_model_kwargs,
             model_gen_kwargs={},
         )
@@ -317,7 +308,7 @@ def sobol_gpei_generation_node_gs(
     )
     if with_model_selection:
         # This is just MBM with different transforms.
-        mbm_model_specs.append(ModelSpec(model_enum=Models.BO_MIXED))
+        mbm_model_specs.append(GeneratorSpec(model_enum=Generators.BO_MIXED))
         best_model_selector = SingleDiagnosticBestModelSelector(
             diagnostic=FISHER_EXACT_TEST_P,
             metric_aggregation=ReductionCriterion.MEAN,
@@ -384,11 +375,6 @@ def sobol_gpei_generation_node_gs(
         sobol_node._input_constructors = {
             purpose: NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES,
         }
-    elif with_input_constructors_sq_features:
-        purpose = InputConstructorPurpose.STATUS_QUO_FEATURES
-        sobol_node._input_constructors = {
-            purpose: NodeInputConstructors.STATUS_QUO_FEATURES,
-        }
 
     sobol_mbm_GS_nodes = GenerationStrategy(
         name="Sobol+MBM_Nodes",
@@ -403,7 +389,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
         nodes=[
             GenerationNode(
                 node_name="Sobol",
-                model_specs=[ModelSpec(model_enum=Models.SOBOL)],
+                model_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
                 transition_criteria=[
                     MinTrials(
                         threshold=1,
@@ -414,8 +400,8 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
             GenerationNode(
                 node_name="MBM",
                 model_specs=[
-                    ModelSpec(
-                        model_enum=Models.BOTORCH_MODULAR,
+                    GeneratorSpec(
+                        model_enum=Generators.BOTORCH_MODULAR,
                     ),
                 ],
                 transition_criteria=[
@@ -433,8 +419,8 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
             GenerationNode(
                 node_name="MTGP",
                 model_specs=[
-                    ModelSpec(
-                        model_enum=Models.ST_MTGP,
+                    GeneratorSpec(
+                        model_enum=Generators.ST_MTGP,
                     ),
                 ],
             ),
@@ -471,7 +457,7 @@ def get_legacy_list_surrogate_generation_step_as_dict() -> dict[str, Any]:
     # before new multi-Surrogate Model and new Surrogate diffs D42013742
     return {
         "__type": "GenerationStep",
-        "model": {"__type": "Models", "name": "BOTORCH_MODULAR"},
+        "model": {"__type": "Generators", "name": "BOTORCH_MODULAR"},
         "num_trials": -1,
         "min_trials_observed": 0,
         "completion_criteria": [],
@@ -558,7 +544,7 @@ def get_legacy_list_surrogate_generation_step_as_dict() -> dict[str, Any]:
 
 def get_surrogate_generation_step() -> GenerationStep:
     return GenerationStep(
-        model=Models.BOTORCH_MODULAR,
+        model=Generators.BOTORCH_MODULAR,
         num_trials=-1,
         max_parallelism=1,
         model_kwargs={
@@ -691,7 +677,7 @@ class transform_1(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: ModelBridge | None,
+        modelbridge: Adapter | None,
         fixed_features: ObservationFeatures | None,
     ) -> OptimizationConfig:
         return (  # pyre-ignore[7]: pyre is right, this is a hack for testing.
@@ -750,7 +736,7 @@ class transform_2(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: ModelBridge | None,
+        modelbridge: Adapter | None,
         fixed_features: ObservationFeatures | None,
     ) -> OptimizationConfig:
         return (

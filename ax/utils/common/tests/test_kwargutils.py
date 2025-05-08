@@ -25,14 +25,14 @@ class TestWarnOnKwargs(TestCase):
                 return
 
             warn_on_kwargs(callable_with_kwargs=callable_arg, foo="")
-            mock_warning.assert_called_once_with(
-                "Found unexpected kwargs: %s while calling %s "
-                "from JSON. These kwargs will be ignored.",
-                {"foo": ""},
-                callable_arg,
-            )
+        mock_warning.assert_called_once_with(
+            "Found unexpected kwargs: %s while calling %s "
+            "from JSON. These kwargs will be ignored.",
+            {"foo": ""},
+            callable_arg,
+        )
 
     def test_it_does_not_warn_if_no_kwargs_are_passed(self) -> None:
         with patch.object(logger, "warning") as mock_warning:
             warn_on_kwargs(callable_with_kwargs=lambda: None)
-            mock_warning.assert_not_called()
+        mock_warning.assert_not_called()

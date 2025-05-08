@@ -5,12 +5,10 @@
 
 # pyre-strict
 
-import json
-
 import numpy as np
 import pandas as pd
 
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.constraints_feasibility import (
     constraints_feasibility,
     ConstraintsFeasibilityAnalysis,
@@ -23,11 +21,11 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -96,15 +94,15 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
                 GenerationNode(
                     node_name="gn",
                     model_specs=[
-                        ModelSpec(
-                            model_enum=Models.BOTORCH_MODULAR,
+                        GeneratorSpec(
+                            model_enum=Generators.BOTORCH_MODULAR,
                         )
                     ],
                 )
             ],
         )
         generation_strategy.experiment = experiment
-        generation_strategy._fit_current_model(data=experiment.lookup_data())
+        generation_strategy._curr._fit(experiment=experiment)
         self.experiment: Experiment = experiment
         self.generation_strategy: GenerationStrategy = generation_strategy
 
@@ -139,7 +137,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         generation_strategy = self.generation_strategy
 
         experiment.attach_data(data=Data(df=df))
-        generation_strategy._fit_current_model(data=experiment.lookup_data())
+        generation_strategy._curr._fit(experiment=experiment)
         model = none_throws(generation_strategy.model)
         optimization_config = assert_is_instance(
             experiment.optimization_config, OptimizationConfig
@@ -163,12 +161,13 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
     def test_compute(self) -> None:
         self.setUp()
         cfa = ConstraintsFeasibilityAnalysis()
-        card = cfa.compute(
+        (card,) = cfa.compute(
             experiment=self.experiment, generation_strategy=self.generation_strategy
         )
-        self.assertEqual(card.name, "ConstraintsFeasibility")
+        self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
         self.assertEqual(card.subtitle, "All constraints are feasible.")
 
         df_metric_d = pd.DataFrame(
@@ -188,21 +187,25 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         generation_strategy = self.generation_strategy
         experiment.attach_data(data=Data(df=df))
         generation_strategy.experiment = experiment
-        generation_strategy._fit_current_model(data=experiment.lookup_data())
+        generation_strategy._curr._fit(experiment=experiment)
         cfa = ConstraintsFeasibilityAnalysis()
-        card = cfa.compute(
+        (card,) = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
-        self.assertEqual(card.name, "ConstraintsFeasibility")
+        self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Warning")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         subtitle = (
-            "Constraints are infeasible for all test groups (arms) with respect "
-            "to the probability threshold 0.95. "
-            "We suggest relaxing the constraint bounds for the constraints."
+            "The constraints feasibility health check utilizes "
+            "samples drawn during the optimization process to assess the "
+            "feasibility of constraints set on the experiment. Given these "
+            "samples, the model believes there is at least a "
+            "0.95 probability that the constraints will be "
+            "violated. We suggest relaxing the bounds for the constraints "
+            "on this Experiment."
         )
         self.assertEqual(card.subtitle, subtitle)
-        self.assertEqual(json.loads(card.blob), {"status": HealthcheckStatus.WARNING})
+        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
 
         # experiment with no constraints
         experiment.optimization_config = OptimizationConfig(
@@ -210,21 +213,21 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             outcome_constraints=[],
         )
         cfa = ConstraintsFeasibilityAnalysis()
-        card = cfa.compute(
+        (card,) = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
-        self.assertEqual(card.name, "ConstraintsFeasibility")
+        self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.subtitle, "No constraints are specified.")
-        self.assertEqual(json.loads(card.blob), {"status": HealthcheckStatus.PASS})
+        self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
 
     def test_no_optimization_config(self) -> None:
         experiment = get_branin_experiment(has_optimization_config=False)
         cfa = ConstraintsFeasibilityAnalysis()
-        card = cfa.compute(experiment=experiment, generation_strategy=None)
-        self.assertEqual(card.name, "ConstraintsFeasibility")
+        (card,) = cfa.compute(experiment=experiment, generation_strategy=None)
+        self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.subtitle, "No optimization config is specified.")
-        self.assertEqual(json.loads(card.blob), {"status": HealthcheckStatus.PASS})
+        self.assertEqual(card.get_status(), HealthcheckStatus.PASS)

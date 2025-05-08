@@ -6,8 +6,8 @@
 
 # pyre-strict
 
+from collections.abc import Iterator
 from copy import deepcopy
-from typing import Iterator
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures

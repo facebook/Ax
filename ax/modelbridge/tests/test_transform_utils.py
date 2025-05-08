@@ -9,16 +9,17 @@
 from unittest import mock
 
 import numpy as np
-from ax.core.data import Data
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.utils import (
     ClosestLookupDict,
     derelativize_optimization_config_with_raw_status_quo,
 )
+from ax.models.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_multi_objective_optimization_config
 
@@ -67,14 +68,13 @@ class TransformUtilsTest(TestCase):
                 RangeParameter("y", ParameterType.FLOAT, 0, 20),
             ]
         )
-        modelbridge = ModelBridge(
-            search_space=dummy_search_space,
-            model=None,
-            transforms=[],
-            experiment=Experiment(dummy_search_space, "test"),
-            data=Data(),
+        modelbridge = Adapter(
+            experiment=Experiment(
+                search_space=dummy_search_space,
+                status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
+            ),
+            model=Generator(),
             optimization_config=optimization_config,
-            status_quo_name="1_1",
         )
         new_opt_config = derelativize_optimization_config_with_raw_status_quo(
             optimization_config=optimization_config,

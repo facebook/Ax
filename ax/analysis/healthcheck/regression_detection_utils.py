@@ -15,7 +15,7 @@ from ax.core.experiment import Experiment
 from ax.core.observation import observations_from_data
 
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.modelbridge.discrete import DiscreteModelBridge
+from ax.modelbridge.discrete import DiscreteAdapter
 from ax.modelbridge.registry import rel_EB_ashr_trans
 from ax.models.discrete.eb_ashr import EBAshr
 from pyre_extensions import assert_is_instance
@@ -101,7 +101,7 @@ def compute_regression_probabilities_single_trial(
 
     target_data = Data(df=data.df[data.df["metric_name"].isin(metric_names)])
 
-    modelbridge = DiscreteModelBridge(
+    modelbridge = DiscreteAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
         data=target_data,
@@ -184,7 +184,7 @@ def detect_regressions_single_trial(
         size_thresholds=size_thresholds,
     )
 
-    # Regressing arms along with the metrics they regresss
+    # Regressing arms along with the metrics they regress
     regressing_arms_metrics: dict[str | None, dict[str, float]] = defaultdict(dict)
 
     for i, arm_name in enumerate(arm_names):

@@ -7,24 +7,22 @@
 
 import os
 from collections.abc import Mapping
-
 from typing import Any
 
 import torch
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.benchmark.problems.surrogate.lcbench.utils import (
+    BASELINE_VALUES,
     DEFAULT_METRIC_NAME,
     get_lcbench_optimization_config,
-    get_lcbench_search_space,
 )
-from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.registry import Cont_X_trans, Models, Y_trans
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.registry import Cont_X_trans, Generators, Y_trans
+from ax.modelbridge.torch import TorchAdapter
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.testing.mock import skip_fit_gpytorch_mll_context_manager
 from botorch.models import SingleTaskGP
@@ -35,30 +33,7 @@ from pyre_extensions import assert_is_instance
 
 DEFAULT_NUM_TRIALS: int = 30
 
-BASELINE_VALUES: dict[str, float] = {
-    "KDDCup09_appetency": 94.84762378096477,
-    "APSFailure": 97.75754021610224,
-    "albert": 63.893807756587876,
-    "Amazon_employee_access": 93.92434556024065,
-    "Australian": 89.35657945184583,
-    "Fashion-MNIST": 84.94202558279305,
-    "car": 80.47958436427733,
-    "christine": 72.27323565977512,
-    "cnae-9": 94.15832149950144,
-    "covertype": 61.552294168420595,
-    "dionis": 54.99212355534204,
-    "fabert": 64.88207128531921,
-    "helena": 19.156010689783603,
-    "higgs": 64.84690723875762,
-    "jannis": 57.58628096200955,
-    "jasmine": 80.6321652907534,
-    "kr-vs-kp": 94.53560263952683,
-    "mfeat-factors": 95.58423367904923,
-    "nomao": 93.51402242799601,
-    "shuttle": 96.43481523407816,
-    "sylvine": 91.91719206036713,
-    "volkert": 49.50686237250762,
-}
+
 DEFAULT_AND_OPTIMAL_VALUES: dict[str, tuple[float, float]] = {
     "KDDCup09_appetency": (87.14437173839048, 100.41903197808242),
     "APSFailure": (97.3412499690734, 98.38099041845653),
@@ -83,36 +58,6 @@ DEFAULT_AND_OPTIMAL_VALUES: dict[str, tuple[float, float]] = {
     "sylvine": (83.1596613771663, 98.85179841137813),
     "volkert": (45.361097364985376, 58.133196667029864),
 }
-
-
-def get_lcbench_experiment(
-    metric_name: str = DEFAULT_METRIC_NAME,
-    observe_noise_stds: bool = False,
-) -> Experiment:
-    """Construct an experiment with the LCBench search space and optimization config.
-    Used in N5808878 to fit the initial surrogate, and may be useful for the setup
-    of transfer learning experiments.
-
-    Args:
-        observe_noise_stds: Whether or not the magnitude of the observation noise
-            is known.
-        metric_name: The name of the metric to use for the objective.
-
-    Returns:
-        An experiment with the LCBench search space and optimization config.
-    """
-
-    search_space: SearchSpace = get_lcbench_search_space()
-    optimization_config: OptimizationConfig = get_lcbench_optimization_config(
-        metric_name=metric_name,
-        observe_noise_sd=observe_noise_stds,
-        use_map_metric=False,
-    )
-
-    experiment = Experiment(
-        search_space=search_space, optimization_config=optimization_config
-    )
-    return experiment
 
 
 def get_lcbench_surrogate() -> Surrogate:
@@ -149,7 +94,7 @@ def get_lcbench_benchmark_problem(
         num_trials: The number of optimization trials to run.
         noise_stds: The standard deviation of the observation noise.
         observe_noise_stds: Whether to report the standard deviation of the
-            obervation noise.
+            observation noise.
 
     Returns:
         An LCBench surrogate benchmark problem.
@@ -163,7 +108,7 @@ def get_lcbench_benchmark_problem(
     base_path = os.path.dirname(os.path.realpath(__file__))
     obj: dict[str, Any] = torch.load(
         f=os.path.join(
-            base_path, "data", "transfer_learning", f"lcbench_{dataset_name}.pt"
+            base_path, "transfer_learning_data", f"lcbench_{dataset_name}.pt"
         ),
         weights_only=False,
     )
@@ -173,7 +118,7 @@ def get_lcbench_benchmark_problem(
         use_map_metric=False,
     )
 
-    def get_surrogate() -> TorchModelBridge:
+    def get_surrogate() -> TorchAdapter:
         """Construct a modelbridge with the LCBench surrogate and datasets.
 
         Returns:
@@ -181,15 +126,17 @@ def get_lcbench_benchmark_problem(
         """
         # We load the model hyperparameters from the saved state dict.
         with skip_fit_gpytorch_mll_context_manager():
-            mb = Models.BOTORCH_MODULAR(
+            mb = Generators.BOTORCH_MODULAR(
                 surrogate=get_lcbench_surrogate(),
                 experiment=obj["experiment"],
                 search_space=obj["experiment"].search_space,
                 data=obj["data"],
                 transforms=Cont_X_trans + Y_trans,
             )
-        mb.model.surrogate.model.load_state_dict(obj["state_dict"])
-        return assert_is_instance(mb, TorchModelBridge)
+        assert_is_instance(mb.model, BoTorchGenerator).surrogate.model.load_state_dict(
+            obj["state_dict"]
+        )
+        return assert_is_instance(mb, TorchAdapter)
 
     name = f"LCBench_Surrogate_{dataset_name}:v1"
 

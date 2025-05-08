@@ -7,15 +7,18 @@
 
 
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.generation_strategy.generation_strategy import (
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.modelbridge.registry import Generators
 
 
 def get_sobol_generation_strategy() -> GenerationStrategy:
     return GenerationStrategy(
         name="Sobol",
         steps=[
-            GenerationStep(model=Models.SOBOL, num_trials=-1),
+            GenerationStep(model=Generators.SOBOL, num_trials=-1),
         ],
     )
 

@@ -8,22 +8,20 @@
 
 # flake8: noqa F401
 from ax.modelbridge import transforms
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.factory import (
+    Generators,
     get_factorial,
     get_sobol,
     get_thompson,
     get_uniform,
-    Models,
 )
-from ax.modelbridge.map_torch import MapTorchModelBridge
-from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.torch import TorchAdapter
 
 __all__ = [
-    "MapTorchModelBridge",
-    "ModelBridge",
-    "Models",
-    "TorchModelBridge",
+    "Adapter",
+    "Generators",
+    "TorchAdapter",
     "get_factorial",
     "get_sobol",
     "get_thompson",

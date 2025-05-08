@@ -30,7 +30,7 @@ from ax.modelbridge.modelbridge_utils import (
     observation_data_to_array,
     pending_observations_as_array_list,
 )
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -43,7 +43,7 @@ from pyre_extensions import none_throws
 TEST_PARAMETERIZATON_LIST = ["5", "foo", "True", "5"]
 
 
-class TestModelbridgeUtils(TestCase):
+class TestAdapterUtils(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.experiment = get_experiment()
@@ -56,7 +56,7 @@ class TestModelbridgeUtils(TestCase):
             arm=self.trial.arm, trial_index=self.trial.index
         )
         self.hss_exp = get_hierarchical_search_space_experiment()
-        self.hss_sobol = Models.SOBOL(search_space=self.hss_exp.search_space)
+        self.hss_sobol = Generators.SOBOL(experiment=self.hss_exp)
         self.hss_gr = self.hss_sobol.gen(n=1)
         self.hss_trial = self.hss_exp.new_trial(self.hss_gr)
         self.hss_arm = none_throws(self.hss_trial.arm)

@@ -24,7 +24,7 @@ from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.trial import Trial
 from ax.metrics.noisy_function import GenericNoisyFunctionMetric
 from ax.modelbridge.cross_validation import cross_validate
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -152,13 +152,13 @@ class TestHierarchicalSearchSpace(TestCase):
             runner=SyntheticRunner(),
         )
 
-        sobol = Models.SOBOL(search_space=hss)
+        sobol = Generators.SOBOL(experiment=experiment)
         for _ in range(num_sobol_trials):
             trial = experiment.new_trial(generator_run=sobol.gen(n=1))
             trial.run().mark_completed()
 
         for _ in range(num_bo_trials):
-            mbm = Models.BOTORCH_MODULAR(
+            mbm = Generators.BOTORCH_MODULAR(
                 experiment=experiment, data=experiment.fetch_data()
             )
             trial = experiment.new_trial(generator_run=mbm.gen(n=1))
@@ -190,7 +190,7 @@ class TestHierarchicalSearchSpace(TestCase):
         `expect_errors_with_final_parameterization` arg is used to handle
         the `KeyError` that is expected (but should be fixed) in this setting.
         """
-        mbm = Models.BOTORCH_MODULAR(
+        mbm = Generators.BOTORCH_MODULAR(
             experiment=experiment, data=experiment.fetch_data()
         )
         for t in experiment.trials.values():

@@ -12,6 +12,7 @@ from typing import Any, SupportsIndex
 from unittest import mock
 
 import numpy as np
+from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
@@ -30,7 +31,7 @@ from ax.core.outcome_constraint import (
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import Adapter
 from ax.modelbridge.transforms.winsorize import (
     _get_auto_winsorization_cutoffs_outcome_constraint,
     _get_auto_winsorization_cutoffs_single_objective,
@@ -38,6 +39,7 @@ from ax.modelbridge.transforms.winsorize import (
     AUTO_WINS_QUANTILE,
     Winsorize,
 )
+from ax.models.base import Generator
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -157,19 +159,6 @@ class WinsorizeTransformTest(TestCase):
                 }
             },
         )
-
-    def test_PrintDeprecationWarning(self) -> None:
-        expected_warning = (
-            "Winsorization received an out-of-date `transform_config`, containing "
-            'the key `"optimization_config"`. Please update the config according '
-            "to the docs of `ax.modelbridge.transforms.winsorize.Winsorize`."
-        )
-        with self.assertWarnsRegex(DeprecationWarning, expected_warning):
-            Winsorize(
-                search_space=None,
-                observations=deepcopy(self.observations),
-                config={"optimization_config": "dummy_val"},
-            )
 
     def test_Init(self) -> None:
         self.assertEqual(self.t.cutoffs["m1"], (-INF, 2.0))
@@ -568,11 +557,8 @@ class WinsorizeTransformTest(TestCase):
         autospec=True,
         return_value=(OBSERVATION_DATA),
     )
-    def test_relative_constraints(
-        self,
-        mock_observations_from_data: mock.Mock,
-    ) -> None:
-        # ModelBridge with in-design status quo
+    def test_relative_constraints(self, _: mock.Mock) -> None:
+        # Adapter with in-design status quo
         search_space = SearchSpace(
             parameters=[
                 RangeParameter("x", ParameterType.FLOAT, 0, 20),
@@ -600,11 +586,10 @@ class WinsorizeTransformTest(TestCase):
                 ),
             ],
         )
-        modelbridge = ModelBridge(
-            search_space=search_space,
-            model=None,
+        modelbridge = Adapter(
+            experiment=Experiment(search_space=search_space),
+            model=Generator(),
             transforms=[],
-            experiment=Experiment(search_space, "test"),
             data=Data(),
             optimization_config=oc,
         )
@@ -618,13 +603,14 @@ class WinsorizeTransformTest(TestCase):
                 config={"derelativize_with_raw_status_quo": True},
             )
 
-        modelbridge = ModelBridge(
-            search_space=search_space,
-            model=None,
+        modelbridge = Adapter(
+            experiment=Experiment(
+                search_space=search_space,
+                status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
+            ),
+            model=Generator(),
             transforms=[],
-            experiment=Experiment(search_space, "test"),
             data=Data(),
-            status_quo_name="1_1",
             optimization_config=oc,
         )
         with self.assertRaisesRegex(
@@ -657,8 +643,11 @@ class WinsorizeTransformTest(TestCase):
                 Winsorize(search_space=None, observations=observations, config=config)
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_transform(observation_data, config=None, optimization_config=None) -> Winsorize:
+def get_transform(
+    observation_data: list[ObservationData],
+    config: dict[str, Any] | None = None,
+    optimization_config: OptimizationConfig | None = None,
+) -> Winsorize:
     observations = [
         Observation(features=ObservationFeatures({}), data=obsd)
         for obsd in observation_data
@@ -692,7 +681,9 @@ def get_default_transform_cutoffs(
         covariance=np.eye(obs_data_len),
     )
     obs = Observation(features=ObservationFeatures({}), data=obsd)
-    modelbridge = _wrap_optimization_config_in_modelbridge(optimization_config)
+    modelbridge = _wrap_optimization_config_in_modelbridge(
+        optimization_config=optimization_config
+    )
     transform = Winsorize(
         search_space=None,
         observations=[deepcopy(obs)],
@@ -706,9 +697,9 @@ def get_default_transform_cutoffs(
 
 def _wrap_optimization_config_in_modelbridge(
     optimization_config: OptimizationConfig,
-) -> ModelBridge:
-    return ModelBridge(
-        search_space=SearchSpace(parameters=[]),
-        model=1,
+) -> Adapter:
+    return Adapter(
+        experiment=Experiment(search_space=SearchSpace(parameters=[])),
+        model=Generator(),
         optimization_config=optimization_config,
     )

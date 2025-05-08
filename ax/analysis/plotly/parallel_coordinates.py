@@ -5,18 +5,24 @@
 
 # pyre-strict
 
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import select_metric
+from ax.analysis.plotly.utils import (
+    METRIC_CONTINUOUS_COLOR_SCALE,
+    select_metric,
+    truncate_label,
+)
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.modelbridge.base import Adapter
 from plotly import graph_objects as go
+from pyre_extensions import override
 
 
 class ParallelCoordinatesPlot(PlotlyAnalysis):
@@ -24,9 +30,10 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
     Plotly Parcoords plot for a single metric, with one line per arm and dimensions for
     each parameter in the search space. This plot is useful for understanding how
     thoroughly the search space is explored as well as for identifying if there is any
-    clusertering for either good or bad parameterizations.
+    clustering for either good or bad parameterizations.
 
     The DataFrame computed will contain one row per arm and the following columns:
+        - trial_index: The trial index during which the arm was run
         - arm_name: The name of the arm
         - METRIC_NAME: The observed mean of the metric specified
         - **PARAMETER_NAME: The value of said parameter for the arm, for each parameter
@@ -42,11 +49,13 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
 
         self.metric_name = metric_name
 
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategyInterface | None = None,
-    ) -> PlotlyAnalysisCard:
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> Sequence[PlotlyAnalysisCard]:
         if experiment is None:
             raise UserInputError("ParallelCoordinatesPlot requires an Experiment")
 
@@ -55,13 +64,26 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
         df = _prepare_data(experiment=experiment, metric=metric_name)
         fig = _prepare_plot(df=df, metric_name=metric_name)
 
-        return self._create_plotly_analysis_card(
-            title=f"Parallel Coordinates for {metric_name}",
-            subtitle="View arm parameterizations with their respective metric values",
-            level=AnalysisCardLevel.HIGH,
-            df=df,
-            fig=fig,
-        )
+        return [
+            self._create_plotly_analysis_card(
+                title=f"Parallel Coordinates for {metric_name}",
+                subtitle=(
+                    "The parallel coordinates plot displays multi-dimensional "
+                    "data by representing each parameter as a parallel axis. This "
+                    "plot helps in assessing how thoroughly the search space has "
+                    "been explored and in identifying patterns or clusterings "
+                    "associated with high-performing (good) or low-performing (bad) "
+                    "arms. By tracing lines across the axes, one can observe "
+                    "correlations and interactions between parameters, gaining "
+                    "insights into the relationships that contribute to the success "
+                    "or failure of different configurations within the experiment."
+                ),
+                level=AnalysisCardLevel.HIGH,
+                df=df,
+                fig=fig,
+                category=AnalysisCardCategory.INSIGHT,
+            )
+        ]
 
 
 def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:
@@ -73,12 +95,16 @@ def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:
 
     records = [
         {
+            "trial_index": trial.index,
             "arm_name": arm.name,
             **arm.parameters,
-            metric: _find_mean_by_arm_name(df=filtered_df, arm_name=arm.name),
+            metric: _find_mean(
+                df=filtered_df, trial_index=trial.index, arm_name=arm.name
+            ),
         }
         for trial in experiment.trials.values()
         for arm in trial.arms
+        if trial.status.is_completed  # Only include completed trials
     ]
 
     return pd.DataFrame.from_records(records).dropna()
@@ -96,11 +122,15 @@ def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
 
     return go.Figure(
         go.Parcoords(
-            line={"color": df[metric_name], "showscale": True},
+            line={
+                "color": df[metric_name],
+                "colorscale": METRIC_CONTINUOUS_COLOR_SCALE,
+                "showscale": True,
+            },
             dimensions=[
                 *parameter_dimensions,
                 {
-                    "label": _truncate_label(label=metric_name),
+                    "label": truncate_label(label=metric_name),
                     "values": df[metric_name].tolist(),
                 },
             ],
@@ -110,14 +140,17 @@ def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
     )
 
 
-def _find_mean_by_arm_name(
+def _find_mean(
     df: pd.DataFrame,
+    trial_index: int,
     arm_name: str,
 ) -> float:
-    # Given a dataframe with arm_name and mean columns, find the mean for a given
-    # arm_name. If an arm_name is not found (as can happen if the arm is still running
-    # or has failed) return NaN.
-    series = df.loc[df["arm_name"] == arm_name]["mean"]
+    # Given a dataframe with trial_index, arm_name and mean columns, find the mean for
+    # a given arm_name. If an arm_name is not found (as can happen if the arm is still
+    # running or has failed) return NaN.
+    series = df.loc[(df["trial_index"] == trial_index) & (df["arm_name"] == arm_name)][
+        "mean"
+    ]
 
     if series.empty:
         return np.nan
@@ -132,7 +165,7 @@ def _get_parameter_dimension(series: pd.Series) -> dict[str, Any]:
         return {
             "tickvals": None,
             "ticktext": None,
-            "label": _truncate_label(label=str(series.name)),
+            "label": truncate_label(label=str(series.name)),
             "values": series.tolist(),
         }
 
@@ -141,14 +174,8 @@ def _get_parameter_dimension(series: pd.Series) -> dict[str, Any]:
     mapping = {v: k for k, v in enumerate(sorted(series.unique()))}
 
     return {
-        "tickvals": [_truncate_label(label=str(val)) for val in mapping.values()],
-        "ticktext": [_truncate_label(label=str(key)) for key in mapping.keys()],
-        "label": _truncate_label(label=str(series.name)),
+        "tickvals": [truncate_label(label=str(val)) for val in mapping.values()],
+        "ticktext": [truncate_label(label=str(key)) for key in mapping.keys()],
+        "label": truncate_label(label=str(series.name)),
         "values": series.map(mapping).tolist(),
     }
-
-
-def _truncate_label(label: str, n: int = 18) -> str:
-    if len(label) > n:
-        return label[:n] + "..."
-    return label

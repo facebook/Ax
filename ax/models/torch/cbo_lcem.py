@@ -9,7 +9,7 @@
 from typing import Any
 
 import torch
-from ax.models.torch.botorch import BotorchModel
+from ax.models.torch.botorch import LegacyBoTorchGenerator
 from botorch.fit import fit_gpytorch_mll
 from botorch.models.contextual_multioutput import LCEMGP
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -20,7 +20,7 @@ from torch import Tensor
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
 
 
-class LCEMBO(BotorchModel):
+class LCEMBO(LegacyBoTorchGenerator):
     r"""Does Bayesian optimization with LCE-M GP."""
 
     def __init__(

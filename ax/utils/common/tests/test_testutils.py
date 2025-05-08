@@ -100,11 +100,6 @@ class TestTestUtils(TestCase):
                 sys.stderr = old_err
         self.assertTrue(new_stderr.getvalue().startswith("A message\n"))
 
-    def test_fail_deprecated(self) -> None:
-        self.assertEqual(1, 1)
-        with self.assertRaises(RuntimeError):
-            self.assertEquals(1, 1)
-
     def test_ax_long_test_decorator(self) -> None:
         testReason: str = "testReason"
 

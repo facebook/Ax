@@ -15,13 +15,14 @@ from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field, InitVar
 from logging import Logger
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
+from ax.exceptions.model import ModelError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.botorch_modular.input_constructors.covar_modules import (
     covar_module_argparse,
@@ -42,7 +43,6 @@ from ax.models.torch.botorch_modular.utils import (
 )
 from ax.models.torch.utils import (
     _to_inequality_constraints,
-    normalize_indices,
     pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
 )
@@ -62,7 +62,6 @@ from ax.utils.stats.model_fit_stats import (
     RANK_CORRELATION,
 )
 from botorch.exceptions.errors import ModelFittingError
-from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
@@ -74,14 +73,18 @@ from botorch.models.transforms.input import (
 )
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
 from botorch.posteriors.gpytorch import GPyTorchPosterior
+from botorch.settings import validate_input_scaling
 from botorch.utils.containers import SliceContainer
 from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
+from botorch.utils.evaluation import AIC, BIC, compute_in_sample_model_fit_metric, MLL
+from botorch.utils.transforms import normalize_indices
 from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from gpytorch.models.exact_gp import ExactGP
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 from torch.nn import Module
@@ -92,10 +95,16 @@ NOT_YET_FIT_MSG = (
 )
 
 logger: Logger = get_logger(__name__)
+MODEL_SELECTION_METRIC_DIRECTIONS: dict[str, ModelFitMetricDirection] = {
+    **DIAGNOSTIC_FN_DIRECTIONS,
+    MLL: ModelFitMetricDirection.MAXIMIZE,
+    AIC: ModelFitMetricDirection.MINIMIZE,
+    BIC: ModelFitMetricDirection.MINIMIZE,
+}
 
 
 def _extract_model_kwargs(
-    search_space_digest: SearchSpaceDigest,
+    search_space_digest: SearchSpaceDigest, botorch_model_class: type[Model]
 ) -> dict[str, list[int] | int]:
     """
     Extracts keyword arguments that are passed to the `construct_inputs`
@@ -103,6 +112,7 @@ def _extract_model_kwargs(
 
     Args:
         search_space_digest: A `SearchSpaceDigest`.
+        botorch_model_class: The BoTorch model class to extract kwargs for.
 
     Returns:
         A dict of fidelity features, categorical features, and, if present, task
@@ -117,6 +127,10 @@ def _extract_model_kwargs(
         )
     if len(task_features) > 1:
         raise NotImplementedError("Multiple task features are not supported.")
+    elif len(task_features) == 0 and issubclass(botorch_model_class, MultiTaskGP):
+        # This is handled in Surrogate.model_selection and the MTGP will be
+        # skipped if there is no task feature.
+        raise ModelFittingError("Cannot fit MultiTaskGP without task feature.")
 
     kwargs: dict[str, list[int] | int] = {}
     if len(search_space_digest.categorical_features) > 0:
@@ -227,8 +241,8 @@ def _construct_default_input_transforms(
     bounds = torch.tensor(search_space_digest.bounds, dtype=torch.get_default_dtype()).T
     indices = list(range(bounds.shape[-1]))
     # Remove task features.
-    for task_feature in normalize_indices(
-        search_space_digest.task_features, d=bounds.shape[-1]
+    for task_feature in none_throws(
+        normalize_indices(search_space_digest.task_features, d=bounds.shape[-1])
     ):
         indices.remove(task_feature)
     # Skip the Normalize transform if the bounds are [0, 1].
@@ -441,7 +455,7 @@ class SurrogateSpec:
     Fields in the SurrogateSpec dataclass correspond to arguments in
     ``Surrogate.__init__``, except for ``outcomes`` which is used to specify which
     outcomes the Surrogate is responsible for modeling.
-    When ``BotorchModel.fit`` is called, these fields will be used to construct the
+    When ``BoTorchGenerator.fit`` is called, these fields will be used to construct the
     requisite Surrogate objects.
     If ``outcomes`` is left empty then no outcomes will be fit to the Surrogate.
 
@@ -454,7 +468,7 @@ class SurrogateSpec:
         model_options: Dictionary of options / kwargs for the BoTorch
             ``Model`` constructed during ``Surrogate.fit``.
             Note that the corresponding attribute will later be updated to include any
-            additional kwargs passed into ``BoTorchModel.fit``.
+            additional kwargs passed into ``BoTorchGenerator.fit``.
             This argument is deprecated in favor of model_configs.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
             This argument is deprecated in favor of model_configs.
@@ -608,7 +622,7 @@ class Surrogate(Base):
     construction, incomplete, and should be treated as alpha
     versions only.**
 
-    Ax wrapper for BoTorch ``Model``, subcomponent of ``BoTorchModel``
+    Ax wrapper for BoTorch ``Model``, subcomponent of ``BoTorchGenerator``
     and is not meant to be used outside of it.
 
     Args:
@@ -620,7 +634,7 @@ class Surrogate(Base):
         model_options: Dictionary of options / kwargs for the BoTorch
             ``Model`` constructed during ``Surrogate.fit``.
             Note that the corresponding attribute will later be updated to include any
-            additional kwargs passed into ``BoTorchModel.fit``.
+            additional kwargs passed into ``BoTorchGenerator.fit``.
             This argument is deprecated in favor of model_configs.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
             This argument is deprecated in favor of model_configs.
@@ -673,9 +687,13 @@ class Surrogate(Base):
         allow_batched_models: Set to true to fit the models in a batch if supported.
             Set to false to fit individual models to each metric in a loop.
         refit_on_cv: Whether to refit the model on the cross-validation folds.
+        warm_start_refit: Whether to warm-start refitting from the current state_dict
+            during cross-validation. If refit_on_cv is True, generally one
+            would set this to be False, so that no information is leaked between or
+            across folds.
         metric_to_best_model_config: Dictionary mapping a metric name to the best
-            model config. This is only used by BotorchModel.cross_validate and for
-            logging what model was used.
+            model config. This is only used by `BoTorchGenerator.cross_validate` and
+            for logging what model was used.
 
     """
 
@@ -698,6 +716,7 @@ class Surrogate(Base):
         likelihood_options: dict[str, Any] | None = None,
         allow_batched_models: bool = True,
         refit_on_cv: bool = False,
+        warm_start_refit: bool = True,
         metric_to_best_model_config: dict[str, ModelConfig] | None = None,
     ) -> None:
         warnings_raised = _raise_deprecation_warning(
@@ -764,6 +783,7 @@ class Surrogate(Base):
         self._outcomes: list[str] | None = None
         self._model: Model | None = None
         self.refit_on_cv = refit_on_cv
+        self.warm_start_refit = warm_start_refit
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}" f" surrogate_spec={self.surrogate_spec}>"
@@ -771,16 +791,16 @@ class Surrogate(Base):
     @property
     def model(self) -> Model:
         if self._model is None:
-            raise ValueError(
+            raise ModelError(
                 "BoTorch `Model` has not yet been constructed, please fit the "
-                "surrogate first (done via `BoTorchModel.fit`)."
+                "surrogate first (done via `BoTorchGenerator.fit`)."
             )
         return self._model
 
     @property
     def training_data(self) -> list[SupervisedDataset]:
         if self._training_data is None:
-            raise ValueError(NOT_YET_FIT_MSG)
+            raise ModelError(NOT_YET_FIT_MSG)
         return self._training_data
 
     @property
@@ -819,7 +839,7 @@ class Surrogate(Base):
         search_space_digest: SearchSpaceDigest,
         model_config: ModelConfig,
         default_botorch_model_class: type[Model],
-        state_dict: OrderedDict[str, Tensor] | None,
+        state_dict: Mapping[str, Tensor] | None,
         refit: bool,
     ) -> Model:
         """Constructs the underlying BoTorch ``Model`` using the training data.
@@ -844,7 +864,7 @@ class Surrogate(Base):
         botorch_model_class = (
             model_config.botorch_model_class or default_botorch_model_class
         )
-        if self._should_reuse_last_model(dataset=dataset):
+        if self._dataset_matches_cache(dataset=dataset):
             return self._submodels[outcome_names]
         formatted_model_inputs = submodel_input_constructor(
             botorch_model_class,  # Do not pass as kwarg since this is used to dispatch.
@@ -855,22 +875,22 @@ class Surrogate(Base):
         )
         # pyre-ignore [45]
         model = botorch_model_class(**formatted_model_inputs)
-        if state_dict is not None:
+        if state_dict is not None and (not refit or self.warm_start_refit):
             model.load_state_dict(state_dict)
         if state_dict is None or refit:
             fit_botorch_model(
-                model=model,
+                model,  # Intentionally not using named args for dispatcher.
                 mll_class=model_config.mll_class,
                 mll_options=model_config.mll_options,
             )
         return model
 
-    def _should_reuse_last_model(
+    def _dataset_matches_cache(
         self,
         dataset: SupervisedDataset,
     ) -> bool:
-        """Checks whether the given dataset and model class match the last
-        dataset.
+        """Returns `True` if the given dataset matches the last dataset used to fit
+        the model for the corresponding outcomes.
         """
         outcome_names = tuple(dataset.outcome_names)
         return (
@@ -883,13 +903,14 @@ class Surrogate(Base):
         datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
-        state_dict: OrderedDict[str, Tensor] | None = None,
+        state_dict: Mapping[str, Tensor] | None = None,
         refit: bool = True,
+        repeat_model_selection_if_dataset_changed: bool = True,
     ) -> None:
         """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
 
         NOTE: ``state_dict`` and ``refit`` keyword arguments control how the
-        undelying BoTorch ``Model`` will be fit: whether its parameters will
+        underlying BoTorch ``Model`` will be fit: whether its parameters will
         be reoptimized and whether it will be warm-started from a given state.
 
         There are three possibilities:
@@ -913,6 +934,14 @@ class Surrogate(Base):
                 the order corresponding to the Xs.
             state_dict: Optional state dict to load.
             refit: Whether to re-optimize model parameters.
+            repeat_model_selection_if_dataset_changed: Whether to repeat model
+                selection, ignoring previously found best config, if the dataset
+                for the corresponding outcomes has changed. This is typically
+                set to `True` when called from ``BoTorchGenerator.fit`` but set
+                to `False` when called from ``BoTorchGenerator.cross_validate``.
+                During cross_validation, we want to evaluate the quality of the
+                previously selected best model, rather than repeating model selection
+                for each fold.
         """
         self._discard_cached_model_and_data_if_search_space_digest_changed(
             search_space_digest=search_space_digest
@@ -946,19 +975,36 @@ class Surrogate(Base):
                     )
                 else:
                     submodel_state_dict = state_dict
-            outcome_name = dataset.outcome_names[0]
+            outcome_name_tuple = tuple(dataset.outcome_names)
+            first_outcome_name = outcome_name_tuple[0]
             model_configs = (
-                self.surrogate_spec.metric_to_model_configs[outcome_name]
-                if outcome_name in self.surrogate_spec.metric_to_model_configs
+                self.surrogate_spec.metric_to_model_configs[first_outcome_name]
+                if first_outcome_name in self.surrogate_spec.metric_to_model_configs
                 else self.surrogate_spec.model_configs
             )
-            # Case 1: There is either 1 model config, or we don't want to refit
-            # and we know what the previous best model was
-            outcome_name_tuple = tuple(dataset.outcome_names)
-            model_config = self.metric_to_best_model_config.get(
-                dataset.outcome_names[0]
-            )
-            if len(model_configs) == 1 or (not refit and model_config is not None):
+            # Case 1: There is either 1 model config, or we don't want to re-do
+            # model selection and we know what the previous best model was.
+            if (
+                not repeat_model_selection_if_dataset_changed
+                or self._dataset_matches_cache(dataset=dataset)
+            ):
+                # Re-use the best model config, if the dataset hasn't changed or
+                # `repeat_model_selection_if_dataset_changed` is set to `False`.
+                model_config = self.metric_to_best_model_config.get(first_outcome_name)
+            else:
+                model_config = None
+            # Model selection is not performed if the best `ModelConfig` has already
+            # been identified (as specified in `metric_to_best_model_config`).
+            # The reason for doing this is to support the following flow:
+            # - Fit model to data and perform model selection, refitting on each fold
+            #   if `refit_on_cv=True`. This will set the best ModelConfig in
+            #   metric_to_best_model_config.
+            # - Evaluate the choice of model/visualize its performance via
+            #   `Modelbridge.cross_validate``. This also will refit on each fold if
+            #   `refit_on_cv=True`, but we wouldn't want to perform model selection
+            #   on each fold, but rather show the performance of the selecting
+            #   `ModelConfig`` since that is what will be used.
+            if len(model_configs) == 1 or (model_config is not None):
                 best_model_config = model_config or model_configs[0]
                 model = self._construct_model(
                     dataset=dataset,
@@ -1015,7 +1061,7 @@ class Surrogate(Base):
         based on the SurrogateSpec's eval_criteria. The eval_criteria is
         computed using LOOCV on the provided dataset. The best model config is saved
         in self.metric_to_best_model_config for future use (e.g. for using cross-
-        validation at the Modelbridge level).
+        validation at the Adapter level).
 
         Args:
             dataset: Training data for the model
@@ -1043,7 +1089,7 @@ class Surrogate(Base):
         # loop over model configs, fit model for each config, perform LOOCV, select
         # best model according to specified criterion
         maximize = (
-            DIAGNOSTIC_FN_DIRECTIONS[self.surrogate_spec.eval_criterion]
+            MODEL_SELECTION_METRIC_DIRECTIONS[self.surrogate_spec.eval_criterion]
             == ModelFitMetricDirection.MAXIMIZE
         )
         prefix = "-" if maximize else ""
@@ -1065,20 +1111,26 @@ class Surrogate(Base):
                 )
                 state_dict = model.state_dict()
                 # perform LOOCV
-                eval_metric = self.cross_validate(
-                    dataset=dataset,
-                    search_space_digest=search_space_digest,
-                    model_config=model_config,
-                    default_botorch_model_class=none_throws(
-                        default_botorch_model_class
-                    ),
-                    # pyre-fixme [6]: In call `Surrogate.cross_validate`, for argument
-                    # `state_dict`, expected `Optional[OrderedDict[str, Tensor]]` but
-                    # got `Dict[str, typing.Any]`.
-                    state_dict=state_dict,
-                )
+                if self.surrogate_spec.eval_criterion in (AIC, BIC, MLL):
+                    eval_metric = compute_in_sample_model_fit_metric(
+                        model=assert_is_instance(model, ExactGP),
+                        criterion=self.surrogate_spec.eval_criterion,
+                    )
+                else:
+                    eval_metric = self.cross_validate(
+                        dataset=dataset,
+                        search_space_digest=search_space_digest,
+                        model_config=model_config,
+                        default_botorch_model_class=none_throws(
+                            default_botorch_model_class
+                        ),
+                        # pyre-fixme [6]: In call `Surrogate.cross_validate`, for
+                        # argument  `state_dict`, expected `Optional[OrderedDict[str,
+                        # Tensor]]` but got `Dict[str, typing.Any]`.
+                        state_dict=state_dict,
+                    )
             except ModelFittingError as e:
-                logger.info(
+                logger.warning(
                     f"Model {model_config} failed to fit with error {e}. Skipping."
                 )
                 continue
@@ -1136,14 +1188,10 @@ class Surrogate(Base):
             test_X = X[i : i + 1]
             # fit model to all but one data point
             # TODO: consider batchifying
-            with warnings.catch_warnings():
-                # Suppress BoTorch input standardization warnings here, since they're
-                # expected to be triggered due to subsetting of the data.
-                warnings.filterwarnings(
-                    "ignore",
-                    message=r"Data \(outcome observations\) is not standardized",
-                    category=InputDataWarning,
-                )
+            # Since each CV fold removes points from the training data, the
+            # remaining observations will not pass the input scaling checks.
+            # To avoid confusing users with warnings, we disable these checks.
+            with validate_input_scaling(False):
                 loo_model = self._construct_model(
                     dataset=train_dataset,
                     search_space_digest=search_space_digest,
@@ -1172,7 +1220,7 @@ class Surrogate(Base):
         return diag_fn(
             y_obs=Y.view(-1).cpu().numpy(),
             y_pred=pred_Y,
-            se_pred=pred_Yvar,
+            se_pred=np.sqrt(pred_Yvar),
         )
 
     def _discard_cached_model_and_data_if_search_space_digest_changed(
@@ -1186,7 +1234,7 @@ class Surrogate(Base):
             self._last_search_space_digest is not None
             and search_space_digest != self._last_search_space_digest
         ):
-            logger.info(
+            logger.debug(
                 "Discarding all previously trained models due to a change "
                 "in the search space digest."
             )
@@ -1329,13 +1377,14 @@ class Surrogate(Base):
         return {
             "surrogate_spec": self.surrogate_spec,
             "refit_on_cv": self.refit_on_cv,
+            "warm_start_refit": self.warm_start_refit,
             "metric_to_best_model_config": self.metric_to_best_model_config,
         }
 
     @property
     def outcomes(self) -> list[str]:
         if self._outcomes is None:
-            raise RuntimeError("outcomes not initialized. Please call `fit` first.")
+            raise ModelError("`outcomes` was not initialized. Please call `fit` first.")
         return self._outcomes
 
     @outcomes.setter
@@ -1371,8 +1420,17 @@ def _submodel_input_constructor_base(
         A dictionary of inputs for constructing the model.
     """
     model_kwargs_from_ss = _extract_model_kwargs(
-        search_space_digest=search_space_digest
+        search_space_digest=search_space_digest, botorch_model_class=botorch_model_class
     )
+    # pop task feature if this is not a multi-task model
+    task_feature = model_kwargs_from_ss.get("task_feature", None)
+    if not issubclass(botorch_model_class, MultiTaskGP):
+        if task_feature is not None:
+            model_kwargs_from_ss.pop("task_feature")
+            logger.debug(
+                f"Removing task feature for {botorch_model_class.__name__}",
+                stacklevel=5,
+            )
     formatted_model_inputs: dict[str, Any] = botorch_model_class.construct_inputs(
         training_data=dataset,
         **model_config.model_options,
