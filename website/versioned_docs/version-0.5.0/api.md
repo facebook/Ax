@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
 
 The modular design of Ax enables three different usage modes, with different
 balances of structure to flexibility and reproducibility. Navigate to the
-["Tutorials" page](/docs/tutorials) for an in-depth walk-through of each API and
+["Tutorials" page](/tutorials/index.mdx) for an in-depth walk-through of each API and
 usage mode.
 
 **NOTE: We recommend the Service API for the vast majority of use cases.** This
@@ -17,7 +17,7 @@ we are in the process of consolidating Ax usage around it more formally.
 
 From most lightweight to fullest functionality, our APIs are:
 
--   **Loop API** ([tutorial](/docs/tutorials/gpei_hartmann_loop)) is intended for
+-   **Loop API** ([tutorial](/tutorials/gpei_hartmann_loop/index.mdx)) is intended for
     synchronous optimization loops, where [trials](glossary.md#trial) can be
     evaluated right away. With this API, optimization can be executed in a single
     call and [experiment](glossary.md#experiment) introspection is available once
@@ -25,7 +25,7 @@ From most lightweight to fullest functionality, our APIs are:
     running a single trial is fast and only one trial should be running at a
     time.**
 -   **[RECOMMENDED] Service API**
-    ([tutorial](/docs/tutorials/gpei_hartmann_service)) can be used as a
+    ([tutorial](/tutorials/gpei_hartmann_service/index.mdx)) can be used as a
     lightweight service for parameter-tuning applications where trials might be
     evaluated in parallel and data is available asynchronously (e.g.
     hyperparameter or simulation optimization). It requires little to no knowledge
@@ -38,9 +38,9 @@ From most lightweight to fullest functionality, our APIs are:
     architecture and how things work under the hood.**
     -   In both the Loop and the Service API, it is possible to configure the
         optimization algorithm via an Ax `GenerationStrategy`
-        ([tutorial](/docs/tutorials/generation_strategy)), so use of Developer API
+        ([tutorial](/tutorials/generation_strategy/index.mdx)), so use of Developer API
         is not required to control the optimization algorithm in Ax.
--   **Developer API** ([tutorial](/docs/tutorials/gpei_hartmann_developer)) is for
+-   **Developer API** ([tutorial](/tutorials/gpei_hartmann_developer/index.mdx)) is for
     ad-hoc use by data scientists, machine learning engineers, and researchers.
     The developer API allows for a great deal of customization and introspection,
     and is recommended for those who plan to use Ax to optimize A/B tests. Using
@@ -49,7 +49,7 @@ From most lightweight to fullest functionality, our APIs are:
     customize or contribute to Ax, or leverage advanced functionality that is not
     exposed in other APIs.**
     -   While not an API, the **`Scheduler`**
-        ([tutorial](/docs/tutorials/scheduler)) is an important and distinct
+        ([tutorial](/tutorials/scheduler/index.mdx)) is an important and distinct
         use-case of the Ax Developer API. With the `Scheduler`, it's possible to run
         a configurable, managed closed-loop optimization where trials are deployed
         and polled in an async fashion and no human intervention/oversight is
