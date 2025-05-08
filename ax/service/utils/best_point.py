@@ -80,6 +80,10 @@ def get_best_raw_objective_point_with_trial_index(
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
+    Note: This function will error with an invalid configuration. If you would
+    prefer for error logs rather than exceptions, use
+    `get_best_by_raw_objective_with_trial_index`.
+
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
         optimization_config: Optimization config to use in place of the one stored
@@ -108,15 +112,10 @@ def get_best_raw_objective_point_with_trial_index(
     if dat.df.empty:
         raise ValueError("Cannot identify best point if experiment contains no data.")
     if any(oc.relative for oc in optimization_config.all_constraints):
-        if experiment.status_quo is not None:
-            optimization_config = derelativize_opt_config(
-                optimization_config=optimization_config,
-                experiment=experiment,
-            )
-        else:
-            logger.warning(
-                "No status quo provided; relative constraints will be ignored."
-            )
+        optimization_config = derelativize_opt_config(
+            optimization_config=optimization_config,
+            experiment=experiment,
+        )
 
     # Only COMPLETED trials should be considered when identifying the best point
     completed_indices = {
@@ -146,15 +145,22 @@ def get_best_raw_objective_point_with_trial_index(
         raise ValueError("No feasible points are in the search space.")
 
     in_design_df = feasible_df.loc[is_in_design]
-
-    objective = optimization_config.objective
-    best_row_helper = (
-        _get_best_row_for_scalarized_objective
-        if isinstance(objective, ScalarizedObjective)
-        else _get_best_row_for_single_objective
+    value_by_arm_pull = get_trace_by_arm_pull_from_data(
+        df=in_design_df,
+        optimization_config=optimization_config,
+        use_cumulative_best=False,
     )
-    # pyre-ignore Incompatible parameter type [6]
-    best_row = best_row_helper(df=in_design_df, objective=objective)
+
+    maximize = isinstance(optimization_config.objective, MultiObjective) or (
+        not optimization_config.objective.minimize
+    )
+    best_row_idx = (
+        value_by_arm_pull["value"].idxmax()
+        if maximize
+        else value_by_arm_pull["value"].idxmin()
+    )
+    best_row = value_by_arm_pull.loc[best_row_idx]
+
     best_arm = experiment.arms_by_name[best_row["arm_name"]]
     best_trial_index = int(best_row["trial_index"])
     objective_rows = dat.df.loc[
@@ -321,6 +327,9 @@ def get_best_by_raw_objective_with_trial_index(
     TModelPredictArm is of the form:
         ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
 
+    This is a version of `get_best_raw_objective_point_with_trial_index` that
+    logs errors rather than letting exceptions be raised.
+
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
         optimization_config: Optimization config to use in place of the one stored
@@ -466,51 +475,6 @@ def get_pareto_optimal_parameters(
         )
 
     return res
-
-
-# NOTE: This function will be removed in the next PR.
-def _get_best_row_for_scalarized_objective(
-    df: pd.DataFrame,
-    objective: ScalarizedObjective,
-) -> pd.Series:
-    df = df.copy()
-    # First, add a weight column, setting 0.0 if the metric is not part
-    # of the objective
-    metric_to_weight = {
-        m.name: objective.weights[i] for i, m in enumerate(objective.metrics)
-    }
-    df["weight"] = df["metric_name"].apply(lambda x: metric_to_weight.get(x) or 0.0)
-    # Now, calculate the weighted linear combination via groupby,
-    # filtering out NaN for missing data
-    df["weighted_mean"] = df["mean"] * df["weight"]
-    groupby_df = (
-        df[["arm_name", "trial_index", "weighted_mean"]]
-        .groupby(["arm_name", "trial_index"], as_index=False)
-        .sum(min_count=1)
-        .dropna()
-    )
-    if groupby_df.empty:
-        raise ValueError("No data has been logged for scalarized objective.")
-    return (
-        groupby_df.loc[groupby_df["weighted_mean"].idxmin()]
-        if objective.minimize
-        else groupby_df.loc[groupby_df["weighted_mean"].idxmax()]
-    )
-
-
-# NOTE: This function will be removed in the next PR.
-def _get_best_row_for_single_objective(
-    df: pd.DataFrame, objective: Objective
-) -> pd.Series:
-    objective_name = objective.metric.name
-    objective_rows = df.loc[df["metric_name"] == objective_name]
-    if objective_rows.empty:
-        raise ValueError(f'No data has been logged for objective "{objective_name}".')
-    return (
-        objective_rows.loc[objective_rows["mean"].idxmin()]
-        if objective.minimize
-        else objective_rows.loc[objective_rows["mean"].idxmax()]
-    )
 
 
 def _is_row_feasible(
@@ -779,6 +743,11 @@ def get_trace_by_arm_pull_from_data(
             "`Derelativize` the optimization config, or use `get_trace`."
         )
 
+    empty_result = pd.DataFrame(columns=["trial_index", "arm_name", "value"])
+
+    if len(df) == 0:
+        return empty_result
+
     # reshape data to wide, using only the metrics in the optimization config
     metrics = list(optimization_config.metrics.keys())
 
@@ -793,6 +762,16 @@ def get_trace_by_arm_pull_from_data(
         .set_index(["trial_index", "arm_name", "metric_name"])["mean"]
         .unstack(level="metric_name")
     )
+    missing_metrics = [
+        m for m in metrics if m not in df_wide.columns or df_wide[m].isnull().any()
+    ]
+    if len(missing_metrics) > 0:
+        raise ValueError(
+            "Some metrics are not present for all trials and arms. The "
+            f"following are missing: {missing_metrics}."
+        )
+    if len(df_wide) == 0:
+        return empty_result
     df_wide["feasible"] = df.groupby(["trial_index", "arm_name"])["row_feasible"].all()
     df_wide.reset_index(inplace=True)
 

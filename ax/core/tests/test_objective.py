@@ -39,7 +39,7 @@ class ObjectiveTest(TestCase):
 
     def test_Init(self) -> None:
         with self.assertRaisesRegex(UserInputError, "does not specify"):
-            (Objective(metric=self.metrics["m1"]),)
+            Objective(metric=self.metrics["m1"])
         with self.assertRaisesRegex(
             UserInputError, "doesn't match the specified optimization direction"
         ):
