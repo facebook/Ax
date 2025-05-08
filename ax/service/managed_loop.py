@@ -260,17 +260,10 @@ class OptimizationLoop:
             return parameterizations, predictions
 
         # Could not find through model, default to using raw objective.
-        _, parameterization, values = get_best_raw_objective_point_with_trial_index(
-            experiment=self.experiment
+        _, parameterization, predict_arm = (
+            get_best_raw_objective_point_with_trial_index(experiment=self.experiment)
         )
-        # For values, grab just the means to conform to TModelPredictArm format.
-        return (
-            parameterization,
-            (
-                {k: v[0] for k, v in values.items()},  # v[0] is mean
-                {k: {k: v[1] * v[1]} for k, v in values.items()},  # v[1] is sem
-            ),
-        )
+        return parameterization, predict_arm
 
     def get_current_model(self) -> Adapter | None:
         """Obtain the most recently used model in optimization."""
