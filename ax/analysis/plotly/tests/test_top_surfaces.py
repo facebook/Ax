@@ -6,7 +6,7 @@
 # pyre-strict
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 from ax.api.client import Client
-from ax.api.configs import ChoiceParameterConfig, ExperimentConfig, RangeParameterConfig
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
@@ -20,21 +20,19 @@ class TestTopSurfacesAnalysis(TestCase):
     def test_compute(self) -> None:
         client = Client()
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                name="foo",
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1",
-                        parameter_type="float",
-                        bounds=(0, 1),
-                    ),
-                    RangeParameterConfig(
-                        name="x2",
-                        parameter_type="float",
-                        bounds=(0, 1),
-                    ),
-                ],
-            )
+            name="foo",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+                RangeParameterConfig(
+                    name="x2",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
         )
         client.configure_optimization(objective="bar")
 
@@ -104,22 +102,20 @@ class TestTopSurfacesAnalysis(TestCase):
     def test_compute_categorical_parameters(self) -> None:
         client = Client()
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                name="foo",
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1",
-                        parameter_type="float",
-                        bounds=(0, 1),
-                    ),
-                    ChoiceParameterConfig(
-                        name="x2",
-                        parameter_type="int",
-                        values=[*range(10)],
-                        is_ordered=False,
-                    ),
-                ],
-            )
+            name="foo",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+                ChoiceParameterConfig(
+                    name="x2",
+                    parameter_type="int",
+                    values=[*range(10)],
+                    is_ordered=False,
+                ),
+            ],
         )
         client.configure_optimization(objective="bar")
 

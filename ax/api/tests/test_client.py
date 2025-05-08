@@ -13,14 +13,7 @@ import numpy as np
 import pandas as pd
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.api.client import Client
-from ax.api.configs import (
-    ChoiceParameterConfig,
-    ExperimentConfig,
-    GenerationStrategyConfig,
-    OrchestrationConfig,
-    RangeParameterConfig,
-    StorageConfig,
-)
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
 from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TParameterization
@@ -75,15 +68,13 @@ class TestClient(TestCase):
             values=["a", "b", "c"],
         )
 
-        experiment_config = ExperimentConfig(
+        client.configure_experiment(
             name="test_experiment",
             parameters=[float_parameter, int_parameter, choice_parameter],
             parameter_constraints=["int_param <= float_param"],
             description="test description",
             owner="miles",
         )
-
-        client.configure_experiment(experiment_config=experiment_config)
         self.assertEqual(
             client._experiment,
             Experiment(
@@ -123,7 +114,13 @@ class TestClient(TestCase):
         )
 
         with self.assertRaisesRegex(UnsupportedError, "Experiment already configured"):
-            client.configure_experiment(experiment_config=experiment_config)
+            client.configure_experiment(
+                name="test_experiment",
+                parameters=[float_parameter, int_parameter, choice_parameter],
+                parameter_constraints=["int_param <= float_param"],
+                description="test description",
+                owner="miles",
+            )
 
     def test_configure_optimization(self) -> None:
         client = Client()
@@ -144,15 +141,13 @@ class TestClient(TestCase):
             values=["a", "b", "c"],
         )
 
-        experiment_config = ExperimentConfig(
+        client.configure_experiment(
             name="test_experiment",
             parameters=[float_parameter, int_parameter, choice_parameter],
             parameter_constraints=["int_param <= float_param"],
             description="test description",
             owner="miles",
         )
-
-        client.configure_experiment(experiment_config=experiment_config)
 
         client.configure_optimization(
             objective="-ne",
@@ -204,14 +199,10 @@ class TestClient(TestCase):
             client.configure_metrics(metrics=[custom_metric])
 
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(0, 1)
-                    )
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(0, 1))
+            ],
+            name="foo",
         )
 
         # Test replacing a single objective
@@ -274,14 +265,10 @@ class TestClient(TestCase):
         # Test adding a tracking metric
         client = Client()  # Start a fresh Client
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(0, 1)
-                    )
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(0, 1))
+            ],
+            name="foo",
         )
         client.configure_metrics(metrics=[custom_metric])
 
@@ -337,17 +324,11 @@ class TestClient(TestCase):
             client.get_next_trials(max_trials=1)
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                    RangeParameterConfig(
-                        name="x2", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+                RangeParameterConfig(name="x2", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
 
         with self.assertRaisesRegex(UnsupportedError, "OptimizationConfig not set"):
@@ -355,10 +336,8 @@ class TestClient(TestCase):
 
         client.configure_optimization(objective="foo")
         client.configure_generation_strategy(
-            generation_strategy_config=GenerationStrategyConfig(
-                # Set this to a large number so test runs fast
-                initialization_budget=999,
-            )
+            # Set this to a large number so test runs fast
+            initialization_budget=999,
         )
 
         # Test can generate one trial
@@ -384,24 +363,16 @@ class TestClient(TestCase):
         client = Client(storage_config=StorageConfig())
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                    RangeParameterConfig(
-                        name="x2", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+                RangeParameterConfig(name="x2", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
 
         client.configure_optimization(objective="foo")
         client.configure_generation_strategy(
-            generation_strategy_config=GenerationStrategyConfig(
-                initialization_budget=1, initialize_with_center=False
-            )
+            initialization_budget=1, initialize_with_center=False
         )
 
         # Test can generate one trial
@@ -432,14 +403,10 @@ class TestClient(TestCase):
             client.attach_data(trial_index=0, raw_data={"foo": 1.0})
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo")
 
@@ -528,14 +495,10 @@ class TestClient(TestCase):
             client.complete_trial(trial_index=0, raw_data={"foo": 1.0})
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo", outcome_constraints=["bar >= 0"])
 
@@ -629,14 +592,10 @@ class TestClient(TestCase):
             client.attach_trial(parameters={"x1": 0.5})
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo")
 
@@ -653,14 +612,10 @@ class TestClient(TestCase):
             client.attach_baseline(parameters={"x1": 0.5})
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo")
 
@@ -676,14 +631,10 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo")
 
@@ -698,14 +649,10 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo")
 
@@ -720,14 +667,10 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo")
 
@@ -768,14 +711,10 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo")
 
@@ -792,20 +731,16 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo")
         client.configure_metrics(metrics=[DummyMetric(name="foo")])
         client.configure_runner(runner=DummyRunner())
 
-        client.run_trials(max_trials=4, options=OrchestrationConfig())
+        client.run_trials(max_trials=4)
 
         self.assertEqual(len(client._experiment.trials), 4)
         self.assertEqual(
@@ -838,14 +773,10 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo")
         client.configure_metrics(metrics=[DummyMetric(name="foo")])
@@ -871,7 +802,7 @@ class TestClient(TestCase):
         # Configure runners and Metrics Run another two trials
         client.configure_metrics(metrics=[DummyMetric(name="foo")])
         client.configure_runner(runner=DummyRunner())
-        client.run_trials(max_trials=2, options=OrchestrationConfig())
+        client.run_trials(max_trials=2)
 
         # All trials should be COMPLETED
         self.assertEqual(
@@ -883,21 +814,19 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                name="test_experiment",
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1",
-                        parameter_type="float",
-                        bounds=(0, 1),
-                    ),
-                    RangeParameterConfig(
-                        name="x2",
-                        parameter_type="float",
-                        bounds=(0, 1),
-                    ),
-                ],
-            )
+            name="test_experiment",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+                RangeParameterConfig(
+                    name="x2",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
         )
         client.configure_optimization(objective="foo, bar")
 
@@ -952,19 +881,13 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo")
-        client.configure_generation_strategy(
-            generation_strategy_config=GenerationStrategyConfig()
-        )
+        client.configure_generation_strategy()
 
         with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
             cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
@@ -1001,14 +924,10 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
 
         with self.assertRaisesRegex(
@@ -1019,9 +938,7 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
         # Set initialization_budget=3 so we can reach a predictive GenerationNode
         # quickly
-        client.configure_generation_strategy(
-            generation_strategy_config=GenerationStrategyConfig(initialization_budget=3)
-        )
+        client.configure_generation_strategy(initialization_budget=3)
 
         with self.assertRaisesRegex(UnsupportedError, "No trials have been run yet"):
             client.get_best_parameterization()
@@ -1085,14 +1002,10 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
 
         with self.assertRaisesRegex(
@@ -1103,9 +1016,7 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo, bar")
         # Set initialization_budget=3 so we can reach a predictive GenerationNode
         # quickly
-        client.configure_generation_strategy(
-            generation_strategy_config=GenerationStrategyConfig(initialization_budget=3)
-        )
+        client.configure_generation_strategy(initialization_budget=3)
 
         with self.assertRaisesRegex(UnsupportedError, "No trials have been run yet"):
             client.get_pareto_frontier()
@@ -1185,21 +1096,15 @@ class TestClient(TestCase):
         client = Client()
 
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
         )
         client.configure_optimization(objective="foo", outcome_constraints=["bar >= 0"])
         # Set initialization_budget=3 so we can reach a predictive GenerationNode
         # quickly
-        client.configure_generation_strategy(
-            generation_strategy_config=GenerationStrategyConfig(initialization_budget=3)
-        )
+        client.configure_generation_strategy(initialization_budget=3)
 
         with self.assertRaisesRegex(ValueError, "but search space has parameters"):
             client.predict(points=[{"x0": 0}])
@@ -1228,29 +1133,23 @@ class TestClient(TestCase):
 
         # Experiment with relatively complicated search space
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                    RangeParameterConfig(
-                        name="x2", parameter_type="int", bounds=(-1, 1)
-                    ),
-                    ChoiceParameterConfig(
-                        name="x3",
-                        parameter_type="str",
-                        values=["a", "b"],
-                    ),
-                    ChoiceParameterConfig(
-                        name="x4",
-                        parameter_type="int",
-                        values=[1, 2, 3],
-                        is_ordered=True,
-                    ),
-                    ChoiceParameterConfig(name="x5", parameter_type="int", values=[1]),
-                ],
-                name="foo",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+                RangeParameterConfig(name="x2", parameter_type="int", bounds=(-1, 1)),
+                ChoiceParameterConfig(
+                    name="x3",
+                    parameter_type="str",
+                    values=["a", "b"],
+                ),
+                ChoiceParameterConfig(
+                    name="x4",
+                    parameter_type="int",
+                    values=[1, 2, 3],
+                    is_ordered=True,
+                ),
+                ChoiceParameterConfig(name="x5", parameter_type="int", values=[1]),
+            ],
+            name="foo",
         )
 
         # Relatively complicated optimization config
@@ -1260,9 +1159,7 @@ class TestClient(TestCase):
 
         # Specified generation strategy
         client.configure_generation_strategy(
-            generation_strategy_config=GenerationStrategyConfig(
-                initialization_budget=2,
-            )
+            initialization_budget=2,
         )
 
         # Use the Client a bit
@@ -1284,29 +1181,23 @@ class TestClient(TestCase):
 
         # Experiment with relatively complicated search space
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1", parameter_type="float", bounds=(-1, 1)
-                    ),
-                    RangeParameterConfig(
-                        name="x2", parameter_type="int", bounds=(-1, 1)
-                    ),
-                    ChoiceParameterConfig(
-                        name="x3",
-                        parameter_type="str",
-                        values=["a", "b"],
-                    ),
-                    ChoiceParameterConfig(
-                        name="x4",
-                        parameter_type="int",
-                        values=[1, 2, 3],
-                        is_ordered=True,
-                    ),
-                    ChoiceParameterConfig(name="x5", parameter_type="int", values=[1]),
-                ],
-                name="unique_test_experiment",
-            )
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+                RangeParameterConfig(name="x2", parameter_type="int", bounds=(-1, 1)),
+                ChoiceParameterConfig(
+                    name="x3",
+                    parameter_type="str",
+                    values=["a", "b"],
+                ),
+                ChoiceParameterConfig(
+                    name="x4",
+                    parameter_type="int",
+                    values=[1, 2, 3],
+                    is_ordered=True,
+                ),
+                ChoiceParameterConfig(name="x5", parameter_type="int", values=[1]),
+            ],
+            name="unique_test_experiment",
         )
 
         # Relatively complicated optimization config
@@ -1316,9 +1207,7 @@ class TestClient(TestCase):
 
         # Specified generation strategy
         client.configure_generation_strategy(
-            generation_strategy_config=GenerationStrategyConfig(
-                initialization_budget=3,
-            )
+            initialization_budget=3,
         )
 
         other_client = Client.load_from_database(
