@@ -41,9 +41,9 @@ export default {
     },
     {
       type: 'category',
-      label: 'Extending Ax',
+      label: 'Internal Organization of Ax',
       collapsed: false,
-      items: ['analyses'],
+      items: ['experiment', 'orchestration', 'generation_strategy'],
     },
     {
       type: 'category',
@@ -67,6 +67,7 @@ export default {
         'recipes/multi-objective-optimization',
         'recipes/scalarized-objective',
         'recipes/outcome-constraints',
+        'recipes/influence-gs-choice',
       ],
     },
   ],

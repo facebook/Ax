@@ -34,6 +34,7 @@ class ThompsonSamplerTest(TestCase):
 
     def test_ThompsonSampler(self) -> None:
         generator = ThompsonSampler(min_weight=0.0)
+        self.assertEqual(generator.topk, 1)
         generator.fit(
             Xs=self.Xs,
             Ys=self.Ys,
@@ -89,6 +90,69 @@ class ThompsonSamplerTest(TestCase):
         # requires objective weights
         with self.assertRaises(ValueError):
             generator.gen(5, self.parameter_values, objective_weights=None)
+
+    def test_ThompsonSamplerTopKError(self) -> None:
+        generator = ThompsonSampler(topk=5)
+        with self.assertRaisesRegex(ModelError, r"ThompsonSampler `topk=\d+`"):
+            generator.fit(
+                Xs=self.Xs,
+                Ys=self.Ys,
+                Yvars=self.Yvars,
+                parameter_values=self.parameter_values,
+                outcome_names=self.outcome_names,
+            )
+
+    def test_TopTwo_alters_weights_vs_TopOne(self) -> None:
+        np.random.seed(0)
+
+        # Compare TTTS results to the vanilla TS
+        ts1 = ThompsonSampler(num_samples=1000, min_weight=0.0, topk=1)
+        ts1.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
+        )
+        _, _, gen_metadata1 = ts1.gen(
+            n=4,
+            parameter_values=self.parameter_values,
+            objective_weights=np.ones(1),
+        )
+        full_w1 = gen_metadata1["arms_to_weights"]
+
+        ts2 = ThompsonSampler(num_samples=1000, min_weight=0.0, topk=2)
+        ts2.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            parameter_values=self.parameter_values,
+            outcome_names=self.outcome_names,
+        )
+        _, _, gen_metadata2 = ts2.gen(
+            n=4,
+            parameter_values=self.parameter_values,
+            objective_weights=np.ones(1),
+        )
+        full_w2 = gen_metadata2["arms_to_weights"]
+
+        # Sanity: same length
+        self.assertEqual(len(full_w1), 4)
+        self.assertEqual(len(full_w2), 4)
+
+        # 1) Best arm (4) weight must drop under TTTS
+        self.assertLess(full_w2[3], full_w1[3])
+
+        # 2) Second-best arm (3) weight must rise
+        self.assertGreater(full_w2[2], full_w1[2])
+
+        # 3) Arm 2 (index 1) and arm 1 (index 0) both see P(2nd)>P(best)
+        #   so they increase
+        self.assertGreater(full_w2[1], full_w1[1])
+        self.assertGreater(full_w2[0], full_w1[0])
+
+        # 4) Monotonicity in the final TTTS distribution still holds
+        self.assertTrue(full_w2[3] > full_w2[2] > full_w2[1] > full_w2[0])
 
     def test_ThompsonSamplerMinWeight(self) -> None:
         np.random.seed(0)

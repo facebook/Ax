@@ -15,7 +15,7 @@ from ax.analysis.plotly.sensitivity import (
     SensitivityAnalysisPlot,
 )
 from ax.api.client import Client
-from ax.api.configs import ExperimentConfig, ParameterType, RangeParameterConfig
+from ax.api.configs import RangeParameterConfig
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.registry import Generators
 from ax.service.ax_client import AxClient, ObjectiveProperties
@@ -54,21 +54,19 @@ class TestSensitivityAnalysisPlot(TestCase):
     def test_compute(self) -> None:
         client = Client()
         client.configure_experiment(
-            experiment_config=ExperimentConfig(
-                name="foo",
-                parameters=[
-                    RangeParameterConfig(
-                        name="x1",
-                        parameter_type=ParameterType.FLOAT,
-                        bounds=(0, 1),
-                    ),
-                    RangeParameterConfig(
-                        name="x2",
-                        parameter_type=ParameterType.FLOAT,
-                        bounds=(0, 1),
-                    ),
-                ],
-            )
+            name="foo",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+                RangeParameterConfig(
+                    name="x2",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
         )
         client.configure_optimization(objective="bar")
 

@@ -34,6 +34,20 @@ class InputConstructorPurpose(Enum):
     N = "n"
     FIXED_FEATURES = "fixed_features"
 
+    def __gt__(self, other: InputConstructorPurpose) -> bool:
+        """Returns True if the value of this enum member is greater than the value of
+        the other enum member. This is used during for sorting any dictionary that
+        uses this enum as keys (e.g. ``GenerationNode.input_constructors``).
+        """
+        return self.value > other.value
+
+    def __lt__(self, other: InputConstructorPurpose) -> bool:
+        """Returns True if the value of this enum member is less than the value
+        of the other enum member. This is used during for sorting any dictionary that
+        use this enum as keys (e.g. ``GenerationNode.input_constructors``).
+        """
+        return self.value < other.value
+
 
 class NodeInputConstructors(FuncEnum):
     """An enum which maps to a the name of a callable method for constructing

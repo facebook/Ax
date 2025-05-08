@@ -231,9 +231,9 @@ class BaseRelativize(Transform, ABC):
         for i, metric in enumerate(data.metric_names):
             j = get_metric_index(data=status_quo_data, metric_name=metric)
             means_t = data.means[i]
-            sems_t = sqrt(data.covariance[i][i])
+            sems_t = sqrt(data.covariance[i, i])
             mean_c = status_quo_data.means[j]
-            sem_c = sqrt(status_quo_data.covariance[j][j])
+            sem_c = sqrt(status_quo_data.covariance[j, j])
 
             means_rel, sems_rel = self._get_rel_mean_sem(
                 means_t=means_t,
@@ -273,9 +273,7 @@ class BaseRelativize(Transform, ABC):
 def get_metric_index(data: ObservationData, metric_name: str) -> int:
     """Get the index of a metric in the ObservationData."""
     try:
-        return next(
-            k for k, name in enumerate(data.metric_names) if name == metric_name
-        )
+        return data.metric_names.index(metric_name)
     except (IndexError, StopIteration):
         raise ValueError(
             "Relativization cannot be performed because "

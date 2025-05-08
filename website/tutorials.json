@@ -28,6 +28,10 @@
     {
       "id": "modular_botorch",
       "title": "Using custom generators via Modular BoTorch Interface"
+    },
+    {
+      "id": "analyses",
+      "title": "Utilizing and Creating Ax Analyses"
     }
   ]
 }

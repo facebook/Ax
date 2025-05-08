@@ -593,15 +593,18 @@ def compute_baseline_value_from_sobol(
     higher_is_better = isinstance(optimization_config.objective, MultiObjective) or (
         not optimization_config.objective.minimize
     )
-    dummy_optimal_value = float("inf") if higher_is_better else float("-inf")
     dummy_problem = BenchmarkProblem(
         name="dummy",
         optimization_config=optimization_config,
         search_space=search_space,
         num_trials=5,
         test_function=test_function,
-        optimal_value=dummy_optimal_value,
-        baseline_value=-dummy_optimal_value,
+        # Optimal value and baseline value are only used
+        # to compute the score_trace, which we don't use here.
+        # The order of baseline and optimal value needs to be correct,
+        # though, as a ValueError is raised otherwise.
+        optimal_value=1.0 if higher_is_better else -1.0,
+        baseline_value=0.0,
         target_fidelity_and_task=target_fidelity_and_task,
     )
 

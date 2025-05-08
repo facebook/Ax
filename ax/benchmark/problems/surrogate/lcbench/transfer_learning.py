@@ -108,7 +108,7 @@ def get_lcbench_benchmark_problem(
     base_path = os.path.dirname(os.path.realpath(__file__))
     obj: dict[str, Any] = torch.load(
         f=os.path.join(
-            base_path, "data", "transfer_learning", f"lcbench_{dataset_name}.pt"
+            base_path, "transfer_learning_data", f"lcbench_{dataset_name}.pt"
         ),
         weights_only=False,
     )

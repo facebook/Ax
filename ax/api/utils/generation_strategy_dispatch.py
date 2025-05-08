@@ -8,7 +8,7 @@
 
 
 import torch
-from ax.api.configs import GenerationMethod, GenerationStrategyConfig
+from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
@@ -25,10 +25,16 @@ from gpytorch.kernels.linear_kernel import LinearKernel
 
 
 def _get_sobol_node(
-    gs_config: GenerationStrategyConfig,
+    initialization_budget: int | None,
+    min_observed_initialization_trials: int | None,
+    initialize_with_center: bool,
+    use_existing_trials_for_initialization: bool,
+    allow_exceeding_initialization_budget: bool,
+    initialization_random_seed: int | None,
 ) -> GenerationNode:
-    """Constructs a Sobol node based on inputs from ``gs_config``.
-    The Sobol generator utilizes `initialization_random_seed` if specified.
+    """Constructs a Sobol node based on inputs from
+    ``struct``. The Sobol generator utilizes
+    `initialization_random_seed` if specified.
 
     This node always transitions to "MBM", using the following transition criteria:
     - MinTrials enforcing the initialization budget.
@@ -46,16 +52,13 @@ def _get_sobol_node(
             as observed trials.
     """
     # Set the default options.
-    initialization_budget = gs_config.initialization_budget
+    initialization_budget = initialization_budget
     if initialization_budget is None:
         initialization_budget = 5
-    min_observed_initialization_trials = gs_config.min_observed_initialization_trials
+    min_observed_initialization_trials = min_observed_initialization_trials
     if min_observed_initialization_trials is None:
         min_observed_initialization_trials = max(1, initialization_budget // 2)
-    if (
-        gs_config.initialize_with_center
-        and not gs_config.use_existing_trials_for_initialization
-    ):
+    if initialize_with_center and not use_existing_trials_for_initialization:
         # Account for center point in initialization, since the TC will not count it.
         initialization_budget -= 1
     # Construct the transition criteria.
@@ -63,9 +66,9 @@ def _get_sobol_node(
         MinTrials(  # This represents the initialization budget.
             threshold=initialization_budget,
             transition_to="MBM",
-            block_gen_if_met=(not gs_config.allow_exceeding_initialization_budget),
+            block_gen_if_met=(not allow_exceeding_initialization_budget),
             block_transition_if_unmet=True,
-            use_all_trials_in_exp=gs_config.use_existing_trials_for_initialization,
+            use_all_trials_in_exp=use_existing_trials_for_initialization,
         ),
         MinTrials(  # This represents minimum observed trials requirement.
             threshold=min_observed_initialization_trials,
@@ -82,7 +85,7 @@ def _get_sobol_node(
         model_specs=[
             GeneratorSpec(
                 model_enum=Generators.SOBOL,
-                model_kwargs={"seed": gs_config.initialization_random_seed},
+                model_kwargs={"seed": initialization_random_seed},
             )
         ],
         transition_criteria=transition_criteria,
@@ -91,9 +94,11 @@ def _get_sobol_node(
 
 
 def _get_mbm_node(
-    gs_config: GenerationStrategyConfig,
+    method: str,
+    torch_device: str | None,
 ) -> GenerationNode:
-    """Constructs an MBM node based on the method specified in ``gs_config``.
+    """Constructs an MBM node based on the method specified in
+    ``struct``.
 
     The ``SurrogateSpec`` takes the following form for the given method:
     - BALANCED: Two model configs: one with MBM defaults, the other with
@@ -101,9 +106,9 @@ def _get_mbm_node(
     - FAST: An empty model config that utilizes MBM defaults.
     """
     # Construct the surrogate spec.
-    if gs_config.method == GenerationMethod.FAST:
+    if method == "fast":
         model_configs = [ModelConfig(name="MBM defaults")]
-    elif gs_config.method == GenerationMethod.BALANCED:
+    elif method == "balanced":
         model_configs = [
             ModelConfig(name="MBM defaults"),
             ModelConfig(
@@ -114,10 +119,10 @@ def _get_mbm_node(
             ),
         ]
     else:
-        raise UnsupportedError(f"Unsupported generation method: {gs_config.method}.")
-    torch_device = (
-        None if gs_config.torch_device is None else torch.device(gs_config.torch_device)
-    )
+        raise UnsupportedError(f"Unsupported generation method: {method}.")
+
+    device = None if torch_device is None else torch.device(torch_device)
+
     return GenerationNode(
         node_name="MBM",
         model_specs=[
@@ -125,7 +130,7 @@ def _get_mbm_node(
                 model_enum=Generators.BOTORCH_MODULAR,
                 model_kwargs={
                     "surrogate_spec": SurrogateSpec(model_configs=model_configs),
-                    "torch_device": torch_device,
+                    "torch_device": device,
                 },
             )
         ],
@@ -134,31 +139,32 @@ def _get_mbm_node(
 
 
 def choose_generation_strategy(
-    gs_config: GenerationStrategyConfig,
+    struct: GenerationStrategyDispatchStruct,
 ) -> GenerationStrategy:
     """
     Choose a generation strategy based on the properties of the experiment and the
-    inputs provided in ``gs_config``.
+    inputs provided in ``struct``.
 
     NOTE: The behavior of this function is subject to change. It will be updated to
     produce best general purpose generation strategies based on benchmarking results.
 
     Args:
-        gs_config: A ``GenerationStrategyConfig`` object that informs
+        struct: A ``GenerationStrategyDispatchStruct``
+            object that informs
             the choice of generation strategy.
 
     Returns:
         A generation strategy.
     """
     # Handle the random search case.
-    if gs_config.method == GenerationMethod.RANDOM_SEARCH:
+    if struct.method == "random_search":
         nodes = [
             GenerationNode(
                 node_name="Sobol",
                 model_specs=[
                     GeneratorSpec(
                         model_enum=Generators.SOBOL,
-                        model_kwargs={"seed": gs_config.initialization_random_seed},
+                        model_kwargs={"seed": struct.initialization_random_seed},
                     )
                 ],
             )
@@ -166,11 +172,21 @@ def choose_generation_strategy(
         gs_name = "QuasiRandomSearch"
     else:
         nodes = [
-            _get_sobol_node(gs_config=gs_config),
-            _get_mbm_node(gs_config=gs_config),
+            _get_sobol_node(
+                initialization_budget=struct.initialization_budget,
+                min_observed_initialization_trials=struct.min_observed_initialization_trials,  # noqa: E501
+                initialize_with_center=struct.initialize_with_center,
+                use_existing_trials_for_initialization=struct.use_existing_trials_for_initialization,  # noqa: E501
+                allow_exceeding_initialization_budget=struct.allow_exceeding_initialization_budget,  # noqa: E501
+                initialization_random_seed=struct.initialization_random_seed,
+            ),
+            _get_mbm_node(
+                method=struct.method,
+                torch_device=struct.torch_device,
+            ),
         ]
-        gs_name = f"Sobol+MBM:{gs_config.method.value}"
-    if gs_config.initialize_with_center:
+        gs_name = f"Sobol+MBM:{struct.method}"
+    if struct.initialize_with_center:
         center_node = CenterGenerationNode(next_node_name=nodes[0].node_name)
         nodes.insert(0, center_node)
         gs_name = f"Center+{gs_name}"

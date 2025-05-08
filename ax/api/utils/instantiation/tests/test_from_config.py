@@ -5,18 +5,13 @@
 
 # pyre-strict
 
-from ax.api.configs import (
-    ChoiceParameterConfig,
-    ExperimentConfig,
-    ParameterScaling,
-    ParameterType,
-    RangeParameterConfig,
-)
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 from ax.api.utils.instantiation.from_config import (
     _parameter_type_converter,
-    experiment_from_config,
     parameter_from_config,
 )
+from ax.api.utils.instantiation.from_struct import experiment_from_struct
+from ax.api.utils.structs import ExperimentStruct
 from ax.core.experiment import Experiment
 from ax.core.formatting_utils import DataType
 from ax.core.parameter import (
@@ -35,7 +30,7 @@ class TestFromConfig(TestCase):
     def test_create_range_parameter(self) -> None:
         float_config = RangeParameterConfig(
             name="float_param",
-            parameter_type=ParameterType.FLOAT,
+            parameter_type="float",
             bounds=(0, 1),
         )
 
@@ -51,9 +46,9 @@ class TestFromConfig(TestCase):
 
         float_config_with_log_scaling = RangeParameterConfig(
             name="float_param_with_log_scaling",
-            parameter_type=ParameterType.FLOAT,
+            parameter_type="float",
             bounds=(1e-10, 1),
-            scaling=ParameterScaling.LOG,
+            scaling="log",
         )
 
         self.assertEqual(
@@ -69,7 +64,7 @@ class TestFromConfig(TestCase):
 
         int_config = RangeParameterConfig(
             name="int_param",
-            parameter_type=ParameterType.INT,
+            parameter_type="int",
             bounds=(0, 1),
         )
 
@@ -85,7 +80,7 @@ class TestFromConfig(TestCase):
 
         step_size_config = RangeParameterConfig(
             name="step_size_param",
-            parameter_type=ParameterType.FLOAT,
+            parameter_type="float",
             bounds=(0, 100),
             step_size=10,
         )
@@ -119,17 +114,17 @@ class TestFromConfig(TestCase):
             parameter_from_config(
                 config=RangeParameterConfig(
                     name="step_size_param_with_scaling",
-                    parameter_type=ParameterType.FLOAT,
+                    parameter_type="float",
                     bounds=(0, 100),
                     step_size=10,
-                    scaling=ParameterScaling.LOG,
+                    scaling="log",
                 )
             )
 
     def test_create_choice_parameter(self) -> None:
         choice_config = ChoiceParameterConfig(
             name="choice_param",
-            parameter_type=ParameterType.STRING,
+            parameter_type="str",
             values=["a", "b", "c"],
         )
 
@@ -144,7 +139,7 @@ class TestFromConfig(TestCase):
 
         choice_config_with_order = ChoiceParameterConfig(
             name="choice_param_with_order",
-            parameter_type=ParameterType.STRING,
+            parameter_type="str",
             values=["a", "b", "c"],
             is_ordered=True,
         )
@@ -160,7 +155,7 @@ class TestFromConfig(TestCase):
 
         choice_config_with_dependents = ChoiceParameterConfig(
             name="choice_param_with_dependents",
-            parameter_type=ParameterType.STRING,
+            parameter_type="str",
             values=["a", "b", "c"],
             dependent_parameters={
                 "a": ["a1", "a2"],
@@ -182,7 +177,7 @@ class TestFromConfig(TestCase):
 
         single_element_choice_config = ChoiceParameterConfig(
             name="single_element_choice_param",
-            parameter_type=ParameterType.STRING,
+            parameter_type="str",
             values=["a"],
         )
         self.assertEqual(
@@ -197,21 +192,21 @@ class TestFromConfig(TestCase):
     def test_experiment_from_config(self) -> None:
         float_parameter = RangeParameterConfig(
             name="float_param",
-            parameter_type=ParameterType.FLOAT,
+            parameter_type="float",
             bounds=(0, 1),
         )
         int_parameter = RangeParameterConfig(
             name="int_param",
-            parameter_type=ParameterType.INT,
+            parameter_type="int",
             bounds=(0, 1),
         )
         choice_parameter = ChoiceParameterConfig(
             name="choice_param",
-            parameter_type=ParameterType.STRING,
+            parameter_type="str",
             values=["a", "b", "c"],
         )
 
-        experiment_config = ExperimentConfig(
+        experiment_struct = ExperimentStruct(
             name="test_experiment",
             parameters=[float_parameter, int_parameter, choice_parameter],
             parameter_constraints=["int_param <= float_param"],
@@ -221,7 +216,7 @@ class TestFromConfig(TestCase):
         )
 
         self.assertEqual(
-            experiment_from_config(config=experiment_config),
+            experiment_from_struct(struct=experiment_struct),
             Experiment(
                 search_space=SearchSpace(
                     parameters=[
@@ -261,7 +256,7 @@ class TestFromConfig(TestCase):
 
         root_parameter = ChoiceParameterConfig(
             name="root_param",
-            parameter_type=ParameterType.STRING,
+            parameter_type="str",
             values=["left", "right"],
             dependent_parameters={
                 "left": ["float_param"],
@@ -269,16 +264,17 @@ class TestFromConfig(TestCase):
             },
         )
 
-        hss_config = ExperimentConfig(
-            name="test_experiment",
+        hss_struct = ExperimentStruct(
             parameters=[float_parameter, int_parameter, root_parameter],
             parameter_constraints=["int_param <= float_param"],
+            name="test_experiment",
             description="test description",
+            experiment_type=None,
             owner="miles",
         )
 
         self.assertEqual(
-            experiment_from_config(config=hss_config),
+            experiment_from_struct(struct=hss_struct),
             Experiment(
                 search_space=HierarchicalSearchSpace(
                     parameters=[
@@ -321,19 +317,19 @@ class TestFromConfig(TestCase):
 
     def test_parameter_type_converter(self) -> None:
         self.assertEqual(
-            _parameter_type_converter(parameter_type=ParameterType.BOOL),
+            _parameter_type_converter(parameter_type="bool"),
             CoreParameterType.BOOL,
         )
         self.assertEqual(
-            _parameter_type_converter(parameter_type=ParameterType.INT),
+            _parameter_type_converter(parameter_type="int"),
             CoreParameterType.INT,
         )
         self.assertEqual(
-            _parameter_type_converter(parameter_type=ParameterType.FLOAT),
+            _parameter_type_converter(parameter_type="float"),
             CoreParameterType.FLOAT,
         )
         self.assertEqual(
-            _parameter_type_converter(parameter_type=ParameterType.STRING),
+            _parameter_type_converter(parameter_type="str"),
             CoreParameterType.STRING,
         )
         with self.assertRaisesRegex(UserInputError, "Unsupported parameter type"):

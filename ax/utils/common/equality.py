@@ -229,7 +229,6 @@ def object_attribute_dicts_find_unequal_fields(
                     and hasattr(other_val, "model")
                     and isinstance(one_val.model, type(other_val.model))
                 )
-
         else:
             equal = is_ax_equal(one_val, other_val)
 

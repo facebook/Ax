@@ -7,18 +7,8 @@
 
 
 import numpy as np
-from ax.api.configs import (
-    ChoiceParameterConfig,
-    ExperimentConfig,
-    ParameterScaling,
-    ParameterType,
-    RangeParameterConfig,
-)
-from ax.api.utils.instantiation.from_string import parse_parameter_constraint
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 
-from ax.core.experiment import Experiment
-
-from ax.core.formatting_utils import DataType
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -26,8 +16,6 @@ from ax.core.parameter import (
     ParameterType as CoreParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import validate_constraint_parameters
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 
 
@@ -44,9 +32,7 @@ def parameter_from_config(
         # TODO[mpolson64] Add support for RangeParameterConfig.step_size native to
         # RangeParameter instead of converting to ChoiceParameter
         if (step_size := config.step_size) is not None:
-            if not (
-                config.scaling == ParameterScaling.LINEAR or config.scaling is None
-            ):
+            if not (config.scaling == "linear" or config.scaling is None):
                 raise UserInputError(
                     "Non-linear parameter scaling is not supported when using "
                     "step_size."
@@ -70,7 +56,7 @@ def parameter_from_config(
             parameter_type=_parameter_type_converter(config.parameter_type),
             lower=lower,
             upper=upper,
-            log_scale=config.scaling == ParameterScaling.LOG,
+            log_scale=config.scaling == "log",
         )
 
     else:
@@ -99,59 +85,18 @@ def parameter_from_config(
         )
 
 
-def experiment_from_config(config: ExperimentConfig) -> Experiment:
-    """Create an Experiment from an ExperimentConfig."""
-    parameters = [
-        parameter_from_config(config=parameter_config)
-        for parameter_config in config.parameters
-    ]
-
-    constraints = [
-        parse_parameter_constraint(constraint_str=constraint_str)
-        for constraint_str in config.parameter_constraints
-    ]
-
-    # Ensure that all ParameterConstraints are valid and acting on existing parameters
-    for constraint in constraints:
-        validate_constraint_parameters(
-            parameters=[
-                parameter
-                for parameter in parameters
-                if parameter.name in constraint.constraint_dict.keys()
-            ]
-        )
-
-    if any(p.is_hierarchical for p in parameters):
-        search_space = HierarchicalSearchSpace(
-            parameters=parameters, parameter_constraints=constraints
-        )
-    else:
-        search_space = SearchSpace(
-            parameters=parameters, parameter_constraints=constraints
-        )
-
-    return Experiment(
-        search_space=search_space,
-        name=config.name,
-        description=config.description,
-        experiment_type=config.experiment_type,
-        properties={"owners": [config.owner]},
-        default_data_type=DataType.MAP_DATA,
-    )
-
-
-def _parameter_type_converter(parameter_type: ParameterType) -> CoreParameterType:
+def _parameter_type_converter(parameter_type: str) -> CoreParameterType:
     """
     Convert from an API ParameterType to a core Ax ParameterType.
     """
 
-    if parameter_type == ParameterType.BOOL:
+    if parameter_type == "bool":
         return CoreParameterType.BOOL
-    elif parameter_type == ParameterType.FLOAT:
+    elif parameter_type == "float":
         return CoreParameterType.FLOAT
-    elif parameter_type == ParameterType.INT:
+    elif parameter_type == "int":
         return CoreParameterType.INT
-    elif parameter_type == ParameterType.STRING:
+    elif parameter_type == "str":
         return CoreParameterType.STRING
     else:
         raise UserInputError(f"Unsupported parameter type {parameter_type}.")

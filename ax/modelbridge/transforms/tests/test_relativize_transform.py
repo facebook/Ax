@@ -399,7 +399,7 @@ class RelativizeDataTest(TestCase):
             ]
             sq_obs_data.append(
                 ObservationData(
-                    metric_names=status_quo_data["metric_name"].to_numpy(),
+                    metric_names=status_quo_data["metric_name"].to_list(),
                     means=status_quo_data["mean"].to_numpy(),
                     covariance=status_quo_data["sem"].to_numpy()[np.newaxis, :] ** 2,
                 )
