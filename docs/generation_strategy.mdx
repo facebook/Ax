@@ -38,7 +38,7 @@ A generation strategy typically acts as an "experiment contract" and reflects
 how Ax will generate subsequent trials depending on the current state of the
 experiment. Notably, not all GenerationNodes within a GenerationStrategy must be
 traversed. Before proceeding, we recommend ensuring familiarity with
-[Internal Organization of Ax: Experiment + Trials](.experiment.mdx).
+[Internal Organization of Ax: Experiment + Trials](./experiment.mdx).
 
 ## Generation Node
 
@@ -76,11 +76,11 @@ the experiment.
 
 Typically, configuring common aspects of the `GenerationStrategy` through the
 `Client.configure_generation_strategy` API method is recommended (see
-[corresponding recipe](../recipes/influence-gs-choice.md)).
+[corresponding recipe](./recipes/influence-gs-choice.md)).
 
 It’s possible to specify a fully custom `GenerationStrategy` via
 `Client.set_generation_strategy` (see
-[Utilizing custom Generators via Modular BoTorch Interface](../tutorials.modular_botorch.mdx)),
+[Utilizing custom Generators via Modular BoTorch Interface](./tutorials/modular_botorch/index.mdx),
 but this usage is not part of the Ax backward-compatible API and backward
 compatibility is not guaranteed: the method or its input could thus change
 between minor versions in the future.

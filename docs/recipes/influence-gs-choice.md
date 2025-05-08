@@ -27,7 +27,7 @@ client.configure_metrics(...)
 ### 1. Configure a generation strategy via `configure_generation_strategy`
 We can leverage the Client's `configure_generation_strategy` method to configure a generation strategy. This is an optional method used to configure the way candidate parameterizations are generated during the optimization. If not called, a default `GenerationStrategy` will be used.
 
-In this example, we will configure a GenerationStrategy that reduces or skips the initialization step, does not use the center of the search space as the first point, and allows for exceeding the provided initialization budget. To learn more about what other configurations you can leverage, [check out the API docs for configure_generation_strategy](*)
+In this example, we will configure a GenerationStrategy that reduces or skips the initialization step, does not use the center of the search space as the first point, and allows for exceeding the provided initialization budget. To learn more about what other configurations you can leverage, [check out the API docs for configure_generation_strategy](https://ax.readthedocs.io/en/latest/api.html#ax.api.client.Client.configure_generation_strategy)
 
 ```python
 client.configure_generation_strategy(
