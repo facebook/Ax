@@ -67,6 +67,7 @@ export default {
         'recipes/multi-objective-optimization',
         'recipes/scalarized-objective',
         'recipes/outcome-constraints',
+        'recipes/influence-gs-choice',
       ],
     },
   ],
