@@ -21,7 +21,6 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.observation import Observation
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -44,9 +43,6 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.registry import Generators
 from ax.modelbridge.torch import TorchAdapter
 from ax.modelbridge.transforms.derelativize import Derelativize
-from ax.modelbridge.transforms.utils import (
-    derelativize_optimization_config_with_raw_status_quo,
-)
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.logger import get_logger
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
@@ -113,7 +109,7 @@ def get_best_raw_objective_point_with_trial_index(
         raise ValueError("Cannot identify best point if experiment contains no data.")
     if any(oc.relative for oc in optimization_config.all_constraints):
         if experiment.status_quo is not None:
-            optimization_config = _derel_opt_config_wrapper(
+            optimization_config = derelativize_opt_config(
                 optimization_config=optimization_config,
                 experiment=experiment,
             )
@@ -585,46 +581,6 @@ def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:
     df_metric_arms_sems = df[name_mask]["sem"]
 
     return ((df_metric_arms_sems == 0) | df_metric_arms_sems == nan).all()
-
-
-def _derel_opt_config_wrapper(
-    optimization_config: OptimizationConfig,
-    modelbridge: Adapter | None = None,
-    experiment: Experiment | None = None,
-    observations: list[Observation] | None = None,
-) -> OptimizationConfig:
-    """Derelativize optimization_config using raw status-quo values"""
-
-    # If optimization_config is already derelativized, return a copy.
-    if not any(oc.relative for oc in optimization_config.all_constraints):
-        return optimization_config.clone()
-
-    if modelbridge is None and experiment is None:
-        raise ValueError(
-            "Must specify Adapter or Experiment when calling "
-            "`_derel_opt_config_wrapper`."
-        )
-    elif not modelbridge:
-        modelbridge = get_tensor_converter_model(
-            experiment=none_throws(experiment),
-            data=none_throws(experiment).lookup_data(),
-        )
-    else:  # Both modelbridge and experiment specified.
-        logger.warning(
-            "Adapter and Experiment provided to `_derel_opt_config_wrapper`. "
-            "Ignoring the latter."
-        )
-    if not modelbridge.status_quo:
-        raise ValueError(
-            "`modelbridge` must have status quo if specified. If `modelbridge` is "
-            "unspecified, `experiment` must have a status quo."
-        )
-    observations = observations or modelbridge.get_training_data()
-    return derelativize_optimization_config_with_raw_status_quo(
-        optimization_config=optimization_config,
-        modelbridge=modelbridge,
-        observations=observations,
-    )
 
 
 def get_values_of_outcomes_single_or_scalarized_objective(

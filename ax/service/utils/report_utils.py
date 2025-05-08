@@ -60,7 +60,7 @@ from ax.plot.trace import (
     map_data_multiple_metrics_dropdown_plotly,
     plot_objective_value_vs_trial_index,
 )
-from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
+from ax.service.utils.best_point import _is_row_feasible, derelativize_opt_config
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
@@ -880,7 +880,7 @@ def exp_to_df(
         optimization_config = none_throws(exp.optimization_config)
         try:
             if any(oc.relative for oc in optimization_config.all_constraints):
-                optimization_config = _derel_opt_config_wrapper(
+                optimization_config = derelativize_opt_config(
                     optimization_config=optimization_config,
                     experiment=exp,
                 )
