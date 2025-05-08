@@ -177,6 +177,46 @@ class TestBestPointUtils(TestCase):
             self.assertEqual(hvs, [0.0, 2.0, 0.0, 2.0])
 
     def test_get_trace_by_arm_pull_from_data(self) -> None:
+        objective = Objective(metric=Metric("m1"), minimize=False)
+        optimzation_config = OptimizationConfig(
+            objective=objective,
+            outcome_constraints=[
+                OutcomeConstraint(
+                    Metric("m2"), op=ComparisonOp.GEQ, bound=0.0, relative=False
+                )
+            ],
+        )
+
+        with self.subTest("No data"):
+            df = pd.DataFrame()
+            result = get_trace_by_arm_pull_from_data(
+                df=df, optimization_config=optimzation_config
+            )
+            self.assertTrue(
+                result.equals(
+                    pd.DataFrame(columns=["trial_index", "arm_name", "value"])
+                )
+            )
+
+        with self.subTest("Data for wrong metric"):
+            df = pd.DataFrame.from_records(
+                data=[
+                    {
+                        "trial_index": 0,
+                        "arm_name": "0_0",
+                        "metric_name": "wrong",
+                        "mean": 1.0,
+                        "sem": None,
+                    },
+                ]
+            )
+            with self.assertRaisesRegex(
+                ValueError, "Some metrics are not present for all trials and arms"
+            ):
+                result = get_trace_by_arm_pull_from_data(
+                    df=df, optimization_config=optimzation_config
+                )
+
         df = pd.DataFrame.from_records(
             data=[
                 {"trial_index": 0, "arm_name": "0_0", "metric_name": "m1", "mean": 1.0},
@@ -200,9 +240,8 @@ class TestBestPointUtils(TestCase):
             ]
         ).assign(sem=None)
 
-        objective = Objective(metric=Metric("m1"), minimize=False)
         with self.subTest("Relative optimization config not supported"):
-            optimization_config = OptimizationConfig(
+            rel_optimization_config = OptimizationConfig(
                 objective=objective,
                 outcome_constraints=[
                     OutcomeConstraint(
@@ -217,17 +256,9 @@ class TestBestPointUtils(TestCase):
                 ValueError, "Relativized optimization config not supported"
             ):
                 get_trace_by_arm_pull_from_data(
-                    df=df, optimization_config=optimization_config
+                    df=df, optimization_config=rel_optimization_config
                 )
 
-        optimzation_config = OptimizationConfig(
-            objective=objective,
-            outcome_constraints=[
-                OutcomeConstraint(
-                    Metric("m2"), op=ComparisonOp.GEQ, bound=0.0, relative=False
-                )
-            ],
-        )
         with self.subTest("Single objective, cumulative"):
             result = get_trace_by_arm_pull_from_data(
                 df=df, optimization_config=optimzation_config, use_cumulative_best=True
@@ -382,13 +413,17 @@ class TestBestPointUtils(TestCase):
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run().complete()
         exp.fetch_data()
-        # pyre-fixme[16]: Optional type has no attribute `clone`.
-        opt_conf = exp.optimization_config.clone()
-        opt_conf.objective.metric._name = "not_branin"
-        with self.assertRaisesRegex(ValueError, "No data has been logged"):
-            get_best_raw_objective_point_with_trial_index(
-                experiment=exp, optimization_config=opt_conf
+
+        with self.subTest("Data present but not for needed metrics"):
+            opt_conf = OptimizationConfig(
+                objective=Objective(metric=get_branin_metric(name="not_branin"))
             )
+            with self.assertRaisesRegex(
+                ValueError, "Some metrics are not present for all trials and arms"
+            ):
+                get_best_raw_objective_point_with_trial_index(
+                    experiment=exp, optimization_config=opt_conf
+                )
 
         # Test constraints work as expected.
         observations = [[1.0, 2.0], [3.0, 4.0], [-5.0, -6.0]]
@@ -446,13 +481,13 @@ class TestBestPointUtils(TestCase):
         opt_conf.outcome_constraints[0].relative = True
         opt_conf.outcome_constraints[0].bound = 9999
 
-        with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
+        with self.assertRaisesRegex(
+            DataRequiredError,
+            "Optimization config has relative constraint, but model was not fit"
+            " with status quo.",
+        ):
             get_best_raw_objective_point_with_trial_index(
-                exp, optimization_config=opt_conf
-            )
-            self.assertTrue(
-                any("No status quo provided" in warning for warning in lg.output),
-                msg=lg.output,
+                experiment=exp, optimization_config=opt_conf
             )
 
         exp.status_quo = exp.trials[0].arms[0]
