@@ -61,7 +61,7 @@ evaluation system:
 
 ## `Metric`s and `Runner`s
 
-<center><img src={metric_runner_flowchart} alt="Metrics and Runners allow Ax to interface with external deployment systems" width="60%" /></center>
+<center><img src={metric_runner_flowchart} alt="Metrics and Runners allow Ax to interface with external deployment systems" width="70%" /></center>
 
 `Runner`-s and `Metric`-s typically exchange information about trial deployment
 via "run metadata" dictionary (e.g. `{"job_id": 12345}`), captured on Ax
@@ -78,7 +78,7 @@ implementing the `IRunner` and `IMetric` interfaces, each requiring only one or
 two methods. Adding it to a previously "ask-tell" experiment with steps 1-4,
 adds steps 5-7 below:
 
-<center><img src={closed_loop_flowchart} alt="Using the Orchestrator from the Client" width="60%" /></center>
+<center><img src={closed_loop_flowchart} alt="Using the Orchestrator from the Client" width="80%" /></center>
 
 More trials can always be run an ask-tell fashion after the Ax-orchestrated ones
 run via `Client.run_trials`.
