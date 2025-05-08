@@ -43,7 +43,7 @@ export default {
       type: 'category',
       label: 'Internal Organization of Ax',
       collapsed: false,
-      items: ['analyses', 'experiment', 'orchestration', 'generation_strategy'],
+      items: ['experiment', 'orchestration', 'generation_strategy'],
     },
     {
       type: 'category',
