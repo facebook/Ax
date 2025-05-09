@@ -97,7 +97,7 @@ class DiscreteAdapter(Adapter):
         observation_features, observation_data = separate_observations(observations)
         for od in observation_data:
             all_metric_names.update(od.metric_names)
-        self.outcomes = list(all_metric_names)
+        self.outcomes = sorted(all_metric_names)  # Make it deterministic.
         # Convert observations to arrays
         Xs_array, Ys_array, Yvars_array = self._convert_observations(
             observation_data=observation_data,
