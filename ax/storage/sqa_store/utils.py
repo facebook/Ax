@@ -36,7 +36,7 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     "_model",
     "_seen_trial_indices_by_status",
     "_steps",
-    "analysis_scheduler",
+    "analysis_orchestrator",
     "_nodes",
     "_initial_auxiliary_experiments_by_purpose",
     # For auxiliary experiments, we don't expect any updates, so we

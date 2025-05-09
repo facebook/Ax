@@ -81,7 +81,7 @@ class BackendSimulatorOptions:
         use_update_as_start_time: Whether the start time of a new trial should be logged
             as the current time (at time of update) or end time of previous trial.
             This makes sense when using the internal clock and the BackendSimulator
-            is simulated forward by an external process (such as Scheduler).
+            is simulated forward by an external process (such as Orchestrator).
     """
 
     max_concurrency: int = 1
