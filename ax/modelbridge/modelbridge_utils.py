@@ -11,7 +11,6 @@ from __future__ import annotations
 import warnings
 from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from copy import deepcopy
-from functools import partial
 from logging import Logger
 from typing import Any, SupportsFloat, TYPE_CHECKING
 
@@ -730,7 +729,7 @@ def get_pareto_frontier_and_configs(
                 "True."
             )
 
-    array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
+    array_to_tensor = modelbridge._array_to_tensor
     if use_model_predictions:
         observation_data = modelbridge._predict_observation_data(
             observation_features=observation_features
@@ -917,7 +916,7 @@ def predicted_pareto_frontier(
     """
     if observation_features is None:
         observation_features, _, arm_names = _get_modelbridge_training_data(
-            modelbridge=modelbridge, in_design_only=True
+            adapter=modelbridge, in_design_only=True
         )
     else:
         arm_names = None
@@ -958,7 +957,7 @@ def observed_pareto_frontier(
     """
     # Get observation_data from current training data
     obs_feats, obs_data, arm_names = _get_modelbridge_training_data(
-        modelbridge=modelbridge, in_design_only=True
+        adapter=modelbridge, in_design_only=True
     )
 
     pareto_observations = pareto_frontier(
@@ -1104,7 +1103,7 @@ def predicted_hypervolume(
             observation_features,
             _,
             __,
-        ) = _get_modelbridge_training_data(modelbridge=modelbridge)
+        ) = _get_modelbridge_training_data(adapter=modelbridge)
     if not observation_features:
         raise ValueError(
             "Must receive observation_features as input or the model must "
@@ -1147,7 +1146,7 @@ def observed_hypervolume(
         (float) calculated hypervolume.
     """
     # Get observation_data from current training data.
-    obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=modelbridge)
+    obs_feats, obs_data, _ = _get_modelbridge_training_data(adapter=modelbridge)
 
     return hypervolume(
         modelbridge=modelbridge,
@@ -1283,27 +1282,16 @@ def feasible_hypervolume(
     return np.array(hvs)
 
 
-def _array_to_tensor(
-    array: npt.NDArray | list[float],
-    modelbridge: modelbridge_module.base.Adapter | None = None,
-) -> Tensor:
-    if modelbridge and hasattr(modelbridge, "_array_to_tensor"):
-        # pyre-ignore[16]: modelbridge does not have attribute `_array_to_tensor`
-        return modelbridge._array_to_tensor(array)
-    else:
-        return torch.tensor(array)
-
-
 def _get_modelbridge_training_data(
-    modelbridge: modelbridge_module.torch.TorchAdapter, in_design_only: bool = False
+    adapter: modelbridge_module.torch.TorchAdapter, in_design_only: bool = False
 ) -> tuple[list[ObservationFeatures], list[ObservationData], list[str | None]]:
     """
-    Get training data for modelbridge, optionally filtering out out-of-design points.
+    Get training data for adapter, optionally filtering out out-of-design points.
     """
-    obs = modelbridge.get_training_data()
+    obs = adapter.get_training_data()
 
     if in_design_only:
-        obs = [obs[i] for i in range(len(obs)) if modelbridge.training_in_design[i]]
+        obs = [obs[i] for i in range(len(obs)) if adapter.training_in_design[i]]
 
     return _unpack_observations(obs=obs)
 

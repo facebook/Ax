@@ -595,11 +595,11 @@ def infer_reference_point_from_experiment(
         )
 
     # Reading experiment data.
-    mb_reference = get_tensor_converter_model(
+    adapter = get_tensor_converter_model(
         experiment=experiment,
         data=data,
     )
-    obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=mb_reference)
+    obs_feats, obs_data, _ = _get_modelbridge_training_data(adapter=adapter)
 
     # Since objectives could have arbitrary orders in objective_thresholds and
     # further down the road `get_pareto_frontier_and_configs` arbitrarily changes the
@@ -648,7 +648,7 @@ def infer_reference_point_from_experiment(
 
     # Finding the pareto frontier
     frontier_observations, f, obj_w, _ = get_pareto_frontier_and_configs(
-        modelbridge=mb_reference,
+        modelbridge=adapter,
         observation_features=obs_feats,
         observation_data=obs_data,
         objective_thresholds=inferred_rp,
@@ -671,7 +671,7 @@ def infer_reference_point_from_experiment(
         opt_config._outcome_constraints = []  # removing the constraints
         # getting the unconstrained pareto frontier
         frontier_observations, f, obj_w, _ = get_pareto_frontier_and_configs(
-            modelbridge=mb_reference,
+            modelbridge=adapter,
             observation_features=obs_feats,
             observation_data=obs_data,
             objective_thresholds=inferred_rp,
