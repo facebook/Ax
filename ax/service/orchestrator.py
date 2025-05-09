@@ -47,7 +47,7 @@ from ax.modelbridge.base import Adapter
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
+from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.executils import retry_on_exception
@@ -62,9 +62,9 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 NOT_IMPLEMENTED_IN_BASE_CLASS_MSG = """ \
-This method is not implemented in the base `Scheduler` class. \
+This method is not implemented in the base `Orchestrator` class. \
 If this functionality is desired, specify the method in the \
-scheduler subclass.
+Orchestrator subclass.
 """
 GS_TYPE_MSG = "This optimization run uses a '{gs_name}' generation strategy."
 OPTIMIZATION_COMPLETION_MSG = """Optimization completed with total of {num_trials} \
@@ -87,8 +87,8 @@ class OptimizationResult(NamedTuple):  # TODO[T61776778]
     pass  # TBD
 
 
-class SchedulerInternalError(AxError):
-    """Error that indicates an error within the `Scheduler` logic."""
+class OrchestratorInternalError(AxError):
+    """Error that indicates an error within the `Orchestrator` logic."""
 
     pass
 
@@ -102,7 +102,7 @@ class FailureRateExceededError(AxError):
 
 
 NO_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
-    cast(type[Exception], SchedulerInternalError),
+    cast(type[Exception], OrchestratorInternalError),
     cast(type[Exception], NotImplementedError),
     cast(type[Exception], UnsupportedError),
 )
@@ -122,7 +122,7 @@ class OutputPriority(IntEnum):
 
 @dataclass
 class MessageOutput:
-    """Message to be shown in the output of the scheduler."""
+    """Message to be shown in the output of the orchestrator."""
 
     text: str
     priority: OutputPriority | int
@@ -138,7 +138,7 @@ class MessageOutput:
         self.text += text
 
 
-class Scheduler(AnalysisBase, BestPointMixin):
+class Orchestrator(AnalysisBase, BestPointMixin):
     """Closed-loop manager class for Ax optimization.
 
     Attributes:
@@ -146,11 +146,11 @@ class Scheduler(AnalysisBase, BestPointMixin):
             will be recorded.
         generation_strategy: Generation strategy for the optimization,
             describes models that will be used in optimization.
-        options: `SchedulerOptions` for this scheduler instance.
+        options: `OrchestratorOptions` for this Orchestrator instance.
         db_settings: Settings for saving and reloading the underlying experiment
             to a database. Expected to be of type
             ax.storage.sqa_store.structs.DBSettings and require SQLAlchemy.
-        _skip_experiment_save: If True, scheduler will not re-save the
+        _skip_experiment_save: If True, Orchestrator will not re-save the
             experiment passed to it. **Use only if the experiment had just
             been saved, as otherwise experiment state could get corrupted.**
     """
@@ -165,8 +165,8 @@ class Scheduler(AnalysisBase, BestPointMixin):
     # (e.g. progress report of the optimization).
     markdown_messages: dict[str, MessageOutput]
 
-    # Number of trials that existed on the scheduler's experiment before
-    # the scheduler instantiation with that experiment.
+    # Number of trials that existed on the Orchestrator's experiment before
+    # the Orchestrator instantiation with that experiment.
     _num_preexisting_trials: int
     # Number of trials remaining to be scheduled during run_trials_and_yield_results.
     # Saved as a property so that it can be accessed after optimization is complex (ex.
@@ -197,7 +197,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     # applications where the user wants to run the optimization loop to exhaust
     # the declared number of trials.
     __ignore_global_stopping_strategy: bool = False
-    # Default kwargs passed when fetching data if not overridden on `SchedulerOptions`
+    # Default kwargs when fetching data if not overridden on `OrchestratorOptions`
     DEFAULT_FETCH_KWARGS = {
         "overwrite_existing_data": True,
     }
@@ -206,7 +206,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         self,
         experiment: Experiment,
         generation_strategy: GenerationStrategy,
-        options: SchedulerOptions,
+        options: OrchestratorOptions,
         db_settings: DBSettings | None = None,
         _skip_experiment_save: bool = False,
     ) -> None:
@@ -224,7 +224,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         if not isinstance(generation_strategy, GenerationStrategy):
             raise TypeError("{generation_strategy} is not a generation strategy.")
 
-        # Initialize storage layer for the scheduler.
+        # Initialize storage layer for the orchestrator.
         super().__init__(
             db_settings=db_settings,
             logging_level=self.options.logging_level,
@@ -243,7 +243,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
                 experiment=experiment, generation_strategy=generation_strategy
             )
 
-        # Number of trials that existed on experiment before this scheduler.
+        # Number of trials that existed on experiment before this orchestrator.
         self._num_preexisting_trials = len(experiment.trials)
         # Whether to log the reason why no trials were generated next time
         # we prepare new trials for deployment. Used to avoid spamming logs
@@ -260,36 +260,36 @@ class Scheduler(AnalysisBase, BestPointMixin):
     @classmethod
     def get_default_db_settings(cls) -> DBSettings:
         raise NotImplementedError(
-            "Base `Scheduler` does not specify default `DBSettings`. "
+            "Base `Orchestrator` does not specify default `DBSettings`. "
             "DBSettings are required to leverage SQL storage functionality "
-            "and can be specified as argument to `Scheduler` constructor or "
-            "via `get_default_db_settings` implementation on given scheduler."
+            "and can be specified as argument to `Orchestrator` constructor or "
+            "via `get_default_db_settings` implementation on given orchestrator."
         )
 
     @classmethod
     def from_stored_experiment(
         cls,
         experiment_name: str,
-        options: SchedulerOptions,
+        options: OrchestratorOptions,
         db_settings: DBSettings | None = None,
         generation_strategy: GenerationStrategy | None = None,
         reduced_state: bool = True,
         **kwargs: Any,
-    ) -> Scheduler:
-        """Create a ``Scheduler`` with a previously stored experiment, which
-        the scheduler should resume.
+    ) -> Orchestrator:
+        """Create a ``Orchestrator`` with a previously stored experiment, which
+        the Orchestrator should resume.
 
         Args:
             experiment_name: Experiment to load and resume.
-            options: ``SchedulerOptions``, with which to set up the new scheduler.
+            options: ``OrchestratorOptions``, with which to set up the new orchestrator.
             db_settings: Optional ``DBSettings``, which to use for reloading the
                 experiment; also passed as ``db_settings`` argument to the
-                scheduler constructor.
+                Orchestrator constructor.
             generation_strategy: Generation strategy to use to provide candidates
                 for the resumed optimization. Provide this argument only if
                 the experiment does not already have a generation strategy
                 associated with it.
-            kwargs: Kwargs to pass through to the ``Scheduler`` constructor.
+            kwargs: Kwargs to pass through to the ``Orchestrator`` constructor.
         """
         dbs = WithDBSettingsBase(
             db_settings=db_settings or cls.get_default_db_settings()
@@ -308,7 +308,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
                 f"Experiment {experiment_name} did not have a generation "
                 "strategy associated with it in the database, so a new "
                 "generation strategy must be provided as argument to "
-                "`Scheduler.from_stored_experiment`."
+                "`Orchestrator.from_stored_experiment`."
             )
 
         if gs and generation_strategy and gs != generation_strategy:
@@ -323,7 +323,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
                 "specify the `geneneration_strategy` kwarg."
             )
 
-        scheduler = cls(
+        orchestrator = cls(
             experiment=exp,
             generation_strategy=none_throws(generation_strategy or gs),
             options=options,
@@ -333,16 +333,16 @@ class Scheduler(AnalysisBase, BestPointMixin):
             # provided to this function.
             **kwargs,
         )
-        return scheduler
+        return orchestrator
 
     @property
-    def options(self) -> SchedulerOptions:
-        """Scheduler options."""
+    def options(self) -> OrchestratorOptions:
+        """Orchestrator options."""
         return self._options  # pyre-ignore [16]
 
     @options.setter
-    def options(self, options: SchedulerOptions) -> None:
-        """Set scheduler options."""
+    def options(self, options: OrchestratorOptions) -> None:
+        """Set Orchestrator options."""
         self._validate_options(options=options)
         self._options = options
         # validate runners and metrics since validate_metrics is an option
@@ -350,12 +350,12 @@ class Scheduler(AnalysisBase, BestPointMixin):
 
     @property
     def trial_type(self) -> str | None:
-        """Trial type for the experiment this scheduler is running.
+        """Trial type for the experiment this Orchestrator is running.
 
         This returns None if the experiment is not a MultitypeExperiment
 
         Returns:
-            Trial type for the experiment this scheduler is running if the
+            Trial type for the experiment this Orchestrator is running if the
             experiment is a MultiTypeExperiment and None otherwise.
         """
         if isinstance(self.experiment, MultiTypeExperiment):
@@ -367,7 +367,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         """Currently running trials.
 
         Note: if the experiment is a MultiTypeExperiment, then this will
-        only fetch trials of type `Scheduler.trial_type`.
+        only fetch trials of type `orchestrator.trial_type`.
 
 
         Returns:
@@ -383,7 +383,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         """All trials.
 
         Note: if the experiment is a MultiTypeExperiment, then this will
-        only fetch trials of type `Scheduler.trial_type`.
+        only fetch trials of type `orchestrator.trial_type`.
 
         Returns:
             List of trials that are currently running.
@@ -410,7 +410,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         """Failed or abandoned trials.
 
         Note: if the experiment is a MultiTypeExperiment, then this will
-        only fetch trials of type `Scheduler.trial_type`.
+        only fetch trials of type `orchestrator.trial_type`.
 
         Returns:
             List of trials that are currently running.
@@ -423,11 +423,11 @@ class Scheduler(AnalysisBase, BestPointMixin):
 
     @property
     def pending_trials(self) -> list[BaseTrial]:
-        """Running or staged trials on the experiment this scheduler is
+        """Running or staged trials on the experiment this Orchestrator is
         running.
 
         Note: if the experiment is a MultiTypeExperiment, then this will
-        only fetch trials of type `Scheduler.trial_type`.
+        only fetch trials of type `orchestrator.trial_type`.
 
         Returns:
             List of trials that are currently running or staged.
@@ -440,10 +440,10 @@ class Scheduler(AnalysisBase, BestPointMixin):
 
     @property
     def candidate_trials(self) -> list[BaseTrial]:
-        """Candidate trials on the experiment this scheduler is running.
+        """Candidate trials on the experiment this Orchestrator is running.
 
         Note: if the experiment is a MultiTypeExperiment, then this will
-        only fetch trials of type `Scheduler.trial_type`.
+        only fetch trials of type `orchestrator.trial_type`.
 
         Returns:
             List of trials that are currently candidates.
@@ -458,7 +458,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         """Trials expecting data.
 
         Note: if the experiment is a MultiTypeExperiment, then this will
-        only fetch trials of type `Scheduler.trial_type`.
+        only fetch trials of type `orchestrator.trial_type`.
         """
         trials = []
         for trial in self.experiment.trials.values():
@@ -469,7 +469,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
 
     @property
     def runner(self) -> Runner:
-        """``Runner`` specified on the experiment associated with this ``Scheduler``
+        """``Runner`` specified on the experiment associated with this ``Orchestrator``
         instance.
         """
         if self.trial_type is not None:
@@ -480,7 +480,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
             runner = self.experiment.runner
         if runner is None:
             raise UnsupportedError(
-                "`Scheduler` requires that experiment specifies a `Runner`."
+                "`Orchestrator` requires that experiment specifies a `Runner`."
             )
         return runner
 
@@ -497,7 +497,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         )
 
     # ---------- Methods below should generally not be modified in subclasses! ---------
-    # ---------- I. Methods that are often called outside the `Scheduler`. ---------
+    # ---------- I. Methods that are often called outside the `Orchestrator`. ---------
 
     def generate_candidates(
         self,
@@ -553,25 +553,25 @@ class Scheduler(AnalysisBase, BestPointMixin):
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
         timeout_hours: float | None = None,
-        idle_callback: Callable[[Scheduler], None] | None = None,
+        idle_callback: Callable[[Orchestrator], None] | None = None,
     ) -> OptimizationResult:
         """Run up to ``max_trials`` trials; will run all ``max_trials`` unless
-        completion criterion is reached. For base ``Scheduler``, completion criterion
-        is reaching total number of trials set in ``SchedulerOptions``, so if that
+        completion criterion is reached. For base ``Orchestrator``, completion criterion
+        is reaching total number of trials set in ``OrchestratorOptions``, so if that
         option is not specified, this function will run exactly ``max_trials`` trials
         always.
 
         Args:
             max_trials: Maximum number of trials to run.
-            ignore_global_stopping_strategy: If set, Scheduler will skip the global
+            ignore_global_stopping_strategy: If set, Orchestrator will skip the global
                 stopping strategy in ``should_consider_optimization_complete``.
             timeout_hours: Limit on length of ths optimization; if reached, the
                 optimization will abort even if completon criterion is not yet reached.
-            idle_callback: Callable that takes a Scheduler instance as an argument to
+            idle_callback: Callable that takes a Orchestrator instance as an argument to
                 deliver information while the trials are still running. Any output of
                 `idle_callback` will not be returned, so `idle_callback` must expose
                 information in some other way. For example, it could print something
-                about the state of the scheduler or underlying experiment to STDOUT,
+                about the state of the Orchestrator or underlying experiment to STDOUT,
                 write something to a database, or modify a Plotly figure or other object
                 in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
                 helper function for generating a callback that will update a Plotly
@@ -580,10 +580,10 @@ class Scheduler(AnalysisBase, BestPointMixin):
         Example:
             >>> trials_info = {"n_completed": None}
             >>>
-            >>> def write_n_trials(scheduler: Scheduler) -> None:
-            ...     trials_info["n_completed"] = len(scheduler.experiment.trials)
+            >>> def write_n_trials(orchestrator:Orchestrator) -> None:
+            ...     trials_info["n_completed"] = len(orchestrator.experiment.trials)
             >>>
-            >>> scheduler.run_n_trials(
+            >>> orchestrator.run_n_trials(
             ...     max_trials=3, idle_callback=write_n_trials
             ... )
             >>> print(trials_info["n_completed"])
@@ -602,24 +602,24 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def run_all_trials(
         self,
         timeout_hours: float | None = None,
-        idle_callback: Callable[[Scheduler], None] | None = None,
+        idle_callback: Callable[[Orchestrator], None] | None = None,
     ) -> OptimizationResult:
         """Run all trials until ``should_consider_optimization_complete`` yields
         true (by default, ``should_consider_optimization_complete`` will yield true when
-        reaching the ``num_trials`` setting, passed to scheduler on instantiation as
-        part of ``SchedulerOptions``).
+        reaching the ``num_trials`` setting, passed to Orchestrator on instantiation as
+        part of ``OrchestratorOptions``).
 
-        NOTE: This function is available only when ``SchedulerOptions.num_trials`` is
+        NOTE: This function is available only when ``OrchestratorOptions.num_trials`` is
         specified.
 
         Args:
             timeout_hours: Limit on length of ths optimization; if reached, the
                 optimization will abort even if completon criterion is not yet reached.
-            idle_callback: Callable that takes a Scheduler instance as an argument to
+            idle_callback: Callable that takes a Orchestrator instance as an argument to
                 deliver information while the trials are still running. Any output of
                 `idle_callback` will not be returned, so `idle_callback` must expose
                 information in some other way. For example, it could print something
-                about the state of the scheduler or underlying experiment to STDOUT,
+                about the state of the Orchestrator or underlying experiment to STDOUT,
                 write something to a database, or modify a Plotly figure or other object
                 in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
                 helper function for generating a callback that will update a Plotly
@@ -628,10 +628,10 @@ class Scheduler(AnalysisBase, BestPointMixin):
         Example:
             >>> trials_info = {"n_completed": None}
             >>>
-            >>> def write_n_trials(scheduler: Scheduler) -> None:
-            ...     trials_info["n_completed"] = len(scheduler.experiment.trials)
+            >>> def write_n_trials(orchestrator:Orchestrator) -> None:
+            ...     trials_info["n_completed"] = len(orchestrator.experiment.trials)
             >>>
-            >>> scheduler.run_all_trials(
+            >>> orchestrator.run_all_trials(
             ...     timeout_hours=0.1, idle_callback=write_n_trials
             ... )
             >>> print(trials_info["n_completed"])
@@ -640,8 +640,9 @@ class Scheduler(AnalysisBase, BestPointMixin):
             # NOTE: Capping on number of trials will likely be needed as fallback
             # for most stopping criteria, so we ensure `num_trials` is specified.
             raise ValueError(
-                "Please either specify `num_trials` in `SchedulerOptions` input "
-                "to the `Scheduler` or use `run_n_trials` instead of `run_all_trials`."
+                "Please either specify `num_trials` in `OrchestratorOptions` input "
+                "to the `Orchestrator` or use `run_n_trials` instead of "
+                "`run_all_trials`."
             )
         return self.run_n_trials(
             max_trials=none_throws(self.options.total_trials),
@@ -654,28 +655,28 @@ class Scheduler(AnalysisBase, BestPointMixin):
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
         timeout_hours: float | None = None,
-        idle_callback: Callable[[Scheduler], None] | None = None,
+        idle_callback: Callable[[Orchestrator], None] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """Make continuous calls to `run` and `process_results` to run up to
         ``max_trials`` trials, until completion criterion is reached. This is the 'main'
-        method of a ``Scheduler``.
+        method of a ``Orchestrator``.
 
         Args:
             max_trials: Maximum number of trials to run in this generator. The
                 generator will run trials until a completion criterion is reached,
                 a completion signal is received from the generation strategy, or
                 ``max_trials`` trials have been run (whichever happens first).
-            ignore_global_stopping_strategy: If set, Scheduler will skip the global
+            ignore_global_stopping_strategy: If set, Orchestrator will skip the global
                 stopping strategy in ``should_consider_optimization_complete``.
             timeout_hours: Maximum number of hours, for which
                 to run the optimization. This function will abort after running
                 for `timeout_hours` even if stopping criterion has not been reached.
                 If set to `None`, no optimization timeout will be applied.
-            idle_callback: Callable that takes a Scheduler instance as an argument to
+            idle_callback: Callable that takes a Orchestrator instance as an argument to
                 deliver information while the trials are still running. Any output of
                 `idle_callback` will not be returned, so `idle_callback` must expose
                 information in some other way. For example, it could print something
-                about the state of the scheduler or underlying experiment to STDOUT,
+                about the state of the Orchestrator or underlying experiment to STDOUT,
                 write something to a database, or modify a Plotly figure or other object
                 in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
                 helper function for generating a callback that will update a Plotly
@@ -723,11 +724,11 @@ class Scheduler(AnalysisBase, BestPointMixin):
             ):
                 # Not checking `should_abort_optimization` on every trial for perf.
                 # reasons.
-                n_already_run_by_scheduler = (
+                n_already_run_by_orchestrator = (
                     len(self.trials) - n_existing - len(self.candidate_trials)
                 )
                 self._num_remaining_requested_trials = (
-                    max_trials - n_already_run_by_scheduler
+                    max_trials - n_already_run_by_orchestrator
                 )
                 n_remaining_to_generate = self._num_remaining_requested_trials - len(
                     self.candidate_trials
@@ -768,7 +769,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         )
         return
 
-    # ---------- II. Methods that are typically called within the `Scheduler`. ---------
+    # -------- II. Methods that are typically called within the `Orchestrator`. -------
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def run_trials(self, trials: Iterable[BaseTrial]) -> dict[int, dict[str, Any]]:
@@ -802,7 +803,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         and returns their indices as a mapping from TrialStatus to a list of indices.
 
         NOTE: Does not need to handle waiting between polling while trials
-        are running; that logic is handled in ``Scheduler.poll``, which calls
+        are running; that logic is handled in ``orchestrator.poll``, which calls
         this function.
 
         Returns:
@@ -823,7 +824,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
 
     def wait_for_completed_trials_and_report_results(
         self,
-        idle_callback: Callable[[Scheduler], None] | None = None,
+        idle_callback: Callable[[Orchestrator], None] | None = None,
         force_refit: bool = False,
     ) -> dict[str, Any]:
         """Continuously poll for successful trials, with limited exponential
@@ -834,11 +835,11 @@ class Scheduler(AnalysisBase, BestPointMixin):
         marked as 'COMPLETED' in Ax.
 
         Args:
-            idle_callback: Callable that takes a Scheduler instance as an argument to
+            idle_callback: Callable that takes a Orchestrator instance as an argument to
                 deliver information while the trials are still running. Any output of
                 `idle_callback` will not be returned, so `idle_callback` must expose
                 information in some other way. For example, it could print something
-                about the state of the scheduler or underlying experiment to STDOUT,
+                about the state of the Orchestrator or underlying experiment to STDOUT,
                 write something to a database, or modify a Plotly figure or other object
                 in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
                 helper function for generating a callback that will update a Plotly
@@ -848,13 +849,13 @@ class Scheduler(AnalysisBase, BestPointMixin):
         Returns:
             Results of the optimization so far, represented as a
             dict. The contents of the dict depend on the implementation of
-            `report_results` in the given `Scheduler` subclass.
+            `report_results` in the given `Orchestrator` subclass.
         """
         if self.options.init_seconds_between_polls is None:
             raise ValueError(
                 "Default `wait_for_completed_trials_and_report_results` in base "
-                "`Scheduler` relies on non-null `init_seconds_between_polls` scheduler "
-                "option."
+                "`Orchestrator` relies on non-null `init_seconds_between_polls` "
+                "`Orchestrator` option."
             )
 
         seconds_between_polls = self.options.init_seconds_between_polls
@@ -895,12 +896,12 @@ class Scheduler(AnalysisBase, BestPointMixin):
         return self.report_results(force_refit=force_refit)
 
     def should_consider_optimization_complete(self) -> tuple[bool, str]:
-        """Whether this scheduler should consider this optimization complete and not
+        """Whether this Orchestrator should consider this optimization complete and not
         run more trials (and conclude the optimization via ``_complete_optimization``).
 
         NOTE: An optimization is considered complete when a generation strategy signaled
         completion or when the ``should_consider_optimization_complete`` method on this
-        scheduler evaluates to ``True``. The ``should_consider_optimization_complete``
+        Orchestrator evaluates to ``True``. ``should_consider_optimization_complete``
         method is also responsible for checking global_stopping_strategy's decision as
         well. Alongside the stop decision, this function returns a string describing the
         reason for stopping the optimization.
@@ -928,7 +929,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         return should_stop, message
 
     def should_abort_optimization(self, timeout_hours: float | None = None) -> bool:
-        """Checks whether this scheduler has reached some intertuption / abort
+        """Checks whether this Orchestrator has reached some intertuption / abort
         criterion, such as an overall optimization timeout, tolerated failure rate, etc.
         """
         # If failure rate has been exceeded, log a warning and make sure we are not
@@ -983,7 +984,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         return OptimizationResult()
 
     def _check_if_failure_rate_exceeded(self, force_check: bool = False) -> bool:
-        """Checks if the failure rate (set in scheduler options) has been exceeded at
+        """Checks if the failure rate (set in Orchestrator options) has been exceeded at
         any point during the optimization.
 
         NOTE: Both FAILED and ABANDONED trial statuses count towards the failure rate.
@@ -1007,26 +1008,27 @@ class Scheduler(AnalysisBase, BestPointMixin):
         if self._failure_rate_has_been_exceeded:
             return True
 
-        num_bad_in_scheduler = self._num_bad_in_scheduler()
+        num_bad_in_orchestrator = self._num_bad_in_orchestrator()
         # skip check if 0 failures
-        if num_bad_in_scheduler == 0:
+        if num_bad_in_orchestrator == 0:
             return False
 
         # skip check if fewer than min_failed_trials_for_failure_rate_check failures
         # unless force_check is True
         if (
-            num_bad_in_scheduler < self.options.min_failed_trials_for_failure_rate_check
+            num_bad_in_orchestrator
+            < self.options.min_failed_trials_for_failure_rate_check
             and not force_check
         ):
             return False
 
-        num_ran_in_scheduler = self._num_ran_in_scheduler()
+        num_ran_in_orchestrator = self._num_ran_in_orchestrator()
         failure_rate_exceeded = (
-            num_bad_in_scheduler / num_ran_in_scheduler
+            num_bad_in_orchestrator / num_ran_in_orchestrator
         ) > self.options.tolerated_trial_failure_rate
 
         if failure_rate_exceeded:
-            if self._num_trials_bad_due_to_err > num_bad_in_scheduler / 2:
+            if self._num_trials_bad_due_to_err > num_bad_in_orchestrator / 2:
                 self.logger.warning(
                     "MetricFetchE INFO: Sweep aborted due to an exceeded error rate, "
                     "which was primarily caused by failure to fetch metrics. Please "
@@ -1039,7 +1041,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
             return True
 
         if failure_rate_exceeded:
-            if self._num_trials_bad_due_to_err > num_bad_in_scheduler / 2:
+            if self._num_trials_bad_due_to_err > num_bad_in_orchestrator / 2:
                 self.logger.warning(
                     "MetricFetchE INFO: Sweep aborted due to an exceeded error rate, "
                     "which was primarily caused by failure to fetch metrics. Please "
@@ -1048,14 +1050,14 @@ class Scheduler(AnalysisBase, BestPointMixin):
                 )
 
             raise self._get_failure_rate_exceeded_error(
-                num_bad_in_scheduler=num_bad_in_scheduler,
-                num_ran_in_scheduler=num_ran_in_scheduler,
+                num_bad_in_orchestrator=num_bad_in_orchestrator,
+                num_ran_in_orchestrator=num_ran_in_orchestrator,
             )
         return False
 
     def error_if_failure_rate_exceeded(self, force_check: bool = False) -> None:
-        """Raises an exception if the failure rate (set in scheduler options) has been
-        exceeded at any point during the optimization.
+        """Raises an exception if the failure rate (set in Orchestrator options) has
+        been exceeded at any point during the optimization.
 
         NOTE: Both FAILED and ABANDONED trial statuses count towards the failure rate.
 
@@ -1068,14 +1070,14 @@ class Scheduler(AnalysisBase, BestPointMixin):
         """
         if self._check_if_failure_rate_exceeded(force_check=force_check):
             raise self._get_failure_rate_exceeded_error(
-                num_bad_in_scheduler=self._num_bad_in_scheduler(),
-                num_ran_in_scheduler=self._num_ran_in_scheduler(),
+                num_bad_in_orchestrator=self._num_bad_in_orchestrator(),
+                num_ran_in_orchestrator=self._num_ran_in_orchestrator(),
             )
 
     def _check_exit_status_and_report_results(
         self,
         n_existing: int,
-        idle_callback: Callable[[Scheduler], None] | None,
+        idle_callback: Callable[[Orchestrator], None] | None,
         force_refit: bool,
     ) -> dict[str, Any] | None:
         if not self.options.wait_for_running_trials:
@@ -1129,9 +1131,9 @@ class Scheduler(AnalysisBase, BestPointMixin):
                 return False
 
             if len(self.pending_trials) < 1:
-                raise SchedulerInternalError(
+                raise OrchestratorInternalError(
                     "No trials are running but model requires more data. This is an "
-                    "invalid state of the scheduler, as no more trials can be produced "
+                    "invalid state of the Orchestrator, as no more trials can be added "
                     "but also no more data is expected as there are no running trials. "
                     "This should be investigated."
                 )
@@ -1263,20 +1265,20 @@ class Scheduler(AnalysisBase, BestPointMixin):
             }
         return set()
 
-    def _num_bad_in_scheduler(self) -> int:
+    def _num_bad_in_orchestrator(self) -> int:
         """Returns the number of trials that have failed or been abandoned in the
-        scheduler.
+        orchestrator.
         """
         # We only count failed trials with indices that came after the preexisting
-        # trials on experiment before scheduler use.
+        # trials on experiment before Orchestrator use.
         return sum(
             1
             for f in self.failed_abandoned_trial_indices
             if f >= self._num_preexisting_trials
         )
 
-    def _num_ran_in_scheduler(self) -> int:
-        """Returns the number of trials that have been run by the scheduler."""
+    def _num_ran_in_orchestrator(self) -> int:
+        """Returns the number of trials that have been run by the orchestrator."""
         return len(self.experiment.trials) - self._num_preexisting_trials
 
     def _apply_new_trial_statuses(
@@ -1450,7 +1452,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def _complete_optimization(
         self,
         num_preexisting_trials: int,
-        idle_callback: Callable[[Scheduler], None] | None = None,
+        idle_callback: Callable[[Orchestrator], None] | None = None,
     ) -> dict[str, Any]:
         """Conclude optimization with waiting for anymore running trials and
         return final results via `wait_for_completed_trials_and_report_results`.
@@ -1465,9 +1467,9 @@ class Scheduler(AnalysisBase, BestPointMixin):
         self._warn_if_non_terminal_trials()
         return res
 
-    def _validate_options(self, options: SchedulerOptions) -> None:
-        """Validates `SchedulerOptions` for compatibility with given
-        `Scheduler` class.
+    def _validate_options(self, options: OrchestratorOptions) -> None:
+        """Validates `OrchestratorOptions` for compatibility with given
+        `Orchestrator` class.
         """
         if not (0.0 <= options.tolerated_trial_failure_rate < 1.0):
             raise ValueError("`tolerated_trial_failure_rate` must be in [0, 1).")
@@ -1513,7 +1515,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         self, max_new_trials: int
     ) -> tuple[list[BaseTrial], list[BaseTrial]]:
         """Prepares one trial or multiple trials for deployment, based on
-        whether `run_trials_in_batches` is set to `True` in this scheduler's
+        whether `run_trials_in_batches` is set to `True` in this Orchestrator's
         options.
 
         NOTE: If running trials in batches, exact number of trials run at once
@@ -1637,7 +1639,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
             len(generator_run_list[0].arms) > 1 or len(generator_run_list) > 1
             for generator_run_list in generator_runs
         ):
-            raise SchedulerInternalError(
+            raise OrchestratorInternalError(
                 "Generation strategy produced multiple arms when only one was expected."
             )
         trials = []
@@ -1669,14 +1671,14 @@ class Scheduler(AnalysisBase, BestPointMixin):
         n: int | None = None,
     ) -> list[list[GeneratorRun]]:
         """Generates a list ``GeneratorRun``s of length of ``num_trials`` using the
-        ``_gen_multiple`` method of the scheduler's ``generation_strategy``, taking
+        ``_gen_multiple`` method of the Orchestrator's ``generation_strategy``, taking
         into account any ``pending`` observations.
         """
         self.generation_strategy.experiment = self.experiment
         # For ``BatchTrial`-s, we generate trials using the new method that can
         # produce GRs for multiple trials, with multiple nodes. But we don't yet
         # want to enable that functionality for single-arm use cases of the
-        # ``Scheduler``, as it's still in development.
+        # ``Orchestrator``, as it's still in development.
         if self.options.trial_type == TrialType.BATCH_TRIAL:
             grs = self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
                 experiment=self.experiment,
@@ -1718,7 +1720,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
                 storage functionality).
             new_trials: Trials that were newly created (these trials are not
                 yet saved in the DB if using storage functionality).
-            metadata: Run metadata for the trials, from `scheduler.run_trials`.
+            metadata: Run metadata for the trials, from `orchestrator.run_trials`.
                 Format is {trial index -> trial run metadata}. Trials present in
                 the metadata dict will be considered `RUNNING`, and the rest of
                 trials in `existing_trials` or `new_trials` (that are not present
@@ -1773,7 +1775,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
             if seconds_since_run_trial < self.options.min_seconds_before_poll:
                 sleep(self.options.min_seconds_before_poll - seconds_since_run_trial)
 
-    def _set_logger(self, options: SchedulerOptions) -> None:
+    def _set_logger(self, options: OrchestratorOptions) -> None:
         """Set up the logger with appropriate logging levels."""
         cls_name = self.__class__.__name__
         logger = get_logger(name=f"{__name__}.{cls_name}@{hex(id(self))}")
@@ -1789,7 +1791,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def _validate_remaining_trials(self, experiment: Experiment) -> None:
         """Check how many trials are remaining in `total_trials` given the trials
         already on experiment and make sure that there will be trials for the
-        scheduler to run.
+        Orchestrator to run.
         """
         if not experiment.trials or not self.options.total_trials:
             return
@@ -1798,17 +1800,17 @@ class Scheduler(AnalysisBase, BestPointMixin):
         preexisting = len(experiment.trials)
         msg = (
             f"{experiment} already has {preexisting} trials associated with it. "
-            f"Total trials setting for this scheduler is {total_trials}, so "
+            f"Total trials setting for this Orchestrator is {total_trials}, so "
         )
         if preexisting >= total_trials:
             self.logger.warning(
-                msg + "no more trials would be run in this scheduler if "
-                "`Scheduler.run_all_trials` is called (but you can still use "
-                "`Scheduler.run_n_trials` to run a fixed number of trials)."
+                msg + "no more trials would be run in this Orchestrator if "
+                "`orchestrator.run_all_trials` is called (but you can still use "
+                "`orchestrator.run_n_trials` to run a fixed number of trials)."
             )
         else:
             self.logger.info(
-                msg + "number of trials ran by `Scheduler.run_all_trials` would be "
+                msg + "number of trials ran by `orchestrator.run_all_trials` would be "
                 f"{total_trials - preexisting}."
             )
 
@@ -1820,11 +1822,11 @@ class Scheduler(AnalysisBase, BestPointMixin):
         self.runner
         metrics_are_invalid = False
         if not experiment.metrics:
-            msg = "`Scheduler` requires that `experiment.metrics` not be None."
+            msg = "`Orchestrator` requires that `experiment.metrics` not be None."
             metrics_are_invalid = True
         else:
             msg = (
-                "`Scheduler` requires that experiment specifies metrics "
+                "`Orchestrator` requires that experiment specifies metrics "
                 "with implemented fetching logic."
             )
             base_metrics = {
@@ -1843,15 +1845,15 @@ class Scheduler(AnalysisBase, BestPointMixin):
     def _enforce_immutable_search_space_and_opt_config(self) -> None:
         """Experiments with immutable search space and optimization config don't
         need to keep copies of those objects on each generator run in the experiment,
-        resulting in large performance gain in storage layer. In `Scheduler`, we
-        force-set this immutability on `Experiment`, since scheduler experiments
+        resulting in large performance gain in storage layer. In `Orchestrator`, we
+        force-set this immutability on `Experiment`, since Orchestrator experiments
         are typically not human-in-the-loop.
         """
         if self.experiment.immutable_search_space_and_opt_config:
             return
 
         self.logger.info(
-            f"`Scheduler` requires experiment to have immutable search "
+            f"`Orchestrator` requires experiment to have immutable search "
             "space and optimization config. Setting property "
             f"{Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value} "
             "to `True` on experiment."
@@ -1861,7 +1863,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
         )
 
     def _record_optimization_complete_message(self) -> None:
-        """Adds a simple optimization completion message to this scheduler's markdown
+        """Adds a simple optimization completion message to this Orchestrator's markdown
         messages.
         """
         completion_msg = OPTIMIZATION_COMPLETION_MSG.format(
@@ -1999,14 +2001,14 @@ class Scheduler(AnalysisBase, BestPointMixin):
 
     def _get_failure_rate_exceeded_error(
         self,
-        num_bad_in_scheduler: int,
-        num_ran_in_scheduler: int,
+        num_bad_in_orchestrator: int,
+        num_ran_in_orchestrator: int,
     ) -> FailureRateExceededError:
         return FailureRateExceededError(
             FAILURE_EXCEEDED_MSG.format(
                 f_rate=self.options.tolerated_trial_failure_rate,
-                n_failed=num_bad_in_scheduler,
-                n_ran=num_ran_in_scheduler,
+                n_failed=num_bad_in_orchestrator,
+                n_ran=num_ran_in_orchestrator,
                 min_failed=self.options.min_failed_trials_for_failure_rate_check,
             )
         )
@@ -2051,20 +2053,22 @@ class Scheduler(AnalysisBase, BestPointMixin):
         )
 
 
-def get_fitted_adapter(scheduler: Scheduler, force_refit: bool = False) -> Adapter:
+def get_fitted_adapter(
+    orchestrator: Orchestrator, force_refit: bool = False
+) -> Adapter:
     """Returns a fitted Adapter object. If the model is fit already, directly
     returns the already fitted model. Otherwise, fits and returns a new one.
 
     Args:
-        scheduler: The scheduler object from which to get the fitted model.
+        orchestrator:The Orchestrator object from which to get the fitted model.
         force_refit: If True, will force a data lookup and a refit of the model.
 
     Returns:
-        A Adapter object fitted to the observations of the scheduler's experiment.
+        A Adapter object fitted to the observations of the Orchestrator's experiment.
     """
-    gs = scheduler.generation_strategy
+    gs = orchestrator.generation_strategy
     adapter = gs.model  # Optional[Adapter]
     if adapter is None or force_refit:  # Need to re-fit the model.
-        gs._curr._fit(experiment=scheduler.experiment)
+        gs._curr._fit(experiment=orchestrator.experiment)
         adapter = cast(Adapter, gs.model)
     return adapter

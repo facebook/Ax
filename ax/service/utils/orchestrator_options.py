@@ -20,34 +20,34 @@ class TrialType(Enum):
 
 
 @dataclass(frozen=True)
-class SchedulerOptions:
-    """Settings for a scheduler instance.
+class OrchestratorOptions:
+    """Settings for a Orchestrator instance.
 
     Attributes:
-        max_pending_trials: Maximum number of pending trials the scheduler
+        max_pending_trials: Maximum number of pending trials the Orchestrator
             can have ``STAGED`` or ``RUNNING`` at once, required. If looking
             to use ``Runner.poll_available_capacity`` as a primary guide for
             how many trials should be pending at a given time, set this limit
             to a high number, as an upper bound on number of trials that
             should not be exceeded.
         trial_type: Type of trials (1-arm ``Trial`` or multi-arm ``Batch
-            Trial``) that will be deployed using the scheduler. Defaults
+            Trial``) that will be deployed using the orchestrator. Defaults
             to 1-arm `Trial`. NOTE: use ``BatchTrial`` only if need to
             evaluate multiple arms *together*, e.g. in an A/B-test
             influenced by data nonstationarity. For cases where just
             deploying multiple arms at once is beneficial but the trials
             are evaluated *independently*, implement ``run_trials`` method
-            in scheduler subclass, to deploy multiple 1-arm trials at
+            in Orchestrator subclass, to deploy multiple 1-arm trials at
             the same time.
         batch_size: If using BatchTrial the number of arms to be generated and
             deployed per trial.
-        total_trials: Limit on number of trials a given ``Scheduler``
+        total_trials: Limit on number of trials a given ``Orchestrator``
             should run. If no stopping criteria are implemented on
-            a given scheduler, exhaustion of this number of trials
+            a given Orchestrator, exhaustion of this number of trials
             will be used as default stopping criterion in
-            ``Scheduler.run_all_trials``. Required to be non-null if
-            using ``Scheduler.run_all_trials`` (not required for
-            ``Scheduler.run_n_trials``).
+            ``orchestrator.run_all_trials``. Required to be non-null if
+            using ``orchestrator.run_all_trials`` (not required for
+            ``orchestrator.run_n_trials``).
         tolerated_trial_failure_rate: Fraction of trials in this
             optimization that are allowed to fail without the whole
             optimization ending. Expects value between 0 and 1.
@@ -57,19 +57,19 @@ class SchedulerOptions:
             to total trials ran so far exceeds the failure rate,
             the optimization will halt.
         min_failed_trials_for_failure_rate_check: The minimum number
-            of trials that must fail in `Scheduler` in order to start
+            of trials that must fail in `Orchestrator` in order to start
             checking failure rate.
         log_filepath: File, to which to write optimization logs.
         logging_level: Minimum level of logging statements to log,
             defaults to ``logging.INFO``.
         ttl_seconds_for_trials: Optional TTL for all trials created
-            within this ``Scheduler``, in seconds. Trials that remain
+            within this ``Orchestrator``, in seconds. Trials that remain
             ``RUNNING`` for more than their TTL seconds will be marked
             ``FAILED`` once the TTL elapses and may be re-suggested by
             the Ax optimization models.
         init_seconds_between_polls: Initial wait between rounds of
             polling, in seconds. Relevant if using the default wait-
-            for-completed-runs functionality of the base ``Scheduler``
+            for-completed-runs functionality of the base ``Orchestrator``
             (if ``wait_for_completed_trials_and_report_results`` is not
             overridden). With the default waiting, every time a poll
             returns that no trial evaluations completed, wait
@@ -102,13 +102,13 @@ class SchedulerOptions:
             multiple times. Only use if SQL storage is not important for the given
             use case, since this will only log, but not raise, an exception if
             it's encountered while saving to DB or loading from it.
-        wait_for_running_trials: Whether the scheduler should wait for running trials
+        wait_for_running_trials: Whether the Orchestrator should wait for running trials
             or exit.
         fetch_kwargs: Kwargs to be used when fetching data.
         validate_metrics: Whether to raise an error if there is a problem with the
             metrics attached to the experiment.
         status_quo_weight: The weight of the status quo arm. This is only used
-            if the scheduler is using a BatchTrial. This requires that the status_quo
+            if the Orchestrator is using a BatchTrial. This requires that the status_quo
             be set on the experiment.
         enforce_immutable_search_space_and_opt_config: Whether to enforce that the
             search space and optimization config are immutable.  If true, will add
