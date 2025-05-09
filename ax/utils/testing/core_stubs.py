@@ -1136,7 +1136,7 @@ def get_online_experiments() -> list[Experiment]:
 
         # Add a custom arm to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial()
+        trial = experiment.new_batch_trial(add_status_quo_arm=True)
         # Detatch the arms from the GeneratorRun so they appear as custom arms
         trial.add_arms_and_weights(arms=sobol_run.arms)
 

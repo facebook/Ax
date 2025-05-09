@@ -187,7 +187,6 @@ class TestScatterPlot(TestCase):
     def test_online(self) -> None:
         # Test ScatterPlot can be computed for a variety of experiments which
         # resemble those we see in an online setting.
-
         for experiment in get_online_experiments():
             # Skip experiments with fewer than 2 metrics
             if len(experiment.metrics) < 2:

@@ -62,7 +62,6 @@ class ArmEffectsPlot(PlotlyAnalysis):
         self,
         metric_names: Sequence[str] | None = None,
         use_model_predictions: bool = True,
-        relativize: bool = False,
         trial_index: int | None = None,
         trial_statuses: Sequence[TrialStatus] | None = None,
         additional_arms: Sequence[Arm] | None = None,
@@ -78,9 +77,6 @@ class ArmEffectsPlot(PlotlyAnalysis):
                 on the model. If ``False``, the plot will show the observed effects of
                 each arm. The latter is often less trustworthy than the former,
                 especially when model fit is good and in high-noise settings.
-            relativize: Whether to relativize the effects of each arm against the status
-                quo arm. If multiple status quo arms are present, relativize each arm
-                against the status quo arm from the same trial.
             trial_index: If present, only use arms from the trial with the given index.
             additional_arms: If present, include these arms in the plot in addition to
                 the arms in the experiment. These arms will be marked as belonging to a
@@ -93,7 +89,6 @@ class ArmEffectsPlot(PlotlyAnalysis):
 
         self.metric_names = metric_names
         self.use_model_predictions = use_model_predictions
-        self.relativize = relativize
         self.trial_index = trial_index
         self.trial_statuses = trial_statuses
         self.additional_arms = additional_arms
@@ -121,6 +116,11 @@ class ArmEffectsPlot(PlotlyAnalysis):
         else:
             relevant_adapter = None
 
+        # if status quo is specified, results will be relativized during data prep
+        relativize = (
+            experiment.status_quo is not None and experiment.status_quo.name is not None
+        )
+
         df = prepare_arm_data(
             experiment=experiment,
             metric_names=metric_names,
@@ -129,7 +129,6 @@ class ArmEffectsPlot(PlotlyAnalysis):
             trial_index=self.trial_index,
             trial_statuses=self.trial_statuses,
             additional_arms=self.additional_arms,
-            relativize=self.relativize,
         )
 
         # Retrieve the metric labels from the mapping provided by the user, defaulting
@@ -170,7 +169,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
                 fig=_prepare_figure(
                     df=df,
                     metric_name=metric_name,
-                    is_relative=self.relativize,
+                    is_relative=relativize,
                     status_quo_arm_name=experiment.status_quo.name
                     if experiment.status_quo
                     else None,
@@ -217,9 +216,6 @@ def compute_arm_effects_adhoc(
             on the model. If ``False``, the plot will show the observed effects of
             each arm. The latter is often less trustworthy than the former,
             especially when model fit is good and in high-noise settings.
-        relativize: Whether to relativize the effects of each arm against the status
-            quo arm. If multiple status quo arms are present, relativize each arm
-            against the status quo arm from the same trial.
         trial_index: If present, only use arms from the trial with the given index.
         additional_arms: If present, include these arms in the plot in addition to
             the arms in the experiment. These arms will be marked as belonging to a
@@ -233,7 +229,6 @@ def compute_arm_effects_adhoc(
     analysis = ArmEffectsPlot(
         metric_names=metric_names,
         use_model_predictions=use_model_predictions,
-        relativize=relativize,
         trial_index=trial_index,
         trial_statuses=trial_statuses,
         additional_arms=additional_arms,
