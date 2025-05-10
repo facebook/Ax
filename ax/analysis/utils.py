@@ -90,7 +90,6 @@ def prepare_arm_data(
     trial_index: int | None = None,
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
-    relativize: bool = False,
 ) -> pd.DataFrame:
     """
     Create a table with one entry per arm and columns for each requested metric. This
@@ -113,9 +112,6 @@ def prepare_arm_data(
             collection. If not present, include all arms on the experiment.
         additional_arms: If present, include these arms in the table. These arms will
             be marked as belonging to a trial with index -1.
-        relativize: Whether to relativize the effects of each arm against the status
-            quo arm. If multiple status quo arms are present, relativize each arm
-            against the status quo arm from the same trial.
 
     Returns a DataFrame with the following columns:
         - trial_index
@@ -199,18 +195,9 @@ def prepare_arm_data(
             trial_statuses=trial_statuses,
         )
 
-    if relativize:
-        if experiment.status_quo is None:
-            raise UserInputError(
-                "Cannot relativize data without a status quo arm on the experiment."
-            )
-
-        if experiment.status_quo.name is None:
-            raise UserInputError(
-                "Cannot relativize data without a named status quo arm on the "
-                "experiment."
-            )
-
+    # If we have a status quo arm present on the experiment, relativize the effects
+    # for our analyses -- relativized results are more interpretable
+    if experiment.status_quo is not None and experiment.status_quo.name is not None:
         status_quo_name = experiment.status_quo.name
 
         if use_model_predictions:
@@ -268,8 +255,12 @@ def prepare_arm_data(
                     row = df[status_quo_mask].iloc[0]
                 else:
                     raise UserInputError(
-                        "Failed to relativize, no status quo arm found in the "
-                        "experiment."
+                        "Failed to relativize, there either must be one status quo "
+                        "arm on the experiment, or each trial must have an "
+                        "associated status quo arm. For example, if all trials but "
+                        "trial 4 have a status quo arm, we cannot realivize trial 4 "
+                        "because it is unclear which status quo arm to use as the "
+                        "baseline."
                     )
 
                 row["trial_index"] = trial_index
