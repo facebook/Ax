@@ -96,8 +96,6 @@ class MultiObjective(Objective):
         objectives: List of objectives.
     """
 
-    weights: list[float]
-
     def __init__(
         self,
         objectives: list[Objective] | None = None,
@@ -134,11 +132,6 @@ class MultiObjective(Objective):
         # pyre-fixme[4]: Attribute must be annotated.
         self._objectives = none_throws(objectives)
 
-        # For now, assume all objectives are weighted equally.
-        # This might be used in the future to change emphasis on the
-        # relative focus of the exploration during the optimization.
-        self.weights = [1.0 for _ in range(len(objectives))]
-
     @property
     def metric(self) -> Metric:
         """Override base method to error."""
@@ -155,11 +148,6 @@ class MultiObjective(Objective):
     def objectives(self) -> list[Objective]:
         """Get the objectives."""
         return self._objectives
-
-    @property
-    def objective_weights(self) -> Iterable[tuple[Objective, float]]:
-        """Get the objectives and weights."""
-        return zip(self.objectives, self.weights)
 
     def clone(self) -> MultiObjective:
         """Create a copy of the objective."""
