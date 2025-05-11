@@ -16,8 +16,7 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
-from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
-from ax.analysis.plotly.utils import is_predictive
+from ax.analysis.plotly.utils import get_predictions_by_arm, is_predictive
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
