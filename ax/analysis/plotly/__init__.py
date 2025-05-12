@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -14,7 +15,6 @@ from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
 from ax.analysis.plotly.surface.contour import ContourPlot
 from ax.analysis.plotly.surface.slice import SlicePlot
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
-from ax.analysis.plotly.unified import ArmEffectsPlot
 
 __all__ = [
     "ArmEffectsPlot",

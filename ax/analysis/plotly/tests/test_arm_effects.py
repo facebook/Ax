@@ -5,7 +5,7 @@
 
 # pyre-unsafe
 
-from ax.analysis.plotly.unified import ArmEffectsPlot, compute_arm_effects_adhoc
+from ax.analysis.plotly.arm_effects import ArmEffectsPlot, compute_arm_effects_adhoc
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
