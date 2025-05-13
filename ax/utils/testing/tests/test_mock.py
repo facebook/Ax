@@ -9,8 +9,8 @@
 from unittest.mock import patch
 
 import torch
-from ax.modelbridge.registry import Generators
-from ax.modelbridge.transforms.choice_encode import OrderedChoiceToIntegerRange
+from ax.adapter.registry import Generators
+from ax.adapter.transforms.choice_encode import OrderedChoiceToIntegerRange
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize_context_manager

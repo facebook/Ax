@@ -9,6 +9,7 @@ import math
 from typing import Sequence
 
 import pandas as pd
+from ax.adapter.base import Adapter
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -27,7 +28,6 @@ from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from plotly import express as px, graph_objects as go
 from pyre_extensions import none_throws, override
 

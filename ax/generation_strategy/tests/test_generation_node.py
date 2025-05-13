@@ -9,6 +9,8 @@
 from unittest.mock import MagicMock, patch
 
 import torch
+from ax.adapter.factory import get_sobol
+from ax.adapter.registry import Generators
 from ax.core.observation import ObservationFeatures
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
@@ -32,8 +34,6 @@ from ax.generation_strategy.model_spec import (
     GeneratorSpec,
 )
 from ax.generation_strategy.transition_criterion import MinTrials
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.registry import Generators
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment

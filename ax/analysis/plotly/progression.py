@@ -9,6 +9,7 @@ from typing import Sequence
 
 import numpy as np
 import plotly.express as px
+from ax.adapter.base import Adapter
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -18,7 +19,6 @@ from ax.core.map_data import MapData
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 
 from plotly import graph_objects as go
 from pyre_extensions import assert_is_instance, override

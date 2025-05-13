@@ -10,6 +10,7 @@ from enum import IntEnum
 from typing import Sequence
 
 import pandas as pd
+from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import (
     Analysis,
@@ -21,7 +22,6 @@ from ax.analysis.analysis import (
 )
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from pyre_extensions import override
 
 

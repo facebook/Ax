@@ -9,16 +9,16 @@
 
 import unittest
 
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.choice_encode import (
+from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.choice_encode import (
     ChoiceEncode,
     ChoiceToNumericChoice,
     OrderedChoiceEncode,
     OrderedChoiceToIntegerRange,
 )
-from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
-from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
-from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
+from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
+from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
+from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.json_store.decoders import transform_type_from_json
 from ax.storage.json_store.encoder import object_to_json

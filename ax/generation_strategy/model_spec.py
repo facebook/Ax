@@ -15,6 +15,16 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
+from ax.adapter.base import Adapter
+from ax.adapter.cross_validation import (
+    compute_diagnostics,
+    cross_validate,
+    CVDiagnostics,
+    CVResult,
+    get_fit_and_std_quality_and_generalization_dict,
+)
+from ax.adapter.registry import ModelRegistryBase
+
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -22,15 +32,6 @@ from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import AxWarning, UserInputError
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.cross_validation import (
-    compute_diagnostics,
-    cross_validate,
-    CVDiagnostics,
-    CVResult,
-    get_fit_and_std_quality_and_generalization_dict,
-)
-from ax.modelbridge.registry import ModelRegistryBase
 from ax.utils.common.base import SortableBase
 from ax.utils.common.kwargs import (
     consolidate_kwargs,

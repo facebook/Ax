@@ -10,6 +10,7 @@ from logging import Logger
 from unittest.mock import patch
 
 import pandas as pd
+from ax.adapter.registry import Generators
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.trial_status import TrialStatus
@@ -30,7 +31,6 @@ from ax.generation_strategy.transition_criterion import (
     MinimumTrialsInStatus,
     MinTrials,
 )
-from ax.modelbridge.registry import Generators
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (

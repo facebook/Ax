@@ -7,10 +7,11 @@
 
 from typing import Any
 
+from ax.adapter.registry import Generators
+
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.generation_strategy.generation_node import GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement

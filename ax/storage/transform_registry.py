@@ -7,44 +7,39 @@
 # pyre-strict
 
 
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.bilog_y import BilogY
-from ax.modelbridge.transforms.choice_encode import (
+from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.bilog_y import BilogY
+from ax.adapter.transforms.choice_encode import (
     ChoiceEncode,
     ChoiceToNumericChoice,
     OrderedChoiceEncode,
     OrderedChoiceToIntegerRange,
 )
-from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
-from ax.modelbridge.transforms.derelativize import Derelativize
-from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
-from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
-from ax.modelbridge.transforms.int_to_float import IntToFloat, LogIntToFloat
-from ax.modelbridge.transforms.ivw import IVW
-from ax.modelbridge.transforms.log import Log
-from ax.modelbridge.transforms.log_y import LogY
-from ax.modelbridge.transforms.logit import Logit
-from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
-from ax.modelbridge.transforms.merge_repeated_measurements import (
-    MergeRepeatedMeasurements,
-)
-from ax.modelbridge.transforms.metrics_as_task import MetricsAsTask
-from ax.modelbridge.transforms.one_hot import OneHot
-from ax.modelbridge.transforms.power_transform_y import PowerTransformY
-from ax.modelbridge.transforms.relativize import (
-    Relativize,
-    RelativizeWithConstantControl,
-)
-from ax.modelbridge.transforms.remove_fixed import RemoveFixed
-from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
-from ax.modelbridge.transforms.standardize_y import StandardizeY
-from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandardizeY
-from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
-from ax.modelbridge.transforms.time_as_feature import TimeAsFeature
-from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
-from ax.modelbridge.transforms.trial_as_task import TrialAsTask
-from ax.modelbridge.transforms.unit_x import UnitX
-from ax.modelbridge.transforms.winsorize import Winsorize
+from ax.adapter.transforms.convert_metric_names import ConvertMetricNames
+from ax.adapter.transforms.derelativize import Derelativize
+from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
+from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
+from ax.adapter.transforms.int_to_float import IntToFloat, LogIntToFloat
+from ax.adapter.transforms.ivw import IVW
+from ax.adapter.transforms.log import Log
+from ax.adapter.transforms.log_y import LogY
+from ax.adapter.transforms.logit import Logit
+from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
+from ax.adapter.transforms.merge_repeated_measurements import MergeRepeatedMeasurements
+from ax.adapter.transforms.metrics_as_task import MetricsAsTask
+from ax.adapter.transforms.one_hot import OneHot
+from ax.adapter.transforms.power_transform_y import PowerTransformY
+from ax.adapter.transforms.relativize import Relativize, RelativizeWithConstantControl
+from ax.adapter.transforms.remove_fixed import RemoveFixed
+from ax.adapter.transforms.search_space_to_choice import SearchSpaceToChoice
+from ax.adapter.transforms.standardize_y import StandardizeY
+from ax.adapter.transforms.stratified_standardize_y import StratifiedStandardizeY
+from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
+from ax.adapter.transforms.time_as_feature import TimeAsFeature
+from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
+from ax.adapter.transforms.trial_as_task import TrialAsTask
+from ax.adapter.transforms.unit_x import UnitX
+from ax.adapter.transforms.winsorize import Winsorize
 
 
 """
@@ -71,7 +66,7 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     OneHot,
     OrderedChoiceEncode,  # TO BE DEPRECATED
     OrderedChoiceToIntegerRange,
-    # This transform was upstreamed into the base modelbridge.
+    # This transform was upstreamed into the base adapter.
     # DEPRECATED: OutOfDesign
     RemoveFixed,
     SearchSpaceToChoice,

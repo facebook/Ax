@@ -15,6 +15,19 @@ import numpy as np
 
 import pandas as pd
 import torch
+from ax.adapter.adapter_utils import (
+    observed_pareto_frontier as observed_pareto,
+    predicted_pareto_frontier as predicted_pareto,
+)
+from ax.adapter.base import Adapter
+from ax.adapter.cross_validation import (
+    assess_model_fit,
+    compute_diagnostics,
+    cross_validate,
+)
+from ax.adapter.registry import Generators
+from ax.adapter.torch import TorchAdapter
+from ax.adapter.transforms.derelativize import Derelativize
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -30,19 +43,6 @@ from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.cross_validation import (
-    assess_model_fit,
-    compute_diagnostics,
-    cross_validate,
-)
-from ax.modelbridge.modelbridge_utils import (
-    observed_pareto_frontier as observed_pareto,
-    predicted_pareto_frontier as predicted_pareto,
-)
-from ax.modelbridge.registry import Generators
-from ax.modelbridge.torch import TorchAdapter
-from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.logger import get_logger
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
@@ -63,7 +63,7 @@ def derelativize_opt_config(
     )
     optimization_config = tf.transform_optimization_config(
         optimization_config=optimization_config.clone(),
-        modelbridge=get_tensor_converter_model(
+        adapter=get_tensor_converter_model(
             experiment=experiment,
             data=experiment.lookup_data(trial_indices=trial_indices),
         ),
@@ -379,7 +379,7 @@ def get_pareto_optimal_parameters(
 
     Args:
         experiment: Experiment, from which to find Pareto-optimal arms.
-        generation_strategy: Generation strategy containing the modelbridge.
+        generation_strategy: Generation strategy containing the adapter.
         optimization_config: Optimization config to use in place of the one stored
             on the experiment.
         trial_indices: Indices of trials for which to retrieve data. If None will
@@ -416,33 +416,33 @@ def get_pareto_optimal_parameters(
         MultiObjectiveOptimizationConfig,
     )
 
-    # Use existing modelbridge if it supports MOO otherwise create a new MOO modelbridge
+    # Use existing adapter if it supports MOO otherwise create a new MOO adapter
     # to use for Pareto frontier extraction.
-    modelbridge = generation_strategy.model
-    is_moo_modelbridge = (
-        modelbridge
-        and isinstance(modelbridge, TorchAdapter)
+    adapter = generation_strategy.model
+    is_moo_adapter = (
+        adapter
+        and isinstance(adapter, TorchAdapter)
         and assert_is_instance(
-            modelbridge,
+            adapter,
             TorchAdapter,
         ).is_moo_problem
     )
-    if is_moo_modelbridge:
+    if is_moo_adapter:
         generation_strategy._curr._fit(experiment=experiment)
     else:
-        modelbridge = Generators.BOTORCH_MODULAR(
+        adapter = Generators.BOTORCH_MODULAR(
             experiment=experiment,
             data=assert_is_instance(
                 experiment.lookup_data(trial_indices=trial_indices),
                 Data,
             ),
         )
-    modelbridge = assert_is_instance(modelbridge, TorchAdapter)
+    adapter = assert_is_instance(adapter, TorchAdapter)
 
     objective_thresholds_override = None
     # If objective thresholds are not specified in optimization config, infer them.
     if not moo_optimization_config.objective_thresholds:
-        objective_thresholds_override = modelbridge.infer_objective_thresholds(
+        objective_thresholds_override = adapter.infer_objective_thresholds(
             search_space=experiment.search_space,
             optimization_config=optimization_config,
             fixed_features=None,
@@ -455,7 +455,7 @@ def get_pareto_optimal_parameters(
 
     pareto_util = predicted_pareto if use_model_predictions else observed_pareto
     pareto_optimal_observations = pareto_util(
-        modelbridge=modelbridge,
+        adapter=adapter,
         optimization_config=moo_optimization_config,
         objective_thresholds=objective_thresholds_override,
     )

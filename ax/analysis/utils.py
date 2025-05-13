@@ -12,6 +12,8 @@ import numpy as np
 
 import pandas as pd
 import torch
+from ax.adapter.base import Adapter
+from ax.adapter.registry import Generators
 from ax.analysis.plotly.utils import is_predictive
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -23,8 +25,6 @@ from ax.core.types import ComparisonOp
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.registry import Generators
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize

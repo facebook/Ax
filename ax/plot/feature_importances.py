@@ -13,9 +13,9 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objs as go
+from ax.adapter import Adapter
 from ax.core.parameter import ChoiceParameter
 from ax.exceptions.core import NoDataError
-from ax.modelbridge import Adapter
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.helper import compose_annotation
 from ax.utils.common.logger import get_logger

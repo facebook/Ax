@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
+from ax.adapter.registry import _decode_callables_from_references, ModelRegistryBase
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -47,7 +48,6 @@ from ax.generation_strategy.transition_criterion import (
     TransitionCriterion,
     TrialBasedCriterion,
 )
-from ax.modelbridge.registry import _decode_callables_from_references, ModelRegistryBase
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoders import (
@@ -333,7 +333,7 @@ def generator_run_from_json(
             for k, v in object_json.items()
         }
     )
-    # Remove deprecated kwargs from model kwargs & bridge kwargs.
+    # Remove deprecated kwargs from model kwargs & adapter kwargs.
     if generator_run._model_kwargs is not None:
         generator_run._model_kwargs = {
             k: v

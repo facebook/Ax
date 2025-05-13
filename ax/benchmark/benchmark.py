@@ -482,7 +482,7 @@ def benchmark_replication(
             "ignore",
             message="Encountered exception in computing model fit quality",
             category=UserWarning,
-            module="ax.modelbridge.cross_validation",
+            module="ax.adapter.cross_validation",
         )
         start = monotonic()
         # These next several lines do the same thing as

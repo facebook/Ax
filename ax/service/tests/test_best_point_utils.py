@@ -14,6 +14,9 @@ import numpy as np
 
 import pandas as pd
 import torch
+from ax.adapter.cross_validation import AssessModelFitResult
+from ax.adapter.registry import Generators
+from ax.adapter.torch import TorchAdapter
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -27,9 +30,6 @@ from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
-from ax.modelbridge.cross_validation import AssessModelFitResult
-from ax.modelbridge.registry import Generators
-from ax.modelbridge.torch import TorchAdapter
 from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
     _extract_best_arm_from_gr,

@@ -11,6 +11,18 @@ from typing import cast
 from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
+from ax.adapter.discrete import DiscreteAdapter
+from ax.adapter.factory import get_sobol
+from ax.adapter.random import RandomAdapter
+from ax.adapter.registry import (
+    _extract_model_state_after_gen,
+    Cont_X_trans,
+    Generators,
+    MBM_MTGP_trans,
+    MODEL_KEY_TO_MODEL_SETUP,
+)
+from ax.adapter.torch import TorchAdapter
+
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -49,17 +61,6 @@ from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
     MinTrials,
 )
-from ax.modelbridge.discrete import DiscreteAdapter
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.random import RandomAdapter
-from ax.modelbridge.registry import (
-    _extract_model_state_after_gen,
-    Cont_X_trans,
-    Generators,
-    MBM_MTGP_trans,
-    MODEL_KEY_TO_MODEL_SETUP,
-)
-from ax.modelbridge.torch import TorchAdapter
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.constants import Keys
 from ax.utils.common.equality import same_elements
@@ -82,7 +83,7 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestGenerationStrategyWithoutAdapterMocks(TestCase):
-    """The test class above heavily mocks the modelbridge. This makes it
+    """The test class above heavily mocks the adapter. This makes it
     difficult to test certain aspects of the GS. This is an alternative
     test class that makes use of mocking rather sparingly.
     """
@@ -160,39 +161,39 @@ class TestGenerationStrategy(TestCase):
         self.gr = GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": 2})])
 
         # Mock out slow model fitting.
-        self.torch_model_bridge_patcher = patch(
+        self.torch_adapter_patcher = patch(
             f"{TorchAdapter.__module__}.TorchAdapter", spec=True
         )
-        self.mock_torch_model_bridge = self.torch_model_bridge_patcher.start()
-        mock_mb = self.mock_torch_model_bridge.return_value
+        self.mock_torch_adapter = self.torch_adapter_patcher.start()
+        mock_mb = self.mock_torch_adapter.return_value
         mock_mb.gen.return_value = self.gr
         mock_mb._process_and_transform_data.return_value = (None, None)
 
         # Mock out slow TS.
-        self.discrete_model_bridge_patcher = patch(
+        self.discrete_adapter_patcher = patch(
             f"{DiscreteAdapter.__module__}.DiscreteAdapter", spec=True
         )
-        self.mock_discrete_model_bridge = self.discrete_model_bridge_patcher.start()
-        self.mock_discrete_model_bridge.return_value.gen.return_value = self.gr
+        self.mock_discrete_adapter = self.discrete_adapter_patcher.start()
+        self.mock_discrete_adapter.return_value.gen.return_value = self.gr
 
         # Mock in `Generators` registry.
         self.registry_setup_dict_patcher = patch.dict(
             f"{Generators.__module__}.MODEL_KEY_TO_MODEL_SETUP",
             {
                 "Factorial": MODEL_KEY_TO_MODEL_SETUP["Factorial"]._replace(
-                    bridge_class=self.mock_discrete_model_bridge
+                    adapter_class=self.mock_discrete_adapter
                 ),
                 "Thompson": MODEL_KEY_TO_MODEL_SETUP["Thompson"]._replace(
-                    bridge_class=self.mock_discrete_model_bridge
+                    adapter_class=self.mock_discrete_adapter
                 ),
                 "BoTorch": MODEL_KEY_TO_MODEL_SETUP["BoTorch"]._replace(
-                    bridge_class=self.mock_torch_model_bridge
+                    adapter_class=self.mock_torch_adapter
                 ),
             },
         )
         self.mock_in_registry = self.registry_setup_dict_patcher.start()
 
-        # model bridges are mocked, which makes kwargs' validation difficult,
+        # adapters are mocked, which makes kwargs' validation difficult,
         # so for now we will skip it in the generation strategy tests.
         # NOTE: Starting with Python3.8 this is not a problem as `autospec=True`
         # ensures that the mocks have correct signatures, but in earlier
@@ -355,8 +356,8 @@ class TestGenerationStrategy(TestCase):
         )
 
     def tearDown(self) -> None:
-        self.torch_model_bridge_patcher.stop()
-        self.discrete_model_bridge_patcher.stop()
+        self.torch_adapter_patcher.stop()
+        self.discrete_adapter_patcher.stop()
         self.registry_setup_dict_patcher.stop()
 
     def _get_sobol_mbm_step_gs(
@@ -548,7 +549,7 @@ class TestGenerationStrategy(TestCase):
             exp.new_trial(generator_run=g).run()
             self.assertEqual(len(gs._generator_runs), i + 1)
             if i > 4:
-                self.mock_torch_model_bridge.assert_called()
+                self.mock_torch_adapter.assert_called()
             else:
                 self.assertEqual(g._model_key, "Sobol")
                 mkw = g._model_kwargs
@@ -634,7 +635,7 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         self.assertEqual(factorial_thompson_gs.name, "Factorial+Thompson")
-        mock_model_bridge = self.mock_discrete_model_bridge.return_value
+        mock_adapter = self.mock_discrete_adapter.return_value
 
         # Initial factorial batch.
         exp.new_batch_trial(
@@ -642,7 +643,7 @@ class TestGenerationStrategy(TestCase):
                 experiment=exp
             )
         )
-        args, kwargs = mock_model_bridge._set_kwargs_to_save.call_args
+        args, kwargs = mock_adapter._set_kwargs_to_save.call_args
         self.assertEqual(kwargs.get("model_key"), "Factorial")
 
         # Subsequent Thompson sampling batch.
@@ -651,7 +652,7 @@ class TestGenerationStrategy(TestCase):
                 experiment=exp
             )
         )
-        args, kwargs = mock_model_bridge._set_kwargs_to_save.call_args
+        args, kwargs = mock_adapter._set_kwargs_to_save.call_args
         self.assertEqual(kwargs.get("model_key"), "Thompson")
 
     def test_clone_reset(self) -> None:
@@ -681,7 +682,7 @@ class TestGenerationStrategy(TestCase):
         self.assertFalse(gs._model.model.scramble)
 
     def test_sobol_MBM_strategy_batches(self) -> None:
-        mock_MBM_gen = self.mock_torch_model_bridge.return_value.gen
+        mock_MBM_gen = self.mock_torch_adapter.return_value.gen
         mock_MBM_gen.return_value = GeneratorRun(
             arms=[
                 Arm(parameters={"x1": 1, "x2": 2}),
@@ -1537,7 +1538,7 @@ class TestGenerationStrategy(TestCase):
             exp.new_trial(generator_run=g).run()
             self.assertEqual(len(self.sobol_MBM_GS_nodes._generator_runs), i + 1)
             if i > 4:
-                self.mock_torch_model_bridge.assert_called()
+                self.mock_torch_adapter.assert_called()
             else:
                 self.assertEqual(g._model_key, "Sobol")
                 mkw = g._model_kwargs

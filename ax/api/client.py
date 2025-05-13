@@ -898,7 +898,7 @@ class Client(WithDBSettingsBase):
             )
         except (NotImplementedError, AssertionError) as e:
             raise UnsupportedError(
-                "Predicting with the GenerationStrategy's modelbridge failed. This "
+                "Predicting with the GenerationStrategy's adapter failed. This "
                 "could be because the current GenerationNode is not predictive -- try "
                 "running more trials to progress to a predictive GenerationNode."
             ) from e

@@ -1000,7 +1000,7 @@ class Surrogate(Base):
             #   if `refit_on_cv=True`. This will set the best ModelConfig in
             #   metric_to_best_model_config.
             # - Evaluate the choice of model/visualize its performance via
-            #   `Modelbridge.cross_validate``. This also will refit on each fold if
+            #   `Adapter.cross_validate``. This also will refit on each fold if
             #   `refit_on_cv=True`, but we wouldn't want to perform model selection
             #   on each fold, but rather show the performance of the selecting
             #   `ModelConfig`` since that is what will be used.

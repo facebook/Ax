@@ -7,6 +7,8 @@
 
 import numpy as np
 import pandas as pd
+from ax.adapter.factory import get_sobol
+from ax.adapter.registry import Generators
 
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.constraints_feasibility import (
@@ -24,8 +26,6 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generation_strategy.model_spec import GeneratorSpec
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,

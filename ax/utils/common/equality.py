@@ -221,9 +221,9 @@ def object_attribute_dicts_find_unequal_fields(
                     other_val, "model"
                 )
             else:
-                # If model bridges have a `model` attribute, the types of the
+                # If adapters have a `model` attribute, the types of the
                 # values of those attributes should be equal if the model
-                # bridge is the same.
+                # adapter is the same.
                 equal = (
                     hasattr(one_val, "model")
                     and hasattr(other_val, "model")
