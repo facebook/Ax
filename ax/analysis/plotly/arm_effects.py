@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -97,7 +99,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
         self.trial_index = trial_index
         self.trial_statuses = trial_statuses
         self.additional_arms = additional_arms
-        self.labels = labels or {}
+        self.labels: Mapping[str, str] = labels or {}
         self.show_cumulative_best = show_cumulative_best
 
     @override
