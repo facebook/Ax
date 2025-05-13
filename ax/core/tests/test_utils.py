@@ -7,11 +7,13 @@
 # pyre-strict
 
 from copy import deepcopy
-from unittest.mock import patch
+from logging import Logger
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -22,6 +24,8 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
+    allowed_to_fail,
+    batch_trial_only,
     best_feasible_objective,
     extract_pending_observations,
     get_missing_metrics,
@@ -33,6 +37,7 @@ from ax.core.utils import (
     get_target_trial_index,
     MissingMetrics,
 )
+from ax.exceptions.core import AxError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -675,3 +680,99 @@ class UtilsTest(TestCase):
         trial = experiment.new_trial().add_arm(experiment.status_quo)
         experiment.attach_data(get_branin_data(trials=[trial]))
         self.assertEqual(get_target_trial_index(experiment=experiment), trial.index)
+
+    def test_allowed_to_fail_no_exception(self) -> None:
+        # Create a mock logger
+        logger = MagicMock(spec=Logger)
+        # Use the context manager with no exception
+        with allowed_to_fail(logger=logger) as maybe_exception:
+            pass
+        # Check that no exception was caught
+        self.assertIsNone(maybe_exception[0])
+        # Check that the logger was not called
+        logger.exception.assert_not_called()
+
+    def test_allowed_to_fail_catch_exception(self) -> None:
+        # Create a mock logger
+        logger = MagicMock(spec=Logger)
+        maybe_exception = [None]
+        # Use the context manager with an exception
+        try:
+            with allowed_to_fail(logger=logger) as maybe_exception:
+                raise Exception("Test exception")
+        except Exception:
+            self.fail("Exception should have been caught by the context manager")
+        # Check that the exception was caught
+        self.assertIsInstance(maybe_exception[0], Exception)
+        self.assertEqual(str(maybe_exception[0]), "Test exception")
+        # Check that the logger was called
+        logger.exception.assert_called_once_with(maybe_exception[0])
+
+    def test_allowed_to_fail_handler(self) -> None:
+        # Create a mock handler
+        handler = MagicMock()
+        maybe_exception = [None]
+        # Use the context manager with an exception and a handler
+        try:
+            with allowed_to_fail(handler=handler) as maybe_exception:
+                raise Exception("Test exception")
+        except Exception:
+            self.fail("Exception should have been caught by the context manager")
+        # Check that the exception was caught
+        self.assertIsInstance(maybe_exception[0], Exception)
+        self.assertEqual(str(maybe_exception[0]), "Test exception")
+        # Check that the handler was called
+        handler.assert_called_once_with(maybe_exception[0])
+
+    def test_allowed_to_fail_allowed_error_types(self) -> None:
+        # Create a mock logger
+        logger = MagicMock(spec=Logger)
+        maybe_exception = [None]
+        # Use the context manager with an exception that is not an allowed error type
+        try:
+            with allowed_to_fail(
+                allowed_error_types=(ValueError,), logger=logger
+            ) as maybe_exception:
+                raise TypeError("Test exception")
+        except TypeError:
+            pass
+
+        # Check that the logger was not called
+        logger.exception.assert_not_called()
+        self.assertIsNone(maybe_exception[0])
+
+    def test_batch_trial_only_decorator(self) -> None:
+        # Create a mock function to decorate
+        def mock_func(trial: BatchTrial) -> None:
+            pass
+
+        experiment = get_branin_experiment(with_completed_trial=True)
+        decorated_func = batch_trial_only()(mock_func)
+
+        # Test that decorator raises an error for missing trial keyword arg
+        with self.assertRaises(AxError) as e:
+            decorated_func()
+        self.assertRegex(str(e.exception), r"Expected a keyword argument `trial` to .*")
+
+        # Test that decorator raises an error for non-batch trial
+        with self.assertRaises(AxError) as e:
+            decorated_func(trial="not a batch trial")
+        self.assertRegex(
+            str(e.exception),
+            r"Expected the argument `trial` to `.*` to be a `BatchTrial`, but got .*",
+        )
+
+        # Test that decorator works for batch trial
+        batch_trial = BatchTrial(experiment=experiment)
+        decorated_func(trial=batch_trial)
+
+    def test_batch_trial_only_decorator_with_custom_message(self) -> None:
+        # Create a mock function to decorate
+        def mock_func(trial: BatchTrial) -> None:
+            pass
+
+        # Test that decorator raises an error with custom message
+        custom_message = "Batch trials only!"
+        decorated_func = batch_trial_only(msg=custom_message)(mock_func)
+        with self.assertRaisesRegex(AxError, custom_message):
+            decorated_func(trial="not a batch trial")

@@ -1102,6 +1102,12 @@ class Encoder:
             AnalysisCard
         ]
 
+        # Some instances may contain callable attributes
+        # that are intentionally excluded when encoding.
+        serializable_card_attributes = {
+            k: v for k, v in analysis_card.attributes.items() if not callable(v)
+        }
+
         # pyre-fixme[29]: `SQAAnalysisCard` is not a function.
         return analysis_card_class(
             id=analysis_card.db_id,
@@ -1119,7 +1125,7 @@ class Encoder:
             blob_annotation=analysis_card.blob_annotation.value,
             time_created=timestamp,
             experiment_id=experiment_id,
-            attributes=json.dumps(analysis_card.attributes),
+            attributes=json.dumps(serializable_card_attributes),
             # AnalysisCard.category is an int, but is also set as an
             # AnalysisCardCategory enum. Directly saving the enum leads to MySQL
             # warnings.
