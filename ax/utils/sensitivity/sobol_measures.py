@@ -12,8 +12,8 @@ from typing import Any
 
 import numpy.typing as npt
 import torch
+from ax.adapter.torch import TorchAdapter
 from ax.core.search_space import SearchSpaceDigest
-from ax.modelbridge.torch import TorchAdapter
 from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.models.torch.botorch_modular.model import (
     BoTorchGenerator as ModularBoTorchGenerator,
@@ -837,7 +837,7 @@ def compute_sobol_indices_from_model_list(
 
 
 def ax_parameter_sens(
-    model_bridge: TorchAdapter,
+    adapter: TorchAdapter,
     metrics: list[str] | None = None,
     order: str = "first",
     signed: bool = True,
@@ -854,10 +854,10 @@ def ax_parameter_sens(
     will have values close to 0.
 
     Args:
-        model_bridge: A Adapter object with models that were fit.
+        adapter: A Adapter object with models that were fit.
         metrics: The names of the metrics and outcomes for which to compute
             sensitivities. This should preferably be metrics with a good model fit.
-            Defaults to model_bridge.outcomes.
+            Defaults to adapter.outcomes.
         order: A string specifying the order of the Sobol indices to be computed.
             Supports "first" and "total" and defaults to "first".
         signed: A bool for whether the measure should be signed.
@@ -876,8 +876,8 @@ def ax_parameter_sens(
             " 'first', 'total' or 'second'."
         )
     if metrics is None:
-        metrics = model_bridge.outcomes
-    generator, digest = _get_generator_and_digest(adapter=model_bridge)
+        metrics = adapter.outcomes
+    generator, digest = _get_generator_and_digest(adapter=adapter)
     model_list = _get_model_per_metric(generator=generator, metrics=metrics)
     bounds = torch.tensor(digest.bounds).T  # transposing to make it 2 x d
 
@@ -972,7 +972,7 @@ def _get_model_per_metric(
             if gp_model.num_outputs == 1:  # can accept single output models
                 return [gp_model for _ in model_idx]
             raise NotImplementedError(
-                f"type(model_bridge.model.model) = {type(gp_model)}, "
+                f"type(adapter.model.model) = {type(gp_model)}, "
                 "but only ModelList is supported."
             )
         return [gp_model.models[i] for i in model_idx]

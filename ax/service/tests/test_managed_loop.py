@@ -10,13 +10,13 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import numpy.typing as npt
+from ax.adapter.registry import Generators
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
 from ax.metrics.branin import branin
-from ax.modelbridge.registry import Generators
 from ax.service.managed_loop import OptimizationLoop, optimize
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize

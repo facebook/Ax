@@ -15,9 +15,9 @@ from logging import Logger
 from typing import Any, Protocol, Sequence
 
 import pandas as pd
+from ax.adapter.base import Adapter
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result

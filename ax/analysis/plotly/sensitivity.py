@@ -7,6 +7,8 @@
 from typing import Literal, Mapping, Sequence
 
 import pandas as pd
+from ax.adapter.base import Adapter
+from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -15,8 +17,6 @@ from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.torch import TorchAdapter
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from plotly import express as px, graph_objects as go
 from pyre_extensions import override
@@ -156,7 +156,7 @@ def _prepare_data(
     order: Literal["first", "second", "total"],
 ) -> pd.DataFrame:
     sensitivities = ax_parameter_sens(
-        model_bridge=adapter,
+        adapter=adapter,
         metrics=[*metric_names] if metric_names is not None else None,
         order=order,
     )

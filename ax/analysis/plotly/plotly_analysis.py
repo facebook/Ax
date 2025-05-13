@@ -9,10 +9,10 @@
 from typing import Sequence
 
 import pandas as pd
+from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis, AnalysisBlobAnnotation, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from plotly import graph_objects as go, io as pio
 from pyre_extensions import override
 

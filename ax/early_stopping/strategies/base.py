@@ -14,22 +14,22 @@ from logging import Logger
 
 import numpy.typing as npt
 import pandas as pd
+from ax.adapter.adapter_utils import (
+    _unpack_observations,
+    observation_data_to_array,
+    observation_features_to_array,
+)
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.registry import Cont_X_trans, Y_trans
+from ax.adapter.torch import TorchAdapter
+from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import estimate_early_stopping_savings
-from ax.modelbridge.base import DataLoaderConfig
-from ax.modelbridge.modelbridge_utils import (
-    _unpack_observations,
-    observation_data_to_array,
-    observation_features_to_array,
-)
-from ax.modelbridge.registry import Cont_X_trans, Y_trans
-from ax.modelbridge.torch import TorchAdapter
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
 from ax.models.torch_base import TorchGenerator
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
@@ -520,7 +520,7 @@ def get_transform_helper_model(
         experiment: Experiment.
         data: Data for fitting the model.
 
-    Returns: A torch modelbridge.
+    Returns: A torch adapter.
     """
     if transforms is None:
         transforms = [MapKeyToFloat] + Cont_X_trans + Y_trans

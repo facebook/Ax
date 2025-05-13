@@ -10,15 +10,16 @@ import warnings
 from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
+from ax.adapter.adapter_utils import extract_search_space_digest
+from ax.adapter.factory import get_sobol
+from ax.adapter.registry import Generators
+
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.model_spec import (
     FactoryFunctionGeneratorSpec,
     GeneratorSpec,
 )
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.modelbridge_utils import extract_search_space_digest
-from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -50,7 +51,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
     # We can use `extract_search_space_digest` as a surrogate for executing
     # the full TorchAdapter._fit.
     @mock.patch(
-        "ax.modelbridge.torch.extract_search_space_digest",
+        "ax.adapter.torch.extract_search_space_digest",
         wraps=extract_search_space_digest,
     )
     def test_fit(self, wrapped_extract_ssd: Mock) -> None:
@@ -61,7 +62,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self.assertIsNotNone(ms._last_fit_arg_ids)
         self.assertEqual(ms._last_fit_arg_ids["experiment"], id(self.experiment))
         # This should skip the model fit.
-        with mock.patch("ax.modelbridge.torch.logger") as mock_logger:
+        with mock.patch("ax.adapter.torch.logger") as mock_logger:
             ms.fit(experiment=self.experiment, data=self.data)
         mock_logger.debug.assert_called_with(
             "The observations are identical to the last set of observations "
@@ -151,7 +152,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self, mock_cv: Mock, mock_diagnostics: Mock
     ) -> None:
         mock_enum = Mock()
-        mock_enum.return_value = "fake-modelbridge"
+        mock_enum.return_value = "fake-adapter"
         ms = GeneratorSpec(
             model_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
         )
@@ -167,7 +168,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self.assertIsNone(cv_results)
         self.assertIsNone(cv_diagnostics)
 
-        mock_cv.assert_called_with(model="fake-modelbridge", test_key="test-value")
+        mock_cv.assert_called_with(model="fake-adapter", test_key="test-value")
         mock_diagnostics.assert_not_called()
 
     def test_fixed_features(self) -> None:

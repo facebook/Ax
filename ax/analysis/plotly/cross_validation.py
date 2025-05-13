@@ -9,6 +9,8 @@
 from typing import Mapping, Sequence
 
 import pandas as pd
+from ax.adapter.base import Adapter
+from ax.adapter.cross_validation import cross_validate
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -16,8 +18,6 @@ from ax.analysis.plotly.utils import get_nudge_value, get_scatter_point_color
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.cross_validation import cross_validate
 from plotly import express as px, graph_objects as go
 
 

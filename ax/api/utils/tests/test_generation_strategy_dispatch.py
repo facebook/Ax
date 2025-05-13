@@ -10,13 +10,13 @@
 from typing import Any
 
 import torch
+from ax.adapter.registry import Generators
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.transition_criterion import MinTrials
-from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (

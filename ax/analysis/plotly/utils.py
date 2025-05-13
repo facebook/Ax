@@ -13,6 +13,8 @@ import numpy as np
 
 import pandas as pd
 import torch
+from ax.adapter.base import Adapter
+from ax.adapter.prediction_utils import predict_at_point
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, ScalarizedObjective
@@ -21,9 +23,6 @@ from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.prediction_utils import predict_at_point
-
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from numpy.typing import NDArray
 from plotly import express as px, graph_objects as go
@@ -321,7 +320,7 @@ def get_nudge_value(
 
 def is_predictive(adapter: Adapter) -> bool:
     # TODO: Improve this logic and move it to base adapter class
-    """Check if a adapter is predictive.  Basically, we're checking if
+    """Check if an adapter is predictive.  Basically, we're checking if
     predict() is implemented.
 
     NOTE: This does not mean it's capable of out of sample prediction.

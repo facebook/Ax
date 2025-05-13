@@ -35,6 +35,12 @@ if TYPE_CHECKING:
     )
     from ax.generation_strategy.generation_strategy import GenerationStrategy
 
+from ax.adapter.base import Adapter
+from ax.adapter.registry import (
+    _extract_model_state_after_gen,
+    Generators,
+    ModelRegistryBase,
+)
 from ax.generation_strategy.model_spec import (
     FactoryFunctionGeneratorSpec,
     GeneratorSpec,
@@ -45,12 +51,6 @@ from ax.generation_strategy.transition_criterion import (
     MinTrials,
     TransitionCriterion,
     TrialBasedCriterion,
-)
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.registry import (
-    _extract_model_state_after_gen,
-    Generators,
-    ModelRegistryBase,
 )
 from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
@@ -959,14 +959,14 @@ class GenerationStep(GenerationNode, SortableBase):
     minimum number of observations is required to proceed to the next model, etc.
 
     NOTE: Model can be specified either from the model registry
-    (`ax.modelbridge.registry.Generators` or using a callable model constructor. Only
+    (`ax.adapter.registry.Generators` or using a callable model constructor. Only
     models from the registry can be saved, and thus optimization can only be
     resumed if interrupted when using models from the registry.
 
     Args:
         model: A member of `Generators` enum or a callable returning an instance of
             `Adapter` with an instantiated underlying `Model`. Refer to
-            `ax/modelbridge/factory.py` for examples of such callables.
+            `ax/adapter/factory.py` for examples of such callables.
         num_trials: How many trials to generate with the model from this step.
             If set to -1, trials will continue to be generated from this model
             as long as `generation_strategy.gen` is called (available only for
@@ -1077,7 +1077,7 @@ class GenerationStep(GenerationNode, SortableBase):
                 raise UserInputError(
                     "`model` in generation step must be either a `ModelRegistryBase` "
                     "enum subclass entry or a callable factory function returning a "
-                    "model bridge instance."
+                    "adapter instance."
                 )
             model_spec = FactoryFunctionGeneratorSpec(
                 factory_function=self.model,

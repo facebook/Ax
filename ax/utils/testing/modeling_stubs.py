@@ -10,6 +10,13 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
+from ax.adapter.base import Adapter
+from ax.adapter.cross_validation import FISHER_EXACT_TEST_P
+from ax.adapter.factory import get_sobol
+from ax.adapter.registry import Generators
+from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.int_to_float import IntToFloat
+from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.experiment import Experiment
@@ -42,13 +49,6 @@ from ax.generation_strategy.transition_criterion import (
     MinimumPreferenceOccurances,
     MinTrials,
 )
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.cross_validation import FISHER_EXACT_TEST_P
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.registry import Generators
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.int_to_float import IntToFloat
-from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -677,7 +677,7 @@ class transform_1(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Adapter | None,
+        adapter: Adapter | None,
         fixed_features: ObservationFeatures | None,
     ) -> OptimizationConfig:
         return (  # pyre-ignore[7]: pyre is right, this is a hack for testing.
@@ -736,7 +736,7 @@ class transform_2(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Adapter | None,
+        adapter: Adapter | None,
         fixed_features: ObservationFeatures | None,
     ) -> OptimizationConfig:
         return (

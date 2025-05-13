@@ -11,6 +11,10 @@ import warnings
 from typing import Any
 
 import torch
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.registry import Generators, MBM_X_trans, Mixed_transforms, Y_trans
+from ax.adapter.transforms.log_y import LogY
+from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.generation_strategy.dispatch_utils import (
@@ -19,10 +23,6 @@ from ax.generation_strategy.dispatch_utils import (
     choose_generation_strategy_legacy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
-from ax.modelbridge.base import DataLoaderConfig
-from ax.modelbridge.registry import Generators, MBM_X_trans, Mixed_transforms, Y_trans
-from ax.modelbridge.transforms.log_y import LogY
-from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.random.sobol import SobolGenerator
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
@@ -409,7 +409,7 @@ class TestDispatchUtils(TestCase):
             search_space=get_factorial_search_space(), random_seed=9
         )
         sobol.gen(experiment=get_experiment(), n=1)
-        # First model is actually a bridge, second is the Sobol engine.
+        # First model is actually an adapter, second is the Sobol engine.
         self.assertEqual(
             assert_is_instance(none_throws(sobol.model).model, SobolGenerator).seed, 9
         )

@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
+from ax.adapter.torch import TorchAdapter
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
     BenchmarkMapMetric,
@@ -44,7 +45,6 @@ from ax.core.types import TParameterization, TParamValue
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.torch import TorchAdapter
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.testing.core_stubs import (

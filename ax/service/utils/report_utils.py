@@ -21,6 +21,13 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objects as go
+from ax.adapter import Adapter
+from ax.adapter.cross_validation import (
+    compute_model_fit_metrics_from_adapter,
+    cross_validate,
+)
+from ax.adapter.random import RandomAdapter
+from ax.adapter.torch import TorchAdapter
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
@@ -36,13 +43,6 @@ from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge import Adapter
-from ax.modelbridge.cross_validation import (
-    compute_model_fit_metrics_from_adapter,
-    cross_validate,
-)
-from ax.modelbridge.random import RandomAdapter
-from ax.modelbridge.torch import TorchAdapter
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
 from ax.plot.feature_importances import plot_feature_importance_by_feature_plotly

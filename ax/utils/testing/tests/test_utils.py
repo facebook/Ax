@@ -8,12 +8,12 @@
 
 import numpy as np
 import torch
+from ax.adapter.registry import Generators
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
 )
 from ax.generation_strategy.model_spec import GeneratorSpec
-from ax.modelbridge.registry import Generators
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from ax.utils.testing.mock import mock_botorch_optimize

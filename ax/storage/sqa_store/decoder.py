@@ -783,7 +783,7 @@ class Decoder:
             ),
             generation_node_name=generator_run_sqa.generation_node_name,
         )
-        # Remove deprecated kwargs from model kwargs & bridge kwargs.
+        # Remove deprecated kwargs from model kwargs & adapter kwargs.
         if generator_run._model_kwargs is not None:
             generator_run._model_kwargs = {
                 k: v

@@ -9,8 +9,8 @@
 import json
 
 import torch
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.registry import Generators
+from ax.adapter.base import Adapter
+from ax.adapter.registry import Generators
 from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.plot.base import AxPlotConfig
 from ax.plot.feature_importances import (
@@ -30,11 +30,11 @@ from pyre_extensions import assert_is_instance
 DUMMY_CAPTION = "test_caption"
 
 
-def get_modelbridge() -> Adapter:
+def get_adapter() -> Adapter:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
     return Generators.LEGACY_BOTORCH(
-        # Model bridge kwargs
+        # Adapter kwargs
         experiment=exp,
         data=exp.fetch_data(),
     )
@@ -71,7 +71,7 @@ def get_sensitivity_values(ax_model: Adapter) -> dict:
 class FeatureImportancesTest(TestCase):
     @mock_botorch_optimize
     def test_FeatureImportances(self) -> None:
-        model = get_modelbridge()
+        model = get_adapter()
         # Assert that each type of plot can be constructed successfully
         plot = plot_feature_importance_by_feature_plotly(model=model)
         self.assertIsInstance(plot, go.Figure)

@@ -10,6 +10,8 @@ from abc import ABC
 from collections.abc import Iterable
 
 import numpy as np
+from ax.adapter.adapter_utils import observed_hypervolume, predicted_hypervolume
+from ax.adapter.torch import TorchAdapter
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.objective import ScalarizedObjective
@@ -21,8 +23,6 @@ from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.modelbridge_utils import observed_hypervolume, predicted_hypervolume
-from ax.modelbridge.torch import TorchAdapter
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils import best_point as best_point_utils
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
@@ -362,7 +362,7 @@ class BestPointMixin(ABC):
                     "calculate predicted hypervolume."
                 )
             return predicted_hypervolume(
-                modelbridge=model, optimization_config=optimization_config
+                adapter=model, optimization_config=optimization_config
             )
 
         minimal_model = get_tensor_converter_model(
@@ -371,7 +371,7 @@ class BestPointMixin(ABC):
         )
 
         return observed_hypervolume(
-            modelbridge=minimal_model, optimization_config=moo_optimization_config
+            adapter=minimal_model, optimization_config=moo_optimization_config
         )
 
     @staticmethod

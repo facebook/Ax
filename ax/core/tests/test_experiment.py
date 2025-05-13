@@ -10,6 +10,7 @@ from collections import OrderedDict
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+from ax.adapter.registry import Generators
 from ax.core import BatchTrial, Experiment, Trial
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -34,7 +35,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import AxError, RunnerNotFoundError, UnsupportedError
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.registry import Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties

@@ -10,6 +10,8 @@ from collections.abc import Mapping
 from typing import Any
 
 import torch
+from ax.adapter.registry import Cont_X_trans, Generators, Y_trans
+from ax.adapter.torch import TorchAdapter
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.benchmark.problems.surrogate.lcbench.utils import (
@@ -19,8 +21,6 @@ from ax.benchmark.problems.surrogate.lcbench.utils import (
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.registry import Cont_X_trans, Generators, Y_trans
-from ax.modelbridge.torch import TorchAdapter
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -119,10 +119,10 @@ def get_lcbench_benchmark_problem(
     )
 
     def get_surrogate() -> TorchAdapter:
-        """Construct a modelbridge with the LCBench surrogate and datasets.
+        """Construct an adapter with the LCBench surrogate and datasets.
 
         Returns:
-            A fitted modelbridge with the LCBench Surrogate and data.
+            A fitted adapter with the LCBench Surrogate and data.
         """
         # We load the model hyperparameters from the saved state dict.
         with skip_fit_gpytorch_mll_context_manager():

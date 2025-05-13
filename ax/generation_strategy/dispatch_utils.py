@@ -12,6 +12,10 @@ from math import ceil
 from typing import Any, cast
 
 import torch
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.registry import Generators, MODEL_KEY_TO_MODEL_SETUP, ModelRegistryBase
+from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -20,14 +24,6 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.base import DataLoaderConfig
-from ax.modelbridge.registry import (
-    Generators,
-    MODEL_KEY_TO_MODEL_SETUP,
-    ModelRegistryBase,
-)
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.torch.botorch_modular.model import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )

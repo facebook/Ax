@@ -580,7 +580,7 @@ class BaseTrial(ABC, SortableBase):
         in experiment after their abandonment to avoid Ax models suggesting
         the same arm again as a new candidate. Arms in abandoned trials are
         also excluded from model training data unless ``fit_abandoned`` option
-        is specified to model bridge.
+        is specified to adapter.
 
         Args:
             abandoned_reason: The reason the trial was abandoned.
@@ -691,7 +691,7 @@ class BaseTrial(ABC, SortableBase):
             if generator_run._model_key is not None
         }
 
-        # Add generator-run-type strings for non-ModelBridge generator runs.
+        # Add generator-run-type strings for non-Adapter generator runs.
         gr_type_name_to_str = {
             GeneratorRunType.MANUAL.name: MANUAL_GENERATION_METHOD_STR,
             GeneratorRunType.STATUS_QUO.name: STATUS_QUO_GENERATION_METHOD_STR,

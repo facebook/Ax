@@ -27,7 +27,7 @@ from torch import Tensor
 class TorchOptConfig:
     """Container for lightweight representation of optimization arguments.
 
-    This is used for communicating between modelbridge and models. This is
+    This is used for communicating between adapter and models. This is
     an ephemeral object and not meant to be stored / serialized.
 
     Attributes:

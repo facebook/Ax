@@ -18,6 +18,8 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pandas as pd
 import torch
+from ax.adapter.random import RandomAdapter
+from ax.adapter.registry import Cont_X_trans, Generators
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -56,8 +58,6 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.metrics.branin import branin, BraninMetric
-from ax.modelbridge.random import RandomAdapter
-from ax.modelbridge.registry import Cont_X_trans, Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
@@ -481,22 +481,22 @@ class TestAxClient(TestCase):
         self.assertEqual(original_opt_config, ax_client.experiment.optimization_config)
 
     @patch(
-        "ax.modelbridge.base.observations_from_data",
+        "ax.adapter.base.observations_from_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter.get_training_data",
+        "ax.adapter.random.RandomAdapter.get_training_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter._predict",
+        "ax.adapter.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter.feature_importances",
+        "ax.adapter.random.RandomAdapter.feature_importances",
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
@@ -548,7 +548,7 @@ class TestAxClient(TestCase):
         self.assertEqual(len(trials_df), 6)
 
     @patch(
-        "ax.modelbridge.base.observations_from_data",
+        "ax.adapter.base.observations_from_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
@@ -689,22 +689,22 @@ class TestAxClient(TestCase):
             )
 
     @patch(
-        "ax.modelbridge.base.observations_from_data",
+        "ax.adapter.base.observations_from_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter.get_training_data",
+        "ax.adapter.random.RandomAdapter.get_training_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter._predict",
+        "ax.adapter.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter.feature_importances",
+        "ax.adapter.random.RandomAdapter.feature_importances",
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
@@ -2311,7 +2311,7 @@ class TestAxClient(TestCase):
         self.assertIsNone(ax_client.experiment._name)
 
     @patch(
-        "ax.modelbridge.random.RandomAdapter._predict",
+        "ax.adapter.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )

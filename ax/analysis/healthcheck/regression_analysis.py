@@ -8,6 +8,7 @@
 from typing import Sequence
 
 import pandas as pd
+from ax.adapter.base import Adapter
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
@@ -20,7 +21,6 @@ from ax.analysis.healthcheck.regression_detection_utils import (
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from pyre_extensions import none_throws, override
 
 
@@ -58,7 +58,7 @@ class RegressionAnalysis(HealthcheckAnalysis):
         Args:
             experiment: Ax experiment.
             generation_strategy: Ax generation strategy.
-            adapter: Ax modelbridge adapter
+            adapter: Ax adapter adapter
 
         Returns:
             A HealthcheckAnalysisCard object with the information on regressing arms

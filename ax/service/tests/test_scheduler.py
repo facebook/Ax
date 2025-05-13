@@ -16,6 +16,8 @@ from typing import Any, cast
 from unittest.mock import call, Mock, patch
 
 import pandas as pd
+from ax.adapter.cross_validation import compute_model_fit_metrics_from_adapter
+from ax.adapter.registry import Generators, MBM_MTGP_trans
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -49,8 +51,6 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
-from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_adapter
-from ax.modelbridge.registry import Generators, MBM_MTGP_trans
 from ax.service.scheduler import (
     FailureRateExceededError,
     get_fitted_adapter,
@@ -2138,7 +2138,7 @@ class TestAxScheduler(TestCase):
         # Mock to have Sobol return SQ arm, to have a valid target trial index
         # for the MTGP step.
         with patch(
-            "ax.modelbridge.random.RandomAdapter.gen",
+            "ax.adapter.random.RandomAdapter.gen",
             return_value=GeneratorRun(arms=[experiment.status_quo]),
         ):
             scheduler.run_n_trials(max_trials=3)

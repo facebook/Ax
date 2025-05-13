@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 import numpy as np
 import pandas as pd
+from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.healthcheck_analysis import (
@@ -24,7 +25,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from pyre_extensions import assert_is_instance, override
 
 

@@ -7,6 +7,8 @@
 
 from typing import Sequence
 
+from ax.adapter.base import Adapter
+
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
@@ -17,7 +19,6 @@ from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.experiment import Experiment
 from ax.exceptions.core import AxError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from ax.utils.stats.no_effects import check_experiment_effects_per_metric
 from pyre_extensions import override
 
@@ -54,7 +55,7 @@ class TestOfNoEffectAnalysis(HealthcheckAnalysis):
         Args:
             experiment: Ax experiment.
             generation_strategy: Ax generation strategy.
-            adapter: Ax modelbridge adapter
+            adapter: Ax adapter adapter
 
         Returns:
             A HealthcheckAnalysisCard object deatailing which metrics we don't

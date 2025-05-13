@@ -8,6 +8,9 @@
 
 from unittest import mock
 
+from ax.adapter.base import Adapter
+from ax.adapter.registry import Generators
+
 from ax.core import Experiment
 
 from ax.core.arm import Arm
@@ -15,8 +18,6 @@ from ax.core.metric import Metric
 from ax.core.observation import Observation
 from ax.core.search_space import SearchSpace
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.registry import Generators
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.plot.scatter import tile_fitted, tile_observations
 from ax.runners.synthetic import SyntheticRunner
@@ -32,14 +33,14 @@ from ax.utils.testing.modeling_stubs import get_observation
 
 
 @mock.patch(
-    "ax.modelbridge.base.observations_from_data",
+    "ax.adapter.base.observations_from_data",
     autospec=True,
     return_value=([get_observation()]),
 )
 @mock.patch(
-    "ax.modelbridge.base.gen_arms", autospec=True, return_value=[Arm(parameters={})]
+    "ax.adapter.base.gen_arms", autospec=True, return_value=[Arm(parameters={})]
 )
-def get_modelbridge(
+def get_adapter(
     _, __, status_quo_name: str | None = None, sq_arm: Arm | None = None
 ) -> Adapter:
     if sq_arm is None:
@@ -54,27 +55,25 @@ def get_modelbridge(
         if status_quo_name is not None
         else None,
     )
-    modelbridge = Adapter(
-        experiment=exp, model=FullFactorialGenerator(), data=get_data()
-    )
-    modelbridge._predict = mock.MagicMock(
-        "ax.modelbridge.base.Adapter._predict",
+    adapter = Adapter(experiment=exp, model=FullFactorialGenerator(), data=get_data())
+    adapter._predict = mock.MagicMock(
+        "ax.adapter.base.Adapter._predict",
         autospec=True,
         return_value=[get_observation().data],
     )
-    return modelbridge
+    return adapter
 
 
 class TileFittedTest(TestCase):
     def test_TileFitted(self) -> None:
-        model = get_modelbridge(status_quo_name=None)
+        model = get_adapter(status_quo_name=None)
 
         # Should throw if `status_quo_arm` is None and rel=True
         with self.assertRaises(ValueError):
             tile_fitted(model, rel=True)
         tile_fitted(model, rel=False)
 
-        model = get_modelbridge(status_quo_name="1_1")
+        model = get_adapter(status_quo_name="1_1")
         config = tile_fitted(model, rel=True)
         self.assertIsNotNone(config)
 

@@ -15,16 +15,13 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
+from ax.adapter.base import Adapter
+from ax.adapter.prediction_utils import _compute_scalarized_outcome, predict_at_point
+from ax.adapter.transforms.ivw import IVW
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.types import TParameterization
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.prediction_utils import (
-    _compute_scalarized_outcome,
-    predict_at_point,
-)
-from ax.modelbridge.transforms.ivw import IVW
 from ax.plot.base import DECIMALS, PlotData, PlotInSampleArm, PlotOutOfSampleArm, Z
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
@@ -165,7 +162,7 @@ def _get_in_sample_arms(
     when making model predictions.
 
     Args:
-        model: An instance of the model bridge.
+        model: An instance of the adapter.
         metric_names: Restrict predictions to these metrics. If None, uses all
             metrics in the model.
         fixed_features: Features that should be fixed in the arms this function

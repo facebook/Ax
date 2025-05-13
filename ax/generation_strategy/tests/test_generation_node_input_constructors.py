@@ -10,6 +10,8 @@ from collections import Counter
 from datetime import datetime
 from typing import Any, get_type_hints
 
+from ax.adapter.registry import Generators
+
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -23,7 +25,6 @@ from ax.generation_strategy.generation_node_input_constructors import (
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generation_strategy.model_spec import GeneratorSpec
-from ax.modelbridge.registry import Generators
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
