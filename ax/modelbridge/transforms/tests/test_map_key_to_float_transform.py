@@ -64,7 +64,7 @@ class MapKeyToFloatTransformTest(TestCase):
         optimization_config = OptimizationConfig(
             objective=Objective(metric=MapMetric(name="map_metric"), minimize=True)
         )
-        adapter = Adapter(
+        self.adapter = Adapter(
             experiment=Experiment(
                 search_space=self.search_space, optimization_config=optimization_config
             ),
@@ -87,7 +87,7 @@ class MapKeyToFloatTransformTest(TestCase):
             self.observations.append(Observation(features=obs_feat, data=obs_data))
 
         # does not require explicitly specifying `config`
-        self.t = MapKeyToFloat(observations=self.observations, modelbridge=adapter)
+        self.t = MapKeyToFloat(observations=self.observations, modelbridge=self.adapter)
 
     def test_Init(self) -> None:
         # Check for error if adapter & parameters are not provided.
@@ -159,6 +159,32 @@ class MapKeyToFloatTransformTest(TestCase):
             ],
         )
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
+        self.assertEqual(obs_ft2, observation_features)
+
+    def test_TransformObservationFeaturesAllNaNs(self) -> None:
+        observation_features = []
+        observations = []
+        for trial_index, (width, height) in enumerate(zip(WIDTHS, HEIGHTS)):
+            obsf = ObservationFeatures(
+                trial_index=trial_index,
+                parameters={"width": width, "height": height},
+                metadata={DEFAULT_MAP_KEY: np.nan, "foo": 42},
+            )
+            obsd = ObservationData(
+                metric_names=[],
+                means=np.array([]),
+                covariance=np.empty((0, 0)),
+            )
+            observation_features.append(obsf)
+            observations.append(Observation(features=obsf, data=obsd))
+
+        t = MapKeyToFloat(observations=observations, modelbridge=self.adapter)
+
+        # forward and reverse transforms are identity/no-ops
+        obs_ft2 = deepcopy(observation_features)
+        obs_ft2 = t.transform_observation_features(obs_ft2)
+        self.assertEqual(obs_ft2, observation_features)
+        obs_ft2 = t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
     def test_TransformObservationFeaturesWithEmptyMetadata(self) -> None:

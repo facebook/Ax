@@ -9,7 +9,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from logging import Logger
 
+from math import isnan
 from typing import Any, SupportsFloat, TYPE_CHECKING
 
 from ax.core import ParameterType
@@ -20,11 +22,15 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
+from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401
+
+
+logger: Logger = get_logger(__name__)
 
 
 class MetadataToFloat(Transform):
@@ -75,6 +81,13 @@ class MetadataToFloat(Transform):
             lower: float = self.parameters[name].get("lower", min(values))
             upper: float = self.parameters[name].get("upper", max(values))
 
+            if isnan(lower) or isnan(upper):
+                logger.debug(
+                    f"Detected NaN values in metadata key '{name}', "
+                    "will not be added to parameters."
+                )
+                continue
+
             log_scale = self.parameters[name].get("log_scale", default_log_scale)
             logit_scale = self.parameters[name].get(
                 "logit_scale", self.DEFAULT_LOGIT_SCALE
@@ -119,7 +132,7 @@ class MetadataToFloat(Transform):
             _transfer(
                 src=obsf.parameters,
                 dst=obsf.metadata,
-                keys=self.parameters.keys(),
+                keys=[p.name for p in self._parameter_list],
             )
         return observation_features
 
@@ -127,7 +140,7 @@ class MetadataToFloat(Transform):
         _transfer(
             src=none_throws(obsf.metadata),
             dst=obsf.parameters,
-            keys=self.parameters.keys(),
+            keys=[p.name for p in self._parameter_list],
         )
 
 
