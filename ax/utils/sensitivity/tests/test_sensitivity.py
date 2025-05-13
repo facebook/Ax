@@ -12,9 +12,9 @@ from typing import cast
 from unittest.mock import patch, PropertyMock
 
 import torch
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.registry import Generators
-from ax.modelbridge.torch import TorchAdapter
+from ax.adapter.base import Adapter
+from ax.adapter.registry import Generators
+from ax.adapter.torch import TorchAdapter
 from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
@@ -243,22 +243,22 @@ class SensitivityAnalysisTest(TestCase):
     def test_SobolGPMean_SAASBO_Ax_utils(self) -> None:
         num_mc_samples = 10
         for modular in [False, True]:
-            model_bridge = cast(TorchAdapter, get_adapter(modular=modular))
+            adapter = cast(TorchAdapter, get_adapter(modular=modular))
             with self.assertRaisesRegex(
                 NotImplementedError,
                 "but only TorchAdapter is supported",
             ):
                 # pyre-ignore
-                ax_parameter_sens(1, model_bridge.outcomes)
+                ax_parameter_sens(1, adapter.outcomes)
 
-            with patch.object(model_bridge, "model", return_value=None):
+            with patch.object(adapter, "model", return_value=None):
                 with self.assertRaisesRegex(
                     NotImplementedError,
                     "but only LegacyBoTorchGenerator and ModularBoTorchGenerator",
                 ):
-                    ax_parameter_sens(model_bridge, model_bridge.outcomes)
+                    ax_parameter_sens(adapter, adapter.outcomes)
 
-            torch_model = cast(LegacyBoTorchGenerator, model_bridge.model)
+            torch_model = cast(LegacyBoTorchGenerator, adapter.model)
             if not modular:
                 with self.assertRaisesRegex(
                     NotImplementedError,
@@ -271,7 +271,7 @@ class SensitivityAnalysisTest(TestCase):
                         new_callable=PropertyMock,
                     ) as mock:
                         mock.return_value = 2
-                        ax_parameter_sens(model_bridge, model_bridge.outcomes)
+                        ax_parameter_sens(adapter, adapter.outcomes)
 
                 # since only ModelList is supported for LegacyBoTorchGenerator:
                 gpytorch_model = ModelListGP(cast(GPyTorchModel, torch_model.model))
@@ -280,7 +280,7 @@ class SensitivityAnalysisTest(TestCase):
             for order in ["first", "total"]:
                 with self.subTest(order=order):
                     ind_dict = ax_parameter_sens(
-                        model_bridge,
+                        adapter,
                         input_qmc=True,
                         num_mc_samples=num_mc_samples,
                         order=order,
@@ -289,7 +289,7 @@ class SensitivityAnalysisTest(TestCase):
                     self.assertIsInstance(ind_dict, dict)
 
                     ind_tnsr = compute_sobol_indices_from_model_list(
-                        _get_model_per_metric(torch_model, model_bridge.outcomes),
+                        _get_model_per_metric(torch_model, adapter.outcomes),
                         torch.tensor(torch_model.search_space_digest.bounds).T,
                         input_qmc=True,
                         num_mc_samples=num_mc_samples,
@@ -310,7 +310,7 @@ class SensitivityAnalysisTest(TestCase):
                             )
             with self.subTest(order="second"):
                 second_ind_dict = ax_parameter_sens(
-                    model_bridge,
+                    adapter,
                     input_qmc=True,
                     num_mc_samples=num_mc_samples,
                     order="second",
@@ -318,14 +318,14 @@ class SensitivityAnalysisTest(TestCase):
                 )
 
                 so_ind_tnsr = compute_sobol_indices_from_model_list(
-                    _get_model_per_metric(torch_model, model_bridge.outcomes),
+                    _get_model_per_metric(torch_model, adapter.outcomes),
                     torch.tensor(torch_model.search_space_digest.bounds).T,
                     input_qmc=True,
                     num_mc_samples=num_mc_samples,
                     order="second",
                 )
                 fo_ind_tnsr = compute_sobol_indices_from_model_list(
-                    _get_model_per_metric(torch_model, model_bridge.outcomes),
+                    _get_model_per_metric(torch_model, adapter.outcomes),
                     torch.tensor(torch_model.search_space_digest.bounds).T,
                     input_qmc=True,
                     num_mc_samples=num_mc_samples,
@@ -355,37 +355,37 @@ class SensitivityAnalysisTest(TestCase):
                 )
 
         # Test with signed
-        model_bridge = get_adapter(modular=True)
+        base_adapter = get_adapter(modular=True)
 
         # adding a categorical feature
-        cat_model_bridge = copy.deepcopy(model_bridge)
-        digest = cat_model_bridge.model.search_space_digest
+        cat_adapter = copy.deepcopy(base_adapter)
+        digest = cat_adapter.model.search_space_digest
         digest.categorical_features = [0]
 
         sobol_kwargs = {"input_qmc": True, "num_mc_samples": 10}
         seed = 1234
-        for bridge in [model_bridge, cat_model_bridge]:
-            discrete_features = bridge.model.search_space_digest.categorical_features
-            with self.subTest(model_bridge=bridge):
+        for adapter in [base_adapter, cat_adapter]:
+            discrete_features = adapter.model.search_space_digest.categorical_features
+            with self.subTest(adapter=adapter):
                 set_rng_seed(seed)
                 # Unsigned
                 ind_dict = ax_parameter_sens(
-                    model_bridge=bridge,
+                    adapter=adapter,
                     metrics=None,
                     order="total",
                     signed=False,
                     **sobol_kwargs,
                 )
                 ind_deriv = compute_derivatives_from_model_list(
-                    model_list=[bridge.model.surrogate.model],
-                    bounds=torch.tensor(bridge.model.search_space_digest.bounds).T,
+                    model_list=[adapter.model.surrogate.model],
+                    bounds=torch.tensor(adapter.model.search_space_digest.bounds).T,
                     discrete_features=discrete_features,
                     **sobol_kwargs,
                 )
                 set_rng_seed(seed)  # reset seed to keep discrete features the same
-                cat_indices = bridge.model.search_space_digest.categorical_features
+                cat_indices = adapter.model.search_space_digest.categorical_features
                 ind_dict_signed = ax_parameter_sens(
-                    model_bridge=bridge,
+                    adapter=adapter,
                     metrics=None,
                     order="total",
                     signed=True,
@@ -483,14 +483,14 @@ class SensitivityAnalysisTest(TestCase):
         self.assertFalse(torch.allclose(Brnd, B))
 
     def test_Sobol_raises(self) -> None:
-        bridge = get_adapter(modular=True)
+        adapter = get_adapter(modular=True)
         with self.assertRaisesRegex(
             NotImplementedError,
             "Order third and fourth is not supported. Plese choose one of"
             " 'first', 'total' or 'second'.",
         ):
             ax_parameter_sens(
-                model_bridge=bridge,
+                adapter=adapter,
                 metrics=None,
                 order="third and fourth",
                 signed=False,

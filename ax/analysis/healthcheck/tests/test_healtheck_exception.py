@@ -7,6 +7,8 @@
 
 from typing import cast, Sequence
 
+from ax.adapter.base import Adapter
+
 from ax.analysis.analysis import AnalysisBlobAnnotation
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
@@ -15,7 +17,6 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
 )
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from ax.utils.common.testutils import TestCase
 
 ERROR_MESSAGE = "Dummy analysis failed!"

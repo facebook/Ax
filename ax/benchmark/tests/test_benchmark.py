@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 import numpy as np
 import torch
+from ax.adapter.registry import Generators
 from ax.benchmark.benchmark import (
     _get_inference_trace_from_params,
     benchmark_multiple_problems_methods,
@@ -57,7 +58,6 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.model_spec import GeneratorSpec
-from ax.modelbridge.registry import Generators
 from ax.service.utils.scheduler_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment

@@ -10,6 +10,9 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+from ax.adapter.registry import _encode_callables_as_references
+from ax.adapter.transforms.base import Transform
+
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
@@ -55,8 +58,6 @@ from ax.generation_strategy.model_spec import (
 )
 from ax.generation_strategy.transition_criterion import TransitionCriterion
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.modelbridge.registry import _encode_callables_as_references
-from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig

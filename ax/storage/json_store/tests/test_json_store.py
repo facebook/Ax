@@ -13,6 +13,10 @@ from functools import partial
 
 import numpy as np
 import torch
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.registry import Generators
+from ax.adapter.transforms.log import Log
+from ax.adapter.transforms.one_hot import OneHot
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.generator_run import GeneratorRun
@@ -24,10 +28,6 @@ from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import DataLoaderConfig
-from ax.modelbridge.registry import Generators
-from ax.modelbridge.transforms.log import Log
-from ax.modelbridge.transforms.one_hot import OneHot
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
@@ -907,15 +907,14 @@ class JSONStoreTest(TestCase):
                                 "__type": "Type[Transform]",
                                 "index_in_registry": 6,
                                 "transform_type": (
-                                    "<class 'ax.modelbridge.transforms"
-                                    ".one_hot.OneHot'>"
+                                    "<class 'ax.adapter.transforms" ".one_hot.OneHot'>"
                                 ),
                             },
                             {
                                 "__type": "Type[Transform]",
                                 "index_in_registry": 5,
                                 "transform_type": (
-                                    "<class 'ax.modelbridge.transforms.log.Log'>"
+                                    "<class 'ax.adapter.transforms.log.Log'>"
                                 ),
                             },
                         ]

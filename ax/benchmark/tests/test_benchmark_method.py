@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from ax.adapter.factory import get_sobol
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     get_continuous_search_space,
@@ -13,7 +14,6 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.benchmark.methods.sobol import get_sobol_generation_strategy
 from ax.core.experiment import Experiment
-from ax.modelbridge.factory import get_sobol
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pyre_extensions import none_throws

@@ -9,10 +9,10 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 import torch
+from ax.adapter.torch import TorchAdapter
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.observation import ObservationFeatures
 from ax.core.types import TParamValue
-from ax.modelbridge.torch import TorchAdapter
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from pyre_extensions import none_throws

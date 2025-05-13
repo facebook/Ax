@@ -7,6 +7,8 @@
 
 from typing import Literal, Sequence
 
+from ax.adapter.base import Adapter
+
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
 from ax.analysis.plotly.surface.contour import ContourPlot
@@ -15,7 +17,6 @@ from ax.analysis.plotly.utils import select_metric
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from pyre_extensions import override
 
 

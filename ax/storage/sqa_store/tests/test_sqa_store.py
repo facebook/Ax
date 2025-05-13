@@ -17,6 +17,7 @@ from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
+from ax.adapter.registry import Generators
 from ax.analysis.analysis import AnalysisCard, AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
@@ -37,7 +38,6 @@ from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.registry import Generators
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY, register_metrics

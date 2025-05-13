@@ -16,6 +16,7 @@ from logging import Logger
 from typing import Any, TypeVar
 
 import pandas as pd
+from ax.adapter.base import Adapter
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -30,7 +31,6 @@ from ax.exceptions.generation_strategy import (
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.model_spec import FactoryFunctionGeneratorSpec
 from ax.generation_strategy.transition_criterion import TrialBasedCriterion
-from ax.modelbridge.base import Adapter
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_list

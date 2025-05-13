@@ -11,6 +11,10 @@ from collections.abc import Callable
 from typing import Any
 
 import torch
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.factory import Generators
+from ax.adapter.registry import ModelRegistryBase
+from ax.adapter.transforms.base import Transform
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
     BenchmarkMapMetric,
@@ -99,10 +103,6 @@ from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
-from ax.modelbridge.base import DataLoaderConfig
-from ax.modelbridge.factory import Generators
-from ax.modelbridge.registry import ModelRegistryBase
-from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec

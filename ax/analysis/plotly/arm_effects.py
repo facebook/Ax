@@ -8,6 +8,7 @@ from typing import Mapping, Sequence
 import numpy as np
 
 import pandas as pd
+from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
@@ -28,7 +29,6 @@ from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from plotly import graph_objects as go
 from pyre_extensions import override
 

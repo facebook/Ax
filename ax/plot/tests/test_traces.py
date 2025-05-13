@@ -8,7 +8,7 @@
 
 import numpy as np
 import plotly.graph_objects as go
-from ax.modelbridge.registry import Generators
+from ax.adapter.registry import Generators
 from ax.plot.base import AxPlotConfig
 from ax.plot.trace import (
     optimization_trace_single_method,
@@ -28,7 +28,7 @@ class TracesTest(TestCase):
         self.exp = get_branin_experiment(with_batch=True)
         self.exp.trials[0].run()
         self.model = Generators.BOTORCH_MODULAR(
-            # Model bridge kwargs
+            # Adapter kwargs
             experiment=self.exp,
             data=self.exp.fetch_data(),
         )

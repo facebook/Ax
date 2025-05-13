@@ -502,7 +502,7 @@ def scipy_optimizer_list(
     raw_samples: int | None = None,
     options: dict[str, bool | float | int | str] | None = None,
 ) -> tuple[Tensor, Tensor]:
-    r"""Sequential optimizer using scipy's minimize module on a numpy-adaptor.
+    r"""Sequential optimizer using scipy's minimize module on a numpy-adapter.
 
     The ith acquisition in the sequence uses the ith given acquisition_function.
 

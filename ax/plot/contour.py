@@ -13,8 +13,8 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import plotly.graph_objs as go
+from ax.adapter.base import Adapter
 from ax.core.observation import ObservationFeatures
-from ax.modelbridge.base import Adapter
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
 from ax.plot.color import BLUE_SCALE, GREEN_PINK_SCALE, GREEN_SCALE
 from ax.plot.helper import (

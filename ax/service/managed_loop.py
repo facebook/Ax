@@ -14,6 +14,7 @@ from collections.abc import Iterable
 
 # Manual import to avoid strange error, see Diff for details.
 import ax.generation_strategy.generation_node_input_constructors  # noqa
+from ax.adapter.base import Adapter
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -32,7 +33,6 @@ from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted, UserInputError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
     get_best_raw_objective_point_with_trial_index,

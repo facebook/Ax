@@ -16,11 +16,11 @@ from typing import Any
 
 import numpy as np
 import plotly.graph_objs as go
+from ax.adapter.base import Adapter
+from ax.adapter.registry import Generators
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationFeatures
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.registry import Generators
 from ax.plot.base import (
     AxPlotConfig,
     AxPlotTypes,

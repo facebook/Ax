@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import numpy as np
 import torch
+from ax.adapter.registry import Generators
 from ax.core.data import Data
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -21,7 +22,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
-from ax.modelbridge.registry import Generators
 from ax.plot.pareto_frontier import (
     interact_multiple_pareto_frontier,
     interact_pareto_frontier,

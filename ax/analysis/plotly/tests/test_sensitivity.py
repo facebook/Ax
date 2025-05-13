@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from ax.adapter.registry import Generators
 from ax.analysis.analysis import (
     AnalysisBlobAnnotation,
     AnalysisCardCategory,
@@ -17,7 +18,6 @@ from ax.analysis.plotly.sensitivity import (
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.registry import Generators
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments

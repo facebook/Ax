@@ -9,8 +9,8 @@
 from copy import deepcopy
 
 import plotly.graph_objects as go
+from ax.adapter.registry import Generators
 from ax.core.data import Data
-from ax.modelbridge.registry import Generators
 from ax.plot.base import AxPlotConfig
 from ax.plot.scatter import interact_fitted, interact_fitted_plotly
 from ax.utils.common.testutils import TestCase
@@ -30,7 +30,7 @@ class FittedScatterTest(TestCase):
         exp.add_tracking_metric(get_branin_metric(name="branin_dup"))
 
         model = Generators.BOTORCH_MODULAR(
-            # Model bridge kwargs
+            # Adapter kwargs
             experiment=exp,
             data=Data.from_multiple_data([data, Data(df)]),
         )

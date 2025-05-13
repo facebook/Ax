@@ -19,6 +19,7 @@ import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
 import pandas as pd
 import torch
+from ax.adapter.prediction_utils import predict_by_features
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import DataType, Experiment
@@ -50,7 +51,6 @@ from ax.generation_strategy.dispatch_utils import choose_generation_strategy_leg
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import constraint_satisfaction
-from ax.modelbridge.prediction_utils import predict_by_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature

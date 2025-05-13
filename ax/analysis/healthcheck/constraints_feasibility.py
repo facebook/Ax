@@ -8,6 +8,8 @@
 from typing import Sequence
 
 import pandas as pd
+from ax.adapter.base import Adapter
+from ax.adapter.transforms.derelativize import Derelativize
 
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
@@ -22,8 +24,6 @@ from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.transforms.derelativize import Derelativize
 from pyre_extensions import assert_is_instance, override
 
 
@@ -55,7 +55,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         Args:
             experiment: Ax experiment.
             generation_strategy: Ax generation strategy.
-            adapter: Ax modelbridge adapter
+            adapter: Ax adapter adapter
 
         Returns:
             A HealthcheckAnalysisCard object with the information on infeasible metrics,
@@ -177,7 +177,7 @@ def constraints_feasibility(
     if any(constraint.relative for constraint in outcome_constraints):
         derel_optimization_config = Derelativize().transform_optimization_config(
             optimization_config=optimization_config,
-            modelbridge=model,
+            adapter=model,
         )
 
     constraint_metric_name = [

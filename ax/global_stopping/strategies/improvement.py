@@ -9,6 +9,7 @@
 from logging import Logger
 
 import numpy as np
+from ax.adapter.adapter_utils import observed_hypervolume
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -21,7 +22,6 @@ from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import AxError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
-from ax.modelbridge.modelbridge_utils import observed_hypervolume
 from ax.plot.pareto_utils import (
     get_tensor_converter_model,
     infer_reference_point_from_experiment,
@@ -174,7 +174,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 # instance method or property that handles the caching.
                 objective_thresholds = self._inferred_objective_thresholds
             if not objective_thresholds:
-                # TODO: This is headed to ax.modelbridge.modelbridge_utils.hypervolume,
+                # TODO: This is headed to ax.adapter.adapter_utils.hypervolume,
                 # where an empty list would lead to an opaque indexing error.
                 # A list that is nonempty and of the wrong length could be worse,
                 # since it might wind up running without error, but with thresholds for
@@ -241,7 +241,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 experiment=experiment, data=Data(data_df_reference)
             )
             hv_reference = observed_hypervolume(
-                modelbridge=mb_reference, objective_thresholds=objective_thresholds
+                adapter=mb_reference, objective_thresholds=objective_thresholds
             )
             self.hv_by_trial[reference_trial_index] = hv_reference
 

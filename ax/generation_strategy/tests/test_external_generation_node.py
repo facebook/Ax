@@ -10,6 +10,8 @@ from copy import deepcopy
 from unittest import mock
 from unittest.mock import MagicMock
 
+from ax.adapter.random import RandomAdapter
+
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -19,7 +21,6 @@ from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.random import RandomAdapter
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data,
@@ -114,7 +115,7 @@ class TestExternalGenerationNode(TestCase):
         experiment = get_branin_experiment()
         params = {"x1": 0.0, "x2": 0.0}
         with mock.patch(
-            "ax.modelbridge.random.RandomAdapter.gen",
+            "ax.adapter.random.RandomAdapter.gen",
             return_value=GeneratorRun(arms=[Arm(parameters=params)], model_key="Sobol"),
         ) as mock_gen:
             experiment.new_trial(generator_run=gs.gen(n=1, experiment=experiment)).run()

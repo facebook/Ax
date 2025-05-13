@@ -73,7 +73,7 @@ def optimizer_argparse(
             "`qKnowledgeGradient` or its subclasses. To address this, please "
             "either use a different acquisition class or make parameters "
             "continuous using the transform "
-            "`ax.modelbridge.registry.Cont_X_trans`."
+            "`ax.adapter.registry.Cont_X_trans`."
         )
     provided_options = optimizer_options if optimizer_options is not None else {}
 

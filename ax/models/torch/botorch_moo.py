@@ -199,7 +199,7 @@ class MultiObjectiveLegacyBoTorchGenerator(LegacyBoTorchGenerator):
         #  int, Optional[Dict[int, float]], Optional[Callable[[Tensor], Tensor]],
         #  **(Any)], Tensor]`.
         acqf_optimizer: TOptimizer = scipy_optimizer,
-        # TODO: Remove best_point_recommender for botorch_moo. Used in modelbridge._gen.
+        # TODO: Remove best_point_recommender for botorch_moo. Used in adapter._gen.
         best_point_recommender: TBestPointRecommender = recommend_best_observed_point,
         frontier_evaluator: TFrontierEvaluator = pareto_frontier_evaluator,
         refit_on_cv: bool = False,

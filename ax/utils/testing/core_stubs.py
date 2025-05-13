@@ -22,6 +22,7 @@ from typing import Any, cast, Sequence
 import numpy as np
 import pandas as pd
 import torch
+from ax.adapter.factory import Cont_X_trans, Generators, get_factorial, get_sobol
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -100,7 +101,6 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
-from ax.modelbridge.factory import Cont_X_trans, Generators, get_factorial, get_sobol
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import DefaultRBFKernel, ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import BoTorchGenerator

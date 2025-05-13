@@ -7,6 +7,8 @@
 
 from typing import Sequence
 
+from ax.adapter.base import Adapter
+
 from ax.analysis.analysis import (
     Analysis,
     AnalysisCard,
@@ -16,7 +18,6 @@ from ax.analysis.analysis import (
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from pyre_extensions import override
 
 

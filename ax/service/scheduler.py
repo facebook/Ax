@@ -18,6 +18,8 @@ from time import sleep
 from typing import Any, cast, NamedTuple
 
 import ax.service.utils.early_stopping as early_stopping_utils
+from ax.adapter.adapter_utils import get_fixed_features_from_experiment
+from ax.adapter.base import Adapter
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -43,8 +45,6 @@ from ax.exceptions.generation_strategy import (
     OptimizationConfigRequired,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType

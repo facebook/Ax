@@ -10,6 +10,7 @@ from logging import WARNING
 from unittest.mock import patch
 
 import numpy as np
+from ax.adapter.registry import Generators
 from ax.benchmark.benchmark import (
     benchmark_replication,
     get_benchmark_runner,
@@ -19,7 +20,6 @@ from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acqui
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
 from ax.core.experiment import Experiment
-from ax.modelbridge.registry import Generators
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point import (
     get_best_by_raw_objective_with_trial_index,

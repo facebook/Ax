@@ -14,6 +14,7 @@ from unittest import mock
 from unittest.mock import patch, PropertyMock
 
 import pandas as pd
+from ax.adapter.registry import Generators
 from ax.core.arm import Arm
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -25,7 +26,6 @@ from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.generation_strategy.generation_node import GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Generators
 from ax.service.scheduler import Scheduler
 from ax.service.utils.report_utils import (
     _find_sigfigs,
