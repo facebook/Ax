@@ -99,6 +99,8 @@ class TestTopSurfacesAnalysis(TestCase):
         self.assertIn("vs. bar", with_contours[2].title)
         self.assertIn("vs. bar", with_contours[3].title)
 
+    @mock_botorch_optimize
+    @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
     def test_compute_categorical_parameters(self) -> None:
         client = Client()
         client.configure_experiment(
