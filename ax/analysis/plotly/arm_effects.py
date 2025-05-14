@@ -261,18 +261,23 @@ def _prepare_figure(
     show_cumulative_best: bool,
     lower_is_better: bool,
 ) -> go.Figure:
+    # Prepare separate scatter traces for each trial status. Each trace has (x, y)
+    # points for the arms which we have a mean for in the provided dataframe.
     scatters = [
         go.Scatter(
             x=df[
                 (df["trial_status"] == trial_status) & ~df[f"{metric_name}_mean"].isna()
             ]["arm_name"],
-            y=df[df["trial_status"] == trial_status][f"{metric_name}_mean"],
+            y=df[
+                (df["trial_status"] == trial_status) & ~df[f"{metric_name}_mean"].isna()
+            ][f"{metric_name}_mean"],
             error_y=(
                 {
                     "type": "data",
-                    "array": df[df["trial_status"] == trial_status][
-                        f"{metric_name}_sem"
-                    ]
+                    "array": df[
+                        (df["trial_status"] == trial_status)
+                        & ~df[f"{metric_name}_mean"].isna()
+                    ][f"{metric_name}_sem"]
                     * 1.96,
                     "color": trial_status_to_plotly_color(
                         trial_status=trial_status, ci_transparency=True
