@@ -1031,6 +1031,37 @@ class JSONStoreTest(TestCase):
         expected_object.surrogate_spec.model_configs[0].input_transform_classes = None
         self.assertEqual(object_from_json(object_json), expected_object)
 
+    def test_multi_objective_backwards_compatibility(self) -> None:
+        object_json = {
+            "__type": "MultiObjective",
+            "objectives": [
+                {
+                    "__type": "Objective",
+                    "metric": {
+                        "name": "m1",
+                        "lower_is_better": None,
+                        "properties": {},
+                        "__type": "Metric",
+                    },
+                    "minimize": False,
+                },
+                {
+                    "__type": "Objective",
+                    "metric": {
+                        "name": "m3",
+                        "lower_is_better": True,
+                        "properties": {},
+                        "__type": "Metric",
+                    },
+                    "minimize": True,
+                },
+            ],
+            "weights": [1.0, 1.0],
+        }
+        deserialized_object = object_from_json(object_json)
+        expected_object = get_multi_objective()
+        self.assertEqual(deserialized_object, expected_object)
+
     def test_surrogate_spec_backwards_compatibility(self) -> None:
         # This is an invalid example that has both deprecated args
         # and model config specified. Deprecated args will be ignored.

@@ -70,8 +70,6 @@ class ObjectiveTest(TestCase):
         self.assertEqual(self.multi_objective.metrics, list(self.metrics.values()))
         minimizes = [obj.minimize for obj in self.multi_objective.objectives]
         self.assertEqual(minimizes, [True, True, False])
-        weights = [mw[1] for mw in self.multi_objective.objective_weights]
-        self.assertEqual(weights, [1.0, 1.0, 1.0])
         self.assertEqual(self.multi_objective.clone(), self.multi_objective)
         self.assertEqual(
             str(self.multi_objective),

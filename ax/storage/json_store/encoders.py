@@ -303,7 +303,6 @@ def multi_objective_to_dict(objective: MultiObjective) -> dict[str, Any]:
     return {
         "__type": objective.__class__.__name__,
         "objectives": objective.objectives,
-        "weights": objective.weights,
     }
 
 
