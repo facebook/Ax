@@ -617,8 +617,6 @@ def _compute_hv_trace(
     return hvs
 
 
-# NOTE: we are ignoring `MultiObjective` weights here. these
-# should likely be deprecated or removed
 def get_hypervolume_trace_of_outcomes_multi_objective(
     df_wide: pd.DataFrame,
     optimization_config: MultiObjectiveOptimizationConfig,
