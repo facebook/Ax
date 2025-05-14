@@ -48,7 +48,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         self,
         metric_names: Sequence[str] | None = None,
         folds: int = -1,
-        untransform: bool = True,
+        untransform: bool = False,
         trial_index: int | None = None,
         labels: Mapping[str, str] | None = None,
     ) -> None:
