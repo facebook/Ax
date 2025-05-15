@@ -157,7 +157,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
                     use_model_predictions=self.use_model_predictions,
                     trial_index=self.trial_index,
                 ),
-                level=AnalysisCardLevel.MID,
+                level=AnalysisCardLevel.HIGH,
                 df=df[
                     [
                         "trial_index",
