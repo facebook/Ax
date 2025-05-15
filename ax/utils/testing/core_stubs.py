@@ -1106,7 +1106,77 @@ def get_online_experiments() -> list[Experiment]:
     ]
 
     experiments = [*single_objective, *multi_objective]
+    _configure_online_experiments(experiments=experiments)
 
+    return experiments
+
+
+def get_online_experiments_subset() -> list[Experiment]:
+    """
+    Set of 4 experiments includes: 1 single objective exp with choice parameter,
+    parameter constraint, and relative constriant. 3 multi-objective experiments
+    with (a) choice param, fixed param, relative and absolute constraint, (b)
+    fixed param and relative constraint (c) no constraints but both fixed and
+    choice param
+    """
+    experiments = []
+    experiments.append(
+        get_branin_experiment(
+            with_batch=True,
+            num_batch_trial=2,
+            num_arms_per_trial=10,
+            with_completed_batch=True,
+            with_status_quo=True,
+            status_quo_unknown_parameters=True,
+            with_choice_parameter=True,
+            with_parameter_constraint=True,
+            with_relative_constraint=True,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_batch=True,
+            with_status_quo=True,
+            with_completed_batch=True,
+            has_objective_thresholds=True,
+            with_choice_parameter=True,
+            with_fixed_parameter=True,
+            with_relative_constraint=True,
+            with_absolute_constraint=True,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_batch=True,
+            with_status_quo=True,
+            with_completed_batch=True,
+            has_objective_thresholds=True,
+            with_choice_parameter=False,
+            with_fixed_parameter=True,
+            with_relative_constraint=True,
+            with_absolute_constraint=False,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_batch=True,
+            with_status_quo=True,
+            with_completed_batch=True,
+            has_objective_thresholds=True,
+            with_choice_parameter=True,
+            with_fixed_parameter=True,
+            with_relative_constraint=False,
+            with_absolute_constraint=False,
+        )
+    )
+    _configure_online_experiments(experiments=experiments)
+    return experiments
+
+
+def _configure_online_experiments(experiments: list[Experiment]) -> None:
     for experiment in experiments:
         sobol_generator = get_sobol(search_space=experiment.search_space)
 
@@ -1139,8 +1209,6 @@ def get_online_experiments() -> list[Experiment]:
         trial = experiment.new_batch_trial()
         # Detatch the arms from the GeneratorRun so they appear as custom arms
         trial.add_arms_and_weights(arms=sobol_run.arms)
-
-    return experiments
 
 
 def get_offline_experiments() -> list[Experiment]:
@@ -1188,7 +1256,75 @@ def get_offline_experiments() -> list[Experiment]:
     ]
 
     experiments = [*single_objective, *multi_objective]
+    _configure_offline_experiments(experiments=experiments)
 
+    return experiments
+
+
+def get_offline_experiments_subset() -> list[Experiment]:
+    """
+    Set of 4 experiments that include:
+    1. Single objective with choice param and param constraint
+    2. Mulit-objective with objective threshold, absolute constraint, choice param,
+        and fixed param
+    3. Mulit-objective with no thresholds, constraint, or special params
+    4. Mulit-objective with objective threshold and fixed param
+    """
+    experiments = []
+    experiments.append(
+        get_branin_experiment(
+            with_trial=True,
+            num_trial=10,
+            with_completed_trial=True,
+            with_status_quo=False,
+            with_choice_parameter=True,
+            with_parameter_constraint=True,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_trial=True,
+            num_trial=10,
+            with_completed_trial=True,
+            with_status_quo=False,
+            has_objective_thresholds=True,
+            with_absolute_constraint=True,
+            with_choice_parameter=True,
+            with_fixed_parameter=True,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_trial=True,
+            num_trial=10,
+            with_completed_trial=True,
+            with_status_quo=False,
+            has_objective_thresholds=False,
+            with_absolute_constraint=False,
+            with_choice_parameter=False,
+            with_fixed_parameter=False,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_trial=True,
+            num_trial=10,
+            with_completed_trial=True,
+            with_status_quo=False,
+            has_objective_thresholds=True,
+            with_absolute_constraint=False,
+            with_choice_parameter=False,
+            with_fixed_parameter=True,
+        )
+    )
+    _configure_offline_experiments(experiments=experiments)
+    return experiments
+
+
+def _configure_offline_experiments(experiments: list[Experiment]) -> None:
     for experiment in experiments:
         sobol_generator = get_sobol(search_space=experiment.search_space)
 
@@ -1214,8 +1350,6 @@ def get_offline_experiments() -> list[Experiment]:
         trial = experiment.new_trial()
         # Detatch the arms from the GeneratorRun so they appear as custom arms
         trial.add_arm(arm=sobol_run.arms[0])
-
-    return experiments
 
 
 ##############################
