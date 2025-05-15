@@ -186,7 +186,7 @@ class ScatterPlot(PlotlyAnalysis):
                     "metrics. It is useful for understanding the trade-off between "
                     "the two metrics and for visualizing the Pareto frontier."
                 ),
-                level=AnalysisCardLevel.HIGH,
+                level=AnalysisCardLevel.MID,
                 df=df,
                 fig=figure,
                 category=AnalysisCardCategory.INSIGHT,
