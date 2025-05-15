@@ -130,6 +130,45 @@ class ContourPlot(PlotlyAnalysis):
         ]
 
 
+def compute_contour_adhoc(
+    x_parameter_name: str,
+    y_parameter_name: str,
+    experiment: Experiment,
+    generation_strategy: GenerationStrategy | None = None,
+    adapter: Adapter | None = None,
+    metric_name: str | None = None,
+    display_sampled: bool = True,
+) -> list[PlotlyAnalysisCard]:
+    """
+    Helper method to expose adhoc contour plotting. Only for advanced users in
+    a notebook setting.
+
+    Args:
+        parameter_name: The name of the parameter to plot on the x-axis.
+        experiment: The experiment to source data from.
+        generation_strategy: Optional. The generation strategy to extract the adapter
+            from.
+        adapter: Optional. The adapter to use for predictions.
+        metric_name: The name of the metric to plot on the y-axis. If not specified
+            the objective will be used.
+        display_sampled: If True, plot "x"s at x coordinates which have been sampled
+            in at least one trial.
+    """
+    analysis = ContourPlot(
+        x_parameter_name=x_parameter_name,
+        y_parameter_name=y_parameter_name,
+        metric_name=metric_name,
+        display_sampled=display_sampled,
+    )
+    return [
+        *analysis.compute(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
+    ]
+
+
 def _prepare_data(
     experiment: Experiment,
     model: Adapter,
