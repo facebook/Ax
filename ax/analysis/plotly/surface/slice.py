@@ -127,7 +127,7 @@ def compute_slice_adhoc(
     display_sampled: bool = True,
 ) -> list[PlotlyAnalysisCard]:
     """
-    Helper method to expose adhoc cross validation plotting. Only for advanced users in
+    Helper method to expose adhoc slice plotting. Only for advanced users in
     a notebook setting.
 
     Args:
@@ -140,7 +140,6 @@ def compute_slice_adhoc(
             the objective will be used.
         display_sampled: If True, plot "x"s at x coordinates which have been sampled
             in at least one trial.
-
     """
 
     analysis = SlicePlot(
