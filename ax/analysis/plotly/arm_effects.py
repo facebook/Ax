@@ -181,7 +181,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
                     lower_is_better=experiment.metrics[metric_name].lower_is_better
                     or False,
                 ),
-                category=AnalysisCardCategory.INSIGHT,
+                category=AnalysisCardCategory.ACTIONABLE,
             )
             for metric_name in metric_names
         ]
