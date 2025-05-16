@@ -20,7 +20,10 @@ from ax.api.configs import RangeParameterConfig
 from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
+from ax.utils.testing.core_stubs import (
+    get_offline_experiments_subset,
+    get_online_experiments_subset,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
 from pyre_extensions import assert_is_instance, none_throws
@@ -131,52 +134,56 @@ class TestSensitivityAnalysisPlot(TestCase):
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
     def test_online(self) -> None:
         # Test SensitivityAnalysisPlot can be computed for a variety of experiments
-        # which resemble those we see in an online setting.
+        # which resemble those we see in an online setting, in analogous tests we
+        # run all experiments with modifications to settings, however, this test
+        # is slow and so we limit the number of permutations we validate.
+        order = "total"  # most common
 
-        for experiment in get_online_experiments():
-            for order in ["first", "second", "total"]:
-                for top_k in [None, 1]:
-                    generation_strategy = get_default_generation_strategy_at_MBM_node(
-                        experiment=experiment
-                    )
-                    analysis = SensitivityAnalysisPlot(
-                        # Select and arbitrary metric from the optimization config
-                        metric_names=[
-                            none_throws(
-                                experiment.optimization_config
-                            ).objective.metric_names[0]
-                        ],
-                        order=order,  # pyre-ignore[6] Valid Literal
-                        top_k=top_k,
-                    )
+        for experiment in get_online_experiments_subset():
+            for top_k in [None, 1]:
+                generation_strategy = get_default_generation_strategy_at_MBM_node(
+                    experiment=experiment
+                )
+                analysis = SensitivityAnalysisPlot(
+                    # Select and arbitrary metric from the optimization config
+                    metric_names=[
+                        none_throws(
+                            experiment.optimization_config
+                        ).objective.metric_names[0]
+                    ],
+                    order=order,
+                    top_k=top_k,
+                )
 
-                    _ = analysis.compute(
-                        experiment=experiment, generation_strategy=generation_strategy
-                    )
+                _ = analysis.compute(
+                    experiment=experiment, generation_strategy=generation_strategy
+                )
 
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
     def test_offline(self) -> None:
         # Test SensitivityAnalysisPlot can be computed for a variety of experiments
-        # which resemble those we see in an offline setting.
+        # which resemble those we see in an offline setting, in analogous tests we
+        # run all experiments with modifications to settings, however, this test
+        # is slow and so we limit the number of permutations we validate.
+        order = "total"  # most common
 
-        for experiment in get_offline_experiments():
-            for order in ["first", "second", "total"]:
-                for top_k in [None, 1]:
-                    generation_strategy = get_default_generation_strategy_at_MBM_node(
-                        experiment=experiment
-                    )
-                    analysis = SensitivityAnalysisPlot(
-                        # Select and arbitrary metric from the optimization config
-                        metric_names=[
-                            none_throws(
-                                experiment.optimization_config
-                            ).objective.metric_names[0]
-                        ],
-                        order=order,  # pyre-ignore[6] Valid Literal
-                        top_k=top_k,
-                    )
+        for experiment in get_offline_experiments_subset():
+            for top_k in [None, 1]:
+                generation_strategy = get_default_generation_strategy_at_MBM_node(
+                    experiment=experiment
+                )
+                analysis = SensitivityAnalysisPlot(
+                    # Select and arbitrary metric from the optimization config
+                    metric_names=[
+                        none_throws(
+                            experiment.optimization_config
+                        ).objective.metric_names[0]
+                    ],
+                    order=order,
+                    top_k=top_k,
+                )
 
-                    _ = analysis.compute(
-                        experiment=experiment, generation_strategy=generation_strategy
-                    )
+                _ = analysis.compute(
+                    experiment=experiment, generation_strategy=generation_strategy
+                )
