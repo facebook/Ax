@@ -189,7 +189,7 @@ class ScatterPlot(PlotlyAnalysis):
                 level=AnalysisCardLevel.MID,
                 df=df,
                 fig=figure,
-                category=AnalysisCardCategory.INSIGHT,
+                category=AnalysisCardCategory.ACTIONABLE,
             )
         ]
 
