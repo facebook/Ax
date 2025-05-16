@@ -220,7 +220,18 @@ def _prepare_card_components(
     )
 
     # Display most important parameters first
-    figure.update_layout(yaxis={"categoryorder": "total ascending"})
+    figure.update_layout(
+        yaxis={"categoryorder": "total ascending"},
+        # move legend to bottom of plot
+        legend={
+            "orientation": "h",
+            "yanchor": "top",
+            "y": -0.2,
+            "xanchor": "center",
+            "x": 0.5,
+            "title_text": "",  # remove title
+        },
+    )
 
     return (
         plotting_df[["parameter_name", "sensitivity"]],
