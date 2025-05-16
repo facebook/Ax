@@ -25,7 +25,7 @@ from pyre_extensions import none_throws
 @dataclass(kw_only=True)
 class BenchmarkMethod(Base):
     """Benchmark method, represented in terms of Ax generation strategy (which tells us
-    which models to use when) and scheduler options (which tell us extra execution
+    which models to use when) and Orchestrator options (which tell us extra execution
     information like maximum parallelism, early stopping configuration, etc.).
 
     Args:
@@ -44,9 +44,9 @@ class BenchmarkMethod(Base):
             ``NotImplementedError``.
         batch_size: Number of arms per trial. If greater than 1, trials are
             ``BatchTrial``s; otherwise, they are ``Trial``s. Defaults to 1. This
-            and the following arguments are passed to ``SchedulerOptions``.
-        run_trials_in_batches: Passed to ``SchedulerOptions``.
-        max_pending_trials: Passed to ``SchedulerOptions``.
+            and the following arguments are passed to ``OrchestratorOptions``.
+        run_trials_in_batches: Passed to ``OrchestratorOptions``.
+        max_pending_trials: Passed to ``OrchestratorOptions``.
     """
 
     name: str = "DEFAULT"
@@ -111,7 +111,7 @@ class BenchmarkMethod(Base):
             return experiment.trials[max(experiment.trials)].arms[0].parameters
 
         # SOO, n=1 case.
-        # Note: This has the same effect as Scheduler.get_best_parameters
+        # Note: This has the same effect as orchestrator.get_best_parameters
         if len(experiment.trials_by_status[TrialStatus.COMPLETED]) == 0:
             return [_get_first_parameterization_from_last_trial()]
 

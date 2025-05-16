@@ -51,11 +51,8 @@ def get_sobol_mbm_generation_strategy(
         model_cls: BoTorch model class, e.g. SingleTaskGP
         acquisition_cls: Acquisition function class, e.g.
             `qLogNoisyExpectedImprovement`.
-        scheduler_options: Passed as-is to scheduler. Default:
-            `get_benchmark_scheduler_options()`.
         name: Name that will be attached to the `GenerationStrategy`.
-        num_sobol_trials: Number of Sobol trials; if the scheduler_options
-            specify to use `BatchTrial`s, then this refers to the number of
+        num_sobol_trials: Number of Sobol trials; can refer to the number of
             `BatchTrial`s.
         model_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
             to the BoTorch `Model`.
@@ -65,7 +62,6 @@ def get_sobol_mbm_generation_strategy(
         >>> from ax.benchmark.methods.sobol_botorch_modular import (
         ...     get_sobol_mbm_generation_strategy
         ... )
-        >>> from ax.benchmark.benchmark_method import get_benchmark_scheduler_options
         >>> gs = get_sobol_mbm_generation_strategy(
         ...     model_cls=SingleTaskGP,
         ...     acquisition_cls=qLogNoisyExpectedImprovement,
@@ -123,10 +119,8 @@ def get_sobol_botorch_modular_acquisition(
         acquisition_cls: Acquisition function class, e.g.
             `qLogNoisyExpectedImprovement`.
         distribute_replications: Whether to use multiple machines
-        scheduler_options: Passed as-is to scheduler. Default:
-            `get_benchmark_scheduler_options()`.
         name: Name that will be attached to the `GenerationStrategy`.
-        num_sobol_trials: Number of Sobol trials; if the scheduler_options
+        num_sobol_trials: Number of Sobol trials; if the orchestrator_options
             specify to use `BatchTrial`s, then this refers to the number of
             `BatchTrial`s.
         model_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
@@ -139,7 +133,6 @@ def get_sobol_botorch_modular_acquisition(
         >>> from ax.benchmark.methods.sobol_botorch_modular import (
         ...     get_sobol_botorch_modular_acquisition
         ... )
-        >>> from ax.benchmark.benchmark_method import get_benchmark_scheduler_options
         >>>
         >>> method = get_sobol_botorch_modular_acquisition(
         ...     model_cls=SingleTaskGP,
