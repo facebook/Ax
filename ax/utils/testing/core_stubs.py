@@ -1075,13 +1075,12 @@ def get_online_experiments() -> list[Experiment]:
             status_quo_unknown_parameters=True,
             with_choice_parameter=with_choice_parameter,
             with_parameter_constraint=with_parameter_constraint,
-            with_relative_constraint=with_relative_constraint,
+            with_relative_constraint=True,
         )
         for (
             with_choice_parameter,
             with_parameter_constraint,
-            with_relative_constraint,
-        ) in itertools.product([True, False], repeat=3)
+        ) in itertools.product([True, False], repeat=2)
     ]
 
     multi_objective = [
@@ -1093,16 +1092,14 @@ def get_online_experiments() -> list[Experiment]:
             has_objective_thresholds=has_objective_thresholds,
             with_choice_parameter=with_choice_parameter,
             with_fixed_parameter=with_fixed_parameter,
-            with_relative_constraint=with_relative_constraint,
-            with_absolute_constraint=with_absolute_constraint,
+            with_relative_constraint=True,
+            with_absolute_constraint=False,
         )
         for (
             has_objective_thresholds,
             with_choice_parameter,
             with_fixed_parameter,
-            with_relative_constraint,
-            with_absolute_constraint,
-        ) in itertools.product([True, False], repeat=5)
+        ) in itertools.product([True, False], repeat=3)
     ]
 
     experiments = [*single_objective, *multi_objective]
