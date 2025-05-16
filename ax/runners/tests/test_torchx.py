@@ -24,7 +24,11 @@ from ax.core import (
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.metrics.torchx import TorchXMetric
 from ax.runners.torchx import TorchXRunner
-from ax.service.scheduler import FailureRateExceededError, Scheduler, SchedulerOptions
+from ax.service.orchestrator import (
+    FailureRateExceededError,
+    Orchestrator,
+    OrchestratorOptions,
+)
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from torchx.components import utils
@@ -64,7 +68,7 @@ class TorchXRunnerTest(TestCase):
         self._runner = TorchXRunner(
             tracker_base=self.test_dir,
             component=utils.booth,
-            scheduler="local_cwd",
+            orchestrator="local_cwd",
             cfg={"prepend_cwd": True},
         )
 
@@ -84,23 +88,23 @@ class TorchXRunnerTest(TestCase):
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
         )
 
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=experiment,
             generation_strategy=(
                 choose_generation_strategy_legacy(
                     search_space=experiment.search_space,
                 )
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
 
         try:
             for _ in range(3):
-                scheduler.run_n_trials(max_trials=2)
+                orchestrator.run_n_trials(max_trials=2)
 
             # TorchXMetric always returns trial index; hence the best experiment
             # for min objective will be the params for trial 0.
-            scheduler.report_results()
+            orchestrator.report_results()
         except FailureRateExceededError:
             pass  # TODO(ehotaj): Figure out why this test fails in OSS.
         # Nothing to assert, just make sure experiment runs.
@@ -114,17 +118,17 @@ class TorchXRunnerTest(TestCase):
             is_test=True,
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
         )
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=experiment,
             generation_strategy=(
                 choose_generation_strategy_legacy(
                     search_space=experiment.search_space,
                 )
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.run(max_new_trials=3)
-        trial = scheduler.running_trials[0]
+        orchestrator.run(max_new_trials=3)
+        trial = orchestrator.running_trials[0]
         reason = self._runner.stop(trial, reason="some_reason")
         self.assertEqual(reason, {"reason": "some_reason"})
 
@@ -132,11 +136,11 @@ class TorchXRunnerTest(TestCase):
         """Runs optimization over k x n rounds of k parallel trials.
 
         This asks Ax to run up to max_parallelism_cap trials in parallel by
-        submitting them to the scheduler at the same time.
+        submitting them to the Orchestrator at the same time.
 
         NOTE:
             * setting max_parallelism_cap in generation_strategy
-            * setting run_trials_in_batches in scheduler options
+            * setting run_trials_in_batches in Orchestrator options
             * setting total_trials = parallelism * rounds
 
         """
@@ -152,7 +156,7 @@ class TorchXRunnerTest(TestCase):
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
         )
 
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=experiment,
             generation_strategy=(
                 choose_generation_strategy_legacy(
@@ -160,17 +164,17 @@ class TorchXRunnerTest(TestCase):
                     max_parallelism_cap=parallelism,
                 )
             ),
-            options=SchedulerOptions(
+            options=OrchestratorOptions(
                 run_trials_in_batches=True, total_trials=(parallelism * rounds)
             ),
         )
 
         try:
-            scheduler.run_all_trials()
+            orchestrator.run_all_trials()
 
             # TorchXMetric always returns trial index; hence the best experiment
             # for min objective will be the params for trial 0.
-            scheduler.report_results()
+            orchestrator.report_results()
         except FailureRateExceededError:
             pass  # TODO(ehotaj): Figure out why this test fails in OSS.
         # Nothing to assert, just make sure experiment runs.
