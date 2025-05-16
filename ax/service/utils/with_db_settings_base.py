@@ -191,7 +191,8 @@ class WithDBSettingsBase:
                     "Experiment was associated with generation strategy in DB, "
                     f"but a new generation strategy {generation_strategy.name} "
                     "was provided. To use the generation strategy currently in DB,"
-                    " instantiate scheduler via: `Scheduler.from_stored_experiment`."
+                    " instantiate Orchestrator via: "
+                    "`Orchestrator.from_stored_experiment`."
                 )
             if not gs_id or generation_strategy._db_id is None:
                 # There is no GS associated with experiment or the generation

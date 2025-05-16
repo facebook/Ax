@@ -16,7 +16,7 @@ from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 
 class AnalysisBase(WithDBSettingsBase):
     """
-    Base class for analysis functionality shared between AxClient and Scheduler.
+    Base class for analysis functionality shared between AxClient and orchestrator.
     """
 
     # pyre-fixme[13]: Attribute `experiment` is declared in class
