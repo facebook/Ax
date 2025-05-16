@@ -166,11 +166,14 @@ def prepare_arm_data(
                 "Using Empirical Bayes to model effects because we were unable to find "
                 " a suitable adapter."
             )
-            data = (
-                experiment.lookup_data(trial_indices=[trial_index])
-                if trial_index is not None
-                else experiment.lookup_data()
-            )
+
+            trial_indices = None  # This will indicate all trials to `lookup_data`
+            if trial_index is not None:
+                trial_indices = {trial_index}
+                # always look up target trial data even if it's outside the filters
+                if target_trial_index is not None:
+                    trial_indices.add(target_trial_index)
+            data = experiment.lookup_data(trial_indices=trial_indices)
             adapter = Generators.EMPIRICAL_BAYES_THOMPSON(
                 experiment=experiment, data=data
             )
@@ -197,6 +200,7 @@ def prepare_arm_data(
             experiment=experiment,
             trial_index=trial_index,
             trial_statuses=trial_statuses,
+            target_trial_index=target_trial_index,
         )
 
     if relativize:
@@ -228,6 +232,7 @@ def prepare_arm_data(
                     experiment=experiment,
                     trial_index=trial_index,
                     trial_statuses=trial_statuses,
+                    target_trial_index=target_trial_index,
                 )
 
                 # Fallback on the raw observations from the status quo arm on the
@@ -260,8 +265,8 @@ def prepare_arm_data(
             # 3. Raise an exception
             status_quo_mask = df["arm_name"] == status_quo_name
             status_quo_rows = []
-            for trial_index in df["trial_index"].unique():
-                trial_mask = (df["trial_index"] == trial_index) & status_quo_mask
+            for trial_idx in df["trial_index"].unique():
+                trial_mask = (df["trial_index"] == trial_idx) & status_quo_mask
                 if trial_mask.any():
                     row = df[trial_mask].iloc[0]
                 elif status_quo_mask.sum() == 1:
@@ -272,7 +277,7 @@ def prepare_arm_data(
                         "experiment."
                     )
 
-                row["trial_index"] = trial_index
+                row["trial_index"] = trial_idx
                 status_quo_rows.append(row)
 
             status_quo_df = pd.DataFrame(status_quo_rows)[
@@ -312,6 +317,18 @@ def prepare_arm_data(
         else [],
     )
 
+    # Earlier we add target trial data to the df to support relativization easily
+    # but if a specific trial, or trial statuses were requested, and the target trial
+    # isn't in that subset, let's remove it so it isn't plotted
+    if target_trial_index is not None:
+        if trial_index is not None and trial_index != target_trial_index:
+            df = df[df["trial_index"] != target_trial_index]
+        elif (
+            trial_statuses is not None
+            and experiment.trials[target_trial_index].status not in trial_statuses
+        ):
+            df = df[df["trial_index"] != target_trial_index]
+
     return df
 
 
@@ -344,6 +361,7 @@ def _prepare_modeled_arm_data(
             for trial in experiment.trials.values()
             if ((trial.index == trial_index) or (trial_index is None))
             and ((trial_statuses is None) or (trial.status in trial_statuses))
+            or (trial.index == target_trial_index)
             for arm in trial.arms
         ],
         # Additional arms passed in by the user
@@ -423,6 +441,7 @@ def _prepare_raw_arm_data(
     experiment: Experiment,
     trial_index: int | None,
     trial_statuses: Sequence[TrialStatus] | None,
+    target_trial_index: int | None,
 ) -> pd.DataFrame:
     """
     Extract the raw (mean, sem) for each arm for each requested metric.
@@ -433,7 +452,8 @@ def _prepare_raw_arm_data(
         - METRIC_NAME_mean for each metric_name in metric_names
         - METRIC_NAME_sem for each metric_name in metric_names
     """
-    # If trial_index is -1 do not extract any data.
+    # Trial index of -1 indicates candidate arms, we don't have observed data for
+    # hypothetical arms so return an empty df
     if trial_index == -1:
         return pd.DataFrame()
     else:
@@ -442,6 +462,7 @@ def _prepare_raw_arm_data(
             for trial in experiment.trials.values()
             if (trial.index == trial_index or trial_index is None)
             and ((trial_statuses is None) or (trial.status in trial_statuses))
+            or (trial.index == target_trial_index)
         ]
         data_df = experiment.lookup_data(
             trial_indices=[trial.index for trial in trials]
