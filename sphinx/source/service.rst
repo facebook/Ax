@@ -36,12 +36,12 @@ Interactive Loop
 Orchestrator
 ~~~~~~~~~
 
-.. automodule:: ax.service.orchestrator
+.. automodule:: ax.orchestration.orchestrator
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. automodule:: ax.service.utils.orchestrator_options
+.. automodule:: ax.orchestration.utils.orchestrator_options
     :members:
     :undoc-members:
     :show-inheritance:

@@ -111,8 +111,8 @@ from ax.models.torch.botorch_modular.surrogate import (
     SurrogateSpec,
 )
 from ax.models.winsorization_config import WinsorizationConfig
+from ax.orchestration.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import set_rng_seed

@@ -108,8 +108,8 @@ from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.models.winsorization_config import WinsorizationConfig
+from ax.orchestration.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.storage.json_store.decoders import (
     class_from_json,
     default_from_json,

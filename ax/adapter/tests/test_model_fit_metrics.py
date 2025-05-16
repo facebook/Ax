@@ -26,12 +26,12 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.metrics.branin import BraninMetric
-from ax.runners.synthetic import SyntheticRunner
-from ax.service.orchestrator import (
+from ax.orchestration.orchestrator import (
     get_fitted_adapter,
     Orchestrator,
     OrchestratorOptions,
 )
+from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import _entropy_via_kde, entropy_of_observations
