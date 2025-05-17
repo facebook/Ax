@@ -9,6 +9,7 @@
 import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, cast, Mapping
@@ -27,6 +28,7 @@ from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
+from botorch.models import PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.fully_bayesian import FullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
@@ -38,7 +40,7 @@ from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
-from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels.kernel import Kernel
@@ -110,7 +112,7 @@ class ModelConfig:
 
     botorch_model_class: type[Model] | None = None
     model_options: dict[str, Any] = field(default_factory=dict)
-    mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood
+    mll_class: type[MarginalLogLikelihood] | None = None
     mll_options: dict[str, Any] = field(default_factory=dict)
     input_transform_classes: list[type[InputTransform]] | _DefaultType | None = DEFAULT
     input_transform_options: dict[str, dict[str, Any]] | None = field(
@@ -127,7 +129,7 @@ class ModelConfig:
 
 def use_model_list(
     datasets: Sequence[SupervisedDataset],
-    botorch_model_class: type[Model],
+    search_space_digest: SearchSpaceDigest,
     model_configs: list[ModelConfig] | None = None,
     metric_to_model_configs: dict[str, list[ModelConfig]] | None = None,
     allow_batched_models: bool = True,
@@ -145,12 +147,29 @@ def use_model_list(
         # There are multiple outcomes and outcomes might be modeled with different
         # models
         return True
-    # Otherwise, the same model class is used for all outcomes.
-    # Determine what the model class is.
-    if len(model_configs) > 0:
-        botorch_model_class = (
-            model_configs[0].botorch_model_class or botorch_model_class
+    if len({type(d) for d in datasets}) > 1:
+        # Use a `ModelList` if there are multiple dataset classes.
+        return True
+
+    botorch_model_class_set = {mc.botorch_model_class for mc in model_configs}
+    # if any of the botorch_model_class is unspecified, we'd need to infer its class
+    if (not botorch_model_class_set) or (None in botorch_model_class_set):
+        inferred_botorch_model_class_set = {
+            choose_model_class(dataset=dataset, search_space_digest=search_space_digest)
+            for dataset in datasets
+        }
+        botorch_model_class_set = botorch_model_class_set.union(
+            inferred_botorch_model_class_set
         )
+        # Safe even if None is not present
+        botorch_model_class_set.discard(None)
+
+    if len(botorch_model_class_set) > 1:
+        # Use a `ModelList` if there are multiple possible botorch_model_class classes.
+        return True
+
+    # Otherwise, the same model class is used for all outcomes.
+    botorch_model_class = none_throws(next(iter(botorch_model_class_set)))
     if issubclass(botorch_model_class, FullyBayesianSingleTaskGP):
         # SAAS models do not support multiple outcomes.
         # Use model list if there are multiple outcomes.
@@ -175,18 +194,44 @@ def use_model_list(
     return True
 
 
+def copy_model_config_with_default_values(
+    model_config: ModelConfig,
+    dataset: SupervisedDataset,
+    search_space_digest: SearchSpaceDigest,
+) -> ModelConfig:
+    model_config_copy = deepcopy(model_config)
+
+    if model_config_copy.botorch_model_class is None:
+        model_config_copy.botorch_model_class = choose_model_class(
+            dataset=dataset, search_space_digest=search_space_digest
+        )
+
+    if model_config_copy.mll_class is None:
+        model_config_copy.mll_class = (
+            PairwiseLaplaceMarginalLogLikelihood
+            if model_config_copy.botorch_model_class is PairwiseGP
+            else ExactMarginalLogLikelihood
+        )
+
+    # PairwiseGP does not use outcome transforms
+    if model_config_copy.outcome_transform_classes is not None:
+        if model_config_copy.botorch_model_class is PairwiseGP:
+            model_config_copy.outcome_transform_classes = None
+
+    return model_config_copy
+
+
 def choose_model_class(
-    datasets: Sequence[SupervisedDataset],
+    dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
 ) -> type[Model]:
-    """Chooses a BoTorch `Model` using the given data (currently just Yvars)
-    and its properties (information about task and fidelity features).
+    """Chooses a BoTorch `Model` class and `MarginalLogLikelihood` class
+    using the given the dataset and search_space_digest.
 
     Args:
-        Yvars: List of tensors, each representing observation noise for a
-            given outcome, where outcomes are in the same order as in Xs.
-        task_features: List of columns of X that are tasks.
-        fidelity_features: List of columns of X that are fidelity parameters.
+        dataset: The dataset on which the model will be fitted.
+        search_space_digest: The digest of the search space the model will be
+            fitted within.
 
     Returns:
         A BoTorch `Model` class.
@@ -206,16 +251,12 @@ def choose_model_class(
             "Multi-task multi-fidelity optimization not yet supported."
         )
 
-    is_fixed_noise = [ds.Yvar is not None for ds in datasets]
-    all_inferred = not any(is_fixed_noise)
-    if not all_inferred and not all(is_fixed_noise):
-        raise ValueError(
-            "Mix of known and unknown variances indicates valuation function "
-            "errors. Variances should all be specified, or none should be."
-        )
+    # Preference learning case
+    if isinstance(dataset, RankingDataset):
+        model_class = PairwiseGP
 
     # Multi-task case (when `task_features` is specified).
-    if search_space_digest.task_features:
+    elif search_space_digest.task_features:
         model_class = MultiTaskGP
 
     # Single-task multi-fidelity cases.

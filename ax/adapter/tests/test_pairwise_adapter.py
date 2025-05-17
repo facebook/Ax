@@ -8,11 +8,8 @@
 
 import numpy as np
 import torch
-from ax.adapter.pairwise import (
-    _binary_pref_to_comp_pair,
-    _consolidate_comparisons,
-    PairwiseAdapter,
-)
+from ax.adapter.adapter_utils import _binary_pref_to_comp_pair, _consolidate_comparisons
+from ax.adapter.pairwise import PairwiseAdapter
 from ax.core import Metric, Objective, OptimizationConfig
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.models.torch.botorch_modular.model import BoTorchGenerator

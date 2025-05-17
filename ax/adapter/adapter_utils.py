@@ -73,7 +73,9 @@ from botorch.acquisition.risk_measures import (
     VaR,
     WorstCase,
 )
-from botorch.utils.datasets import ContextualDataset, SupervisedDataset
+from botorch.models.utils.assorted import consolidate_duplicates
+from botorch.utils.containers import SliceContainer
+from botorch.utils.datasets import ContextualDataset, RankingDataset, SupervisedDataset
 from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
@@ -1390,3 +1392,85 @@ def process_contextual_datasets(
                 )
             )
     return contextual_datasets
+
+
+def prep_pairwise_data(
+    X: Tensor,
+    Y: Tensor,
+    group_indices: Tensor,
+    outcome: str,
+    parameters: list[str],
+) -> RankingDataset:
+    """Prep data for pairwise modeling
+    Args:
+        X: Tensor of shape `(n, d)` where `n` is the number of datapoints and `d` is
+            the number of features.
+        Y: Tensor of shape `(n, 1)` with binary 0 or 1 outcomes with 1 indicating
+            that is the preferred arm in the trial.
+        group_indices: Indices of groups of each observation. We have exactly two
+            arms per group with exactly one 0 and one 1 in Y.
+        outcome: Name of the outcome.
+        parameters: Names of the features.
+
+    Returns:
+        A `RankingDataset` for pairwise preference modeling.
+    """
+    sorted_indices = torch.argsort(group_indices)
+    X = X[sorted_indices]
+    Y = Y[sorted_indices]
+
+    # Update Xs and Ys shapes for PairwiseGP
+    Y = _binary_pref_to_comp_pair(Y=Y)
+    X, Y = _consolidate_comparisons(X=X, Y=Y)
+
+    datapoints, comparisons = X, Y.long()
+    event_shape = torch.Size([2 * datapoints.shape[-1]])
+    # pyre-ignore[6]: For 2nd param expected `LongTensor` but
+    dataset_X = SliceContainer(datapoints, comparisons, event_shape=event_shape)
+    dataset_Y = torch.tensor([[0, 1]]).expand(comparisons.shape)
+    dataset = RankingDataset(
+        X=dataset_X,
+        Y=dataset_Y,
+        feature_names=parameters,
+        outcome_names=[outcome],
+    )
+    return dataset
+
+
+def _binary_pref_to_comp_pair(Y: Tensor) -> Tensor:
+    """Convert Y from binary indicator pair to index pair comparisons
+
+    Convert Y from binary indicator pair such as [[0, 1], [1, 0], ...]
+    to index comparisons like [[1, 0], [2, 3], ...]
+    """
+    Y_shape = Y.shape[:-2] + (-1, 2)
+    Y = Y.reshape(Y_shape)
+
+    # ==== Check if Ys have valid values ====
+    # Y must have even number of elements
+    if Y.shape[-1] != 2:
+        raise ValueError(
+            f"Trailing dimension of `Y` should be size 2 but is {Y.shape[-1]}"
+        )
+    # all adjacent pairs must have exactly a 0 and a 1
+    if not (Y.min(dim=-1).values.eq(0).all() and Y.max(dim=-1).values.eq(1).all()):
+        raise ValueError("`Y` values must be `{0, 1}.`")
+
+    idx_shift = (torch.arange(0, Y.shape[-2]) * 2).unsqueeze(-1).expand_as(Y)
+    comparison_pairs = idx_shift + (1 - Y)
+    return comparison_pairs
+
+
+def _consolidate_comparisons(X: Tensor, Y: Tensor) -> tuple[Tensor, Tensor]:
+    """Drop duplicated Xs and update the indices in Ys accordingly"""
+    if Y.shape[-1] != 2:
+        raise ValueError(
+            "The last dimension of Y must contain 2 elements "
+            "representing the pairwise comparison."
+        )
+
+    if len(Y.shape) != 2:
+        raise ValueError("Y must have 2 dimensions.")
+
+    X, Y, _ = consolidate_duplicates(X, Y)
+    return X, Y

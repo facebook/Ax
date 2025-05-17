@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from collections.abc import Sequence
+from collections.abc import Sequence, Sized
 from contextlib import ExitStack
 from typing import Any
 from unittest import mock
@@ -14,12 +14,14 @@ from unittest import mock
 import numpy as np
 import torch
 from ax.adapter.base import Adapter
+from ax.adapter.cross_validation import cross_validate
 from ax.adapter.registry import MBM_X_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -37,9 +39,12 @@ from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
+from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.models.torch_base import TorchGenerator, TorchGenResults
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.stats.model_fit_stats import MSE
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
@@ -50,6 +55,13 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import transform_1, transform_2
+from ax.utils.testing.preference_stubs import get_pbo_experiment
+from botorch.models import SingleTaskGP
+from botorch.models.map_saas import AdditiveMapSaasSingleTaskGP
+from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
+from botorch.models.transforms.input import Normalize
+from botorch.models.transforms.outcome import Standardize
 from botorch.utils.datasets import (
     ContextualDataset,
     MultiTaskDataset,
@@ -879,3 +891,90 @@ class TorchAdapterTest(TestCase):
         self.assertAlmostEqual(mean_default["m1"][0], mean_predictive["m1"][0])
         # Check that variance is larger.
         self.assertGreater(cov_predictive["m1"]["m1"], cov_default["m1"]["m1"])
+
+    @mock_botorch_optimize
+    def test_fitting_auxiliary_experiment_dataset(self) -> None:
+        pref_metrics = ["metric2", "metric3"]
+        metric_names = ["metric1", "metric2", "metric3"]
+
+        exp = get_pbo_experiment(
+            num_parameters=4,
+            num_experimental_metrics=3,
+            tracking_metric_names=metric_names,
+            num_experimental_trials=4,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+        )
+        pe_exp = get_pbo_experiment(
+            num_parameters=len(pref_metrics),
+            num_experimental_metrics=0,
+            parameter_names=pref_metrics,
+            num_experimental_trials=0,
+            num_preference_trials=3,
+            num_preference_trials_w_repeated_arm=5,
+            unbounded_search_space=True,
+        )
+
+        exp.auxiliary_experiments_by_purpose[
+            AuxiliaryExperimentPurpose.PE_EXPERIMENT
+        ] = [AuxiliaryExperiment(experiment=pe_exp)]
+
+        surrogate_specs = [
+            # Default, minimum surrogate spec
+            SurrogateSpec(),
+            # Correctly specified surrogate spec with model selection
+            SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        outcome_transform_classes=[Standardize],
+                        name="STGP",
+                    ),
+                    ModelConfig(
+                        botorch_model_class=AdditiveMapSaasSingleTaskGP,
+                        outcome_transform_classes=[Standardize],
+                        name="SAAS",
+                    ),
+                ],
+                metric_to_model_configs={
+                    Keys.PAIRWISE_PREFERENCE_QUERY.value: [
+                        ModelConfig(
+                            botorch_model_class=PairwiseGP,
+                            mll_class=PairwiseLaplaceMarginalLogLikelihood,
+                            input_transform_classes=[Normalize],
+                        )
+                    ]
+                },
+                eval_criterion=MSE,
+            ),
+        ]
+
+        for surrogate_spec in surrogate_specs:
+            adapter = TorchAdapter(
+                experiment=exp,
+                data=exp.lookup_data(),
+                model=BoTorchGenerator(
+                    surrogate_spec=surrogate_spec,
+                ),
+            )
+
+            model = assert_is_instance(adapter.model, BoTorchGenerator)
+            # Using model list by default
+            self.assertIsInstance(model.surrogate.model, ModelListGP)
+            # Stil having 3 base models despite having
+            # 3 outcomes + 1 aux experiments = 4 datasets
+            self.assertEqual(
+                len(assert_is_instance(model.surrogate.model.models, Sized)), 3
+            )
+
+            # using PairwiseGP for the preference dataset
+            self.assertIsInstance(
+                assert_is_instance(
+                    adapter.model, BoTorchGenerator
+                ).surrogate._submodels[(Keys.PAIRWISE_PREFERENCE_QUERY.value,)],
+                PairwiseGP,
+            )
+
+            # Checking CV and gen works correctly
+            cross_validate(adapter)
+            adapter.gen(n=2)
