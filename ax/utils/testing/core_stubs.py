@@ -111,8 +111,8 @@ from ax.models.torch.botorch_modular.surrogate import (
     SurrogateSpec,
 )
 from ax.models.winsorization_config import WinsorizationConfig
+from ax.orchestration.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import set_rng_seed
@@ -2837,16 +2837,16 @@ def get_chained_input_transform() -> ChainedInputTransform:
 
 
 ##############################
-# Scheduler
+# Orchestrator
 ##############################
 
 
-def get_default_scheduler_options() -> SchedulerOptions:
-    return SchedulerOptions()
+def get_default_orchestrator_options() -> OrchestratorOptions:
+    return OrchestratorOptions()
 
 
-def get_scheduler_options_batch_trial() -> SchedulerOptions:
-    return SchedulerOptions(trial_type=TrialType.BATCH_TRIAL)
+def get_orchestrator_options_batch_trial() -> OrchestratorOptions:
+    return OrchestratorOptions(trial_type=TrialType.BATCH_TRIAL)
 
 
 ##############################

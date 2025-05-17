@@ -108,8 +108,8 @@ from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.models.winsorization_config import WinsorizationConfig
+from ax.orchestration.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.storage.json_store.decoders import (
     class_from_json,
     default_from_json,
@@ -348,7 +348,9 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "IsSingleObjective": IsSingleObjective,
     "Keys": Keys,
     "LifecycleStage": LifecycleStage,
-    "ListSurrogate": Surrogate,  # For backwards compatibility
+    # DEPRECATED; remains here backward compatibility, with old class
+    # name linked to the new corresponding class
+    "ListSurrogate": Surrogate,
     "L2NormMetric": L2NormMetric,
     "LogNormalPrior": LogNormalPrior,
     "MapData": MapData,
@@ -374,6 +376,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Objective": Objective,
     "ObjectiveThreshold": ObjectiveThreshold,
     "OptimizationConfig": OptimizationConfig,
+    "OrchestratorOptions": OrchestratorOptions,
     "OrEarlyStoppingStrategy": OrEarlyStoppingStrategy,
     "OrderConstraint": OrderConstraint,
     "OutcomeConstraint": OutcomeConstraint,
@@ -394,7 +397,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "RobustSearchSpace": RobustSearchSpace,
     "Round": Round,
     "ScalarizedObjective": ScalarizedObjective,
-    "SchedulerOptions": SchedulerOptions,
+    "SchedulerOptions": OrchestratorOptions,  # DEPRECATED; backward compatibility
     "SearchSpace": SearchSpace,
     "SimTrial": SimTrial,
     "SingleDiagnosticBestModelSelector": SingleDiagnosticBestModelSelector,
@@ -403,7 +406,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "SklearnModelType": SklearnModelType,
     "SumConstraint": SumConstraint,
     "Surrogate": Surrogate,
-    "SurrogateMetric": BenchmarkMetric,  # backward-compatiblity
+    "SurrogateMetric": BenchmarkMetric,  # DEPRECATED; backward compatibility
     "SobolQMCNormalSampler": SobolQMCNormalSampler,
     "SyntheticRunner": SyntheticRunner,
     "SurrogateSpec": SurrogateSpec,
