@@ -267,7 +267,8 @@ def _prepare_plot(
             x=z_grid.columns.values,
             y=z_grid.index.values,
             colorscale=METRIC_CONTINUOUS_COLOR_SCALE,
-            showscale=False,
+            showscale=True,
+            hoverinfo="skip",
         ),
         layout=go.Layout(
             xaxis_title=truncate_label(label=x_parameter_name),
@@ -278,7 +279,6 @@ def _prepare_plot(
     if display_sampled:
         x_sampled = df[df["sampled"]][x_parameter_name].tolist()
         y_sampled = df[df["sampled"]][y_parameter_name].tolist()
-
         samples = go.Scatter(
             x=x_sampled,
             y=y_sampled,
