@@ -16,7 +16,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning
+from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.exceptions.model import ModelError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
@@ -57,7 +57,6 @@ from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.types import DEFAULT
 from gpytorch.likelihoods.gaussian_likelihood import FixedNoiseGaussianLikelihood
-from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -65,6 +64,7 @@ CURRENT_PATH: str = __name__
 MODEL_PATH: str = BoTorchGenerator.__module__
 SURROGATE_PATH: str = Surrogate.__module__
 ACQUISITION_PATH: str = Acquisition.__module__
+UTILS_PATH = f"{ModelConfig.__module__}"
 
 ACQ_OPTIONS: dict[str, SobolQMCNormalSampler] = {
     Keys.SAMPLER: SobolQMCNormalSampler(sample_shape=torch.Size([1024]))
@@ -258,10 +258,10 @@ class BoTorchGeneratorTest(TestCase):
             ),
         ]
         msg = (
-            "Mix of known and unknown variances indicates valuation function"
-            " errors. Variances should all be specified, or none should be."
+            "Cannot convert mixed data with and without variance "
+            "observations to `block design`."
         )
-        with self.assertRaisesRegex(ValueError, msg):
+        with self.assertRaisesRegex(UnsupportedError, msg):
             self.model.fit(
                 datasets=datasets,
                 search_space_digest=self.search_space_digest,
@@ -295,7 +295,7 @@ class BoTorchGeneratorTest(TestCase):
         """Test autoset."""
         self.model._surrogate = None
         with mock.patch(
-            f"{SURROGATE_PATH}.choose_model_class", wraps=choose_model_class
+            f"{UTILS_PATH}.choose_model_class", wraps=choose_model_class
         ) as mock_choose_model_class:
             self.model.fit(
                 datasets=self.block_design_training_data,
@@ -304,7 +304,7 @@ class BoTorchGeneratorTest(TestCase):
             )
         # `choose_model_class` is called.
         mock_choose_model_class.assert_called_with(
-            datasets=self.block_design_training_data,
+            dataset=self.block_design_training_data[0],
             search_space_digest=self.mf_search_space_digest,
         )
 
@@ -336,7 +336,7 @@ class BoTorchGeneratorTest(TestCase):
             model_config=ModelConfig(
                 botorch_model_class=None,
                 model_options={},
-                mll_class=ExactMarginalLogLikelihood,
+                mll_class=None,
                 mll_options={},
                 input_transform_classes=DEFAULT,
                 input_transform_options={},
@@ -348,7 +348,6 @@ class BoTorchGeneratorTest(TestCase):
                 likelihood_options={},
                 name="default",
             ),
-            default_botorch_model_class=SingleTaskMultiFidelityGP,
             state_dict=None,
             refit=True,
         )

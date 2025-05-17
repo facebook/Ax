@@ -30,6 +30,7 @@ from ax.adapter.adapter_utils import (
     observation_features_to_array,
     parse_observation_features,
     pending_observations_as_array_list,
+    prep_pairwise_data,
     process_contextual_datasets,
     SearchSpaceDigest,
     transform_callback,
@@ -39,6 +40,7 @@ from ax.adapter.base import Adapter, DataLoaderConfig, gen_arms, GenResults
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.cast import Cast
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions
@@ -47,6 +49,7 @@ from ax.core.observation import (
     Observation,
     ObservationData,
     ObservationFeatures,
+    observations_from_data,
     separate_observations,
 )
 from ax.core.optimization_config import (
@@ -62,11 +65,13 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
+from ax.models.torch.botorch import LegacyBoTorchGenerator
 from ax.models.torch.botorch_modular.model import BoTorchGenerator
 from ax.models.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch_base import TorchGenerator, TorchOptConfig
 from ax.models.types import TConfig
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from pyre_extensions import none_throws
@@ -315,6 +320,52 @@ class TorchAdapter(Adapter):
     def _array_to_tensor(self, array: npt.NDArray | list[float]) -> Tensor:
         return torch.as_tensor(array, dtype=torch.double, device=self.device)
 
+    def _create_dataset(
+        self,
+        Xs: dict[str, list[Tensor]],
+        Ys: dict[str, list[Tensor]],
+        Yvars: dict[str, list[Tensor]],
+        outcome: str,
+        parameters: list[str],
+        trial_indices: dict[str, list[int]] | None,
+    ) -> SupervisedDataset:
+        if outcome not in Xs:
+            raise ValueError(f"Outcome `{outcome}` was not observed.")
+        X = torch.stack(Xs[outcome], dim=0)
+        if outcome == Keys.PAIRWISE_PREFERENCE_QUERY.value:
+            Y = torch.tensor(
+                Ys[outcome], dtype=torch.long, device=self.device
+            ).unsqueeze(-1)
+            dataset = prep_pairwise_data(
+                X=X,
+                Y=Y,
+                group_indices=torch.tensor(none_throws(trial_indices)[outcome]),
+                outcome=outcome,
+                parameters=parameters,
+            )
+        else:
+            Yvar = torch.tensor(
+                Yvars[outcome], dtype=torch.double, device=self.device
+            ).unsqueeze(-1)
+            if Yvar.isnan().all():
+                Yvar = None
+            else:
+                Yvar = Yvar.clamp_min(1e-6)
+            Y = torch.tensor(
+                Ys[outcome], dtype=torch.double, device=self.device
+            ).unsqueeze(-1)
+            dataset = SupervisedDataset(
+                X=X,
+                Y=Y,
+                Yvar=Yvar,
+                feature_names=parameters,
+                outcome_names=[outcome],
+                group_indices=torch.tensor(trial_indices[outcome])
+                if trial_indices
+                else None,
+            )
+        return dataset
+
     def _convert_observations(
         self,
         observation_data: list[ObservationData],
@@ -365,28 +416,13 @@ class TorchAdapter(Adapter):
         datasets: list[SupervisedDataset] = []
         candidate_metadata = []
         for outcome in outcomes:
-            if outcome not in Xs:
-                raise ValueError(f"Outcome `{outcome}` was not observed.")
-            X = torch.stack(Xs[outcome], dim=0)
-            Y = torch.tensor(
-                Ys[outcome], dtype=torch.double, device=self.device
-            ).unsqueeze(-1)
-            Yvar = torch.tensor(
-                Yvars[outcome], dtype=torch.double, device=self.device
-            ).unsqueeze(-1)
-            if Yvar.isnan().all():
-                Yvar = None
-            else:
-                Yvar = Yvar.clamp_min(1e-6)
-            dataset = SupervisedDataset(
-                X=X,
-                Y=Y,
-                Yvar=Yvar,
-                feature_names=parameters,
-                outcome_names=[outcome],
-                group_indices=torch.tensor(trial_indices[outcome])
-                if trial_indices
-                else None,
+            dataset = self._create_dataset(
+                Xs=Xs,
+                Ys=Ys,
+                Yvars=Yvars,
+                outcome=outcome,
+                parameters=parameters,
+                trial_indices=trial_indices,
             )
             datasets.append(dataset)
             candidate_metadata.append(candidate_metadata_dict[outcome])
@@ -587,6 +623,45 @@ class TorchAdapter(Adapter):
         )
         return evals.tolist()
 
+    def _update_w_aux_exp_datasets(
+        self, datasets: list[SupervisedDataset]
+    ) -> list[SupervisedDataset]:
+        aux_datasets = []
+        # Extract datasets needed from auxiliary experiments
+        # For preference exploration
+        aux_pe_exp_list = self._experiment.auxiliary_experiments_by_purpose.get(
+            AuxiliaryExperimentPurpose.PE_EXPERIMENT
+        )
+        if aux_pe_exp_list:
+            if len(aux_pe_exp_list) > 1:
+                logger.warning(
+                    "Multiple auxiliary preference exploration experiments are not yet "
+                    "supported. Using the first one only."
+                )
+
+            aux_pe_exp = aux_pe_exp_list[0]
+            pe_exp, pe_data = aux_pe_exp.experiment, aux_pe_exp.data
+
+            pe_obs = observations_from_data(experiment=pe_exp, data=pe_data)
+            pe_obs_features, pe_obs_data = separate_observations(pe_obs)
+            pe_exp_param_names = list(pe_exp.search_space.parameters.keys())
+
+            # Get all relevant information on the parameters
+            pe_ssd = extract_search_space_digest(
+                search_space=pe_exp.search_space, param_names=pe_exp_param_names
+            )
+            pe_outcomes = [Keys.PAIRWISE_PREFERENCE_QUERY.value]
+
+            pe_datasets, _, _ = self._convert_observations(
+                observation_data=pe_obs_data,
+                observation_features=pe_obs_features,
+                outcomes=pe_outcomes,
+                parameters=pe_exp_param_names,
+                search_space_digest=pe_ssd,
+            )
+            aux_datasets.extend(pe_datasets)
+        return datasets + aux_datasets
+
     def _get_fit_args(
         self,
         search_space: SearchSpace,
@@ -642,6 +717,11 @@ class TorchAdapter(Adapter):
             parameters=parameters,
             search_space_digest=search_space_digest,
         )
+
+        # Do not support handling of contextual datasets in legacy BoTorch generators
+        if not isinstance(self.model, LegacyBoTorchGenerator):
+            datasets = self._update_w_aux_exp_datasets(datasets=datasets)
+
         if update_outcomes_and_parameters:
             self.outcomes = ordered_outcomes
         else:

@@ -147,6 +147,8 @@ from ax.utils.testing.utils_testing_stubs import get_backend_simulator_with_tria
 from botorch.models import SingleTaskGP
 from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.normal import SobolQMCNormalSampler
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from pyre_extensions import none_throws
 
 
 # pyre-fixme[5]: Global expression must be annotated.
@@ -1029,6 +1031,13 @@ class JSONStoreTest(TestCase):
         }
         expected_object = get_botorch_model_with_surrogate_spec()
         expected_object.surrogate_spec.model_configs[0].input_transform_classes = None
+        # The new default value is None; we need to manually set it to the old value
+        self.assertIsNone(
+            none_throws(expected_object.surrogate_spec).model_configs[0].mll_class
+        )
+        expected_object.surrogate_spec.model_configs[
+            0
+        ].mll_class = ExactMarginalLogLikelihood
         self.assertEqual(object_from_json(object_json), expected_object)
 
     def test_multi_objective_backwards_compatibility(self) -> None:
@@ -1143,6 +1152,7 @@ class JSONStoreTest(TestCase):
                 ModelConfig(
                     botorch_model_class=SingleTaskGP,
                     covar_module_class=ScaleMaternKernel,
+                    mll_class=ExactMarginalLogLikelihood,
                     outcome_transform_classes=[Standardize],
                     input_transform_classes=None,
                 )

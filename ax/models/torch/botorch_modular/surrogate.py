@@ -34,8 +34,8 @@ from ax.models.torch.botorch_modular.input_constructors.outcome_transform import
     outcome_transform_argparse,
 )
 from ax.models.torch.botorch_modular.utils import (
-    choose_model_class,
     convert_to_block_design,
+    copy_model_config_with_default_values,
     fit_botorch_model,
     ModelConfig,
     subset_state_dict,
@@ -238,19 +238,27 @@ def _construct_default_input_transforms(
             )
         )
     # Processing for Normalize.
-    bounds = torch.tensor(search_space_digest.bounds, dtype=torch.get_default_dtype()).T
-    indices = list(range(bounds.shape[-1]))
-    # Remove task features.
-    for task_feature in none_throws(
-        normalize_indices(search_space_digest.task_features, d=bounds.shape[-1])
-    ):
-        indices.remove(task_feature)
-    # Skip the Normalize transform if the bounds are [0, 1].
-    if not (
-        torch.allclose(bounds[0, indices], torch.zeros(len(indices)))
-        and torch.allclose(bounds[1, indices], torch.ones(len(indices)))
-    ):
-        transforms.append(Normalize(d=bounds.shape[-1], indices=indices, bounds=bounds))
+    if isinstance(dataset, RankingDataset):
+        # infer bounds and do not subset
+        transforms.append(Normalize(d=len(dataset.feature_names)))
+    else:
+        bounds = torch.tensor(
+            search_space_digest.bounds, dtype=torch.get_default_dtype()
+        ).T
+        indices = list(range(bounds.shape[-1]))
+        # Remove task features.
+        for task_feature in none_throws(
+            normalize_indices(search_space_digest.task_features, d=bounds.shape[-1])
+        ):
+            indices.remove(task_feature)
+        # Skip the Normalize transform if the bounds are [0, 1].
+        if not (
+            torch.allclose(bounds[0, indices], torch.zeros(len(indices)))
+            and torch.allclose(bounds[1, indices], torch.ones(len(indices)))
+        ):
+            transforms.append(
+                Normalize(d=bounds.shape[-1], indices=indices, bounds=bounds)
+            )
 
     return transforms
 
@@ -403,10 +411,6 @@ def _raise_deprecation_warning(
         elif k in default_is_default:
             if v != DEFAULT:
                 should_raise = True
-        elif (v is not None and k != "mll_class") or (
-            k == "mll_class" and v is not ExactMarginalLogLikelihood
-        ):
-            should_raise = True
         if should_raise:
             warnings.warn(
                 msg.format(k=k),
@@ -435,7 +439,7 @@ def get_model_config_from_deprecated_args(
     return ModelConfig(
         botorch_model_class=botorch_model_class,
         model_options=(model_options or {}).copy(),
-        mll_class=mll_class or ExactMarginalLogLikelihood,
+        mll_class=mll_class,
         mll_options=(mll_options or {}).copy(),
         outcome_transform_classes=outcome_transform_classes,
         outcome_transform_options=(outcome_transform_options or {}).copy(),
@@ -534,7 +538,7 @@ class SurrogateSpec:
     # pyre-ignore [16]: Pyre doesn't understand InitVars.
     botorch_model_kwargs: InitVar[dict[str, Any] | None] = None
     # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    mll_class: InitVar[type[MarginalLogLikelihood]] = ExactMarginalLogLikelihood
+    mll_class: InitVar[type[MarginalLogLikelihood] | None] = None
     # pyre-ignore [16]: Pyre doesn't understand InitVars.
     mll_kwargs: InitVar[dict[str, Any] | None] = None
     # pyre-ignore [16]: Pyre doesn't understand InitVars.
@@ -838,7 +842,6 @@ class Surrogate(Base):
         dataset: SupervisedDataset,
         search_space_digest: SearchSpaceDigest,
         model_config: ModelConfig,
-        default_botorch_model_class: type[Model],
         state_dict: Mapping[str, Tensor] | None,
         refit: bool,
     ) -> Model:
@@ -861,9 +864,13 @@ class Surrogate(Base):
             refit: Whether to re-optimize model parameters.
         """
         outcome_names = tuple(dataset.outcome_names)
-        botorch_model_class = (
-            model_config.botorch_model_class or default_botorch_model_class
+        # Fill in default values for model_configs given dataset
+        model_config = copy_model_config_with_default_values(
+            model_config=model_config,
+            dataset=dataset,
+            search_space_digest=search_space_digest,
         )
+        botorch_model_class = none_throws(model_config.botorch_model_class)
         if self._dataset_matches_cache(dataset=dataset):
             return self._submodels[outcome_names]
         formatted_model_inputs = submodel_input_constructor(
@@ -883,6 +890,7 @@ class Surrogate(Base):
                 mll_class=model_config.mll_class,
                 mll_options=model_config.mll_options,
             )
+
         return model
 
     def _dataset_matches_cache(
@@ -946,15 +954,13 @@ class Surrogate(Base):
         self._discard_cached_model_and_data_if_search_space_digest_changed(
             search_space_digest=search_space_digest
         )
+
         # To determine whether to use ModelList under the hood, we need to check for
         # the batched multi-output case, so we first see which model would be chosen
         # given the Yvars and the properties of data.
-        default_botorch_model_class = choose_model_class(
-            datasets=datasets, search_space_digest=search_space_digest
-        )
         should_use_model_list = use_model_list(
             datasets=datasets,
-            botorch_model_class=default_botorch_model_class,
+            search_space_digest=search_space_digest,
             model_configs=self.surrogate_spec.model_configs,
             allow_batched_models=self.surrogate_spec.allow_batched_models,
             metric_to_model_configs=self.surrogate_spec.metric_to_model_configs,
@@ -964,6 +970,7 @@ class Surrogate(Base):
             datasets = convert_to_block_design(datasets=datasets, force=True)
         self._training_data = list(datasets)  # So that it can be modified if needed.
 
+        feature_names_set = set(search_space_digest.feature_names)
         models = []
         outcome_names = []
         for i, dataset in enumerate(datasets):
@@ -1010,7 +1017,6 @@ class Surrogate(Base):
                     dataset=dataset,
                     search_space_digest=search_space_digest,
                     model_config=best_model_config,
-                    default_botorch_model_class=default_botorch_model_class,
                     state_dict=submodel_state_dict,
                     refit=refit,
                 )
@@ -1026,12 +1032,17 @@ class Surrogate(Base):
                 model, best_model_config = self.model_selection(
                     dataset=dataset,
                     model_configs=model_configs,
-                    default_botorch_model_class=default_botorch_model_class,
                     search_space_digest=search_space_digest,
                     candidate_metadata=candidate_metadata,
                 )
-            models.append(model)
-            outcome_names.extend(dataset.outcome_names)
+
+            # Only update the outcome names and models if the dataset input matches
+            # the feature names from the search space digest. Otherwise we only
+            # keep the model within self._submodels as it may be models fitted on
+            # auxiliary data such as the preference model for BOPE
+            if set(dataset.feature_names) == feature_names_set:
+                models.append(model)
+                outcome_names.extend(dataset.outcome_names)
 
             # store best model config, model, and dataset
             for metric_name in dataset.outcome_names:
@@ -1051,7 +1062,6 @@ class Surrogate(Base):
         self,
         dataset: SupervisedDataset,
         model_configs: list[ModelConfig],
-        default_botorch_model_class: type[Model],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> tuple[Model, ModelConfig]:
@@ -1103,9 +1113,6 @@ class Surrogate(Base):
                     dataset=dataset,
                     search_space_digest=search_space_digest,
                     model_config=model_config,
-                    default_botorch_model_class=none_throws(
-                        default_botorch_model_class
-                    ),
                     state_dict=None,
                     refit=True,
                 )
@@ -1121,9 +1128,6 @@ class Surrogate(Base):
                         dataset=dataset,
                         search_space_digest=search_space_digest,
                         model_config=model_config,
-                        default_botorch_model_class=none_throws(
-                            default_botorch_model_class
-                        ),
                         # pyre-fixme [6]: In call `Surrogate.cross_validate`, for
                         # argument  `state_dict`, expected `Optional[OrderedDict[str,
                         # Tensor]]` but got `Dict[str, typing.Any]`.
@@ -1149,7 +1153,6 @@ class Surrogate(Base):
         self,
         dataset: SupervisedDataset,
         model_config: ModelConfig,
-        default_botorch_model_class: type[Model],
         search_space_digest: SearchSpaceDigest,
         state_dict: OrderedDict[str, Tensor] | None = None,
     ) -> float:
@@ -1161,8 +1164,6 @@ class Surrogate(Base):
                 multi-output case, where training data is formatted with just
                 one X and concatenated Ys).
             model_config: The model_config.
-            default_botorch_model_class: The default ``Model`` class to be used as the
-                underlying BoTorch model, if the model_config does not specify one.
             search_space_digest: Search space digest used to set up model arguments.
             state_dict: Optional state dict to load.
 
@@ -1196,9 +1197,6 @@ class Surrogate(Base):
                     dataset=train_dataset,
                     search_space_digest=search_space_digest,
                     model_config=model_config,
-                    default_botorch_model_class=none_throws(
-                        default_botorch_model_class
-                    ),
                     state_dict=state_dict,
                     refit=self.refit_on_cv,
                 )

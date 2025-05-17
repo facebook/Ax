@@ -19,7 +19,7 @@ from botorch.models.transforms.input import (
     Normalize,
     Warp,
 )
-from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.transforms import normalize_indices
 from pyre_extensions import none_throws
@@ -127,13 +127,16 @@ def _input_transform_argparse_warp(
 
     input_transform_options.setdefault("d", d)
     input_transform_options.setdefault("indices", indices)
-    _set_default_bounds(
-        search_space_digest=search_space_digest,
-        input_transform_options=input_transform_options,
-        d=d,
-        torch_device=torch_device,
-        torch_dtype=torch_dtype,
-    )
+
+    # if ranking dataset, infer the bounds instead as it may be unbounded
+    if not isinstance(dataset, RankingDataset):
+        _set_default_bounds(
+            search_space_digest=search_space_digest,
+            input_transform_options=input_transform_options,
+            d=d,
+            torch_device=torch_device,
+            torch_dtype=torch_dtype,
+        )
     return input_transform_options
 
 
@@ -165,32 +168,37 @@ def _input_transform_argparse_normalize(
     """
     input_transform_options = input_transform_options or {}
 
-    d = input_transform_options.get("d", len(search_space_digest.feature_names))
+    d = input_transform_options.get("d", len(dataset.feature_names))
     input_transform_options["d"] = d
 
-    indices = list(range(d))
-    # having indices set to None means that we don't remove task features
-    if ("indices" in input_transform_options) and (
-        input_transform_options["indices"] is None
-    ):
-        input_transform_options["indices"] = indices
+    if isinstance(dataset, RankingDataset):
+        input_transform_options["indices"] = None
     else:
-        task_features = none_throws(
-            normalize_indices(search_space_digest.task_features, d=d)
+        indices = list(range(d))
+        # having indices set to None means that we don't remove task features
+        if ("indices" in input_transform_options) and (
+            input_transform_options["indices"] is None
+        ):
+            input_transform_options["indices"] = indices
+        else:
+            task_features = none_throws(
+                normalize_indices(search_space_digest.task_features, d=d)
+            )
+            for task_feature in sorted(task_features, reverse=True):
+                del indices[task_feature]
+
+        if ("indices" in input_transform_options) or (len(indices) < d):
+            input_transform_options.setdefault("indices", indices)
+
+    # if ranking dataset, infer the bounds instead as it may be unbounded
+    if not isinstance(dataset, RankingDataset):
+        _set_default_bounds(
+            search_space_digest=search_space_digest,
+            input_transform_options=input_transform_options,
+            d=d,
+            torch_device=torch_device,
+            torch_dtype=torch_dtype,
         )
-        for task_feature in sorted(task_features, reverse=True):
-            del indices[task_feature]
-
-    if ("indices" in input_transform_options) or (len(indices) < d):
-        input_transform_options.setdefault("indices", indices)
-
-    _set_default_bounds(
-        search_space_digest=search_space_digest,
-        input_transform_options=input_transform_options,
-        d=d,
-        torch_device=torch_device,
-        torch_dtype=torch_dtype,
-    )
 
     return input_transform_options
 

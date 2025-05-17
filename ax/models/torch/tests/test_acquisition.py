@@ -136,7 +136,7 @@ class AcquisitionTest(TestCase):
             self.surrogate.fit(
                 datasets=self.training_data,
                 search_space_digest=SearchSpaceDigest(
-                    feature_names=self.search_space_digest.feature_names[:1],
+                    feature_names=self.search_space_digest.feature_names,
                     bounds=self.search_space_digest.bounds,
                     target_values=self.search_space_digest.target_values,
                 ),
