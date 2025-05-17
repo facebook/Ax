@@ -7,7 +7,7 @@
 
 import math
 import re
-from typing import Any, Sequence
+from typing import Any, Sequence, Union
 
 import numpy as np
 
@@ -59,6 +59,18 @@ BEST_LINE_SETTINGS: dict[str, str | dict[str, str] | bool] = {
 # Use the same continuous sequential color scale for all plots. Plasma uses purples for
 # low values and transitions to yellows for high values.
 METRIC_CONTINUOUS_COLOR_SCALE: list[str] = px.colors.sequential.Plasma
+
+# Move the legened to the bottom, and make horizontal
+LEGEND_POSITION: dict[str, Union[float, str]] = {
+    "orientation": "h",
+    "yanchor": "top",
+    "y": -0.2,
+    "xanchor": "center",
+    "x": 0.5,
+    "title_text": "",  # remove title
+}
+
+MARGIN_REDUCUTION: dict[str, int] = {"t": 50}
 
 
 # Use a consistent color for each TrialStatus name, sourced from

@@ -18,6 +18,8 @@ from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCar
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
+    LEGEND_POSITION,
+    MARGIN_REDUCUTION,
     trial_status_to_plotly_color,
     truncate_label,
 )
@@ -316,6 +318,8 @@ def _prepare_figure(
         xaxis_title="Arm Name",
         yaxis_title=metric_label,
         yaxis_tickformat=".2%" if is_relative else None,
+        legend=LEGEND_POSITION,
+        margin=MARGIN_REDUCUTION,
     )
 
     # Order arms by trial index, then by arm name. Always put additional arms last.
