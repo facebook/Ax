@@ -18,6 +18,8 @@ from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
     is_predictive,
+    LEGEND_POSITION,
+    MARGIN_REDUCUTION,
     trial_status_to_plotly_color,
     truncate_label,
 )
@@ -341,6 +343,8 @@ def _prepare_figure(
         yaxis_title=y_metric_label,
         xaxis_tickformat=".2%" if is_relative else None,
         yaxis_tickformat=".2%" if is_relative else None,
+        legend=LEGEND_POSITION,
+        margin=MARGIN_REDUCUTION,
     )
 
     # Add a red circle with no fill if any arms are marked as possibly infeasible.

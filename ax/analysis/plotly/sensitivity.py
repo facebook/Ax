@@ -12,7 +12,7 @@ from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import truncate_label
+from ax.analysis.plotly.utils import LEGEND_POSITION, MARGIN_REDUCUTION, truncate_label
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
@@ -219,18 +219,12 @@ def _prepare_card_components(
         hover_data=["parameter_name"],
     )
 
-    # Display most important parameters first
     figure.update_layout(
+        # Display most important parameters first
         yaxis={"categoryorder": "total ascending"},
         # move legend to bottom of plot
-        legend={
-            "orientation": "h",
-            "yanchor": "top",
-            "y": -0.2,
-            "xanchor": "center",
-            "x": 0.5,
-            "title_text": "",  # remove title
-        },
+        legend=LEGEND_POSITION,
+        margin=MARGIN_REDUCUTION,
     )
 
     return (
