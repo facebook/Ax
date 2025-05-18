@@ -420,7 +420,11 @@ class SurrogateTest(TestCase):
 
     # This mock is needed since we are not using a real MLL
     @patch(f"{UTILS_PATH}.fit_gpytorch_mll")
-    def test_mll_options(self, _) -> None:
+    # Patch deepcopying model_config that contains mock_mll
+    # otherwise it will lose its callcounts
+    # pyre-ignore [56]: not able to infer the type of argument lambda
+    @patch(f"{UTILS_PATH}.deepcopy", side_effect=lambda x: x)
+    def test_mll_options(self, _, __) -> None:
         mock_mll = MagicMock(self.mll_class)
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,
@@ -642,7 +646,6 @@ class SurrogateTest(TestCase):
                         dataset=self.training_data[0],
                         search_space_digest=self.search_space_digest,
                         model_config=surrogate.surrogate_spec.model_configs[0],
-                        default_botorch_model_class=botorch_model_class,
                         state_dict=None,
                         refit=True,
                     )
@@ -667,7 +670,6 @@ class SurrogateTest(TestCase):
                     dataset=self.training_data[0],
                     search_space_digest=self.search_space_digest,
                     model_config=surrogate.surrogate_spec.model_configs[0],
-                    default_botorch_model_class=botorch_model_class,
                     state_dict=None,
                     refit=True,
                 )
@@ -689,7 +691,6 @@ class SurrogateTest(TestCase):
                     dataset=self.training_data[0],
                     search_space_digest=self.search_space_digest,
                     model_config=surrogate.surrogate_spec.model_configs[0],
-                    default_botorch_model_class=botorch_model_class,
                     state_dict=None,
                     refit=True,
                 )
@@ -709,7 +710,6 @@ class SurrogateTest(TestCase):
                     model_config=ModelConfig(
                         botorch_model_class=SingleTaskGPWithDifferentConstructor
                     ),
-                    default_botorch_model_class=SingleTaskGP,
                     state_dict=None,
                     refit=True,
                 )
@@ -726,7 +726,6 @@ class SurrogateTest(TestCase):
                     dataset=self.training_data[0],
                     search_space_digest=search_space_digest,
                     model_config=ModelConfig(),
-                    default_botorch_model_class=SingleTaskGP,
                     state_dict=None,
                     refit=True,
                 )
@@ -744,7 +743,6 @@ class SurrogateTest(TestCase):
                     dataset=self.training_data[0],
                     search_space_digest=self.search_space_digest,
                     model_config=surrogate.surrogate_spec.model_configs[0],
-                    default_botorch_model_class=SingleTaskGP,
                     state_dict={},
                     refit=True,
                 )
@@ -899,6 +897,7 @@ class SurrogateTest(TestCase):
                 botorch_model_class=botorch_model_class, use_outcome_transform=False
             )
             model_config = ModelConfig(
+                botorch_model_class=botorch_model_class,
                 covar_module_class=ScaleMaternKernel,
                 covar_module_options={"remove_task_features": remove_task_features},
             )
@@ -914,7 +913,6 @@ class SurrogateTest(TestCase):
                     dataset=dataset,
                     search_space_digest=self.search_space_digest,
                     model_config=model_config,
-                    default_botorch_model_class=botorch_model_class,
                     state_dict=None,
                     refit=True,
                 )
@@ -1032,9 +1030,6 @@ class SurrogateTest(TestCase):
                 mock_model_selection.assert_called_once_with(
                     dataset=dataset,
                     model_configs=base_model_configs,
-                    default_botorch_model_class=MultiTaskGP
-                    if multitask
-                    else SingleTaskGP,
                     search_space_digest=search_space_digest,
                     candidate_metadata=None,
                 )
@@ -1063,9 +1058,6 @@ class SurrogateTest(TestCase):
                         | ModelConfig,
                     ] = {
                         "dataset": dataset,
-                        "default_botorch_model_class": MultiTaskGP
-                        if multitask
-                        else SingleTaskGP,
                         "search_space_digest": search_space_digest,
                     }
                     # check that each call to cross_validate uses the correct
@@ -1206,7 +1198,6 @@ class SurrogateTest(TestCase):
                 | list[ModelConfig]
                 | None,
             ] = {
-                "default_botorch_model_class": SingleTaskGP,
                 "search_space_digest": self.search_space_digest,
                 "candidate_metadata": None,
             }
@@ -1219,7 +1210,6 @@ class SurrogateTest(TestCase):
                 | SupervisedDataset
                 | list[ModelConfig],
             ] = {
-                "default_botorch_model_class": SingleTaskGP,
                 "search_space_digest": self.search_space_digest,
             }
             for i in (0, 1):
@@ -1682,11 +1672,11 @@ class SurrogateWithModelListTest(TestCase):
         )
         self.botorch_submodel_class_per_outcome = {
             self.outcomes[0]: choose_model_class(
-                datasets=[self.ds1],
+                dataset=self.ds1,
                 search_space_digest=self.multi_task_search_space_digest,
             ),
             self.outcomes[1]: choose_model_class(
-                datasets=[ds2], search_space_digest=self.multi_task_search_space_digest
+                dataset=ds2, search_space_digest=self.multi_task_search_space_digest
             ),
         }
         self.botorch_model_class = MultiTaskGP

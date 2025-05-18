@@ -20,6 +20,7 @@ from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     construct_acquisition_and_optimizer_options,
     convert_to_block_design,
+    ModelConfig,
     subset_state_dict,
     use_model_list,
 )
@@ -59,7 +60,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             dtype=self.dtype,
             offset=1.0,  # Making this data different.
         )
-        self.fixed_noise_datasets = [
+        self.fixed_noise_dataset = [
             SupervisedDataset(
                 X=X,
                 Y=Y,
@@ -68,13 +69,13 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 outcome_names=[mn],
             )
             for X, Y, Yvar, mn in zip(self.Xs, self.Ys, self.Yvars, self.metric_names)
-        ]
-        self.supervised_datasets = [
+        ][0]
+        self.supervised_dataset = [
             SupervisedDataset(
                 X=X, Y=Y, feature_names=self.feature_names, outcome_names=[mn]
             )
             for X, Y, mn in zip(self.Xs, self.Ys, self.metric_names)
-        ]
+        ][0]
         self.none_Yvars = [torch.tensor([[np.nan], [np.nan]])]
         self.task_features = []
         self.objective_thresholds = torch.tensor([0.5, 1.5])
@@ -85,7 +86,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             NotImplementedError, "Only a single fidelity feature"
         ):
             choose_model_class(
-                datasets=self.fixed_noise_datasets,
+                dataset=self.fixed_noise_dataset,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[], bounds=[], fidelity_features=[1, 2]
                 ),
@@ -93,7 +94,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         # No support for non-empty task & fidelity features yet.
         with self.assertRaisesRegex(NotImplementedError, "Multi-task multi-fidelity"):
             choose_model_class(
-                datasets=self.fixed_noise_datasets,
+                dataset=self.fixed_noise_dataset,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[],
                     bounds=[],
@@ -102,11 +103,11 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 ),
             )
         # With fidelity features, use SingleTaskMultiFidelityGP.
-        for ds in [self.supervised_datasets, self.fixed_noise_datasets]:
+        for ds in [self.supervised_dataset, self.fixed_noise_dataset]:
             self.assertEqual(
                 SingleTaskMultiFidelityGP,
                 choose_model_class(
-                    datasets=ds,
+                    dataset=ds,
                     search_space_digest=SearchSpaceDigest(
                         feature_names=[],
                         bounds=[],
@@ -119,17 +120,17 @@ class BoTorchGeneratorUtilsTest(TestCase):
         # Only a single task feature can be used.
         with self.assertRaisesRegex(NotImplementedError, "Only a single task feature"):
             choose_model_class(
-                datasets=self.fixed_noise_datasets,
+                dataset=self.fixed_noise_dataset,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[], bounds=[], task_features=[1, 2]
                 ),
             )
         # With task features use MultiTaskGP.
-        for datasets in (self.supervised_datasets, self.fixed_noise_datasets):
+        for datasets in (self.supervised_dataset, self.fixed_noise_dataset):
             self.assertEqual(
                 MultiTaskGP,
                 choose_model_class(
-                    datasets=datasets,
+                    dataset=datasets,
                     search_space_digest=SearchSpaceDigest(
                         feature_names=[], bounds=[], task_features=[1]
                     ),
@@ -141,7 +142,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(
             MixedSingleTaskGP,
             choose_model_class(
-                datasets=self.supervised_datasets,
+                dataset=self.supervised_dataset,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[],
                     bounds=[],
@@ -152,23 +153,12 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
 
     def test_choose_model_class(self) -> None:
-        # Mix of known and unknown variances.
-        with self.assertRaisesRegex(
-            ValueError, "Variances should all be specified, or none should be."
-        ):
-            choose_model_class(
-                datasets=[self.fixed_noise_datasets[0], self.supervised_datasets[0]],
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    bounds=[],
-                ),
-            )
         # Without fidelity/task features, use SingleTaskGP.
-        for ds in [self.fixed_noise_datasets, self.supervised_datasets]:
+        for ds in [self.fixed_noise_dataset, self.supervised_dataset]:
             self.assertEqual(
                 SingleTaskGP,
                 choose_model_class(
-                    datasets=ds,
+                    dataset=ds,
                     search_space_digest=SearchSpaceDigest(
                         feature_names=[],
                         bounds=[],
@@ -249,7 +239,9 @@ class BoTorchGeneratorUtilsTest(TestCase):
     def test_use_model_list(self) -> None:
         self.assertFalse(
             use_model_list(
-                datasets=self.supervised_datasets, botorch_model_class=SingleTaskGP
+                datasets=[self.supervised_dataset],
+                model_configs=[ModelConfig(botorch_model_class=SingleTaskGP)],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
         )
         self.assertFalse(  # Batched multi-output case.
@@ -263,7 +255,8 @@ class BoTorchGeneratorUtilsTest(TestCase):
                     )
                     for Y in self.Ys
                 ],
-                botorch_model_class=SingleTaskGP,
+                model_configs=[ModelConfig(botorch_model_class=SingleTaskGP)],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
         )
         # Multi-output with allow_batched_models
@@ -279,7 +272,8 @@ class BoTorchGeneratorUtilsTest(TestCase):
                     )
                     for Y in self.Ys
                 ],
-                botorch_model_class=SingleTaskGP,
+                model_configs=[ModelConfig(botorch_model_class=SingleTaskGP)],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
                 allow_batched_models=True,
             )
         )
@@ -295,7 +289,8 @@ class BoTorchGeneratorUtilsTest(TestCase):
                     )
                     for Y in self.Ys
                 ],
-                botorch_model_class=SingleTaskGP,
+                model_configs=[ModelConfig(botorch_model_class=SingleTaskGP)],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
                 allow_batched_models=False,
             )
         )
@@ -315,19 +310,27 @@ class BoTorchGeneratorUtilsTest(TestCase):
                         outcome_names=["y"],
                     ),
                 ],
-                botorch_model_class=SingleTaskGP,
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+                model_configs=[ModelConfig(botorch_model_class=SingleTaskGP)],
             )
         )
         self.assertFalse(
             use_model_list(
-                datasets=self.supervised_datasets, botorch_model_class=MultiTaskGP
+                datasets=[self.supervised_dataset],
+                model_configs=[ModelConfig(botorch_model_class=MultiTaskGP)],
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=[], bounds=[], task_features=[1, 2]
+                ),
             )
         )
         # Not using model list with single outcome.
         self.assertFalse(
             use_model_list(
-                datasets=self.supervised_datasets,
-                botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                datasets=[self.supervised_dataset],
+                model_configs=[
+                    ModelConfig(botorch_model_class=SaasFullyBayesianSingleTaskGP)
+                ],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
         )
         # Using it with multiple outcomes.
@@ -347,7 +350,10 @@ class BoTorchGeneratorUtilsTest(TestCase):
                         outcome_names=["y"],
                     ),
                 ],
-                botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                model_configs=[
+                    ModelConfig(botorch_model_class=SaasFullyBayesianSingleTaskGP)
+                ],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
         )
         self.assertTrue(
@@ -360,7 +366,10 @@ class BoTorchGeneratorUtilsTest(TestCase):
                         outcome_names=["y1", "y2"],
                     ),
                 ],
-                botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                model_configs=[
+                    ModelConfig(botorch_model_class=SaasFullyBayesianSingleTaskGP)
+                ],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
         )
 

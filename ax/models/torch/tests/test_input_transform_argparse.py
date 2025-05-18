@@ -110,8 +110,10 @@ class InputTransformArgparseTest(TestCase):
                 )
             )
         )
-        self.assertEqual(input_transform_kwargs["d"], 3)
-        self.assertEqual(input_transform_kwargs["indices"], [0, 1])
+        # Use the dimension of the datasets as the ground truth as
+        # that's what will be fed to the model.
+        self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 3])
 
         input_transform_kwargs = input_transform_argparse(
             Normalize,
@@ -159,8 +161,8 @@ class InputTransformArgparseTest(TestCase):
             dataset=mtds,
             search_space_digest=self.search_space_digest,
         )
-        self.assertEqual(input_transform_kwargs["d"], 3)
-        self.assertEqual(input_transform_kwargs["indices"], [0, 1])
+        self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 3])
 
         input_transform_kwargs = input_transform_argparse(
             Normalize,
@@ -171,8 +173,8 @@ class InputTransformArgparseTest(TestCase):
             },
         )
 
-        self.assertEqual(input_transform_kwargs["d"], 3)
-        self.assertEqual(input_transform_kwargs["indices"], [0, 1])
+        self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 3])
         self.assertTrue(input_transform_kwargs["bounds"] is None)
 
     def test_argparse_warp(self) -> None:
