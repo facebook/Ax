@@ -21,6 +21,7 @@ from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.utils.datasets import SupervisedDataset
 from gpytorch.kernels.kernel import Kernel
+from gpytorch.kernels.linear_kernel import LinearKernel
 from gpytorch.priors import GammaPrior
 
 
@@ -191,3 +192,27 @@ class CovarModuleArgparseTest(TestCase):
             "ard_num_dims": 1,
         }
         self.assertEqual(covar_module_kwargs, expected)
+
+    def test_argparse_linear(self) -> None:
+        # Test other inputs.
+        covar_module_kwargs = covar_module_argparse(
+            LinearKernel,
+            botorch_model_class=SingleTaskGP,
+            dataset=self.dataset,
+            active_dims=[-3, -2],
+            ard_num_dims=1,
+            batch_shape=torch.Size([]),
+            variance_prior=GammaPrior(2, 0.15),
+        )
+        expected = {
+            "active_dims": [7, 8],
+            "batch_shape": torch.Size([]),
+            "ard_num_dims": 1,
+        }
+        for k, v in expected.items():
+            self.assertEqual(covar_module_kwargs[k], v)
+        self.assertIsInstance(covar_module_kwargs["variance_prior"], GammaPrior)
+        self.assertAlmostEqual(
+            covar_module_kwargs["variance_prior"].concentration.item(), 2
+        )
+        self.assertAlmostEqual(covar_module_kwargs["variance_prior"].rate.item(), 0.15)

@@ -25,6 +25,7 @@ from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.transforms import normalize_indices
 from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels.kernel import Kernel
+from gpytorch.kernels.linear_kernel import LinearKernel
 from gpytorch.priors.torch_priors import Prior
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -90,44 +91,69 @@ def _covar_module_argparse_scale_matern(
     Returns:
         A dictionary with covar module kwargs.
     """
-    active_dims = None
-
-    if issubclass(botorch_model_class, MultiTaskGP):
-        if ard_num_dims is DEFAULT:
-            ard_num_dims = dataset.X.shape[-1] - 1
-
-        if batch_shape is DEFAULT:
-            batch_shape = torch.Size([])
-
-    if issubclass(botorch_model_class, SingleTaskGP):
-        if ard_num_dims is DEFAULT:
-            ard_num_dims = dataset.X.shape[-1]
-            if remove_task_features:
-                if isinstance(dataset, MultiTaskDataset):
-                    logger.debug(
-                        "Excluding task feature from covar_module.", stacklevel=6
-                    )
-                    normalized_task_idx = none_throws(
-                        normalize_indices(
-                            indices=[none_throws(dataset.task_feature_index)],
-                            d=dataset.X.shape[-1],
-                        )
-                    )[0]
-                    ard_num_dims -= 1
-                    active_dims = [
-                        i
-                        for i in range(dataset.X.shape[-1])
-                        if i != normalized_task_idx
-                    ]
-        batch_shape = _get_default_batch_shape(dataset=dataset, batch_shape=batch_shape)
-
-    return _covar_module_argparse_base(
-        covar_module_class=covar_module_class,
+    ard_num_dims, batch_shape, active_dims = _get_default_ard_num_dims_and_batch_shape(
+        ard_num_dims=ard_num_dims,
+        batch_shape=batch_shape,
         botorch_model_class=botorch_model_class,
         dataset=dataset,
+        remove_task_features=remove_task_features,
+    )
+    return _covar_module_argparse_base(
+        covar_module_class=covar_module_class,
+        dataset=dataset,
+        botorch_model_class=botorch_model_class,
         ard_num_dims=ard_num_dims,
         lengthscale_prior=lengthscale_prior,
         outputscale_prior=outputscale_prior,
+        batch_shape=batch_shape,
+        active_dims=active_dims,
+        **kwargs,
+    )
+
+
+@covar_module_argparse.register(LinearKernel)
+def _covar_module_argparse_linear(
+    covar_module_class: type[LinearKernel],
+    botorch_model_class: type[Model],
+    dataset: SupervisedDataset,
+    ard_num_dims: int | _DefaultType = DEFAULT,
+    active_dims: Sequence[int] | None = None,
+    batch_shape: torch.Size | _DefaultType = DEFAULT,
+    variance_prior: Prior | None = None,
+    remove_task_features: bool = False,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Extract the covar module kwargs for a LinearKernle from the given arguments.
+
+    Args:
+        covar_module_class: Covariance module class.
+        botorch_model_class: Model class to be used as the underlying
+            BoTorch model.
+        dataset: Dataset containing feature matrix and the response.
+        ard_num_dims: Number of lengthscales per feature.
+        active_dims: The active dimensions of the kernel.
+        batch_shape: The number of lengthscales per batch.
+        variance_prior: Variance prior.
+        remove_task_features: A boolean indicating whether to exclude the task
+            feature in the kernel.
+
+    Returns:
+        A dictionary with covar module kwargs.
+    """
+    ard_num_dims, batch_shape, active_dims = _get_default_ard_num_dims_and_batch_shape(
+        ard_num_dims=ard_num_dims,
+        batch_shape=batch_shape,
+        botorch_model_class=botorch_model_class,
+        dataset=dataset,
+        remove_task_features=remove_task_features,
+        active_dims=active_dims,
+    )
+    return _covar_module_argparse_base(
+        covar_module_class=covar_module_class,
+        dataset=dataset,
+        botorch_model_class=botorch_model_class,
+        ard_num_dims=ard_num_dims,
+        variance_prior=variance_prior,
         batch_shape=batch_shape,
         active_dims=active_dims,
         **kwargs,
@@ -143,6 +169,7 @@ def _covar_module_argparse_default_rbf(
     inactive_features: Sequence[str] | None = None,
     active_dims: Sequence[int] | None = None,
     batch_shape: torch.Size | _DefaultType = DEFAULT,
+    remove_task_features: bool = False,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """Constructs inputs for ``DefaultRBFKernel``.
@@ -157,13 +184,18 @@ def _covar_module_argparse_default_rbf(
             f"Got {active_dims=}, {inactive_features=}."
         )
     d = len(dataset.feature_names)
-    if active_dims is not None:
-        active_dims = none_throws(normalize_indices(indices=list(active_dims), d=d))
     if inactive_features is not None:
         all_dims = set(range(d))
         inactive_dims = [dataset.feature_names.index(ft) for ft in inactive_features]
         active_dims = list(all_dims.difference(inactive_dims))
-    batch_shape = _get_default_batch_shape(dataset=dataset, batch_shape=batch_shape)
+    ard_num_dims, batch_shape, active_dims = _get_default_ard_num_dims_and_batch_shape(
+        ard_num_dims=ard_num_dims,
+        batch_shape=batch_shape,
+        botorch_model_class=botorch_model_class,
+        dataset=dataset,
+        remove_task_features=remove_task_features,
+        active_dims=active_dims,
+    )
     if ard_num_dims is DEFAULT:
         ard_num_dims = len(active_dims) if active_dims is not None else d
     return _covar_module_argparse_base(
@@ -186,3 +218,60 @@ def _get_default_batch_shape(
     if batch_shape is DEFAULT:
         return dataset.Y.shape[-1:]
     return assert_is_instance(batch_shape, torch.Size)
+
+
+def _get_default_ard_num_dims_and_batch_shape(
+    ard_num_dims: int | _DefaultType,
+    batch_shape: torch.Size | _DefaultType,
+    botorch_model_class: type[Model],
+    dataset: SupervisedDataset,
+    remove_task_features: bool,
+    active_dims: Sequence[int] | None = None,
+) -> tuple[int | _DefaultType, torch.Size | _DefaultType, list[int] | None]:
+    """Helper method for constructing shared inputs across kernels.
+
+    Args:
+        ard_num_dims: The number of lengthscales.
+        batch_shape: The batch shape of the kernel.
+        botorch_model_class: The BoTorch model class.
+        dataset: The dataset.
+        remove_task_features: A boolean indicating whether to exclude the task
+            feature in the kernel.
+        active_dims: The active dimensions of the kernel.
+
+    Returns:
+        A tuple of (ard_num_dims, batch_shape, active_dims).
+    """
+    if active_dims is not None:
+        active_dims = none_throws(
+            normalize_indices(indices=list(active_dims), d=len(dataset.feature_names))
+        )
+        num_active_dims = len(active_dims)
+    else:
+        num_active_dims = dataset.X.shape[-1]
+    if issubclass(botorch_model_class, MultiTaskGP):
+        if ard_num_dims is DEFAULT:
+            ard_num_dims = num_active_dims - 1
+        if batch_shape is DEFAULT:
+            batch_shape = torch.Size([])
+    if issubclass(botorch_model_class, SingleTaskGP):
+        if ard_num_dims is DEFAULT:
+            ard_num_dims = num_active_dims
+            if remove_task_features:
+                if isinstance(dataset, MultiTaskDataset):
+                    if active_dims is None:
+                        active_dims = list(range(dataset.X.shape[-1]))
+                    logger.debug(
+                        "Excluding task feature from covar_module.", stacklevel=6
+                    )
+                    normalized_task_idx = none_throws(
+                        normalize_indices(
+                            indices=[none_throws(dataset.task_feature_index)],
+                            d=dataset.X.shape[-1],
+                        )
+                    )[0]
+                    ard_num_dims -= 1
+                    active_dims = [i for i in active_dims if i != normalized_task_idx]
+        batch_shape = _get_default_batch_shape(dataset=dataset, batch_shape=batch_shape)
+
+    return ard_num_dims, batch_shape, active_dims
