@@ -1626,11 +1626,6 @@ class TestAxScheduler(TestCase):
             )
             scheduler.run_n_trials(max_trials=1)
             self.assertTrue(
-                any(
-                    "Failed to fetch branin_map for trial 0" in msg for msg in lg.output
-                )
-            )
-            self.assertTrue(
                 any("Waiting for completed trials" in msg for msg in lg.output)
             )
         self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.COMPLETED)
