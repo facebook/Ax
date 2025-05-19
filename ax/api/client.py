@@ -738,7 +738,7 @@ class Client(WithDBSettingsBase):
 
         (card,) = Summary(omit_empty_columns=True).compute(
             experiment=self._experiment,
-            generation_strategy=self._generation_strategy,
+            generation_strategy=self._maybe_generation_strategy,
         )
 
         return card.df
