@@ -947,6 +947,22 @@ class TorchAdapterTest(TestCase):
                 },
                 eval_criterion=MSE,
             ),
+            # We should handle default preference model fallback when unspecified
+            SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        outcome_transform_classes=[Standardize],
+                        name="STGP",
+                    ),
+                    ModelConfig(
+                        botorch_model_class=AdditiveMapSaasSingleTaskGP,
+                        outcome_transform_classes=[Standardize],
+                        name="SAAS",
+                    ),
+                ],
+                eval_criterion=MSE,
+            ),
         ]
 
         for surrogate_spec in surrogate_specs:

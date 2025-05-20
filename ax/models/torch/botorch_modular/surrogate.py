@@ -954,6 +954,8 @@ class Surrogate(Base):
         self._discard_cached_model_and_data_if_search_space_digest_changed(
             search_space_digest=search_space_digest
         )
+        # Deepcopy so that we are not making in-place changes when fill default values
+        metric_to_model_configs = deepcopy(self.surrogate_spec.metric_to_model_configs)
 
         # To determine whether to use ModelList under the hood, we need to check for
         # the batched multi-output case, so we first see which model would be chosen
@@ -963,7 +965,7 @@ class Surrogate(Base):
             search_space_digest=search_space_digest,
             model_configs=self.surrogate_spec.model_configs,
             allow_batched_models=self.surrogate_spec.allow_batched_models,
-            metric_to_model_configs=self.surrogate_spec.metric_to_model_configs,
+            metric_to_model_configs=metric_to_model_configs,
         )
 
         if not should_use_model_list and len(datasets) > 1:
@@ -984,9 +986,18 @@ class Surrogate(Base):
                     submodel_state_dict = state_dict
             outcome_name_tuple = tuple(dataset.outcome_names)
             first_outcome_name = outcome_name_tuple[0]
+
+            # If no model config is specified for the (likely aux) preference dataset,
+            # fallback to the default model config to avoid model fitting failure
+            if (
+                isinstance(dataset, RankingDataset)
+                and first_outcome_name not in metric_to_model_configs
+            ):
+                metric_to_model_configs[first_outcome_name] = [ModelConfig()]
+
             model_configs = (
-                self.surrogate_spec.metric_to_model_configs[first_outcome_name]
-                if first_outcome_name in self.surrogate_spec.metric_to_model_configs
+                metric_to_model_configs[first_outcome_name]
+                if first_outcome_name in metric_to_model_configs
                 else self.surrogate_spec.model_configs
             )
             # Case 1: There is either 1 model config, or we don't want to re-do
