@@ -1920,10 +1920,6 @@ class Scheduler(AnalysisBase, BestPointMixin):
                 # Log the Err so the user is aware that something has failed, even if
                 # we do not do anything
                 metric_fetch_e = result.unwrap_err()
-                self.logger.warning(
-                    f"Failed to fetch {metric_name} for trial {trial_index}, found "
-                    f"{metric_fetch_e}."
-                )
 
                 # If the metric is available while running just continue (we can try
                 # again later).
@@ -1942,6 +1938,10 @@ class Scheduler(AnalysisBase, BestPointMixin):
                     )
                     continue
 
+                self.logger.error(
+                    f"Failed to fetch {metric_name} for trial {trial_index} with "
+                    f"status {status}, found {metric_fetch_e}."
+                )
                 self._num_metric_fetch_e_encountered += 1
                 self._report_metric_fetch_e(
                     trial=self.experiment.trials[trial_index],
