@@ -17,7 +17,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.preference_stubs import get_pbo_experiment
-from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.preference import (
     AnalyticExpectedUtilityOfBestOption,
     qExpectedUtilityOfBestOption,
@@ -49,7 +49,7 @@ class PairwiseAdapterTest(TestCase):
         )
 
         cases = [
-            (qNoisyExpectedImprovement, None, 3),
+            (qLogNoisyExpectedImprovement, None, 3),
             (qExpectedUtilityOfBestOption, None, 3),
             (
                 AnalyticExpectedUtilityOfBestOption,
