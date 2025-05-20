@@ -14,7 +14,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from functools import partial
 from logging import Logger
-from typing import Any, TypeVar
+from typing import Any, Iterator, List, Type, TypeVar
 
 
 MAX_WAIT_SECONDS: int = 600
@@ -289,3 +289,29 @@ def execute_with_timeout(partial_func: Callable[..., T], timeout: float) -> T:
     if "exception" in context_dict:
         raise context_dict["exception"]
     return context_dict["return_value"]
+
+
+@contextmanager
+def allowed_to_fail(
+    allowed_error_types: tuple[Type[Exception], ...] | None = None,
+    handler: Callable[[Exception], None] | None = None,
+    logger: Logger | None = None,
+) -> Iterator[List[Exception | None]]:
+    """
+    A context manager to catch and handle exceptions of a specific type.
+    Args:
+        allowed_error_types (Tuple[Type[Exception], ...]): Types of exceptions to catch.
+        handler (function, optional): An optional function to handle the exception.
+            If not provided, the exception will be ignored. Defaults to None.
+        logger (Logger, optional): An optional logger to log the exception.
+    """
+    allowed_error_types = allowed_error_types or (Exception,)
+    maybe_exception: list[Exception | None] = [None]
+    try:
+        yield maybe_exception
+    except allowed_error_types as e:
+        maybe_exception[0] = e
+        if handler is not None:
+            handler(e)
+        if logger is not None:
+            logger.exception(e)
