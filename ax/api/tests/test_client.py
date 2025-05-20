@@ -35,7 +35,6 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
-
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -829,27 +828,35 @@ class TestClient(TestCase):
             ],
         )
         client.configure_optimization(objective="foo, bar")
+        # No GS, no data.
+        summary_df = client.summarize()
+        self.assertTrue(summary_df.empty)
+
+        # Add manual trial.
+        index = client.attach_trial(
+            parameters={"x1": 0.5, "x2": 0.5}, arm_name="manual"
+        )
+        client.attach_data(trial_index=index, raw_data={"foo": 0.0, "bar": 0.5})
+        summary_df = client.summarize()
+        expected_columns = {
+            "trial_index",
+            "arm_name",
+            "trial_status",
+            "foo",
+            "bar",
+            "x1",
+            "x2",
+        }
+        self.assertEqual(set(summary_df.columns), expected_columns)
 
         # Get two trials and fail one, giving us a ragged structure
         client.get_next_trials(max_trials=2)
-        client.complete_trial(trial_index=0, raw_data={"foo": 1.0, "bar": 2.0})
-        client.mark_trial_failed(trial_index=1)
+        client.complete_trial(trial_index=1, raw_data={"foo": 1.0, "bar": 2.0})
+        client.mark_trial_failed(trial_index=2)
 
         summary_df = client.summarize()
-
-        self.assertEqual(
-            {*summary_df.columns},
-            {
-                "trial_index",
-                "arm_name",
-                "trial_status",
-                "generation_node",
-                "foo",
-                "bar",
-                "x1",
-                "x2",
-            },
-        )
+        expected_columns.add("generation_node")
+        self.assertEqual(set(summary_df.columns), expected_columns)
 
         trial_0_parameters = none_throws(
             assert_is_instance(client._experiment.trials[0], Trial).arm
@@ -857,21 +864,26 @@ class TestClient(TestCase):
         trial_1_parameters = none_throws(
             assert_is_instance(client._experiment.trials[1], Trial).arm
         ).parameters
+        trial_2_parameters = none_throws(
+            assert_is_instance(client._experiment.trials[2], Trial).arm
+        ).parameters
         expected = pd.DataFrame(
             {
-                "trial_index": {0: 0, 1: 1},
-                "arm_name": {0: "0_0", 1: "1_0"},
-                "trial_status": {0: "COMPLETED", 1: "FAILED"},
-                "generation_node": {0: "CenterOfSearchSpace", 1: "Sobol"},
-                "foo": {0: 1.0, 1: np.nan},  # NaN because trial 1 failed
-                "bar": {0: 2.0, 1: np.nan},
+                "trial_index": {0: 0, 1: 1, 2: 2},
+                "arm_name": {0: "manual", 1: "1_0", 2: "2_0"},
+                "trial_status": {0: "RUNNING", 1: "COMPLETED", 2: "FAILED"},
+                "generation_node": {0: None, 1: "CenterOfSearchSpace", 2: "Sobol"},
+                "foo": {0: 0.0, 1: 1.0, 2: np.nan},  # NaN because trial 2 failed
+                "bar": {0: 0.5, 1: 2.0, 2: np.nan},
                 "x1": {
                     0: trial_0_parameters["x1"],
                     1: trial_1_parameters["x1"],
+                    2: trial_2_parameters["x1"],
                 },
                 "x2": {
                     0: trial_0_parameters["x2"],
                     1: trial_1_parameters["x2"],
+                    2: trial_2_parameters["x2"],
                 },
             }
         )
