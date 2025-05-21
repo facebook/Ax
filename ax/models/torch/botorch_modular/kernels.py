@@ -6,6 +6,14 @@
 
 # pyre-strict
 
+"""
+References
+
+.. [Papenmeier2025hd]
+    L. Papenmeier, M. Poloczek, and L. Nardi. Understanding High-Dimensional Bayesian
+        Optimization. Arxiv, 2025.
+"""
+
 from __future__ import annotations
 
 from math import log, sqrt
@@ -150,9 +158,23 @@ class TemporalKernel(ScaleKernel):
         )
 
 
+def get_lengthscale_prior_and_initial_value(
+    ard_num_dims: int | None, mle: bool
+) -> tuple[LogNormalPrior | None, float]:
+    if ard_num_dims is None:
+        ard_num_dims = 1
+    if mle:
+        # initial value comes from [Papenmeier2025hd]_.
+        return None, sqrt(ard_num_dims) / 10
+    lengthscale_prior = LogNormalPrior(
+        loc=sqrt(2) + log(ard_num_dims) * 0.5, scale=sqrt(3)
+    )
+    return lengthscale_prior, lengthscale_prior.mode.item()
+
+
 class DefaultRBFKernel(RBFKernel):
     """A simple wrapper around RBF kernel that integrates the dim-scaled
-    prior commonly used by default in BoTorch models.
+    prior commonly used by default in BoTorch models, if mle=False.
 
     This supports easy configuration of the kernel with options like
     `active_dims`, while avoiding the need to explicitly specify the
@@ -161,20 +183,63 @@ class DefaultRBFKernel(RBFKernel):
 
     def __init__(
         self,
-        ard_num_dims: int,
+        ard_num_dims: int | None,
         active_dims: Sequence[int] | None = None,
         batch_shape: torch.Size | None = None,
+        mle: bool = False,
     ) -> None:
-        lengthscale_prior = LogNormalPrior(
-            loc=sqrt(2) + log(ard_num_dims) * 0.5, scale=sqrt(3)
+        """Initialize Matern kernel with dimension-scaling prior or MLE.
+
+        Args:
+            ard_num_dims: The number of ARD dimensions. None signifies that an
+                isotropic kernel should be used
+            active_dims: The active input dimensions.
+            batch_shape: The batch shape for the kernel.
+            mle: A boolean indicating whether to use MLE (no priors) or a dimension
+                scaling prior.
+        """
+        lengthscale_prior, initial_value = get_lengthscale_prior_and_initial_value(
+            ard_num_dims=ard_num_dims, mle=mle
         )
         super().__init__(
             ard_num_dims=ard_num_dims,
             batch_shape=batch_shape,
             lengthscale_prior=lengthscale_prior,
             lengthscale_constraint=GreaterThan(
-                2.5e-2, transform=None, initial_value=lengthscale_prior.mode
+                2.5e-2, transform=None, initial_value=initial_value
             ),
             # pyre-ignore[6] GPyTorch type is unnecessarily restrictive.
             active_dims=active_dims,
+        )
+
+
+class DefaultMaternKernel(MaternKernel):
+    """A simple wrapper arounda Matern kernel that integrates the dim-scaled
+    prior commonly used by default in BoTorch models (if mle is false).
+
+    This supports easy configuration of the kernel with options like
+    `active_dims`, while avoiding the need to explicitly specify the
+    prior for the RBF kernel.
+    """
+
+    def __init__(
+        self,
+        ard_num_dims: int | None,
+        active_dims: Sequence[int] | None = None,
+        batch_shape: torch.Size | None = None,
+        nu: float = 2.5,
+        mle: bool = False,
+    ) -> None:
+        lengthscale_prior, initial_value = get_lengthscale_prior_and_initial_value(
+            ard_num_dims=ard_num_dims, mle=mle
+        )
+        super().__init__(
+            ard_num_dims=ard_num_dims,
+            batch_shape=batch_shape,
+            lengthscale_prior=lengthscale_prior,
+            lengthscale_constraint=GreaterThan(
+                2.5e-2, transform=None, initial_value=initial_value
+            ),
+            active_dims=active_dims,
+            nu=nu,
         )
