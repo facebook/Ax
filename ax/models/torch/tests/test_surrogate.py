@@ -656,7 +656,10 @@ class SurrogateTest(TestCase):
                 self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
                 self.assertIsInstance(call_kwargs["input_transform"], Normalize)
                 self.assertIsNone(call_kwargs["outcome_transform"])
-                self.assertEqual(len(call_kwargs), 4)
+                self.assertEqual(
+                    len(call_kwargs),
+                    6 if botorch_model_class is SaasFullyBayesianSingleTaskGP else 4,
+                )
 
                 mock_construct_inputs.assert_called_with(
                     training_data=self.training_data[0],
