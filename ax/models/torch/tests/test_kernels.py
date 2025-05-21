@@ -9,10 +9,12 @@
 from __future__ import annotations
 
 from itertools import product
+from math import sqrt
 
 import torch
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch_modular.kernels import (
+    DefaultMaternKernel,
     DefaultRBFKernel,
     ScaleMaternKernel,
     TemporalKernel,
@@ -160,15 +162,25 @@ class KernelsTest(TestCase):
                 temporal_lengthscale_constraint=tls_constraint,
             )
 
-    def test_default_rbf(self) -> None:
+    def test_default_kernel(self) -> None:
         # Check that this is equivalent to the BoTorch defaults.
-        for kwargs in (
-            {"ard_num_dims": 1},
-            {"ard_num_dims": 2, "active_dims": [0, 1], "batch_shape": torch.Size([2])},
+        for use_rbf_kernel, kwargs in product(
+            (True, False),
+            (
+                {"ard_num_dims": 1},
+                {
+                    "ard_num_dims": 2,
+                    "active_dims": [0, 1],
+                    "batch_shape": torch.Size([2]),
+                },
+            ),
         ):
-            ax_kernel = DefaultRBFKernel(**kwargs)  # pyre-ignore
-            # pyre-ignore
-            botorch_kernel = get_covar_module_with_dim_scaled_prior(**kwargs)
+            kernel_class = DefaultRBFKernel if use_rbf_kernel else DefaultMaternKernel
+            ax_kernel = kernel_class(**kwargs)  # pyre-ignore
+            botorch_kernel = get_covar_module_with_dim_scaled_prior(
+                use_rbf_kernel=use_rbf_kernel,
+                **kwargs,  # pyre-ignore [6]
+            )
             # Compare the state dicts for underlying compotents & their shapes.
             ax_dict = ax_kernel.state_dict()
             botorch_dict = botorch_kernel.state_dict()
@@ -183,3 +195,17 @@ class KernelsTest(TestCase):
                 self.assertEqual(
                     ax_kernel.active_dims.tolist(), botorch_kernel.active_dims.tolist()
                 )
+
+    def test_default_mle(self) -> None:
+        active_dims = [0, 1]
+        for kernel_class in (DefaultRBFKernel, DefaultMaternKernel):
+            kernel = kernel_class(
+                ard_num_dims=2,
+                active_dims=active_dims,
+                batch_shape=torch.Size([3]),
+                mle=True,
+            )
+            self.assertTrue((kernel.lengthscale == sqrt(2) / 10).all())
+            self.assertEqual(kernel.lengthscale.shape, torch.Size([3, 1, 2]))
+            self.assertFalse(hasattr(kernel, "lengthscale_prior"))
+            self.assertEqual(kernel.active_dims.tolist(), active_dims)

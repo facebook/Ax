@@ -14,7 +14,11 @@ from typing import Any
 
 import torch
 from ax.exceptions.core import UserInputError
-from ax.models.torch.botorch_modular.kernels import DefaultRBFKernel, ScaleMaternKernel
+from ax.models.torch.botorch_modular.kernels import (
+    DefaultMaternKernel,
+    DefaultRBFKernel,
+    ScaleMaternKernel,
+)
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models import MultiTaskGP
@@ -160,9 +164,9 @@ def _covar_module_argparse_linear(
     )
 
 
-@covar_module_argparse.register(DefaultRBFKernel)
+@covar_module_argparse.register((DefaultRBFKernel, DefaultMaternKernel))
 def _covar_module_argparse_default_rbf(
-    covar_module_class: type[DefaultRBFKernel],
+    covar_module_class: type[DefaultRBFKernel] | type[DefaultMaternKernel],
     botorch_model_class: type[Model],
     dataset: SupervisedDataset,
     ard_num_dims: int | _DefaultType = DEFAULT,
