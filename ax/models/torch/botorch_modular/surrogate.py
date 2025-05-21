@@ -788,6 +788,8 @@ class Surrogate(Base):
         self._model: Model | None = None
         self.refit_on_cv = refit_on_cv
         self.warm_start_refit = warm_start_refit
+        # Updated during model selection
+        self._model_config_to_eval: dict[str, dict[str, float]] = {}
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}" f" surrogate_spec={self.surrogate_spec}>"
@@ -1117,6 +1119,7 @@ class Surrogate(Base):
         best_eval_metric = float(f"{prefix}inf")
         best_model = None
         best_model_config = None
+        self._model_config_to_eval: dict[str, dict[str, float]] = {}
         for model_config in model_configs:
             # fit model to all data
             try:
@@ -1149,6 +1152,10 @@ class Surrogate(Base):
                     f"Model {model_config} failed to fit with error {e}. Skipping."
                 )
                 continue
+            if (mc_name := model_config.name) is not None:
+                self._model_config_to_eval[mc_name] = {
+                    self.surrogate_spec.eval_criterion: eval_metric
+                }
             if maximize ^ (eval_metric < best_eval_metric):
                 best_eval_metric = eval_metric
                 best_model = model

@@ -951,29 +951,32 @@ class SurrogateTest(TestCase):
     ) -> None:
         # These mocks are used because we control which kernel is selected by
         # changing the values of model diagnostics
-        mse_side_effect = [0.2, 0.1]
-        ll_side_effect = [0.3, 0.05]
-        bic_side_effect = [0.4, 0.1]
+        side_effect_dict = {
+            "MSE": [0.2, 0.1],
+            "Log likelihood": [0.3, 0.05],
+            "BIC": [0.4, 0.1],
+        }
+
         mock_mse = Mock()  # this should select linear kernel
         mock_ll = Mock()  # this should select rbf kernel
         d = {"MSE": mock_mse, "Log likelihood": mock_ll}
         mock_diag_dict.__getitem__.side_effect = d.__getitem__
         base_model_configs = [
-            ModelConfig(),
-            ModelConfig(covar_module_class=LinearKernel),
+            ModelConfig(name="Default"),
+            ModelConfig(covar_module_class=LinearKernel, name="Linear"),
         ]
         for eval_criterion, use_per_metric_overrides, multitask in product(
             ("MSE", "Log likelihood", "BIC"), (False, True), (False, True)
         ):
             if eval_criterion == "MSE":
                 mock_diag_fn = mock_mse
-                mock_mse.side_effect = mse_side_effect
+
             elif eval_criterion == "Log likelihood":
                 mock_diag_fn = mock_ll
-                mock_ll.side_effect = ll_side_effect
+            mock_diag_fn.side_effect = side_effect_dict[eval_criterion]
             mock_diag_fn.reset_mock()
             mock_in_sample_metric.reset_mock()
-            mock_in_sample_metric.side_effect = bic_side_effect
+            mock_in_sample_metric.side_effect = side_effect_dict["BIC"]
             with self.subTest(
                 eval_criterion=eval_criterion,
                 use_per_metric_model_overrides=use_per_metric_overrides,
@@ -1109,6 +1112,15 @@ class SurrogateTest(TestCase):
                                 mask[loo_idx] = 1
 
                     self.assertEqual(mock_diag_fn.call_count, 2)
+                # check the eval metrics for each model config
+                expected_model_config_to_eval = {}
+                for idx, mc in enumerate(base_model_configs):
+                    expected_model_config_to_eval[mc.name] = {
+                        eval_criterion: side_effect_dict[eval_criterion][idx]
+                    }
+                self.assertEqual(
+                    surrogate._model_config_to_eval, expected_model_config_to_eval
+                )
 
     def test_fit_multiple_model_configs_cuda(self) -> None:
         if torch.cuda.is_available():
