@@ -64,7 +64,7 @@ class MapKeyToFloatTransformTest(TestCase):
         optimization_config = OptimizationConfig(
             objective=Objective(metric=MapMetric(name="map_metric"), minimize=True)
         )
-        adapter = Adapter(
+        self.adapter = Adapter(
             experiment=Experiment(
                 search_space=self.search_space, optimization_config=optimization_config
             ),
@@ -87,7 +87,7 @@ class MapKeyToFloatTransformTest(TestCase):
             self.observations.append(Observation(features=obs_feat, data=obs_data))
 
         # does not require explicitly specifying `config`
-        self.t = MapKeyToFloat(observations=self.observations, adapter=adapter)
+        self.t = MapKeyToFloat(observations=self.observations, adapter=self.adapter)
 
     def test_Init(self) -> None:
         # Check for error if adapter & parameters are not provided.
@@ -96,12 +96,19 @@ class MapKeyToFloatTransformTest(TestCase):
 
         # Check for default initialization
         self.assertEqual(len(self.t._parameter_list), 1)
-        p = self.t._parameter_list[0]
+        (p,) = self.t._parameter_list
         self.assertEqual(p.name, DEFAULT_MAP_KEY)
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 1.0)
         self.assertEqual(p.upper, 5.0)
         self.assertTrue(p.log_scale)
+
+        # specifying a parameter name that is not in the observation features' metadata
+        with self.assertRaisesRegex(KeyError, "'baz'"):
+            MapKeyToFloat(
+                observations=self.observations,
+                config={"parameters": {"baz": {}}},
+            )
 
         # test that one is able to override default config
         with self.subTest(msg="override default config"):
@@ -160,6 +167,17 @@ class MapKeyToFloatTransformTest(TestCase):
         )
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
+
+    def test_TransformObservationFeaturesKeyNotInMetadata(self) -> None:
+        observation_features = [obs.features for obs in self.observations]
+        obs_ft2 = deepcopy(observation_features)
+        # remove the key from metadata dicts
+        for obsf in obs_ft2:
+            obsf.metadata.pop(DEFAULT_MAP_KEY)
+        # should be exactly one parameter
+        (p,) = self.t._parameter_list
+        with self.assertRaisesRegex(KeyError, f"'{p.name}'"):
+            self.t.transform_observation_features(obs_ft2)
 
     def test_TransformObservationFeaturesWithEmptyMetadata(self) -> None:
         # undefined metadata
