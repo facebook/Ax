@@ -29,7 +29,10 @@ from botorch.acquisition.multi_objective.logei import (
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import PairwiseLaplaceMarginalLogLikelihood
-from botorch.models.fully_bayesian import FullyBayesianSingleTaskGP
+from botorch.models.fully_bayesian import (
+    FullyBayesianLinearSingleTaskGP,
+    FullyBayesianSingleTaskGP,
+)
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
@@ -492,10 +495,13 @@ def _fit_botorch_model_gpytorch(
     fit_gpytorch_mll(mll)
 
 
+@fit_botorch_model.register(FullyBayesianLinearSingleTaskGP)
 @fit_botorch_model.register(FullyBayesianSingleTaskGP)
 @fit_botorch_model.register(SaasFullyBayesianMultiTaskGP)
 def _fit_botorch_model_fully_bayesian_nuts(
-    model: FullyBayesianSingleTaskGP | SaasFullyBayesianMultiTaskGP,
+    model: FullyBayesianSingleTaskGP
+    | SaasFullyBayesianMultiTaskGP
+    | FullyBayesianLinearSingleTaskGP,
     mll_class: type[MarginalLogLikelihood],
     mll_options: dict[str, Any] | None = None,
 ) -> None:
