@@ -6,10 +6,11 @@
 
 # pyre-strict
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from copy import deepcopy
 from datetime import datetime
-from typing import NamedTuple
+from functools import wraps
+from typing import Any, NamedTuple
 
 import numpy as np
 import numpy.typing as npt
@@ -25,6 +26,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import AxError
 from ax.utils.common.constants import Keys
 from pyre_extensions import none_throws
 
@@ -605,3 +607,33 @@ def extract_map_keys_from_opt_config(
     }
     map_key_names = {m.map_key_info.key for m in map_metrics.values()}
     return map_key_names
+
+
+# -------------------- Context manager and decorator utils. ---------------------
+
+
+# pyre-ignore[3]: Allowing `Any` in this case
+def batch_trial_only(msg: str | None = None) -> Callable[..., Any]:
+    """A decorator to verify that the value passed to the `trial`
+    argument to `func` is a `BatchTrial`.
+    """
+
+    # pyre-ignore[2,3]: Allowing `Any` in this case
+    def batch_trial_only_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        def _batch_trial_only(*args: Any, **kwargs: Any) -> Any:  # pyre-ignore[3]
+            if "trial" not in kwargs:
+                raise AxError(
+                    f"Expected a keyword argument `trial` to `{func.__name__}`."
+                )
+            if not isinstance(kwargs["trial"], BatchTrial):
+                message = msg or (
+                    f"Expected the argument `trial` to `{func.__name__}` "
+                    f"to be a `BatchTrial`, but got {type(kwargs['trial'])}."
+                )
+                raise AxError(message)
+            return func(*args, **kwargs)
+
+        return _batch_trial_only
+
+    return batch_trial_only_decorator
