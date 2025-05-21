@@ -6,7 +6,8 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from math import isnan
+from typing import Any, Optional, TYPE_CHECKING
 
 from ax.adapter.transforms.metadata_to_float import MetadataToFloat
 
@@ -15,6 +16,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.utils import extract_map_keys_from_opt_config
 from ax.exceptions.core import UserInputError
 from ax.models.types import TConfig
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -78,4 +80,8 @@ class MapKeyToFloat(MetadataToFloat):
             return
         if obsf.metadata is None or len(obsf.metadata) == 0:
             obsf.metadata = {p.name: p.upper for p in self._parameter_list}
+        metadata: dict[str, Any] = none_throws(obsf.metadata)
+        for p in self._parameter_list:
+            if isnan(metadata[p.name]):
+                metadata[p.name] = p.upper
         super()._transform_observation_feature(obsf)
