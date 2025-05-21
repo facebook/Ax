@@ -120,7 +120,7 @@ class MetadataToFloat(Transform):
             _transfer(
                 src=obsf.parameters,
                 dst=obsf.metadata,
-                keys=self.parameters.keys(),
+                keys=[p.name for p in self._parameter_list],
             )
         return observation_features
 
@@ -128,7 +128,7 @@ class MetadataToFloat(Transform):
         _transfer(
             src=none_throws(obsf.metadata),
             dst=obsf.parameters,
-            keys=self.parameters.keys(),
+            keys=[p.name for p in self._parameter_list],
         )
 
 
