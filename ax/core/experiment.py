@@ -15,7 +15,7 @@ from collections import defaultdict, OrderedDict
 from collections.abc import Hashable, Iterable, Mapping
 from datetime import datetime
 from functools import partial, reduce
-from typing import Any, cast
+from typing import Any, cast, Union
 
 import ax.core.observation as observation
 import pandas as pd
@@ -182,6 +182,8 @@ class Experiment(Base):
         self.status_quo = status_quo
         if optimization_config is not None:
             self.optimization_config = optimization_config
+
+        self._metric_fetching_errors: list[dict[str, Union[int, str]]] = []
 
     @property
     def has_name(self) -> bool:
@@ -928,8 +930,9 @@ class Experiment(Base):
         UNSAFE: Prefer to use attach_data directly instead.
 
         Attach fetched data results to the Experiment so they will not have to be
-        fetched again. Returns the timestamp from attachment, which is used as a
-        dict key for _data_by_trial.
+        fetched again. Addtionally caches any metric fetching errors that occured
+        to the experiment. Returns the timestamp from attachment, which is used
+        as a dict key for _data_by_trial.
 
         NOTE: Any Errs in the results passed in will silently be dropped! This will
         cause the Experiment to fail to find them in the _data_by_trial cache and
@@ -937,21 +940,22 @@ class Experiment(Base):
         MUST resolve your results first and use attach_data directly instead.
         """
 
-        flattened = [
-            result for sublist in results.values() for result in sublist.values()
-        ]
-
-        oks: list[Ok[Data, MetricFetchE]] = [
-            result for result in flattened if isinstance(result, Ok)
-        ]
-
-        for result in flattened:
-            if isinstance(result, Err):
-                logger.error(
-                    "Discovered Metric fetching Err while attaching data "
-                    f"{result.err}. "
-                    "Ignoring for now -- will retry query on next call to fetch."
-                )
+        oks: list[Ok[Data, MetricFetchE]] = []
+        for trial_index, metrics in results.items():
+            for metric_name, result in metrics.items():
+                if isinstance(result, Ok):
+                    oks.append(result)
+                elif isinstance(result, Err):
+                    logger.error(
+                        "Discovered Metric fetching Err while attaching data "
+                        f"{result.err}. "
+                        "Ignoring for now -- will retry query on next call to fetch."
+                    )
+                    self._cache_metric_fetch_error(
+                        trial_index=trial_index,
+                        metric_name=metric_name,
+                        metric_fetch_e=result.err,
+                    )
 
         if len(oks) < 1:
             return None
@@ -1507,6 +1511,41 @@ class Experiment(Base):
         running = list(self._trial_indices_by_status[TrialStatus.RUNNING])
         for idx in running:
             self._trials[idx].status  # `status` property checks TTL if applicable.
+
+    def _cache_metric_fetch_error(
+        self, trial_index: int, metric_name: str, metric_fetch_e: MetricFetchE | None
+    ) -> None:
+        """Caches a given metric fetch error to the experiment.
+        Args:
+            trial_index: Index of the trial that encountered the metric fetch error.
+            metric_name: Name of the metric that failed to be fetched.
+            metric_fetch_e: The metric fetch error to cache.
+        Returns:
+            None
+        """
+        error_data = {
+            "trial_index": trial_index,
+            "metric_name": metric_name,
+            "reason": "",
+            "timestamp": datetime.now().isoformat(),
+            "traceback": "",
+        }
+
+        if metric_fetch_e is not None:
+            reason_for_failure = metric_fetch_e.message
+            if metric_fetch_e.exception is not None:
+                exception_str = (
+                    f"{type(metric_fetch_e.exception).__name__}: "
+                    f"{metric_fetch_e.exception}"
+                )
+                reason_for_failure = (
+                    f"Ran into the following exception: {exception_str}"
+                )
+
+            error_data["reason"] = reason_for_failure
+            error_data["traceback"] = metric_fetch_e.tb_str() or ""
+
+        self._metric_fetching_errors.append(error_data)
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + f"({self._name})"

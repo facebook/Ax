@@ -52,6 +52,15 @@ class MetricFetchE:
             f"with Traceback:\n {self.tb_str()}"
         )
 
+    def reason_for_failure_str(self) -> str:
+        if self.exception is None:
+            return self.message
+
+        return (
+            f"{self.message} with exception: "
+            + f"{type(self.exception).__name__} {self.exception}"
+        )
+
     def tb_str(self) -> str | None:
         if self.exception is None:
             return None
