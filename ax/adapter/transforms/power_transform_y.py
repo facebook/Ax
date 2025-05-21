@@ -19,7 +19,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import assert_is_instance
 from sklearn.preprocessing import PowerTransformer

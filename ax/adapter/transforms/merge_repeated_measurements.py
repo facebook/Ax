@@ -17,7 +17,7 @@ from ax.adapter.transforms.base import Transform
 from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationData, separate_observations
 from ax.core.search_space import SearchSpace
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 
 
 class MergeRepeatedMeasurements(Transform):

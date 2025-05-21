@@ -25,7 +25,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from ax.utils.stats.statstools import relativize, unrelativize
 from pyre_extensions import none_throws
 

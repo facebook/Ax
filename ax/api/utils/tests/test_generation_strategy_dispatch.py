@@ -17,7 +17,7 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.transition_criterion import MinTrials
-from ax.models.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,

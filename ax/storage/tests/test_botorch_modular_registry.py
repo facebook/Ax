@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.storage.botorch_modular_registry import (
     ACQUISITION_FUNCTION_REGISTRY,
     ACQUISITION_REGISTRY,

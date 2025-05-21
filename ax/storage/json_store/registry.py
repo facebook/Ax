@@ -94,6 +94,11 @@ from ax.generation_strategy.transition_criterion import (
     MinTrials,
     TransitionCriterion,
 )
+from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
+from ax.generators.torch.botorch_modular.utils import ModelConfig
+from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
@@ -103,11 +108,6 @@ from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
-from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
-from ax.models.torch.botorch_modular.utils import ModelConfig
-from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.storage.json_store.decoders import (

@@ -65,12 +65,12 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
-from ax.models.torch.botorch import LegacyBoTorchGenerator
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
-from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
-from ax.models.torch_base import TorchGenerator, TorchOptConfig
-from ax.models.types import TConfig
+from ax.generators.torch.botorch import LegacyBoTorchGenerator
+from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
+from ax.generators.torch.botorch_moo_defaults import infer_objective_thresholds
+from ax.generators.torch_base import TorchGenerator, TorchOptConfig
+from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset

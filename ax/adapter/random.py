@@ -24,8 +24,8 @@ from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.models.random.base import RandomGenerator
-from ax.models.types import TConfig
+from ax.generators.random.base import RandomGenerator
+from ax.generators.types import TConfig
 
 
 class RandomAdapter(Adapter):

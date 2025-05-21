@@ -17,8 +17,8 @@ from ax.core.arm import Arm
 from ax.core.metric import Metric
 from ax.core.observation import Observation
 from ax.core.search_space import SearchSpace
+from ax.generators.discrete.full_factorial import FullFactorialGenerator
 from ax.metrics.branin import BraninMetric
-from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.plot.scatter import tile_fitted, tile_observations
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase

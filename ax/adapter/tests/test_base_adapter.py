@@ -48,8 +48,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
+from ax.generators.base import Generator
 from ax.metrics.branin import BraninMetric
-from ax.models.base import Generator
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase

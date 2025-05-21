@@ -61,7 +61,7 @@ from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
     MinTrials,
 )
-from ax.models.random.sobol import SobolGenerator
+from ax.generators.random.sobol import SobolGenerator
 from ax.utils.common.constants import Keys
 from ax.utils.common.equality import same_elements
 from ax.utils.common.mock import mock_patch_method_original

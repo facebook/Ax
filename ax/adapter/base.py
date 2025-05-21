@@ -43,8 +43,8 @@ from ax.core.types import (
 from ax.core.utils import extract_map_keys_from_opt_config, get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError, ModelError
-from ax.models.base import Generator
-from ax.models.types import TConfig
+from ax.generators.base import Generator
+from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 from botorch.settings import validate_input_scaling
 from pyre_extensions import assert_is_instance, none_throws

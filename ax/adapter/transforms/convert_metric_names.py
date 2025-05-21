@@ -13,7 +13,7 @@ from ax.adapter.transforms.base import Transform
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from pyre_extensions import none_throws
 

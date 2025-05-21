@@ -226,6 +226,10 @@ def class_from_json(json: dict[str, Any]) -> type[Any]:
     """Load any class registered in `CLASS_DECODER_REGISTRY` from JSON."""
     index_in_registry = json.pop("index")
     class_path = json.pop("class")
+    # Replace modelbridge -> adapter, models -> generators for backwards compatibility.
+    class_path = class_path.replace("ax.modelbridge", "ax.adapter").replace(
+        "ax.models", "ax.generators"
+    )
     for _class in CLASS_TO_REVERSE_REGISTRY:
         if class_path == f"{_class}":
             reverse_registry = CLASS_TO_REVERSE_REGISTRY[_class]

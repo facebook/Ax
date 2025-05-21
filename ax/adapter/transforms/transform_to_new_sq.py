@@ -20,7 +20,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize, unrelativize
 from pyre_extensions import assert_is_instance, none_throws

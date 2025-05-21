@@ -13,7 +13,7 @@ from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from scipy.special import expit, logit
 
 if TYPE_CHECKING:

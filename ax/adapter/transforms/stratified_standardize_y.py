@@ -18,7 +18,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance, none_throws
 
 

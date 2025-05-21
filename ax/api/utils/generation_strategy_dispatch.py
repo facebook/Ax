@@ -19,7 +19,7 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MinTrials
-from ax.models.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from botorch.models.transforms.input import Normalize, Warp
 from gpytorch.kernels.linear_kernel import LinearKernel
 

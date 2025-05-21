@@ -57,10 +57,10 @@ from ax.generation_strategy.model_spec import (
     GeneratorSpec,
 )
 from ax.generation_strategy.transition_criterion import TransitionCriterion
+from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_modular.surrogate import Surrogate
-from ax.models.winsorization_config import WinsorizationConfig
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils_torch import torch_type_to_str

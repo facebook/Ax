@@ -15,7 +15,7 @@ from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:

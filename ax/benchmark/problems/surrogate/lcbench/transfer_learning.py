@@ -21,9 +21,9 @@ from ax.benchmark.problems.surrogate.lcbench.utils import (
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
-from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.testing.mock import skip_fit_gpytorch_mll_context_manager
 from botorch.models import SingleTaskGP
 from gpytorch.priors import LogNormalPrior
