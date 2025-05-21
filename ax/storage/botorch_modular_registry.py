@@ -12,7 +12,11 @@ import torch
 
 # Ax `Acquisition` & other MBM imports
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.kernels import DefaultRBFKernel, ScaleMaternKernel
+from ax.models.torch.botorch_modular.kernels import (
+    DefaultMaternKernel,
+    DefaultRBFKernel,
+    ScaleMaternKernel,
+)
 from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
 
 # BoTorch `AcquisitionFunction` imports
@@ -166,6 +170,7 @@ KERNEL_REGISTRY: dict[type[Kernel], str] = {
     ScaleMaternKernel: "ScaleMaternKernel",
     RBFKernel: "RBFKernel",
     DefaultRBFKernel: "DefaultRBFKernel",
+    DefaultMaternKernel: "DefaultMaternKernel",
 }
 
 LIKELIHOOD_REGISTRY: dict[type[GaussianLikelihood], str] = {
