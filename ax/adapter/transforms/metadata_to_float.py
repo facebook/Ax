@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from logging import Logger
 
 from typing import Any, SupportsFloat, TYPE_CHECKING
 
@@ -21,11 +22,15 @@ from ax.core.parameter import RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.models.types import TConfig
+from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
+
+
+logger: Logger = get_logger(__name__)
 
 
 class MetadataToFloat(Transform):
@@ -67,11 +72,19 @@ class MetadataToFloat(Transform):
 
         self._parameter_list: list[RangeParameter] = []
         for name in self.parameters:
-            values: list[float] = []
+            values: set[float] = set()
             for obs in observations:
                 obsf_metadata = none_throws(obs.features.metadata)
                 value = float(assert_is_instance(obsf_metadata[name], SupportsFloat))
-                values.append(value)
+                values.add(value)
+
+            if len(values) == 1:
+                (value,) = values
+                logger.debug(
+                    f"Encountered only a single unique value {value:.1f} in "
+                    f"metadata key '{name}'. Not adding to parameters."
+                )
+                continue
 
             lower: float = self.parameters[name].get("lower", min(values))
             upper: float = self.parameters[name].get("upper", max(values))
