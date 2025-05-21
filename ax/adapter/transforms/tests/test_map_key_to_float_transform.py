@@ -169,6 +169,74 @@ class MapKeyToFloatTransformTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
+    def test_mixed_nan_progression(self) -> None:
+        observations = [
+            Observation(
+                data=ObservationData(
+                    metric_names=["metric1", "metric2"],
+                    means=np.array([1.0, 2.0]),
+                    covariance=np.diag([1.0, 2.0]),
+                ),
+                features=ObservationFeatures(
+                    parameters={"height": 5.0, "width": 2.0},
+                    metadata={DEFAULT_MAP_KEY: 10.0},
+                ),
+            ),
+            Observation(
+                data=ObservationData(
+                    metric_names=["metric3"],
+                    means=np.array([30.0]),
+                    covariance=np.array([[30.0]]),
+                ),
+                features=ObservationFeatures(
+                    parameters={"height": 5.0, "width": 2.0},
+                    metadata={DEFAULT_MAP_KEY: np.nan},
+                ),
+            ),
+            Observation(
+                data=ObservationData(
+                    metric_names=["metric1", "metric2"],
+                    means=np.array([1.5, 2.5]),
+                    covariance=np.diag([1.0, 2.0]),
+                ),
+                features=ObservationFeatures(
+                    parameters={"height": 5.0, "width": 2.0},
+                    metadata={DEFAULT_MAP_KEY: 20.0},
+                ),
+            ),
+        ]
+        observation_features = [obs.features for obs in observations]
+
+        t = MapKeyToFloat(observations=observations, adapter=self.adapter)
+
+        self.assertEqual(len(t._parameter_list), 1)
+        (p,) = t._parameter_list
+        self.assertEqual(p.name, DEFAULT_MAP_KEY)
+        self.assertEqual(p.parameter_type, ParameterType.FLOAT)
+        self.assertEqual(p.lower, 10.0)
+        self.assertEqual(p.upper, 20.0)
+
+        obs_ft2 = deepcopy(observation_features)
+        obs_ft2 = t.transform_observation_features(obs_ft2)
+
+        self.assertEqual(
+            obs_ft2,
+            [
+                ObservationFeatures(
+                    parameters={"height": 5.0, "width": 2.0, DEFAULT_MAP_KEY: 10.0},
+                    metadata={},
+                ),
+                ObservationFeatures(
+                    parameters={"height": 5.0, "width": 2.0, DEFAULT_MAP_KEY: 20.0},
+                    metadata={},
+                ),
+                ObservationFeatures(
+                    parameters={"height": 5.0, "width": 2.0, DEFAULT_MAP_KEY: 20.0},
+                    metadata={},
+                ),
+            ],
+        )
+
     def test_TransformObservationFeaturesKeyNotInMetadata(self) -> None:
         observation_features = [obs.features for obs in self.observations]
         obs_ft2 = deepcopy(observation_features)

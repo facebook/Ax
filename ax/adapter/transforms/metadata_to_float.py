@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from logging import Logger
+from math import isnan
 
 from typing import Any, SupportsFloat, TYPE_CHECKING
 
@@ -76,8 +77,15 @@ class MetadataToFloat(Transform):
             for obs in observations:
                 obsf_metadata = none_throws(obs.features.metadata)
                 value = float(assert_is_instance(obsf_metadata[name], SupportsFloat))
-                values.add(value)
+                if not isnan(value):
+                    values.add(value)
 
+            if len(values) == 0:
+                logger.debug(
+                    f"Did not encounter any non-NaN values for "
+                    f"metadata key '{name}'. Not adding to parameters."
+                )
+                continue
             if len(values) == 1:
                 (value,) = values
                 logger.debug(
