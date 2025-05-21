@@ -23,8 +23,8 @@ from ax.generation_strategy.dispatch_utils import (
     choose_generation_strategy_legacy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
-from ax.models.random.sobol import SobolGenerator
-from ax.models.winsorization_config import WinsorizationConfig
+from ax.generators.random.sobol import SobolGenerator
+from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_search_space,

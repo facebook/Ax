@@ -15,7 +15,7 @@ import torch
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
-from ax.models.torch.botorch import LegacyBoTorchGenerator
+from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative

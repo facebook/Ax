@@ -24,7 +24,7 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
-from ax.models.discrete_base import DiscreteGenerator
+from ax.generators.discrete_base import DiscreteGenerator
 from ax.utils.common.testutils import TestCase
 
 

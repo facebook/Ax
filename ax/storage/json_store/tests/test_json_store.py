@@ -28,9 +28,9 @@ from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
-from ax.models.torch.botorch_modular.utils import ModelConfig
+from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoder import (
     _DEPRECATED_MODEL_TO_REPLACEMENT,
     generation_node_from_json,

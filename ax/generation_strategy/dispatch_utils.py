@@ -24,11 +24,11 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.models.torch.botorch_modular.model import (
+from ax.generators.torch.botorch_modular.model import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
-from ax.models.types import TConfig
-from ax.models.winsorization_config import WinsorizationConfig
+from ax.generators.types import TConfig
+from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.deprecation import _validate_force_random_search
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws

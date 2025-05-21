@@ -16,7 +16,7 @@ from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 

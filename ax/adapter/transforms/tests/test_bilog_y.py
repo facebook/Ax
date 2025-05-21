@@ -15,7 +15,7 @@ from ax.adapter.transforms.bilog_y import bilog_transform, BilogY, inv_bilog_tra
 
 from ax.core.observation import observations_from_data
 from ax.exceptions.core import DataRequiredError
-from ax.models.base import Generator
+from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 

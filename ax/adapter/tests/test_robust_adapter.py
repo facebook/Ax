@@ -18,8 +18,8 @@ from ax.core.optimization_config import (
 from ax.core.risk_measures import RiskMeasure
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UnsupportedError
+from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.metrics.branin import BraninMetric
-from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_robust_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize

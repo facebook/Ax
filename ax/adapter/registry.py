@@ -53,19 +53,19 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
-from ax.models.base import Generator
-from ax.models.discrete.eb_ashr import EBAshr
-from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
-from ax.models.discrete.full_factorial import FullFactorialGenerator
-from ax.models.discrete.thompson import ThompsonSampler
-from ax.models.random.sobol import SobolGenerator
-from ax.models.random.uniform import UniformGenerator
-from ax.models.torch.botorch import LegacyBoTorchGenerator
-from ax.models.torch.botorch_modular.model import (
+from ax.generators.base import Generator
+from ax.generators.discrete.eb_ashr import EBAshr
+from ax.generators.discrete.eb_thompson import EmpiricalBayesThompsonSampler
+from ax.generators.discrete.full_factorial import FullFactorialGenerator
+from ax.generators.discrete.thompson import ThompsonSampler
+from ax.generators.random.sobol import SobolGenerator
+from ax.generators.random.uniform import UniformGenerator
+from ax.generators.torch.botorch import LegacyBoTorchGenerator
+from ax.generators.torch.botorch_modular.model import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
-from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
-from ax.models.torch.cbo_sac import SACBO
+from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.generators.torch.cbo_sac import SACBO
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,

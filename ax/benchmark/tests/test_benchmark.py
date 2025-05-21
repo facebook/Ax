@@ -132,7 +132,7 @@ class TestBenchmark(TestCase):
                     num_sobol_trials=1,
                 )
                 with patch(
-                    "ax.models.torch.botorch_modular.acquisition.optimize_acqf",
+                    "ax.generators.torch.botorch_modular.acquisition.optimize_acqf",
                     wraps=optimize_acqf,
                 ) as mock_optimize_acqf:
                     benchmark_one_method_problem(

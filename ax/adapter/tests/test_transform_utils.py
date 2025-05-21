@@ -19,7 +19,7 @@ from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.models.base import Generator
+from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_multi_objective_optimization_config
 

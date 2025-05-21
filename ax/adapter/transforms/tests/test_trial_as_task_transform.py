@@ -15,7 +15,7 @@ from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.exceptions.core import UnsupportedError
-from ax.models.base import Generator
+from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment, get_robust_search_space
 

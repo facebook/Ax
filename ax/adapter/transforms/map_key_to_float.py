@@ -10,12 +10,11 @@ from math import isnan
 from typing import Any, Optional, TYPE_CHECKING
 
 from ax.adapter.transforms.metadata_to_float import MetadataToFloat
-
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.core.utils import extract_map_keys_from_opt_config
 from ax.exceptions.core import UserInputError
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from pyre_extensions import none_throws
 
 if TYPE_CHECKING:

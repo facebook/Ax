@@ -19,19 +19,19 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.models.torch.botorch import (
+from ax.generators.torch.botorch import (
     TAcqfConstructor,
     TModelConstructor,
     TModelPredictor,
     TOptimizer,
 )
-from ax.models.torch.botorch_defaults import (
+from ax.generators.torch.botorch_defaults import (
     get_and_fit_model,
     get_qLogNEI,
     scipy_optimizer,
 )
-from ax.models.torch.utils import predict_from_model
-from ax.models.types import TConfig
+from ax.generators.torch.utils import predict_from_model
+from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance
 
 
