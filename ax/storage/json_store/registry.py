@@ -95,7 +95,7 @@ from ax.generation_strategy.transition_criterion import (
     TransitionCriterion,
 )
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.generators.winsorization_config import WinsorizationConfig

@@ -26,8 +26,8 @@ from ax.generators.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.generators.discrete.thompson import ThompsonSampler
 from ax.generators.random.sobol import SobolGenerator
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase

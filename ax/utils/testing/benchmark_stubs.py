@@ -45,7 +45,7 @@ from ax.core.types import TParameterization, TParamValue
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,

@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.generators.torch.botorch_defaults import NO_OBSERVED_POINTS_MESSAGE
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.generators.torch.botorch_moo_defaults import (
     get_outcome_constraint_transforms,

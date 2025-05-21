@@ -30,7 +30,7 @@ from ax.core.risk_measures import RiskMeasure
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,

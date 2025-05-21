@@ -66,7 +66,7 @@ from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
 from ax.generators.torch.botorch import LegacyBoTorchGenerator
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.generators.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.generators.torch_base import TorchGenerator, TorchOptConfig

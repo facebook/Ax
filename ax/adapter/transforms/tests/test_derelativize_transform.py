@@ -27,7 +27,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
 from ax.generators.base import Generator
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_data, get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
