@@ -181,31 +181,32 @@ class MapKeyToFloatTransformTest(TestCase):
             self.t.transform_observation_features(obs_ft2)
 
     def test_constant_progression(self) -> None:
-        CONSTANT = 23
-        observation_features = []
-        observations = []
-        for trial_index, (width, height) in enumerate(product(WIDTHS, HEIGHTS)):
-            obsf = ObservationFeatures(
-                trial_index=trial_index,
-                parameters={"width": width, "height": height},
-                metadata={DEFAULT_MAP_KEY: CONSTANT, "foo": 42},
-            )
-            obsd = ObservationData(
-                metric_names=[],
-                means=np.array([]),
-                covariance=np.empty((0, 0)),
-            )
-            observation_features.append(obsf)
-            observations.append(Observation(features=obsf, data=obsd))
+        for constant in (23, np.nan):
+            with self.subTest(msg=f"{constant=}"):
+                observation_features = []
+                observations = []
+                for trial_index, (width, height) in enumerate(product(WIDTHS, HEIGHTS)):
+                    obsf = ObservationFeatures(
+                        trial_index=trial_index,
+                        parameters={"width": width, "height": height},
+                        metadata={DEFAULT_MAP_KEY: constant, "foo": 42},
+                    )
+                    obsd = ObservationData(
+                        metric_names=[],
+                        means=np.array([]),
+                        covariance=np.empty((0, 0)),
+                    )
+                    observation_features.append(obsf)
+                    observations.append(Observation(features=obsf, data=obsd))
 
-        t = MapKeyToFloat(observations=observations, adapter=self.adapter)
+                t = MapKeyToFloat(observations=observations, adapter=self.adapter)
 
-        # forward and reverse transforms are identity/no-ops
-        obs_ft2 = deepcopy(observation_features)
-        obs_ft2 = t.transform_observation_features(obs_ft2)
-        self.assertEqual(obs_ft2, observation_features)
-        obs_ft2 = t.untransform_observation_features(obs_ft2)
-        self.assertEqual(obs_ft2, observation_features)
+                # forward and reverse transforms are identity/no-ops
+                obs_ft2 = deepcopy(observation_features)
+                obs_ft2 = t.transform_observation_features(obs_ft2)
+                self.assertEqual(obs_ft2, observation_features)
+                obs_ft2 = t.untransform_observation_features(obs_ft2)
+                self.assertEqual(obs_ft2, observation_features)
 
     def test_TransformObservationFeaturesWithEmptyMetadata(self) -> None:
         # undefined metadata
