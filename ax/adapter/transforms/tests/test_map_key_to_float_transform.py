@@ -69,7 +69,7 @@ class MapKeyToFloatTransformTest(TestCase):
             experiment=Experiment(
                 search_space=self.search_space, optimization_config=optimization_config
             ),
-            model=Generator(),
+            generator=Generator(),
         )
 
         self.observations = []

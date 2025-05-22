@@ -588,7 +588,7 @@ class WinsorizeTransformTest(TestCase):
         )
         adapter = Adapter(
             experiment=Experiment(search_space=search_space),
-            model=Generator(),
+            generator=Generator(),
             transforms=[],
             data=Data(),
             optimization_config=oc,
@@ -608,7 +608,7 @@ class WinsorizeTransformTest(TestCase):
                 search_space=search_space,
                 status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
             ),
-            model=Generator(),
+            generator=Generator(),
             transforms=[],
             data=Data(),
             optimization_config=oc,
@@ -700,6 +700,6 @@ def _wrap_optimization_config_in_adapter(
 ) -> Adapter:
     return Adapter(
         experiment=Experiment(search_space=SearchSpace(parameters=[])),
-        model=Generator(),
+        generator=Generator(),
         optimization_config=optimization_config,
     )

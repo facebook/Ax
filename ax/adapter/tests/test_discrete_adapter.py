@@ -79,7 +79,7 @@ class DiscreteAdapterTest(TestCase):
         adapter = DiscreteAdapter()
         adapter._training_data = self.observations
         model = mock.create_autospec(DiscreteGenerator, instance=True)
-        adapter.model = model
+        adapter.generator = model
         adapter._fit(self.search_space, self.observations)
         self.assertEqual(adapter.parameters, ["x", "y", "z"])
         self.assertEqual(sorted(adapter.outcomes), ["a", "b"])
@@ -116,7 +116,7 @@ class DiscreteAdapterTest(TestCase):
                 (np.array([[1.0, 4.0], [4.0, 6]]), np.array([[2.0, 5.0], [5.0, 7]]))
             ),
         )
-        adapter.model = model
+        adapter.generator = model
         adapter.parameters = ["x", "y", "z"]
         adapter.outcomes = ["a", "b"]
         observation_data = adapter._predict(self.observation_features)
@@ -148,7 +148,7 @@ class DiscreteAdapterTest(TestCase):
             [1.0, 2.0],
             {"best_x": best_x},
         )
-        adapter.model = model
+        adapter.generator = model
         adapter.parameters = ["x", "y", "z"]
         adapter.outcomes = ["a", "b"]
         gen_results = adapter._gen(
@@ -238,7 +238,7 @@ class DiscreteAdapterTest(TestCase):
                 (np.array([[1.0, 4.0], [4.0, 6]]), np.array([[2.0, 5.0], [5.0, 7]]))
             ),
         )
-        adapter.model = model
+        adapter.generator = model
         adapter.parameters = ["x", "y", "z"]
         adapter.outcomes = ["a", "b"]
         observation_data = adapter._cross_validate(

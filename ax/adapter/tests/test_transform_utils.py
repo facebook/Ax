@@ -73,7 +73,7 @@ class TransformUtilsTest(TestCase):
                 search_space=dummy_search_space,
                 status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
             ),
-            model=Generator(),
+            generator=Generator(),
             optimization_config=optimization_config,
         )
         new_opt_config = derelativize_optimization_config_with_raw_status_quo(

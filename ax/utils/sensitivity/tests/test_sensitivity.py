@@ -64,8 +64,8 @@ def get_adapter(modular: bool = False, saasbo: bool = False) -> Adapter:
 class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.model = get_adapter().model.model
-        self.saas_model = get_adapter(saasbo=True).model.surrogate.model
+        self.model = get_adapter().generator.model
+        self.saas_model = get_adapter(saasbo=True).generator.surrogate.model
 
     def test_DgsmGpMean(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
@@ -251,14 +251,14 @@ class SensitivityAnalysisTest(TestCase):
                 # pyre-ignore
                 ax_parameter_sens(1, adapter.outcomes)
 
-            with patch.object(adapter, "model", return_value=None):
+            with patch.object(adapter, "generator", return_value=None):
                 with self.assertRaisesRegex(
                     NotImplementedError,
                     "but only LegacyBoTorchGenerator and ModularBoTorchGenerator",
                 ):
                     ax_parameter_sens(adapter, adapter.outcomes)
 
-            torch_model = cast(LegacyBoTorchGenerator, adapter.model)
+            torch_model = cast(LegacyBoTorchGenerator, adapter.generator)
             if not modular:
                 with self.assertRaisesRegex(
                     NotImplementedError,
@@ -359,13 +359,15 @@ class SensitivityAnalysisTest(TestCase):
 
         # adding a categorical feature
         cat_adapter = copy.deepcopy(base_adapter)
-        digest = cat_adapter.model.search_space_digest
+        digest = cat_adapter.generator.search_space_digest
         digest.categorical_features = [0]
 
         sobol_kwargs = {"input_qmc": True, "num_mc_samples": 10}
         seed = 1234
         for adapter in [base_adapter, cat_adapter]:
-            discrete_features = adapter.model.search_space_digest.categorical_features
+            discrete_features = (
+                adapter.generator.search_space_digest.categorical_features
+            )
             with self.subTest(adapter=adapter):
                 set_rng_seed(seed)
                 # Unsigned
@@ -377,13 +379,13 @@ class SensitivityAnalysisTest(TestCase):
                     **sobol_kwargs,
                 )
                 ind_deriv = compute_derivatives_from_model_list(
-                    model_list=[adapter.model.surrogate.model],
-                    bounds=torch.tensor(adapter.model.search_space_digest.bounds).T,
+                    model_list=[adapter.generator.surrogate.model],
+                    bounds=torch.tensor(adapter.generator.search_space_digest.bounds).T,
                     discrete_features=discrete_features,
                     **sobol_kwargs,
                 )
                 set_rng_seed(seed)  # reset seed to keep discrete features the same
-                cat_indices = adapter.model.search_space_digest.categorical_features
+                cat_indices = adapter.generator.search_space_digest.categorical_features
                 ind_dict_signed = ax_parameter_sens(
                     adapter=adapter,
                     metrics=None,

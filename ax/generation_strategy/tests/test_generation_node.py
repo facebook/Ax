@@ -29,10 +29,7 @@ from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
-from ax.generation_strategy.model_spec import (
-    FactoryFunctionGeneratorSpec,
-    GeneratorSpec,
-)
+from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MinTrials
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -390,22 +387,8 @@ class TestGenerationStep(TestCase):
             )
 
     def test_init_factory_function(self) -> None:
-        generation_step = GenerationStep(model=get_sobol, num_trials=-1)
-        self.assertEqual(
-            generation_step.model_specs,
-            [FactoryFunctionGeneratorSpec(factory_function=get_sobol)],
-        )
-        generation_step = GenerationStep(
-            model=get_sobol, num_trials=-1, model_name="test"
-        )
-        self.assertEqual(
-            generation_step.model_specs,
-            [
-                FactoryFunctionGeneratorSpec(
-                    factory_function=get_sobol, model_key_override="test"
-                )
-            ],
-        )
+        with self.assertRaisesRegex(UserInputError, "must be a `ModelRegistryBase`"):
+            GenerationStep(model=get_sobol, num_trials=-1)
 
     def test_properties(self) -> None:
         step = self.sobol_generation_step

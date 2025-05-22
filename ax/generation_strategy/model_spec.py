@@ -24,20 +24,13 @@ from ax.adapter.cross_validation import (
     get_fit_and_std_quality_and_generalization_dict,
 )
 from ax.adapter.registry import ModelRegistryBase
-
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
-from ax.exceptions.core import AxWarning, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
-from ax.utils.common.kwargs import (
-    consolidate_kwargs,
-    filter_kwargs,
-    get_function_argument_names,
-)
+from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.serialization import SerializationMixin
 from pyre_extensions import none_throws
 
@@ -338,72 +331,3 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         """Returns the unique ID of this model spec"""
         # TODO @mgarrard verify that this is unique enough
         return str(hash(self))
-
-
-@dataclass
-class FactoryFunctionGeneratorSpec(GeneratorSpec):
-    factory_function: TModelFactory | None = None
-    # pyre-ignore[15]: `GeneratorSpec` has this as non-optional
-    model_enum: ModelRegistryBase | None = None
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        if self.model_enum is not None:
-            raise UserInputError(
-                "Use regular `GeneratorSpec` when it's possible to describe the "
-                "model as `ModelRegistryBase` subclass enum member."
-            )
-        if self.factory_function is None:
-            raise UserInputError(
-                "Please specify a valid function returning a `Adapter` instance "
-                "as the required `factory_function` argument to "
-                "`FactoryFunctionGeneratorSpec`."
-            )
-        if self.model_key_override is None:
-            try:
-                # `model` is defined via a factory function.
-                # pyre-ignore[16]: Anonymous callable has no attribute `__name__`.
-                self.model_key_override = none_throws(self.factory_function).__name__
-            except Exception:
-                raise TypeError(
-                    f"{self.factory_function} is not a valid function, cannot extract "
-                    "name. Please provide the model name using `model_key_override`."
-                )
-
-        warnings.warn(
-            "Using a factory function to describe the model, so optimization state "
-            "cannot be stored and optimization is not resumable if interrupted.",
-            AxWarning,
-            stacklevel=3,
-        )
-
-    def fit(
-        self,
-        experiment: Experiment,
-        data: Data | None = None,
-        search_space: SearchSpace | None = None,
-        optimization_config: OptimizationConfig | None = None,
-        **model_kwargs: Any,
-    ) -> None:
-        """Fits the specified model on the given experiment + data using the
-        model kwargs set on the model spec, alongside any passed down as
-        kwargs to this function (local kwargs take precedent)
-        """
-        factory_function = none_throws(self.factory_function)
-        all_kwargs = deepcopy(self.model_kwargs)
-        all_kwargs.update(model_kwargs)
-        self._fitted_model = factory_function(
-            # Factory functions do not have a unified signature; e.g. some factory
-            # functions (like `get_sobol`) require search space instead of experiment.
-            # Therefore, we filter kwargs to remove unnecessary ones and add additional
-            # arguments like `search_space` and `optimization_config`.
-            **filter_kwargs(
-                factory_function,
-                experiment=experiment,
-                data=data,
-                search_space=search_space or experiment.search_space,
-                optimization_config=optimization_config
-                or experiment.optimization_config,
-                **all_kwargs,
-            )
-        )
