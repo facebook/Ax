@@ -905,7 +905,7 @@ class TorchAdapterTest(TestCase):
             num_preference_trials=0,
             num_preference_trials_w_repeated_arm=0,
         )
-        pe_exp = get_pbo_experiment(
+        pe_exp_with_data = get_pbo_experiment(
             num_parameters=len(pref_metrics),
             num_experimental_metrics=0,
             parameter_names=pref_metrics,
@@ -917,7 +917,7 @@ class TorchAdapterTest(TestCase):
 
         exp.auxiliary_experiments_by_purpose[
             AuxiliaryExperimentPurpose.PE_EXPERIMENT
-        ] = [AuxiliaryExperiment(experiment=pe_exp)]
+        ] = [AuxiliaryExperiment(experiment=pe_exp_with_data)]
 
         surrogate_specs = [
             # Default, minimum surrogate spec
@@ -974,21 +974,116 @@ class TorchAdapterTest(TestCase):
                 ),
             )
 
-            model = assert_is_instance(adapter.model, BoTorchGenerator)
-            # Using model list by default
-            self.assertIsInstance(model.surrogate.model, ModelListGP)
-            # Stil having 3 base models despite having
+            generator = assert_is_instance(adapter.model, BoTorchGenerator)
+            # With PE data, we should use a model list by default
+            self.assertIsInstance(generator.surrogate.model, ModelListGP)
             # 3 outcomes + 1 aux experiments = 4 datasets
             self.assertEqual(
-                len(assert_is_instance(model.surrogate.model.models, Sized)), 3
+                len(assert_is_instance(generator.surrogate.model.models, Sized)), 3
             )
-
             # using PairwiseGP for the preference dataset
             self.assertIsInstance(
-                assert_is_instance(
-                    adapter.model, BoTorchGenerator
-                ).surrogate._submodels[(Keys.PAIRWISE_PREFERENCE_QUERY.value,)],
+                generator.surrogate._submodels[(Keys.PAIRWISE_PREFERENCE_QUERY.value,)],
                 PairwiseGP,
+            )
+
+            # Checking CV and gen works correctly
+            cross_validate(adapter)
+            adapter.gen(n=2)
+
+    @mock_botorch_optimize
+    def test_fitting_auxiliary_experiment_empty_dataset(self) -> None:
+        pref_metrics = ["metric2", "metric3"]
+        metric_names = ["metric1", "metric2", "metric3"]
+
+        exp = get_pbo_experiment(
+            num_parameters=4,
+            num_experimental_metrics=3,
+            tracking_metric_names=metric_names,
+            num_experimental_trials=4,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+        )
+        empty_pe_exp = get_pbo_experiment(
+            num_parameters=len(pref_metrics),
+            num_experimental_metrics=0,
+            parameter_names=pref_metrics,
+            num_experimental_trials=0,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+            unbounded_search_space=True,
+        )
+
+        exp.auxiliary_experiments_by_purpose[
+            AuxiliaryExperimentPurpose.PE_EXPERIMENT
+        ] = [AuxiliaryExperiment(experiment=empty_pe_exp)]
+
+        surrogate_specs = [
+            # Default, minimum surrogate spec
+            SurrogateSpec(),
+            # Correctly specified surrogate spec with model selection
+            SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        outcome_transform_classes=[Standardize],
+                        name="STGP",
+                    ),
+                    ModelConfig(
+                        botorch_model_class=AdditiveMapSaasSingleTaskGP,
+                        outcome_transform_classes=[Standardize],
+                        name="SAAS",
+                    ),
+                ],
+                metric_to_model_configs={
+                    Keys.PAIRWISE_PREFERENCE_QUERY.value: [
+                        ModelConfig(
+                            botorch_model_class=PairwiseGP,
+                            mll_class=PairwiseLaplaceMarginalLogLikelihood,
+                            input_transform_classes=[Normalize],
+                        )
+                    ]
+                },
+                eval_criterion=MSE,
+            ),
+            # We should handle default preference model fallback when unspecified
+            SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        outcome_transform_classes=[Standardize],
+                        name="STGP",
+                    ),
+                    ModelConfig(
+                        botorch_model_class=AdditiveMapSaasSingleTaskGP,
+                        outcome_transform_classes=[Standardize],
+                        name="SAAS",
+                    ),
+                ],
+                eval_criterion=MSE,
+            ),
+        ]
+
+        expected_warning = (
+            "WARNING:ax.adapter.torch:No data found in the auxiliary "
+            "preference exploration experiment. Skipping."
+        )
+        for surrogate_spec in surrogate_specs:
+            with self.assertLogs("ax", level="WARNING") as cm:
+                adapter = TorchAdapter(
+                    experiment=exp,
+                    data=exp.lookup_data(),
+                    model=BoTorchGenerator(
+                        surrogate_spec=surrogate_spec,
+                    ),
+                )
+            self.assertEqual(cm.output, [expected_warning])
+
+            generator = assert_is_instance(adapter.model, BoTorchGenerator)
+            # we won't construct a preference model if there is no PE data
+            self.assertNotIn(
+                (Keys.PAIRWISE_PREFERENCE_QUERY.value,),
+                generator.surrogate._submodels,
             )
 
             # Checking CV and gen works correctly
