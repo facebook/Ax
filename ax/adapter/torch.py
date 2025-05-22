@@ -642,6 +642,13 @@ class TorchAdapter(Adapter):
             aux_pe_exp = aux_pe_exp_list[0]
             pe_exp, pe_data = aux_pe_exp.experiment, aux_pe_exp.data
 
+            if pe_data.df.empty:
+                logger.warning(
+                    "No data found in the auxiliary preference exploration experiment. "
+                    "Skipping."
+                )
+                return datasets
+
             pe_obs = observations_from_data(experiment=pe_exp, data=pe_data)
             pe_obs_features, pe_obs_data = separate_observations(pe_obs)
             pe_exp_param_names = list(pe_exp.search_space.parameters.keys())
