@@ -24,7 +24,7 @@ from ax.generation_strategy.generation_node_input_constructors import (
     NodeInputConstructors,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -57,13 +57,13 @@ EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS = [
 class TestGenerationNodeInputConstructors(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.sobol_model_spec = GeneratorSpec(
+        self.sobol_generator_spec = GeneratorSpec(
             model_enum=Generators.SOBOL,
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
         self.sobol_generation_node = GenerationNode(
-            node_name="test", model_specs=[self.sobol_model_spec]
+            node_name="test", generator_specs=[self.sobol_generator_spec]
         )
         self.experiment = get_branin_experiment()
         # construct a list of grs that will mock a list of grs that would exist during

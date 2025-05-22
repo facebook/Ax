@@ -89,7 +89,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
     MinTrials,
@@ -2941,12 +2941,12 @@ def get_online_sobol_mbm_generation_strategy(
             ],
         ),
     ]
-    sobol_model_spec = GeneratorSpec(
+    sobol_generator_spec = GeneratorSpec(
         model_enum=Generators.SOBOL,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
-    mbm_model_spec = GeneratorSpec(
+    mbm_generator_spec = GeneratorSpec(
         model_enum=Generators.BOTORCH_MODULAR,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
@@ -2954,13 +2954,13 @@ def get_online_sobol_mbm_generation_strategy(
     sobol_node = GenerationNode(
         node_name="sobol_node",
         transition_criteria=sobol_criterion,
-        model_specs=[sobol_model_spec],
+        generator_specs=[sobol_generator_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     mbm_node = GenerationNode(
         node_name="MBM_node",
         transition_criteria=[],
-        model_specs=[mbm_model_spec],
+        generator_specs=[mbm_generator_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     return GenerationStrategy(

@@ -42,7 +42,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AuxiliaryExperimentCheck,
     TransitionCriterion,
@@ -198,8 +198,8 @@ def object_from_json(
                 generation_node_json=object_json, **vars(registry_kwargs)
             )
         elif _class == GeneratorSpec:
-            return model_spec_from_json(
-                model_spec_json=object_json, **vars(registry_kwargs)
+            return generator_spec_from_json(
+                generator_spec_json=object_json, **vars(registry_kwargs)
             )
         elif _class == GenerationStrategy:
             return generation_strategy_from_json(
@@ -682,8 +682,8 @@ def generation_node_from_json(
 
     return GenerationNode(
         node_name=generation_node_json.pop("node_name"),
-        model_specs=object_from_json(
-            generation_node_json.pop("model_specs"),
+        generator_specs=object_from_json(
+            generation_node_json.pop("generator_specs"),
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
@@ -813,22 +813,22 @@ def generation_step_from_json(
     return generation_step
 
 
-def model_spec_from_json(
-    model_spec_json: dict[str, Any],
+def generator_spec_from_json(
+    generator_spec_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GeneratorSpec:
     """Load GeneratorSpec from JSON."""
-    kwargs = model_spec_json.pop("model_kwargs", None)
+    kwargs = generator_spec_json.pop("model_kwargs", None)
     for k in _DEPRECATED_MODEL_KWARGS:
         # Remove deprecated model kwargs.
         kwargs.pop(k, None)
     if kwargs is not None:
         kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
-    gen_kwargs = model_spec_json.pop("model_gen_kwargs", None)
+    gen_kwargs = generator_spec_json.pop("model_gen_kwargs", None)
     return GeneratorSpec(
         model_enum=object_from_json(
-            model_spec_json.pop("model_enum"),
+            generator_spec_json.pop("model_enum"),
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),

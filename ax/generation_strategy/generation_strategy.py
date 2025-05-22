@@ -463,8 +463,8 @@ class GenerationStrategy(Base):
         """
         self._model = None
         for n in self._nodes:
-            if len(n.model_specs) > 1:
-                n._model_spec_to_gen_from = None
+            if len(n.generator_specs) > 1:
+                n._generator_spec_to_gen_from = None
             if not self.is_node_based:
                 n._previous_node_name = None
 
@@ -612,9 +612,9 @@ class GenerationStrategy(Base):
                 ):
                     num_trials = criterion.threshold
 
-            model_spec = step._model_spec_to_gen_from
-            if model_spec is not None:
-                model_name = model_spec.model_key
+            generator_spec = step._generator_spec_to_gen_from
+            if generator_spec is not None:
+                model_name = generator_spec.model_key
             else:
                 model_name = "model with unknown name"
 
@@ -659,7 +659,9 @@ class GenerationStrategy(Base):
         if self.is_node_based:
             node_names = (node.node_name for node in self._nodes)
         else:
-            node_names = (node.model_spec_to_gen_from.model_key for node in self._nodes)
+            node_names = (
+                node.generator_spec_to_gen_from.model_key for node in self._nodes
+            )
             # Trim the "get_" beginning of the factory function if it's there.
             node_names = (n[4:] if n[:4] == "get_" else n for n in node_names)
         return "+".join(node_names)

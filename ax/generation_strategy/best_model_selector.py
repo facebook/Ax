@@ -15,7 +15,7 @@ from typing import Any, Union
 import numpy as np
 import numpy.typing as npt
 from ax.exceptions.core import UserInputError
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.utils.common.base import Base
 from ax.utils.common.func_enum import FuncEnum
 from pyre_extensions import none_throws
@@ -26,7 +26,7 @@ ARRAYLIKE = Union[np.ndarray, list[float], list[np.ndarray]]
 
 class BestModelSelector(ABC, Base):
     @abstractmethod
-    def best_model(self, model_specs: list[GeneratorSpec]) -> GeneratorSpec:
+    def best_model(self, generator_specs: list[GeneratorSpec]) -> GeneratorSpec:
         """Return the best ``GeneratorSpec`` based on some criteria.
 
         NOTE: The returned ``GeneratorSpec`` may be a different object than
@@ -77,7 +77,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             criterion=ReductionCriterion.MIN,
             model_cv_kwargs={"untransform": False},
         )
-        best_model = s.best_model(model_specs=model_specs)
+        best_model = s.best_model(generator_specs=generator_specs)
 
     Args:
         diagnostic: The name of the diagnostic to use, which should be
@@ -113,23 +113,23 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
         self.criterion = criterion
         self.model_cv_kwargs = model_cv_kwargs
 
-    def best_model(self, model_specs: list[GeneratorSpec]) -> GeneratorSpec:
+    def best_model(self, generator_specs: list[GeneratorSpec]) -> GeneratorSpec:
         """Return the best ``GeneratorSpec`` based on the specified diagnostic.
 
         Args:
-            model_specs: List of ``GeneratorSpec`` to choose from.
+            generator_specs: List of ``GeneratorSpec`` to choose from.
 
         Returns:
             The best ``GeneratorSpec`` based on the specified diagnostic.
         """
-        for model_spec in model_specs:
-            model_spec.cross_validate(model_cv_kwargs=self.model_cv_kwargs)
+        for generator_spec in generator_specs:
+            generator_spec.cross_validate(model_cv_kwargs=self.model_cv_kwargs)
         aggregated_diagnostic_values = [
             self.metric_aggregation(
-                list(none_throws(model_spec.diagnostics)[self.diagnostic].values())
+                list(none_throws(generator_spec.diagnostics)[self.diagnostic].values())
             )
-            for model_spec in model_specs
+            for generator_spec in generator_specs
         ]
         best_diagnostic = self.criterion(aggregated_diagnostic_values).item()
         best_index = aggregated_diagnostic_values.index(best_diagnostic)
-        return model_specs[best_index]
+        return generator_specs[best_index]

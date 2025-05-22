@@ -899,7 +899,7 @@ class JSONStoreTest(TestCase):
         # Checks that deprecated input constructors are discarded gracefully.
         json = {
             "node_name": "Test",
-            "model_specs": [
+            "generator_specs": [
                 {
                     "__type": "GeneratorSpec",
                     "model_enum": {"__type": "Generators", "name": "BOTORCH_MODULAR"},
@@ -942,7 +942,7 @@ class JSONStoreTest(TestCase):
                     "__type": "AuxiliaryExperimentCheck",
                 }
             ],
-            "model_spec_to_gen_from": None,
+            "generator_spec_to_gen_from": None,
             "previous_node_name": None,
             "trial_type": {"__type": "Keys", "name": "SHORT_RUN"},
             "input_constructors": {
@@ -965,7 +965,7 @@ class JSONStoreTest(TestCase):
         self.assertEqual(len(node.input_constructors), 2)
         # Check that transforms got correctly deserialized.
         self.assertEqual(
-            node.model_specs[0].model_kwargs["transforms"],
+            node.generator_specs[0].model_kwargs["transforms"],
             [OneHot, Log],
         )
 

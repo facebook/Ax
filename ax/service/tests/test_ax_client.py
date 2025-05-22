@@ -56,7 +56,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.metrics.branin import branin, BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient, ObjectiveProperties
@@ -2502,7 +2502,7 @@ class TestAxClient(TestCase):
         )
         ax_client.fit_model()
         self.assertEqual(
-            ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
+            ax_client.generation_strategy._curr.generator_spec_to_gen_from.model_key,
             "BoTorch",
         )
 
@@ -2572,7 +2572,7 @@ class TestAxClient(TestCase):
             num_trials=20, minimize=minimize, outcome_constraints=outcome_constraints
         )
         self.assertEqual(
-            ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
+            ax_client.generation_strategy._curr.generator_spec_to_gen_from.model_key,
             "Sobol",
         )
 
@@ -3107,7 +3107,7 @@ class TestAxClient(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="Sobol",
-                    model_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
+                    generator_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
                 )
             ],
         )
