@@ -11,15 +11,10 @@ from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
 from ax.adapter.adapter_utils import extract_search_space_digest
-from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
-
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
-from ax.generation_strategy.model_spec import (
-    FactoryFunctionGeneratorSpec,
-    GeneratorSpec,
-)
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -66,7 +61,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             ms.fit(experiment=self.experiment, data=self.data)
         mock_logger.debug.assert_called_with(
             "The observations are identical to the last set of observations "
-            "used to fit the model. Skipping model fitting."
+            "used to fit the generator. Skipping generator fitting."
         )
         wrapped_extract_ssd.assert_called_once()
 
@@ -232,23 +227,3 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self.assertNotIn("test_gen_kwargs", repr_str)
         self.assertNotIn("test_cv_kwargs", repr_str)
         self.assertIn("test_model_key_override", repr_str)
-
-
-class FactoryFunctionGeneratorSpecTest(BaseGeneratorSpecTest):
-    def test_construct(self) -> None:
-        ms = FactoryFunctionGeneratorSpec(factory_function=get_sobol)
-        with self.assertRaises(UserInputError):
-            ms.gen(n=1)
-        ms.fit(experiment=self.experiment, data=self.data)
-        ms.gen(n=1)
-
-    def test_model_key(self) -> None:
-        ms = FactoryFunctionGeneratorSpec(factory_function=get_sobol)
-        self.assertEqual(ms.model_key, "get_sobol")
-        with self.assertRaisesRegex(TypeError, "cannot extract name"):
-            # pyre-ignore[6] - Invalid factory function for testing.
-            FactoryFunctionGeneratorSpec(factory_function="test")
-        ms = FactoryFunctionGeneratorSpec(
-            factory_function=get_sobol, model_key_override="fancy sobol"
-        )
-        self.assertEqual(ms.model_key, "fancy sobol")

@@ -13,7 +13,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from functools import wraps
 from logging import Logger
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -29,7 +29,6 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyMisconfiguredException,
 )
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
-from ax.generation_strategy.model_spec import FactoryFunctionGeneratorSpec
 from ax.generation_strategy.transition_criterion import TrialBasedCriterion
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
@@ -88,8 +87,6 @@ class GenerationStrategy(Base):
 
     _nodes: list[GenerationNode]
     _curr: GenerationNode  # Current node in the strategy.
-    # Whether all models in this GS are in Generators registry enum.
-    _uses_registered_models: bool
     # All generator runs created through this generation strategy, in chronological
     # order.
     _generator_runs: list[GeneratorRun]
@@ -111,8 +108,9 @@ class GenerationStrategy(Base):
                 error_info="GenerationStrategy must contain either steps or nodes."
             )
 
-        # pyre-ignore[8]
-        self._nodes = none_throws(nodes if steps is None else steps)
+        self._nodes = none_throws(
+            nodes if steps is None else cast(list[GenerationNode], steps)
+        )
 
         # Validate correctness of steps list or nodes graph
         if isinstance(steps, list) and all(
@@ -128,18 +126,6 @@ class GenerationStrategy(Base):
                 "`steps` (list of `GenerationStep`) or\n"
                 "`nodes` (list of `GenerationNode`)."
                 f"Encountered: {steps=}, {nodes=}"
-            )
-
-        # Log warning if the GS uses a non-registered (factory function) model.
-        self._uses_registered_models = not any(
-            isinstance(ms, FactoryFunctionGeneratorSpec)
-            for node in self._nodes
-            for ms in node.model_specs
-        )
-        if not self._uses_registered_models:
-            logger.warning(
-                "Using model via callable function, "
-                "so optimization is not resumable if interrupted."
             )
         self._generator_runs = []
         # Set name to an explicit value ahead of time to avoid
@@ -267,12 +253,6 @@ class GenerationStrategy(Base):
         """
         # Used to restore current model when decoding a serialized GS.
         return self._generator_runs[-1] if self._generator_runs else None
-
-    @property
-    def uses_non_registered_models(self) -> bool:
-        """Whether this generation strategy involves models that are not
-        registered and therefore cannot be stored."""
-        return not self._uses_registered_models
 
     @property
     def trials_as_df(self) -> pd.DataFrame | None:
@@ -483,8 +463,8 @@ class GenerationStrategy(Base):
         """
         self._model = None
         for n in self._nodes:
-            if len(n.model_specs) > 1:
-                n._model_spec_to_gen_from = None
+            if len(n.generator_specs) > 1:
+                n._generator_spec_to_gen_from = None
             if not self.is_node_based:
                 n._previous_node_name = None
 
@@ -632,9 +612,9 @@ class GenerationStrategy(Base):
                 ):
                     num_trials = criterion.threshold
 
-            model_spec = step._model_spec_to_gen_from
-            if model_spec is not None:
-                model_name = model_spec.model_key
+            generator_spec = step._generator_spec_to_gen_from
+            if generator_spec is not None:
+                model_name = generator_spec.model_key
             else:
                 model_name = "model with unknown name"
 
@@ -679,7 +659,9 @@ class GenerationStrategy(Base):
         if self.is_node_based:
             node_names = (node.node_name for node in self._nodes)
         else:
-            node_names = (node.model_spec_to_gen_from.model_key for node in self._nodes)
+            node_names = (
+                node.generator_spec_to_gen_from.model_key for node in self._nodes
+            )
             # Trim the "get_" beginning of the factory function if it's there.
             node_names = (n[4:] if n[:4] == "get_" else n for n in node_names)
         return "+".join(node_names)

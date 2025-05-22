@@ -26,7 +26,7 @@ class TrialAsTaskTransformTest(TestCase):
         self.exp = get_branin_experiment(with_status_quo=True, with_batch=True)
         self.adapter = Adapter(
             search_space=self.exp.search_space,
-            model=Generator(),
+            generator=Generator(),
             experiment=self.exp,
         )
         self.exp.new_batch_trial().add_arm(
@@ -257,7 +257,7 @@ class TrialAsTaskTransformTest(TestCase):
         exp.new_trial().add_arm(Arm(parameters={"x": 1}))
         adapter = Adapter(
             search_space=exp.search_space,
-            model=Generator(),
+            generator=Generator(),
             experiment=exp,
         )
         training_obs = self.training_obs[:1]
@@ -285,7 +285,7 @@ class TrialAsTaskTransformTest(TestCase):
         exp.new_trial().add_arm(Arm(parameters={"x": 2}))
         adapter = Adapter(
             search_space=exp.search_space,
-            model=Generator(),
+            generator=Generator(),
             experiment=exp,
         )
         training_obs = self.training_obs[:1]

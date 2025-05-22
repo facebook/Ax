@@ -84,7 +84,7 @@ class TestAEPsychCriterion(TestCase):
         self.assertTrue(move_to_next_node)
 
         self.assertEqual(
-            generation_strategy._curr.model_spec_to_gen_from.model_enum,
+            generation_strategy._curr.generator_spec_to_gen_from.model_enum,
             Generators.BOTORCH_MODULAR,
         )
 
@@ -159,6 +159,6 @@ class TestAEPsychCriterion(TestCase):
         self.assertTrue(move_to_next_node)
 
         self.assertEqual(
-            generation_strategy._curr.model_spec_to_gen_from.model_enum,
+            generation_strategy._curr.generator_spec_to_gen_from.model_enum,
             Generators.BOTORCH_MODULAR,
         )

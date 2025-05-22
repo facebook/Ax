@@ -82,7 +82,7 @@ from ax.generation_strategy.generation_node_input_constructors import (
     NodeInputConstructors,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
@@ -136,12 +136,12 @@ from ax.storage.json_store.encoders import (
     generation_step_to_dict,
     generation_strategy_to_dict,
     generator_run_to_dict,
+    generator_spec_to_dict,
     improvement_global_stopping_strategy_to_dict,
     logical_early_stopping_strategy_to_dict,
     map_data_to_dict,
     map_key_info_to_dict,
     metric_to_dict,
-    model_spec_to_dict,
     multi_objective_optimization_config_to_dict,
     multi_objective_to_dict,
     multi_type_experiment_to_dict,
@@ -231,7 +231,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     MinimumTrialsInStatus: transition_criterion_to_dict,
     MinimumPreferenceOccurances: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
-    GeneratorSpec: model_spec_to_dict,
+    GeneratorSpec: generator_spec_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,

@@ -13,7 +13,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -66,7 +66,7 @@ class TestUtils(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="MBM",
-                    model_specs=[
+                    generator_specs=[
                         GeneratorSpec(
                             model_enum=Generators.BOTORCH_MODULAR,
                         )
