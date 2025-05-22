@@ -2527,7 +2527,7 @@ class TestAxClient(TestCase):
         # This overwrites the `predict` call to return the original observations,
         # while testing the rest of the code as if we're using predictions.
         # pyre-fixme[16]: `Optional` has no attribute `model`.
-        model = ax_client.generation_strategy.model.model
+        model = ax_client.generation_strategy.model.generator
         ys = model.surrogate.training_data[0].Y
         with patch.object(
             model, "predict", return_value=(ys, torch.zeros(*ys.shape, ys.shape[-1]))

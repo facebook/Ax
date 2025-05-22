@@ -105,7 +105,7 @@ def compute_regression_probabilities_single_trial(
         experiment=experiment,
         search_space=experiment.search_space,
         data=target_data,
-        model=EBAshr(),
+        generator=EBAshr(),
         transforms=rel_EB_ashr_trans,
         optimization_config=experiment.optimization_config,
     )
@@ -122,7 +122,7 @@ def compute_regression_probabilities_single_trial(
     b = np.array([abs(size_thresholds[metric]) for metric in metric_names])
 
     _, regression_probabilities = assert_is_instance(
-        adapter.model, EBAshr
+        adapter.generator, EBAshr
     )._get_regression_indicator(
         objective_weights=np.zeros(len(metric_names)), outcome_constraints=(A, b)
     )

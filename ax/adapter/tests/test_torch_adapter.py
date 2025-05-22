@@ -79,7 +79,7 @@ def _get_adapter_from_experiment(
 ) -> TorchAdapter:
     return TorchAdapter(
         experiment=experiment,
-        model=BoTorchGenerator(),
+        generator=BoTorchGenerator(),
         transforms=transforms or [],
         torch_device=device,
         fit_on_init=fit_on_init,
@@ -139,24 +139,24 @@ class TorchAdapterTest(TestCase):
         ]
         observations = recombine_observations(observation_features, observation_data)
 
-        model = adapter.model
-        with mock.patch.object(model, "fit", wraps=model.fit) as mock_fit:
+        generator = adapter.generator
+        with mock.patch.object(generator, "fit", wraps=generator.fit) as mock_fit:
             adapter._fit(search_space=search_space, observations=observations)
-        model_fit_args = mock_fit.call_args.kwargs
-        self.assertEqual(model_fit_args["datasets"], list(datasets.values()))
+        generator_fit_args = mock_fit.call_args.kwargs
+        self.assertEqual(generator_fit_args["datasets"], list(datasets.values()))
 
         expected_ssd = SearchSpaceDigest(
             feature_names=feature_names, bounds=[(0, 5)] * 3
         )
-        self.assertEqual(model_fit_args["search_space_digest"], expected_ssd)
-        self.assertIsNone(model_fit_args["candidate_metadata"])
+        self.assertEqual(generator_fit_args["search_space_digest"], expected_ssd)
+        self.assertIsNone(generator_fit_args["candidate_metadata"])
         self.assertEqual(adapter._last_observations, observations)
 
         with mock.patch(f"{TorchAdapter.__module__}.logger.debug") as mock_logger:
             adapter._fit(search_space=search_space, observations=observations)
         mock_logger.assert_called_once_with(
             "The observations are identical to the last set of observations "
-            "used to fit the model. Skipping model fitting."
+            "used to fit the generator. Skipping generator fitting."
         )
 
         # Test `_predict`
@@ -172,7 +172,7 @@ class TorchAdapterTest(TestCase):
             covariance=np.diag(pred_var),
         )
         with mock.patch.object(
-            model, "predict", return_value=predict_return_value
+            generator, "predict", return_value=predict_return_value
         ) as mock_predict:
             pr_obs_data = adapter._predict(
                 observation_features=observation_features[:1]
@@ -195,11 +195,11 @@ class TorchAdapterTest(TestCase):
             "y2": [ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0, "x3": 3.0})]
         }
         with ExitStack() as es, mock.patch.object(
-            model, "gen", return_value=gen_return_value
+            generator, "gen", return_value=gen_return_value
         ) as mock_gen:
             es.enter_context(
                 mock.patch.object(
-                    model, "best_point", return_value=best_point_return_value
+                    generator, "best_point", return_value=best_point_return_value
                 )
             )
             es.enter_context(
@@ -262,7 +262,7 @@ class TorchAdapterTest(TestCase):
         X_test = torch.tensor([[1.0, 3.0, 2.0]], **tkwargs)
 
         with mock.patch.object(
-            model,
+            generator,
             "cross_validate",
             return_value=predict_return_value,
         ) as mock_cross_validate:
@@ -271,10 +271,10 @@ class TorchAdapterTest(TestCase):
                 cv_training_data=observations,
                 cv_test_points=cv_test_points,
             )
-        model_cv_args = mock_cross_validate.mock_calls[0][2]
-        self.assertEqual(model_cv_args["datasets"], list(datasets.values()))
-        self.assertTrue(torch.equal(model_cv_args["X_test"], X_test))
-        self.assertEqual(model_cv_args["search_space_digest"], expected_ssd)
+        generator_cv_args = mock_cross_validate.mock_calls[0][2]
+        self.assertEqual(generator_cv_args["datasets"], list(datasets.values()))
+        self.assertTrue(torch.equal(generator_cv_args["X_test"], X_test))
+        self.assertEqual(generator_cv_args["search_space_digest"], expected_ssd)
         self.assertEqual(cv_obs_data, [cv_obs_data_expected])
 
         # Transform observations
@@ -383,7 +383,7 @@ class TorchAdapterTest(TestCase):
         )
         adapter = TorchAdapter(
             search_space=search_space,
-            model=TorchGenerator(),
+            generator=TorchGenerator(),
             transforms=[transform_1, transform_2],
             experiment=exp,
             data=Data(),
@@ -411,7 +411,9 @@ class TorchAdapterTest(TestCase):
             return_value=torch.tensor([best_point_value]),
             autospec=True,
         ), mock.patch.object(adapter, "predict", return_value=predict_return_value):
-            with mock.patch.object(adapter.model, "gen", return_value=gen_return_value):
+            with mock.patch.object(
+                adapter.generator, "gen", return_value=gen_return_value
+            ):
                 run = adapter.gen(n=1, optimization_config=oc)
 
             _, model_predictions = none_throws(adapter.model_best_point())
@@ -460,7 +462,7 @@ class TorchAdapterTest(TestCase):
             with_completed_trial=True
         )
         adapter = _get_adapter_from_experiment(experiment=experiment)
-        # Model doesn't have enough data for training, so equal importances.
+        # generator doesn't have enough data for training, so equal importances.
         self.assertEqual(
             adapter.feature_importances("branin_a"), {"x1": 0.5, "x2": 0.5}
         )
@@ -479,17 +481,19 @@ class TorchAdapterTest(TestCase):
                 "preexisting_batch_cand_metadata": "some_value"
             }
         }
-        model = TorchGenerator()
-        with mock.patch.object(model, "fit", wraps=model.fit) as mock_model_fit:
+        generator = TorchGenerator()
+        with mock.patch.object(
+            generator, "fit", wraps=generator.fit
+        ) as mock_generator_fit:
             adapter = TorchAdapter(
                 experiment=exp,
                 search_space=exp.search_space,
-                model=model,
+                generator=generator,
                 transforms=[],
                 data=get_branin_data(),
             )
 
-        datasets = mock_model_fit.call_args[1].get("datasets")
+        datasets = mock_generator_fit.call_args[1].get("datasets")
         X_expected = torch.tensor(
             [list(exp.trials[0].arms[0].parameters.values())],
             dtype=torch.double,
@@ -498,7 +502,7 @@ class TorchAdapterTest(TestCase):
             self.assertTrue(torch.equal(dataset.X, X_expected))
 
         self.assertEqual(
-            mock_model_fit.call_args[1].get("candidate_metadata"),
+            mock_generator_fit.call_args[1].get("candidate_metadata"),
             [[{"preexisting_batch_cand_metadata": "some_value"}]],
         )
 
@@ -512,7 +516,7 @@ class TorchAdapterTest(TestCase):
             weights=torch.tensor([1.0, 2.0]),
             candidate_metadata=candidate_metadata,
         )
-        with mock.patch.object(model, "gen", return_value=gen_results):
+        with mock.patch.object(generator, "gen", return_value=gen_results):
             gr = adapter.gen(n=1)
         self.assertEqual(
             gr.candidate_metadata_by_arm_signature,
@@ -528,33 +532,35 @@ class TorchAdapterTest(TestCase):
             weights=torch.tensor([1.0, 2.0]),
             candidate_metadata=None,
         )
-        with mock.patch.object(model, "gen", return_value=gen_results):
+        with mock.patch.object(generator, "gen", return_value=gen_results):
             gr = adapter.gen(n=1)
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
 
         # Check that no candidate metadata is handled correctly.
         exp = get_branin_experiment(with_status_quo=True)
 
-        model = TorchGenerator()
+        generator = TorchGenerator()
         with mock.patch(
             f"{TorchAdapter.__module__}." "TorchAdapter._validate_observation_data",
             autospec=True,
-        ), mock.patch.object(model, "fit", wraps=model.fit) as mock_model_fit:
+        ), mock.patch.object(
+            generator, "fit", wraps=generator.fit
+        ) as mock_generator_fit:
             adapter = TorchAdapter(
                 search_space=exp.search_space,
                 experiment=exp,
-                model=model,
+                generator=generator,
                 data=Data(),
                 transforms=[],
             )
         # Hack in outcome names to bypass validation (since we did not pass any
-        # to the model so _fit did not populate this)
+        # to the generator so _fit did not populate this)
         metric_name = next(iter(exp.metrics))
         adapter.outcomes = [metric_name]
         adapter._metric_names = {metric_name}
-        with mock.patch.object(model, "gen", return_value=gen_results):
+        with mock.patch.object(generator, "gen", return_value=gen_results):
             gr = adapter.gen(n=1)
-        self.assertIsNone(mock_model_fit.call_args[1].get("candidate_metadata"))
+        self.assertIsNone(mock_generator_fit.call_args[1].get("candidate_metadata"))
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
 
     def test_fit_tracking_metrics(self) -> None:
@@ -563,18 +569,20 @@ class TorchAdapterTest(TestCase):
             with_tracking_metrics=True,
         )
         for fit_tracking_metrics in (True, False):
-            model = TorchGenerator()
-            with mock.patch.object(model, "fit", wraps=model.fit) as mock_model_fit:
+            generator = TorchGenerator()
+            with mock.patch.object(
+                generator, "fit", wraps=generator.fit
+            ) as mock_generator_fit:
                 adapter = TorchAdapter(
                     experiment=exp,
                     search_space=exp.search_space,
                     data=exp.lookup_data(),
-                    model=model,
+                    generator=generator,
                     transforms=[],
                     fit_tracking_metrics=fit_tracking_metrics,
                 )
-            mock_model_fit.assert_called_once()
-            call_kwargs = mock_model_fit.call_args.kwargs
+            mock_generator_fit.assert_called_once()
+            call_kwargs = mock_generator_fit.call_args.kwargs
             if fit_tracking_metrics:
                 expected_outcomes = ["m1", "m2", "m3"]
             else:
@@ -779,12 +787,12 @@ class TorchAdapterTest(TestCase):
         experiment = get_experiment_with_observations(
             observations=[[0.0, 1.0], [2.0, 3.0]]
         )
-        model = BoTorchGenerator()
+        generator = BoTorchGenerator()
         mb = TorchAdapter(
             experiment=experiment,
             search_space=experiment.search_space,
             data=experiment.lookup_data(),
-            model=model,
+            generator=generator,
             transforms=[],
         )
         for additional_metadata in (
@@ -802,7 +810,7 @@ class TorchAdapterTest(TestCase):
                 "_untransform_objective_thresholds",
                 wraps=mb._untransform_objective_thresholds,
             ) as mock_untransform, mock.patch.object(
-                model,
+                generator,
                 "gen",
                 return_value=gen_return_value,
             ):
@@ -880,7 +888,7 @@ class TorchAdapterTest(TestCase):
         exp = get_experiment_with_observations([[1.0], [1.5], [2.0]])
         adapter = TorchAdapter(
             experiment=exp,
-            model=BoTorchGenerator(),
+            generator=BoTorchGenerator(),
         )
         obs_ft = ObservationFeatures(parameters={"x": 0.0, "y": 0.0})
         mean_default, cov_default = adapter.predict(observation_features=[obs_ft])
@@ -969,12 +977,12 @@ class TorchAdapterTest(TestCase):
             adapter = TorchAdapter(
                 experiment=exp,
                 data=exp.lookup_data(),
-                model=BoTorchGenerator(
+                generator=BoTorchGenerator(
                     surrogate_spec=surrogate_spec,
                 ),
             )
 
-            generator = assert_is_instance(adapter.model, BoTorchGenerator)
+            generator = assert_is_instance(adapter.generator, BoTorchGenerator)
             # With PE data, we should use a model list by default
             self.assertIsInstance(generator.surrogate.model, ModelListGP)
             # 3 outcomes + 1 aux experiments = 4 datasets
@@ -1073,13 +1081,13 @@ class TorchAdapterTest(TestCase):
                 adapter = TorchAdapter(
                     experiment=exp,
                     data=exp.lookup_data(),
-                    model=BoTorchGenerator(
+                    generator=BoTorchGenerator(
                         surrogate_spec=surrogate_spec,
                     ),
                 )
             self.assertEqual(cm.output, [expected_warning])
 
-            generator = assert_is_instance(adapter.model, BoTorchGenerator)
+            generator = assert_is_instance(adapter.generator, BoTorchGenerator)
             # we won't construct a preference model if there is no PE data
             self.assertNotIn(
                 (Keys.PAIRWISE_PREFERENCE_QUERY.value,),

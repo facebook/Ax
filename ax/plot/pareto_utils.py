@@ -337,7 +337,7 @@ def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchAdapt
         experiment=experiment,
         search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
-        model=TorchGenerator(),
+        generator=TorchGenerator(),
         transforms=[SearchSpaceToFloat],
         data_loader_config=DataLoaderConfig(
             fit_out_of_design=True,

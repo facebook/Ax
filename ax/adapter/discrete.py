@@ -34,11 +34,11 @@ from ax.generators.discrete_base import DiscreteGenerator
 from ax.generators.types import TConfig
 
 
-FIT_MODEL_ERROR = "Model must be fit before {action}."
+FIT_MODEL_ERROR = "Generator must be fit before {action}."
 
 
 class DiscreteAdapter(Adapter):
-    """An adapter for using models based on discrete parameters.
+    """An adapter for using generators based on discrete parameters.
 
     Requires that all parameters to have been transformed to ChoiceParameters.
     """
@@ -47,7 +47,7 @@ class DiscreteAdapter(Adapter):
         self,
         *,
         experiment: Experiment,
-        model: DiscreteGenerator,
+        generator: DiscreteGenerator,
         search_space: SearchSpace | None = None,
         data: Data | None = None,
         transforms: Sequence[type[Transform]] | None = None,
@@ -66,7 +66,7 @@ class DiscreteAdapter(Adapter):
         self.outcomes: list[str] = []
         super().__init__(
             experiment=experiment,
-            model=model,
+            generator=generator,
             search_space=search_space,
             data=data,
             transforms=transforms,
@@ -80,8 +80,8 @@ class DiscreteAdapter(Adapter):
             fit_on_init=fit_on_init,
             fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
-        # Re-assing for more precise typing.
-        self.model: DiscreteGenerator = model
+        # Re-assign for more precise typing.
+        self.generator: DiscreteGenerator = generator
 
     def _fit(
         self,
@@ -104,7 +104,7 @@ class DiscreteAdapter(Adapter):
         )
         # Extract parameter values
         parameter_values = _get_parameter_values(search_space, self.parameters)
-        self.model.fit(
+        self.generator.fit(
             Xs=Xs_array,
             Ys=Ys_array,
             Yvars=Yvars_array,
@@ -122,7 +122,7 @@ class DiscreteAdapter(Adapter):
             [of.parameters[param] for param in self.parameters]
             for of in observation_features
         ]
-        f, cov = self.model.predict(
+        f, cov = self.generator.predict(
             X=X, use_posterior_predictive=use_posterior_predictive
         )
         # Convert arrays to observations
@@ -198,7 +198,7 @@ class DiscreteAdapter(Adapter):
                 ]
 
         # Generate the candidates
-        X, w, gen_metadata = self.model.gen(
+        X, w, gen_metadata = self.generator.gen(
             n=n,
             parameter_values=parameter_values,
             objective_weights=objective_weights,
@@ -246,8 +246,8 @@ class DiscreteAdapter(Adapter):
             [obsf.parameters[param] for param in self.parameters]
             for obsf in cv_test_points
         ]
-        # Use the model to do the cross validation
-        f_test, cov_test = self.model.cross_validate(
+        # Use the generator to do the cross validation
+        f_test, cov_test = self.generator.cross_validate(
             Xs_train=Xs_train,
             Ys_train=Ys_train,
             Yvars_train=Yvars_train,
