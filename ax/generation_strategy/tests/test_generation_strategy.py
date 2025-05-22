@@ -22,7 +22,6 @@ from ax.adapter.registry import (
     MODEL_KEY_TO_MODEL_SETUP,
 )
 from ax.adapter.torch import TorchAdapter
-
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -420,17 +419,6 @@ class TestGenerationStrategy(TestCase):
         Experiment(
             name="test", search_space=SearchSpace(parameters=[get_choice_parameter()])
         )
-        factorial_thompson_generation_strategy = GenerationStrategy(
-            steps=[
-                GenerationStep(model=Generators.FACTORIAL, num_trials=1),
-                GenerationStep(model=Generators.THOMPSON, num_trials=2),
-            ]
-        )
-        self.assertTrue(factorial_thompson_generation_strategy._uses_registered_models)
-        self.assertFalse(
-            factorial_thompson_generation_strategy.uses_non_registered_models
-        )
-        self.assertEqual(GenerationStep(model=sum, num_trials=1).model_name, "sum")
         with self.assertRaisesRegex(UserInputError, "Maximum parallelism should be"):
             GenerationStrategy(
                 steps=[
@@ -442,14 +430,8 @@ class TestGenerationStrategy(TestCase):
             )
 
     def test_custom_callables_for_models(self) -> None:
-        exp = get_branin_experiment()
-        sobol_factory_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=get_sobol, num_trials=-1)]
-        )
-        self.assertFalse(sobol_factory_generation_strategy._uses_registered_models)
-        self.assertTrue(sobol_factory_generation_strategy.uses_non_registered_models)
-        gr = sobol_factory_generation_strategy.gen(experiment=exp, n=1)
-        self.assertEqual(len(gr.arms), 1)
+        with self.assertRaises(UserInputError):
+            GenerationStrategy(steps=[GenerationStep(model=get_sobol, num_trials=-1)])
 
     def test_string_representation(self) -> None:
         gs1 = self.sobol_MBM_step_GS
@@ -512,7 +494,6 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=1),
             ]
         )
-        self.assertFalse(gs.uses_non_registered_models)
         for _ in range(5):
             exp.new_trial(gs.gen(exp))
         with self.assertRaises(DataRequiredError):
@@ -709,27 +690,6 @@ class TestGenerationStrategy(TestCase):
                 grs_2 = sobol_MBM_generation_strategy._gen_with_multiple_nodes(exp, n=2)
             exp.new_batch_trial(generator_runs=grs_2).run()
         self.assertIsInstance(sobol_MBM_generation_strategy.model, TorchAdapter)
-
-    def test_with_factory_function(self) -> None:
-        """Checks that generation strategy works with custom factory functions.
-        No information about the model should be saved on generator run."""
-
-        def get_sobol(experiment: Experiment) -> RandomAdapter:
-            return RandomAdapter(
-                experiment=experiment,
-                generator=SobolGenerator(),
-                transforms=Cont_X_trans,
-            )
-
-        exp = get_branin_experiment()
-        sobol_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=get_sobol, num_trials=5)]
-        )
-        g = sobol_generation_strategy.gen(exp)
-        self.assertIsInstance(sobol_generation_strategy.model, RandomAdapter)
-        self.assertIsNone(g._model_key)
-        self.assertIsNone(g._model_kwargs)
-        self.assertIsNone(g._bridge_kwargs)
 
     def test_store_experiment(self) -> None:
         exp = get_branin_experiment()
