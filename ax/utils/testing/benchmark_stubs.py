@@ -99,7 +99,9 @@ def get_soo_surrogate_test_function(lazy: bool = True) -> SurrogateTestFunction:
     surrogate = TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
-        model=BoTorchGenerator(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
+        generator=BoTorchGenerator(
+            surrogate=Surrogate(botorch_model_class=SingleTaskGP)
+        ),
         data=experiment.lookup_data(),
         transforms=[],
     )
@@ -141,7 +143,9 @@ def get_moo_surrogate() -> BenchmarkProblem:
     surrogate = TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
-        model=BoTorchGenerator(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
+        generator=BoTorchGenerator(
+            surrogate=Surrogate(botorch_model_class=SingleTaskGP)
+        ),
         data=experiment.lookup_data(),
         transforms=[],
     )

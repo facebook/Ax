@@ -349,7 +349,7 @@ class ModelRegistryBase(Enum):
             ],
             keywords=get_function_argument_names(model_class),
         )
-        model = model_class(**model_kwargs)
+        generator = model_class(**model_kwargs)
 
         # Create `Adapter`: defaults + standard kwargs + passed in kwargs.
         bridge_kwargs = consolidate_kwargs(
@@ -369,7 +369,7 @@ class ModelRegistryBase(Enum):
             search_space=search_space or none_throws(experiment).search_space,
             experiment=experiment,
             data=data,
-            model=model,
+            generator=generator,
             **bridge_kwargs,
         )
 

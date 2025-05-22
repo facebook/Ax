@@ -75,7 +75,7 @@ class TransformToNewSQSpecificTest(TestCase):
     def _refresh_adapter(self) -> None:
         self.adapter = Adapter(
             search_space=self.exp.search_space,
-            model=Generator(),
+            generator=Generator(),
             experiment=self.exp,
             data=self.exp.lookup_data(),
         )

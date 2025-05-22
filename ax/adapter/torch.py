@@ -79,28 +79,28 @@ from torch import Tensor
 
 logger: Logger = get_logger(__name__)
 
-FIT_MODEL_ERROR = "Model must be fit before {action}."
+FIT_MODEL_ERROR = "Generator must be fit before {action}."
 
 
 class TorchAdapter(Adapter):
-    """An adapter for using torch-based models.
+    """An adapter for using torch-based generators.
 
     Specifies an interface that is implemented by TorchGenerator. In particular,
-    model should have methods fit, predict, and gen. See TorchGenerator for the
+    generator should have methods fit, predict, and gen. See TorchGenerator for the
     API for each of these methods.
 
     Requires that all parameters have been transformed to RangeParameters
     or FixedParameters with float type and no log scale.
 
     This class converts Ax parameter types to torch tensors before passing
-    them to the model.
+    them to the generator.
     """
 
     def __init__(
         self,
         *,
         experiment: Experiment,
-        model: TorchGenerator,
+        generator: TorchGenerator,
         search_space: SearchSpace | None = None,
         data: Data | None = None,
         transforms: Sequence[type[Transform]] | None = None,
@@ -144,11 +144,11 @@ class TorchAdapter(Adapter):
             )
             self.is_moo_problem = optimization_config.is_moo_problem
 
-        # Tracks last set of observations used to fit the model, to skip
-        # model fitting when it's not necessary.
+        # Tracks last set of observations used to fit the generator, to skip
+        # generator fitting when it's not necessary.
         self._last_observations: list[Observation] | None = None
 
-        # These are set during model fitting.
+        # These are set in _fit.
         self.parameters: list[str] = []
         self.outcomes: list[str] = []
 
@@ -156,7 +156,7 @@ class TorchAdapter(Adapter):
             experiment=experiment,
             search_space=search_space,
             data=data,
-            model=model,
+            generator=generator,
             transforms=transforms,
             transform_configs=transform_configs,
             optimization_config=optimization_config,
@@ -169,11 +169,11 @@ class TorchAdapter(Adapter):
             fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
 
-        # Re-assign self.model for more precise typing.
-        self.model: TorchGenerator = model
+        # Re-assign self.generator for more precise typing.
+        self.generator: TorchGenerator = generator
 
     def feature_importances(self, metric_name: str) -> dict[str, float]:
-        importances_tensor = self.model.feature_importances()
+        importances_tensor = self.generator.feature_importances()
         importances_dict = dict(zip(self.outcomes, importances_tensor, strict=True))
         importances_arr = importances_dict[metric_name].flatten()
         return dict(zip(self.parameters, importances_arr, strict=True))
@@ -188,8 +188,8 @@ class TorchAdapter(Adapter):
 
         This method is only applicable for Multi-Objective optimization problems.
 
-        This method uses the model-estimated Pareto frontier over the in-sample points
-        to infer absolute (not relativized) objective thresholds.
+        This method uses the generator-estimated Pareto frontier over the in-sample
+        points to infer absolute (not relativized) objective thresholds.
 
         This uses a heuristic that sets the objective threshold to be a scaled nadir
         point, where the nadir point is scaled back based on the range of each
@@ -219,17 +219,17 @@ class TorchAdapter(Adapter):
                 "`infer_objective_thresholds` does not support risk measures."
             )
         # Infer objective thresholds.
-        if isinstance(self.model, MultiObjectiveLegacyBoTorchGenerator):
-            model = self.model.model
-            Xs = self.model.Xs
-        elif isinstance(self.model, BoTorchGenerator):
-            model = self.model.surrogate.model
-            Xs = self.model.surrogate.Xs
+        if isinstance(self.generator, MultiObjectiveLegacyBoTorchGenerator):
+            model = self.generator.model
+            Xs = self.generator.Xs
+        elif isinstance(self.generator, BoTorchGenerator):
+            model = self.generator.surrogate.model
+            Xs = self.generator.surrogate.Xs
         else:
             raise UnsupportedError(
-                "Model must be a MultiObjectiveLegacyBoTorchGenerator or an "
-                "appropriate Modular Botorch Model to infer_objective_thresholds. "
-                f"Found {type(self.model)}."
+                "Generator must be a MultiObjectiveLegacyBoTorchGenerator or an "
+                "appropriate Modular Botorch Generator to infer_objective_thresholds. "
+                f"Found {type(self.generator)}."
             )
 
         obj_thresholds = infer_objective_thresholds(
@@ -276,7 +276,7 @@ class TorchAdapter(Adapter):
             optimization_config=base_gen_args.optimization_config,
         )
         try:
-            xbest = self.model.best_point(
+            xbest = self.generator.best_point(
                 search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
             )
@@ -442,7 +442,7 @@ class TorchAdapter(Adapter):
                     "The values of the task feature must be integers. "
                     "This is often accomplished using a "
                     "TaskChoiceToIntTaskChoice transform. "
-                    "Check that the model is using the correct set of transforms. "
+                    "Check that the generator is using the correct set of transforms. "
                     f"Got {task_choices=}."
                 )
             datasets = [
@@ -509,8 +509,8 @@ class TorchAdapter(Adapter):
             dtype=torch.double,
             device=self.device,
         )
-        # Use the model to do the cross validation
-        f_test, cov_test = self.model.cross_validate(
+        # Use the generator to do the cross validation
+        f_test, cov_test = self.generator.cross_validate(
             datasets=datasets,
             X_test=torch.as_tensor(X_test, dtype=torch.double, device=self.device),
             search_space_digest=search_space_digest,
@@ -545,9 +545,9 @@ class TorchAdapter(Adapter):
                 is passed each element (itself a list of observation features)
                 represents a batch of points for which to evaluate the joint acquisition
                 value.
-            search_space: Search space for fitting the model.
+            search_space: Search space for fitting the generator.
             optimization_config: Optimization config defining how to optimize
-                the model.
+                the generator.
             pending_observations: A map from metric name to pending observations for
                 that metric.
             fixed_features: An ObservationFeatures object containing any features that
@@ -615,7 +615,7 @@ class TorchAdapter(Adapter):
                 for obsf in observation_features
             ]
         )
-        evals = self.model.evaluate_acquisition_function(
+        evals = self.generator.evaluate_acquisition_function(
             X=self._array_to_tensor(X),
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -685,10 +685,10 @@ class TorchAdapter(Adapter):
         from observations and the search space digest from the search space.
 
         Args:
-            search_space: A transformed search space for fitting the model.
-            observations: The observations to fit the model with. These should
+            search_space: A transformed search space for fitting the generator.
+            observations: The observations to fit the generator with. These should
                 also be transformed.
-            parameters: Names of parameters to be used in the model. Defaults to
+            parameters: Names of parameters to be used in the generator. Defaults to
                 all parameters in the search space.
             update_outcomes_and_parameters: Whether to update `self.outcomes` with
                 all outcomes found in the observations and `self.parameters` with
@@ -726,7 +726,7 @@ class TorchAdapter(Adapter):
         )
 
         # Do not support handling of contextual datasets in legacy BoTorch generators
-        if not isinstance(self.model, LegacyBoTorchGenerator):
+        if not isinstance(self.generator, LegacyBoTorchGenerator):
             datasets = self._update_w_aux_exp_datasets(datasets=datasets)
 
         if update_outcomes_and_parameters:
@@ -747,7 +747,7 @@ class TorchAdapter(Adapter):
         if observations == self._last_observations:
             logger.debug(
                 "The observations are identical to the last set of observations "
-                "used to fit the model. Skipping model fitting."
+                "used to fit the generator. Skipping generator fitting."
             )
             return
         datasets, candidate_metadata, search_space_digest = self._get_fit_args(
@@ -756,7 +756,7 @@ class TorchAdapter(Adapter):
             parameters=parameters,
             update_outcomes_and_parameters=True,
         )
-        self.model.fit(
+        self.generator.fit(
             datasets=datasets,
             search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
@@ -793,7 +793,7 @@ class TorchAdapter(Adapter):
         )
 
         # Generate the candidates
-        gen_results = self.model.gen(
+        gen_results = self.generator.gen(
             n=n,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -823,7 +823,7 @@ class TorchAdapter(Adapter):
             candidate_metadata=gen_results.candidate_metadata,
         )
         try:
-            xbest = self.model.best_point(
+            xbest = self.generator.best_point(
                 search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
             )
@@ -854,7 +854,7 @@ class TorchAdapter(Adapter):
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_predict"))
         # Convert observation features to array
         X = observation_features_to_array(self.parameters, observation_features)
-        f, cov = self.model.predict(
+        f, cov = self.generator.predict(
             X=self._array_to_tensor(X),
             use_posterior_predictive=use_posterior_predictive,
         )
@@ -961,9 +961,9 @@ class TorchAdapter(Adapter):
             else None
         )
         if risk_measure is not None:
-            if not self.model._supports_robust_optimization:
+            if not self.generator._supports_robust_optimization:
                 raise UnsupportedError(
-                    f"{self.model.__class__.__name__} does not support robust "
+                    f"{self.generator.__class__.__name__} does not support robust "
                     "optimization. Consider using modular BoTorch generator instead."
                 )
             else:
@@ -1074,9 +1074,9 @@ class TorchAdapter(Adapter):
     ) -> None:
         if len(observation_data) == 0:
             raise ValueError(
-                "Torch models cannot be fit without observation data. Possible "
-                "reasons include empty data being passed to the model's constructor "
-                "or data being excluded because it is out-of-design. Try setting "
+                "Torch generators cannot be fit without observation data. Possible "
+                "reasons include empty data being passed to the generator's constructor"
+                " or data being excluded because it is out-of-design. Try setting "
                 "`fit_out_of_design`=True during construction to fix the latter."
             )
 
@@ -1167,11 +1167,11 @@ class TorchAdapter(Adapter):
 def validate_transformed_optimization_config(
     optimization_config: OptimizationConfig, outcomes: list[str]
 ) -> None:
-    """Validate optimization config against model fitted outcomes.
+    """Validate optimization config against generator fitted outcomes.
 
     Args:
         optimization_config: Config to validate.
-        outcomes: List of metric names w/ valid model fits.
+        outcomes: List of metric names w/ valid generator fits.
 
     Raises if:
             1. In the modeling layer, absolute constraints are required, however,
@@ -1181,7 +1181,7 @@ def validate_transformed_optimization_config(
                derelativizing the constraint. If relative constraints are found at
                this layer, we raise an error as likely either `Relativize` or
                `Derelativized` transforms were expected to be applied but were not.
-            2. Optimization metrics are not present in model fitted outcomes.
+            2. Optimization metrics are not present in generator fitted outcomes.
     """
     for c in optimization_config.outcome_constraints:
         if c.relative:

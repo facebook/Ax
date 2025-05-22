@@ -84,7 +84,7 @@ class TestAdapterFactorySingleObjective(TestCase):
             experiment=exp, data=data, min_weight=0.0
         )
         self.assertIsInstance(eb_thompson, DiscreteAdapter)
-        self.assertIsInstance(eb_thompson.model, EmpiricalBayesThompsonSampler)
+        self.assertIsInstance(eb_thompson.generator, EmpiricalBayesThompsonSampler)
         thompson_run = eb_thompson.gen(n=5)
         self.assertEqual(len(thompson_run.arms), 5)
 
@@ -97,7 +97,7 @@ class TestAdapterFactorySingleObjective(TestCase):
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
         data = exp.fetch_data()
         thompson = get_thompson(experiment=exp, data=data)
-        self.assertIsInstance(thompson.model, ThompsonSampler)
+        self.assertIsInstance(thompson.generator, ThompsonSampler)
 
     def test_uniform(self) -> None:
         exp = get_branin_experiment()
