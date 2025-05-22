@@ -285,12 +285,14 @@ def choose_model_class(
 def choose_botorch_acqf_class(
     torch_opt_config: TorchOptConfig,
     datasets: Sequence[SupervisedDataset] | None,
+    dispatch_options: dict[str, Any] | None = None,
 ) -> type[AcquisitionFunction]:
     """Chooses the most suitable BoTorch `AcquisitionFunction` class.
 
     Args:
         torch_opt_config: The torch optimization config.
         datasets: The datasets that were used to fit the model.
+        dispatch_options: Additional options for choosing the acquisition function.
 
     Returns:
         A BoTorch `AcquisitionFunction` class. The current logic chooses between:
@@ -300,8 +302,14 @@ def choose_botorch_acqf_class(
             - `qLogNoisyExpectedHypervolumeImprovement`` for multi-objective
                 optimization.
     """
+    dispatch_options = dispatch_options or {}
+
     # Check if the training data is feasible.
-    if torch_opt_config.outcome_constraints is not None and datasets is not None:
+    if (
+        dispatch_options.get("use_p_feasible", True)
+        and torch_opt_config.outcome_constraints is not None
+        and datasets is not None
+    ):
         con_tfs = (
             get_outcome_constraint_transforms(torch_opt_config.outcome_constraints)
             or []

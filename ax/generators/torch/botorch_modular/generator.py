@@ -74,10 +74,13 @@ class BoTorchGenerator(TorchGenerator, Base):
             scratch on refit. NOTE: This setting is ignored during
             ``cross_validate`` if ``refit_on_cv`` is False. This is also used in
             Surrogate.model_selection.
+        dispatch_options: Optional dict of kwargs passed to
+            ``choose_botorch_acqf_class``.
     """
 
     acquisition_class: type[Acquisition]
     acquisition_options: dict[str, Any]
+    dispatch_options: dict[str, Any]
 
     surrogate_spec: SurrogateSpec | None
     _surrogate: Surrogate | None
@@ -96,6 +99,7 @@ class BoTorchGenerator(TorchGenerator, Base):
         botorch_acqf_class: type[AcquisitionFunction] | None = None,
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
+        dispatch_options: dict[str, Any] | None = None,
     ) -> None:
         # Check that only one surrogate related option is provided.
         if bool(surrogate_spec) + bool(surrogate_specs) + bool(surrogate) > 1:
@@ -123,6 +127,7 @@ class BoTorchGenerator(TorchGenerator, Base):
 
         self.acquisition_class = acquisition_class or Acquisition
         self.acquisition_options = acquisition_options or {}
+        self.dispatch_options = dispatch_options or {}
         self._user_specified_botorch_acqf_class = botorch_acqf_class
         self._botorch_acqf_class = botorch_acqf_class
 
@@ -411,7 +416,9 @@ class BoTorchGenerator(TorchGenerator, Base):
                     "`botorch_acqf_class` as part of `model_kwargs`."
                 )
             self._botorch_acqf_class = choose_botorch_acqf_class(
-                torch_opt_config=torch_opt_config, datasets=self.surrogate.training_data
+                torch_opt_config=torch_opt_config,
+                datasets=self.surrogate.training_data,
+                dispatch_options=self.dispatch_options,
             )
 
         return self.acquisition_class(
