@@ -411,7 +411,8 @@ class TestDispatchUtils(TestCase):
         sobol.gen(experiment=get_experiment(), n=1)
         # First model is actually an adapter, second is the Sobol engine.
         self.assertEqual(
-            assert_is_instance(none_throws(sobol.model).model, SobolGenerator).seed, 9
+            assert_is_instance(none_throws(sobol.model).generator, SobolGenerator).seed,
+            9,
         )
 
         with self.subTest("warns if use_saasbo is true"):

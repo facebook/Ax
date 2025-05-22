@@ -581,7 +581,7 @@ class TestGenerationStrategy(TestCase):
                 ms = none_throws(g._model_state_after_gen).copy()
                 # Compare the model state to Sobol state.
                 sobol_model = assert_is_instance(
-                    none_throws(gs.model).model, SobolGenerator
+                    none_throws(gs.model).generator, SobolGenerator
                 )
                 # Replace expected seed with the one generated in __init__.
                 expected_seed = sobol_model.seed
@@ -678,8 +678,11 @@ class TestGenerationStrategy(TestCase):
         )
         exp = get_branin_experiment()
         gs.gen(exp)
-        # pyre-fixme[16]: Optional type has no attribute `model`.
-        self.assertFalse(gs._model.model.scramble)
+        self.assertFalse(
+            assert_is_instance(
+                none_throws(gs._model).generator, SobolGenerator
+            ).scramble
+        )
 
     def test_sobol_MBM_strategy_batches(self) -> None:
         mock_MBM_gen = self.mock_torch_adapter.return_value.gen
@@ -714,7 +717,7 @@ class TestGenerationStrategy(TestCase):
         def get_sobol(experiment: Experiment) -> RandomAdapter:
             return RandomAdapter(
                 experiment=experiment,
-                model=SobolGenerator(),
+                generator=SobolGenerator(),
                 transforms=Cont_X_trans,
             )
 
@@ -1569,7 +1572,7 @@ class TestGenerationStrategy(TestCase):
                 ms = none_throws(g._model_state_after_gen).copy()
                 # Compare the model state to Sobol state.
                 sobol_model = assert_is_instance(
-                    none_throws(self.sobol_MBM_GS_nodes.model).model, SobolGenerator
+                    none_throws(self.sobol_MBM_GS_nodes.model).generator, SobolGenerator
                 )
                 # Replace expected seed with the one generated in __init__.
                 expected_seed = sobol_model.seed

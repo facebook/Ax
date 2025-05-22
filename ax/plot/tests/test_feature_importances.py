@@ -48,7 +48,7 @@ def get_sensitivity_values(ax_model: Adapter) -> dict:
 
     Returns map {'metric_name': {'parameter_name': sensitivity_value}}
     """
-    generator = assert_is_instance(ax_model.model, LegacyBoTorchGenerator)
+    generator = assert_is_instance(ax_model.generator, LegacyBoTorchGenerator)
     if hasattr(generator.model.covar_module, "outputscale"):
         # pyre-ignore [16]: Covar modules are difficult to type.
         ls = generator.model.covar_module.base_kernel.lengthscale.squeeze()
