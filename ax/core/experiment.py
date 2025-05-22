@@ -940,13 +940,14 @@ class Experiment(Base):
         MUST resolve your results first and use attach_data directly instead.
         """
 
+        completed_trial_indices = self.trial_indices_by_status[TrialStatus.COMPLETED]
         oks: list[Ok[Data, MetricFetchE]] = []
         for trial_index, metrics in results.items():
             for metric_name, result in metrics.items():
                 if isinstance(result, Ok):
                     oks.append(result)
                 elif isinstance(result, Err):
-                    logger.error(
+                    msg = (
                         "Discovered Metric fetching Err while attaching data "
                         f"{result.err}. "
                         "Ignoring for now -- will retry query on next call to fetch."
@@ -956,6 +957,14 @@ class Experiment(Base):
                         metric_name=metric_name,
                         metric_fetch_e=result.err,
                     )
+                    if trial_index in completed_trial_indices:
+                        logger.error(msg)
+                    else:
+                        msg += (
+                            f" Suppressing error for trial {trial_index} not in "
+                            "COMPLETED state."
+                        )
+                        logger.debug(msg)
 
         if len(oks) < 1:
             return None
