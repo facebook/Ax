@@ -37,8 +37,8 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
+from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.metrics.branin import BraninMetric
-from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY, register_metrics
 from ax.storage.registry_bundle import RegistryBundle

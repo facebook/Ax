@@ -29,8 +29,8 @@ from ax.core.observation import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
+from ax.generators.base import Generator
 from ax.metrics.branin import BraninMetric
-from ax.models.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import (

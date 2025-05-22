@@ -17,7 +17,7 @@ from ax.adapter.transforms.log_y import match_ci_width
 from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy

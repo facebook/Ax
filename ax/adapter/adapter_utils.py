@@ -50,7 +50,7 @@ from ax.core.utils import (  # noqa F402: Temporary import for backward compatib
     get_pending_observation_features_based_on_trial_status,  # noqa F401
 )
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.models.torch.botorch_moo_defaults import (
+from ax.generators.torch.botorch_moo_defaults import (
     get_weighted_mc_objective_and_objective_thresholds,
     pareto_frontier_evaluator,
 )

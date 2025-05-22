@@ -11,18 +11,15 @@ from __future__ import annotations
 from collections.abc import Iterable
 from logging import Logger
 from math import isnan
-
 from typing import Any, SupportsFloat, TYPE_CHECKING
 
 from ax.adapter.transforms.base import Transform
-
 from ax.core import ParameterType
-
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 

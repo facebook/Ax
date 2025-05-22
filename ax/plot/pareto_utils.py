@@ -40,7 +40,7 @@ from ax.core.outcome_constraint import (
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
-from ax.models.torch_base import TorchGenerator
+from ax.generators.torch_base import TorchGenerator
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
 from botorch.acquisition.monte_carlo import qSimpleRegret

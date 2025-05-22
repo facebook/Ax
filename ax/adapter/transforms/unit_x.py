@@ -16,7 +16,7 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy

@@ -38,10 +38,10 @@ from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
-from ax.models.torch.botorch_modular.utils import ModelConfig
-from ax.models.torch_base import TorchGenerator, TorchGenResults
+from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.generators.torch.botorch_modular.utils import ModelConfig
+from ax.generators.torch_base import TorchGenerator, TorchGenResults
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import MSE

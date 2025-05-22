@@ -20,7 +20,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 
 
 if TYPE_CHECKING:

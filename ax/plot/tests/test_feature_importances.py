@@ -11,7 +11,7 @@ import json
 import torch
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
-from ax.models.torch.botorch import LegacyBoTorchGenerator
+from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.plot.base import AxPlotConfig
 from ax.plot.feature_importances import (
     plot_feature_importance_by_feature,

@@ -21,7 +21,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
-from ax.models.base import Generator
+from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from pyre_extensions import assert_is_instance
 

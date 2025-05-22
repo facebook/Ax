@@ -49,7 +49,7 @@ from ax.generation_strategy.transition_criterion import (
     MinimumPreferenceOccurances,
     MinTrials,
 )
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.testing.core_stubs import (

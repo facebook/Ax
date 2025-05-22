@@ -20,7 +20,7 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 from scipy.stats import norm
 

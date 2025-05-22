@@ -39,8 +39,8 @@ from ax.core.outcome_constraint import (
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
-from ax.models.base import Generator
-from ax.models.winsorization_config import WinsorizationConfig
+from ax.generators.base import Generator
+from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_observations_with_invalid_value,

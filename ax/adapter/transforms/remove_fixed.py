@@ -14,7 +14,7 @@ from ax.adapter.transforms.utils import construct_new_search_space
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy

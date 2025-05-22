@@ -21,8 +21,8 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
-from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
-from ax.models.discrete.thompson import ThompsonSampler
+from ax.generators.discrete.eb_thompson import EmpiricalBayesThompsonSampler
+from ax.generators.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,

@@ -22,13 +22,13 @@ from ax.adapter.torch import TorchAdapter
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.exceptions.core import UserInputError
-from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
-from ax.models.discrete.thompson import ThompsonSampler
-from ax.models.random.sobol import SobolGenerator
-from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
+from ax.generators.discrete.eb_thompson import EmpiricalBayesThompsonSampler
+from ax.generators.discrete.thompson import ThompsonSampler
+from ax.generators.random.sobol import SobolGenerator
+from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -123,7 +123,7 @@ class ModelRegistryTest(TestCase):
         gpei = Generators.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(gpei, TorchAdapter)
         self.assertEqual(gpei._model_key, "Legacy_GPEI")
-        botorch_defaults = "ax.models.torch.botorch_defaults"
+        botorch_defaults = "ax.generators.torch.botorch_defaults"
         # Check that the callable kwargs and the torch kwargs were recorded.
         self.assertEqual(
             gpei._model_kwargs,
@@ -142,7 +142,7 @@ class ModelRegistryTest(TestCase):
                 },
                 "model_predictor": {
                     "is_callable_as_path": True,
-                    "value": "ax.models.torch.utils.predict_from_model",
+                    "value": "ax.generators.torch.utils.predict_from_model",
                 },
                 "best_point_recommender": {
                     "is_callable_as_path": True,

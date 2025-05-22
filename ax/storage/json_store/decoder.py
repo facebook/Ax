@@ -48,8 +48,8 @@ from ax.generation_strategy.transition_criterion import (
     TransitionCriterion,
     TrialBasedCriterion,
 )
-from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
-from ax.models.torch.botorch_modular.utils import ModelConfig
+from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
+from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoders import (
     batch_trial_from_json,
     botorch_component_from_json,

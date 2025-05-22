@@ -31,7 +31,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.model import BoTorchGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,

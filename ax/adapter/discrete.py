@@ -17,7 +17,6 @@ from ax.adapter.torch import (
     validate_transformed_optimization_config,
 )
 from ax.adapter.transforms.base import Transform
-
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import (
@@ -31,8 +30,8 @@ from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValueList
 from ax.exceptions.core import UserInputError
-from ax.models.discrete_base import DiscreteGenerator
-from ax.models.types import TConfig
+from ax.generators.discrete_base import DiscreteGenerator
+from ax.generators.types import TConfig
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."

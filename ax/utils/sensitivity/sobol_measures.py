@@ -14,8 +14,8 @@ import numpy.typing as npt
 import torch
 from ax.adapter.torch import TorchAdapter
 from ax.core.search_space import SearchSpaceDigest
-from ax.models.torch.botorch import LegacyBoTorchGenerator
-from ax.models.torch.botorch_modular.model import (
+from ax.generators.torch.botorch import LegacyBoTorchGenerator
+from ax.generators.torch.botorch_modular.model import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
 from ax.utils.sensitivity.derivative_measures import (

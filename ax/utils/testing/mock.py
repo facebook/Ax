@@ -55,14 +55,15 @@ def mock_botorch_optimize_context_manager(
     with ExitStack() as es:
         mock_mcmc_mbm = es.enter_context(
             mock.patch(
-                "ax.models.torch.botorch_modular.utils.fit_fully_bayesian_model_nuts",
+                "ax.generators.torch.botorch_modular.utils"
+                ".fit_fully_bayesian_model_nuts",
                 wraps=minimal_fit_fully_bayesian,
             )
         )
 
         mock_mixed_optimizer = es.enter_context(
             mock.patch(
-                "ax.models.torch.botorch_modular.acquisition."
+                "ax.generators.torch.botorch_modular.acquisition."
                 "optimize_acqf_mixed_alternating",
                 wraps=minimal_mixed_optimizer,
             )

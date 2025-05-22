@@ -30,7 +30,7 @@ from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import estimate_early_stopping_savings
-from ax.models.torch_base import TorchGenerator
+from ax.generators.torch_base import TorchGenerator
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws

@@ -35,7 +35,7 @@ from ax.exceptions.core import (
     UnsupportedError,
     UserInputError,
 )
-from ax.models.types import TConfig, WinsorizationConfig
+from ax.generators.types import TConfig, WinsorizationConfig
 from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:

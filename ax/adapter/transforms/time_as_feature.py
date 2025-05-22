@@ -18,7 +18,7 @@ from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from ax.utils.common.timeutils import unixtime_to_pandas_ts
 from pyre_extensions import assert_is_instance, none_throws
 

@@ -19,7 +19,7 @@ from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConst
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
 from ax.exceptions.core import DataRequiredError
-from ax.models.types import TConfig
+from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 
 

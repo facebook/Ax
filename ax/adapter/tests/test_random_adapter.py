@@ -23,8 +23,8 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import SearchSpaceExhausted
-from ax.models.random.base import RandomGenerator
-from ax.models.random.sobol import SobolGenerator
+from ax.generators.random.base import RandomGenerator
+from ax.generators.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_data,

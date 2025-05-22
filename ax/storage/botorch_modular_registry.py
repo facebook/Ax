@@ -11,13 +11,13 @@ from typing import Any
 import torch
 
 # Ax `Acquisition` & other MBM imports
-from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.kernels import (
+from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.kernels import (
     DefaultMaternKernel,
     DefaultRBFKernel,
     ScaleMaternKernel,
 )
-from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
+from ax.generators.torch.botorch_modular.sebo import SEBOAcquisition
 
 # BoTorch `AcquisitionFunction` imports
 from botorch.acquisition.acquisition import AcquisitionFunction
