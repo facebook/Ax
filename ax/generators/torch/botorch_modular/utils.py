@@ -23,7 +23,10 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.logei import qLogNoisyExpectedImprovement
+from botorch.acquisition.logei import (
+    qLogNoisyExpectedImprovement,
+    qLogProbabilityOfFeasibility,
+)
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
@@ -40,6 +43,7 @@ from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
+from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.types import _DefaultType, DEFAULT
@@ -280,12 +284,40 @@ def choose_model_class(
 
 def choose_botorch_acqf_class(
     torch_opt_config: TorchOptConfig,
+    datasets: Sequence[SupervisedDataset] | None,
 ) -> type[AcquisitionFunction]:
-    """Chooses a BoTorch ``AcquisitionFunction`` class.
+    """Chooses the most suitable BoTorch `AcquisitionFunction` class.
 
-    Current logic relies on ``TorchOptConfig.is_moo`` field to determine
-    whether to use qLogNEHVI (for MOO) or qLogNEI for (SOO).
+    Args:
+        torch_opt_config: The torch optimization config.
+        datasets: The datasets that were used to fit the model.
+
+    Returns:
+        A BoTorch `AcquisitionFunction` class. The current logic chooses between:
+            - `qLogProbabilityOfFeasibility` if there are outcome constraints and
+                no feasible point has been found.
+            - `qLogNoisyExpectedImprovement` for single-objective optimization.
+            - `qLogNoisyExpectedHypervolumeImprovement`` for multi-objective
+                optimization.
     """
+    # Check if the training data is feasible.
+    if torch_opt_config.outcome_constraints is not None and datasets is not None:
+        con_tfs = (
+            get_outcome_constraint_transforms(torch_opt_config.outcome_constraints)
+            or []
+        )
+        # NOTE: `convert_to_block_design` will drop points that are only observed by
+        # some of the metrics which is natural as we are using observed values to
+        # determine feasibility.
+        dataset = convert_to_block_design(datasets=datasets, force=True)[0]
+        con_observed = torch.stack([con(dataset.Y) for con in con_tfs], dim=-1)
+        feas_point_found = (con_observed <= 0).all(dim=-1).any().item()
+
+        if not feas_point_found:
+            acqf_class = qLogProbabilityOfFeasibility
+            logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
+            return acqf_class
+
     if torch_opt_config.is_moo:
         acqf_class = qLogNoisyExpectedHypervolumeImprovement
     else:
