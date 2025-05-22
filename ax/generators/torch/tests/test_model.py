@@ -19,13 +19,11 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.exceptions.model import ModelError
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.generators.torch.botorch_modular.model import (
-    BoTorchGenerator,
-    choose_botorch_acqf_class,
-)
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import (
+    choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
     fit_botorch_model,

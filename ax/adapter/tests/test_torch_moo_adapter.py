@@ -31,7 +31,7 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
 )
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.generators.torch.botorch_moo_defaults import (
     infer_objective_thresholds,

@@ -96,11 +96,11 @@ from ax.generation_strategy.transition_criterion import (
     TrialBasedCriterion,
 )
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.kernels import (
     DefaultRBFKernel,
     ScaleMaternKernel,
 )
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
 from ax.generators.torch.botorch_modular.sebo import SEBOAcquisition
 from ax.generators.torch.botorch_modular.surrogate import (
     ModelConfig,

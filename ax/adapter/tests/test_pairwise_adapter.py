@@ -12,7 +12,7 @@ from ax.adapter.adapter_utils import _binary_pref_to_comp_pair, _consolidate_com
 from ax.adapter.pairwise import PairwiseAdapter
 from ax.core import Metric, Objective, OptimizationConfig
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase

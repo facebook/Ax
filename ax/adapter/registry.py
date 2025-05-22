@@ -61,7 +61,7 @@ from ax.generators.discrete.thompson import ThompsonSampler
 from ax.generators.random.sobol import SobolGenerator
 from ax.generators.random.uniform import UniformGenerator
 from ax.generators.torch.botorch import LegacyBoTorchGenerator
-from ax.generators.torch.botorch_modular.model import (
+from ax.generators.torch.botorch_modular.generator import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
 from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec

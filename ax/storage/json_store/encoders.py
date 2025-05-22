@@ -57,7 +57,7 @@ from ax.generation_strategy.model_spec import (
     GeneratorSpec,
 )
 from ax.generation_strategy.transition_criterion import TransitionCriterion
-from ax.generators.torch.botorch_modular.model import BoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
