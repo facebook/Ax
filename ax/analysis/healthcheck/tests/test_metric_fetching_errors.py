@@ -13,7 +13,7 @@ from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsA
 from ax.core.base_trial import BaseTrial
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
-from ax.service.scheduler import Scheduler, SchedulerOptions
+from ax.service.orchestrator import Orchestrator, OrchestratorOptions
 from ax.utils.common.result import Err
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -84,15 +84,15 @@ class TestMetricFetchingErrors(TestCase):
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.add_tracking_metric(BogusMetricWithException(name="bogus_metric"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
+        # AND GIVEN that experiment has tried to fetch data through the orchestrator
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 1)
         # WHEN we compute MetricFetchingErrorsAnalysis with a traceback creator
         card = MetricFetchingErrorsAnalysis(
@@ -143,15 +143,15 @@ class TestMetricFetchingErrors(TestCase):
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.add_tracking_metric(BogusMetricNoException(name="bogus_metric"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
+        # AND GIVEN that experiment has tried to fetch data through the orchestrator
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 1)
         # WHEN we compute MetricFetchingErrorsAnalysis without a traceback creator
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
@@ -196,18 +196,18 @@ class TestMetricFetchingErrors(TestCase):
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.add_tracking_metric(BogusMetricWithException(name="bogus_metric"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
+        # AND GIVEN that experiment has tried to fetch data through the orchestrator
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         # so it fetches again
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 2)
         # WHEN we compute MetricFetchingErrorsAnalysis with max_records=1
         card = MetricFetchingErrorsAnalysis(max_records=1).compute(experiment=exp)
@@ -224,18 +224,18 @@ class TestMetricFetchingErrors(TestCase):
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.add_tracking_metric(BogusMetricWithException(name="bogus_metric"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
+        # AND GIVEN that experiment has tried to fetch data through the orchestrator
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         # so it fetches again
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 2)
         # WHEN we compute MetricFetchingErrorsAnalysis with max_records=1
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
