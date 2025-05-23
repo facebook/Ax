@@ -183,7 +183,10 @@ class Experiment(Base):
         if optimization_config is not None:
             self.optimization_config = optimization_config
 
-        self._metric_fetching_errors: list[dict[str, Union[int, str]]] = []
+        # Keyed on tuple[trial_index, metric_name].
+        self._metric_fetching_errors: dict[
+            tuple[int, str], dict[str, Union[int, str]]
+        ] = {}
 
     @property
     def has_name(self) -> bool:
@@ -946,6 +949,7 @@ class Experiment(Base):
             for metric_name, result in metrics.items():
                 if isinstance(result, Ok):
                     oks.append(result)
+                    self._metric_fetching_errors.pop((trial_index, metric_name), None)
                 elif isinstance(result, Err):
                     msg = (
                         "Discovered Metric fetching Err while attaching data "
@@ -1554,7 +1558,7 @@ class Experiment(Base):
             error_data["reason"] = reason_for_failure
             error_data["traceback"] = metric_fetch_e.tb_str() or ""
 
-        self._metric_fetching_errors.append(error_data)
+        self._metric_fetching_errors[(trial_index, metric_name)] = error_data
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + f"({self._name})"
