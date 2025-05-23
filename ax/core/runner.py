@@ -33,7 +33,7 @@ class Runner(Base, SerializationMixin, ABC):
     def run_metadata_report_keys(self) -> list[str]:
         """A list of keys of the metadata dict returned by `run()` that are
         relevant outside the runner-internal impolementation. These can e.g.
-        be reported in `Scheduler.report_results()`."""
+        be reported in `orchestrator.report_results()`."""
         return []
 
     @abstractmethod
@@ -53,7 +53,7 @@ class Runner(Base, SerializationMixin, ABC):
     ) -> dict[int, dict[str, Any]]:
         """Runs a single evaluation for each of the given trials. Useful when deploying
         multiple trials at once is more efficient than deploying them one-by-one.
-        Used in Ax ``Scheduler``.
+        Used in Ax ``Orchestrator``.
 
         NOTE: By default simply loops over `run_trial`. Should be overwritten
         if deploying multiple trials in batch is preferable.
@@ -72,15 +72,15 @@ class Runner(Base, SerializationMixin, ABC):
 
     def poll_available_capacity(self) -> int:
         """Checks how much available capacity there is to schedule trial evaluations.
-        Required for runners used with Ax ``Scheduler``.
+        Required for runners used with Ax ``Orchestrator``.
 
         NOTE: This method might be difficult to implement in some systems. Returns -1
         if capacity of the system is "unlimited" or "unknown"
-        (meaning that the ``Scheduler`` should be trying to schedule as many trials
-        as is possible without violating scheduler settings). There is no need to
-        artificially force this method to limit capacity; ``Scheduler`` has other
+        (meaning that the ``Orchestrator`` should be trying to schedule as many trials
+        as is possible without violating Orchestrator settings). There is no need to
+        artificially force this method to limit capacity; ``Orchestrator`` has other
         limitations in place to limit number of trials running at once,
-        like the ``SchedulerOptions.max_pending_trials`` setting, or
+        like the ``OrchestratorOptions.max_pending_trials`` setting, or
         more granular control in the form of the `max_parallelism`
         setting in each of the `GenerationStep`s of a `GenerationStrategy`).
 
@@ -95,7 +95,7 @@ class Runner(Base, SerializationMixin, ABC):
     ) -> dict[core.base_trial.TrialStatus, set[int]]:
         """Checks the status of any non-terminal trials and returns their
         indices as a mapping from TrialStatus to a list of indices. Required
-        for runners used with Ax ``Scheduler``.
+        for runners used with Ax ``Orchestrator``.
 
         NOTE: Does not need to handle waiting between polling calls while trials
         are running; this function should just perform a single poll.
