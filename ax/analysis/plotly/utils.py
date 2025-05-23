@@ -41,6 +41,34 @@ MARKER_BLUE = "rgba(0, 0, 255, 0.3)"  # slightly more opaque than the CI blue
 CANDIDATE_RED = "rgba(220, 20, 60, 0.3)"
 CANDIDATE_CI_RED = "rgba(220, 20, 60, 0.2)"
 
+# Colors sampled from Botorch flame logo; scale created in N7237073
+BOTORCH_COLOR_SCALE = [
+    "#f7931e",  # Botorch orange
+    "#eb882d",
+    "#df7d3c",
+    "#d3724b",
+    "#c7685a",
+    "#bb5d69",
+    "#af5278",
+    "#a34887",
+    "#973d96",
+    "#8b32a5",
+    "#7f28b5",  # Botorch purple
+    "#792fbb",
+    "#7436c1",
+    "#6f3dc7",
+    "#6a44cd",
+    "#654bd4",
+    "#6052da",
+    "#5b59e0",
+    "#5660e6",
+    "#5167ec",
+    "#4c6ef3",  # Botorch blue
+]
+AX_BLUE = "#5078f9"  # rgb code: rgb(80, 120, 249)
+LIGHT_AX_BLUE = "#adc0fd"  # rgb(173, 192, 253)
+
+
 # Splat this into a go.Scatter initializer when drawing a line that represents the
 # cummulative best, Pareto frontier, etc. for a unified look and feel.
 BEST_LINE_SETTINGS: dict[str, str | dict[str, str] | bool] = {
@@ -56,9 +84,11 @@ BEST_LINE_SETTINGS: dict[str, str | dict[str, str] | bool] = {
     "hoverinfo": "skip",
 }
 
-# Use the same continuous sequential color scale for all plots. Plasma uses purples for
+# Use the same continuous sequential color scale for all plots. Viridis uses purples for
 # low values and transitions to yellows for high values.
-METRIC_CONTINUOUS_COLOR_SCALE: list[str] = px.colors.sequential.Plasma
+METRIC_CONTINUOUS_COLOR_SCALE: list[str] = px.colors.colorbrewer.PRGn
+COLOR_FOR_INCREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[8]  # lighter green
+COLOR_FOR_DECREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[2]  # lighter purple
 
 # Move the legened to the bottom, and make horizontal
 LEGEND_POSITION: dict[str, Union[float, str]] = {
@@ -71,7 +101,6 @@ LEGEND_POSITION: dict[str, Union[float, str]] = {
 }
 
 MARGIN_REDUCUTION: dict[str, int] = {"t": 50}
-
 
 # Use a consistent color for each TrialStatus name, sourced from
 # the default Plotly color palette. See https://plotly.com/python/discrete-color/
@@ -122,6 +151,29 @@ def trial_status_to_plotly_color(
         px.colors.qualitative.Plotly[8],
     )
 
+    return get_scatter_point_color(hex_color=hex_color, ci_transparency=ci_transparency)
+
+
+def trial_index_to_color(
+    trial_index: int,
+    max_trial_index: int,
+    ci_transparency: bool = False,
+) -> str:
+    """
+    Map trial index to a color from the Botorch color scheme.
+
+    Args:
+        trial_index: The index of the trial.
+        max_trial_index: The maximum trial index to normalize the color mapping.
+        ci_transparency: Whether to apply transparency for confidence intervals.
+
+    Returns:
+        A color string in rgba format.
+    """
+    # Normalize the trial index to a value between 0 and 1
+    normalized_index = 0 if max_trial_index == 0 else trial_index / max_trial_index
+    color_index = int(normalized_index * (len(BOTORCH_COLOR_SCALE) - 1))
+    hex_color = BOTORCH_COLOR_SCALE[color_index]
     return get_scatter_point_color(hex_color=hex_color, ci_transparency=ci_transparency)
 
 
