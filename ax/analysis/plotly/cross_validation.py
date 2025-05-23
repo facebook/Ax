@@ -14,11 +14,11 @@ from ax.adapter.cross_validation import cross_validate
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import get_nudge_value, get_scatter_point_color
+from ax.analysis.plotly.utils import AX_BLUE, get_nudge_value, get_scatter_point_color
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from plotly import express as px, graph_objects as go
+from plotly import graph_objects as go
 
 
 class CrossValidationPlot(PlotlyAnalysis):
@@ -269,7 +269,7 @@ def _prepare_plot(
             marker={
                 # Plotly blue
                 "color": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
+                    hex_color=AX_BLUE,
                     ci_transparency=False,
                 ),
             },
@@ -278,7 +278,7 @@ def _prepare_plot(
                 "array": df["observed_95_ci"],
                 "visible": True,
                 "color": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
+                    hex_color=AX_BLUE,
                     ci_transparency=True,
                 ),
             },
@@ -287,7 +287,7 @@ def _prepare_plot(
                 "array": df["predicted_95_ci"],
                 "visible": True,
                 "color": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
+                    hex_color=AX_BLUE,
                     ci_transparency=True,
                 ),
             },
@@ -300,7 +300,7 @@ def _prepare_plot(
             ),
             hoverlabel={
                 "bgcolor": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
+                    hex_color=AX_BLUE,
                     ci_transparency=True,
                 ),
                 "font": {"color": "black"},

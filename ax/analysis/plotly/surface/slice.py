@@ -19,6 +19,7 @@ from ax.analysis.plotly.surface.utils import (
     select_fixed_value,
 )
 from ax.analysis.plotly.utils import (
+    AX_BLUE,
     get_scatter_point_color,
     select_metric,
     truncate_label,
@@ -28,7 +29,7 @@ from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from plotly import express as px, graph_objects as go
+from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
 
@@ -227,13 +228,11 @@ def _prepare_plot(
     y_upper = (df[f"{metric_name}_mean"] + 1.96 * df[f"{metric_name}_sem"]).tolist()
     y_lower = (df[f"{metric_name}_mean"] - 1.96 * df[f"{metric_name}_sem"]).tolist()
 
-    plotly_blue = px.colors.qualitative.Plotly[0]
-
     # Draw a line at the mean and a shaded region between the upper and lower bounds
     line = go.Scatter(
         x=x,
         y=y,
-        line={"color": plotly_blue},
+        line={"color": AX_BLUE},
         mode="lines",
         name=metric_name,
         showlegend=False,
@@ -244,7 +243,7 @@ def _prepare_plot(
         # Concatenate upper and lower bounds in reverse order
         y=y_upper + y_lower[::-1],
         fill="toself",
-        fillcolor=get_scatter_point_color(hex_color=plotly_blue, ci_transparency=True),
+        fillcolor=get_scatter_point_color(hex_color=AX_BLUE, ci_transparency=True),
         line={"color": "rgba(255,255,255,0)"},  # Make "line" transparent
         hoverinfo="skip",
         showlegend=False,
