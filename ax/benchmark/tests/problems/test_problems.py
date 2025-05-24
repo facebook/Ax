@@ -9,7 +9,10 @@
 from unittest.mock import patch
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.benchmark.problems.registry import BENCHMARK_PROBLEM_REGISTRY, get_problem
+from ax.benchmark.problems.registry import (
+    BENCHMARK_PROBLEM_REGISTRY,
+    get_benchmark_problem,
+)
 from ax.benchmark.problems.runtime_funcs import int_from_params
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import get_mock_lcbench_data
@@ -29,7 +32,7 @@ class TestProblems(TestCase):
                 "lcbench.early_stopping.load_lcbench_data",
                 return_value=get_mock_lcbench_data(),
             ), patch.object(Pipeline, "fit"):
-                problem = get_problem(problem_key=name)
+                problem = get_benchmark_problem(problem_key=name)
             self.assertIsInstance(problem, BenchmarkProblem, msg=name)
 
     def test_name(self) -> None:
@@ -47,7 +50,7 @@ class TestProblems(TestCase):
             for name in ["Discrete Ackley", "Discrete Hartmann", "Discrete Rosenbrock"]
         ]
         for registry_key, problem_name in expected_names:
-            problem = get_problem(problem_key=registry_key)
+            problem = get_benchmark_problem(problem_key=registry_key)
             self.assertEqual(problem.name, problem_name)
 
     def test_no_duplicates(self) -> None:
@@ -59,7 +62,7 @@ class TestProblems(TestCase):
             "lcbench.early_stopping.load_lcbench_data",
             return_value=get_mock_lcbench_data(),
         ), patch.object(Pipeline, "fit"):
-            names = {get_problem(problem_key=key).name for key in keys}
+            names = {get_benchmark_problem(problem_key=key).name for key in keys}
 
         self.assertEqual(len(keys), len(names))
 
@@ -67,21 +70,21 @@ class TestProblems(TestCase):
         registry = {
             "test_problem": BENCHMARK_PROBLEM_REGISTRY["branin"],
         }
-        problem = get_problem(problem_key="test_problem", registry=registry)
+        problem = get_benchmark_problem(problem_key="test_problem", registry=registry)
         self.assertEqual(problem.name, "Branin")
         with self.assertRaises(KeyError):
-            get_problem(problem_key="branin", registry=registry)
+            get_benchmark_problem(problem_key="branin", registry=registry)
 
     def test_registry_kwargs_not_mutated(self) -> None:
         entry = BENCHMARK_PROBLEM_REGISTRY["jenatton"]
         expected_kws = {"num_trials": 50, "observe_noise_sd": False}
         self.assertEqual(entry.factory_kwargs, expected_kws)
-        problem = get_problem(problem_key="jenatton", num_trials=5)
+        problem = get_benchmark_problem(problem_key="jenatton", num_trials=5)
         self.assertEqual(problem.num_trials, 5)
         self.assertEqual(
             BENCHMARK_PROBLEM_REGISTRY["jenatton"].factory_kwargs, expected_kws
         )
-        problem = get_problem(problem_key="jenatton")
+        problem = get_benchmark_problem(problem_key="jenatton")
         self.assertEqual(problem.num_trials, 50)
 
     def test_runtime_funcs(self) -> None:
