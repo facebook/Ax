@@ -359,7 +359,7 @@ class TestAdapterUtils(TestCase):
     def test_get_in_desing_adapter_training_data(self) -> None:
         def get_adapter(min: float, max: float) -> TorchAdapter:
             return TorchAdapter(
-                model=BoTorchGenerator(),
+                generator=BoTorchGenerator(),
                 experiment=get_experiment_with_observations(
                     observations=[[0.5, 1.0], [1.5, 2.0]],
                     parameterizations=[
