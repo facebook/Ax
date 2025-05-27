@@ -1787,7 +1787,7 @@ class SQAStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(
-            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum,
+            new_generation_strategy._nodes[0].generator_spec_to_gen_from.model_enum,
             Generators,
         )
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
@@ -1844,7 +1844,7 @@ class SQAStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(
-            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum,
+            new_generation_strategy._nodes[0].generator_spec_to_gen_from.model_enum,
             Generators,
         )
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)

@@ -1290,7 +1290,9 @@ class ReportUtilsTest(TestCase):
         scheduler.run_n_trials(3)
 
         # Set fitted model to None to test refitting.
-        scheduler.generation_strategy._curr.model_spec_to_gen_from._fitted_model = None
+        scheduler.generation_strategy._curr.generator_spec_to_gen_from._fitted_model = (
+            None
+        )
 
         # Threshold 1.0 (should always generate a warning)
         msg = warn_if_unpredictable_metrics(
