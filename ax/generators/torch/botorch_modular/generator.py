@@ -74,6 +74,8 @@ class BoTorchGenerator(TorchGenerator, Base):
             scratch on refit. NOTE: This setting is ignored during
             ``cross_validate`` if ``refit_on_cv`` is False. This is also used in
             Surrogate.model_selection.
+        use_p_feasible: Whether we consider dispatching to
+            ``qLogProbabilityOfFeasibility`` in ``choose_botorch_acqf_class``.
     """
 
     acquisition_class: type[Acquisition]
@@ -96,6 +98,7 @@ class BoTorchGenerator(TorchGenerator, Base):
         botorch_acqf_class: type[AcquisitionFunction] | None = None,
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
+        use_p_feasible: bool = True,
     ) -> None:
         # Check that only one surrogate related option is provided.
         if bool(surrogate_spec) + bool(surrogate_specs) + bool(surrogate) > 1:
@@ -128,6 +131,7 @@ class BoTorchGenerator(TorchGenerator, Base):
 
         self.refit_on_cv = refit_on_cv
         self.warm_start_refit = warm_start_refit
+        self.use_p_feasible = use_p_feasible
 
     @property
     def surrogate(self) -> Surrogate:
@@ -411,7 +415,9 @@ class BoTorchGenerator(TorchGenerator, Base):
                     "`botorch_acqf_class` as part of `model_kwargs`."
                 )
             self._botorch_acqf_class = choose_botorch_acqf_class(
-                torch_opt_config=torch_opt_config, datasets=self.surrogate.training_data
+                torch_opt_config=torch_opt_config,
+                datasets=self.surrogate.training_data,
+                use_p_feasible=self.use_p_feasible,
             )
 
         return self.acquisition_class(

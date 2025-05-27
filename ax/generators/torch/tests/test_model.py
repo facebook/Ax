@@ -840,6 +840,28 @@ class BoTorchGeneratorTest(TestCase):
             mock_choose_botorch_acqf_class.assert_called()
             mock_choose_botorch_acqf_class.reset_mock()
             self.assertEqual(points.shape, torch.Size([1]))
+            # Setting use_p_feasible to False should turn off pFeas
+            model = BoTorchGenerator(
+                surrogate=self.surrogate,
+                acquisition_class=Acquisition,
+                acquisition_options=self.acquisition_options,
+                use_p_feasible=False,
+            )
+            model.surrogate.fit(
+                datasets=datasets,
+                search_space_digest=self.search_space_digest,
+            )
+            gen_results = model.gen(
+                n=1,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=torch_opt_config,
+            )
+            self.assertEqual(
+                model._botorch_acqf_class,
+                qLogNoisyExpectedHypervolumeImprovement
+                if torch_opt_config.is_moo
+                else qLogNoisyExpectedImprovement,
+            )
 
     @mock_botorch_optimize
     def test_surrogate_model_options_propagation(self) -> None:
