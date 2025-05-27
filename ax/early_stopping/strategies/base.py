@@ -30,6 +30,7 @@ from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import estimate_early_stopping_savings
+from ax.generation_strategy.generation_node import GenerationNode
 from ax.generators.torch_base import TorchGenerator
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
@@ -109,6 +110,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self,
         trial_indices: set[int],
         experiment: Experiment,
+        current_node: GenerationNode | None = None,
     ) -> dict[int, str | None]:
         """Decide whether to complete trials before evaluation is fully concluded.
 
@@ -118,6 +120,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         Args:
             trial_indices: Indices of candidate trials to stop early.
             experiment: Experiment that contains the trials and other contextual data.
+            current_node: The current ``GenerationNode`` on the ``GenerationStrategy``
+                used to generate trials for the ``Experiment``. Early stopping
+                strategies may utilize components of the current node when making
+                stopping decisions.
 
         Returns:
             A dictionary mapping trial indices that should be early stopped to

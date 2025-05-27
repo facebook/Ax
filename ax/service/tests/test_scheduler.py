@@ -46,6 +46,7 @@ from ax.exceptions.core import (
 from ax.exceptions.generation_strategy import AxGenerationException
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import (
+    GenerationNode,
     GenerationStep,
     GenerationStrategy,
 )
@@ -1180,7 +1181,7 @@ class TestAxScheduler(TestCase):
                 self,
                 trial_indices: set[int],
                 experiment: Experiment,
-                **kwargs: dict[str, Any],
+                current_node: GenerationNode | None = None,
             ) -> dict[int, str | None]:
                 # Make sure that we can lookup data for the trial,
                 # even though we won't use it in this dummy strategy

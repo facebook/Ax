@@ -29,8 +29,7 @@ class TestEarlyStoppingUtils(TestCase):
         }
         actual = early_stopping_utils.should_stop_trials_early(
             early_stopping_strategy=DummyEarlyStoppingStrategy(expected),
-            # pyre-fixme[6]: For 2nd param expected `Set[int]` but got `List[int]`.
-            trial_indices=[1, 2, 3],
+            trial_indices={1, 2, 3},
             experiment=self.branin_experiment,
         )
         self.assertEqual(actual, expected)
@@ -38,8 +37,7 @@ class TestEarlyStoppingUtils(TestCase):
     def test_should_stop_trials_early_no_strategy(self) -> None:
         actual = early_stopping_utils.should_stop_trials_early(
             early_stopping_strategy=None,
-            # pyre-fixme[6]: For 2nd param expected `Set[int]` but got `List[int]`.
-            trial_indices=[1, 2, 3],
+            trial_indices={1, 2, 3},
             experiment=self.branin_experiment,
         )
         expected = {}
