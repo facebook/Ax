@@ -41,7 +41,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     IsSingleObjective,
@@ -177,7 +177,7 @@ def get_generation_strategy(
     if with_generation_nodes:
         gs = sobol_gpei_generation_node_gs()
         if with_callable_model_kwarg:
-            gs._curr.model_spec_to_gen_from.model_kwargs["model_constructor"] = (
+            gs._curr.generator_spec_to_gen_from.model_kwargs["model_constructor"] = (
                 get_sobol
             )
     else:
@@ -289,12 +289,12 @@ def sobol_gpei_generation_node_gs(
     auto_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
     is_SOO_mbm_criterion = [IsSingleObjective(transition_to="MBM_node")]
     step_model_kwargs = {"silently_filter_kwargs": True}
-    sobol_model_spec = GeneratorSpec(
+    sobol_generator_spec = GeneratorSpec(
         model_enum=Generators.SOBOL,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
-    mbm_model_specs = [
+    mbm_generator_specs = [
         GeneratorSpec(
             model_enum=Generators.BOTORCH_MODULAR,
             model_kwargs=step_model_kwargs,
@@ -304,11 +304,11 @@ def sobol_gpei_generation_node_gs(
     sobol_node = GenerationNode(
         node_name="sobol_node",
         transition_criteria=sobol_criterion,
-        model_specs=[sobol_model_spec],
+        generator_specs=[sobol_generator_spec],
     )
     if with_model_selection:
         # This is just MBM with different transforms.
-        mbm_model_specs.append(GeneratorSpec(model_enum=Generators.BO_MIXED))
+        mbm_generator_specs.append(GeneratorSpec(model_enum=Generators.BO_MIXED))
         best_model_selector = SingleDiagnosticBestModelSelector(
             diagnostic=FISHER_EXACT_TEST_P,
             metric_aggregation=ReductionCriterion.MEAN,
@@ -321,21 +321,21 @@ def sobol_gpei_generation_node_gs(
         mbm_node = GenerationNode(
             node_name="MBM_node",
             transition_criteria=auto_mbm_criterion,
-            model_specs=mbm_model_specs,
+            generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
         )
     elif with_unlimited_gen_mbm:
         # no TC defined is equivalent to unlimited gen
         mbm_node = GenerationNode(
             node_name="MBM_node",
-            model_specs=mbm_model_specs,
+            generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
         )
     elif with_is_SOO_transition:
         mbm_node = GenerationNode(
             node_name="MBM_node",
             transition_criteria=is_SOO_mbm_criterion,
-            model_specs=mbm_model_specs,
+            generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
         )
 
@@ -343,7 +343,7 @@ def sobol_gpei_generation_node_gs(
         mbm_node = GenerationNode(
             node_name="MBM_node",
             transition_criteria=mbm_criterion,
-            model_specs=mbm_model_specs,
+            generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
         )
 
@@ -389,7 +389,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
         nodes=[
             GenerationNode(
                 node_name="Sobol",
-                model_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
+                generator_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
                 transition_criteria=[
                     MinTrials(
                         threshold=1,
@@ -399,7 +399,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
             ),
             GenerationNode(
                 node_name="MBM",
-                model_specs=[
+                generator_specs=[
                     GeneratorSpec(
                         model_enum=Generators.BOTORCH_MODULAR,
                     ),
@@ -418,7 +418,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
             ),
             GenerationNode(
                 node_name="MTGP",
-                model_specs=[
+                generator_specs=[
                     GeneratorSpec(
                         model_enum=Generators.ST_MTGP,
                     ),

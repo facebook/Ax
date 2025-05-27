@@ -52,7 +52,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import TransitionCriterion
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
@@ -442,11 +442,11 @@ def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
     return {
         "__type": generation_node.__class__.__name__,
         "node_name": generation_node.node_name,
-        "model_specs": generation_node.model_specs,
+        "generator_specs": generation_node.generator_specs,
         "best_model_selector": generation_node.best_model_selector,
         "should_deduplicate": generation_node.should_deduplicate,
         "transition_criteria": generation_node.transition_criteria,
-        "model_spec_to_gen_from": generation_node._model_spec_to_gen_from,
+        "generator_spec_to_gen_from": generation_node._generator_spec_to_gen_from,
         "previous_node_name": generation_node._previous_node_name,
         "trial_type": generation_node._trial_type,
         # need to manually encode input constructors because the key is an enum.
@@ -486,13 +486,13 @@ def transition_criterion_to_dict(criterion: TransitionCriterion) -> dict[str, An
     return properties
 
 
-def model_spec_to_dict(model_spec: GeneratorSpec) -> dict[str, Any]:
+def generator_spec_to_dict(generator_spec: GeneratorSpec) -> dict[str, Any]:
     """Convert Ax model spec to a dictionary."""
     return {
-        "__type": model_spec.__class__.__name__,
-        "model_enum": model_spec.model_enum,
-        "model_kwargs": model_spec.model_kwargs,
-        "model_gen_kwargs": model_spec.model_gen_kwargs,
+        "__type": generator_spec.__class__.__name__,
+        "model_enum": generator_spec.model_enum,
+        "model_kwargs": generator_spec.model_kwargs,
+        "model_gen_kwargs": generator_spec.model_gen_kwargs,
     }
 
 

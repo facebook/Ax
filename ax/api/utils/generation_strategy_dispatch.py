@@ -17,7 +17,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MinTrials
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from botorch.models.transforms.input import Normalize, Warp
@@ -82,7 +82,7 @@ def _get_sobol_node(
     ]
     return GenerationNode(
         node_name="Sobol",
-        model_specs=[
+        generator_specs=[
             GeneratorSpec(
                 model_enum=Generators.SOBOL,
                 model_kwargs={"seed": initialization_random_seed},
@@ -125,7 +125,7 @@ def _get_mbm_node(
 
     return GenerationNode(
         node_name="MBM",
-        model_specs=[
+        generator_specs=[
             GeneratorSpec(
                 model_enum=Generators.BOTORCH_MODULAR,
                 model_kwargs={
@@ -161,7 +161,7 @@ def choose_generation_strategy(
         nodes = [
             GenerationNode(
                 node_name="Sobol",
-                model_specs=[
+                generator_specs=[
                     GeneratorSpec(
                         model_enum=Generators.SOBOL,
                         model_kwargs={"seed": struct.initialization_random_seed},

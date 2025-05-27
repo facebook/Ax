@@ -965,7 +965,7 @@ class JSONStoreTest(TestCase):
         self.assertEqual(len(node.input_constructors), 2)
         # Check that transforms got correctly deserialized.
         self.assertEqual(
-            node.model_specs[0].model_kwargs["transforms"],
+            node.generator_specs[0].model_kwargs["transforms"],
             [OneHot, Log],
         )
 

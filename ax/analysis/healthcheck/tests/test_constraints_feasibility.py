@@ -25,7 +25,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -93,7 +93,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="gn",
-                    model_specs=[
+                    generator_specs=[
                         GeneratorSpec(
                             model_enum=Generators.BOTORCH_MODULAR,
                         )
