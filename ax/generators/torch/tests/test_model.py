@@ -40,6 +40,7 @@ from botorch.acquisition.input_constructors import (
     _register_acqf_input_constructor,
     get_acqf_input_constructor,
 )
+from botorch.acquisition.logei import qLogProbabilityOfFeasibility
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
@@ -133,7 +134,7 @@ class BoTorchGeneratorTest(TestCase):
         self.objective_weights = torch.tensor([1.0], **tkwargs)
         self.outcome_constraints = (
             torch.tensor([[1.0]], **tkwargs),
-            torch.tensor([[-5.0]], **tkwargs),
+            torch.tensor([[3.5]], **tkwargs),
         )
         self.moo_objective_weights = torch.tensor([1.0, 1.5, 0.0], **tkwargs)
         self.moo_objective_thresholds = torch.tensor(
@@ -141,7 +142,7 @@ class BoTorchGeneratorTest(TestCase):
         )
         self.moo_outcome_constraints = (
             torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
-            torch.tensor([[-5.0]], **tkwargs),
+            torch.tensor([[3.5]], **tkwargs),
         )
         self.linear_constraints = None
         self.fixed_features = None
@@ -177,6 +178,20 @@ class BoTorchGeneratorTest(TestCase):
             objective_thresholds=self.moo_objective_thresholds,
             outcome_constraints=self.moo_outcome_constraints,
             is_moo=True,
+        )
+        self.torch_opt_config_infeas = dataclasses.replace(
+            self.torch_opt_config,
+            outcome_constraints=(
+                torch.tensor([[1.0]], **tkwargs),
+                torch.tensor([[-5.0]], **tkwargs),
+            ),
+        )
+        self.moo_torch_opt_config_infeas = dataclasses.replace(
+            self.moo_torch_opt_config,
+            outcome_constraints=(
+                torch.tensor([[1.0]], **tkwargs),
+                torch.tensor([[-5.0]], **tkwargs),
+            ),
         )
 
     def test_init(self) -> None:
@@ -777,6 +792,54 @@ class BoTorchGeneratorTest(TestCase):
         self.assertEqual(points.shape, torch.Size([1]))
         # testing that the new setup chooses qLogNEI by default
         self.assertEqual(model._botorch_acqf_class, qLogNoisyExpectedImprovement)
+
+    @mock_botorch_optimize
+    @mock.patch(
+        f"{MODEL_PATH}.choose_botorch_acqf_class", wraps=choose_botorch_acqf_class
+    )
+    def test_p_feas(
+        self,
+        mock_choose_botorch_acqf_class: Mock,
+    ) -> None:
+        """Test that we dispatch to `qLogProbabilityOfFeasibility`
+        when no feasible points have been found"""
+        for datasets, torch_opt_config in zip(
+            (self.block_design_training_data, self.moo_training_data),
+            (self.torch_opt_config_infeas, self.moo_torch_opt_config_infeas),
+        ):
+            model = BoTorchGenerator(
+                surrogate=self.surrogate,
+                acquisition_class=Acquisition,
+                acquisition_options=self.acquisition_options,
+            )
+            model.surrogate.fit(
+                datasets=datasets,
+                search_space_digest=self.search_space_digest,
+            )
+            self.assertIsNone(model._botorch_acqf_class)  # Should not have been set
+            # Gen
+            with self.subTest("No mocks"):
+                gen_results = model.gen(
+                    n=1,
+                    search_space_digest=self.search_space_digest,
+                    torch_opt_config=torch_opt_config,
+                )
+                mock_choose_botorch_acqf_class.assert_called()
+                mock_choose_botorch_acqf_class.reset_mock()
+                self.assertEqual(
+                    model._botorch_acqf_class, qLogProbabilityOfFeasibility
+                )
+                self.assertTrue(torch.isfinite(gen_results.points).all())
+            # Evaluate acqf
+            points = model.evaluate_acquisition_function(
+                X=self.X_test,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=torch_opt_config,
+                acq_options=self.acquisition_options,
+            )
+            mock_choose_botorch_acqf_class.assert_called()
+            mock_choose_botorch_acqf_class.reset_mock()
+            self.assertEqual(points.shape, torch.Size([1]))
 
     @mock_botorch_optimize
     def test_surrogate_model_options_propagation(self) -> None:

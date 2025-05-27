@@ -82,6 +82,7 @@ class BoTorchGenerator(TorchGenerator, Base):
     surrogate_spec: SurrogateSpec | None
     _surrogate: Surrogate | None
 
+    _user_specified_botorch_acqf_class: type[AcquisitionFunction] | None
     _botorch_acqf_class: type[AcquisitionFunction] | None
     _supports_robust_optimization: bool = True
 
@@ -122,6 +123,7 @@ class BoTorchGenerator(TorchGenerator, Base):
 
         self.acquisition_class = acquisition_class or Acquisition
         self.acquisition_options = acquisition_options or {}
+        self._user_specified_botorch_acqf_class = botorch_acqf_class
         self._botorch_acqf_class = botorch_acqf_class
 
         self.refit_on_cv = refit_on_cv
@@ -401,7 +403,7 @@ class BoTorchGenerator(TorchGenerator, Base):
         Returns:
             A BoTorch ``AcquisitionFunction`` instance.
         """
-        if not self._botorch_acqf_class:
+        if self._user_specified_botorch_acqf_class is None:
             if torch_opt_config.risk_measure is not None:
                 raise UnsupportedError(
                     "Automated selection of `botorch_acqf_class` is not supported "
@@ -409,7 +411,7 @@ class BoTorchGenerator(TorchGenerator, Base):
                     "`botorch_acqf_class` as part of `model_kwargs`."
                 )
             self._botorch_acqf_class = choose_botorch_acqf_class(
-                torch_opt_config=torch_opt_config
+                torch_opt_config=torch_opt_config, datasets=self.surrogate.training_data
             )
 
         return self.acquisition_class(
