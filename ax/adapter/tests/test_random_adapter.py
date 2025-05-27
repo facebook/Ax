@@ -49,24 +49,24 @@ class RandomAdapterTest(TestCase):
         self.model_gen_options = {"option": "yes"}
 
     def test_fit(self) -> None:
-        adapter = RandomAdapter(experiment=self.experiment, model=RandomGenerator())
+        adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
         self.assertEqual(adapter.parameters, ["x", "y", "z"])
-        self.assertTrue(isinstance(adapter.model, RandomGenerator))
+        self.assertTrue(isinstance(adapter.generator, RandomGenerator))
 
     def test_predict(self) -> None:
-        adapter = RandomAdapter(experiment=self.experiment, model=RandomGenerator())
+        adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
         with self.assertRaises(NotImplementedError):
             adapter._predict([])
 
     def test_cross_validate(self) -> None:
-        adapter = RandomAdapter(experiment=self.experiment, model=RandomGenerator())
+        adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
         with self.assertRaises(NotImplementedError):
             adapter._cross_validate(self.search_space, [], [])
 
     def test_gen_w_constraints(self) -> None:
-        adapter = RandomAdapter(experiment=self.experiment, model=RandomGenerator())
+        adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
         with mock.patch.object(
-            adapter.model,
+            adapter.generator,
             "gen",
             return_value=(
                 np.array([[1.0, 2.0, 3.0], [3.0, 4.0, 3.0]]),
@@ -108,10 +108,11 @@ class RandomAdapterTest(TestCase):
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])
         adapter = RandomAdapter(
-            experiment=Experiment(search_space=search_space), model=RandomGenerator()
+            experiment=Experiment(search_space=search_space),
+            generator=RandomGenerator(),
         )
         with mock.patch.object(
-            adapter.model,
+            adapter.generator,
             "gen",
             return_value=(np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([1.0, 2.0])),
         ) as mock_gen:
@@ -136,7 +137,7 @@ class RandomAdapterTest(TestCase):
         exp = Experiment(search_space=get_small_discrete_search_space())
         sobol = RandomAdapter(
             experiment=exp,
-            model=SobolGenerator(deduplicate=True),
+            generator=SobolGenerator(deduplicate=True),
             transforms=Cont_X_trans,
         )
         for _ in range(4):  # Search space is {[0, 1], {"red", "panda"}}
@@ -162,7 +163,7 @@ class RandomAdapterTest(TestCase):
         experiment.add_tracking_metric(metric=Metric("ax_test_metric"))
         sobol = RandomAdapter(
             search_space=self.search_space,
-            model=SobolGenerator(),
+            generator=SobolGenerator(),
             experiment=experiment,
             data=data,
             transforms=Cont_X_trans,
@@ -183,7 +184,7 @@ class RandomAdapterTest(TestCase):
         )
         # Using Cont_X_trans, particularly UnitX here to test transform application.
         adapter = RandomAdapter(
-            experiment=exp, model=generator, transforms=Cont_X_trans
+            experiment=exp, generator=generator, transforms=Cont_X_trans
         )
 
         # No pending points or previous trials on the experiment.

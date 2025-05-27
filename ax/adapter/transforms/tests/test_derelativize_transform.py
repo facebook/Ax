@@ -129,7 +129,7 @@ class DerelativizeTransformTest(TestCase):
                 search_space=search_space,
                 status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
             ),
-            model=Generator(),
+            generator=Generator(),
         )
 
         # Test with no relative constraints
@@ -211,7 +211,7 @@ class DerelativizeTransformTest(TestCase):
                 search_space=search_space,
                 status_quo=Arm(parameters={"x": None, "y": None}, name="1_2"),
             ),
-            model=Generator(),
+            generator=Generator(),
         )
         oc = OptimizationConfig(
             objective=objective,
@@ -260,7 +260,7 @@ class DerelativizeTransformTest(TestCase):
                 search_space=search_space,
                 status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
             ),
-            model=Generator(),
+            generator=Generator(),
         )
         oc = OptimizationConfig(
             objective=objective,
@@ -314,7 +314,9 @@ class DerelativizeTransformTest(TestCase):
             t2.transform_optimization_config(deepcopy(oc_scalarized_only), g, None)
 
         # Raises error with relative constraint, no status quo.
-        g = Adapter(experiment=Experiment(search_space=search_space), model=Generator())
+        g = Adapter(
+            experiment=Experiment(search_space=search_space), generator=Generator()
+        )
         with self.assertRaises(DataRequiredError):
             t.transform_optimization_config(deepcopy(oc), g, None)
 
@@ -337,7 +339,7 @@ class DerelativizeTransformTest(TestCase):
             parameters=[RangeParameter("x", ParameterType.FLOAT, 0, 20)]
         )
         adapter = Adapter(
-            experiment=Experiment(search_space=search_space), model=Generator()
+            experiment=Experiment(search_space=search_space), generator=Generator()
         )
         with self.assertRaises(ValueError):
             t.transform_optimization_config(
@@ -380,7 +382,7 @@ class DerelativizeTransformTest(TestCase):
             for with_raw_sq in [False, True]:
                 adapter = TorchAdapter(
                     experiment=exp,
-                    model=BoTorchGenerator(),
+                    generator=BoTorchGenerator(),
                     transforms=[Derelativize],
                     transform_configs={
                         "Derelativize": {"use_raw_status_quo": with_raw_sq}
@@ -422,7 +424,7 @@ class DerelativizeTransformTest(TestCase):
         exp.attach_data(get_branin_data(trials=[trial], metrics=exp.metrics))
 
         adapter = TorchAdapter(
-            experiment=exp, model=BoTorchGenerator(), transforms=[Derelativize]
+            experiment=exp, generator=BoTorchGenerator(), transforms=[Derelativize]
         )
         # Shouldn't log in regular usage here.
         with self.assertNoLogs(logger=logger):

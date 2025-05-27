@@ -63,7 +63,7 @@ class PairwiseAdapterTest(TestCase):
                 experiment=self.experiment,
                 search_space=self.experiment.search_space,
                 data=self.data,
-                model=BoTorchGenerator(
+                generator=BoTorchGenerator(
                     botorch_acqf_class=botorch_acqf_class,
                     surrogate=surrogate,
                 ),

@@ -528,7 +528,7 @@ def get_transform_helper_model(
         experiment=experiment,
         search_space=experiment.search_space,
         data=data,
-        model=TorchGenerator(),
+        generator=TorchGenerator(),
         transforms=transforms,
         transform_configs={"MapKeyToFloat": {"default_log_scale": False}},
         data_loader_config=DataLoaderConfig(

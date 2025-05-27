@@ -126,17 +126,17 @@ def get_lcbench_benchmark_problem(
         """
         # We load the model hyperparameters from the saved state dict.
         with skip_fit_gpytorch_mll_context_manager():
-            mb = Generators.BOTORCH_MODULAR(
+            adapter = Generators.BOTORCH_MODULAR(
                 surrogate=get_lcbench_surrogate(),
                 experiment=obj["experiment"],
                 search_space=obj["experiment"].search_space,
                 data=obj["data"],
                 transforms=Cont_X_trans + Y_trans,
             )
-        assert_is_instance(mb.model, BoTorchGenerator).surrogate.model.load_state_dict(
-            obj["state_dict"]
-        )
-        return assert_is_instance(mb, TorchAdapter)
+        assert_is_instance(
+            adapter.generator, BoTorchGenerator
+        ).surrogate.model.load_state_dict(obj["state_dict"])
+        return assert_is_instance(adapter, TorchAdapter)
 
     name = f"LCBench_Surrogate_{dataset_name}:v1"
 

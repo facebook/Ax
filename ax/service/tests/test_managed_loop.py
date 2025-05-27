@@ -345,7 +345,7 @@ class TestManagedLoop(TestCase):
             random_seed=12345,
         )
         # pyre-fixme[16]: Optional type has no attribute `model`.
-        self.assertEqual(12345, model.model.seed)
+        self.assertEqual(12345, model.generator.seed)
 
     def test_optimize_search_space_exhausted(self) -> None:
         """Tests optimization as a single call."""
