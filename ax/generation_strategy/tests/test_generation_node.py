@@ -456,7 +456,7 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         self.assertEqual(self.mock_aggregation.call_count, 2)
 
     @mock_botorch_optimize
-    def test_pick_fitted_model_with_fit_errors(self) -> None:
+    def test_pick_fitted_adapter_with_fit_errors(self) -> None:
         # Make model fitting error out for both specs. We should get an error.
         with patch(
             "ax.generation_strategy.generator_spec.GeneratorSpec.fit",

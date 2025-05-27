@@ -379,7 +379,7 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(
             len(
                 get_standard_plots(
-                    experiment=exp, model=get_generation_strategy().model
+                    experiment=exp, model=get_generation_strategy().adapter
                 )
             ),
             0,
@@ -1290,9 +1290,8 @@ class ReportUtilsTest(TestCase):
         scheduler.run_n_trials(3)
 
         # Set fitted model to None to test refitting.
-        scheduler.generation_strategy._curr.generator_spec_to_gen_from._fitted_model = (
-            None
-        )
+        curr_node = scheduler.generation_strategy._curr
+        curr_node.generator_spec_to_gen_from._fitted_adapter = None
 
         # Threshold 1.0 (should always generate a warning)
         msg = warn_if_unpredictable_metrics(

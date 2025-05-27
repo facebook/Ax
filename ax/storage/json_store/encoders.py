@@ -472,7 +472,7 @@ def generation_strategy_to_dict(
             generation_strategy.current_step_index if not node_based_gs else -1
         ),
         "generator_runs": generation_strategy._generator_runs,
-        "had_initialized_model": generation_strategy.model is not None,
+        "had_initialized_model": generation_strategy.adapter is not None,
         "experiment": generation_strategy._experiment,
         "nodes": generation_strategy._nodes,
         "curr_node_name": generation_strategy.current_node_name,

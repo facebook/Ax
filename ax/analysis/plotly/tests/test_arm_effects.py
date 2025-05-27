@@ -237,7 +237,7 @@ class TestArmEffectsPlot(TestCase):
                                 )
                             )
                             generation_strategy.current_node._fit(experiment=experiment)
-                            adapter = none_throws(generation_strategy.model)
+                            adapter = none_throws(generation_strategy.adapter)
 
                             analysis = ArmEffectsPlot(
                                 metric_names=[*adapter.metric_names],
@@ -287,7 +287,7 @@ class TestArmEffectsPlot(TestCase):
                                 )
                             )
                             generation_strategy.current_node._fit(experiment=experiment)
-                            adapter = none_throws(generation_strategy.model)
+                            adapter = none_throws(generation_strategy.adapter)
 
                             analysis = ArmEffectsPlot(
                                 metric_names=[*adapter.metric_names],

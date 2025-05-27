@@ -535,7 +535,7 @@ class JSONStoreTest(TestCase):
         self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
         # Model has not yet been initialized on this GS since it hasn't generated
         # anything yet.
-        self.assertIsNone(new_generation_strategy.model)
+        self.assertIsNone(new_generation_strategy.adapter)
 
         # Check that we can encode and decode the generation strategy after
         # it has generated some generator runs. Since we now need to `gen`,

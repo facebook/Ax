@@ -411,7 +411,9 @@ class TestDispatchUtils(TestCase):
         sobol.gen(experiment=get_experiment(), n=1)
         # First model is actually an adapter, second is the Sobol engine.
         self.assertEqual(
-            assert_is_instance(none_throws(sobol.model).generator, SobolGenerator).seed,
+            assert_is_instance(
+                none_throws(sobol.adapter).generator, SobolGenerator
+            ).seed,
             9,
         )
 

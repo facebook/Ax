@@ -253,7 +253,7 @@ class OptimizationLoop:
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
         best_point = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=self.experiment, adapter=self.generation_strategy.model
+            experiment=self.experiment, adapter=self.generation_strategy.adapter
         )
         if best_point is not None:
             _, parameterizations, predictions = best_point
@@ -267,7 +267,7 @@ class OptimizationLoop:
 
     def get_current_model(self) -> Adapter | None:
         """Obtain the most recently used model in optimization."""
-        return self.generation_strategy.model
+        return self.generation_strategy.adapter
 
 
 def optimize(

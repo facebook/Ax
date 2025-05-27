@@ -28,7 +28,7 @@ class TestPredictionUtils(TestCase):
 
         observation_features = ObservationFeatures(parameters={"x1": 0.3, "x2": 0.5})
         y_hat, se_hat = predict_at_point(
-            model=none_throws(ax_client.generation_strategy.model),
+            model=none_throws(ax_client.generation_strategy.adapter),
             obsf=observation_features,
             metric_names={"test_metric1"},
         )
@@ -37,7 +37,7 @@ class TestPredictionUtils(TestCase):
         self.assertEqual(len(se_hat), 1)
 
         y_hat, se_hat = predict_at_point(
-            model=none_throws(ax_client.generation_strategy.model),
+            model=none_throws(ax_client.generation_strategy.adapter),
             obsf=observation_features,
             metric_names={"test_metric1", "test_metric2", "test_metric:agg"},
             scalarized_metric_config=[
@@ -51,7 +51,7 @@ class TestPredictionUtils(TestCase):
         self.assertEqual(len(se_hat), 3)
 
         y_hat, se_hat = predict_at_point(
-            model=none_throws(ax_client.generation_strategy.model),
+            model=none_throws(ax_client.generation_strategy.adapter),
             obsf=observation_features,
             metric_names={"test_metric1"},
             scalarized_metric_config=[
@@ -75,7 +75,7 @@ class TestPredictionUtils(TestCase):
             20: ObservationFeatures(parameters={"x1": 0.8, "x2": 0.5}),
         }
         predictions_map = predict_by_features(
-            model=none_throws(ax_client.generation_strategy.model),
+            model=none_throws(ax_client.generation_strategy.adapter),
             label_to_feature_dict=observation_features_dict,
             metric_names={"test_metric1"},
         )

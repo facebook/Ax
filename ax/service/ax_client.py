@@ -1056,10 +1056,10 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             raise ValueError(
                 f'Metric "{metric_name}" is not associated with this optimization.'
             )
-        if self.generation_strategy.model is not None:
+        if self.generation_strategy.adapter is not None:
             try:
                 return plot_contour(
-                    model=none_throws(self.generation_strategy.model),
+                    model=none_throws(self.generation_strategy.adapter),
                     param_x=param_x,
                     param_y=param_y,
                     metric_name=metric_name,
@@ -1069,7 +1069,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 # Some models don't implement '_predict', which is needed
                 # for the contour plots.
                 logger.error(
-                    f"Model {self.generation_strategy.model} does not implement "
+                    f"Model {self.generation_strategy.adapter} does not implement "
                     "`predict`, so it cannot be used to generate a response "
                     "surface plot."
                 )
@@ -1092,13 +1092,13 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         if not self.experiment.trials:
             raise ValueError("Cannot generate plot as there are no trials.")
-        cur_model = self.generation_strategy.model
+        cur_model = self.generation_strategy.adapter
         if cur_model is not None:
             try:
                 return plot_feature_importance_by_feature(cur_model, relative=relative)
             except NotImplementedError:
                 logger.error(
-                    f"Model {self.generation_strategy.model} does not implement "
+                    f"Model {self.generation_strategy.adapter} does not implement "
                     "`feature_importances`, so it cannot be used to generate "
                     "this plot."
                 )
@@ -1228,7 +1228,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             else set(none_throws(self.experiment.metrics).keys())
         )
         model = none_throws(
-            self.generation_strategy.model, "No model has been instantiated yet."
+            self.generation_strategy.adapter, "No model has been instantiated yet."
         )
 
         # Construct a dictionary that maps from a label to an

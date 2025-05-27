@@ -113,7 +113,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         """
 
     @property
-    def _fitted_model(self) -> None:
+    def _fitted_adapter(self) -> None:
         return None
 
     @property

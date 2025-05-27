@@ -212,12 +212,12 @@ class GenerationNode(SerializationMixin, SortableBase):
     @property
     def generator_spec_to_gen_from(self) -> GeneratorSpec:
         """Returns the cached `_generator_spec_to_gen_from` or gets it from
-        `_pick_fitted_model_to_gen_from` and then caches and returns it
+        `_pick_fitted_adapter_to_gen_from` and then caches and returns it
         """
         if self._generator_spec_to_gen_from is not None:
             return self._generator_spec_to_gen_from
 
-        self._generator_spec_to_gen_from = self._pick_fitted_model_to_gen_from()
+        self._generator_spec_to_gen_from = self._pick_fitted_adapter_to_gen_from()
         return self._generator_spec_to_gen_from
 
     @property
@@ -297,13 +297,13 @@ class GenerationNode(SerializationMixin, SortableBase):
         return self.node_name
 
     @property
-    def _fitted_model(self) -> Adapter | None:
-        """Private property to return optional fitted_model from
+    def _fitted_adapter(self) -> Adapter | None:
+        """Private property to return optional fitted_adapter from
         self.generator_spec_to_gen_from for convenience. If no model is fit,
-        will return None. If using the non-private `fitted_model` property,
+        will return None. If using the non-private `fitted_adapter` property,
         and no model is fit, a UserInput error will be raised.
         """
-        return self.generator_spec_to_gen_from._fitted_model
+        return self.generator_spec_to_gen_from._fitted_adapter
 
     def __repr__(self) -> str:
         """String representation of this ``GenerationNode`` (note that it
@@ -351,7 +351,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         self._generator_spec_to_gen_from = None
         for generator_spec in self.generator_specs:
             try:
-                # Stores the fitted model as `generator_spec._fitted_model`.
+                # Stores the fitted model as `generator_spec._fitted_adapter`.
                 generator_spec.fit(
                     experiment=experiment,
                     data=data,
@@ -372,7 +372,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                     f"{generator_spec.model_key}. Original error message: {e}."
                 )
                 # Discard any previously fitted models for this spec.
-                generator_spec._fitted_model = None
+                generator_spec._fitted_adapter = None
 
     def gen(
         self,
@@ -465,7 +465,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         **model_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Picks a fitted model, from which to generate candidates (via
-        ``self._pick_fitted_model_to_gen_from``) and generates candidates
+        ``self._pick_fitted_adapter_to_gen_from``) and generates candidates
         from it. Uses the ``model_gen_kwargs`` set on the selected ``GeneratorSpec``
         alongside any kwargs passed in to this function (with local kwargs)
         taking precedent.
@@ -622,7 +622,7 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     # ------------------------- Model selection logic helpers. -------------------------
 
-    def _pick_fitted_model_to_gen_from(self) -> GeneratorSpec:
+    def _pick_fitted_adapter_to_gen_from(self) -> GeneratorSpec:
         """Select one model to generate from among the fitted models on this
         generation node.
 
@@ -644,7 +644,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             # Only select between models that were successfully fit.
             spec
             for spec in self.generator_specs
-            if spec._fitted_model is not None
+            if spec._fitted_adapter is not None
         ]
         if len(fitted_specs) == 0:
             raise ModelError(
