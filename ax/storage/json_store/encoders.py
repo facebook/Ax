@@ -52,10 +52,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import (
-    FactoryFunctionGeneratorSpec,
-    GeneratorSpec,
-)
+from ax.generation_strategy.model_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import TransitionCriterion
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
@@ -465,11 +462,6 @@ def generation_strategy_to_dict(
     generation_strategy: GenerationStrategy,
 ) -> dict[str, Any]:
     """Converts Ax generation strategy to a dictionary."""
-    if generation_strategy.uses_non_registered_models:
-        raise ValueError(
-            "Generation strategies that use custom models provided through "
-            "callables cannot be serialized and stored."
-        )
     node_based_gs = generation_strategy.is_node_based
     return {
         "__type": generation_strategy.__class__.__name__,
@@ -496,11 +488,6 @@ def transition_criterion_to_dict(criterion: TransitionCriterion) -> dict[str, An
 
 def model_spec_to_dict(model_spec: GeneratorSpec) -> dict[str, Any]:
     """Convert Ax model spec to a dictionary."""
-    if isinstance(model_spec, FactoryFunctionGeneratorSpec):
-        raise NotImplementedError(
-            f"JSON serialization not yet implemented for model spec: {model_spec}"
-            " because it leverages a factory function instead of `Generators` registry."
-        )
     return {
         "__type": model_spec.__class__.__name__,
         "model_enum": model_spec.model_enum,

@@ -13,7 +13,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from functools import wraps
 from logging import Logger
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -29,7 +29,6 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyMisconfiguredException,
 )
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
-from ax.generation_strategy.model_spec import FactoryFunctionGeneratorSpec
 from ax.generation_strategy.transition_criterion import TrialBasedCriterion
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
@@ -88,8 +87,6 @@ class GenerationStrategy(Base):
 
     _nodes: list[GenerationNode]
     _curr: GenerationNode  # Current node in the strategy.
-    # Whether all models in this GS are in Generators registry enum.
-    _uses_registered_models: bool
     # All generator runs created through this generation strategy, in chronological
     # order.
     _generator_runs: list[GeneratorRun]
@@ -111,8 +108,9 @@ class GenerationStrategy(Base):
                 error_info="GenerationStrategy must contain either steps or nodes."
             )
 
-        # pyre-ignore[8]
-        self._nodes = none_throws(nodes if steps is None else steps)
+        self._nodes = none_throws(
+            nodes if steps is None else cast(list[GenerationNode], steps)
+        )
 
         # Validate correctness of steps list or nodes graph
         if isinstance(steps, list) and all(
@@ -128,18 +126,6 @@ class GenerationStrategy(Base):
                 "`steps` (list of `GenerationStep`) or\n"
                 "`nodes` (list of `GenerationNode`)."
                 f"Encountered: {steps=}, {nodes=}"
-            )
-
-        # Log warning if the GS uses a non-registered (factory function) model.
-        self._uses_registered_models = not any(
-            isinstance(ms, FactoryFunctionGeneratorSpec)
-            for node in self._nodes
-            for ms in node.model_specs
-        )
-        if not self._uses_registered_models:
-            logger.warning(
-                "Using model via callable function, "
-                "so optimization is not resumable if interrupted."
             )
         self._generator_runs = []
         # Set name to an explicit value ahead of time to avoid
@@ -267,12 +253,6 @@ class GenerationStrategy(Base):
         """
         # Used to restore current model when decoding a serialized GS.
         return self._generator_runs[-1] if self._generator_runs else None
-
-    @property
-    def uses_non_registered_models(self) -> bool:
-        """Whether this generation strategy involves models that are not
-        registered and therefore cannot be stored."""
-        return not self._uses_registered_models
 
     @property
     def trials_as_df(self) -> pd.DataFrame | None:
