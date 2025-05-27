@@ -37,6 +37,7 @@ from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
+from botorch.acquisition.logei import qLogProbabilityOfFeasibility
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.exceptions.errors import InputDataError
@@ -279,6 +280,8 @@ class Acquisition(Base):
         else:
             training_data = dict(zip(none_throws(surrogate._outcomes), training_data))
 
+        if botorch_acqf_class == qLogProbabilityOfFeasibility:
+            input_constructor_kwargs.pop("objective")
         acqf_inputs = input_constructor(
             training_data=training_data,
             bounds=search_space_digest.bounds,
