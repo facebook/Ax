@@ -33,7 +33,7 @@ class BilogYTest(TestCase):
     def get_mb(self) -> Adapter:
         return Adapter(
             search_space=self.exp.search_space,
-            model=Generator(),
+            generator=Generator(),
             experiment=self.exp,
             data=self.exp.lookup_data(),
         )

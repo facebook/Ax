@@ -55,7 +55,9 @@ def get_adapter(
         if status_quo_name is not None
         else None,
     )
-    adapter = Adapter(experiment=exp, model=FullFactorialGenerator(), data=get_data())
+    adapter = Adapter(
+        experiment=exp, generator=FullFactorialGenerator(), data=get_data()
+    )
     adapter._predict = mock.MagicMock(
         "ax.adapter.base.Adapter._predict",
         autospec=True,

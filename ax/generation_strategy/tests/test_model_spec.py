@@ -13,7 +13,6 @@ from unittest.mock import MagicMock, Mock, patch
 from ax.adapter.adapter_utils import extract_search_space_digest
 from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
-
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.model_spec import (
@@ -66,7 +65,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             ms.fit(experiment=self.experiment, data=self.data)
         mock_logger.debug.assert_called_with(
             "The observations are identical to the last set of observations "
-            "used to fit the model. Skipping model fitting."
+            "used to fit the generator. Skipping generator fitting."
         )
         wrapped_extract_ssd.assert_called_once()
 

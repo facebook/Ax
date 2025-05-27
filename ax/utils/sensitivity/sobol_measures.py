@@ -949,7 +949,7 @@ def _get_generator_and_digest(
         raise NotImplementedError(
             f"{type(adapter)=}, but only TorchAdapter is supported."
         )
-    generator = adapter.model
+    generator = adapter.generator
     if not isinstance(generator, (LegacyBoTorchGenerator, ModularBoTorchGenerator)):
         raise NotImplementedError(
             f"{type(generator)=}, but only LegacyBoTorchGenerator and "
@@ -972,7 +972,7 @@ def _get_model_per_metric(
             if gp_model.num_outputs == 1:  # can accept single output models
                 return [gp_model for _ in model_idx]
             raise NotImplementedError(
-                f"type(adapter.model.model) = {type(gp_model)}, "
+                f"type(adapter.generator.model) = {type(gp_model)}, "
                 "but only ModelList is supported."
             )
         return [gp_model.models[i] for i in model_idx]

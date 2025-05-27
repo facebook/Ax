@@ -131,7 +131,7 @@ class RelativizeDataTest(TestCase):
             data = exp.fetch_data()
             adapter = Adapter(
                 search_space=exp.search_space,
-                model=Generator(),
+                generator=Generator(),
                 transforms=[relativize_cls],
                 experiment=exp,
                 data=data,
@@ -148,7 +148,7 @@ class RelativizeDataTest(TestCase):
             none_throws(exp._status_quo)._parameters["x1"] = 0.0
             adapter = Adapter(
                 search_space=exp.search_space,
-                model=Generator(),
+                generator=Generator(),
                 transforms=[relativize_cls],
                 experiment=exp,
                 data=data,

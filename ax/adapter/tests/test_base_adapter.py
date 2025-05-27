@@ -100,7 +100,7 @@ class BaseAdapterTest(TestCase):
         # Test that on init transforms are stored and applied in the correct order
         transforms = [transform_1, transform_2]
         exp = get_experiment_for_value()
-        adapter = Adapter(experiment=exp, model=Generator(), transforms=transforms)
+        adapter = Adapter(experiment=exp, generator=Generator(), transforms=transforms)
         self.assertFalse(adapter._experiment_has_immutable_search_space_and_opt_config)
         self.assertEqual(
             list(adapter.transforms.keys()), ["Cast", "transform_1", "transform_2"]
@@ -302,19 +302,19 @@ class BaseAdapterTest(TestCase):
 
         # Test that fit is not called when fit_on_init = False.
         mock_fit.reset_mock()
-        adapter = Adapter(experiment=exp, model=Generator(), fit_on_init=False)
+        adapter = Adapter(experiment=exp, generator=Generator(), fit_on_init=False)
         self.assertEqual(mock_fit.call_count, 0)
 
         # Test error when fit_tracking_metrics is False and optimization
         # config is not specified.
         with self.assertRaisesRegex(UserInputError, "fit_tracking_metrics"):
-            Adapter(experiment=exp, model=Generator(), fit_tracking_metrics=False)
+            Adapter(experiment=exp, generator=Generator(), fit_tracking_metrics=False)
 
         # Test error when fit_tracking_metrics is False and optimization
         # config is updated to include new metrics.
         adapter = Adapter(
             experiment=exp,
-            model=Generator(),
+            generator=Generator(),
             optimization_config=oc,
             fit_tracking_metrics=False,
         )
@@ -338,7 +338,7 @@ class BaseAdapterTest(TestCase):
     def test_repeat_candidates(self, _: Mock, __: Mock, ___: Mock) -> None:
         adapter = Adapter(
             experiment=get_experiment_for_value(),
-            model=Generator(),
+            generator=Generator(),
         )
         # mock _gen to return 1 result
         adapter._gen = mock.MagicMock(
@@ -390,7 +390,7 @@ class BaseAdapterTest(TestCase):
         )
         adapter = Adapter(
             experiment=exp,
-            model=Generator(),
+            generator=Generator(),
             transforms=Y_trans,
         )
         self.assertIsNotNone(adapter.status_quo)
@@ -401,7 +401,9 @@ class BaseAdapterTest(TestCase):
     def test_timing(self, _: Mock, __: Mock) -> None:
         search_space = get_search_space_for_value()
         experiment = Experiment(search_space=search_space)
-        adapter = Adapter(experiment=experiment, model=Generator(), fit_on_init=False)
+        adapter = Adapter(
+            experiment=experiment, generator=Generator(), fit_on_init=False
+        )
         self.assertEqual(adapter.fit_time, 0.0)
         adapter._fit_if_implemented(
             search_space=search_space, observations=[], time_so_far=3.0
@@ -429,7 +431,7 @@ class BaseAdapterTest(TestCase):
         experiment = Experiment(search_space=ss)
         adapter = Adapter(
             experiment=experiment,
-            model=Generator(),
+            generator=Generator(),
             fit_out_of_design=True,
         )
         obs = ObservationFeatures(parameters={"x": 3.0})
@@ -444,7 +446,7 @@ class BaseAdapterTest(TestCase):
         # Test clamping arms by setting fit_out_of_design=False
         adapter = Adapter(
             experiment=experiment,
-            model=Generator(),
+            generator=Generator(),
             fit_out_of_design=False,
         )
         obs = ObservationFeatures(parameters={"x": 3.0})
@@ -460,7 +462,7 @@ class BaseAdapterTest(TestCase):
         exp = get_experiment_for_value()
         exp._status_quo = Arm(parameters={"x": 3.0}, name="0_0")
         with self.assertLogs(logger="ax", level="WARNING") as logs:
-            adapter = Adapter(experiment=exp, model=Generator())
+            adapter = Adapter(experiment=exp, generator=Generator())
         self.assertTrue(
             any("is not present in the training data" in log for log in logs.output)
         )
@@ -476,7 +478,7 @@ class BaseAdapterTest(TestCase):
                 num_batch_trial=num_batch_trial,
                 with_completed_batch=True,
             )
-            adapter = Adapter(experiment=exp, model=Generator())
+            adapter = Adapter(experiment=exp, generator=Generator())
             # Status quo is set with the target trial index.
             self.assertEqual(
                 none_throws(adapter.status_quo).features.trial_index,
@@ -505,7 +507,7 @@ class BaseAdapterTest(TestCase):
         with warnings.catch_warnings(record=True) as ws, mock.patch.object(
             exp, "lookup_data", return_value=data
         ):
-            adapter = Adapter(experiment=exp, model=Generator(), data=data)
+            adapter = Adapter(experiment=exp, generator=Generator(), data=data)
         # Check that we get warnings about start and end time columns being discarded.
         self.assertTrue(any("start_time" in str(w.message) for w in ws))
         self.assertTrue(any("end_time" in str(w.message) for w in ws))
@@ -516,7 +518,7 @@ class BaseAdapterTest(TestCase):
     def test_set_status_quo_with_multiple_trials_with_status_quo(self) -> None:
         exp = get_experiment_with_repeated_arms(with_data=True)
         exp.status_quo = assert_is_instance(exp.trials[1], BatchTrial).status_quo
-        adapter = Adapter(experiment=exp, model=Generator())
+        adapter = Adapter(experiment=exp, generator=Generator())
         # Check that for experiments with many trials the status quo is set
         # to the value of the status quo of the last trial (target trial).
         self.assertEqual(
@@ -584,7 +586,7 @@ class BaseAdapterTest(TestCase):
             ) as mock_combine:
                 adapter = Adapter(
                     experiment=exp,
-                    model=Generator(),
+                    generator=Generator(),
                     data_loader_config=data_loader_config,
                 )
             mock_combine.assert_called_once()
@@ -622,7 +624,7 @@ class BaseAdapterTest(TestCase):
             ) as mock_logs:
                 adapter = Adapter(
                     experiment=exp,
-                    model=Generator(),
+                    generator=Generator(),
                     data_loader_config=data_loader_config,
                 )
             mock_extract.assert_called_once()
@@ -642,7 +644,9 @@ class BaseAdapterTest(TestCase):
             exp.add_tracking_metric(m)
         with self.assertLogs(logger=logger, level="WARN") as mock_logs:
             adapter = Adapter(
-                experiment=exp, model=Generator(), data_loader_config=data_loader_config
+                experiment=exp,
+                generator=Generator(),
+                data_loader_config=data_loader_config,
             )
         self.assertIsNone(adapter.status_quo)
         self.assertTrue(
@@ -656,7 +660,7 @@ class BaseAdapterTest(TestCase):
         """
         This functionality is unused, even in the subclass where it is implemented.
         """
-        adapter = Adapter(experiment=get_experiment_for_value(), model=Generator())
+        adapter = Adapter(experiment=get_experiment_for_value(), generator=Generator())
         with self.assertRaises(NotImplementedError):
             adapter.transform_observations([])
         with self.assertRaises(NotImplementedError):
@@ -721,7 +725,7 @@ class BaseAdapterTest(TestCase):
         exp = get_experiment_for_value()
         exp.optimization_config = get_optimization_config_no_constraints()
         ss = get_search_space_for_range_value()
-        adapter = Adapter(experiment=exp, model=Generator(), search_space=ss)
+        adapter = Adapter(experiment=exp, generator=Generator(), search_space=ss)
         adapter.gen(1)
         mock_gen.assert_called_with(
             adapter,
@@ -747,7 +751,7 @@ class BaseAdapterTest(TestCase):
         exp = get_experiment_for_value()
         exp._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = True
         exp.optimization_config = get_optimization_config_no_constraints()
-        adapter = Adapter(experiment=exp, model=Generator())
+        adapter = Adapter(experiment=exp, generator=Generator())
         self.assertTrue(adapter._experiment_has_immutable_search_space_and_opt_config)
         gr = adapter.gen(1)
         self.assertIsNone(gr.optimization_config)
@@ -843,7 +847,7 @@ class BaseAdapterTest(TestCase):
                 get_branin_data_batch(batch=trial, fill_vals=sq_vals)
             )
         # Fit model without filling missing parameters
-        m = Adapter(experiment=experiment, model=Generator())
+        m = Adapter(experiment=experiment, generator=Generator())
         self.assertEqual(
             [t.__name__ for t in m._raw_transforms],  # pyre-ignore[16]
             ["Cast"],
@@ -857,7 +861,7 @@ class BaseAdapterTest(TestCase):
         # Fit with filling missing parameters
         m = Adapter(
             experiment=experiment,
-            model=Generator(),
+            generator=Generator(),
             search_space=ss2,
             transforms=[],  # FillMissingParameters added by default.
             transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
@@ -908,7 +912,7 @@ class BaseAdapterTest(TestCase):
         # Check that SQ and custom are OOD
         m = Adapter(
             experiment=experiment,
-            model=Generator(),
+            generator=Generator(),
             search_space=ss,
             expand_model_space=False,
         )
@@ -922,7 +926,7 @@ class BaseAdapterTest(TestCase):
         # With expand model space, custom is not OOD, and model space is expanded
         m = Adapter(
             experiment=experiment,
-            model=Generator(),
+            generator=Generator(),
             search_space=ss,
         )
         arm_names = [obs.arm_name for obs in m.get_training_data()]
@@ -935,7 +939,7 @@ class BaseAdapterTest(TestCase):
         # With fill values, SQ is also in design, and x2 is further expanded
         m = Adapter(
             experiment=experiment,
-            model=Generator(),
+            generator=Generator(),
             search_space=ss,
             transforms=[FillMissingParameters],
             transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
@@ -954,7 +958,7 @@ class BaseAdapterTest(TestCase):
         experiment.status_quo = Arm(name="1_1", parameters={"x": 3.0})
         adapter = Adapter(
             experiment=experiment,
-            model=Generator(),
+            generator=Generator(),
             data=MapData(),
             data_loader_config=DataLoaderConfig(
                 fit_only_completed_map_metrics=False,
@@ -972,7 +976,7 @@ class BaseAdapterTest(TestCase):
         # With fit_only_completed_map_metrics=True, statuses to fit is limited.
         Adapter(
             experiment=experiment,
-            model=Generator(),
+            generator=Generator(),
             data_loader_config=DataLoaderConfig(
                 fit_only_completed_map_metrics=True,
             ),
@@ -989,14 +993,14 @@ class BaseAdapterTest(TestCase):
         lookup_patch = mock.patch.object(
             exp, "lookup_data", return_value=exp.lookup_data()
         ).start()
-        adapter = Adapter(experiment=exp, model=Generator())
+        adapter = Adapter(experiment=exp, generator=Generator())
         lookup_patch.assert_called_once()
         lookup_patch.reset_mock()
         adapter._process_and_transform_data(experiment=exp)
         lookup_patch.assert_called_once()
         lookup_patch.reset_mock()
         # Not called if data is provided.
-        adapter = Adapter(experiment=exp, model=Generator(), data=MapData())
+        adapter = Adapter(experiment=exp, generator=Generator(), data=MapData())
         adapter._process_and_transform_data(experiment=exp, data=MapData())
         lookup_patch.assert_not_called()
 
@@ -1009,7 +1013,7 @@ class BaseAdapterTest(TestCase):
         experiment = get_experiment_with_observations(observations=np_obs.tolist())
         adapter = Adapter(
             experiment=experiment,
-            model=Generator(),
+            generator=Generator(),
             transforms=[StandardizeY],
         )
 

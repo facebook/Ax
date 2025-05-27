@@ -39,7 +39,7 @@ class RandomAdapter(Adapter):
         self,
         *,
         experiment: Experiment,
-        model: RandomGenerator,
+        generator: RandomGenerator,
         search_space: SearchSpace | None = None,
         data: Data | None = None,
         transforms: Sequence[type[Transform]] | None = None,
@@ -54,7 +54,7 @@ class RandomAdapter(Adapter):
         self.parameters: list[str] = []
         super().__init__(
             search_space=search_space,
-            model=model,
+            generator=generator,
             transforms=transforms,
             experiment=experiment,
             data=data,
@@ -68,7 +68,7 @@ class RandomAdapter(Adapter):
             fit_on_init=fit_on_init,
         )
         # Re-assign for more precise typing.
-        self.model: RandomGenerator = model
+        self.generator: RandomGenerator = generator
 
     def _fit(
         self,
@@ -98,7 +98,7 @@ class RandomAdapter(Adapter):
         )
         # Extract generated points to deduplicate against.
         generated_points = None
-        if self.model.deduplicate:
+        if self.generator.deduplicate:
             arms_to_deduplicate = self._experiment.arms_by_signature_for_deduplication
             generated_obs = [
                 ObservationFeatures.from_arm(arm=arm)
@@ -124,7 +124,7 @@ class RandomAdapter(Adapter):
                 generated_points = np.unique(generated_points, axis=0)
 
         # Generate the candidates
-        X, w = self.model.gen(
+        X, w = self.generator.gen(
             n=n,
             bounds=search_space_digest.bounds,
             linear_constraints=linear_constraints,
