@@ -660,9 +660,7 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
         gs.gen(exp)
         self.assertFalse(
-            assert_is_instance(
-                none_throws(gs._model).generator, SobolGenerator
-            ).scramble
+            assert_is_instance(none_throws(gs.model).generator, SobolGenerator).scramble
         )
 
     def test_sobol_MBM_strategy_batches(self) -> None:

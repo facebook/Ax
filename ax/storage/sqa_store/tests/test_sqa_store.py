@@ -1886,10 +1886,6 @@ class SQAStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         # Now the generation strategies should be equal.
-        # Reloaded generation strategy will not have attributes associated with fitting
-        # the model until after it's used to fit the model or generate candidates, so
-        # we unset those attributes here and compare equality of the rest.
-        generation_strategy._model = None
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
@@ -2000,10 +1996,6 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # Reloaded generation strategy will not have attributes associated with fitting
-        # the model until after it's used to fit the model or generate candidates, so
-        # we unset those attributes here and compare equality of the rest.
-        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
         self.assertIsNotNone(loaded_generation_strategy._experiment)
         self.assertEqual(
