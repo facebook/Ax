@@ -173,7 +173,8 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, 0.0]),
                     is_moo=False,
-                )
+                ),
+                datasets=self.supervised_dataset,
             ),
         )
         self.assertEqual(
@@ -182,7 +183,8 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, -1.0]),
                     is_moo=True,
-                )
+                ),
+                datasets=self.supervised_dataset,
             ),
         )
 
