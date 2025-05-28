@@ -94,7 +94,6 @@ class GenerationStrategy(Base):
     # it exists.
     _name: str
     _experiment: Experiment | None = None
-    _model: Adapter | None = None  # Current model.
 
     def __init__(
         self,
@@ -461,7 +460,6 @@ class GenerationStrategy(Base):
         strategies; call this utility on the pre-storage one first. The rest
         of the fields should be identical.
         """
-        self._model = None
         for n in self._nodes:
             if len(n.generator_specs) > 1:
                 n._generator_spec_to_gen_from = None
@@ -764,8 +762,6 @@ class GenerationStrategy(Base):
                     skip_fit=not (first_generation_in_multi or transitioned),
                     **pack_gs_gen_kwargs,
                 )
-                # TODO[@drfreund]: Do we need this or can we just not keep `GS._model`?
-                self._model = self._curr._fitted_model
             except DataRequiredError as err:
                 # Model needs more data, so we log the error and return
                 # as many generator runs as we were able to produce, unless
@@ -854,8 +850,4 @@ class GenerationStrategy(Base):
             for node in self._nodes:
                 if node.node_name == next_node:
                     self._curr = node
-                    # Moving to the next node also entails unsetting this GS's model
-                    # (since new node's model will be initialized for the first time;
-                    # this is done in `_gen_with_multiple_nodes`).
-                    self._model = None
         return move_to_next_node
