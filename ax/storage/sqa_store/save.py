@@ -95,6 +95,7 @@ def _save_experiment(
         obj=experiment,
         encode_func=encoder.experiment_to_sqa,
         decode_func=decoder.experiment_from_sqa,
+        decode_args={"load_auxiliary_experiments": False},
     )
 
     return assert_is_instance(experiment_sqa, SQABase) if return_sqa else None
