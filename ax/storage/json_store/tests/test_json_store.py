@@ -74,7 +74,6 @@ from ax.utils.testing.core_stubs import (
     get_botorch_model,
     get_botorch_model_with_default_acquisition_class,
     get_botorch_model_with_surrogate_spec,
-    get_botorch_model_with_surrogate_specs,
     get_branin_data,
     get_branin_experiment,
     get_branin_experiment_with_timestamp_map_metric,
@@ -176,7 +175,6 @@ TEST_CASES = [
     ("BoTorchGenerator", get_botorch_model),
     ("BoTorchGenerator", get_botorch_model_with_default_acquisition_class),
     ("BoTorchGenerator", get_botorch_model_with_surrogate_spec),
-    ("BoTorchGenerator", get_botorch_model_with_surrogate_specs),
     ("BraninMetric", get_branin_metric),
     ("CenterGenerationNode", partial(CenterGenerationNode, next_node_name="SOBOL")),
     ("ChainedInputTransform", get_chained_input_transform),
@@ -1029,8 +1027,9 @@ class JSONStoreTest(TestCase):
             "refit_on_cv": False,
             "warm_start_refit": True,
         }
-        expected_object = get_botorch_model_with_surrogate_spec()
+        expected_object = get_botorch_model_with_surrogate_spec(with_covar_module=False)
         expected_object.surrogate_spec.model_configs[0].input_transform_classes = None
+        expected_object.surrogate_spec.model_configs[0].name = "from deprecated args"
         # The new default value is None; we need to manually set it to the old value
         self.assertIsNone(
             none_throws(expected_object.surrogate_spec).model_configs[0].mll_class

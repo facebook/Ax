@@ -7,9 +7,8 @@
 # pyre-strict
 
 import dataclasses
-import warnings
 from collections import OrderedDict
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 import numpy.typing as npt
@@ -91,7 +90,6 @@ class BoTorchGenerator(TorchGenerator, Base):
     def __init__(
         self,
         surrogate_spec: SurrogateSpec | None = None,
-        surrogate_specs: Mapping[str, SurrogateSpec] | None = None,
         surrogate: Surrogate | None = None,
         acquisition_class: type[Acquisition] | None = None,
         acquisition_options: dict[str, Any] | None = None,
@@ -101,26 +99,11 @@ class BoTorchGenerator(TorchGenerator, Base):
         use_p_feasible: bool = True,
     ) -> None:
         # Check that only one surrogate related option is provided.
-        if bool(surrogate_spec) + bool(surrogate_specs) + bool(surrogate) > 1:
+        if surrogate_spec is not None and surrogate is not None:
             raise UserInputError(
-                "Only one of `surrogate_spec`, `surrogate_specs`, and `surrogate` "
+                "Only one of `surrogate_spec` or `surrogate` "
                 "can be specified. Please use `surrogate_spec`."
             )
-        if surrogate_specs is not None:
-            if len(surrogate_specs) > 1:
-                raise DeprecationWarning(
-                    "Support for multiple `Surrogate`s has been deprecated. "
-                    "Please use the `surrogate_spec` input in the future to "
-                    "specify a single `Surrogate`."
-                )
-            warnings.warn(
-                "The `surrogate_specs` argument is deprecated in favor of "
-                "`surrogate_spec`, which accepts a single `SurrogateSpec` object. "
-                "Please use `surrogate_spec` in the future.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            surrogate_spec = next(iter(surrogate_specs.values()))
         self.surrogate_spec = surrogate_spec
         self._surrogate = surrogate
 

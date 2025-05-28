@@ -48,6 +48,7 @@ from ax.generation_strategy.transition_criterion import (
     TransitionCriterion,
     TrialBasedCriterion,
 )
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoders import (
@@ -274,6 +275,12 @@ def object_from_json(
             # before we call surrogate_spec_from_json.
             return surrogate_spec_from_json(
                 surrogate_spec_json=object_json, **vars(registry_kwargs)
+            )
+
+        if _class is BoTorchGenerator and object_json is not None:
+            # Replaces deprecated surrogate_specs with surrogate_spec.
+            object_json = _extract_surrogate_spec_from_surrogate_specs(
+                model_kwargs=object_json
             )
 
         return ax_class_from_json_dict(
@@ -738,15 +745,25 @@ def _extract_surrogate_spec_from_surrogate_specs(
         model_kwargs: A dictionary of model kwargs to update.
 
     Returns:
-        If ``surrogate_specs`` is not found or it is found but has multiple elements,
-        returns ``model_kwargs`` unchanged.
+        If ``surrogate_specs`` is not found, returns ``model_kwargs`` unchanged.
+        If there are multiple elements in ``surrogate_specs``, the input is discarded
+        after logging an exception. The default ``Surrogate`` will be used.
         Otherwise, returns a new dictionary with the ``surrogate_specs`` element
         replaced with ``surrogate_spec``.
     """
-    if (specs := model_kwargs.get("surrogate_specs", None)) is None or len(specs) > 1:
-        return model_kwargs
     new_kwargs = model_kwargs.copy()
-    new_kwargs.pop("surrogate_specs")
+    specs = new_kwargs.pop("surrogate_specs", None)
+    if specs is None:
+        return new_kwargs
+    if len(specs) > 1:
+        logger.exception(
+            "The input includes `surrogate_specs` with multiple elements. "
+            "Support for multiple surrogates has been deprecated. "
+            "Discarding the `surrogate_specs` input to facilitate loading "
+            "of the experiment. The loaded object will utilize the default "
+            "`Surrogate` and may not behave as expected."
+        )
+        return new_kwargs
     new_kwargs["surrogate_spec"] = next(iter(specs.values()))
     return new_kwargs
 

@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import itertools
-
 from collections import OrderedDict
 from collections.abc import Iterable, MutableMapping
 from datetime import datetime, timedelta
@@ -2736,26 +2735,20 @@ def get_botorch_model_with_default_acquisition_class() -> BoTorchGenerator:
     )
 
 
-def get_botorch_model_with_surrogate_specs() -> BoTorchGenerator:
-    return BoTorchGenerator(
-        surrogate_specs={
-            "name": SurrogateSpec(
-                model_configs=[
-                    ModelConfig(
-                        model_options={"some_option": "some_value"},
-                        covar_module_class=DefaultRBFKernel,
-                        covar_module_options={"inactive_features": []},
-                    )
-                ]
-            )
-        }
-    )
-
-
-def get_botorch_model_with_surrogate_spec() -> BoTorchGenerator:
-    return BoTorchGenerator(
-        surrogate_spec=SurrogateSpec(botorch_model_kwargs={"some_option": "some_value"})
-    )
+def get_botorch_model_with_surrogate_spec(
+    with_covar_module: bool = True,
+) -> BoTorchGenerator:
+    if with_covar_module:
+        config = ModelConfig(
+            model_options={"some_option": "some_value"},
+            covar_module_class=DefaultRBFKernel,
+            covar_module_options={"inactive_features": []},
+        )
+    else:
+        config = ModelConfig(
+            model_options={"some_option": "some_value"},
+        )
+    return BoTorchGenerator(surrogate_spec=SurrogateSpec(model_configs=[config]))
 
 
 def get_surrogate() -> Surrogate:
