@@ -373,25 +373,6 @@ class BoTorchGeneratorTest(TestCase):
             self.model.predict(X=self.X_test, use_posterior_predictive=True)
         mock_predict.assert_called_with(X=self.X_test, use_posterior_predictive=True)
 
-    def test_with_surrogate_specs_input(self) -> None:
-        spec1 = SurrogateSpec(
-            botorch_model_class=SingleTaskGP,
-            outcomes=["y1", "y3"],
-        )
-        surrogate_specs = {
-            "Vanilla": spec1,
-            "Bayesian": SurrogateSpec(
-                botorch_model_class=SaasFullyBayesianSingleTaskGP,
-                outcomes=["y2"],
-            ),
-        }
-        with self.assertRaisesRegex(DeprecationWarning, "Support for multiple"):
-            BoTorchGenerator(surrogate_specs=surrogate_specs)
-
-        with self.assertWarnsRegex(DeprecationWarning, "surrogate_specs"):
-            model = BoTorchGenerator(surrogate_specs={"s": spec1})
-        self.assertIs(model.surrogate_spec, spec1)
-
     @mock_botorch_optimize
     def test_cross_validate(self) -> None:
         self.model.fit(
