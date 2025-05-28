@@ -47,7 +47,7 @@ from ax.benchmark.methods.sobol import (
     get_sobol_benchmark_method,
     get_sobol_generation_strategy,
 )
-from ax.benchmark.problems.registry import get_problem
+from ax.benchmark.problems.registry import get_benchmark_problem
 from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -116,7 +116,7 @@ class TestBenchmark(TestCase):
     def test_batch(self) -> None:
         batch_size = 5
 
-        problem = get_problem("ackley4", num_trials=2)
+        problem = get_benchmark_problem("ackley4", num_trials=2)
         for sequential in [False, True]:
             with self.subTest(sequential=sequential):
                 batch_method_joint = get_sobol_botorch_modular_acquisition(
@@ -211,7 +211,7 @@ class TestBenchmark(TestCase):
         method = get_sobol_benchmark_method(distribute_replications=False)
         problems = [
             get_single_objective_benchmark_problem(),
-            get_problem("jenatton", num_trials=6),
+            get_benchmark_problem("jenatton", num_trials=6),
         ]
         for problem in problems:
             res = self.benchmark_replication(problem=problem, method=method, seed=0)
@@ -745,7 +745,7 @@ class TestBenchmark(TestCase):
             "ax.benchmark.problems.hpo.torchvision._REGISTRY",
             {"MNIST": TestDataset},
         ):
-            mnist_problem = get_problem(
+            mnist_problem = get_benchmark_problem(
                 problem_key="hpo_pytorch_cnn_MNIST", name="MNIST", num_trials=6
             )
         for method, problem, expected_name in [
@@ -755,7 +755,9 @@ class TestBenchmark(TestCase):
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     distribute_replications=True,
                 ),
-                get_problem("constrained_gramacy_observed_noise", num_trials=6),
+                get_benchmark_problem(
+                    "constrained_gramacy_observed_noise", num_trials=6
+                ),
                 "MBM::SingleTaskGP_qLogNEI",
             ),
             (
@@ -1266,7 +1268,7 @@ class TestBenchmark(TestCase):
                 get_opt_trace_by_steps(experiment=none_throws(result.experiment))
 
         with self.subTest("Constrained"):
-            problem = get_problem("constrained_gramacy_observed_noise")
+            problem = get_benchmark_problem("constrained_gramacy_observed_noise")
             result = self.benchmark_replication(problem=problem, method=method, seed=0)
             with self.assertRaisesRegex(
                 NotImplementedError,

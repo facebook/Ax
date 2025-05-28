@@ -126,5 +126,5 @@ class BenchmarkMethod(Base):
             # constraints.
             params = _get_first_parameterization_from_last_trial()
         else:
-            i, params, prediction = none_throws(result)
+            _, params, _ = none_throws(result)
         return [params]

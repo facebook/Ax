@@ -18,7 +18,7 @@ from ax.benchmark.benchmark import (
 )
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
-from ax.benchmark.problems.registry import get_problem
+from ax.benchmark.problems.registry import get_benchmark_problem
 from ax.core.experiment import Experiment
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point import (
@@ -69,7 +69,7 @@ class TestMethods(TestCase):
     def _test_benchmark_replication_runs(
         self, batch_size: int, acqf_cls: type[AcquisitionFunction]
     ) -> None:
-        problem = get_problem(problem_key="ackley4")
+        problem = get_benchmark_problem(problem_key="ackley4")
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,
             batch_size=batch_size,
@@ -83,7 +83,9 @@ class TestMethods(TestCase):
         self.assertEqual(method.name, "test")
         # Only run one non-Sobol trial
         n_total_trials = n_sobol_trials + 1
-        problem = get_problem(problem_key="ackley4", num_trials=n_total_trials)
+        problem = get_benchmark_problem(
+            problem_key="ackley4", num_trials=n_total_trials
+        )
         result = benchmark_replication(
             problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
         )
@@ -120,7 +122,9 @@ class TestMethods(TestCase):
         self.assertEqual(gs._steps[0].model, Generators.SOBOL)
 
     def _test_get_best_parameters(self, use_model_predictions: bool) -> None:
-        problem = get_problem(problem_key="ackley4", num_trials=2, noise_std=1.0)
+        problem = get_benchmark_problem(
+            problem_key="ackley4", num_trials=2, noise_std=1.0
+        )
 
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,
