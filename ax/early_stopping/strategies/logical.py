@@ -7,11 +7,11 @@
 
 from collections.abc import Sequence
 from functools import reduce
-from typing import Any
 
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.generation_node import GenerationNode
 
 
 class LogicalEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
@@ -31,13 +31,17 @@ class AndEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
         self,
         trial_indices: set[int],
         experiment: Experiment,
-        **kwargs: dict[str, Any],
+        current_node: GenerationNode | None = None,
     ) -> dict[int, str | None]:
         left = self.left.should_stop_trials_early(
-            trial_indices=trial_indices, experiment=experiment, **kwargs
+            trial_indices=trial_indices,
+            experiment=experiment,
+            current_node=current_node,
         )
         right = self.right.should_stop_trials_early(
-            trial_indices=trial_indices, experiment=experiment, **kwargs
+            trial_indices=trial_indices,
+            experiment=experiment,
+            current_node=current_node,
         )
         return {
             trial: f"{left[trial]}, {right[trial]}" for trial in left if trial in right
@@ -63,13 +67,17 @@ class OrEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
         self,
         trial_indices: set[int],
         experiment: Experiment,
-        **kwargs: dict[str, Any],
+        current_node: GenerationNode | None = None,
     ) -> dict[int, str | None]:
         return {
             **self.left.should_stop_trials_early(
-                trial_indices=trial_indices, experiment=experiment, **kwargs
+                trial_indices=trial_indices,
+                experiment=experiment,
+                current_node=current_node,
             ),
             **self.right.should_stop_trials_early(
-                trial_indices=trial_indices, experiment=experiment, **kwargs
+                trial_indices=trial_indices,
+                experiment=experiment,
+                current_node=current_node,
             ),
         }

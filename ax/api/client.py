@@ -569,7 +569,9 @@ class Client(WithDBSettingsBase):
         es_response = none_throws(
             self._early_stopping_strategy_or_choose()
         ).should_stop_trials_early(
-            trial_indices={trial_index}, experiment=self._experiment
+            trial_indices={trial_index},
+            experiment=self._experiment,
+            current_node=self._generation_strategy_or_choose()._curr,
         )
 
         # TODO[mpolson64]: log the returned reason for stopping the trial

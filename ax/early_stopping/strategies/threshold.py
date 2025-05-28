@@ -13,6 +13,7 @@ import pandas as pd
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
+from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)
@@ -80,6 +81,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_indices: set[int],
         experiment: Experiment,
+        current_node: GenerationNode | None = None,
     ) -> dict[int, str | None]:
         """Stop a trial if its performance doesn't reach a pre-specified threshold
         by `min_progression`.
@@ -87,6 +89,10 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         Args:
             trial_indices: Indices of candidate trials to consider for early stopping.
             experiment: Experiment that contains the trials and other contextual data.
+            current_node: The current ``GenerationNode`` on the ``GenerationStrategy``
+                used to generate trials for the ``Experiment``. Early stopping
+                strategies may utilize components of the current node when making
+                stopping decisions.
 
         Returns:
             A dictionary mapping trial indices that should be early stopped to

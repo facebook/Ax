@@ -1316,6 +1316,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             early_stopping_strategy=self._early_stopping_strategy,
             trial_indices=trial_indices,
             experiment=self.experiment,
+            current_node=self.generation_strategy._curr,
         )
 
     def stop_trial_early(self, trial_index: int) -> None:

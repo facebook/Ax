@@ -2641,7 +2641,7 @@ class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_indices: set[int],
         experiment: Experiment,
-        **kwargs: dict[str, Any],
+        current_node: GenerationNode | None = None,
     ) -> dict[int, str | None]:
         return self.early_stop_trials
 

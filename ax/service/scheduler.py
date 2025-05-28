@@ -31,7 +31,6 @@ from ax.core.multi_type_experiment import (
 )
 from ax.core.runner import Runner
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
-
 from ax.exceptions.core import (
     AxError,
     DataRequiredError,
@@ -1209,6 +1208,7 @@ class Scheduler(AnalysisBase, BestPointMixin):
             early_stopping_strategy=self.options.early_stopping_strategy,
             trial_indices=self.running_trial_indices,
             experiment=self.experiment,
+            current_node=self.generation_strategy._curr,
         )
         self.experiment.stop_trial_runs(
             trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_info],

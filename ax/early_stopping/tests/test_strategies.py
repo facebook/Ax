@@ -7,7 +7,8 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import Any, cast
+from typing import cast
+from unittest.mock import Mock
 
 import numpy as np
 from ax.core import OptimizationConfig
@@ -27,6 +28,7 @@ from ax.early_stopping.strategies.logical import (
 )
 from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
+from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_arms,
@@ -38,6 +40,38 @@ from ax.utils.testing.core_stubs import (
 from pyre_extensions import assert_is_instance, none_throws
 
 
+class FakeStrategy(BaseEarlyStoppingStrategy):
+    def should_stop_trials_early(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+        current_node: GenerationNode | None = None,
+    ) -> dict[int, str | None]:
+        return {}
+
+
+class FakeStrategyRequiresNode(BaseEarlyStoppingStrategy):
+    def should_stop_trials_early(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+        current_node: GenerationNode | None = None,
+    ) -> dict[int, str | None]:
+        if current_node is None:
+            raise ValueError("current_node is required")
+        return {}
+
+
+class ModelBasedFakeStrategy(ModelBasedEarlyStoppingStrategy):
+    def should_stop_trials_early(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+        current_node: GenerationNode | None = None,
+    ) -> dict[int, str | None]:
+        return {}
+
+
 class TestBaseEarlyStoppingStrategy(TestCase):
     def test_early_stopping_strategy(self) -> None:
         # can't instantiate abstract class
@@ -47,15 +81,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             BaseEarlyStoppingStrategy()
 
     def test_default_objective_and_direction(self) -> None:
-        class FakeStrategy(BaseEarlyStoppingStrategy):
-            def should_stop_trials_early(
-                self,
-                trial_indices: set[int],
-                experiment: Experiment,
-                **kwargs: dict[str, Any],
-            ) -> dict[int, str | None]:
-                return {}
-
         test_experiment = get_test_map_data_experiment(
             num_trials=3, num_fetches=5, num_complete=3
         )
@@ -135,15 +160,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )
 
     def test_is_eligible(self) -> None:
-        class FakeStrategy(BaseEarlyStoppingStrategy):
-            def should_stop_trials_early(
-                self,
-                trial_indices: set[int],
-                experiment: Experiment,
-                **kwargs: dict[str, Any],
-            ) -> dict[int, str | None]:
-                return {}
-
         experiment = get_test_map_data_experiment(
             num_trials=3, num_fetches=5, num_complete=3
         )
@@ -208,17 +224,8 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         )
 
     def test_early_stopping_savings(self) -> None:
-        class FakeStrategy(BaseEarlyStoppingStrategy):
-            def should_stop_trials_early(
-                self,
-                trial_indices: set[int],
-                experiment: Experiment,
-                **kwargs: dict[str, Any],
-            ) -> dict[int, str | None]:
-                return {}
-
         exp = get_branin_experiment_with_timestamp_map_metric()
-        es_strategy = FakeStrategy(min_progression=3, max_progression=5)
+        es_strategy = ModelBasedFakeStrategy(min_progression=3, max_progression=5)
 
         self.assertEqual(
             es_strategy.estimate_early_stopping_savings(
@@ -227,22 +234,27 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             0,
         )
 
+    def test_with_current_node(self) -> None:
+        exp = get_branin_experiment_with_timestamp_map_metric()
+        es_strategy = FakeStrategyRequiresNode(min_progression=3, max_progression=5)
+
+        with self.assertRaisesRegex(ValueError, "current_node is required"):
+            es_strategy.should_stop_trials_early(
+                trial_indices={0},
+                experiment=exp,
+            )
+
+        es_strategy.should_stop_trials_early(
+            trial_indices={0}, experiment=exp, current_node=Mock()
+        )
+
 
 class TestModelBasedEarlyStoppingStrategy(TestCase):
     def test_get_training_data(self) -> None:
-        class FakeStrategy(ModelBasedEarlyStoppingStrategy):
-            def should_stop_trials_early(
-                self,
-                trial_indices: set[int],
-                experiment: Experiment,
-                **kwargs: dict[str, Any],
-            ) -> dict[int, str | None]:
-                return {}
-
         experiment = get_test_map_data_experiment(
             num_trials=3, num_fetches=4, num_complete=3
         )
-        training_data = FakeStrategy().get_training_data(
+        training_data = ModelBasedFakeStrategy().get_training_data(
             experiment,
             map_data=cast(MapData, experiment.lookup_data()),
         )
