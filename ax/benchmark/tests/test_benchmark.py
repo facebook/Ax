@@ -57,7 +57,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.service.utils.scheduler_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
@@ -950,7 +950,7 @@ class TestBenchmark(TestCase):
                 nodes=[
                     GenerationNode(
                         node_name="Sobol",
-                        model_specs=[
+                        generator_specs=[
                             GeneratorSpec(
                                 Generators.SOBOL, model_kwargs={"deduplicate": True}
                             )

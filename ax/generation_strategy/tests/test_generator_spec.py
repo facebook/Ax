@@ -14,7 +14,7 @@ from ax.adapter.adapter_utils import extract_search_space_digest
 from ax.adapter.registry import Generators
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize

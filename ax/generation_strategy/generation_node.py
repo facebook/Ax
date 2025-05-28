@@ -41,7 +41,7 @@ from ax.adapter.registry import (
     Generators,
     ModelRegistryBase,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     MaxGenerationParallelism,
@@ -84,8 +84,8 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     Args:
         node_name: A unique name for the GenerationNode. Used for storage purposes.
-        model_specs: A list of GeneratorSpecs to be selected from for generation in this
-            GenerationNode.
+        generator_specs: A list of GeneratorSpecs to be selected from for generation
+            in this GenerationNode.
         best_model_selector: A ``BestModelSelector`` used to select the
             ``GeneratorSpec`` to generate from in ``GenerationNode`` with
             multiple ``GeneratorSpec``s.
@@ -124,13 +124,13 @@ class GenerationNode(SerializationMixin, SortableBase):
     """
 
     # Required options:
-    model_specs: list[GeneratorSpec]
+    generator_specs: list[GeneratorSpec]
     # TODO: Move `should_deduplicate` to `GeneratorSpec` if possible, and make optional
     should_deduplicate: bool
     _node_name: str
 
     # Optional specifications
-    _model_spec_to_gen_from: GeneratorSpec | None = None
+    _generator_spec_to_gen_from: GeneratorSpec | None = None
     # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
     _transition_criteria: Sequence[TransitionCriterion]
     _input_constructors: dict[
@@ -149,7 +149,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     def __init__(
         self,
         node_name: str,
-        model_specs: list[GeneratorSpec],
+        generator_specs: list[GeneratorSpec],
         best_model_selector: BestModelSelector | None = None,
         should_deduplicate: bool = False,
         transition_criteria: Sequence[TransitionCriterion] | None = None,
@@ -167,12 +167,12 @@ class GenerationNode(SerializationMixin, SortableBase):
     ) -> None:
         self._node_name = node_name
         # Check that the model specs have unique model keys.
-        model_keys = {model_spec.model_key for model_spec in model_specs}
-        if len(model_keys) != len(model_specs):
+        model_keys = {generator_spec.model_key for generator_spec in generator_specs}
+        if len(model_keys) != len(generator_specs):
             raise UserInputError(
                 "Model keys must be unique across all model specs in a GenerationNode."
             )
-        if len(model_specs) > 1 and best_model_selector is None:
+        if len(generator_specs) > 1 and best_model_selector is None:
             raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
         if trial_type is not None and (
             trial_type != Keys.SHORT_RUN and trial_type != Keys.LONG_RUN
@@ -181,11 +181,11 @@ class GenerationNode(SerializationMixin, SortableBase):
                 f"Trial type must be either {Keys.SHORT_RUN} or {Keys.LONG_RUN},"
                 f" got {trial_type}."
             )
-        # If possible, assign `_model_spec_to_gen_from` right away, for use in
+        # If possible, assign `_generator_spec_to_gen_from` right away, for use in
         # `__repr__`
-        if len(model_specs) == 1:
-            self._model_spec_to_gen_from = model_specs[0]
-        self.model_specs = model_specs
+        if len(generator_specs) == 1:
+            self._generator_spec_to_gen_from = generator_specs[0]
+        self.generator_specs = generator_specs
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
         self._transition_criteria = (
@@ -210,23 +210,23 @@ class GenerationNode(SerializationMixin, SortableBase):
         return self._node_name
 
     @property
-    def model_spec_to_gen_from(self) -> GeneratorSpec:
-        """Returns the cached `_model_spec_to_gen_from` or gets it from
+    def generator_spec_to_gen_from(self) -> GeneratorSpec:
+        """Returns the cached `_generator_spec_to_gen_from` or gets it from
         `_pick_fitted_model_to_gen_from` and then caches and returns it
         """
-        if self._model_spec_to_gen_from is not None:
-            return self._model_spec_to_gen_from
+        if self._generator_spec_to_gen_from is not None:
+            return self._generator_spec_to_gen_from
 
-        self._model_spec_to_gen_from = self._pick_fitted_model_to_gen_from()
-        return self._model_spec_to_gen_from
+        self._generator_spec_to_gen_from = self._pick_fitted_model_to_gen_from()
+        return self._generator_spec_to_gen_from
 
     @property
     def model_to_gen_from_name(self) -> str | None:
         """Returns the name of the model that will be used for gen, if there is one.
         Otherwise, returns None.
         """
-        if self._model_spec_to_gen_from is not None:
-            return self._model_spec_to_gen_from.model_key
+        if self._generator_spec_to_gen_from is not None:
+            return self._generator_spec_to_gen_from.model_key
         else:
             return None
 
@@ -299,11 +299,11 @@ class GenerationNode(SerializationMixin, SortableBase):
     @property
     def _fitted_model(self) -> Adapter | None:
         """Private property to return optional fitted_model from
-        self.model_spec_to_gen_from for convenience. If no model is fit,
+        self.generator_spec_to_gen_from for convenience. If no model is fit,
         will return None. If using the non-private `fitted_model` property,
         and no model is fit, a UserInput error will be raised.
         """
-        return self.model_spec_to_gen_from._fitted_model
+        return self.generator_spec_to_gen_from._fitted_model
 
     def __repr__(self) -> str:
         """String representation of this ``GenerationNode`` (note that it
@@ -312,9 +312,9 @@ class GenerationNode(SerializationMixin, SortableBase):
         """
         str_rep = f"{self.__class__.__name__}"
         str_rep += f"(node_name='{self.node_name}'"
-        str_rep += ", model_specs="
+        str_rep += ", generator_specs="
         generator_spec_str = (
-            ", ".join([spec._brief_repr() for spec in self.model_specs])
+            ", ".join([spec._brief_repr() for spec in self.generator_specs])
             .replace("\n", " ")
             .replace("\t", "")
         )
@@ -348,30 +348,31 @@ class GenerationNode(SerializationMixin, SortableBase):
                 ``fit`` method. NOTE: Local kwargs take precedence over the ones
                 stored in ``GeneratorSpec.model_kwargs``.
         """
-        self._model_spec_to_gen_from = None
-        for model_spec in self.model_specs:
+        self._generator_spec_to_gen_from = None
+        for generator_spec in self.generator_specs:
             try:
-                model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
+                # Stores the fitted model as `generator_spec._fitted_model`.
+                generator_spec.fit(
                     experiment=experiment,
                     data=data,
                     **{
                         **self._get_model_state_from_last_generator_run(
-                            model_spec=model_spec
+                            generator_spec=generator_spec
                         ),
                         **kwargs,
                     },
                 )
             except Exception as e:
-                if len(self.model_specs) == 1:
+                if len(self.generator_specs) == 1:
                     # If no other model specs, raise.
                     raise
                 # If there are other model specs, try to handle gracefully.
                 logger.exception(
-                    f"Model fitting failed for `GeneratorSpec` {model_spec.model_key}. "
-                    f"Original error message: {e}"
+                    "Model fitting failed for `GeneratorSpec` "
+                    f"{generator_spec.model_key}. Original error message: {e}."
                 )
                 # Discard any previously fitted models for this spec.
-                model_spec._fitted_model = None
+                generator_spec._fitted_model = None
 
     def gen(
         self,
@@ -487,18 +488,18 @@ class GenerationNode(SerializationMixin, SortableBase):
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
         """
-        model_spec = self.model_spec_to_gen_from
-        if n is None and model_spec.model_gen_kwargs:
+        generator_spec = self.generator_spec_to_gen_from
+        if n is None and generator_spec.model_gen_kwargs:
             # If `n` is not specified, ensure that the `None` value does not
-            # override the one set in `model_spec.model_gen_kwargs`.
-            n = model_spec.model_gen_kwargs.get("n", None)
-        return model_spec.gen(
+            # override the one set in `generator_spec.model_gen_kwargs`.
+            n = generator_spec.model_gen_kwargs.get("n", None)
+        return generator_spec.gen(
             experiment=experiment,
             data=data,
             n=n,
             # For `pending_observations`, prefer the input to this function, as
             # `pending_observations` are dynamic throughout the experiment and thus
-            # unlikely to be specified in `model_spec.model_gen_kwargs`.
+            # unlikely to be specified in `generator_spec.model_gen_kwargs`.
             pending_observations=pending_observations,
             **model_gen_kwargs,
         )
@@ -573,10 +574,12 @@ class GenerationNode(SerializationMixin, SortableBase):
         # Fit fallback model using information from the experiment as ground truth.
         fallback_model.fit(
             experiment=experiment,
-            **self._get_model_state_from_last_generator_run(model_spec=fallback_model),
+            **self._get_model_state_from_last_generator_run(
+                generator_spec=fallback_model
+            ),
         )
-        # Switch _model_spec_to_gen_from to a fallback spec
-        self._model_spec_to_gen_from = fallback_model
+        # Switch _generator_spec_to_gen_from to a fallback spec
+        self._generator_spec_to_gen_from = fallback_model
         gr = self._gen(
             experiment=experiment,
             data=data,
@@ -587,12 +590,12 @@ class GenerationNode(SerializationMixin, SortableBase):
         return gr
 
     def _get_model_state_from_last_generator_run(
-        self, model_spec: GeneratorSpec
+        self, generator_spec: GeneratorSpec
     ) -> dict[str, Any]:
         """Get the fit args from the last generator run for the model being fit.
 
         Args:
-            model_spec: The model spec to get the fit args for.
+            generator_spec: The model spec to get the fit args for.
 
         Returns:
             A dictionary of fit args extracted from the last generator run
@@ -601,13 +604,13 @@ class GenerationNode(SerializationMixin, SortableBase):
         if self._generation_strategy is None:
             # If there is no GS, we cannot access the previous GRs.
             return {}
-        curr_model = model_spec.model_enum
+        curr_model = generator_spec.model_enum
         # Find the last GR that was generated by the model being fit.
         grs = self.generation_strategy._generator_runs
         for gr in reversed(grs):
             if (
                 gr._generation_node_name == self.node_name
-                and gr._model_key == model_spec.model_key
+                and gr._model_key == generator_spec.model_key
             ):
                 # Extract the fit args from the GR.
                 return _extract_model_state_after_gen(
@@ -631,14 +634,16 @@ class GenerationNode(SerializationMixin, SortableBase):
              `GeneratorSpec` and select it.
         """
         if self.best_model_selector is None:
-            if len(self.model_specs) != 1:  # pragma: no cover -- raised in __init__.
+            if (
+                len(self.generator_specs) != 1
+            ):  # pragma: no cover -- raised in __init__.
                 raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
-            return self.model_specs[0]
+            return self.generator_specs[0]
 
         fitted_specs = [
             # Only select between models that were successfully fit.
             spec
-            for spec in self.model_specs
+            for spec in self.generator_specs
             if spec._fitted_model is not None
         ]
         if len(fitted_specs) == 0:
@@ -648,7 +653,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 "diagnosed by following the exception logs produced earlier."
             )
         best_model = none_throws(self.best_model_selector).best_model(
-            model_specs=fitted_specs,
+            generator_specs=fitted_specs,
         )
         return best_model
 
@@ -1069,13 +1074,13 @@ class GenerationStep(GenerationNode, SortableBase):
                 f"has been deprecated. Got {self.model=}."
             )
         else:
-            model_spec = GeneratorSpec(
+            generator_spec = GeneratorSpec(
                 model_enum=self.model,
                 model_kwargs=model_kwargs,
                 model_gen_kwargs=model_gen_kwargs,
             )
         if not model_name:
-            model_name = model_spec.model_key
+            model_name = generator_spec.model_key
         self.model_name: str = model_name
 
         # Create transition criteria for this step. If num_trials is provided to
@@ -1122,7 +1127,7 @@ class GenerationStep(GenerationNode, SortableBase):
         transition_criteria += self.completion_criteria
         super().__init__(
             node_name=f"GenerationStep_{str(self.index)}",
-            model_specs=[model_spec],
+            generator_specs=[generator_spec],
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,
         )
@@ -1130,17 +1135,17 @@ class GenerationStep(GenerationNode, SortableBase):
     @property
     def model_kwargs(self) -> dict[str, Any]:
         """Returns the model kwargs of the underlying ``GeneratorSpec``."""
-        return self.model_spec.model_kwargs
+        return self.generator_spec.model_kwargs
 
     @property
     def model_gen_kwargs(self) -> dict[str, Any]:
         """Returns the model gen kwargs of the underlying ``GeneratorSpec``."""
-        return self.model_spec.model_gen_kwargs
+        return self.generator_spec.model_gen_kwargs
 
     @property
-    def model_spec(self) -> GeneratorSpec:
-        """Returns the first model_spec from the model_specs attribute."""
-        return self.model_specs[0]
+    def generator_spec(self) -> GeneratorSpec:
+        """Returns the first generator_spec from the generator_specs attribute."""
+        return self.generator_specs[0]
 
     @property
     def _unique_id(self) -> str:

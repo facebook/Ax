@@ -7,11 +7,11 @@
 # pyre-strict
 
 import warnings
-from ax.generation_strategy.model_spec import *  # noqa
+from ax.generation_strategy.generator_spec import *  # noqa
 
 warnings.warn(
-    "Please import from 'ax.generation_strategy.model_spec' instead of "
-    "'ax.adapter.model_spec'. The latter is deprecated and will be "
+    "Please import from 'ax.generation_strategy.generator_spec' instead of "
+    "'ax.adapter.generator_spec'. The latter is deprecated and will be "
     "removed in a future release.",
     DeprecationWarning,
     stacklevel=2,

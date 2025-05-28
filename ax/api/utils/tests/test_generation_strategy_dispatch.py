@@ -56,8 +56,8 @@ class TestDispatchUtils(TestCase):
                 else:
                     self.assertEqual(gs.name, "QuasiRandomSearch")
                 sobol_node = gs._nodes[-1]
-                self.assertEqual(len(sobol_node.model_specs), 1)
-                sobol_spec = sobol_node.model_specs[0]
+                self.assertEqual(len(sobol_node.generator_specs), 1)
+                sobol_spec = sobol_node.generator_specs[0]
                 self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
                 self.assertEqual(sobol_spec.model_kwargs, {"seed": None})
                 self.assertEqual(sobol_node._transition_criteria, [])
@@ -87,8 +87,8 @@ class TestDispatchUtils(TestCase):
         # Check the Sobol node & TC.
         sobol_node = gs._nodes[1]
         self.assertTrue(sobol_node.should_deduplicate)
-        self.assertEqual(len(sobol_node.model_specs), 1)
-        sobol_spec = sobol_node.model_specs[0]
+        self.assertEqual(len(sobol_node.generator_specs), 1)
+        sobol_spec = sobol_node.generator_specs[0]
         self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
         self.assertEqual(sobol_spec.model_kwargs, {"seed": 0})
         expected_tc = [
@@ -113,8 +113,8 @@ class TestDispatchUtils(TestCase):
         # Check the MBM node.
         mbm_node = gs._nodes[2]
         self.assertTrue(mbm_node.should_deduplicate)
-        self.assertEqual(len(mbm_node.model_specs), 1)
-        mbm_spec = mbm_node.model_specs[0]
+        self.assertEqual(len(mbm_node.generator_specs), 1)
+        mbm_spec = mbm_node.generator_specs[0]
         self.assertEqual(mbm_spec.model_enum, Generators.BOTORCH_MODULAR)
         expected_ss = SurrogateSpec(model_configs=[ModelConfig(name="MBM defaults")])
         self.assertEqual(
@@ -156,8 +156,8 @@ class TestDispatchUtils(TestCase):
         # Check the Sobol node & TC.
         sobol_node = gs._nodes[0]
         self.assertTrue(sobol_node.should_deduplicate)
-        self.assertEqual(len(sobol_node.model_specs), 1)
-        sobol_spec = sobol_node.model_specs[0]
+        self.assertEqual(len(sobol_node.generator_specs), 1)
+        sobol_spec = sobol_node.generator_specs[0]
         self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
         self.assertEqual(sobol_spec.model_kwargs, {"seed": None})
         expected_tc = [
@@ -182,8 +182,8 @@ class TestDispatchUtils(TestCase):
         # Check the MBM node.
         mbm_node = gs._nodes[1]
         self.assertTrue(mbm_node.should_deduplicate)
-        self.assertEqual(len(mbm_node.model_specs), 1)
-        mbm_spec = mbm_node.model_specs[0]
+        self.assertEqual(len(mbm_node.generator_specs), 1)
+        mbm_spec = mbm_node.generator_specs[0]
         self.assertEqual(mbm_spec.model_enum, Generators.BOTORCH_MODULAR)
         expected_ss = SurrogateSpec(
             model_configs=[
