@@ -2063,8 +2063,8 @@ def get_fitted_adapter(scheduler: Scheduler, force_refit: bool = False) -> Adapt
         A Adapter object fitted to the observations of the scheduler's experiment.
     """
     gs = scheduler.generation_strategy
-    adapter = gs.model  # Optional[Adapter]
+    adapter = gs.adapter  # Optional[Adapter]
     if adapter is None or force_refit:  # Need to re-fit the model.
         gs._curr._fit(experiment=scheduler.experiment)
-        adapter = cast(Adapter, gs.model)
+        adapter = cast(Adapter, gs.adapter)
     return adapter

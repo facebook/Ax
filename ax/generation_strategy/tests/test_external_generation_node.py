@@ -55,7 +55,7 @@ class TestExternalGenerationNode(TestCase):
         node = DummyNode()
         self.assertEqual(node.node_name, "dummy")
         self.assertGreater(node.fit_time_since_gen, 0.0)
-        self.assertIsNone(node._fitted_model)
+        self.assertIsNone(node._fitted_adapter)
         self.assertIsNone(node.generator_spec_to_gen_from)
         self.assertFalse(node.should_deduplicate)
         with self.assertRaisesRegex(UnsupportedError, "Unexpected arguments"):

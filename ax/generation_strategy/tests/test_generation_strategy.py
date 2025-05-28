@@ -518,7 +518,7 @@ class TestGenerationStrategy(TestCase):
         for _ in range(2):
             gs.gen(exp)
         # Make sure Sobol is used to generate the 6th point.
-        self.assertIsInstance(gs.model, RandomAdapter)
+        self.assertIsInstance(gs.adapter, RandomAdapter)
 
     def test_sobol_MBM_strategy(self) -> None:
         exp = get_branin_experiment()
@@ -561,11 +561,11 @@ class TestGenerationStrategy(TestCase):
                 )
                 ms = none_throws(g._model_state_after_gen).copy()
                 # Compare the model state to Sobol state.
-                sobol_model = assert_is_instance(
-                    none_throws(gs.model).generator, SobolGenerator
+                sobol_generator = assert_is_instance(
+                    none_throws(gs.adapter).generator, SobolGenerator
                 )
                 # Replace expected seed with the one generated in __init__.
-                expected_seed = sobol_model.seed
+                expected_seed = sobol_generator.seed
                 self.assertEqual(ms, {"init_position": i + 1, "seed": expected_seed})
         # Check completeness error message when GS should be done.
         with self.assertRaises(GenerationStrategyCompleted):
@@ -578,7 +578,7 @@ class TestGenerationStrategy(TestCase):
             g = self.sobol_MBM_step_GS.gen(exp)
             exp.new_trial(generator_run=g).run()
             if i > 4:
-                self.assertIsInstance(self.sobol_MBM_step_GS.model, TorchAdapter)
+                self.assertIsInstance(self.sobol_MBM_step_GS.adapter, TorchAdapter)
 
     def test_sobol_strategy(self) -> None:
         exp = get_branin_experiment()
@@ -660,7 +660,9 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
         gs.gen(exp)
         self.assertFalse(
-            assert_is_instance(none_throws(gs.model).generator, SobolGenerator).scramble
+            assert_is_instance(
+                none_throws(gs.adapter).generator, SobolGenerator
+            ).scramble
         )
 
     def test_sobol_MBM_strategy_batches(self) -> None:
@@ -687,7 +689,7 @@ class TestGenerationStrategy(TestCase):
             else:
                 grs_2 = sobol_MBM_generation_strategy._gen_with_multiple_nodes(exp, n=2)
             exp.new_batch_trial(generator_runs=grs_2).run()
-        self.assertIsInstance(sobol_MBM_generation_strategy.model, TorchAdapter)
+        self.assertIsInstance(sobol_MBM_generation_strategy.adapter, TorchAdapter)
 
     def test_store_experiment(self) -> None:
         exp = get_branin_experiment()
@@ -1530,7 +1532,8 @@ class TestGenerationStrategy(TestCase):
                 ms = none_throws(g._model_state_after_gen).copy()
                 # Compare the model state to Sobol state.
                 sobol_model = assert_is_instance(
-                    none_throws(self.sobol_MBM_GS_nodes.model).generator, SobolGenerator
+                    none_throws(self.sobol_MBM_GS_nodes.adapter).generator,
+                    SobolGenerator,
                 )
                 # Replace expected seed with the one generated in __init__.
                 expected_seed = sobol_model.seed

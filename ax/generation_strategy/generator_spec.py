@@ -62,7 +62,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
 
     # Fitted model, constructed using specified `model_kwargs` and `Data`
     # on `GeneratorSpec.fit`
-    _fitted_model: Adapter | None = None
+    _fitted_adapter: Adapter | None = None
 
     # Stored cross validation results set in cross validate.
     _cv_results: list[CVResult] | None = None
@@ -82,10 +82,10 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         self.model_cv_kwargs = self.model_cv_kwargs or {}
 
     @property
-    def fitted_model(self) -> Adapter:
-        """Returns the fitted Ax model, asserting fit() was called"""
+    def fitted_adapter(self) -> Adapter:
+        """Returns the fitted adapter, asserting fit() was called"""
         self._assert_fitted()
-        return none_throws(self._fitted_model)
+        return none_throws(self._fitted_adapter)
 
     @property
     def fixed_features(self) -> ObservationFeatures | None:
@@ -125,21 +125,23 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         # adding contents of `model_kwargs` passed to this method, to
         # `self.model_kwargs`.
         combined_model_kwargs = {**self.model_kwargs, **model_kwargs}
-        if self._fitted_model is not None and self._safe_to_update(
+        if self._fitted_adapter is not None and self._safe_to_update(
             experiment=experiment, combined_model_kwargs=combined_model_kwargs
         ):
             # Update the data on the adapter and call `_fit`.
             # This will skip model fitting if the data has not changed.
-            observations, search_space = self.fitted_model._process_and_transform_data(
-                experiment=experiment, data=data
+            observations, search_space = (
+                self.fitted_adapter._process_and_transform_data(
+                    experiment=experiment, data=data
+                )
             )
-            self.fitted_model._fit_if_implemented(
+            self.fitted_adapter._fit_if_implemented(
                 search_space=search_space, observations=observations, time_so_far=0.0
             )
 
         else:
             # Fit from scratch.
-            self._fitted_model = self.model_enum(
+            self._fitted_adapter = self.model_enum(
                 experiment=experiment,
                 data=data,
                 **combined_model_kwargs,
@@ -178,7 +180,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
 
         self._assert_fitted()
         try:
-            self._cv_results = cross_validate(model=self.fitted_model, **cv_kwargs)
+            self._cv_results = cross_validate(model=self.fitted_adapter, **cv_kwargs)
         except NotImplementedError:
             warnings.warn(
                 f"{self.model_enum.value} cannot be cross validated", stacklevel=2
@@ -222,17 +224,17 @@ class GeneratorSpec(SortableBase, SerializationMixin):
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
         """
-        fitted_model = self.fitted_model
+        fitted_adapter = self.fitted_adapter
         model_gen_kwargs = consolidate_kwargs(
             kwargs_iterable=[self.model_gen_kwargs, model_gen_kwargs],
-            keywords=get_function_argument_names(fitted_model.gen),
+            keywords=get_function_argument_names(fitted_adapter.gen),
         )
         # copy to ensure there is no in-place modification
         model_gen_kwargs = deepcopy(model_gen_kwargs)
-        generator_run = fitted_model.gen(**model_gen_kwargs)
+        generator_run = fitted_adapter.gen(**model_gen_kwargs)
         fit_and_std_quality_and_generalization_dict = (
             get_fit_and_std_quality_and_generalization_dict(
-                fitted_adapter=self.fitted_model,
+                fitted_adapter=self.fitted_adapter,
             )
         )
         generator_run._gen_metadata = (
@@ -287,7 +289,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
 
     def _assert_fitted(self) -> None:
         """Helper that verifies a model was fitted, raising an error if not"""
-        if self._fitted_model is None:
+        if self._fitted_adapter is None:
             raise UserInputError("No fitted model found. Call fit() to generate one")
 
     def _brief_repr(self) -> str:

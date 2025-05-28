@@ -90,7 +90,7 @@ class TestBestModelSelector(TestCase):
             model_cv_kwargs={"test": "a"},
         )
         for ms in self.generator_specs:
-            ms._fitted_model = Mock()
+            ms._fitted_adapter = Mock()
         with patch(
             "ax.generation_strategy.generator_spec.cross_validate",
             return_value=Mock(),

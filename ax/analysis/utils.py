@@ -68,18 +68,18 @@ def extract_relevant_adapter(
 
     generation_strategy = none_throws(generation_strategy)
 
-    if (model := generation_strategy.model) is not None:
-        return model
+    if (adapter := generation_strategy.adapter) is not None:
+        return adapter
 
     if experiment is None:
         raise UserInputError(
-            "Provided GenerationStrategy has no model, but no Experiment was provided "
-            "to source data to fit the model."
+            "Provided GenerationStrategy has no adapter, but no Experiment was "
+            "provided to source data to fit the adapter."
         )
 
     generation_strategy.current_node._fit(experiment=experiment)
 
-    return none_throws(generation_strategy.model)
+    return none_throws(generation_strategy.adapter)
 
 
 def prepare_arm_data(

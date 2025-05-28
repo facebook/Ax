@@ -888,7 +888,7 @@ class Client(WithDBSettingsBase):
             )
 
         try:
-            mean, covariance = none_throws(self._generation_strategy.model).predict(
+            mean, covariance = none_throws(self._generation_strategy.adapter).predict(
                 observation_features=[
                     # pyre-fixme[6]: Core Ax allows users to specify TParameterization
                     # values as None but we do not allow this in the API.

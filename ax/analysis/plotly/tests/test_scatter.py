@@ -217,7 +217,7 @@ class TestScatterPlot(TestCase):
                                 )
                             )
                             generation_strategy.current_node._fit(experiment=experiment)
-                            adapter = none_throws(generation_strategy.model)
+                            adapter = none_throws(generation_strategy.adapter)
 
                             x_metric_name, y_metric_name = [*adapter.metric_names][:2]
 
@@ -274,7 +274,7 @@ class TestScatterPlot(TestCase):
                                 )
                             )
                             generation_strategy.current_node._fit(experiment=experiment)
-                            adapter = none_throws(generation_strategy.model)
+                            adapter = none_throws(generation_strategy.adapter)
 
                             x_metric_name, y_metric_name = [*adapter.metric_names][:2]
 

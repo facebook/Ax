@@ -538,7 +538,7 @@ class TestAxClient(TestCase):
                 sample_size=i,
             )
         # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.model._model_key, "BoTorch")
+        self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
         trials_df = ax_client.get_trials_data_frame()
@@ -767,7 +767,7 @@ class TestAxClient(TestCase):
                 sample_size=i,
             )
         # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.model._model_key, "BoTorch")
+        self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")
         ax_client.get_contour_plot(metric_name="branin")
         ax_client.get_contour_plot(metric_name="b")
         trials_df = ax_client.get_trials_data_frame()
@@ -2527,7 +2527,7 @@ class TestAxClient(TestCase):
         # This overwrites the `predict` call to return the original observations,
         # while testing the rest of the code as if we're using predictions.
         # pyre-fixme[16]: `Optional` has no attribute `model`.
-        model = ax_client.generation_strategy.model.generator
+        model = ax_client.generation_strategy.adapter.generator
         ys = model.surrogate.training_data[0].Y
         with patch.object(
             model, "predict", return_value=(ys, torch.zeros(*ys.shape, ys.shape[-1]))

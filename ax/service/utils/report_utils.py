@@ -1532,10 +1532,10 @@ def warn_if_unpredictable_metrics(
         A string warning the user about unpredictable metrics, if applicable.
     """
     # Get fit quality dict.
-    adapter = generation_strategy.model  # Optional[Adapter]
+    adapter = generation_strategy.adapter  # Optional[Adapter]
     if adapter is None:  # Need to re-fit the model.
         generation_strategy._curr._fit(experiment=experiment)
-        adapter = cast(Adapter, generation_strategy.model)
+        adapter = cast(Adapter, generation_strategy.adapter)
     if isinstance(adapter, RandomAdapter):
         logger.debug(
             "Current adapter on GenerationStrategy is RandomAdapter. "

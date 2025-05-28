@@ -245,7 +245,7 @@ class TestUtils(TestCase):
             experiment=self.client._experiment,
             metric_names=["foo", "bar", "baz", "qux"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
         )
 
         # Check that the columns are correct
@@ -286,7 +286,7 @@ class TestUtils(TestCase):
             experiment=self.client._experiment,
             metric_names=["foo"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
         )
         # Check that the columns are correct
         self.assertEqual(
@@ -315,7 +315,7 @@ class TestUtils(TestCase):
             experiment=self.client._experiment,
             metric_names=["foo", "bar"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
             trial_index=0,
         )
 
@@ -349,7 +349,7 @@ class TestUtils(TestCase):
             experiment=self.client._experiment,
             metric_names=["foo", "bar"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
             additional_arms=[
                 Arm(parameters={"x1": 0.5, "x2": 0.5}),
                 Arm(parameters={"x1": 0.25, "x2": 0.25}),
@@ -389,7 +389,7 @@ class TestUtils(TestCase):
             experiment=self.client._experiment,
             metric_names=["foo", "bar"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
             trial_index=-1,
             additional_arms=[
                 Arm(parameters={"x1": 0.5, "x2": 0.5}),
@@ -426,7 +426,7 @@ class TestUtils(TestCase):
             experiment=self.client._experiment,
             metric_names=["foo", "bar"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
             trial_statuses=[TrialStatus.COMPLETED],
         )
 
@@ -581,7 +581,7 @@ class TestUtils(TestCase):
                             )
                         )
                         generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.model)
+                        adapter = none_throws(generation_strategy.adapter)
 
                         _ = prepare_arm_data(
                             experiment=experiment,
@@ -626,7 +626,7 @@ class TestUtils(TestCase):
                             )
                         )
                         generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.model)
+                        adapter = none_throws(generation_strategy.adapter)
 
                         _ = prepare_arm_data(
                             experiment=experiment,
