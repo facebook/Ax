@@ -142,7 +142,7 @@ class OptimizationLoop:
     ) -> OptimizationLoop:
         """Constructs an asynchronous `OptimizationLoop` using Ax runners and
         metrics."""
-        # NOTE: Could use `Scheduler` to implement this if needed.
+        # NOTE: Could use `Orchestrator` to implement this if needed.
         raise NotImplementedError
 
     def _call_evaluation_function(

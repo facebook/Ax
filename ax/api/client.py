@@ -44,7 +44,7 @@ from ax.early_stopping.strategies import (
 )
 from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.scheduler import Scheduler, SchedulerOptions
+from ax.service.orchestrator import Orchestrator, OrchestratorOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.decoder import (
@@ -629,18 +629,17 @@ class Client(WithDBSettingsBase):
         initial_seconds_between_polls: int = 1,
     ) -> None:
         """
-        Run up to max_trials trials in a loop by creating an ephemeral ``Scheduler``
-        under the hood using the ``Experiment``, ``GenerationStrategy``, ``Metrics``,
-        and ``Runner`` attached to this ``Client`` along with the provided
-        ``OrchestrationConfig``.
+        Run maximum_trials trials in a loop by creating an ephemeral Orchestrator under
+        the hood using the Experiment, GenerationStrategy, Metrics, and Runner attached
+        to this AxClient along with the provided OrchestrationConfig.
 
         Saves to database on completion if ``storage_config`` is present.
         """
 
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=self._experiment,
             generation_strategy=self._generation_strategy_or_choose(),
-            options=SchedulerOptions(
+            options=OrchestratorOptions(
                 max_pending_trials=parallelism,
                 tolerated_trial_failure_rate=tolerated_trial_failure_rate,
                 init_seconds_between_polls=initial_seconds_between_polls,
@@ -650,8 +649,8 @@ class Client(WithDBSettingsBase):
             else None,
         )
 
-        # Note: This scheduler call will handle storage internally
-        scheduler.run_n_trials(max_trials=max_trials)
+        # Note: This Orchestrator call will handle storage internally
+        orchestrator.run_n_trials(max_trials=max_trials)
 
     # -------------------- Section 3. Analyze ---------------------------------------
     def compute_analyses(
