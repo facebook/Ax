@@ -16,7 +16,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
-from ax.service.scheduler import Scheduler, SchedulerOptions
+from ax.service.orchestrator import Orchestrator, OrchestratorOptions
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -116,15 +116,15 @@ class TestMetricFetchingErrors(TestCase):
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.add_tracking_metric(TestMetricWithException(name="test_metric"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
+        # AND GIVEN that experiment has tried to fetch data through the orchestrator
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 1)
         # WHEN we compute MetricFetchingErrorsAnalysis with a traceback creator
         card = MetricFetchingErrorsAnalysis(
@@ -175,15 +175,15 @@ class TestMetricFetchingErrors(TestCase):
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.add_tracking_metric(TestMetricNoException(name="test_metric"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
+        # AND GIVEN that experiment has tried to fetch data through the orchestrator
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 1)
         # WHEN we compute MetricFetchingErrorsAnalysis without a traceback creator
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
@@ -229,15 +229,15 @@ class TestMetricFetchingErrors(TestCase):
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.add_tracking_metric(TestMetricWithException(name="test_metric1"))
         exp.add_tracking_metric(TestMetricWithException(name="test_metric2"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
+        # AND GIVEN that experiment has tried to fetch data through the orchestrator
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 2)
         # WHEN we compute MetricFetchingErrorsAnalysis
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
@@ -254,17 +254,17 @@ class TestMetricFetchingErrors(TestCase):
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.add_tracking_metric(TestMetricWithException(name="test_metric"))
 
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         original_ts = exp._metric_fetching_errors[(0, "test_metric")]["timestamp"]
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
 
         self.assertEqual(len(exp._metric_fetching_errors), 1)
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
@@ -278,19 +278,19 @@ class TestMetricFetchingErrors(TestCase):
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.add_tracking_metric(TestMetricWithException(name="test_metric"))
 
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 1)
 
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.remove_tracking_metric("test_metric")
         exp.add_tracking_metric(TestMetricSuccess(name="test_metric"))
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
 
         self.assertEqual(len(exp._metric_fetching_errors), 0)

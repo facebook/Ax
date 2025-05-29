@@ -24,8 +24,8 @@ from ax.benchmark.benchmark import (
     benchmark_replication,
     compute_baseline_value_from_sobol,
     compute_score_trace,
+    get_benchmark_orchestrator_options,
     get_benchmark_result_with_cumulative_steps,
-    get_benchmark_scheduler_options,
     get_opt_trace_by_steps,
     get_oracle_experiment_from_params,
 )
@@ -58,7 +58,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.service.utils.scheduler_options import TrialType
+from ax.service.utils.orchestrator_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.logger import get_logger
@@ -109,7 +109,7 @@ class TestBenchmark(TestCase):
             method=method,
             seed=seed,
             strip_runner_before_saving=strip_runner_before_saving,
-            scheduler_logging_level=WARNING,
+            orchestrator_logging_level=WARNING,
         )
 
     @mock_botorch_optimize
@@ -139,7 +139,7 @@ class TestBenchmark(TestCase):
                         problem=problem,
                         method=batch_method_joint,
                         seeds=[0],
-                        scheduler_logging_level=WARNING,
+                        orchestrator_logging_level=WARNING,
                     )
                 mock_optimize_acqf.assert_called_once()
                 self.assertEqual(
@@ -496,7 +496,7 @@ class TestBenchmark(TestCase):
                     method=method,
                     seed=0,
                     strip_runner_before_saving=False,
-                    scheduler_logging_level=logging.DEBUG,
+                    orchestrator_logging_level=logging.DEBUG,
                 )
             experiment = none_throws(result.experiment)
             runner = assert_is_instance(experiment.runner, BenchmarkRunner)
@@ -865,7 +865,7 @@ class TestBenchmark(TestCase):
                 problem=problem,
                 method=method,
                 seeds=(0, 1),
-                scheduler_logging_level=WARNING,
+                orchestrator_logging_level=WARNING,
             )
 
         self.assertEqual(len(agg.results), 2)
@@ -896,7 +896,7 @@ class TestBenchmark(TestCase):
                 problems=problems,
                 methods=methods,
                 seeds=(0, 1),
-                scheduler_logging_level=WARNING,
+                orchestrator_logging_level=WARNING,
             )
 
         self.assertEqual(len(aggs), 2)
@@ -931,7 +931,7 @@ class TestBenchmark(TestCase):
                 problem=problem,
                 method=method,
                 seeds=(0, 1),
-                scheduler_logging_level=WARNING,
+                orchestrator_logging_level=WARNING,
             )
         elapsed = monotonic() - start
         self.assertGreater(elapsed, timeout_seconds)
@@ -1071,7 +1071,7 @@ class TestBenchmark(TestCase):
         self._test_multi_fidelity_or_multi_task(fidelity_or_task="fidelity")
         self._test_multi_fidelity_or_multi_task(fidelity_or_task="task")
 
-    def test_get_benchmark_scheduler_options(self) -> None:
+    def test_get_benchmark_orchestrator_options(self) -> None:
         for include_sq, batch_size in product((False, True), (1, 2)):
             method = BenchmarkMethod(
                 generation_strategy=get_sobol_mbm_generation_strategy(
@@ -1081,28 +1081,28 @@ class TestBenchmark(TestCase):
                 max_pending_trials=2,
                 batch_size=batch_size,
             )
-            scheduler_options = get_benchmark_scheduler_options(
+            orchestrator_options = get_benchmark_orchestrator_options(
                 method=method, include_sq=include_sq
             )
-            self.assertEqual(scheduler_options.max_pending_trials, 2)
-            self.assertEqual(scheduler_options.init_seconds_between_polls, 0)
-            self.assertEqual(scheduler_options.min_seconds_before_poll, 0)
-            self.assertEqual(scheduler_options.batch_size, batch_size)
+            self.assertEqual(orchestrator_options.max_pending_trials, 2)
+            self.assertEqual(orchestrator_options.init_seconds_between_polls, 0)
+            self.assertEqual(orchestrator_options.min_seconds_before_poll, 0)
+            self.assertEqual(orchestrator_options.batch_size, batch_size)
             self.assertEqual(
-                scheduler_options.run_trials_in_batches, method.run_trials_in_batches
+                orchestrator_options.run_trials_in_batches, method.run_trials_in_batches
             )
             self.assertEqual(
-                scheduler_options.early_stopping_strategy,
+                orchestrator_options.early_stopping_strategy,
                 method.early_stopping_strategy,
             )
             self.assertEqual(
-                scheduler_options.trial_type,
+                orchestrator_options.trial_type,
                 TrialType.BATCH_TRIAL
                 if include_sq or batch_size > 1
                 else TrialType.TRIAL,
             )
             self.assertEqual(
-                scheduler_options.status_quo_weight, 1.0 if include_sq else 0.0
+                orchestrator_options.status_quo_weight, 1.0 if include_sq else 0.0
             )
 
     def test_replication_with_status_quo(self) -> None:

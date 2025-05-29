@@ -26,7 +26,8 @@ from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.generation_strategy.generation_node import GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.scheduler import Scheduler
+from ax.service.orchestrator import Orchestrator
+from ax.service.utils.orchestrator_options import OrchestratorOptions
 from ax.service.utils.report_utils import (
     _find_sigfigs,
     _format_comparison_string,
@@ -47,7 +48,6 @@ from ax.service.utils.report_utils import (
     plot_feature_importance_by_feature_plotly,
     warn_if_unpredictable_metrics,
 )
-from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -1260,7 +1260,7 @@ class ReportUtilsTest(TestCase):
             "your parameters."
         )
 
-        # Create scheduler and run a few trials.
+        # Create Orchestrator and run a few trials.
         exp = get_branin_experiment()
         gs = GenerationStrategy(
             steps=[
@@ -1276,10 +1276,10 @@ class ReportUtilsTest(TestCase):
             ]
         )
         gs.experiment = exp
-        scheduler = Scheduler(
-            generation_strategy=gs, experiment=exp, options=SchedulerOptions()
+        orchestrator = Orchestrator(
+            generation_strategy=gs, experiment=exp, options=OrchestratorOptions()
         )
-        scheduler.run_n_trials(1)
+        orchestrator.run_n_trials(1)
         msg = warn_if_unpredictable_metrics(
             experiment=exp,
             generation_strategy=gs,
@@ -1287,10 +1287,10 @@ class ReportUtilsTest(TestCase):
         )
         self.assertIsNone(msg)
 
-        scheduler.run_n_trials(3)
+        orchestrator.run_n_trials(3)
 
         # Set fitted model to None to test refitting.
-        curr_node = scheduler.generation_strategy._curr
+        curr_node = orchestrator.generation_strategy._curr
         curr_node.generator_spec_to_gen_from._fitted_adapter = None
 
         # Threshold 1.0 (should always generate a warning)

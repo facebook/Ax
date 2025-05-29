@@ -13,14 +13,14 @@ import numpy as np
 from ax.adapter.registry import Generators
 from ax.benchmark.benchmark import (
     benchmark_replication,
+    get_benchmark_orchestrator_options,
     get_benchmark_runner,
-    get_benchmark_scheduler_options,
 )
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_benchmark_problem
 from ax.core.experiment import Experiment
-from ax.service.scheduler import Scheduler
+from ax.service.orchestrator import Orchestrator
 from ax.service.utils.best_point import (
     get_best_by_raw_objective_with_trial_index,
     get_best_parameters_from_model_predictions_with_trial_index,
@@ -87,7 +87,7 @@ class TestMethods(TestCase):
             problem_key="ackley4", num_trials=n_total_trials
         )
         result = benchmark_replication(
-            problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
+            problem=problem, method=method, seed=0, orchestrator_logging_level=WARNING
         )
         self.assertTrue(np.isfinite(result.score_trace).all())
         self.assertEqual(result.optimization_trace.shape, (n_total_trials,))
@@ -141,16 +141,14 @@ class TestMethods(TestCase):
             runner=get_benchmark_runner(problem=problem),
         )
 
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=experiment,
             generation_strategy=method.generation_strategy.clone_reset(),
-            options=get_benchmark_scheduler_options(
-                method=method, logging_level=WARNING
-            ),
+            options=get_benchmark_orchestrator_options(method=method),
         )
 
         with with_rng_seed(seed=0):
-            scheduler.run_n_trials(max_trials=problem.num_trials)
+            orchestrator.run_n_trials(max_trials=problem.num_trials)
 
         # because the second trial is a BoTorch trial, the model should be used
         best_point_mixin_path = "ax.service.utils.best_point_mixin.best_point_utils."

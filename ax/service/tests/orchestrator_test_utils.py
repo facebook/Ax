@@ -14,7 +14,7 @@ from typing import Any
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.scheduler import Scheduler
+from ax.service.orchestrator import Orchestrator
 from pyre_extensions import none_throws
 
 DUMMY_EXCEPTION = "test_exception"
@@ -23,7 +23,7 @@ TEST_MEAN = 1.0
 
 class SyntheticRunnerWithStatusPolling(SyntheticRunner):
     """Test runner that implements `poll_trial_status`, required for compatibility
-    with the ``Scheduler``."""
+    with the ``Orchestrator``."""
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
@@ -42,7 +42,7 @@ class SyntheticRunnerWithSingleRunningTrial(SingleRunningTrialMixin, SyntheticRu
 
 class SyntheticRunnerWithPredictableStatusPolling(SyntheticRunner):
     """Test runner that implements `poll_trial_status`, required for compatibility
-    with the ``Scheduler``, which polls completed."""
+    with the ``Orchestrator``, which polls completed."""
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
@@ -51,8 +51,8 @@ class SyntheticRunnerWithPredictableStatusPolling(SyntheticRunner):
         return {TrialStatus.COMPLETED: completed}
 
 
-class TestScheduler(Scheduler):
-    """Test scheduler that only implements ``report_results`` for convenience in
+class TestOrchestrator(Orchestrator):
+    """Test Orchestrator that only implements ``report_results`` for convenience in
     testing.
     """
 
@@ -69,7 +69,7 @@ class TestScheduler(Scheduler):
         }
 
 
-# ---- Runners below simulate different usage and failure modes for scheduler ----
+# ---- Runners below simulate different usage and failure modes for Orchestrator ----
 
 
 class RunnerWithFrequentFailedTrials(SyntheticRunner):

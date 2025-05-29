@@ -178,7 +178,7 @@ class BenchmarkMetricBase(Metric):
             )
             # The BackendSimulator distinguishes between queued and running
             # trials "for testing particular initialization cases", but these
-            # are all "running" to Scheduler.
+            # are all "running" to orchestrator.
             start_time = none_throws(sim_trial.sim_start_time)
 
             if sim_trial.sim_completed_time is None:  # Still running
