@@ -174,52 +174,6 @@ class SurrogateInputConstructorsTest(TestCase):
             self.assertEqual(model_kwargs["fidelity_features"], [0])
             self.assertEqual(model_kwargs["categorical_features"], [1])
 
-    def test_surrogate_spec_from_deprecated_args(self) -> None:
-        botorch_model_class = MultiTaskGP
-        botorch_model_kwargs = {"task_feature": 1}
-        outcome_transform_classes: list[type[OutcomeTransform]] = [Standardize]
-        outcome_transform_options = {"Standardize": {"m": 1}}
-        covar_module_class = ScaleKernel
-        covar_module_options = {"base_kernel": MaternKernel(ard_num_dims=2)}
-        likelihood_class = GaussianLikelihood
-        likelihood_options = {"noise_constraint": None}
-        with self.assertWarnsRegex(DeprecationWarning, "model_config"):
-            spec = SurrogateSpec(
-                botorch_model_class=botorch_model_class,
-                botorch_model_kwargs=botorch_model_kwargs,
-                outcome_transform_classes=outcome_transform_classes,
-                outcome_transform_options=outcome_transform_options,
-                covar_module_class=covar_module_class,
-                covar_module_kwargs=covar_module_options,
-                likelihood_class=likelihood_class,
-                likelihood_kwargs=likelihood_options,
-            )
-        expected_spec = SurrogateSpec(
-            model_configs=[
-                ModelConfig(
-                    botorch_model_class=botorch_model_class,
-                    model_options=botorch_model_kwargs,
-                    outcome_transform_classes=outcome_transform_classes,
-                    outcome_transform_options=outcome_transform_options,
-                    covar_module_class=covar_module_class,
-                    covar_module_options=covar_module_options,
-                    likelihood_class=likelihood_class,
-                    likelihood_options=likelihood_options,
-                    input_transform_classes=DEFAULT,
-                    name="from deprecated args",
-                )
-            ],
-        )
-        self.assertEqual(spec, expected_spec)
-        # With input transforms as None to match legacy default.
-        spec = SurrogateSpec(input_transform_classes=None)
-        expected_spec = SurrogateSpec(
-            model_configs=[
-                ModelConfig(input_transform_classes=None, name="from deprecated args")
-            ]
-        )
-        self.assertEqual(spec, expected_spec)
-
     def test__make_botorch_input_transform(self) -> None:
         feature_names = ["a", "b"]
         bounds = [(0.0, 1.0), (0.0, 1.0)]
@@ -789,22 +743,20 @@ class SurrogateTest(TestCase):
                     mock_load_state_dict.assert_not_called()
 
     @mock_botorch_optimize
-    def test_construct_custom_model(self, use_model_config: bool = False) -> None:
+    def test_construct_custom_model(self) -> None:
         # Test error for unsupported covar_module and likelihood.
-        model_config_kwargs: dict[str, Any] = {
-            "botorch_model_class": SingleTaskGPWithDifferentConstructor,
-            "mll_class": self.mll_class,
-            "covar_module_class": RBFKernel,
-            "likelihood_class": FixedNoiseGaussianLikelihood,
-        }
-        if use_model_config:
-            surrogate = Surrogate(
-                surrogate_spec=SurrogateSpec(
-                    model_configs=[ModelConfig(**model_config_kwargs)]
-                )
+        surrogate = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGPWithDifferentConstructor,
+                        mll_class=self.mll_class,
+                        covar_module_class=RBFKernel,
+                        likelihood_class=FixedNoiseGaussianLikelihood,
+                    )
+                ]
             )
-        else:
-            surrogate = Surrogate(**model_config_kwargs)
+        )
         with self.assertRaisesRegex(UserInputError, "does not support"):
             surrogate.fit(
                 self.training_data,
@@ -812,22 +764,20 @@ class SurrogateTest(TestCase):
             )
         # Pass custom options to a SingleTaskGP and make sure they are used
         noise_constraint = Interval(1e-6, 1e-1)
-        model_config_kwargs = {
-            "botorch_model_class": SingleTaskGP,
-            "mll_class": LeaveOneOutPseudoLikelihood,
-            "covar_module_class": RBFKernel,
-            "covar_module_options": {"ard_num_dims": 3},
-            "likelihood_class": GaussianLikelihood,
-            "likelihood_options": {"noise_constraint": noise_constraint},
-        }
-        if use_model_config:
-            surrogate = Surrogate(
-                surrogate_spec=SurrogateSpec(
-                    model_configs=[ModelConfig(**model_config_kwargs)]
-                )
+        surrogate = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        mll_class=LeaveOneOutPseudoLikelihood,
+                        covar_module_class=RBFKernel,
+                        covar_module_options={"ard_num_dims": 3},
+                        likelihood_class=GaussianLikelihood,
+                        likelihood_options={"noise_constraint": noise_constraint},
+                    )
+                ]
             )
-        else:
-            surrogate = Surrogate(**model_config_kwargs)
+        )
         surrogate.fit(
             self.training_data,
             search_space_digest=self.search_space_digest,
@@ -850,9 +800,6 @@ class SurrogateTest(TestCase):
         # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
         #  `ard_num_dims`.
         self.assertEqual(model.covar_module.ard_num_dims, 3)
-
-    def test_construct_custom_model_with_config(self) -> None:
-        self.test_construct_custom_model(use_model_config=True)
 
     def test_construct_model_with_metric_to_model_configs(self) -> None:
         surrogate = Surrogate(
