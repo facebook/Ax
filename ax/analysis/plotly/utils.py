@@ -35,11 +35,41 @@ MAX_LABEL_LEN: int = 50
 # consider probability of violation to be negligible.
 MINIMUM_CONTRAINT_VIOLATION_THRESHOLD = 0.01
 
+# Z-score for 95% confidence interval
+Z_SCORE_95_CI = 1.96
+
 # Plotting style constants
-CONFIDENCE_INTERVAL_BLUE = "rgba(0, 0, 255, 0.2)"
-MARKER_BLUE = "rgba(0, 0, 255, 0.3)"  # slightly more opaque than the CI blue
 CANDIDATE_RED = "rgba(220, 20, 60, 0.3)"
 CANDIDATE_CI_RED = "rgba(220, 20, 60, 0.2)"
+CONSTRAINT_VIOLATION_RED = "red"
+
+# Colors sampled from Botorch flame logo
+BOTORCH_COLOR_SCALE = [
+    "#f7931e",  # Botorch orange
+    "#eb882d",
+    "#df7d3c",
+    "#d3724b",
+    "#c7685a",
+    "#bb5d69",
+    "#af5278",
+    "#a34887",
+    "#973d96",
+    "#8b32a5",
+    "#7f28b5",  # Botorch purple
+    "#792fbb",
+    "#7436c1",
+    "#6f3dc7",
+    "#6a44cd",
+    "#654bd4",
+    "#6052da",
+    "#5b59e0",
+    "#5660e6",
+    "#5167ec",
+    "#4c6ef3",  # Botorch blue
+]
+AX_BLUE = "#5078f9"  # rgb code: rgb(80, 120, 249)
+LIGHT_AX_BLUE = "#adc0fd"  # rgb(173, 192, 253)
+
 
 # Splat this into a go.Scatter initializer when drawing a line that represents the
 # cummulative best, Pareto frontier, etc. for a unified look and feel.
@@ -56,9 +86,11 @@ BEST_LINE_SETTINGS: dict[str, str | dict[str, str] | bool] = {
     "hoverinfo": "skip",
 }
 
-# Use the same continuous sequential color scale for all plots. Plasma uses purples for
-# low values and transitions to yellows for high values.
-METRIC_CONTINUOUS_COLOR_SCALE: list[str] = px.colors.sequential.Plasma
+# Use the same continuous sequential color scale for all plots. PRGn uses purples for
+# low values and transitions to greens for high values.
+METRIC_CONTINUOUS_COLOR_SCALE: list[str] = px.colors.colorbrewer.PRGn
+COLOR_FOR_INCREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[8]  # lighter green
+COLOR_FOR_DECREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[2]  # lighter purple
 
 # Move the legened to the bottom, and make horizontal
 LEGEND_POSITION: dict[str, Union[float, str]] = {
@@ -71,20 +103,6 @@ LEGEND_POSITION: dict[str, Union[float, str]] = {
 }
 
 MARGIN_REDUCUTION: dict[str, int] = {"t": 50}
-
-
-# Use a consistent color for each TrialStatus name, sourced from
-# the default Plotly color palette. See https://plotly.com/python/discrete-color/
-# for more details and swatches.
-TRIAL_STATUS_TO_PLOTLY_COLOR: dict[str, str] = {
-    TrialStatus.CANDIDATE.name: px.colors.qualitative.Plotly[8],  # Pink
-    TrialStatus.STAGED.name: px.colors.qualitative.Plotly[3],  # Purple
-    TrialStatus.FAILED.name: px.colors.qualitative.Plotly[4],  # Orange
-    TrialStatus.COMPLETED.name: px.colors.qualitative.Plotly[0],  # Blue
-    TrialStatus.RUNNING.name: px.colors.qualitative.Plotly[2],  # Green
-    TrialStatus.ABANDONED.name: px.colors.qualitative.Plotly[1],  # Red
-    TrialStatus.EARLY_STOPPED.name: px.colors.qualitative.Plotly[5],  # Teal
-}
 
 # Always use the same transparency factor for CI colors to improve legibility when many
 # scatter points are plotted on the same plot.
@@ -106,23 +124,32 @@ def get_scatter_point_color(
     return f"rgba({red}, {green}, {blue}, {alpha})"
 
 
-def trial_status_to_plotly_color(
-    trial_status: str,
-    ci_transparency: bool = False,
+def trial_index_to_color(
+    trial_df: pd.DataFrame,
+    completed_trials_list: list[int],
+    trial_index: int,
+    transparent: bool,
 ) -> str:
     """
-    Standardize the colors which correspond to a TrialStatus name across the Plotly
-    analyses.
+    Determines the color for a trial based on its index and status.
 
-    Always use transparency for CI colors to improve legibility.
+    If the trial is a candidate, it returns LIGHT_AX_BLUE. Otherwise,
+    it calculates a color from the BOTORCH_COLOR_SCALE based on the trial's
+    normalized index (relative to all completed trials).
+
     """
-    hex_color = TRIAL_STATUS_TO_PLOTLY_COLOR.get(
-        trial_status,
-        # Default to pink, treating unknown trial status as CANDIDATE
-        px.colors.qualitative.Plotly[8],
-    )
+    max_trial_index = len(completed_trials_list) - 1
 
-    return get_scatter_point_color(hex_color=hex_color, ci_transparency=ci_transparency)
+    if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
+        return get_scatter_point_color(
+            hex_color=LIGHT_AX_BLUE, ci_transparency=transparent
+        )
+
+    adj_trial_index = completed_trials_list.index(trial_index)
+    normalized_index = 0 if max_trial_index == 0 else adj_trial_index / max_trial_index
+    color_index = int(normalized_index * (len(BOTORCH_COLOR_SCALE) - 1))
+    hex_color = BOTORCH_COLOR_SCALE[color_index]
+    return get_scatter_point_color(hex_color=hex_color, ci_transparency=transparent)
 
 
 def get_arm_tooltip(
@@ -142,7 +169,7 @@ def get_arm_tooltip(
     metric_strs = [
         (
             (f"{metric_name}: {row[f'{metric_name}_mean']:.5f}")
-            + f"±{1.96 * row[f'{metric_name}_sem']:.5f}"
+            + f"±{Z_SCORE_95_CI * row[f'{metric_name}_sem']:.5f}"
             if not math.isnan(row[f"{metric_name}_sem"])
             else ""
         )
@@ -460,7 +487,7 @@ def prepare_arm_effects_plot(
             marker={
                 "size": dot_size,
                 "color": "white",
-                "line": {"width": 2, "color": "red"},
+                "line": {"width": 2, "color": CONSTRAINT_VIOLATION_RED},
             },
             name="Constraint Violation",
         )
@@ -637,7 +664,7 @@ def get_predictions_by_arm(
             "arm_name": arm_names[i],
             "mean": predictions[i][0][metric_name],
             "sem": predictions[i][1][metric_name],
-            "error_margin": 1.96 * predictions[i][1][metric_name],
+            "error_margin": Z_SCORE_95_CI * predictions[i][1][metric_name],
             "constraints_violated": format_constraint_violated_probabilities(
                 constraints_violated[i]
             ),
