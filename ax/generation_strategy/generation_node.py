@@ -887,9 +887,14 @@ class GenerationNode(SerializationMixin, SortableBase):
             # if you really know what you're doing. :)
             arms_from_node = arms_per_node[self.node_name]
         elif purpose_N not in self.input_constructors:
-            # if the node does not have an input constructor for N, then we
-            # assume a default of generating n arms from this node.
+            # if the node does not have an input constructor for N, we first
+            # use the n passed to method if it exists, then check if the model gen
+            # kwargs define an n, then fallback to default values of n
             arms_from_node = gen_kwargs.get("n")
+            if arms_from_node is None and self.generator_spec_to_gen_from is not None:
+                arms_from_node = self.generator_spec_to_gen_from.model_gen_kwargs.get(
+                    "n", None
+                )
             if arms_from_node is None:
                 # TODO[@mgarrard, @drfreund]: We can remove this check if we
                 # decide that generation nodes can only be used within a
