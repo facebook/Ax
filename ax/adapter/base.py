@@ -329,7 +329,7 @@ class Adapter:
         if transforms is not None:
             for t in transforms:
                 t_instance = t(
-                    search_space=search_space,
+                    search_space=search_space.clone(),
                     observations=observations,
                     adapter=self,
                     config=transform_configs.get(t.__name__, None),
