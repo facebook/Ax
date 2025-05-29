@@ -32,7 +32,6 @@ from ax.generation_strategy.best_model_selector import (
 )
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_node import GenerationNode
-
 from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
@@ -49,7 +48,11 @@ from ax.generation_strategy.transition_criterion import (
     MinimumPreferenceOccurances,
     MinTrials,
 )
-from ax.generators.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.torch.botorch_modular.surrogate import (
+    ModelConfig,
+    Surrogate,
+    SurrogateSpec,
+)
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.testing.core_stubs import (
@@ -61,6 +64,7 @@ from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.transforms.input import InputTransform, Normalize
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 
 logger: Logger = get_logger(__name__)
 
@@ -549,24 +553,36 @@ def get_surrogate_generation_step() -> GenerationStep:
         max_parallelism=1,
         model_kwargs={
             "surrogate": Surrogate(
-                botorch_model_class=SaasFullyBayesianSingleTaskGP,
-                input_transform_classes=[Normalize],
-                input_transform_options={
-                    "Normalize": {
-                        "d": 3,
-                        "indices": None,
-                        "transform_on_train": True,
-                        "transform_on_eval": True,
-                        "transform_on_fantasize": True,
-                        "reverse": False,
-                        "min_range": 1e-08,
-                        "learn_bounds": False,
-                    }
-                },
-                outcome_transform_classes=[Standardize],
-                outcome_transform_options={
-                    "Standardize": {"m": 1, "outputs": None, "min_stdv": 1e-8}
-                },
+                surrogate_spec=SurrogateSpec(
+                    model_configs=[
+                        ModelConfig(
+                            botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                            input_transform_classes=[Normalize],
+                            input_transform_options={
+                                "Normalize": {
+                                    "d": 3,
+                                    "indices": None,
+                                    "transform_on_train": True,
+                                    "transform_on_eval": True,
+                                    "transform_on_fantasize": True,
+                                    "reverse": False,
+                                    "min_range": 1e-08,
+                                    "learn_bounds": False,
+                                }
+                            },
+                            outcome_transform_classes=[Standardize],
+                            outcome_transform_options={
+                                "Standardize": {
+                                    "m": 1,
+                                    "outputs": None,
+                                    "min_stdv": 1e-8,
+                                }
+                            },
+                            mll_class=ExactMarginalLogLikelihood,
+                            name="from deprecated args",
+                        )
+                    ]
+                )
             ),
             "botorch_acqf_class": qNoisyExpectedImprovement,
         },

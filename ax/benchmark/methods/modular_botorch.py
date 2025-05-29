@@ -8,11 +8,10 @@
 from typing import Any
 
 from ax.adapter.registry import Generators
-
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.generation_strategy.generation_node import GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
@@ -70,7 +69,9 @@ def get_sobol_mbm_generation_strategy(
     """
     model_kwargs: dict[str, type[AcquisitionFunction] | SurrogateSpec | bool] = {
         "botorch_acqf_class": acquisition_cls,
-        "surrogate_spec": SurrogateSpec(botorch_model_class=model_cls),
+        "surrogate_spec": SurrogateSpec(
+            model_configs=[ModelConfig(botorch_model_class=model_cls)]
+        ),
     }
 
     model_name = model_names_abbrevations.get(model_cls.__name__, model_cls.__name__)

@@ -49,7 +49,6 @@ from botorch.acquisition.multi_objective.monte_carlo import (
 )
 from botorch.acquisition.objective import LinearMCObjective
 from botorch.exceptions.warnings import OptimizationWarning
-from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import (
     optimize_acqf,
     optimize_acqf_discrete,
@@ -111,8 +110,7 @@ class AcquisitionTest(TestCase):
             input_constructor=self.mock_input_constructor,
         )
         self.tkwargs: dict[str, Any] = {"dtype": torch.double}
-        self.botorch_model_class = SingleTaskGP
-        self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
+        self.surrogate = Surrogate()
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs)
         self.Y = torch.tensor([[3.0], [4.0]], **self.tkwargs)
         self.Yvar = torch.tensor([[0.0], [2.0]], **self.tkwargs)
