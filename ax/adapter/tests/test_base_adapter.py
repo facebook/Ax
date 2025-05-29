@@ -24,9 +24,11 @@ from ax.adapter.base import (
     unwrap_observation_data,
 )
 from ax.adapter.factory import get_sobol
-from ax.adapter.registry import Y_trans
+from ax.adapter.registry import Generators, Y_trans
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
+from ax.adapter.transforms.int_to_float import IntToFloat
 from ax.adapter.transforms.standardize_y import StandardizeY
+from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
@@ -43,7 +45,7 @@ from ax.core.observation import (
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
-from ax.core.parameter_constraint import SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
@@ -323,6 +325,41 @@ class BaseAdapterTest(TestCase):
         )
         with self.assertRaisesRegex(UnsupportedError, "fit_tracking_metrics"):
             adapter.gen(n=1, optimization_config=new_oc)
+
+    def test_transform_data(self) -> None:
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name=f"x{i}",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=2.0,
+                    upper=3.0,
+                )
+                for i in [1, 2]
+            ],
+            parameter_constraints=[
+                ParameterConstraint(constraint_dict={"x1": -1, "x2": -1}, bound=1.5)
+            ],
+        )
+        exp = Experiment(search_space=search_space)
+        adapter = Generators.SOBOL(experiment=exp, transforms=[IntToFloat, UnitX])
+        candidate = adapter.gen(n=1)
+
+        with self.subTest("Candidate in search space"):
+            self.assertTrue(
+                search_space.check_membership(
+                    parameterization=candidate.arms[0].parameters
+                )
+            )
+        int_to_float_tf = assert_is_instance(
+            adapter.transforms["IntToFloat"], IntToFloat
+        )
+
+        with self.subTest("IntToFloat uses correct search space"):
+            self.assertEqual(
+                int_to_float_tf.search_space.parameters["x1"],
+                search_space.parameters["x1"],
+            )
 
     @mock.patch(
         "ax.adapter.base.observations_from_data",
