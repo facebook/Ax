@@ -2753,33 +2753,47 @@ def get_botorch_model_with_surrogate_spec(
 
 def get_surrogate() -> Surrogate:
     return Surrogate(
-        botorch_model_class=get_model_type(),
-        mll_class=get_mll_type(),
+        surrogate_spec=SurrogateSpec(
+            model_configs=[
+                ModelConfig(
+                    botorch_model_class=get_model_type(),
+                    mll_class=get_mll_type(),
+                )
+            ]
+        )
     )
 
 
 def get_surrogate_spec_with_default() -> SurrogateSpec:
     return SurrogateSpec(
-        botorch_model_class=SingleTaskGP,
-        covar_module_class=ScaleMaternKernel,
-        covar_module_kwargs={
-            "ard_num_dims": DEFAULT,
-            "lengthscale_prior": GammaPrior(6.0, 3.0),
-            "outputscale_prior": GammaPrior(2.0, 0.15),
-            "batch_shape": DEFAULT,
-        },
+        model_configs=[
+            ModelConfig(
+                botorch_model_class=SingleTaskGP,
+                covar_module_class=ScaleMaternKernel,
+                covar_module_options={
+                    "ard_num_dims": DEFAULT,
+                    "lengthscale_prior": GammaPrior(6.0, 3.0),
+                    "outputscale_prior": GammaPrior(2.0, 0.15),
+                    "batch_shape": DEFAULT,
+                },
+            )
+        ]
     )
 
 
 def get_surrogate_spec_with_lognormal() -> SurrogateSpec:
     return SurrogateSpec(
-        botorch_model_class=SingleTaskGP,
-        covar_module_class=RBFKernel,
-        covar_module_kwargs={
-            "ard_num_dims": DEFAULT,
-            "lengthscale_prior": LogNormalPrior(-4.0, 1.0),
-            "batch_shape": DEFAULT,
-        },
+        model_configs=[
+            ModelConfig(
+                botorch_model_class=SingleTaskGP,
+                covar_module_class=RBFKernel,
+                covar_module_options={
+                    "ard_num_dims": DEFAULT,
+                    "lengthscale_prior": LogNormalPrior(-4.0, 1.0),
+                    "batch_shape": DEFAULT,
+                },
+            )
+        ]
     )
 
 

@@ -28,7 +28,11 @@ from ax.generators.random.sobol import SobolGenerator
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
+from ax.generators.torch.botorch_modular.surrogate import (
+    ModelConfig,
+    Surrogate,
+    SurrogateSpec,
+)
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -100,7 +104,11 @@ class ModelRegistryTest(TestCase):
         surrogate_spec = generator.surrogate_spec
         self.assertEqual(
             surrogate_spec,
-            SurrogateSpec(botorch_model_class=SaasFullyBayesianSingleTaskGP),
+            SurrogateSpec(
+                model_configs=[
+                    ModelConfig(botorch_model_class=SaasFullyBayesianSingleTaskGP)
+                ]
+            ),
         )
         self.assertEqual(
             generator.surrogate.surrogate_spec.model_configs[0].botorch_model_class,
@@ -323,17 +331,23 @@ class ModelRegistryTest(TestCase):
                 if use_saas
                 else [
                     Surrogate(
-                        botorch_model_class=MultiTaskGP,
-                        mll_class=ExactMarginalLogLikelihood,
-                        covar_module_class=ScaleMaternKernel,
-                        covar_module_options={
-                            "ard_num_dims": DEFAULT,
-                            "lengthscale_prior": GammaPrior(6.0, 3.0),
-                            "outputscale_prior": GammaPrior(2.0, 0.15),
-                            "batch_shape": DEFAULT,
-                        },
-                        allow_batched_models=False,
-                        model_options={},
+                        surrogate_spec=SurrogateSpec(
+                            model_configs=[
+                                ModelConfig(
+                                    botorch_model_class=MultiTaskGP,
+                                    mll_class=ExactMarginalLogLikelihood,
+                                    covar_module_class=ScaleMaternKernel,
+                                    covar_module_options={
+                                        "ard_num_dims": DEFAULT,
+                                        "lengthscale_prior": GammaPrior(6.0, 3.0),
+                                        "outputscale_prior": GammaPrior(2.0, 0.15),
+                                        "batch_shape": DEFAULT,
+                                    },
+                                    model_options={},
+                                )
+                            ],
+                            allow_batched_models=False,
+                        )
                     ),
                     None,
                 ]

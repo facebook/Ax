@@ -23,7 +23,11 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.generators.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.torch.botorch_modular.surrogate import (
+    ModelConfig,
+    Surrogate,
+    SurrogateSpec,
+)
 from ax.utils.testing.mock import skip_fit_gpytorch_mll_context_manager
 from botorch.models import SingleTaskGP
 from gpytorch.priors import LogNormalPrior
@@ -67,14 +71,20 @@ def get_lcbench_surrogate() -> Surrogate:
         A Surrogate with the specification used to fit the LCBench data.
     """
     return Surrogate(
-        botorch_model_class=SingleTaskGP,
-        covar_module_class=ScaleMaternKernel,
-        covar_module_options={
-            "nu": 1.5,
-            "ard_num_dims": 7,
-            "outputscale_prior": LogNormalPrior(-3, 0.0025),
-        },
-        input_transform_classes=None,
+        surrogate_spec=SurrogateSpec(
+            model_configs=[
+                ModelConfig(
+                    botorch_model_class=SingleTaskGP,
+                    covar_module_class=ScaleMaternKernel,
+                    covar_module_options={
+                        "nu": 1.5,
+                        "ard_num_dims": 7,
+                        "outputscale_prior": LogNormalPrior(-3, 0.0025),
+                    },
+                    input_transform_classes=None,
+                )
+            ]
+        )
     )
 
 

@@ -27,7 +27,6 @@ from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
-from botorch.models.gp_regression import SingleTaskGP
 
 
 class TestRobust(TestCase):
@@ -47,7 +46,7 @@ class TestRobust(TestCase):
             adapter = Generators.BOTORCH_MODULAR(
                 experiment=exp,
                 data=exp.fetch_data(),
-                surrogate=Surrogate(botorch_model_class=SingleTaskGP),
+                surrogate=Surrogate(),
                 botorch_acqf_class=acqf_class or qNoisyExpectedImprovement,
             )
             trial = exp.new_trial(generator_run=adapter.gen(1)).run().mark_completed()

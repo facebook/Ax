@@ -51,8 +51,7 @@ class TestSebo(TestCase):
     def setUp(self) -> None:
         super().setUp()
         tkwargs: dict[str, Any] = {"dtype": torch.double}
-        self.botorch_model_class = SingleTaskGP
-        self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
+        self.surrogate = Surrogate()
         # Function is f(x) = x_1 on [0, 1]^3, target point of [0.5, 0.5, 0.5].
         # Optimal soln is [1.0, 0.5, 0.5]
         self.X = torch.tensor(
