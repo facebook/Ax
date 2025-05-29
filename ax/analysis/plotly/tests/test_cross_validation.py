@@ -5,6 +5,9 @@
 
 # pyre-strict
 
+from unittest import mock
+
+from ax.adapter.cross_validation import cross_validate
 from ax.adapter.registry import Generators
 from ax.analysis.analysis import (
     AnalysisBlobAnnotation,
@@ -41,12 +44,17 @@ class TestCrossValidationPlot(TestCase):
                 }
             ],
             objectives={"bar": ObjectiveProperties(minimize=True)},
+            tracking_metric_names=["foo"],
         )
 
         for _ in range(10):
             parameterization, trial_index = self.client.get_next_trial()
             self.client.complete_trial(
-                trial_index=trial_index, raw_data={"bar": parameterization["x"] ** 2}
+                trial_index=trial_index,
+                raw_data={
+                    "bar": parameterization["x"] ** 2,
+                    "foo": parameterization["x"] ** 3,
+                },
             )
 
     def test_compute(self) -> None:
@@ -117,19 +125,31 @@ class TestCrossValidationPlot(TestCase):
                 card.df["arm_name"].unique(),
             )
 
+    @mock.patch(
+        "ax.analysis.plotly.cross_validation.cross_validate", wraps=cross_validate
+    )
+    def test_cross_validate_is_called_once_with_multiple_metrics(
+        self, mock_cross_validate: mock.Mock
+    ) -> None:
+        analysis = CrossValidationPlot()
+        analysis.compute(generation_strategy=self.client.generation_strategy)
+        mock_cross_validate.assert_called_once()
+
     @mock_botorch_optimize
     def test_compute_adhoc(self) -> None:
-        metric_mapping = {"bar": "spunky"}
+        metric_mapping = {"bar": "spunky", "foo": "foo2"}
         data = self.client.experiment.lookup_data()
         adapter = Generators.BOTORCH_MODULAR(
             experiment=self.client.experiment, data=data
         )
         cards = compute_cross_validation_adhoc(adapter=adapter, labels=metric_mapping)
-        self.assertEqual(len(cards), 1)
-        card = cards[0]
-        self.assertEqual(card.name, "CrossValidationPlot")
-        # validate that the metric name replacement occurred
-        self.assertEqual(card.title, "Cross Validation for spunky")
+        self.assertEqual(len(cards), 2)
+        titles = {"Cross Validation for spunky", "Cross Validation for foo2"}
+        for card in cards:
+            self.assertEqual(card.name, "CrossValidationPlot")
+            # validate that the metric name replacement occurred
+            self.assertIn(card.title, titles)
+            titles.remove(card.title)
 
     @TestCase.ax_long_test(
         reason=(

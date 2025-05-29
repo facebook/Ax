@@ -10,7 +10,7 @@ from typing import Mapping, Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.adapter.cross_validation import cross_validate
+from ax.adapter.cross_validation import cross_validate, CVResult
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -95,13 +95,11 @@ class CrossValidationPlot(PlotlyAnalysis):
         )
 
         cards = []
+        cv_results = cross_validate(
+            model=relevant_adapter, folds=self.folds, untransform=self.untransform
+        )
         for metric_name in self.metric_names or relevant_adapter.metric_names:
-            df = _prepare_data(
-                adapter=relevant_adapter,
-                metric_name=metric_name,
-                folds=self.folds,
-                untransform=self.untransform,
-            )
+            df = _prepare_data(metric_name=metric_name, cv_results=cv_results)
 
             fig = _prepare_plot(df=df)
 
@@ -212,18 +210,7 @@ def compute_cross_validation_adhoc(
     ]
 
 
-def _prepare_data(
-    adapter: Adapter,
-    metric_name: str,
-    folds: int,
-    untransform: bool,
-) -> pd.DataFrame:
-    cv_results = cross_validate(
-        model=adapter,
-        folds=folds,
-        untransform=untransform,
-    )
-
+def _prepare_data(metric_name: str, cv_results: list[CVResult]) -> pd.DataFrame:
     records = []
     for observed, predicted in cv_results:
         # Find the index of the metric in observed and predicted
