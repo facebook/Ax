@@ -47,7 +47,6 @@ from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice
 from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.adapter.transforms.trial_as_task import TrialAsTask
 from ax.adapter.transforms.unit_x import UnitX
-
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -64,7 +63,7 @@ from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.generators.torch.botorch_modular.generator import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
-from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.generators.torch.cbo_sac import SACBO
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
@@ -238,7 +237,9 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         transforms=MBM_X_trans + Y_trans,
         default_model_kwargs={
             "surrogate_spec": SurrogateSpec(
-                botorch_model_class=SaasFullyBayesianSingleTaskGP
+                model_configs=[
+                    ModelConfig(botorch_model_class=SaasFullyBayesianSingleTaskGP)
+                ]
             )
         },
     ),
@@ -248,7 +249,9 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         transforms=MBM_MTGP_trans,
         default_model_kwargs={
             "surrogate_spec": SurrogateSpec(
-                botorch_model_class=SaasFullyBayesianMultiTaskGP
+                model_configs=[
+                    ModelConfig(botorch_model_class=SaasFullyBayesianMultiTaskGP)
+                ]
             )
         },
     ),

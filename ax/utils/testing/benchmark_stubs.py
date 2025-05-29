@@ -46,12 +46,10 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
 )
-from botorch.models.gp_regression import SingleTaskGP
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
 from pyre_extensions import assert_is_instance
@@ -99,9 +97,7 @@ def get_soo_surrogate_test_function(lazy: bool = True) -> SurrogateTestFunction:
     surrogate = TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
-        generator=BoTorchGenerator(
-            surrogate=Surrogate(botorch_model_class=SingleTaskGP)
-        ),
+        generator=BoTorchGenerator(),
         data=experiment.lookup_data(),
         transforms=[],
     )
@@ -143,9 +139,7 @@ def get_moo_surrogate() -> BenchmarkProblem:
     surrogate = TorchAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
-        generator=BoTorchGenerator(
-            surrogate=Surrogate(botorch_model_class=SingleTaskGP)
-        ),
+        generator=BoTorchGenerator(),
         data=experiment.lookup_data(),
         transforms=[],
     )

@@ -73,8 +73,7 @@ ACQ_OPTIONS: dict[str, SobolQMCNormalSampler] = {
 class BoTorchGeneratorTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.botorch_model_class = SingleTaskGP
-        self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
+        self.surrogate = Surrogate()
         self.acquisition_class = Acquisition
         self.botorch_acqf_class = qExpectedImprovement
         self.acquisition_options = ACQ_OPTIONS
@@ -516,7 +515,11 @@ class BoTorchGeneratorTest(TestCase):
             torch.tensor([2.0]),
             torch.tensor([1.0]),
         )
-        surrogate = Surrogate(botorch_model_class=botorch_model_class)
+        surrogate = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[ModelConfig(botorch_model_class=botorch_model_class)]
+            )
+        )
         model = BoTorchGenerator(
             surrogate=surrogate,
             acquisition_class=Acquisition,
@@ -553,10 +556,6 @@ class BoTorchGeneratorTest(TestCase):
                 search_space_digest=search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
-        self.assertEqual(
-            gen_results.gen_metadata["metric_to_model_config_name"],
-            {"y": "from deprecated args"},
-        )
         # Assert acquisition initialized with expected arguments
         mock_init_acqf.assert_called_once_with(
             search_space_digest=search_space_digest,
@@ -655,7 +654,11 @@ class BoTorchGeneratorTest(TestCase):
     @mock_botorch_optimize
     def test_feature_importances(self) -> None:
         for botorch_model_class in [SingleTaskGP, SaasFullyBayesianSingleTaskGP]:
-            surrogate = Surrogate(botorch_model_class=botorch_model_class)
+            surrogate = Surrogate(
+                surrogate_spec=SurrogateSpec(
+                    model_configs=[ModelConfig(botorch_model_class=botorch_model_class)]
+                )
+            )
             model = BoTorchGenerator(
                 surrogate=surrogate,
                 acquisition_class=Acquisition,
