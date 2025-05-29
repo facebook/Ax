@@ -642,7 +642,7 @@ class TorchAdapterTest(TestCase):
             else:
                 expected_X = raw_X
                 expected_Y = raw_Y.unsqueeze(-1)
-            self.assertTrue(torch.equal(dataset.X, expected_X))
+            self.assertTrue(torch.equal(dataset.X, expected_X.to(torch.double)))
             self.assertTrue(torch.equal(dataset.Y, expected_Y))
             self.assertIsNone(dataset.Yvar)
             self.assertEqual(dataset.feature_names, feature_names)
