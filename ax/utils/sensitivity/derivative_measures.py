@@ -100,6 +100,7 @@ class GpDGSMGpMean:
         self.num_bootstrap_samples = (
             num_bootstrap_samples - 1
         )  # deduct 1 because the first is meant to be the full grid
+        self.torch_device: torch.device = bounds.device
         if self.derivative_gp and (self.kernel_type is None):
             raise ValueError("Kernel type has to be specified to use derivative GP")
         self.num_mc_samples = num_mc_samples
@@ -108,11 +109,13 @@ class GpDGSMGpMean:
             self.input_mc_samples = (
                 draw_sobol_samples(bounds=bounds, n=num_mc_samples, q=1, seed=1234)
                 .squeeze(1)
-                .to(dtype)
+                .to(dtype=dtype, device=self.torch_device)
             )
         else:
             self.input_mc_samples = unnormalize(
-                torch.rand(num_mc_samples, self.dim, dtype=dtype),
+                torch.rand(
+                    num_mc_samples, self.dim, dtype=dtype, device=self.torch_device
+                ),
                 bounds=bounds,
             )
 
