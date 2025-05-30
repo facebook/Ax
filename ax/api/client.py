@@ -460,7 +460,11 @@ class Client(WithDBSettingsBase):
                     f"Trial {trial_index} marked completed but metrics "
                     f"{missing_metrics} are missing, marking trial FAILED."
                 )
-                self.mark_trial_failed(trial_index=trial_index)
+                self.mark_trial_failed(
+                    trial_index=trial_index,
+                    failed_reason=f"{missing_metrics} are missing, marking trial\
+                    FAILED.",
+                )
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -578,7 +582,9 @@ class Client(WithDBSettingsBase):
         return trial_index in es_response
 
     # -------------------- Section 2.3 Marking trial status manually ----------------
-    def mark_trial_failed(self, trial_index: int) -> None:
+    def mark_trial_failed(
+        self, trial_index: int, failed_reason: str | None = None
+    ) -> None:
         """
         Manually mark a trial as FAILED. FAILED trials typically may be re-suggested by
         ``get_next_trials``, though this is controlled by the ``GenerationStrategy``.
@@ -586,6 +592,7 @@ class Client(WithDBSettingsBase):
         Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_failed()
+        self._experiment.trials[trial_index]._failed_reason = failed_reason
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
