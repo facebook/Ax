@@ -272,7 +272,7 @@ class GenerationStrategy(Base):
         """List of generation steps."""
         return self._nodes  # pyre-ignore[7]
 
-    def gen(
+    def gen_single_trial(
         self,
         experiment: Experiment,
         data: Data | None = None,

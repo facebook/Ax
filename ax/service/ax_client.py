@@ -1729,7 +1729,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             else None
         )
         with with_rng_seed(seed=self._random_seed):
-            return none_throws(self.generation_strategy).gen(
+            return none_throws(self.generation_strategy).gen_single_trial(
                 experiment=self.experiment,
                 n=n,
                 pending_observations=self._get_pending_observation_features(
