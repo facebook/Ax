@@ -577,11 +577,14 @@ def get_feature_importances_from_botorch_model(
             # this can be a ModelList of a SAAS and STGP, so this is a necessary way
             # to get the lengthscale
             if hasattr(m.covar_module, "base_kernel"):
+                # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Tensor` of...
                 ls = m.covar_module.base_kernel.lengthscale
             else:
+                # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Tensor` of...
                 ls = m.covar_module.lengthscale
         except AttributeError:
             ls = None
+        # pyre-fixme[29]: Call error: `typing.Union[BoundMethod[typing.Callable(torch...
         if ls is None or ls.shape[-1] != m.train_inputs[0].shape[-1]:
             # TODO: We could potentially set the feature importances to NaN in this
             # case, but this require knowing the batch dimension of this model.
@@ -592,6 +595,7 @@ def get_feature_importances_from_botorch_model(
             )
         if ls.ndim == 2:
             ls = ls.unsqueeze(0)
+        # pyre-fixme[6]: Incompatible parameter type: In call `is_ensemble`, for 1st ...
         if is_ensemble(m):  # Take the median over the model batch dimension
             ls = torch.quantile(ls, q=0.5, dim=0, keepdim=True)
         lengthscales.append(ls)

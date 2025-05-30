@@ -236,6 +236,7 @@ class SurrogateInputConstructorsTest(TestCase):
             self.assertEqual(len(tf_values), 2)
             self.assertIsInstance(tf_values[0], Normalize)
             self.assertIsInstance(tf_values[1], Log10)
+            # pyre-fixme[29]: Call error: `typing.Union[BoundMethod[typing.Callable(t...
             self.assertEqual(tf_values[1].indices.tolist(), [0])
 
         bounds = [(1.0, 5.0), (2.0, 10.0)]
@@ -1576,6 +1577,7 @@ class SurrogateTest(TestCase):
         intf_values = list(intf.values())
         self.assertIsInstance(intf_values[0], InputPerturbation)
         self.assertIsInstance(intf_values[1], Normalize)
+        # pyre-fixme[6]: Incompatible parameter type: In call `torch._C._VariableFunc...
         self.assertTrue(torch.equal(intf_values[0].perturbation_set, torch.zeros(2, 2)))
 
     def test_fit_mixed(self) -> None:
@@ -2009,9 +2011,12 @@ class SurrogateWithModelListTest(TestCase):
                 self.assertEqual(type(m.likelihood), GaussianLikelihood)
                 self.assertEqual(type(m.covar_module), MaternKernel)
                 if submodel_covar_module_options:
+                    # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Tensor...
                     self.assertEqual(m.covar_module.ard_num_dims, 3)
                 else:
+                    # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Tensor...
                     self.assertEqual(m.covar_module.ard_num_dims, None)
+                # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Tensor` of...
                 m_noise_constraint = m.likelihood.noise_covar.raw_noise_constraint
                 if submodel_likelihood_options:
                     self.assertEqual(type(m_noise_constraint), Interval)
