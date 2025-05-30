@@ -320,7 +320,9 @@ def choose_botorch_acqf_class(
         # NOTE: `convert_to_block_design` will drop points that are only observed by
         # some of the metrics which is natural as we are using observed values to
         # determine feasibility.
-        dataset = convert_to_block_design(datasets=datasets, force=True)[0]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=AxWarning)
+            dataset = convert_to_block_design(datasets=datasets, force=True)[0]
         con_observed = torch.stack([con(dataset.Y) for con in con_tfs], dim=-1)
         feas_point_found = (con_observed <= 0).all(dim=-1).any().item()
 
