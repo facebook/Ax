@@ -13,7 +13,7 @@ from typing import Any
 import torch
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.factory import Generators
-from ax.adapter.registry import ModelRegistryBase
+from ax.adapter.registry import GeneratorRegistryBase
 from ax.adapter.transforms.base import Transform
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
@@ -362,7 +362,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MinTrials": MinTrials,
     "MinimumTrialsInStatus": MinimumTrialsInStatus,
     "MinimumPreferenceOccurances": MinimumPreferenceOccurances,
-    "ModelRegistryBase": ModelRegistryBase,
+    "GeneratorRegistryBase": GeneratorRegistryBase,
+    "ModelRegistryBase": GeneratorRegistryBase,
     "ModelConfig": ModelConfig,
     "Models": Generators,
     "ModelSpec": GeneratorSpec,

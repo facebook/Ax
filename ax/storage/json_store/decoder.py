@@ -19,7 +19,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
-from ax.adapter.registry import _decode_callables_from_references, ModelRegistryBase
+from ax.adapter.registry import _decode_callables_from_references, GeneratorRegistryBase
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -181,7 +181,7 @@ def object_from_json(
         _class: type = decoder_registry[_type]
         if isclass(_class) and issubclass(_class, Enum):
             name = object_json["name"]
-            if issubclass(_class, ModelRegistryBase):
+            if issubclass(_class, GeneratorRegistryBase):
                 name = _update_deprecated_model_registry(name=name)
             # to access enum members by name, use item access
             return _class[name]
@@ -923,16 +923,21 @@ def generator_spec_from_json(
     if kwargs is not None:
         kwargs = _sanitize_surrogate_spec_input(object_json=kwargs)
     gen_kwargs = generator_spec_json.pop("model_gen_kwargs", None)
+    if "model_enum" in generator_spec_json:
+        # Old arg name for backwards compatibility.
+        enum = generator_spec_json.pop("model_enum")
+    else:
+        enum = generator_spec_json.pop("generator_enum")
     return GeneratorSpec(
-        model_enum=object_from_json(
-            generator_spec_json.pop("model_enum"),
+        generator_enum=object_from_json(
+            object_json=enum,
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
         model_kwargs=(
             _decode_callables_from_references(
                 object_from_json(
-                    kwargs,
+                    object_json=kwargs,
                     decoder_registry=decoder_registry,
                     class_decoder_registry=class_decoder_registry,
                 ),
@@ -943,7 +948,7 @@ def generator_spec_from_json(
         model_gen_kwargs=(
             _decode_callables_from_references(
                 object_from_json(
-                    gen_kwargs,
+                    object_json=gen_kwargs,
                     decoder_registry=decoder_registry,
                     class_decoder_registry=class_decoder_registry,
                 ),

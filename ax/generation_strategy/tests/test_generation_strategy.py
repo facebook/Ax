@@ -104,7 +104,7 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="Sobol",
-                    generator_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
+                    generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                     transition_criteria=[
                         MinTrials(threshold=2, transition_to="MBM/BO_MIXED")
                     ],
@@ -112,8 +112,8 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
                 GenerationNode(
                     node_name="MBM/BO_MIXED",
                     generator_specs=[
-                        GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR),
-                        GeneratorSpec(model_enum=Generators.BO_MIXED),
+                        GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR),
+                        GeneratorSpec(generator_enum=Generators.BO_MIXED),
                     ],
                     best_model_selector=best_model_selector,
                 ),
@@ -240,12 +240,12 @@ class TestGenerationStrategy(TestCase):
             )
         ]
         self.sobol_generator_spec = GeneratorSpec(
-            model_enum=Generators.SOBOL,
+            generator_enum=Generators.SOBOL,
             model_kwargs=self.step_model_kwargs,
             model_gen_kwargs={},
         )
         self.mbm_generator_spec = GeneratorSpec(
-            model_enum=Generators.BOTORCH_MODULAR,
+            generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs=self.step_model_kwargs,
             model_gen_kwargs={},
         )
@@ -455,7 +455,7 @@ class TestGenerationStrategy(TestCase):
                     node_name="test",
                     generator_specs=[
                         GeneratorSpec(
-                            model_enum=Generators.SOBOL,
+                            generator_enum=Generators.SOBOL,
                             model_kwargs={},
                             model_gen_kwargs={},
                         ),
@@ -467,7 +467,7 @@ class TestGenerationStrategy(TestCase):
             str(gs3),
             "GenerationStrategy(name='test', nodes=[GenerationNode("
             "node_name='test', "
-            "generator_specs=[GeneratorSpec(model_enum=Sobol, "
+            "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
             "model_key_override=None)], "
             "transition_criteria=[])])",
         )
@@ -739,7 +739,7 @@ class TestGenerationStrategy(TestCase):
             None,
             {
                 GenerationStrategyRepeatedPoints: GeneratorSpec(
-                    model_enum=Generators.SOBOL,
+                    generator_enum=Generators.SOBOL,
                     model_key_override="Fallback_Sobol",
                     model_kwargs={"deduplicate": False},
                 )
@@ -768,7 +768,7 @@ class TestGenerationStrategy(TestCase):
                         node_name="sobol",
                         generator_specs=[
                             GeneratorSpec(
-                                model_enum=Generators.SOBOL,
+                                generator_enum=Generators.SOBOL,
                                 model_kwargs={"deduplicate": False},
                             )
                         ],

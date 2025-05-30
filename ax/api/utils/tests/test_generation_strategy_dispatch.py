@@ -58,7 +58,7 @@ class TestDispatchUtils(TestCase):
                 sobol_node = gs._nodes[-1]
                 self.assertEqual(len(sobol_node.generator_specs), 1)
                 sobol_spec = sobol_node.generator_specs[0]
-                self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
+                self.assertEqual(sobol_spec.generator_enum, Generators.SOBOL)
                 self.assertEqual(sobol_spec.model_kwargs, {"seed": None})
                 self.assertEqual(sobol_node._transition_criteria, [])
                 # Make sure it generates.
@@ -89,7 +89,7 @@ class TestDispatchUtils(TestCase):
         self.assertTrue(sobol_node.should_deduplicate)
         self.assertEqual(len(sobol_node.generator_specs), 1)
         sobol_spec = sobol_node.generator_specs[0]
-        self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
+        self.assertEqual(sobol_spec.generator_enum, Generators.SOBOL)
         self.assertEqual(sobol_spec.model_kwargs, {"seed": 0})
         expected_tc = [
             MinTrials(
@@ -115,7 +115,7 @@ class TestDispatchUtils(TestCase):
         self.assertTrue(mbm_node.should_deduplicate)
         self.assertEqual(len(mbm_node.generator_specs), 1)
         mbm_spec = mbm_node.generator_specs[0]
-        self.assertEqual(mbm_spec.model_enum, Generators.BOTORCH_MODULAR)
+        self.assertEqual(mbm_spec.generator_enum, Generators.BOTORCH_MODULAR)
         expected_ss = SurrogateSpec(model_configs=[ModelConfig(name="MBM defaults")])
         self.assertEqual(
             mbm_spec.model_kwargs,
@@ -158,7 +158,7 @@ class TestDispatchUtils(TestCase):
         self.assertTrue(sobol_node.should_deduplicate)
         self.assertEqual(len(sobol_node.generator_specs), 1)
         sobol_spec = sobol_node.generator_specs[0]
-        self.assertEqual(sobol_spec.model_enum, Generators.SOBOL)
+        self.assertEqual(sobol_spec.generator_enum, Generators.SOBOL)
         self.assertEqual(sobol_spec.model_kwargs, {"seed": None})
         expected_tc = [
             MinTrials(
@@ -184,7 +184,7 @@ class TestDispatchUtils(TestCase):
         self.assertTrue(mbm_node.should_deduplicate)
         self.assertEqual(len(mbm_node.generator_specs), 1)
         mbm_spec = mbm_node.generator_specs[0]
-        self.assertEqual(mbm_spec.model_enum, Generators.BOTORCH_MODULAR)
+        self.assertEqual(mbm_spec.generator_enum, Generators.BOTORCH_MODULAR)
         expected_ss = SurrogateSpec(
             model_configs=[
                 ModelConfig(name="MBM defaults"),

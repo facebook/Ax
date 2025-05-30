@@ -263,7 +263,7 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
 }
 
 
-class ModelRegistryBase(Enum):
+class GeneratorRegistryBase(Enum):
     """Base enum that provides instrumentation of `__call__` on enum values,
     for enums that link their values to `ModelSetup`-s like `Generators`.
     """
@@ -442,7 +442,7 @@ class ModelRegistryBase(Enum):
         )
 
 
-class Generators(ModelRegistryBase):
+class Generators(GeneratorRegistryBase):
     """Registry of available models.
 
     Uses MODEL_KEY_TO_MODEL_SETUP to retrieve settings for model and adapter,

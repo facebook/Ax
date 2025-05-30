@@ -46,7 +46,7 @@ class TestTransitionCriterion(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.sobol_generator_spec = GeneratorSpec(
-            model_enum=Generators.SOBOL,
+            generator_enum=Generators.SOBOL,
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
@@ -99,7 +99,7 @@ class TestTransitionCriterion(TestCase):
                 )
             )
             self.assertEqual(
-                generation_strategy._curr.generator_spec_to_gen_from.model_enum,
+                generation_strategy._curr.generator_spec_to_gen_from.generator_enum,
                 Generators.BOTORCH_MODULAR,
             )
 

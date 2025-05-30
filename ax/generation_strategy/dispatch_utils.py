@@ -13,7 +13,11 @@ from typing import Any, cast
 
 import torch
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.registry import Generators, MODEL_KEY_TO_MODEL_SETUP, ModelRegistryBase
+from ax.adapter.registry import (
+    GeneratorRegistryBase,
+    Generators,
+    MODEL_KEY_TO_MODEL_SETUP,
+)
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.experiment import Experiment
@@ -77,7 +81,7 @@ def _make_botorch_step(
     min_trials_observed: int | None = None,
     enforce_num_trials: bool = True,
     max_parallelism: int | None = None,
-    model: ModelRegistryBase = Generators.BOTORCH_MODULAR,
+    model: GeneratorRegistryBase = Generators.BOTORCH_MODULAR,
     model_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
@@ -150,7 +154,7 @@ def _suggest_gp_model(
     num_trials: int | None = None,
     optimization_config: OptimizationConfig | None = None,
     use_saasbo: bool = False,
-) -> None | ModelRegistryBase:
+) -> None | GeneratorRegistryBase:
     """Suggest a model based on the search space. None means we use Sobol.
 
     1. We use Sobol if the number of total iterations in the optimization is
@@ -320,7 +324,7 @@ def choose_generation_strategy_legacy(
     disable_progbar: bool | None = None,
     jit_compile: bool | None = None,
     experiment: Experiment | None = None,
-    suggested_model_override: ModelRegistryBase | None = None,
+    suggested_model_override: GeneratorRegistryBase | None = None,
     fit_out_of_design: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of

@@ -68,7 +68,7 @@ class TestUtils(TestCase):
                     node_name="MBM",
                     generator_specs=[
                         GeneratorSpec(
-                            model_enum=Generators.BOTORCH_MODULAR,
+                            generator_enum=Generators.BOTORCH_MODULAR,
                         )
                     ],
                 )

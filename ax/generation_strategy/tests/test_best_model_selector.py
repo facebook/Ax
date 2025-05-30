@@ -31,7 +31,7 @@ class TestBestModelSelector(TestCase):
             {"Fisher exact test p": {"y_a": 0.5, "y_b": 0.6}},
         ]
         for diagnostics in self.diagnostics:
-            ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
+            ms = GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR)
             ms._cv_results = Mock()
             ms._diagnostics = diagnostics
             ms._last_cv_kwargs = {}
