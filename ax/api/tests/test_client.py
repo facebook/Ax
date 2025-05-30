@@ -638,10 +638,16 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
 
         trial_index = [*client.get_next_trials(max_trials=1).keys()][0]
-        client.mark_trial_failed(trial_index=trial_index)
+        client.mark_trial_failed(
+            trial_index=trial_index, failed_reason="testing the optional parameter"
+        )
         self.assertEqual(
             client._experiment.trials[trial_index].status,
             TrialStatus.FAILED,
+        )
+        self.assertEqual(
+            client._experiment.trials[trial_index]._failed_reason,
+            "testing the optional parameter",
         )
 
     def test_mark_trial_abandoned(self) -> None:
