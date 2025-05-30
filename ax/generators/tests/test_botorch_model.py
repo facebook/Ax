@@ -269,6 +269,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
 
                 if use_input_warping:
                     transformed_inputs = [
+                        # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Te...
                         model.input_transform.preprocess_transform(x)
                         for model, x in zip(model_list, untransformed_inputs)
                     ]
