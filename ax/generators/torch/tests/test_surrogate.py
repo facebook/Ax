@@ -66,6 +66,7 @@ from botorch.utils.types import DEFAULT
 from gpytorch.constraints import GreaterThan, Interval
 from gpytorch.kernels import Kernel, LinearKernel, MaternKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood, GaussianLikelihood
+from gpytorch.likelihoods.noise_models import HomoskedasticNoise
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
@@ -236,8 +237,9 @@ class SurrogateInputConstructorsTest(TestCase):
             self.assertEqual(len(tf_values), 2)
             self.assertIsInstance(tf_values[0], Normalize)
             self.assertIsInstance(tf_values[1], Log10)
-            # pyre-fixme[29]: Call error: `typing.Union[BoundMethod[typing.Callable(t...
-            self.assertEqual(tf_values[1].indices.tolist(), [0])
+            self.assertEqual(
+                assert_is_instance(tf_values[1].indices, Tensor).tolist(), [0]
+            )
 
         bounds = [(1.0, 5.0), (2.0, 10.0)]
         search_space_digest = SearchSpaceDigest(
@@ -275,18 +277,17 @@ class SurrogateTest(TestCase):
         self.metric_names = ["metric"]
         self.training_data = [
             SupervisedDataset(
-                X=self.Xs[0],
+                X=self.Xs,
                 # Note: using 1d Y does not match the 2d TorchOptConfig
-                Y=self.Ys[0],
+                Y=self.Ys,
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
             )
         ]
-        self.Ys_standardized = [standardize(Y) for Y in self.Ys]
         self.training_data_standardized = [
             SupervisedDataset(
-                X=self.Xs[0],
-                Y=self.Ys_standardized[0],
+                X=self.Xs,
+                Y=standardize(self.Ys),
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
             )
@@ -319,10 +320,10 @@ class SurrogateTest(TestCase):
         self.ds2 = SupervisedDataset(
             # pyre-fixme[6]: For 1st argument expected `Union[BotorchContainer,
             #  Tensor]` but got `int`.
-            X=2 * self.Xs[0],
+            X=2 * self.Xs,
             # pyre-fixme[6]: For 2nd argument expected `Union[BotorchContainer,
             #  Tensor]` but got `int`.
-            Y=2 * self.Ys[0],
+            Y=2 * self.Ys,
             feature_names=self.feature_names,
             outcome_names=["m2"],
         )
@@ -408,7 +409,7 @@ class SurrogateTest(TestCase):
     @mock_botorch_optimize
     def test_copy_options(self) -> None:
         training_data = self.training_data + [self.ds2]
-        d = self.Xs[0].shape[-1]
+        d = self.Xs.shape[-1]
         surrogate = Surrogate(
             surrogate_spec=SurrogateSpec(
                 model_configs=[
@@ -504,7 +505,7 @@ class SurrogateTest(TestCase):
         self.assertIsInstance(botorch_model.input_transform, Normalize)
         self.assertIsInstance(botorch_model.outcome_transform, Standardize)
         # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute `_m`.
-        self.assertEqual(botorch_model.outcome_transform._m, self.Ys[0].shape[-1])
+        self.assertEqual(botorch_model.outcome_transform._m, self.Ys.shape[-1])
 
         # Error handling if the model does not support transforms.
         surrogate = Surrogate(
@@ -514,7 +515,7 @@ class SurrogateTest(TestCase):
                         botorch_model_class=SingleTaskGPWithDifferentConstructor,
                         outcome_transform_classes=[Standardize],
                         outcome_transform_options={
-                            "Standardize": {"m": self.Ys[0].shape[-1]}
+                            "Standardize": {"m": self.Ys.shape[-1]}
                         },
                         input_transform_classes=[Normalize],
                     )
@@ -641,8 +642,8 @@ class SurrogateTest(TestCase):
                 mock_init.assert_called_once()
                 mock_fit.assert_called_once()
                 call_kwargs = mock_init.call_args.kwargs
-                self.assertTrue(torch.equal(call_kwargs["train_X"], self.Xs[0]))
-                self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
+                self.assertTrue(torch.equal(call_kwargs["train_X"], self.Xs))
+                self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys))
                 self.assertIsInstance(call_kwargs["input_transform"], Normalize)
                 self.assertIsNone(call_kwargs["outcome_transform"])
                 self.assertEqual(
@@ -814,9 +815,9 @@ class SurrogateTest(TestCase):
         )
         training_data = self.training_data + [
             SupervisedDataset(
-                X=self.Xs[0],
+                X=self.Xs,
                 # Note: using 1d Y does not match the 2d TorchOptConfig
-                Y=self.Ys[0],
+                Y=self.Ys,
                 feature_names=self.feature_names,
                 outcome_names=[f"metric{i}"],
             )
@@ -853,7 +854,7 @@ class SurrogateTest(TestCase):
         self.search_space_digest.task_features.append(-1)
         self.search_space_digest.feature_names.append("task_feat")
         self.search_space_digest.bounds.append((0.0, 1.0))
-        X = self.Xs[0]
+        X = self.Xs
         dataset = MultiTaskDataset(
             datasets=[
                 SupervisedDataset(
@@ -865,7 +866,7 @@ class SurrogateTest(TestCase):
                         dim=-1,
                     ),
                     # Note: using 1d Y does not match the 2d TorchOptConfig
-                    Y=self.Ys[0],
+                    Y=self.Ys,
                     feature_names=self.search_space_digest.feature_names,
                     outcome_names=self.metric_names,
                 )
@@ -905,7 +906,7 @@ class SurrogateTest(TestCase):
             mock_fit.assert_called_once()
             call_kwargs = mock_init.call_args.kwargs
             self.assertTrue(torch.equal(call_kwargs["train_X"], dataset.X))
-            self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
+            self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys))
             covar_module = call_kwargs["covar_module"]
             self.assertIsInstance(covar_module, ScaleMaternKernel)
             self.assertIsInstance(call_kwargs["input_transform"], Normalize)
@@ -1335,11 +1336,11 @@ class SurrogateTest(TestCase):
                 f"{SURROGATE_PATH}.predict_from_model", wraps=predict_from_model
             ) as mock_predict:
                 surrogate.predict(
-                    X=self.Xs[0], use_posterior_predictive=use_posterior_predictive
+                    X=self.Xs, use_posterior_predictive=use_posterior_predictive
                 )
             mock_predict.assert_called_with(
                 model=surrogate.model,
-                X=self.Xs[0],
+                X=self.Xs,
                 use_posterior_predictive=use_posterior_predictive,
             )
 
@@ -1348,8 +1349,8 @@ class SurrogateTest(TestCase):
         #  Set up data with 2 outcomes
         training_data = [
             SupervisedDataset(
-                X=self.Xs[0],
-                Y=self.Ys[0] + i,
+                X=self.Xs,
+                Y=self.Ys.add(i),
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
             )
@@ -1413,7 +1414,7 @@ class SurrogateTest(TestCase):
                 # better predicted objective value (because it had a better
                 # observed objective valu)e, so it should be the best point and
                 # have positive utility
-                self.assertTrue(torch.equal(best_point, self.Xs[0][0]))
+                self.assertTrue(torch.equal(best_point, self.Xs[0]))
                 self.assertGreater(value, 0)
 
             with self.subTest("One point is in the search space"):
@@ -1437,7 +1438,7 @@ class SurrogateTest(TestCase):
                     torch_opt_config=torch_opt_config,
                     options=self.options,
                 )
-                self.assertTrue(torch.equal(best_point, self.Xs[0][0]))
+                self.assertTrue(torch.equal(best_point, self.Xs[0]))
                 # The objective value is `obj[best] - min(obj)`, so when there
                 # is only one feasible point, it is zero
                 self.assertEqual(value, 0)
@@ -1577,8 +1578,12 @@ class SurrogateTest(TestCase):
         intf_values = list(intf.values())
         self.assertIsInstance(intf_values[0], InputPerturbation)
         self.assertIsInstance(intf_values[1], Normalize)
-        # pyre-fixme[6]: Incompatible parameter type: In call `torch._C._VariableFunc...
-        self.assertTrue(torch.equal(intf_values[0].perturbation_set, torch.zeros(2, 2)))
+        self.assertTrue(
+            torch.equal(
+                assert_is_instance(intf_values[0], InputPerturbation).perturbation_set,
+                torch.zeros(2, 2),
+            )
+        )
 
     def test_fit_mixed(self) -> None:
         # Test model construction with categorical variables.
@@ -1651,9 +1656,9 @@ class SurrogateWithModelListTest(TestCase):
             task_features=self.task_features,
         )
         self.ds1 = SupervisedDataset(
-            X=Xs1[0],
-            Y=Ys1[0],
-            Yvar=Yvars1[0],
+            X=Xs1,
+            Y=Ys1,
+            Yvar=Yvars1,
             feature_names=self.feature_names,
             outcome_names=self.outcomes[:1],
         )
@@ -1661,9 +1666,9 @@ class SurrogateWithModelListTest(TestCase):
             dtype=self.dtype, task_features=self.task_features
         )
         ds2 = SupervisedDataset(
-            X=Xs2[0],
-            Y=Ys2[0],
-            Yvar=Yvars2[0],
+            X=Xs2,
+            Y=Ys2,
+            Yvar=Yvars2,
             feature_names=self.feature_names,
             outcome_names=self.outcomes[1:],
         )
@@ -1680,15 +1685,15 @@ class SurrogateWithModelListTest(TestCase):
         for submodel_cls in self.botorch_submodel_class_per_outcome.values():
             self.assertEqual(submodel_cls, MultiTaskGP)
         self.ds3 = SupervisedDataset(
-            X=Xs1[0],
-            Y=Ys2[0],
-            Yvar=Yvars2[0],
+            X=Xs1,
+            Y=Ys2,
+            Yvar=Yvars2,
             feature_names=self.feature_names,
             outcome_names=self.outcomes[1:],
         )
-        self.Xs = Xs1 + Xs2
-        self.Ys = Ys1 + Ys2
-        self.Yvars = Yvars1 + Yvars2
+        self.Xs = [Xs1, Xs2]
+        self.Ys = [Ys1, Ys2]
+        self.Yvars = [Yvars1, Yvars2]
         self.fixed_noise_training_data = [self.ds1, ds2]
         self.supervised_training_data = [
             SupervisedDataset(
@@ -1758,10 +1763,10 @@ class SurrogateWithModelListTest(TestCase):
                     datasets=datasets, search_space_digest=search_space_digest
                 )
             # Should construct inputs for MTGP twice.
-            self.assertEqual(len(mock_MTGP_construct_inputs.call_args_list), 2)
+            self.assertEqual(mock_MTGP_construct_inputs.call_count, 2)
             self.assertEqual(mock_fit.call_count, 2)
             # First construct inputs should be called for MTGP with training data #0.
-            for idx in range(len(mock_MTGP_construct_inputs.call_args_list)):
+            for idx in range(mock_MTGP_construct_inputs.call_count):
                 expected_training_data = SupervisedDataset(
                     X=self.Xs[idx],
                     Y=self.Ys[idx],
@@ -1770,8 +1775,7 @@ class SurrogateWithModelListTest(TestCase):
                     outcome_names=[self.outcomes[idx]],
                 )
                 self.assertEqual(
-                    # `call_args` is a tuple of (args, kwargs), and we check kwargs.
-                    mock_MTGP_construct_inputs.call_args_list[idx][1],
+                    mock_MTGP_construct_inputs.call_args_list[idx].kwargs,
                     {
                         "task_feature": self.task_features[0],
                         "training_data": expected_training_data,
@@ -1808,9 +1812,9 @@ class SurrogateWithModelListTest(TestCase):
         # offset makes task feature point to valid outcome indices
         Xs, Ys, Yvars, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=-1)
         ds1 = SupervisedDataset(
-            X=Xs[0],
-            Y=Ys[0],
-            Yvar=Yvars[0],
+            X=Xs,
+            Y=Ys,
+            Yvar=Yvars,
             feature_names=self.feature_names,
             outcome_names=self.outcomes[:1],
         )
@@ -2009,15 +2013,19 @@ class SurrogateWithModelListTest(TestCase):
 
             for m in models:
                 self.assertEqual(type(m.likelihood), GaussianLikelihood)
-                self.assertEqual(type(m.covar_module), MaternKernel)
+                covar_module = assert_is_instance(m.covar_module, MaternKernel)
+                self.assertEqual(type(covar_module), MaternKernel)
                 if submodel_covar_module_options:
-                    # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Tensor...
-                    self.assertEqual(m.covar_module.ard_num_dims, 3)
+                    self.assertEqual(covar_module.ard_num_dims, 3)
                 else:
-                    # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Tensor...
-                    self.assertEqual(m.covar_module.ard_num_dims, None)
-                # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Tensor` of...
-                m_noise_constraint = m.likelihood.noise_covar.raw_noise_constraint
+                    self.assertEqual(covar_module.ard_num_dims, None)
+                noise_covar = assert_is_instance(
+                    assert_is_instance(m.likelihood, GaussianLikelihood).noise_covar,
+                    HomoskedasticNoise,
+                )
+                m_noise_constraint = assert_is_instance(
+                    noise_covar.raw_noise_constraint, Interval
+                )
                 if submodel_likelihood_options:
                     self.assertEqual(type(m_noise_constraint), Interval)
                     self.assertEqual(

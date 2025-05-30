@@ -99,21 +99,21 @@ class BoTorchGeneratorTest(TestCase):
             self.metric_names,  # This is just ["y"].
         ) = get_torch_test_data(dtype=self.dtype)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
-        self.X_test = Xs2[0]
+        self.X_test = Xs2
         self.block_design_training_data = [
             SupervisedDataset(
-                X=self.Xs[0],
-                Y=self.Ys[0],
-                Yvar=self.Yvars[0],
+                X=self.Xs,
+                Y=self.Ys,
+                Yvar=self.Yvars,
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
             )
         ]
         self.non_block_design_training_data = self.block_design_training_data + [
             SupervisedDataset(
-                X=Xs2[0],
-                Y=Ys2[0],
-                Yvar=Yvars2[0],
+                X=Xs2,
+                Y=Ys2,
+                Yvar=Yvars2,
                 feature_names=self.feature_names,
                 outcome_names=["y2"],
             )
@@ -157,9 +157,9 @@ class BoTorchGeneratorTest(TestCase):
                 outcome_names=[mn],
             )
             for X, Y, Yvar, mn in zip(
-                assert_is_instance(self.Xs, list) * 3,
-                self.Ys + Ys2 + self.Ys,
-                assert_is_instance(self.Yvars, list) * 3,
+                [self.Xs for _ in range(3)],
+                [self.Ys, Ys2, self.Ys],
+                [self.Yvars for _ in range(3)],
                 self.moo_metric_names,
             )
         ]
@@ -587,7 +587,7 @@ class BoTorchGeneratorTest(TestCase):
         self.assertEqual(m.num_outputs, 1)
         training_data = ckwargs["training_data"]
         self.assertIsInstance(training_data, SupervisedDataset)
-        self.assertTrue(torch.equal(training_data.X, self.Xs[0]))
+        self.assertTrue(torch.equal(training_data.X, self.Xs))
         self.assertTrue(
             torch.equal(
                 training_data.Y,
@@ -797,9 +797,9 @@ class BoTorchGeneratorTest(TestCase):
                 outcome_names=[mn],
             )
             for X, Y, Yvar, mn in zip(
-                [self.Xs[0], self.Xs[0][:1], self.Xs[0][1:]],
-                [self.Ys[0], self.Ys[0][:1] + 1, self.Ys[0][1:]],
-                [self.Yvars[0], self.Yvars[0][:1], self.Yvars[0][1:]],
+                [self.Xs, self.Xs[:1], self.Xs[1:]],
+                [self.Ys, self.Ys[:1] + 1, self.Ys[1:]],
+                [self.Yvars, self.Yvars[:1], self.Yvars[1:]],
                 self.moo_metric_names,
             )
         ]
@@ -986,7 +986,7 @@ class BoTorchGeneratorTest(TestCase):
         self.assertEqual(m.num_outputs, 2)
         training_data = ckwargs["training_data"]
         self.assertIsNotNone(training_data.Yvar)
-        self.assertTrue(torch.equal(training_data.X, self.Xs[0]))
+        self.assertTrue(torch.equal(training_data.X, self.Xs))
         self.assertTrue(
             torch.equal(
                 training_data.Y,

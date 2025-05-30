@@ -20,9 +20,9 @@ def get_torch_test_data(
     task_features: list[int] | None = None,
     offset: float = 0.0,
 ) -> tuple[
-    list[torch.Tensor],
-    list[torch.Tensor],
-    list[torch.Tensor],
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
     list[tuple[float, float]],
     list[int],
     list[str],
@@ -32,21 +32,18 @@ def get_torch_test_data(
         "device": torch.device("cuda" if cuda else "cpu"),
         "dtype": dtype,
     }
-    Xs = [
-        torch.tensor(
-            [
-                [1.0 + offset, 2.0 + offset, 3.0 + offset],
-                [2.0 + offset, 3.0 + offset, 4.0 + offset],
-            ],
-            **tkwargs,
-        )
-    ]
-    Ys = [torch.tensor([[3.0 + offset], [4.0 + offset]], **tkwargs)]
+    X = torch.tensor(
+        [
+            [1.0 + offset, 2.0 + offset, 3.0 + offset],
+            [2.0 + offset, 3.0 + offset, 4.0 + offset],
+        ],
+        **tkwargs,
+    )
+    Y = torch.tensor([[3.0 + offset], [4.0 + offset]], **tkwargs)
     if constant_noise:
         Yvar = torch.ones(2, 1, **tkwargs)
     else:
         Yvar = torch.tensor([[0.0 + offset], [2.0 + offset]], **tkwargs)
-    Yvars = [Yvar]
 
     bounds = [
         (0.0 + offset, 1.0 + offset),
@@ -56,4 +53,4 @@ def get_torch_test_data(
     feature_names = ["x1", "x2", "x3"]
     task_features = [] if task_features is None else task_features
     metric_names = ["y"]
-    return Xs, Ys, Yvars, bounds, task_features, feature_names, metric_names
+    return X, Y, Yvar, bounds, task_features, feature_names, metric_names
