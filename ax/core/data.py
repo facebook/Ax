@@ -279,13 +279,15 @@ class BaseData(Base, SerializationMixin):
             data: Iterable of Ax objects of this class to combine.
         """
         dfs = []
+
         for datum in data:
-            if not isinstance(datum, cls):
+            if type(datum) is not cls:
                 raise TypeError(
                     f"All data objects must be instances of class {cls}. Got "
                     f"{type(datum)}."
                 )
-            dfs.append(datum.df)
+            if len(datum.df) > 0:
+                dfs.append(datum.df)
 
         if len(dfs) == 0:
             return cls()

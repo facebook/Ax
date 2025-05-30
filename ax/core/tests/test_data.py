@@ -298,17 +298,34 @@ class DataTest(TestCase):
         )
         self.assertEqual(clone_without_metrics(data, {"a"}), expected)
 
+    def test_from_multiple(self) -> None:
+        with self.subTest("Combinining non-empty Data"):
+            data = Data.from_multiple_data([Data(df=self.df), Data(df=self.df)])
+            self.assertEqual(len(data.df), 2 * len(self.df))
+
+        with self.subTest("Combining empty Data makes empty Data"):
+            data = Data.from_multiple_data([Data(), Data()])
+            self.assertEqual(data, Data())
+
+        with self.subTest("Can't combine different types"):
+            CustomData = custom_data_class()
+            with self.assertRaisesRegex(
+                TypeError, "All data objects must be instances of"
+            ):
+                CustomData.from_multiple_data([Data(), CustomData()])
+
     def test_FromMultipleDataMismatchedTypes(self) -> None:
         # create two custom data types
         CustomDataA = custom_data_class(
             column_data_types={"metadata": str, "created_time": pd.Timestamp},
             required_columns={"metadata"},
         )
-
         CustomDataB = custom_data_class(column_data_types={"year": pd.Timestamp})
 
-        # Test data of multiple empty custom types raises a value error
-        with self.assertRaises(ValueError):
+        # Test using `Data.from_multiple_data` to combine non-Data types
+        with self.assertRaisesRegex(
+            TypeError, "All data objects must be instances of class"
+        ):
             Data.from_multiple_data([CustomDataA(), CustomDataB()])
 
         # Test data of multiple non-empty types raises a value error
