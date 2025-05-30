@@ -7,6 +7,7 @@
 # pyre-strict
 
 import dataclasses
+import warnings
 from contextlib import ExitStack
 from copy import deepcopy
 from itertools import product
@@ -787,9 +788,33 @@ class BoTorchGeneratorTest(TestCase):
     ) -> None:
         """Test that we dispatch to `qLogProbabilityOfFeasibility`
         when no feasible points have been found"""
+        moo_training_data_non_block = [
+            SupervisedDataset(
+                X=X,
+                Y=Y,
+                Yvar=Yvar,
+                feature_names=self.feature_names,
+                outcome_names=[mn],
+            )
+            for X, Y, Yvar, mn in zip(
+                [self.Xs[0], self.Xs[0][:1], self.Xs[0][1:]],
+                [self.Ys[0], self.Ys[0][:1] + 1, self.Ys[0][1:]],
+                [self.Yvars[0], self.Yvars[0][:1], self.Yvars[0][1:]],
+                self.moo_metric_names,
+            )
+        ]
+
         for datasets, torch_opt_config in zip(
-            (self.block_design_training_data, self.moo_training_data),
-            (self.torch_opt_config_infeas, self.moo_torch_opt_config_infeas),
+            (
+                self.block_design_training_data,
+                self.moo_training_data,
+                moo_training_data_non_block,
+            ),
+            (
+                self.torch_opt_config_infeas,
+                self.moo_torch_opt_config_infeas,
+                self.moo_torch_opt_config_infeas,
+            ),
         ):
             model = BoTorchGenerator(
                 surrogate=self.surrogate,
@@ -803,11 +828,13 @@ class BoTorchGeneratorTest(TestCase):
             self.assertIsNone(model._botorch_acqf_class)  # Should not have been set
             # Gen
             with self.subTest("No mocks"):
-                gen_results = model.gen(
-                    n=1,
-                    search_space_digest=self.search_space_digest,
-                    torch_opt_config=torch_opt_config,
-                )
+                with warnings.catch_warnings(record=True) as ws:
+                    gen_results = model.gen(
+                        n=1,
+                        search_space_digest=self.search_space_digest,
+                        torch_opt_config=torch_opt_config,
+                    )
+                self.assertEqual(len(ws), 0)
                 mock_choose_botorch_acqf_class.assert_called()
                 mock_choose_botorch_acqf_class.reset_mock()
                 self.assertEqual(

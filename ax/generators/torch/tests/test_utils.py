@@ -10,7 +10,6 @@ import warnings
 from collections import OrderedDict
 
 import numpy as np
-
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError
