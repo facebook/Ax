@@ -294,13 +294,13 @@ def sobol_gpei_generation_node_gs(
     is_SOO_mbm_criterion = [IsSingleObjective(transition_to="MBM_node")]
     step_model_kwargs = {"silently_filter_kwargs": True}
     sobol_generator_spec = GeneratorSpec(
-        model_enum=Generators.SOBOL,
+        generator_enum=Generators.SOBOL,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
     mbm_generator_specs = [
         GeneratorSpec(
-            model_enum=Generators.BOTORCH_MODULAR,
+            generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs=step_model_kwargs,
             model_gen_kwargs={},
         )
@@ -312,7 +312,7 @@ def sobol_gpei_generation_node_gs(
     )
     if with_model_selection:
         # This is just MBM with different transforms.
-        mbm_generator_specs.append(GeneratorSpec(model_enum=Generators.BO_MIXED))
+        mbm_generator_specs.append(GeneratorSpec(generator_enum=Generators.BO_MIXED))
         best_model_selector = SingleDiagnosticBestModelSelector(
             diagnostic=FISHER_EXACT_TEST_P,
             metric_aggregation=ReductionCriterion.MEAN,
@@ -393,7 +393,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
         nodes=[
             GenerationNode(
                 node_name="Sobol",
-                generator_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
+                generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                 transition_criteria=[
                     MinTrials(
                         threshold=1,
@@ -405,7 +405,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
                 node_name="MBM",
                 generator_specs=[
                     GeneratorSpec(
-                        model_enum=Generators.BOTORCH_MODULAR,
+                        generator_enum=Generators.BOTORCH_MODULAR,
                     ),
                 ],
                 transition_criteria=[
@@ -424,7 +424,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
                 node_name="MTGP",
                 generator_specs=[
                     GeneratorSpec(
-                        model_enum=Generators.ST_MTGP,
+                        generator_enum=Generators.ST_MTGP,
                     ),
                 ],
             ),

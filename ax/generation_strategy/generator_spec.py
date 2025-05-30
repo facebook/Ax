@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import warnings
-from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
@@ -23,7 +22,7 @@ from ax.adapter.cross_validation import (
     CVResult,
     get_fit_and_std_quality_and_generalization_dict,
 )
-from ax.adapter.registry import ModelRegistryBase
+from ax.adapter.registry import GeneratorRegistryBase
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -33,9 +32,6 @@ from ax.utils.common.base import SortableBase
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.serialization import SerializationMixin
 from pyre_extensions import none_throws
-
-
-TModelFactory = Callable[..., Adapter]
 
 
 class GeneratorSpecJSONEncoder(json.JSONEncoder):
@@ -48,9 +44,9 @@ class GeneratorSpecJSONEncoder(json.JSONEncoder):
 
 @dataclass
 class GeneratorSpec(SortableBase, SerializationMixin):
-    model_enum: ModelRegistryBase
-    # Kwargs to pass into the `Model` + `Adapter` constructors in
-    # `ModelRegistryBase.__call__`.
+    generator_enum: GeneratorRegistryBase
+    # Kwargs to pass into the `Adapter` + `Generator` constructors in
+    # `GeneratorRegistryBase.__call__`.
     model_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `Adapter.gen`.
     model_gen_kwargs: dict[str, Any] = field(default_factory=dict)
@@ -107,7 +103,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         if self.model_key_override is not None:
             return self.model_key_override
         else:
-            return self.model_enum.value
+            return self.generator_enum.value
 
     def fit(
         self,
@@ -141,7 +137,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
 
         else:
             # Fit from scratch.
-            self._fitted_adapter = self.model_enum(
+            self._fitted_adapter = self.generator_enum(
                 experiment=experiment,
                 data=data,
                 **combined_model_kwargs,
@@ -183,7 +179,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
             self._cv_results = cross_validate(model=self.fitted_adapter, **cv_kwargs)
         except NotImplementedError:
             warnings.warn(
-                f"{self.model_enum.value} cannot be cross validated", stacklevel=2
+                f"{self.generator_enum.value} cannot be cross validated", stacklevel=2
             )
             return None, None
 
@@ -250,7 +246,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         Copying is useful to avoid changes to a singleton model spec.
         """
         return self.__class__(
-            model_enum=self.model_enum,
+            generator_enum=self.generator_enum,
             model_kwargs=deepcopy(self.model_kwargs),
             model_gen_kwargs=deepcopy(self.model_gen_kwargs),
             model_cv_kwargs=deepcopy(self.model_cv_kwargs),
@@ -297,7 +293,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         Includes just name and override, but not the various kwargs"""
         return (
             "GeneratorSpec("
-            f"\tmodel_enum={self.model_enum.value}, "
+            f"\tgenerator_enum={self.generator_enum.value}, "
             f"\tmodel_key_override={self.model_key_override}"
             ")"
         )
@@ -314,7 +310,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         )
         return (
             "GeneratorSpec("
-            f"\tmodel_enum={self.model_enum.value}, "
+            f"\tgenerator_enum={self.generator_enum.value}, "
             f"\tmodel_kwargs={model_kwargs}, "
             f"\tmodel_gen_kwargs={model_gen_kwargs}, "
             f"\tmodel_cv_kwargs={model_cv_kwargs}, "

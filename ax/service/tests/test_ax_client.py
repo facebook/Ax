@@ -3107,7 +3107,7 @@ class TestAxClient(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="Sobol",
-                    generator_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
+                    generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                 )
             ],
         )

@@ -95,7 +95,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
                     node_name="gn",
                     generator_specs=[
                         GeneratorSpec(
-                            model_enum=Generators.BOTORCH_MODULAR,
+                            generator_enum=Generators.BOTORCH_MODULAR,
                         )
                     ],
                 )

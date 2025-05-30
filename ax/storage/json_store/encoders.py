@@ -490,7 +490,7 @@ def generator_spec_to_dict(generator_spec: GeneratorSpec) -> dict[str, Any]:
     """Convert Ax model spec to a dictionary."""
     return {
         "__type": generator_spec.__class__.__name__,
-        "model_enum": generator_spec.model_enum,
+        "generator_enum": generator_spec.generator_enum,
         "model_kwargs": generator_spec.model_kwargs,
         "model_gen_kwargs": generator_spec.model_gen_kwargs,
     }

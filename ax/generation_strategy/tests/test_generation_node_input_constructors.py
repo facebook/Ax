@@ -58,7 +58,7 @@ class TestGenerationNodeInputConstructors(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.sobol_generator_spec = GeneratorSpec(
-            model_enum=Generators.SOBOL,
+            generator_enum=Generators.SOBOL,
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
