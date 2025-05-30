@@ -12,7 +12,13 @@ from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import LEGEND_POSITION, MARGIN_REDUCUTION, truncate_label
+from ax.analysis.plotly.utils import (
+    COLOR_FOR_DECREASES,
+    COLOR_FOR_INCREASES,
+    LEGEND_POSITION,
+    MARGIN_REDUCUTION,
+    truncate_label,
+)
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
@@ -201,8 +207,6 @@ def _prepare_card_components(
         lambda x: f"Increases {metric_label}" if x >= 0 else f"Decreases {metric_label}"
     )
 
-    blue = px.colors.qualitative.Plotly[0]
-    orange = px.colors.qualitative.Plotly[4]
     figure = px.bar(
         plotting_df.sort_values(by="importance", ascending=False)
         .reset_index()
@@ -212,8 +216,8 @@ def _prepare_card_components(
         orientation="h",
         color="direction",
         color_discrete_map={
-            f"Increases {metric_label}": blue,
-            f"Decreases {metric_label}": orange,
+            f"Increases {metric_label}": COLOR_FOR_INCREASES,
+            f"Decreases {metric_label}": COLOR_FOR_DECREASES,
         },
         # Show full parameter name on hover, not truncated name
         hover_data=["parameter_name"],
