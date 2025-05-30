@@ -30,6 +30,7 @@ from ax.generators.torch.utils import HYPERSPHERE
 from ax.generators.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.multi_objective import (
     logei as moo_logei,
     monte_carlo as moo_monte_carlo,
@@ -71,27 +72,6 @@ PARTITIONING_PATH = "botorch.acquisition.factory.FastNondominatedPartitioning"
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
     return X
-
-
-# pyre-fixme[3]: Return type must be annotated.
-def _get_torch_test_data(
-    dtype: torch.dtype = torch.float,
-    cuda: bool = False,
-    constant_noise: bool = True,
-    # pyre-fixme[2]: Parameter must be annotated.
-    task_features=None,
-):
-    device = torch.device("cuda") if cuda else torch.device("cpu")
-    Xs = [torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=dtype, device=device)]
-    Ys = [torch.tensor([[3.0], [4.0]], dtype=dtype, device=device)]
-    Yvars = [torch.tensor([[0.0], [2.0]], dtype=dtype, device=device)]
-    if constant_noise:
-        Yvars[0].fill_(1.0)
-    bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
-    feature_names = ["x1", "x2", "x3"]
-    task_features = [] if task_features is None else task_features
-    metric_names = ["y"]
-    return Xs, Ys, Yvars, bounds, task_features, feature_names, metric_names
 
 
 class BotorchMOOModelTest(TestCase):
@@ -143,32 +123,23 @@ class BotorchMOOModelTest(TestCase):
             "dtype": dtype,
         }
         (
-            Xs1,
-            Ys1,
-            Yvars1,
+            Xs,
+            Ys,
+            Yvars,
             bounds,
             tfs,
             feature_names,
-            metric_names,
-        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
-        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+            _,
+        ) = get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         training_data = [
             SupervisedDataset(
-                X=Xs1[0],
-                Y=Ys1[0],
-                Yvar=Yvars1[0],
+                X=Xs,
+                Y=Ys,
+                Yvar=Yvars,
                 feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
-            SupervisedDataset(
-                X=Xs2[0],
-                Y=Ys2[0],
-                Yvar=Yvars2[0],
-                feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
+                outcome_names=[name],
+            )
+            for name in ["m1", "m2"]
         ]
 
         n = 3
@@ -273,32 +244,23 @@ class BotorchMOOModelTest(TestCase):
             "dtype": dtype,
         }
         (
-            Xs1,
-            Ys1,
-            Yvars1,
+            Xs,
+            Ys,
+            Yvars,
             bounds,
             tfs,
             feature_names,
-            metric_names,
-        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
-        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+            _,
+        ) = get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         training_data = [
             SupervisedDataset(
-                X=Xs1[0],
-                Y=Ys1[0],
-                Yvar=Yvars1[0],
+                X=Xs,
+                Y=Ys,
+                Yvar=Yvars,
                 feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
-            SupervisedDataset(
-                X=Xs2[0],
-                Y=Ys2[0],
-                Yvar=Yvars2[0],
-                feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
+                outcome_names=[name],
+            )
+            for name in ["m1", "m2"]
         ]
 
         n = 3
@@ -379,42 +341,23 @@ class BotorchMOOModelTest(TestCase):
             "dtype": dtype,
         }
         (
-            Xs1,
-            Ys1,
-            Yvars1,
+            Xs,
+            Ys,
+            Yvars,
             bounds,
             tfs,
             feature_names,
-            metric_names,
-        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
-        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
-        Xs3, Ys3, Yvars3, _, _, _, _ = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+            _,
+        ) = get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         training_data = [
             SupervisedDataset(
-                X=Xs1[0],
-                Y=Ys1[0],
-                Yvar=Yvars1[0],
+                X=Xs,
+                Y=Ys,
+                Yvar=Yvars,
                 feature_names=feature_names,
-                outcome_names=["m1"],
-            ),
-            SupervisedDataset(
-                X=Xs2[0],
-                Y=Ys2[0],
-                Yvar=Yvars2[0],
-                feature_names=feature_names,
-                outcome_names=["m2"],
-            ),
-            SupervisedDataset(
-                X=Xs3[0],
-                Y=Ys3[0],
-                Yvar=Yvars3[0],
-                feature_names=feature_names,
-                outcome_names=["m3"],
-            ),
+                outcome_names=[name],
+            )
+            for name in ["m1", "m2", "m3"]
         ]
 
         n = 3
@@ -519,35 +462,24 @@ class BotorchMOOModelTest(TestCase):
 
             # test inferred objective thresholds in gen()
             # create several data points
-            Xs1 = [torch.cat([Xs1[0], Xs1[0] - 0.1], dim=0)]
-            Ys1 = [torch.cat([Ys1[0], Ys1[0] - 0.5], dim=0)]
-            Ys2 = [torch.cat([Ys2[0], Ys2[0] + 0.5], dim=0)]
-            Ys3 = [torch.cat([Ys3[0], Ys3[0] - 1.0], dim=0)]
-            Yvars1 = [torch.cat([Yvars1[0], Yvars1[0] + 0.2], dim=0)]
-            Yvars2 = [torch.cat([Yvars2[0], Yvars2[0] + 0.1], dim=0)]
-            Yvars3 = [torch.cat([Yvars3[0], Yvars3[0] + 0.4], dim=0)]
+            Xs = torch.cat([Xs, Xs - 0.1], dim=0)
+            Ys1 = torch.cat([Ys, Ys - 0.5], dim=0)
+            Ys2 = torch.cat([Ys, Ys + 0.5], dim=0)
+            Ys3 = torch.cat([Ys, Ys - 1.0], dim=0)
+            Yvars1 = torch.cat([Yvars, Yvars + 0.2], dim=0)
+            Yvars2 = torch.cat([Yvars, Yvars + 0.1], dim=0)
+            Yvars3 = torch.cat([Yvars, Yvars + 0.4], dim=0)
             training_data_multiple = [
                 SupervisedDataset(
-                    X=Xs1[0],
-                    Y=Ys1[0],
-                    Yvar=Yvars1[0],
+                    X=Xs,
+                    Y=Y,
+                    Yvar=Yvar,
                     feature_names=feature_names,
-                    outcome_names=["m1"],
-                ),
-                SupervisedDataset(
-                    X=Xs1[0],
-                    Y=Ys2[0],
-                    Yvar=Yvars2[0],
-                    feature_names=feature_names,
-                    outcome_names=["m2"],
-                ),
-                SupervisedDataset(
-                    X=Xs1[0],
-                    Y=Ys3[0],
-                    Yvar=Yvars3[0],
-                    feature_names=feature_names,
-                    outcome_names=["m3"],
-                ),
+                    outcome_names=[name],
+                )
+                for Y, Yvar, name in zip(
+                    [Ys1, Ys2, Ys3], [Yvars1, Yvars2, Yvars3], ["m1", "m2", "m3"]
+                )
             ]
             model.fit(
                 datasets=training_data_multiple,
@@ -692,32 +624,23 @@ class BotorchMOOModelTest(TestCase):
             "dtype": dtype,
         }
         (
-            Xs1,
-            Ys1,
-            Yvars1,
+            Xs,
+            Ys,
+            Yvars,
             bounds,
             tfs,
             feature_names,
-            metric_names,
-        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
-        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+            _,
+        ) = get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         training_data = [
             SupervisedDataset(
-                X=Xs1[0],
-                Y=Ys1[0],
-                Yvar=Yvars1[0],
+                X=Xs,
+                Y=Ys,
+                Yvar=Yvars,
                 feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
-            SupervisedDataset(
-                X=Xs2[0],
-                Y=Ys2[0],
-                Yvar=Yvars2[0],
-                feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
+                outcome_names=[name],
+            )
+            for name in ["m1", "m2"]
         ]
 
         n = 2
@@ -770,32 +693,23 @@ class BotorchMOOModelTest(TestCase):
             "dtype": torch.float,
         }
         (
-            Xs1,
-            Ys1,
-            Yvars1,
+            Xs,
+            Ys,
+            Yvars,
             bounds,
             tfs,
             feature_names,
-            metric_names,
-        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
-        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+            _,
+        ) = get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         training_data = [
             SupervisedDataset(
-                X=Xs1[0],
-                Y=Ys1[0],
-                Yvar=Yvars1[0],
+                X=Xs,
+                Y=Ys,
+                Yvar=Yvars,
                 feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
-            SupervisedDataset(
-                X=Xs2[0],
-                Y=Ys2[0],
-                Yvar=Yvars2[0],
-                feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
+                outcome_names=[name],
+            )
+            for name in ["m1", "m2"]
         ]
 
         n = 2
@@ -863,42 +777,23 @@ class BotorchMOOModelTest(TestCase):
             "dtype": dtype,
         }
         (
-            Xs1,
-            Ys1,
-            Yvars1,
+            Xs,
+            Ys,
+            Yvars,
             bounds,
             tfs,
             feature_names,
-            metric_names,
-        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
-        Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
-        Xs3, Ys3, Yvars3, _, _, _, _ = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+            _,
+        ) = get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         training_data = [
             SupervisedDataset(
-                X=Xs1[0],
-                Y=Ys1[0],
-                Yvar=Yvars1[0],
+                X=Xs,
+                Y=Ys,
+                Yvar=Yvars,
                 feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
-            SupervisedDataset(
-                X=Xs2[0],
-                Y=Ys2[0],
-                Yvar=Yvars2[0],
-                feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
-            SupervisedDataset(
-                X=Xs3[0],
-                Y=Ys3[0],
-                Yvar=Yvars3[0],
-                feature_names=feature_names,
-                outcome_names=metric_names,
-            ),
+                outcome_names=[name],
+            )
+            for name in ["m1", "m2", "m3"]
         ]
 
         n = 3
@@ -955,7 +850,7 @@ class BotorchMOOModelTest(TestCase):
         self.assertTrue(torch.equal(ckwargs["objective_thresholds"], obj_t[:-1]))
         self.assertIsNone(ckwargs["outcome_constraints"])
         # the second datapoint is out of bounds
-        self.assertTrue(torch.equal(ckwargs["X_observed"], Xs1[0][:1]))
+        self.assertTrue(torch.equal(ckwargs["X_observed"], Xs[:1]))
         self.assertIsNone(ckwargs["X_pending"])
 
         # test that outcome constraints are passed properly
@@ -985,5 +880,5 @@ class BotorchMOOModelTest(TestCase):
         self.assertTrue(torch.equal(ckwargs["outcome_constraints"][0], oc[0]))
         self.assertTrue(torch.equal(ckwargs["outcome_constraints"][1], oc[1]))
         # the second datapoint is out of bounds
-        self.assertTrue(torch.equal(ckwargs["X_observed"], Xs1[0][:1]))
+        self.assertTrue(torch.equal(ckwargs["X_observed"], Xs[:1]))
         self.assertIsNone(ckwargs["X_pending"])
