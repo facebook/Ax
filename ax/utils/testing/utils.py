@@ -59,7 +59,9 @@ def run_trials_with_gs(
         )
     existing_trials = len(experiment.trials)
     for i in range(existing_trials, existing_trials + num_trials):
-        trial = experiment.new_trial(generator_run=gs.gen(experiment=experiment))
+        trial = experiment.new_trial(
+            generator_run=gs.gen_single_trial(experiment=experiment)
+        )
         data = Data(
             df=pd.DataFrame.from_records(
                 [
