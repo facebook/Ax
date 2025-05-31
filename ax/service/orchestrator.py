@@ -1680,7 +1680,7 @@ class Orchestrator(AnalysisBase, BestPointMixin):
         # want to enable that functionality for single-arm use cases of the
         # ``Orchestrator``, as it's still in development.
         if self.options.trial_type == TrialType.BATCH_TRIAL:
-            grs = self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
+            grs = self.generation_strategy.gen(
                 experiment=self.experiment,
                 num_trials=num_trials,
                 n=n,
@@ -1691,7 +1691,7 @@ class Orchestrator(AnalysisBase, BestPointMixin):
             pending = get_pending_observation_features_based_on_trial_status(
                 experiment=self.experiment
             )
-            grs = self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
+            grs = self.generation_strategy.gen(
                 experiment=self.experiment,
                 num_trials=num_trials,
                 n=1,

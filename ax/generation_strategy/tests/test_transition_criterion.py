@@ -53,7 +53,6 @@ class TestTransitionCriterion(TestCase):
         self.branin_experiment = get_branin_experiment()
 
     def test_minimum_preference_criterion(self) -> None:
-        """Tests the minimum preference criterion subclass of TransitionCriterion."""
         criterion = MinimumPreferenceOccurances(metric_name="m1", threshold=3)
         experiment = get_experiment()
         generation_strategy = GenerationStrategy(
@@ -104,7 +103,6 @@ class TestTransitionCriterion(TestCase):
             )
 
     def test_aux_experiment_check(self) -> None:
-        """Tests that the aux experiment check transition."""
         # Test incorrect instantiation
         with self.assertRaisesRegex(UserInputError, r"cannot have both .* None"):
             AuxiliaryExperimentCheck(
@@ -114,7 +112,6 @@ class TestTransitionCriterion(TestCase):
             )
 
     def test_aux_experiment_check_in_gs(self) -> None:
-        """Tests that the aux experiment check transition works as expected in a GS."""
         experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="test",
@@ -264,7 +261,6 @@ class TestTransitionCriterion(TestCase):
         )
 
     def test_min_trials_is_met(self) -> None:
-        """Test that the is_met method in  MinTrials works"""
         experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="SOBOL::default",
@@ -286,7 +282,9 @@ class TestTransitionCriterion(TestCase):
 
         # Need to add trials to test the transition criteria `is_met` method
         for _i in range(4):
-            experiment.new_trial(gs.gen(experiment=experiment))
+            experiment.new_trial(
+                generator_run=gs.gen_single_trial(experiment=experiment)
+            )
         node_0_trials = gs._steps[0].trials_from_node
         node_1_trials = gs._steps[1].trials_from_node
 
@@ -393,8 +391,8 @@ class TestTransitionCriterion(TestCase):
         )
         self.assertEqual(gs.current_node_name, "sobol_1")
         # Should not transition because this is a MOO experiment
-        gr = gs.gen(experiment=exp)
-        gr2 = gs.gen(experiment=exp)
+        gr = gs.gen_single_trial(experiment=exp)
+        gr2 = gs.gen_single_trial(experiment=exp)
         self.assertEqual(gr._generation_node_name, "sobol_1")
         self.assertEqual(gr2._generation_node_name, "sobol_1")
         self.assertEqual(gs.current_node_name, "sobol_1")
@@ -420,15 +418,14 @@ class TestTransitionCriterion(TestCase):
             ],
         )
         self.assertEqual(gs.current_node_name, "sobol_1")
-        gr = gs.gen(experiment=exp)
-        gr2 = gs.gen(experiment=exp)
+        gr = gs.gen_single_trial(experiment=exp)
+        gr2 = gs.gen_single_trial(experiment=exp)
         # First generation should use sobol_1, then transition to sobol_2
         self.assertEqual(gr._generation_node_name, "sobol_1")
         self.assertEqual(gr2._generation_node_name, "sobol_2")
         self.assertEqual(gs.current_node_name, "sobol_2")
 
     def test_max_trials_is_met(self) -> None:
-        """Test that the is_met method in MaxTrials works"""
         experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="SOBOL::default",
@@ -465,7 +462,9 @@ class TestTransitionCriterion(TestCase):
         )
         # After adding trials, should pass
         for _i in range(4):
-            experiment.new_trial(gs.gen(experiment=experiment))
+            experiment.new_trial(
+                generator_run=gs.gen_single_trial(experiment=experiment)
+            )
         self.assertTrue(
             gs._steps[0]
             .transition_criteria[0]
@@ -540,7 +539,7 @@ class TestTransitionCriterion(TestCase):
         )
 
         for _i in range(3):
-            experiment.new_trial(gs.gen(experiment=experiment))
+            experiment.new_trial(gs.gen_single_trial(experiment=experiment))
         self.assertTrue(
             max_criterion.is_met(experiment=experiment, curr_node=gs._steps[0])
         )
@@ -562,9 +561,6 @@ class TestTransitionCriterion(TestCase):
         )
 
     def test_repr(self) -> None:
-        """Tests that the repr string is correctly formatted for all
-        TransitionCriterion child classes.
-        """
         self.maxDiff = None
         max_trials_criterion = MaxTrials(
             threshold=5,
