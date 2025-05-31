@@ -934,9 +934,9 @@ class TestGenerationStrategy(TestCase):
                 )
             )
 
-    def test_gen_for_multiple_trials_with_multiple_models_bw_comp(self) -> None:
+    def test_gen_bw_comp(self) -> None:
         # This test initially tested _gen_multiple, however, this has
-        # been replaced with gen_for_multiple_trials_with_multiple_models
+        # been replaced with gen
         # ensure the original gen_multiple behavior is preserved.
         exp = get_experiment_with_multi_objective()
         sobol_MBM_gs = self.sobol_MBM_step_GS
@@ -950,9 +950,7 @@ class TestGenerationStrategy(TestCase):
         ) as gen_spec_fit_mock:
             # Generate first four Sobol GRs (one more to gen after that if
             # first four become trials.
-            grs = sobol_MBM_gs.gen_for_multiple_trials_with_multiple_models(
-                experiment=exp, num_trials=3
-            )
+            grs = sobol_MBM_gs.gen(experiment=exp, num_trials=3)
             self.assertEqual(len(grs), 3)
             # We should only fit once; refitting for each `gen` would be
             # wasteful as there is no new data.
@@ -989,7 +987,7 @@ class TestGenerationStrategy(TestCase):
                     same_elements(original_pending[m], first_3_trials_obs_feats)
                 )
 
-            grs_for_trials = sobol_MBM_gs.gen_for_multiple_trials_with_multiple_models(
+            grs_for_trials = sobol_MBM_gs.gen(
                 experiment=exp,
                 num_trials=3,
                 pending_observations=get_pending(experiment=exp),
@@ -1034,13 +1032,13 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(nodes=[self.sobol_node], name="test")
         gs.experiment = exp
         exp._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value] = 3
-        grs = gs.gen_for_multiple_trials_with_multiple_models(exp, num_trials=2)
+        grs = gs.gen(exp, num_trials=2)
         self.assertEqual(len(grs), 2)
         for gr_list in grs:
             self.assertEqual(len(gr_list), 1)
             self.assertEqual(len(gr_list[0].arms), 3)
 
-    def test_gen_for_multiple_trials_with_multiple_models(self) -> None:
+    def test_gen(self) -> None:
         exp = get_experiment_with_multi_objective()
         sobol_MBM_gs = self.sobol_MBM_step_GS
         sobol_MBM_gs.experiment = exp
@@ -1050,9 +1048,7 @@ class TestGenerationStrategy(TestCase):
         ) as generator_spec_gen_mock:
             # Generate first four Sobol GRs (one more to gen after that if
             # first four become trials.
-            grs = sobol_MBM_gs.gen_for_multiple_trials_with_multiple_models(
-                experiment=exp, num_trials=3
-            )
+            grs = sobol_MBM_gs.gen(experiment=exp, num_trials=3)
         self.assertEqual(len(grs), 3)
         for gr in grs:
             self.assertEqual(len(gr), 1)
@@ -1088,7 +1084,7 @@ class TestGenerationStrategy(TestCase):
                 same_elements(original_pending[m], first_3_trials_obs_feats)
             )
 
-        grs = sobol_MBM_gs.gen_for_multiple_trials_with_multiple_models(
+        grs = sobol_MBM_gs.gen(
             experiment=exp,
             num_trials=3,
         )
@@ -1114,7 +1110,7 @@ class TestGenerationStrategy(TestCase):
                             self.assertIn(p, pending[m])
 
     @mock_botorch_optimize
-    def test_gen_for_multiple_trials_with_multiple_models_with_fixed_features(
+    def test_gen_with_fixed_features(
         self,
     ) -> None:
         exp = get_branin_experiment()
@@ -1144,7 +1140,7 @@ class TestGenerationStrategy(TestCase):
         )
         gs.experiment = exp
         for _ in range(3):
-            grs = gs.gen_for_multiple_trials_with_multiple_models(
+            grs = gs.gen(
                 experiment=exp,
                 num_trials=1,
                 n=2,
@@ -1933,11 +1929,7 @@ class TestGenerationStrategy(TestCase):
                 mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
                 original_method=GeneratorSpec.gen,
             ) as generator_spec_gen_mock:
-                exp.new_batch_trial(
-                    generator_runs=gs.gen_for_multiple_trials_with_multiple_models(
-                        exp, n=9
-                    )[0]
-                )
+                exp.new_batch_trial(generator_runs=gs.gen(exp, n=9)[0])
                 fixed_features_in_gen = generator_spec_gen_mock.call_args_list[
                     0
                 ].kwargs.get("fixed_features")
@@ -1958,7 +1950,7 @@ class TestGenerationStrategy(TestCase):
                     parameters={}, trial_index=4
                 )
                 exp.new_batch_trial(
-                    generator_runs=gs.gen_for_multiple_trials_with_multiple_models(
+                    generator_runs=gs.gen(
                         exp, n=9, fixed_features=passed_fixed_features
                     )[0]
                 )

@@ -325,7 +325,7 @@ class GenerationStrategy(Base):
             )
         return gr[0]
 
-    def gen_for_multiple_trials_with_multiple_models(
+    def gen(
         self,
         experiment: Experiment,
         data: Data | None = None,
