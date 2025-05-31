@@ -310,12 +310,12 @@ class TestBestPointUtils(TestCase):
         )
 
         for _ in range(3):
-            generator_run = gs.gen(experiment=exp, n=1)
+            generator_run = gs.gen_single_trial(experiment=exp, n=1)
             trial = exp.new_trial(generator_run=generator_run)
             trial.run().mark_completed()
             exp.attach_data(exp.fetch_data())
 
-        generator_run = gs.gen(experiment=exp, n=1)
+        generator_run = gs.gen_single_trial(experiment=exp, n=1)
         trial = exp.new_trial(generator_run=generator_run)
         trial.run().mark_completed()
 
