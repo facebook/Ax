@@ -18,6 +18,10 @@ class RandomGeneratorTest(TestCase):
         super().setUp()
         self.random_model = RandomGenerator()
 
+    def test_properties(self) -> None:
+        self.assertFalse(self.random_model.can_predict)
+        self.assertFalse(self.random_model.can_model_in_sample)
+
     def test_seed(self) -> None:
         # With manual seed.
         random_model = RandomGenerator(seed=5)

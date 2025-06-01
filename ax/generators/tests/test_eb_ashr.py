@@ -32,6 +32,8 @@ class EBAshrTest(TestCase):
 
     def test_EBAshr(self) -> None:
         generator = EBAshr()
+        self.assertFalse(generator.can_predict)
+        self.assertTrue(generator.can_model_in_sample)
         generator.fit(
             Xs=self.Xs,
             Ys=self.Ys,

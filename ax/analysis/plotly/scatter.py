@@ -20,7 +20,6 @@ from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     CONSTRAINT_VIOLATION_RED,
     get_arm_tooltip,
-    is_predictive,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
     trial_index_to_color,
@@ -125,7 +124,7 @@ class ScatterPlot(PlotlyAnalysis):
                 adapter=adapter,
             )
 
-            if not is_predictive(relevant_adapter):
+            if not relevant_adapter.can_predict:
                 logger.warning(
                     f"Adapter {relevant_adapter} cannot make out of sample "
                     "predictions, falling back to EmpiricalBayesThompson."

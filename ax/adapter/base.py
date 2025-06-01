@@ -251,6 +251,18 @@ class Adapter:
                 time_so_far=time.monotonic() - t_fit_start,
             )
 
+    @property
+    def can_predict(self) -> bool:
+        """Whether this adapter can predict outcomes for new parameterizations."""
+        return self.generator.can_predict
+
+    @property
+    def can_model_in_sample(self) -> bool:
+        """Whether this adapter can model (e.g. apply shrinkage) on observed
+        parameterizations (in this case, it needs to support calling `predict`()
+        on points in the training data / provided during `fit()`)."""
+        return self.generator.can_model_in_sample
+
     def _fit_if_implemented(
         self,
         search_space: SearchSpace,

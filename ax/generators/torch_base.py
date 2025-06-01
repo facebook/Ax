@@ -120,6 +120,18 @@ class TorchGenerator(BaseGenerator):
     device: torch.device | None = None
     _supports_robust_optimization: bool = False
 
+    @property
+    def can_predict(self) -> bool:
+        """Whether this generator can predict outcomes for new parameterizations."""
+        return True
+
+    @property
+    def can_model_in_sample(self) -> bool:
+        """Whether this generator can model (e.g. apply shrinkage) on observed
+        parameterizations (in this case, it needs to support calling `predict`()
+        on points in the training data / provided during `fit()`)."""
+        return True
+
     def fit(
         self,
         datasets: Sequence[SupervisedDataset],
