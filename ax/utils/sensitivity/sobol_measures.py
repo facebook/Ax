@@ -73,29 +73,21 @@ class SobolSensitivity:
             num_bootstrap_samples - 1
         )  # deduct 1 because the first is meant to be the full grid
         self.bootstrap_array = bootstrap_array
-        self.torch_device: torch.device = bounds.device
+        self.device: torch.device = bounds.device
         if input_qmc:
             sobol_kwargs = {"bounds": bounds, "n": num_mc_samples, "q": 1}
             seed_A, seed_B = 1234, 5678  # to make it reproducible
             # pyre-ignore
-            self.A = (
-                draw_sobol_samples(**sobol_kwargs, seed=seed_A)
-                .squeeze(1)
-                .to(self.torch_device)
-            )
+            self.A = draw_sobol_samples(**sobol_kwargs, seed=seed_A).squeeze(1)
             # pyre-ignore
-            self.B = (
-                draw_sobol_samples(**sobol_kwargs, seed=seed_B)
-                .squeeze(1)
-                .to(self.torch_device)
-            )
+            self.B = draw_sobol_samples(**sobol_kwargs, seed=seed_B).squeeze(1)
         else:
             self.A = unnormalize(
-                torch.rand(num_mc_samples, self.dim).to(self.torch_device),
+                torch.rand(num_mc_samples, self.dim, device=self.device),
                 bounds=bounds,
             )
             self.B = unnormalize(
-                torch.rand(num_mc_samples, self.dim).to(self.torch_device),
+                torch.rand(num_mc_samples, self.dim, device=self.device),
                 bounds=bounds,
             )
 
@@ -895,9 +887,12 @@ def ax_parameter_sens(
     generator, digest = _get_generator_and_digest(adapter=adapter)
     model_list = _get_model_per_metric(generator=generator, metrics=metrics)
 
-    device = next(model_list[0].parameters()).device  # get device of the first model
-    bounds = torch.tensor(digest.bounds).T  # transposing to make it 2 x d
-    bounds = bounds.to(device)  # makes sure bounds are on the same device as the models
+    # get device and dtype of the first model
+    first_model = next(model_list[0].parameters())
+    device, dtype = first_model.device, first_model.dtype
+    bounds = torch.tensor(
+        digest.bounds, device=device, dtype=dtype
+    ).T  # transposing to make it 2 x d
 
     # for second order indices, we need to compute first order indices first
     # which is what is done here. With the first order indices, we can then subtract

@@ -109,7 +109,7 @@ class GpDGSMGpMean:
             self.input_mc_samples = (
                 draw_sobol_samples(bounds=bounds, n=num_mc_samples, q=1, seed=1234)
                 .squeeze(1)
-                .to(dtype=dtype, device=self.torch_device)
+                .to(dtype)
             )
         else:
             self.input_mc_samples = unnormalize(
