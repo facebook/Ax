@@ -28,6 +28,8 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
 
     def test_EmpiricalBayesThompsonSamplerFit(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
+        self.assertFalse(generator.can_predict)
+        self.assertTrue(generator.can_model_in_sample)
         generator.fit(
             Xs=self.Xs,
             Ys=self.Ys,

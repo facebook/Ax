@@ -18,7 +18,7 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
-from ax.analysis.plotly.utils import get_predictions_by_arm, is_predictive
+from ax.analysis.plotly.utils import get_predictions_by_arm
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
@@ -109,9 +109,12 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             adapter=adapter,
         )
 
-        if not is_predictive(adapter=relevant_adapter):
+        if (
+            not relevant_adapter.can_predict
+        ):  # TODO: Verify that we actually need to predict OOS here
             raise UserInputError(
-                "ConstraintsFeasibilityAnalysis requires a predictive model."
+                "ConstraintsFeasibilityAnalysis requires an adapter that can "
+                "make predictions for unobserved outcomes"
             )
 
         optimization_config = assert_is_instance(
@@ -119,7 +122,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         )
         constraints_feasible, df = constraints_feasibility(
             optimization_config=optimization_config,
-            model=relevant_adapter,
+            adapter=relevant_adapter,
             prob_threshold=self.prob_threshold,
         )
 
@@ -150,7 +153,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
 
 def constraints_feasibility(
     optimization_config: OptimizationConfig,
-    model: Adapter,
+    adapter: Adapter,
     prob_threshold: float = 0.99,
 ) -> tuple[bool, pd.DataFrame]:
     r"""
@@ -158,7 +161,7 @@ def constraints_feasibility(
 
     Args:
         optimization_config: Ax optimization config.
-        model: Ax model to use for predictions.
+        adapter: Ax adapter to use for predictions.
         prob_threshold: Threshold for the probability of constraint violation.
 
     Returns:
@@ -177,7 +180,7 @@ def constraints_feasibility(
     if any(constraint.relative for constraint in outcome_constraints):
         derel_optimization_config = Derelativize().transform_optimization_config(
             optimization_config=optimization_config,
-            adapter=model,
+            adapter=adapter,
         )
 
     constraint_metric_name = [
@@ -186,7 +189,7 @@ def constraints_feasibility(
     ][0]
 
     arm_dict = get_predictions_by_arm(
-        model=model,
+        model=adapter,
         metric_name=constraint_metric_name,
         outcome_constraints=derel_optimization_config.outcome_constraints,
     )
@@ -196,7 +199,7 @@ def constraints_feasibility(
     if all(
         arm_info["overall_probability_constraints_violated"] > prob_threshold
         for arm_info in arm_dict
-        if arm_info["arm_name"] != model.status_quo_name
+        if arm_info["arm_name"] != adapter.status_quo_name
     ):
         constraints_feasible = False
 

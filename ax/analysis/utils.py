@@ -14,7 +14,6 @@ import pandas as pd
 import torch
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
-from ax.analysis.plotly.utils import is_predictive
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
@@ -161,10 +160,10 @@ def prepare_arm_data(
                 "Must provide an adapter to use model predictions for the analysis."
             )
 
-        if not is_predictive(adapter=adapter):
+        if not adapter.can_model_in_sample:
             logger.info(
-                "Using Empirical Bayes to model effects because we were unable to find "
-                " a suitable adapter."
+                "Provided adapter is unable to model effects. "
+                "Using Empirical Bayes as falback."
             )
 
             trial_indices = None  # This will indicate all trials to `lookup_data`

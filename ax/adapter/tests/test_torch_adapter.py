@@ -99,6 +99,8 @@ class TorchAdapterTest(TestCase):
             device=device,
             fit_on_init=False,
         )
+        self.assertTrue(adapter.can_predict)
+        self.assertTrue(adapter.can_model_in_sample)
         self.assertEqual(adapter.device, device)
         self.assertIsNone(adapter._last_observations)
         tkwargs: dict[str, Any] = {"dtype": torch.double, "device": device}

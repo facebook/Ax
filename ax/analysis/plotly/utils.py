@@ -357,22 +357,6 @@ def get_nudge_value(
     return nudge
 
 
-def is_predictive(adapter: Adapter) -> bool:
-    # TODO: Improve this logic and move it to base adapter class
-    """Check if an adapter is predictive.  Basically, we're checking if
-    predict() is implemented.
-
-    NOTE: This does not mean it's capable of out of sample prediction.
-    """
-    try:
-        adapter.predict(observation_features=[])
-    except NotImplementedError:
-        return False
-    except Exception:
-        return True
-    return True
-
-
 def select_metric(experiment: Experiment) -> str:
     """Select the most relevant metric to plot from an Experiment."""
     if experiment.optimization_config is None:

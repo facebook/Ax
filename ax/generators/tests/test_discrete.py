@@ -33,6 +33,8 @@ class DiscreteGeneratorTest(TestCase):
 
     def test_discreteModelPredict(self) -> None:
         discrete_model = DiscreteGenerator()
+        self.assertFalse(discrete_model.can_predict)
+        self.assertFalse(discrete_model.can_model_in_sample)
         with self.assertRaises(NotImplementedError):
             discrete_model.predict([[0]])
 

@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+from abc import abstractmethod
 from typing import Any
 
 
@@ -61,3 +62,17 @@ class Generator:
 
     def __repr__(self) -> str:
         return self.__class__.__name__
+
+    @property
+    @abstractmethod
+    def can_predict(self) -> bool:
+        """Whether this generator can predict outcomes for new parameterizations."""
+        pass  # pragma: nocover
+
+    @property
+    @abstractmethod
+    def can_model_in_sample(self) -> bool:
+        """Whether this generator can model (e.g. apply shrinkage) on observed
+        parameterizations (in this case, it needs to support calling `predict`()
+        on points in the training data / provided during `fit()`)."""
+        pass  # pragma: nocover

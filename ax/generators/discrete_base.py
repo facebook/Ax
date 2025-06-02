@@ -21,6 +21,18 @@ class DiscreteGenerator(Generator):
     of Ax.
     """
 
+    @property
+    def can_predict(self) -> bool:
+        """Whether this generator can predict outcomes for new parameterizations."""
+        return False
+
+    @property
+    def can_model_in_sample(self) -> bool:
+        """Whether this generator can model (e.g. apply shrinkage) on observed
+        parameterizations (in this case, it needs to support calling `predict`()
+        on points in the training data / provided during `fit()`)."""
+        return False
+
     def fit(
         self,
         Xs: Sequence[Sequence[Sequence[TParamValue]]],

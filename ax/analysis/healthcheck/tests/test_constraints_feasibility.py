@@ -109,13 +109,13 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
     @mock_botorch_optimize
     def test_constraints_feasibility(self) -> None:
         self.setUp()
-        model = none_throws(self.generation_strategy.adapter)
+        adapter = none_throws(self.generation_strategy.adapter)
         optimization_config = assert_is_instance(
             self.experiment.optimization_config, OptimizationConfig
         )
         constraints_feasible, df_arms = constraints_feasibility(
             optimization_config=optimization_config,
-            model=model,
+            adapter=adapter,
         )
         self.assertTrue(constraints_feasible)
 
@@ -138,12 +138,12 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
 
         experiment.attach_data(data=Data(df=df))
         generation_strategy._curr._fit(experiment=experiment)
-        model = none_throws(generation_strategy.adapter)
+        adapter = none_throws(generation_strategy.adapter)
         optimization_config = assert_is_instance(
             experiment.optimization_config, OptimizationConfig
         )
         constraints_feasible, df_arms = constraints_feasibility(
-            optimization_config=optimization_config, model=model
+            optimization_config=optimization_config, adapter=adapter
         )
         self.assertFalse(constraints_feasible)
         experiment.optimization_config = OptimizationConfig(
@@ -154,7 +154,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         )
         with self.assertRaises(UserInputError):
             constraints_feasibility(
-                optimization_config=optimization_config, model=model
+                optimization_config=optimization_config, adapter=adapter
             )
 
     @mock_botorch_optimize
