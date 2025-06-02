@@ -889,9 +889,10 @@ def ax_parameter_sens(
 
     # get device and dtype of the first model
     first_model = next(model_list[0].parameters())
-    device, dtype = first_model.device, first_model.dtype
+    device = first_model.device
     bounds = torch.tensor(
-        digest.bounds, device=device, dtype=dtype
+        digest.bounds,
+        device=device,
     ).T  # transposing to make it 2 x d
 
     # for second order indices, we need to compute first order indices first
