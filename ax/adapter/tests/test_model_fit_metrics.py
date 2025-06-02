@@ -63,11 +63,11 @@ class TestAdapterFitMetrics(TestCase):
         self.generation_strategy = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=NUM_SOBOL,
                     max_parallelism=NUM_SOBOL,
                 ),
-                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=-1),
+                GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=-1),
             ]
         )
 

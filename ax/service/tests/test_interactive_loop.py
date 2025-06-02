@@ -36,7 +36,9 @@ class TestInteractiveLoop(TestCase):
     def setUp(self) -> None:
         generation_strategy = GenerationStrategy(
             steps=[
-                GenerationStep(model=Generators.SOBOL, max_parallelism=1, num_trials=-1)
+                GenerationStep(
+                    generator=Generators.SOBOL, max_parallelism=1, num_trials=-1
+                )
             ]
         )
         self.ax_client = AxClient(generation_strategy=generation_strategy)

@@ -40,12 +40,12 @@ class TestAEPsychCriterion(TestCase):
             name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=-1,
                     completion_criteria=[criterion],
                 ),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR,
+                    generator=Generators.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -100,10 +100,12 @@ class TestAEPsychCriterion(TestCase):
             name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL, num_trials=-1, completion_criteria=criteria
+                    generator=Generators.SOBOL,
+                    num_trials=-1,
+                    completion_criteria=criteria,
                 ),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR,
+                    generator=Generators.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),

@@ -954,19 +954,13 @@ class GenerationNode(SerializationMixin, SortableBase):
 
 
 class GenerationStep(GenerationNode, SortableBase):
-    """One step in the generation strategy, corresponds to a single model.
-    Describes the model, how many trials will be generated with this model, what
-    minimum number of observations is required to proceed to the next model, etc.
-
-    NOTE: Model can be specified either from the model registry
-    (`ax.adapter.registry.Generators` or using a callable model constructor. Only
-    models from the registry can be saved, and thus optimization can only be
-    resumed if interrupted when using models from the registry.
+    """One step in the generation strategy, corresponds to a single generator.
+    Describes the generator, how many trials will be generated with this generator, what
+    minimum number of observations is required to proceed to the next generator, etc.
 
     Args:
-        model: A member of `Generators` enum or a callable returning an instance of
-            `Adapter` with an instantiated underlying `Model`. Refer to
-            `ax/adapter/factory.py` for examples of such callables.
+        generator: A member of `Generators` enum returning an instance of
+            `Adapter` with an instantiated underlying `Generator`.
         num_trials: How many trials to generate with the model from this step.
             If set to -1, trials will continue to be generated from this model
             as long as `generation_strategy.gen` is called (available only for
@@ -989,17 +983,16 @@ class GenerationStep(GenerationNode, SortableBase):
             will continue generating trials from the current step, exceeding `num_
             trials` for it. Allows to avoid `DataRequiredError`, but delays
             proceeding to next generation step.
-        model_kwargs: Dictionary of kwargs to pass into the model constructor on
-            instantiation. E.g. if `model` is `Generators.SOBOL`, kwargs will be applied
-            as `Generators.SOBOL(**model_kwargs)`; if `model` is `get_sobol`,
-            `get_sobol(**model_kwargs)`. NOTE: if generation strategy is
-            interrupted and resumed from a stored snapshot and its last used
-            model has state saved on its generator runs, `model_kwargs` is
-            updated with the state dict of the model, retrieved from the last
-            generator run of this generation strategy.
-        model_gen_kwargs: Each call to `generation_strategy.gen` performs a call to the
-            step's model's `gen` under the hood; `model_gen_kwargs` will be passed to
-            the model's `gen` like so: `model.gen(**model_gen_kwargs)`.
+        model_kwargs: Dictionary of kwargs to pass into the adapter and generator
+            constructors on instantiation. E.g. if `generator` is `Generators.SOBOL`,
+            kwargs will be applied as `Generators.SOBOL(**model_kwargs)`.
+            NOTE: If generation strategy is interrupted and resumed from a stored
+            snapshot and its last used generator has state saved on its generator runs,
+            `model_kwargs` is updated with the state dict of the generator, retrieved
+            from the last generator run of this generation strategy.
+        model_gen_kwargs: Each call to `generation_strategy.gen` performs a call
+            to the step's adapter's `gen` under the hood; `model_gen_kwargs` will be
+            passed to the adapter's `gen` like: `adapter.gen(**model_gen_kwargs)`.
         completion_criteria: List of TransitionCriterion. All `is_met` must evaluate
             True for the GenerationStrategy to move on to the next Step
         index: Index of this generation step, for use internally in `Generation
@@ -1014,17 +1007,17 @@ class GenerationStep(GenerationNode, SortableBase):
             attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we
             assume that the optimization converged when the model can no longer suggest
             unique arms.
-        model_name: Optional name of the model. If not specified, defaults to the
-            model key of the model spec.
+        generator_name: Optional name of the generator. If not specified, defaults to
+            the `model_key` of the generator spec.
 
-    Note for developers: by "model" here we really mean an Ax Adapter object, which
-    contains an Ax Model under the hood. We call it "model" here to simplify and focus
-    on explaining the logic of GenerationStep and GenerationStrategy.
+    Note for developers: by "generator" here we really mean an ``Adapter`` object, which
+    contains a ``Generator`` under the hood. We call it "generator" here to simplify and
+    focus on explaining the logic of GenerationStep and GenerationStrategy.
     """
 
     def __init__(
         self,
-        model: GeneratorRegistryBase | Callable[..., Adapter],
+        generator: GeneratorRegistryBase,
         num_trials: int,
         model_kwargs: dict[str, Any] | None = None,
         model_gen_kwargs: dict[str, Any] | None = None,
@@ -1033,7 +1026,7 @@ class GenerationStep(GenerationNode, SortableBase):
         max_parallelism: int | None = None,
         enforce_num_trials: bool = True,
         should_deduplicate: bool = False,
-        model_name: str | None = None,
+        generator_name: str | None = None,
         use_update: bool = False,  # DEPRECATED.
         index: int = -1,  # Index of this step, set internally.
     ) -> None:
@@ -1048,7 +1041,7 @@ class GenerationStep(GenerationNode, SortableBase):
         # storage utilizes these attributes, so we need to store them. Once we start
         # using GenerationNode storage, we can clean up these attributes.
         self.index = index
-        self.model = model
+        self.generator = generator
         self.num_trials = num_trials
         self.completion_criteria: Sequence[TransitionCriterion] = (
             completion_criteria or []
@@ -1072,21 +1065,21 @@ class GenerationStep(GenerationNode, SortableBase):
                 f"{self.num_trials}`), making completion of this step impossible. "
                 "Please alter inputs so that `min_trials_observed <= num_trials`."
             )
-        if not isinstance(self.model, GeneratorRegistryBase):
+        if not isinstance(self.generator, GeneratorRegistryBase):
             raise UserInputError(
-                "`model` in generation step must be a `GeneratorRegistryBase` "
+                "`generator` in generation step must be a `GeneratorRegistryBase` "
                 "enum subclass entry. Support for alternative callables "
-                f"has been deprecated. Got {self.model=}."
+                f"has been deprecated. Got {self.generator=}."
             )
         else:
             generator_spec = GeneratorSpec(
-                generator_enum=self.model,
+                generator_enum=self.generator,
                 model_kwargs=model_kwargs,
                 model_gen_kwargs=model_gen_kwargs,
             )
-        if not model_name:
-            model_name = generator_spec.model_key
-        self.model_name: str = model_name
+        if not generator_name:
+            generator_name = generator_spec.model_key
+        self.generator_name: str = generator_name
 
         # Create transition criteria for this step. If num_trials is provided to
         # this `GenerationStep`, then we create a `MinTrials` criterion which ensures

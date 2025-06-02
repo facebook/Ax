@@ -88,12 +88,12 @@ def get_sobol_mbm_generation_strategy(
         name=name,
         steps=[
             GenerationStep(
-                model=Generators.SOBOL,
+                generator=Generators.SOBOL,
                 num_trials=num_sobol_trials,
                 min_trials_observed=num_sobol_trials,
             ),
             GenerationStep(
-                model=Generators.BOTORCH_MODULAR,
+                generator=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs=model_kwargs,
                 model_gen_kwargs=model_gen_kwargs or {},

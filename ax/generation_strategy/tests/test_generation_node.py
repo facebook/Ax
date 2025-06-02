@@ -355,14 +355,12 @@ class TestGenerationStep(TestCase):
         super().setUp()
         self.model_kwargs = {"init_position": 5}
         self.sobol_generation_step = GenerationStep(
-            model=Generators.SOBOL,
+            generator=Generators.SOBOL,
             num_trials=5,
             model_kwargs=self.model_kwargs,
         )
         self.generator_spec = GeneratorSpec(
-            # pyre-fixme[6]: For 1st param expected `GeneratorRegistryBase` but got
-            #  `Union[typing.Callable[..., Adapter], GeneratorRegistryBase]`.
-            generator_enum=self.sobol_generation_step.model,
+            generator_enum=self.sobol_generation_step.generator,
             model_kwargs=self.model_kwargs,
         )
 
@@ -371,20 +369,20 @@ class TestGenerationStep(TestCase):
             self.sobol_generation_step.generator_specs,
             [self.generator_spec],
         )
-        self.assertEqual(self.sobol_generation_step.model_name, "Sobol")
+        self.assertEqual(self.sobol_generation_step.generator_name, "Sobol")
 
         named_generation_step = GenerationStep(
-            model=Generators.SOBOL,
+            generator=Generators.SOBOL,
             num_trials=5,
             model_kwargs=self.model_kwargs,
-            model_name="Custom Sobol",
+            generator_name="Custom Sobol",
         )
-        self.assertEqual(named_generation_step.model_name, "Custom Sobol")
+        self.assertEqual(named_generation_step.generator_name, "Custom Sobol")
 
     def test_min_trials_observed(self) -> None:
         with self.assertRaisesRegex(UserInputError, "min_trials_observed > num_trials"):
             GenerationStep(
-                model=Generators.SOBOL,
+                generator=Generators.SOBOL,
                 num_trials=5,
                 min_trials_observed=10,
                 model_kwargs=self.model_kwargs,
@@ -394,7 +392,8 @@ class TestGenerationStep(TestCase):
         with self.assertRaisesRegex(
             UserInputError, "must be a `GeneratorRegistryBase`"
         ):
-            GenerationStep(model=get_sobol, num_trials=-1)
+            # pyre-ignore [6]: Testing deprecated input.
+            GenerationStep(generator=get_sobol, num_trials=-1)
 
     def test_properties(self) -> None:
         step = self.sobol_generation_step

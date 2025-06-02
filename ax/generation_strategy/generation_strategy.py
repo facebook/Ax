@@ -488,7 +488,7 @@ class GenerationStrategy(Base):
                 raise UserInputError(
                     "Maximum parallelism should be None (if no limit) or "
                     f"a positive number. Got: {step.max_parallelism} for "
-                    f"step {step.model_name}."
+                    f"step {step.generator_name}."
                 )
 
             step._node_name = f"GenerationStep_{str(idx)}"

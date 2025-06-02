@@ -192,20 +192,22 @@ class TestAxOrchestrator(TestCase):
         self.two_sobol_steps_GS = GenerationStrategy(  # Contrived GS to ensure
             steps=[  # that `DataRequiredError` is property handled in orchestrator.
                 GenerationStep(  # This error is raised when not enough trials
-                    model=Generators.SOBOL,  # have been observed to proceed to next
+                    generator=Generators.SOBOL,  # have been observed to proceed to next
                     num_trials=5,  # geneneration step.
                     min_trials_observed=3,
                     max_parallelism=2,
                 ),
                 GenerationStep(
-                    model=Generators.SOBOL, num_trials=-1, max_parallelism=3
+                    generator=Generators.SOBOL, num_trials=-1, max_parallelism=3
                 ),
             ]
         )
         # GS to force the orchestrator to poll completed trials after each ran trial.
         self.sobol_GS_no_parallelism = GenerationStrategy(
             steps=[
-                GenerationStep(model=Generators.SOBOL, num_trials=-1, max_parallelism=1)
+                GenerationStep(
+                    generator=Generators.SOBOL, num_trials=-1, max_parallelism=1
+                )
             ]
         )
         self.orchestrator_options_kwargs = {}
@@ -1858,11 +1860,11 @@ class TestAxOrchestrator(TestCase):
         generation_strategy = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=NUM_SOBOL,
                     max_parallelism=NUM_SOBOL,
                 ),
-                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=-1),
+                GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=-1),
             ]
         )
         orchestrator = Orchestrator(
@@ -2122,10 +2124,10 @@ class TestAxOrchestrator(TestCase):
     ) -> None:
         gs = GenerationStrategy(
             steps=[
-                GenerationStep(model=Generators.SOBOL, num_trials=1),
-                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=1),
+                GenerationStep(generator=Generators.SOBOL, num_trials=1),
+                GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=1),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR,
+                    generator=Generators.BOTORCH_MODULAR,
                     model_kwargs={
                         # this will cause an error if the model
                         # doesn't get fixed features
@@ -2720,20 +2722,22 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self.two_sobol_steps_GS = GenerationStrategy(  # Contrived GS to ensure
             steps=[  # that `DataRequiredError` is property handled in orchestrator.
                 GenerationStep(  # This error is raised when not enough trials
-                    model=Generators.SOBOL,  # have been observed to proceed to next
+                    generator=Generators.SOBOL,  # have been observed to proceed to next
                     num_trials=5,  # geneneration step.
                     min_trials_observed=3,
                     max_parallelism=2,
                 ),
                 GenerationStep(
-                    model=Generators.SOBOL, num_trials=-1, max_parallelism=3
+                    generator=Generators.SOBOL, num_trials=-1, max_parallelism=3
                 ),
             ]
         )
         # GS to force the Orchestrator to poll completed trials after each ran trial.
         self.sobol_GS_no_parallelism = GenerationStrategy(
             steps=[
-                GenerationStep(model=Generators.SOBOL, num_trials=-1, max_parallelism=1)
+                GenerationStep(
+                    generator=Generators.SOBOL, num_trials=-1, max_parallelism=1
+                )
             ]
         )
         self.orchestrator_options_kwargs: dict[str, str | None] = {

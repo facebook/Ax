@@ -869,9 +869,14 @@ def generation_step_from_json(
         if "completion_criteria" in generation_step_json.keys()
         else []
     )
+    if "model" in generation_step_json:
+        # Old arg name for backwards compatibility.
+        generator_json = generation_step_json.pop("model")
+    else:
+        generator_json = generation_step_json.pop("generator")
     generation_step = GenerationStep(
-        model=object_from_json(
-            generation_step_json.pop("model"),
+        generator=object_from_json(
+            object_json=generator_json,
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
@@ -906,6 +911,7 @@ def generation_step_from_json(
         ),
         index=generation_step_json.pop("index", -1),
         should_deduplicate=generation_step_json.pop("should_deduplicate", False),
+        generator_name=generation_step_json.pop("generator_name", None),
     )
     return generation_step
 
