@@ -20,8 +20,6 @@ from ax.generation_strategy.generation_strategy import (
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MinTrials
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
-from botorch.models.transforms.input import Normalize, Warp
-from gpytorch.kernels.linear_kernel import LinearKernel
 
 
 def _get_sobol_node(
@@ -108,16 +106,6 @@ def _get_mbm_node(
     # Construct the surrogate spec.
     if method == "fast":
         model_configs = [ModelConfig(name="MBM defaults")]
-    elif method == "balanced":
-        model_configs = [
-            ModelConfig(name="MBM defaults"),
-            ModelConfig(
-                covar_module_class=LinearKernel,
-                input_transform_classes=[Warp, Normalize],
-                input_transform_options={"Normalize": {"center": 0.0}},
-                name="LinearKernel with Warp",
-            ),
-        ]
     else:
         raise UnsupportedError(f"Unsupported generation method: {method}.")
 

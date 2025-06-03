@@ -38,8 +38,6 @@ class GenerationStrategyDispatchStruct:
         method: The generation method to use. Provides high level guidance to the
             underlying generation strategy dispatch logic, which is responsible for
             determinining the exact details. Available options are:
-                - ``"balanced"``, a balanced generation method that may utilize
-                    (per-metric) model selection to achieve a good model accuracy.
                 - ``"fast"``, a faster generation method that uses the built-in
                     defaults from the Modular BoTorch Model without any model
                     selection.
@@ -77,7 +75,7 @@ class GenerationStrategyDispatchStruct:
             input corresponds to a valid device.
     """
 
-    method: Literal["balanced", "fast", "random_search"] = "fast"
+    method: Literal["fast", "random_search"] = "fast"
     # Initialization options
     initialization_budget: int | None = None
     initialization_random_seed: int | None = None
