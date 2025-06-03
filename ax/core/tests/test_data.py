@@ -323,9 +323,7 @@ class DataTest(TestCase):
         CustomDataB = custom_data_class(column_data_types={"year": pd.Timestamp})
 
         # Test using `Data.from_multiple_data` to combine non-Data types
-        with self.assertRaisesRegex(
-            TypeError, "All data objects must be instances of class"
-        ):
+        with self.assertRaisesRegex(TypeError, "All data objects must be instances of"):
             Data.from_multiple_data([CustomDataA(), CustomDataB()])
 
         # Test data of multiple non-empty types raises a value error
