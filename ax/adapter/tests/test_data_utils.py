@@ -6,12 +6,15 @@
 
 # pyre-strict
 
+from unittest import mock
+
 import numpy as np
 from ax.adapter.data_utils import DataLoaderConfig, extract_experiment_data
 from ax.adapter.registry import Generators
 from ax.core.data import Data
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
 from ax.exceptions.core import UnsupportedError
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -69,7 +72,8 @@ class TestDataUtils(TestCase):
                 self.assertEqual(len(df), 0)
                 self.assertEqual(df.index.names, ["trial_index", "arm_name"])
             self.assertEqual(
-                experiment_data.arm_data.columns.to_list(), list(empty_exp.parameters)
+                experiment_data.arm_data.columns.to_list(),
+                list(empty_exp.parameters) + ["metadata"],
             )
             self.assertEqual(experiment_data, experiment_data)
 
@@ -81,7 +85,12 @@ class TestDataUtils(TestCase):
         sobol = Generators.SOBOL(experiment=exp)
         exp.new_trial(generator_run=sobol.gen(1)).run().mark_failed()
         # Add an abandoned trial but include data for one metric.
-        t = exp.new_trial(generator_run=sobol.gen(1)).mark_abandoned()
+        # Also add some custom arm metadata.
+        gr = sobol.gen(1)
+        gr._candidate_metadata_by_arm_signature = {
+            gr.arms[0].signature: {"test": "test_metadata"}
+        }
+        t = exp.new_trial(generator_run=gr).mark_abandoned()
         data = Data(
             df=DataFrame.from_records(
                 [
@@ -111,7 +120,19 @@ class TestDataUtils(TestCase):
                 names=["trial_index", "arm_name"],
             ),
         )
-        assert_frame_equal(experiment_data.arm_data, expected_arm_df)
+        assert_frame_equal(
+            experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
+        )
+        # Check metadata. It only includes info about trial completion etc.
+        metadata = experiment_data.arm_data["metadata"].tolist()
+        self.assertEqual(
+            metadata,
+            [
+                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
+                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
+                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY, "test": "test_metadata"},
+            ],
+        )
         # Observation data: Only completed trials should be included.
         # First 4 rows correspond to 2 metrics from the 2 completed trials.
         data_df = exp.lookup_data().df[:4]
@@ -150,7 +171,9 @@ class TestDataUtils(TestCase):
         experiment_data = extract_experiment_data(
             experiment=exp, data_loader_config=DataLoaderConfig(fit_abandoned=True)
         )
-        assert_frame_equal(experiment_data.arm_data, expected_arm_df)
+        assert_frame_equal(
+            experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
+        )
         # All data should be included.
         data_df = exp.lookup_data().df
         expected_obs_df = data_df.pivot(
@@ -192,7 +215,9 @@ class TestDataUtils(TestCase):
                 [(0, "0_0"), (1, "1_0")], names=["trial_index", "arm_name"]
             ),
         )
-        assert_frame_equal(experiment_data.arm_data, expected_arm_df)
+        assert_frame_equal(
+            experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
+        )
         # Observation data: By default only includes completed map metrics.
         # There is none, so map metrics are not included.
         metrics = set(experiment_data.observation_data["mean"])
@@ -204,7 +229,9 @@ class TestDataUtils(TestCase):
             experiment=exp, data_loader_config=DataLoaderConfig()
         )
         # Arm data is not changed.
-        assert_frame_equal(experiment_data.arm_data, expected_arm_df)
+        assert_frame_equal(
+            experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
+        )
         # Observation data: Map metrics should be included but only with latest
         # timestamp for trial 0.
         metrics = set(experiment_data.observation_data["mean"])
@@ -243,7 +270,9 @@ class TestDataUtils(TestCase):
             ),
         )
         # Arm data is not changed.
-        assert_frame_equal(experiment_data.arm_data, expected_arm_df)
+        assert_frame_equal(
+            experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
+        )
         # Observation data: Map metrics should be included for all timestamps.
         metrics = set(experiment_data.observation_data["mean"])
         self.assertEqual(metrics, {"branin", "branin_map"})
