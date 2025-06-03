@@ -1986,6 +1986,56 @@ class Experiment(Base):
             df = df.loc[:, df.notnull().any()]
         return df
 
+    def add_auxiliary_experiment(
+        self,
+        purpose: AuxiliaryExperimentPurpose,
+        auxiliary_experiment: AuxiliaryExperiment,
+    ) -> None:
+        """Add a (non-duplicated) auxiliary experiment to this experiment.
+
+        This method adds the auxiliary experiment as the first element in the list
+        of auxiliary experiments with the specified purpose. If the auxiliary is
+        already present, it is moved to the first position in the list.
+
+        Args:
+            purpose: The purpose of the auxiliary experiment.
+            auxiliary_experiment: The auxiliary experiment to add.
+        """
+        if purpose not in self.auxiliary_experiments_by_purpose:
+            # if no aux experiment, make aux the first one
+            self.auxiliary_experiments_by_purpose[purpose] = [auxiliary_experiment]
+            return
+
+        # Add or move auxiliary_experiment to be the first element
+        # Adding to the first and use the order as a default tie-breaker when multiple
+        # auxiliary experiments are present but only one is going to be used.
+        self.auxiliary_experiments_by_purpose[purpose] = [auxiliary_experiment] + [
+            item
+            for item in self.auxiliary_experiments_by_purpose[purpose]
+            if item != auxiliary_experiment
+        ]
+
+    def find_auxiliary_experiment_by_name(
+        self,
+        purpose: AuxiliaryExperimentPurpose,
+        auxiliary_experiment_name: str,
+    ) -> AuxiliaryExperiment | None:
+        """Find the aux experiment with the given name and purpose in the experiment.
+
+        Args:
+            purpose: The purpose of the aux experiment.
+            auxiliary_experiment_name: The name of the aux experiment.
+
+        Returns:
+            The aux experiment with the given name and purpose, or None if not found.
+        """
+        if purpose not in self.auxiliary_experiments_by_purpose:
+            return None
+        for auxiliary_experiment in self.auxiliary_experiments_by_purpose[purpose]:
+            if auxiliary_experiment.experiment.name == auxiliary_experiment_name:
+                return auxiliary_experiment
+        return None
+
     @property
     def auxiliary_experiments_by_purpose_for_storage(
         self,
