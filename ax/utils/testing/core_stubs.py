@@ -434,6 +434,7 @@ def get_branin_experiment_with_timestamp_map_metric(
     rate: float | None = None,
     map_tracking_metric: bool = False,
     decay_function_name: str = "exp_decay",
+    with_trials_and_data: bool = False,
 ) -> Experiment:
     tracking_metric = (
         get_map_metric(
@@ -466,6 +467,17 @@ def get_branin_experiment_with_timestamp_map_metric(
 
     if with_status_quo:
         exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+
+    if with_trials_and_data:
+        # Add a couple trials with different number of timestamps.
+        exp.new_trial().add_arm(Arm(parameters={"x1": 0.0, "x2": 0.0})).run()
+        for _ in range(2):
+            exp.fetch_data()
+        exp.new_trial().add_arm(Arm(parameters={"x1": 1.0, "x2": 1.0})).run()
+        for _ in range(2):
+            exp.fetch_data()
+        # Add a trial with no data.
+        exp.new_trial().add_arm(Arm(parameters={"x1": 2.0, "x2": 2.0})).run()
 
     return exp
 
