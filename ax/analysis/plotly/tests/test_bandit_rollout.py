@@ -14,12 +14,12 @@ from ax.analysis.plotly.bandit_rollout import BanditRollout
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
+from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_discrete_search_space,
     get_online_experiments,
     get_sobol,
 )
-from later.unittest import TestCase
 
 
 class TestBanditRollout(TestCase):
