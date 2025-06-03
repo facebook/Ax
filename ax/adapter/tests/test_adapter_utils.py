@@ -242,19 +242,19 @@ class TestAdapterUtils(TestCase):
                     name="range", parameter_type=ParameterType.FLOAT, lower=0, upper=1
                 ),
                 RangeParameter(
-                    name="choice_OH_PARAM__0",
+                    name="choice_OH_PARAM_0",
                     parameter_type=ParameterType.FLOAT,
                     lower=0,
                     upper=1,
                 ),
                 RangeParameter(
-                    name="choice_OH_PARAM__1",
+                    name="choice_OH_PARAM_1",
                     parameter_type=ParameterType.FLOAT,
                     lower=0,
                     upper=1,
                 ),
                 RangeParameter(
-                    name="choice_OH_PARAM__2",
+                    name="choice_OH_PARAM_2",
                     parameter_type=ParameterType.FLOAT,
                     lower=0,
                     upper=1,
