@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.relativize import BaseRelativize, get_metric_index
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -48,12 +49,14 @@ class TransformToNewSQ(BaseRelativize):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
             observations=observations,
+            experiment_data=experiment_data,
             adapter=adapter,
             config=config,
         )

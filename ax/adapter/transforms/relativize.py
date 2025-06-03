@@ -10,13 +10,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-
 from math import sqrt
 from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
 from ax.adapter import Adapter
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
@@ -53,6 +53,7 @@ class BaseRelativize(Transform, ABC):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
@@ -61,6 +62,7 @@ class BaseRelativize(Transform, ABC):
         super().__init__(
             search_space=search_space,
             observations=observations,
+            experiment_data=experiment_data,
             adapter=adapter,
             config=config,
         )

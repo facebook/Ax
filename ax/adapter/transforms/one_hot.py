@@ -9,6 +9,7 @@
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.rounding import randomized_onehot_round, strict_onehot_round
 from ax.adapter.transforms.utils import construct_new_search_space
@@ -86,10 +87,18 @@ class OneHot(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "OneHot requires search space"
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         # Identify parameters that should be transformed
         # pyre-fixme[4]: Attribute must be annotated.
         self.rounding = "strict"
