@@ -458,6 +458,8 @@ class Encoder:
     def metric_to_sqa(self, metric: Metric) -> SQAMetric:
         """Convert Ax Metric to SQLAlchemy."""
         metric_type, properties = self.get_metric_type_and_properties(metric=metric)
+        signature = metric.signature if metric.signature is not None else metric.name
+        label = metric.label if metric.label is not None else metric.name
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
         metric_class: SQAMetric = self.config.class_to_sqa_class[Metric]
@@ -469,6 +471,8 @@ class Encoder:
             intent=MetricIntent.TRACKING,
             properties=properties,
             lower_is_better=metric.lower_is_better,
+            signature=signature,
+            label=label,
         )
 
     def get_children_metrics_by_name(
@@ -506,6 +510,8 @@ class Encoder:
                     minimize=objective.minimize,
                     properties=properties,
                     lower_is_better=objective.metric.lower_is_better,
+                    signature=objective.metric.signature,
+                    label=objective.metric.label,
                 )
             )
 
@@ -535,6 +541,8 @@ class Encoder:
                     minimize=objective.minimize,
                     properties=type_and_properties[1],
                     lower_is_better=objective.metric.lower_is_better,
+                    signature=objective.metric.signature,
+                    label=objective.metric.label,
                 )
             )
 
@@ -548,6 +556,8 @@ class Encoder:
                 metric_type=self.config.metric_registry[Metric],
                 intent=MetricIntent.MULTI_OBJECTIVE,
                 scalarized_objective_children_metrics=children_objectives,
+                signature="multi_objective",
+                label="multi_objective",
             )
         )
         return parent_metric
@@ -584,6 +594,8 @@ class Encoder:
                     properties=type_and_properties[1],
                     lower_is_better=m.lower_is_better,
                     scalarized_objective_weight=w,
+                    signature=m.signature,
+                    label=m.label,
                 )
             )
 
@@ -597,6 +609,8 @@ class Encoder:
             minimize=objective.minimize,
             lower_is_better=objective.minimize,
             scalarized_objective_children_metrics=children_metrics,
+            signature="scalarized_objective",
+            label="scalarized_objective",
         )
         return parent_metric
 
@@ -623,6 +637,8 @@ class Encoder:
             relative=outcome_constraint.relative,
             properties=properties,
             lower_is_better=metric.lower_is_better,
+            signature=metric.signature,
+            label=metric.label,
         )
         return constraint_sqa
 
@@ -658,6 +674,8 @@ class Encoder:
                     bound=outcome_constraint.bound,
                     op=outcome_constraint.op,
                     relative=outcome_constraint.relative,
+                    signature=m.signature,
+                    label=m.label,
                 )
             )
 
@@ -672,6 +690,8 @@ class Encoder:
             op=outcome_constraint.op,
             relative=outcome_constraint.relative,
             scalarized_outcome_constraint_children_metrics=children_metrics,
+            signature="scalarized_outcome_constraint",
+            label="scalarized_outcome_constraint",
         )
         return parent_metric
 
@@ -695,6 +715,8 @@ class Encoder:
             relative=objective_threshold.relative,
             properties=properties,
             lower_is_better=metric.lower_is_better,
+            signature=metric.signature,
+            label=metric.label,
         )
 
     def risk_measure_to_sqa(self, risk_measure: RiskMeasure) -> SQAMetric:
@@ -708,6 +730,8 @@ class Encoder:
             metric_type=self.config.metric_registry[Metric],
             intent=MetricIntent.RISK_MEASURE,
             properties=serialize_init_args(risk_measure),
+            signature="risk measure",
+            label="risk measure",
         )
 
     def optimization_config_to_sqa(
