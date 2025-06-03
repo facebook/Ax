@@ -65,7 +65,7 @@ def _make_sobol_step(
 ) -> GenerationStep:
     """Shortcut for creating a Sobol generation step."""
     return GenerationStep(
-        model=Generators.SOBOL,
+        generator=Generators.SOBOL,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
@@ -81,7 +81,7 @@ def _make_botorch_step(
     min_trials_observed: int | None = None,
     enforce_num_trials: bool = True,
     max_parallelism: int | None = None,
-    model: GeneratorRegistryBase = Generators.BOTORCH_MODULAR,
+    generator: GeneratorRegistryBase = Generators.BOTORCH_MODULAR,
     model_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
@@ -114,7 +114,7 @@ def _make_botorch_step(
     )
 
     if not no_winsorization:
-        _, default_bridge_kwargs = model.view_defaults()
+        _, default_bridge_kwargs = generator.view_defaults()
         default_transforms = default_bridge_kwargs["transforms"]
         transforms = model_kwargs.get("transforms", default_transforms)
         model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
@@ -123,7 +123,7 @@ def _make_botorch_step(
                 winsorization_transform_config
             )
 
-    if MODEL_KEY_TO_MODEL_SETUP[model.value].model_class != ModularBoTorchGenerator:
+    if MODEL_KEY_TO_MODEL_SETUP[generator.value].model_class != ModularBoTorchGenerator:
         if verbose is not None:
             model_kwargs.update({"verbose": verbose})
         if disable_progbar is not None:
@@ -138,7 +138,7 @@ def _make_botorch_step(
             "dropping these arguments."
         )
     return GenerationStep(
-        model=model,
+        generator=generator,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
@@ -548,7 +548,7 @@ def choose_generation_strategy_legacy(
             )
         steps.append(
             _make_botorch_step(
-                model=suggested_model,
+                generator=suggested_model,
                 winsorization_config=winsorization_config,
                 derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
                 no_winsorization=no_winsorization,

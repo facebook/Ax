@@ -1265,13 +1265,15 @@ class ReportUtilsTest(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=3,
                     min_trials_observed=3,
                     max_parallelism=3,
                 ),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR, num_trials=-1, max_parallelism=3
+                    generator=Generators.BOTORCH_MODULAR,
+                    num_trials=-1,
+                    max_parallelism=3,
                 ),
             ]
         )

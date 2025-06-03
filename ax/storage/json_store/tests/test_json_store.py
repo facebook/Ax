@@ -535,7 +535,7 @@ class JSONStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertGreater(len(new_generation_strategy._steps), 0)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
         # Model has not yet been initialized on this GS since it hasn't generated
         # anything yet.
         self.assertIsNone(new_generation_strategy.adapter)
@@ -561,7 +561,7 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
 
         # Check that we can encode and decode the generation strategy after
         # it has generated some trials and been updated with some data.
@@ -584,7 +584,7 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
 
     def test_EncodeDecodeNumpy(self) -> None:
         arr = np.array([[1, 2, 3], [4, 5, 6]])
@@ -830,6 +830,7 @@ class JSONStoreTest(TestCase):
         generation_step = object_from_json(json)
         self.assertIsInstance(generation_step, GenerationStep)
         self.assertEqual(generation_step.model_kwargs, {"other_kwarg": 5})
+        self.assertEqual(generation_step.generator, Generators.BOTORCH_MODULAR)
 
     def test_generator_run_backwards_compatibility(self) -> None:
         # Test that we can load a generator run with deprecated kwargs.

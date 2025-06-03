@@ -548,7 +548,7 @@ def get_legacy_list_surrogate_generation_step_as_dict() -> dict[str, Any]:
 
 def get_surrogate_generation_step() -> GenerationStep:
     return GenerationStep(
-        model=Generators.BOTORCH_MODULAR,
+        generator=Generators.BOTORCH_MODULAR,
         num_trials=-1,
         max_parallelism=1,
         model_kwargs={

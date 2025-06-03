@@ -418,7 +418,7 @@ def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
     """Converts Ax generation step to a dictionary."""
     return {
         "__type": generation_step.__class__.__name__,
-        "model": generation_step.model,
+        "generator": generation_step.generator,
         "num_trials": generation_step.num_trials,
         "min_trials_observed": generation_step.min_trials_observed,
         "completion_criteria": generation_step.completion_criteria,
@@ -434,6 +434,7 @@ def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
         "index": generation_step.index,
         "should_deduplicate": generation_step.should_deduplicate,
         "transition_criteria": generation_step.transition_criteria,
+        "generator_name": generation_step.generator_name,
     }
 
 

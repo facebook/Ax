@@ -366,12 +366,12 @@ class TestGenerationStrategy(TestCase):
             name="Sobol+MBM",
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=num_sobol_trials,
                     model_kwargs=self.step_model_kwargs,
                 ),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR,
+                    generator=Generators.BOTORCH_MODULAR,
                     num_trials=num_mbm_trials,
                     model_kwargs=self.step_model_kwargs,
                     enforce_num_trials=True,
@@ -402,8 +402,10 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaises(UserInputError):
             GenerationStrategy(
                 steps=[
-                    GenerationStep(model=Generators.SOBOL, num_trials=5),
-                    GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=-10),
+                    GenerationStep(generator=Generators.SOBOL, num_trials=5),
+                    GenerationStep(
+                        generator=Generators.BOTORCH_MODULAR, num_trials=-10
+                    ),
                 ]
             )
 
@@ -411,8 +413,8 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaises(UserInputError):
             GenerationStrategy(
                 steps=[
-                    GenerationStep(model=Generators.SOBOL, num_trials=-1),
-                    GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=10),
+                    GenerationStep(generator=Generators.SOBOL, num_trials=-1),
+                    GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=10),
                 ]
             )
 
@@ -423,15 +425,18 @@ class TestGenerationStrategy(TestCase):
             GenerationStrategy(
                 steps=[
                     GenerationStep(
-                        model=Generators.SOBOL, num_trials=5, max_parallelism=-1
+                        generator=Generators.SOBOL, num_trials=5, max_parallelism=-1
                     ),
-                    GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=-1),
+                    GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=-1),
                 ]
             )
 
     def test_custom_callables_for_models(self) -> None:
         with self.assertRaises(UserInputError):
-            GenerationStrategy(steps=[GenerationStep(model=get_sobol, num_trials=-1)])
+            GenerationStrategy(
+                # pyre-ignore [6]: Testing deprecated input.
+                steps=[GenerationStep(generator=get_sobol, num_trials=-1)]
+            )
 
     def test_string_representation(self) -> None:
         gs1 = self.sobol_MBM_step_GS
@@ -443,7 +448,7 @@ class TestGenerationStrategy(TestCase):
             ),
         )
         gs2 = GenerationStrategy(
-            steps=[GenerationStep(model=Generators.SOBOL, num_trials=-1)]
+            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)]
         )
         self.assertEqual(
             str(gs2), "GenerationStrategy(name='Sobol', steps=[Sobol for all trials])"
@@ -489,9 +494,9 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL, num_trials=5, min_trials_observed=5
+                    generator=Generators.SOBOL, num_trials=5, min_trials_observed=5
                 ),
-                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=1),
+                GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=1),
             ]
         )
         for _ in range(5):
@@ -507,12 +512,12 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=1,
                     min_trials_observed=5,
                     enforce_num_trials=False,
                 ),
-                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=1),
+                GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=1),
             ]
         )
         for _ in range(2):
@@ -585,7 +590,7 @@ class TestGenerationStrategy(TestCase):
         sobol_generation_strategy = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=5,
                     max_parallelism=10,
                     enforce_num_trials=False,
@@ -604,12 +609,12 @@ class TestGenerationStrategy(TestCase):
         factorial_thompson_gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.FACTORIAL,
+                    generator=Generators.FACTORIAL,
                     num_trials=1,
                     model_kwargs=self.step_model_kwargs,
                 ),
                 GenerationStep(
-                    model=Generators.THOMPSON,
+                    generator=Generators.THOMPSON,
                     num_trials=-1,
                     model_kwargs=self.step_model_kwargs,
                 ),
@@ -639,8 +644,8 @@ class TestGenerationStrategy(TestCase):
     def test_clone_reset(self) -> None:
         ftgs = GenerationStrategy(
             steps=[
-                GenerationStep(model=Generators.FACTORIAL, num_trials=1),
-                GenerationStep(model=Generators.THOMPSON, num_trials=2),
+                GenerationStep(generator=Generators.FACTORIAL, num_trials=1),
+                GenerationStep(generator=Generators.THOMPSON, num_trials=2),
             ]
         )
         ftgs._curr = ftgs._steps[1]
@@ -651,7 +656,7 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=1,
                     model_kwargs={"scramble": False},
                 )
@@ -694,7 +699,7 @@ class TestGenerationStrategy(TestCase):
     def test_store_experiment(self) -> None:
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=Generators.SOBOL, num_trials=5)]
+            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
         )
         self.assertIsNone(sobol_generation_strategy._experiment)
         sobol_generation_strategy.gen(exp)
@@ -704,8 +709,8 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
             steps=[
-                GenerationStep(model=Generators.SOBOL, num_trials=2),
-                GenerationStep(model=Generators.SOBOL, num_trials=3),
+                GenerationStep(generator=Generators.SOBOL, num_trials=2),
+                GenerationStep(generator=Generators.SOBOL, num_trials=3),
             ]
         )
         # No experiment attached to the GS, should be None.
@@ -721,7 +726,9 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
             steps=[
-                GenerationStep(model=Generators.SOBOL, num_trials=5, max_parallelism=1)
+                GenerationStep(
+                    generator=Generators.SOBOL, num_trials=5, max_parallelism=1
+                )
             ]
         )
         exp.new_trial(
@@ -820,12 +827,12 @@ class TestGenerationStrategy(TestCase):
         sobol_gs_with_parallelism_limits = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=NUM_INIT_TRIALS,
                     min_trials_observed=3,
                 ),
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=(NUM_ROUNDS - 1) * SECOND_STEP_PARALLELISM,
                     max_parallelism=SECOND_STEP_PARALLELISM,
                 ),
@@ -863,12 +870,12 @@ class TestGenerationStrategy(TestCase):
         sobol_gs_with_parallelism_limits = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=NUM_INIT_TRIALS,
                     min_trials_observed=3,
                 ),
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=-1,
                     max_parallelism=SECOND_STEP_PARALLELISM,
                 ),
@@ -1121,17 +1128,17 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=1,
                     model_kwargs=self.step_model_kwargs,
                 ),
                 GenerationStep(
-                    model=Generators.BO_MIXED,
+                    generator=Generators.BO_MIXED,
                     num_trials=1,
                     model_kwargs=self.step_model_kwargs,
                 ),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR,
+                    generator=Generators.BOTORCH_MODULAR,
                     model_kwargs={
                         # this will cause an error if the model
                         # doesn't get fixed features
@@ -1226,12 +1233,12 @@ class TestGenerationStrategy(TestCase):
                 ],
                 steps=[
                     GenerationStep(
-                        model=Generators.SOBOL,
+                        generator=Generators.SOBOL,
                         num_trials=5,
                         model_kwargs=self.step_model_kwargs,
                     ),
                     GenerationStep(
-                        model=Generators.BOTORCH_MODULAR,
+                        generator=Generators.BOTORCH_MODULAR,
                         num_trials=-1,
                         model_kwargs=self.step_model_kwargs,
                     ),
@@ -1284,7 +1291,7 @@ class TestGenerationStrategy(TestCase):
                 nodes=[
                     node_1,
                     GenerationStep(
-                        model=Generators.SOBOL,
+                        generator=Generators.SOBOL,
                         num_trials=5,
                         model_kwargs=self.step_model_kwargs,
                     ),
