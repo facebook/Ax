@@ -12,8 +12,8 @@ from time import time
 from typing import TYPE_CHECKING
 
 import pandas as pd
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import RobustSearchSpace, SearchSpace
@@ -43,9 +43,17 @@ class TimeAsFeature(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         assert observations is not None, "TimeAsFeature requires observations"
         if isinstance(search_space, RobustSearchSpace):
             raise UnsupportedError(

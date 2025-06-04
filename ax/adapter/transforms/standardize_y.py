@@ -11,6 +11,7 @@ from logging import Logger
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import get_data
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -41,11 +42,19 @@ class StandardizeY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["base_adapter.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         if observations is None or len(observations) == 0:
             raise DataRequiredError("`StandardizeY` transform requires non-empty data.")
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         observation_data = [obs.data for obs in observations]
         Ys = get_data(observation_data=observation_data)
         # Compute means and SDs

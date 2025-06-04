@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ax.adapter.data_utils import ExperimentData
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -54,11 +55,15 @@ class Transform:
 
     config: TConfig
     adapter: adapter_module.base.Adapter | None
+    # Set this to True if the transform does not need to transform ExperimentData.
+    # If True, base method will return the input unmodified. Otherwise, it'll error out.
+    no_op_for_experiment_data: bool = False
 
     def __init__(
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
@@ -67,11 +72,19 @@ class Transform:
         This takes in search space and observations, but they are not modified.
 
         Args:
-            search_space: The search space
-            observations: Observations
-            adapter: Adapter for referencing experiment, status quo, etc...
-            config: A dictionary of options specific to each transform
+            search_space: The search space of the experiment.
+            observations: A list of observations from the experiment.
+            experiment_data: A container for the parameterizations, metadata and
+                observations for the trials in the experiment.
+                Constructed using ``extract_experiment_data``.
+            adapter: Adapter for referencing experiment, status quo, etc.
+            config: A dictionary of options specific to each transform.
         """
+        if experiment_data is not None and observations is not None:
+            raise UnsupportedError(
+                "Only one of `experiment_data` or `observations` should be provided. "
+                f"Got {experiment_data=}, {observations=}."
+            )
         if config is None:
             config = {}
         self.config = config
@@ -273,3 +286,26 @@ class Transform:
                         "parameters with an associated distribution. Consider updating "
                         "the transform config."
                     )
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        """Transform ``ExperimentData``.
+
+        This is typically done in-place. This class implements the identity
+        transform, if ``self.no_op_for_experiment_data is True``, otherwise
+        it errors out to protect against accidental use of transforms that
+        do not support ``ExperimentData``.
+
+        Args:
+            experiment_data: The ``ExperimentData`` to transform.
+
+        Returns: The transformed experiment data.
+        """
+        if self.no_op_for_experiment_data:
+            return experiment_data
+        else:
+            raise NotImplementedError(
+                f"{self.__class__.__name__} does not implement "
+                "`transform_experiment_data`."
+            )

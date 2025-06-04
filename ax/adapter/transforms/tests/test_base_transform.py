@@ -10,9 +10,13 @@ from copy import deepcopy
 from unittest.mock import MagicMock
 
 import numpy as np
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class TransformsTest(TestCase):
@@ -45,7 +49,7 @@ class TransformsTest(TestCase):
             ),
             arm_name=arm_name,
         )
-        t = Transform(None, [])
+        t = Transform()
         obs1 = t.transform_observations([deepcopy(observation)])[0]
         obs2 = t.untransform_observations([deepcopy(obs1)])[0]
         for obs in [obs1, obs2]:
@@ -54,3 +58,21 @@ class TransformsTest(TestCase):
             self.assertEqual(obs.data.metric_names, metric_names)
             self.assertEqual(obs.features.parameters, parameters)
             self.assertEqual(obs.arm_name, arm_name)
+
+    def test_with_experiment_data(self) -> None:
+        experiment = get_branin_experiment(with_completed_batch=True)
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        with self.assertRaisesRegex(UnsupportedError, "Only one of"):
+            Transform(observations=[], experiment_data=experiment_data)
+        t = Transform(experiment_data=experiment_data)
+        # Errors out since no_op_for_experiment_data defaults to False.
+        with self.assertRaisesRegex(NotImplementedError, "transform_experiment_data"):
+            t.transform_experiment_data(experiment_data=experiment_data)
+        # No-op when no_op_for_experiment_data is True.
+        t.no_op_for_experiment_data = True
+        self.assertIs(
+            t.transform_experiment_data(experiment_data=experiment_data),
+            experiment_data,
+        )

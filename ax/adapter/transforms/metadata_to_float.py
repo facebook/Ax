@@ -13,6 +13,7 @@ from logging import Logger
 from math import isnan
 from typing import Any, SupportsFloat, TYPE_CHECKING
 
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core import ParameterType
 from ax.core.observation import Observation, ObservationFeatures
@@ -55,6 +56,7 @@ class MetadataToFloat(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
@@ -62,6 +64,13 @@ class MetadataToFloat(Transform):
             raise DataRequiredError(
                 "`MetadataToRange` transform requires non-empty data."
             )
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         config = config or {}
         self.parameters: dict[str, dict[str, Any]] = assert_is_instance(
             config.get("parameters", {}), dict
