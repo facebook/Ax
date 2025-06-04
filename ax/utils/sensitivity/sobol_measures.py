@@ -73,6 +73,7 @@ class SobolSensitivity:
             num_bootstrap_samples - 1
         )  # deduct 1 because the first is meant to be the full grid
         self.bootstrap_array = bootstrap_array
+        self.device: torch.device = bounds.device
         if input_qmc:
             sobol_kwargs = {"bounds": bounds, "n": num_mc_samples, "q": 1}
             seed_A, seed_B = 1234, 5678  # to make it reproducible
@@ -81,8 +82,14 @@ class SobolSensitivity:
             # pyre-ignore
             self.B = draw_sobol_samples(**sobol_kwargs, seed=seed_B).squeeze(1)
         else:
-            self.A = unnormalize(torch.rand(num_mc_samples, self.dim), bounds=bounds)
-            self.B = unnormalize(torch.rand(num_mc_samples, self.dim), bounds=bounds)
+            self.A = unnormalize(
+                torch.rand(num_mc_samples, self.dim, device=self.device),
+                bounds=bounds,
+            )
+            self.B = unnormalize(
+                torch.rand(num_mc_samples, self.dim, device=self.device),
+                bounds=bounds,
+            )
 
         # uniform integral distribution for discrete features
         self.A = sample_discrete_parameters(
@@ -879,7 +886,14 @@ def ax_parameter_sens(
         metrics = adapter.outcomes
     generator, digest = _get_generator_and_digest(adapter=adapter)
     model_list = _get_model_per_metric(generator=generator, metrics=metrics)
-    bounds = torch.tensor(digest.bounds).T  # transposing to make it 2 x d
+
+    # get device and dtype of the first model
+    first_model = next(model_list[0].parameters())
+    device = first_model.device
+    bounds = torch.tensor(
+        digest.bounds,
+        device=device,
+    ).T  # transposing to make it 2 x d
 
     # for second order indices, we need to compute first order indices first
     # which is what is done here. With the first order indices, we can then subtract
@@ -893,7 +907,7 @@ def ax_parameter_sens(
     )
     feature_names = digest.feature_names
     indices_unsigned = array_with_string_indices_to_dict(
-        rows=metrics, cols=feature_names, A=ind.numpy()
+        rows=metrics, cols=feature_names, A=ind.cpu().numpy()
     )
     if signed:
         ind_deriv = compute_derivatives_from_model_list(
@@ -910,10 +924,10 @@ def ax_parameter_sens(
         # them differently here.
         for i in digest.categorical_features:
             ind_deriv[:, i] = 1.0
-        ind *= torch.sign(ind_deriv)
+        ind *= torch.sign(ind_deriv).to(device)
 
     indices = array_with_string_indices_to_dict(
-        rows=metrics, cols=feature_names, A=ind.numpy()
+        rows=metrics, cols=feature_names, A=ind.cpu().numpy()
     )
     if order == "second":
         second_order_values = compute_sobol_indices_from_model_list(
@@ -931,7 +945,7 @@ def ax_parameter_sens(
         second_order_dict = array_with_string_indices_to_dict(
             rows=metrics,
             cols=second_order_feature_names,
-            A=second_order_values.numpy(),
+            A=second_order_values.cpu().numpy(),
         )
         for metric in metrics:
             indices[metric].update(second_order_dict[metric])
