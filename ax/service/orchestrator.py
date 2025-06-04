@@ -72,7 +72,7 @@ trials attached to the underlying Ax experiment '{experiment_name}'.
 FAILURE_EXCEEDED_MSG = (
     "Failure rate exceeds the tolerated trial failure rate of {f_rate} (at least "
     "{n_failed} out of first {n_ran} trials failed or were abandoned). Checks are "
-    "triggered both at the end of a optimization and if at least {min_failed} trials "
+    "triggered both at the end of an optimization and if at least {min_failed} trials "
     "have either failed, or have been abandoned, potentially automatically due to "
     "issues with the trial."
 )
