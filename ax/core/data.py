@@ -14,7 +14,7 @@ from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from hashlib import md5
 from io import StringIO
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -267,9 +267,8 @@ class BaseData(Base, SerializationMixin):
             df = df[df[colname] == value]
         return df
 
-    @classmethod
+    @staticmethod
     def from_multiple(
-        cls: type[TBaseData],
         data: Iterable[TBaseData],
     ) -> TBaseData:
         """Combines multiple objects into one (with the concatenated
@@ -280,14 +279,20 @@ class BaseData(Base, SerializationMixin):
         """
         dfs = []
 
+        cls = None
+
         for datum in data:
+            if cls is None:
+                cls = type(datum)
             if type(datum) is not cls:
                 raise TypeError(
-                    f"All data objects must be instances of class {cls}. Got "
-                    f"{type(datum)}."
+                    f"All data objects must be instances of the same class. Got "
+                    f"{cls} and {type(datum)}."
                 )
             if len(datum.df) > 0:
                 dfs.append(datum.df)
+
+        cls = cls or cast(type[TBaseData], Data)
 
         if len(dfs) == 0:
             return cls()
