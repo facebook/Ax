@@ -51,16 +51,12 @@ class ParameterConstraintTest(TestCase):
         self.assertEqual(str(self.constraint), self.constraint_repr)
 
     def test_Validate(self) -> None:
-        parameters = {"x": 4, "z": 3}
+        parameters = {"x": 4, "z": 3.0}
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[float, int]]`
-            #  but got `Dict[str, int]`.
             self.constraint.check(parameters)
 
         # check slack constraint
-        parameters = {"x": 4, "y": 1}
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[float, int]]` but
-        #  got `Dict[str, int]`.
+        parameters = {"x": 4, "y": 1.0}
         self.assertTrue(self.constraint.check(parameters))
 
         # check tight constraint (within numerical tolerance)
@@ -144,13 +140,22 @@ class OrderConstraintTest(TestCase):
         )
 
     def test_InvalidSetup(self) -> None:
-        z = FixedParameter("z", ParameterType.INT, 0)
-        with self.assertRaises(ValueError):
-            self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)
+        z1 = FixedParameter("z1", ParameterType.INT, 0)
+        z2 = FixedParameter("z2", ParameterType.INT, 1)
+        # Order constraints with one fixed parameter are supported
+        OrderConstraint(lower_parameter=self.x, upper_parameter=z1)
+        # But not if all parameters are fixed
+        with self.assertRaisesRegex(
+            ValueError,
+            "not supported if all involved parameters are of type ``FixedParameter``",
+        ):
+            OrderConstraint(lower_parameter=z1, upper_parameter=z2)
 
         z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
-        with self.assertRaises(ValueError):
-            self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)
+        with self.assertRaisesRegex(
+            ValueError, "only supported for numeric parameters"
+        ):
+            OrderConstraint(lower_parameter=self.x, upper_parameter=z)
 
 
 class SumConstraintTest(TestCase):
@@ -169,14 +174,13 @@ class SumConstraintTest(TestCase):
         self.constraint_repr2 = "SumConstraint(x + y >= -5.0)"
 
     def test_BadConstruct(self) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "Duplicate parameter in constraint"):
             SumConstraint(parameters=[self.x, self.x], is_upper_bound=False, bound=-5.0)
         z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
-        with self.assertRaises(ValueError):
-            # pyre-fixme[16]: `SumConstraintTest` has no attribute `constraint`.
-            self.constraint = SumConstraint(
-                parameters=[self.x, z], is_upper_bound=False, bound=-5.0
-            )
+        with self.assertRaisesRegex(
+            ValueError, "only supported for numeric parameters"
+        ):
+            SumConstraint(parameters=[self.x, z], is_upper_bound=False, bound=-5.0)
 
     def test_Properties(self) -> None:
         self.assertEqual(self.constraint1.op, ComparisonOp.LEQ)
@@ -216,3 +220,15 @@ class SumConstraintTest(TestCase):
 
         constraint_clone._bound = 7.0
         self.assertNotEqual(self.constraint1.bound, constraint_clone.bound)
+
+    def test_InvalidSetup(self) -> None:
+        z1 = FixedParameter("z1", ParameterType.INT, 0)
+        z2 = FixedParameter("z2", ParameterType.INT, 1)
+        # Sum constraints with one fixed parameter are supported
+        SumConstraint(parameters=[self.x, z1], is_upper_bound=False, bound=4.0)
+        # But not if all parameters are fixed
+        with self.assertRaisesRegex(
+            ValueError,
+            "not supported if all involved parameters are of type ``FixedParameter``",
+        ):
+            SumConstraint(parameters=[z1, z2], is_upper_bound=False, bound=4.0)
