@@ -104,7 +104,7 @@ try:
                 mul = self._get_event_multiplexer_for_trial(trial=trial)
             except Exception as e:
                 return {
-                    metric.name: Err(
+                    metric.signature: Err(
                         MetricFetchE(
                             message=f"Failed to get event multiplexer for {trial=}",
                             exception=e,
@@ -116,7 +116,7 @@ try:
             scalar_dict = mul.PluginRunToTagToContent("scalars")
             if len(scalar_dict) == 0:
                 return {
-                    metric.name: Err(
+                    metric.signature: Err(
                         MetricFetchE(
                             message=(
                                 "Tensorboard multiplexer is empty. This can happen if "
@@ -137,7 +137,7 @@ try:
                         {
                             "trial_index": trial.index,
                             "arm_name": arm_name,
-                            "metric_name": metric.name,
+                            "metric_name": metric.signature,
                             self.map_key_info.key: t.step,
                             "mean": (
                                 t.tensor_proto.double_val[0]
@@ -170,7 +170,7 @@ try:
                             )
                     df = self._process_records_to_df(metric=metric, records=records)
                     # Accumulate successfully extracted timeseries
-                    res[metric.name] = Ok(
+                    res[metric.signature] = Ok(
                         MapData(
                             df=df,
                             map_key_infos=[self.map_key_info],
@@ -178,9 +178,9 @@ try:
                     )
 
                 except Exception as e:
-                    res[metric.name] = Err(
+                    res[metric.signature] = Err(
                         MetricFetchE(
-                            message=f"Failed to fetch data for {metric.name}",
+                            message=f"Failed to fetch data for {metric.signature}",
                             exception=e,
                         )
                     )
@@ -195,7 +195,7 @@ try:
             """Fetch data for one trial."""
 
             return self.bulk_fetch_trial_data(trial=trial, metrics=[self], **kwargs)[
-                self.name
+                self.signature
             ]
 
         def _get_event_multiplexer_for_trial(

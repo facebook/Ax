@@ -379,7 +379,7 @@ class TestAxClient(TestCase):
         opt_config = ax_client.experiment.optimization_config
         self.assertEqual(
             # pyre-fixme[16]: `Optional` has no attribute `objective`.
-            opt_config.objective.objectives[0].metric.name,
+            opt_config.objective.objectives[0].metric.signature,
             "foo",
         )
         self.assertEqual(
@@ -387,7 +387,7 @@ class TestAxClient(TestCase):
             True,
         )
         self.assertEqual(
-            opt_config.objective.objectives[1].metric.name,
+            opt_config.objective.objectives[1].metric.signature,
             "bar",
         )
         self.assertEqual(
@@ -443,7 +443,7 @@ class TestAxClient(TestCase):
         opt_config = ax_client.experiment.optimization_config
         self.assertEqual(
             # pyre-fixme[16]: `Optional` has no attribute `objective`.
-            opt_config.objective.metric.name,
+            opt_config.objective.metric.signature,
             "foo",
         )
         self.assertEqual(
@@ -1121,23 +1121,25 @@ class TestAxClient(TestCase):
         )
         # pyre-fixme[16]: `Optional` has no attribute `objective`.
         objectives = ax_client.experiment.optimization_config.objective.objectives
-        self.assertEqual(objectives[0].metric.name, "obj_m1")
+        self.assertEqual(objectives[0].metric.signature, "obj_m1")
         self.assertEqual(objectives[0].metric.properties, {"m1_opt": "m1_val"})
-        self.assertEqual(objectives[1].metric.name, "obj_m2")
+        self.assertEqual(objectives[1].metric.signature, "obj_m2")
         self.assertEqual(objectives[1].metric.properties, {"m2_opt": "m2_val"})
         # pyre-fixme[16]: `Optional` has no attribute `objective_thresholds`.
         thresholds = ax_client.experiment.optimization_config.objective_thresholds
-        self.assertEqual(thresholds[0].metric.name, "obj_m1")
+        self.assertEqual(thresholds[0].metric.signature, "obj_m1")
         self.assertEqual(thresholds[0].metric.properties, {"m1_opt": "m1_val"})
-        self.assertEqual(thresholds[1].metric.name, "obj_m2")
+        self.assertEqual(thresholds[1].metric.signature, "obj_m2")
         self.assertEqual(thresholds[1].metric.properties, {"m2_opt": "m2_val"})
         outcome_constraints = (
             # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             ax_client.experiment.optimization_config.outcome_constraints
         )
-        self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
+        self.assertEqual(outcome_constraints[0].metric.signature, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.properties, {"m3_opt": "m3_val"})
-        self.assertEqual(ax_client.experiment.tracking_metrics[0].name, "tracking_m4")
+        self.assertEqual(
+            ax_client.experiment.tracking_metrics[0].signature, "tracking_m4"
+        )
         self.assertEqual(
             ax_client.experiment.tracking_metrics[0].properties, {"m4_opt": "m4_val"}
         )
@@ -1216,21 +1218,21 @@ class TestAxClient(TestCase):
         )
         # pyre-fixme[16]: `Optional` has no attribute `objective`.
         objectives = ax_client.experiment.optimization_config.objective.objectives
-        self.assertEqual(objectives[0].metric.name, "obj_m1")
+        self.assertEqual(objectives[0].metric.signature, "obj_m1")
         self.assertEqual(objectives[0].metric.properties, {"m1_opt": "m1_val"})
-        self.assertEqual(objectives[1].metric.name, "obj_m2")
+        self.assertEqual(objectives[1].metric.signature, "obj_m2")
         self.assertEqual(objectives[1].metric.properties, {"m2_opt": "m2_val"})
         # pyre-fixme[16]: `Optional` has no attribute `objective_thresholds`.
         thresholds = ax_client.experiment.optimization_config.objective_thresholds
-        self.assertEqual(thresholds[0].metric.name, "obj_m1")
+        self.assertEqual(thresholds[0].metric.signature, "obj_m1")
         self.assertEqual(thresholds[0].metric.properties, {"m1_opt": "m1_val"})
-        self.assertEqual(thresholds[1].metric.name, "obj_m2")
+        self.assertEqual(thresholds[1].metric.signature, "obj_m2")
         self.assertEqual(thresholds[1].metric.properties, {"m2_opt": "m2_val"})
         outcome_constraints = (
             # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             ax_client.experiment.optimization_config.outcome_constraints
         )
-        self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
+        self.assertEqual(outcome_constraints[0].metric.signature, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.properties, {"m3_opt": "m3_val"})
         self.assertEqual(
             ax_client.metric_definitions["obj_m1"]["properties"],
@@ -1452,7 +1454,7 @@ class TestAxClient(TestCase):
         # pyre-fixme[16]: `Optional` has no attribute `optimization_config`.
         optimization_config = ax_client._experiment.optimization_config
         self.assertEqual(
-            [m.name for m in optimization_config.objective.metrics],
+            [m.signature for m in optimization_config.objective.metrics],
             ["test_objective_1", "test_objective_2"],
         )
         self.assertEqual(
@@ -1464,7 +1466,7 @@ class TestAxClient(TestCase):
             [True, False],
         )
         self.assertEqual(
-            [t.metric.name for t in optimization_config.objective_thresholds],
+            [t.metric.signature for t in optimization_config.objective_thresholds],
             ["test_objective_1", "test_objective_2"],
         )
         self.assertEqual(

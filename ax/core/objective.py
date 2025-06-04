@@ -39,7 +39,7 @@ class Objective(SortableBase):
         if minimize is None:
             if lower_is_better is None:
                 raise UserInputError(
-                    f"Metric {metric.name} does not specify `lower_is_better` "
+                    f"Metric {metric.signature} does not specify `lower_is_better` "
                     "and `minimize` is not specified. At least one of these "
                     "must be specified."
                 )
@@ -47,7 +47,7 @@ class Objective(SortableBase):
                 minimize = lower_is_better
         elif lower_is_better is not None and lower_is_better != minimize:
             raise UserInputError(
-                f"Metric {metric.name} specifies {lower_is_better=}, "
+                f"Metric {metric.signature} specifies {lower_is_better=}, "
                 "which doesn't match the specified optimization direction "
                 f"{minimize=}."
             )
@@ -67,7 +67,7 @@ class Objective(SortableBase):
     @property
     def metric_names(self) -> list[str]:
         """Get a list of objective metric names."""
-        return [m.name for m in self.metrics]
+        return [m.signature for m in self.metrics]
 
     def clone(self) -> Objective:
         """Create a copy of the objective."""
@@ -75,7 +75,7 @@ class Objective(SortableBase):
 
     def __repr__(self) -> str:
         return 'Objective(metric_name="{}", minimize={})'.format(
-            self.metric.name, self.minimize
+            self.metric.signature, self.minimize
         )
 
     def get_unconstrainable_metrics(self) -> list[Metric]:
@@ -193,7 +193,7 @@ class ScalarizedObjective(Objective):
             is_minimized = minimize if w > 0 else not minimize
             if m.lower_is_better is not None and is_minimized != m.lower_is_better:
                 raise ValueError(
-                    f"Metric with name {m.name} specifies `lower_is_better` = "
+                    f"Metric with name {m.signature} specifies `lower_is_better` = "
                     f"{m.lower_is_better}, which doesn't match the specified "
                     "optimization direction. You most likely want to flip the sign of "
                     "the corresponding metric weight."
@@ -230,5 +230,5 @@ class ScalarizedObjective(Objective):
 
     def __repr__(self) -> str:
         return "ScalarizedObjective(metric_names={}, weights={}, minimize={})".format(
-            [metric.name for metric in self.metrics], self.weights, self.minimize
+            [metric.signature for metric in self.metrics], self.weights, self.minimize
         )

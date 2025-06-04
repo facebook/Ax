@@ -282,7 +282,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
     cv_results = cross_validate(model=adapter)
     diagnostics = compute_diagnostics(result=cv_results)
     assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
-    objective_name = optimization_config.objective.metric.name
+    objective_name = optimization_config.objective.metric.signature
     # If model fit is bad use raw results
     if objective_name in assess_model_fit_results.bad_fit_metrics_to_fisher_score:
         logger.warning("Model fit is poor; falling back on raw data for best point.")
@@ -506,7 +506,7 @@ def _is_row_feasible(
     # pyre-fixme[53]: Captured variable `rel_upper_bound` is not annotated.
     # pyre-fixme[53]: Captured variable `upper_bound` is not annotated.
     def oc_mask(oc: OutcomeConstraint) -> pd.Series:
-        name_match_mask = name == oc.metric.name
+        name_match_mask = name == oc.metric.signature
         if oc.relative:
             logger.warning(
                 f"Ignoring relative constraint {oc}. Derelativize "
@@ -577,7 +577,7 @@ def get_values_of_outcomes_single_or_scalarized_objective(
     if isinstance(objective, ScalarizedObjective):
         value = df_wide[objective.metric_names].dot(objective.weights).to_numpy()
     else:
-        value = df_wide[objective.metric.name].to_numpy()
+        value = df_wide[objective.metric.signature].to_numpy()
     value = value.astype(np.float64)
     infeasible_idx = np.where(~df_wide["feasible"])[0]
     value[infeasible_idx] = float("inf") if objective.minimize else float("-inf")
@@ -672,15 +672,15 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
     objective = assert_is_instance(optimization_config.objective, MultiObjective)
     for obj in objective.objectives:
         if obj.minimize:
-            df_wide[obj.metric.name] *= -1
+            df_wide[obj.metric.signature] *= -1
 
     objective_thresholds = []
     objective_thresholds_dict = {
-        threshold.metric.name: threshold
+        threshold.metric.signature: threshold
         for threshold in optimization_config.objective_thresholds
     }
     for obj in objective.objectives:
-        metric_name = obj.metric.name
+        metric_name = obj.metric.signature
         if metric_name in objective_thresholds_dict:
             threshold = objective_thresholds_dict[metric_name]
             if threshold.relative:
@@ -826,7 +826,7 @@ def get_trace(
     # Get the names of the metrics in optimization config.
     metric_names = set(optimization_config.objective.metric_names)
     for cons in optimization_config.outcome_constraints:
-        metric_names.update({cons.metric.name})
+        metric_names.update({cons.metric.signature})
     metric_names = list(metric_names)
 
     # Don't compute results for status quo data (for compatibility with legacy behavior)

@@ -154,9 +154,9 @@ class BenchmarkProblem(Base):
         # test function
         objective = self.optimization_config.objective
         if isinstance(objective, MultiObjective):
-            objective_names = {obj.metric.name for obj in objective.objectives}
+            objective_names = {obj.metric.signature for obj in objective.objectives}
         else:
-            objective_names = {objective.metric.name}
+            objective_names = {objective.metric.signature}
 
         test_function_names = set(self.test_function.outcome_names)
         missing = objective_names - test_function_names
@@ -168,7 +168,7 @@ class BenchmarkProblem(Base):
             )
 
         constraints = self.optimization_config.outcome_constraints
-        constraint_names = {c.metric.name for c in constraints}
+        constraint_names = {c.metric.signature for c in constraints}
         missing = constraint_names - test_function_names
         if len(missing) > 0:
             raise ValueError(

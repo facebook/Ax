@@ -552,16 +552,16 @@ def _prepare_p_feasible(
 
     # If an arm is missing data for a metric leave the mean as NaN.
     means = [
-        df[f"{constraint.metric.name}_mean"].tolist()
-        if f"{constraint.metric.name}_mean" in df.columns
+        df[f"{constraint.metric.signature}_mean"].tolist()
+        if f"{constraint.metric.signature}_mean" in df.columns
         else np.nan * np.ones(len(df))
         for constraint in outcome_constraints
     ]
 
     # If an arm is missing data for a metric treat the sd as 0.
     sigmas = [
-        (df[f"{constraint.metric.name}_sem"].fillna(0) ** 2).tolist()
-        if f"{constraint.metric.name}_sem" in df.columns
+        (df[f"{constraint.metric.signature}_sem"].fillna(0) ** 2).tolist()
+        if f"{constraint.metric.signature}_sem" in df.columns
         else [0] * len(df)
         for constraint in outcome_constraints
     ]

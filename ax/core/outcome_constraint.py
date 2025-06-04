@@ -120,7 +120,7 @@ class OutcomeConstraint(SortableBase):
             if op == ComparisonOp.LEQ and not metric.lower_is_better:
                 fmt_data = UPPER_BOUND_MISMATCH
         if fmt_data is not None:
-            fmt_data["name"] = metric.name
+            fmt_data["name"] = metric.signature
             msg = CONSTRAINT_WARNING_MESSAGE.format(**fmt_data)
             logger.debug(msg)
             return False, msg
@@ -156,7 +156,7 @@ class OutcomeConstraint(SortableBase):
             if self.bound > 0 and not self.metric.lower_is_better:
                 fmt_data = LOWER_BOUND_THRESHOLD
         if fmt_data is not None:
-            fmt_data["name"] = self.metric.name
+            fmt_data["name"] = self.metric.signature
             msg += CONSTRAINT_THRESHOLD_WARNING_MESSAGE.format(**fmt_data)
             logger.debug(msg)
             return False, msg
@@ -166,7 +166,7 @@ class OutcomeConstraint(SortableBase):
     def __repr__(self) -> str:
         op = ">=" if self.op == ComparisonOp.GEQ else "<="
         relative = "%" if self.relative else ""
-        return f"OutcomeConstraint({self.metric.name} {op} {self.bound}{relative})"
+        return f"OutcomeConstraint({self.metric.signature} {op} {self.bound}{relative})"
 
     @property
     def _unique_id(self) -> str:
@@ -235,7 +235,9 @@ class ObjectiveThreshold(OutcomeConstraint):
     def __repr__(self) -> str:
         op = ">=" if self.op == ComparisonOp.GEQ else "<="
         relative = "%" if self.relative else ""
-        return f"ObjectiveThreshold({self.metric.name} {op} {self.bound}{relative})"
+        return (
+            f"ObjectiveThreshold({self.metric.signature} {op} {self.bound}{relative})"
+        )
 
 
 class ScalarizedOutcomeConstraint(OutcomeConstraint):
@@ -336,7 +338,7 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
         relative = "%" if self.relative else ""
         return (
             "ScalarizedOutcomeConstraint(metric_names={}, weights={}, {} {}{})".format(
-                [metric.name for metric in self.metrics],
+                [metric.signature for metric in self.metrics],
                 self.weights,
                 op,
                 self.bound,

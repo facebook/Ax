@@ -215,7 +215,7 @@ def get_observed_pareto_frontiers(
     pareto_observations = observed_pareto_frontier(adapter=mb)
     # Convert to ParetoFrontierResults
     objective_metric_names = {
-        metric.name
+        metric.signature
         for metric in experiment.optimization_config.objective.metrics  # pyre-ignore
     }
     obj_metr_list = sorted(objective_metric_names)
@@ -233,8 +233,8 @@ def get_observed_pareto_frontiers(
     objective_thresholds = {}
     if experiment.optimization_config.objective_thresholds is not None:  # pyre-ignore
         for objth in experiment.optimization_config.objective_thresholds:
-            rel_objth[objth.metric.name] = objth.relative
-            objective_thresholds[objth.metric.name] = objth.bound
+            rel_objth[objth.metric.signature] = objth.relative
+            objective_thresholds[objth.metric.signature] = objth.bound
 
     # Identify which metrics should be relativized
     if rel in [True, False]:
@@ -550,10 +550,10 @@ def _validate_outcome_constraints(
     objective_metrics = [primary_objective.name, secondary_objective.name]
     if outcome_constraints is not None:
         for oc in outcome_constraints:
-            if oc.metric.name in objective_metrics:
+            if oc.metric.signature in objective_metrics:
                 raise ValueError(
                     "Metric `{metric_name}` occurs in both outcome constraints "
-                    "and objectives".format(metric_name=oc.metric.name)
+                    "and objectives".format(metric_name=oc.metric.signature)
                 )
 
 
@@ -635,9 +635,11 @@ def infer_reference_point_from_experiment(
         # `objective_orders`. If there is an objective that does not exist
         # in `obs_data`, a ValueError is raised.
         try:
-            objective_index = objective_orders.index(ot.metric.name)
+            objective_index = objective_orders.index(ot.metric.signature)
         except ValueError:
-            raise ValueError(f"Metric {ot.metric.name} does not exist in `obs_data`.")
+            raise ValueError(
+                f"Metric {ot.metric.signature} does not exist in `obs_data`."
+            )
 
         if ot.op == ComparisonOp.LEQ:
             ot.bound = np.inf
@@ -710,7 +712,7 @@ def infer_reference_point_from_experiment(
 
     for obj_threshold in inferred_rp:
         obj_threshold.bound = rp[
-            objective_orders_reduced.index(obj_threshold.metric.name)
+            objective_orders_reduced.index(obj_threshold.metric.signature)
         ].item()
     return inferred_rp
 

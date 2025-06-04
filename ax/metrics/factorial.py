@@ -78,7 +78,7 @@ class FactorialMetric(Metric):
                 data.append(
                     {
                         "arm_name": name,
-                        "metric_name": self.name,
+                        "metric_name": self.signature,
                         "mean": mean,
                         "sem": sem,
                         "trial_index": trial.index,
@@ -90,7 +90,7 @@ class FactorialMetric(Metric):
 
         except Exception as e:
             return Err(
-                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+                MetricFetchE(message=f"Failed to fetch {self.signature}", exception=e)
             )
 
 

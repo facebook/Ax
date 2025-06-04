@@ -87,7 +87,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
     def __eq__(self, o: BraninTimestampMapMetric) -> bool:
         """Ignore _timestamp on equality checks"""
         return (
-            self.name == o.name
+            self.signature == o.signature
             and self.param_names == o.param_names
             and self.noise_sd == o.noise_sd
             and self.lower_is_better == o.lower_is_better
@@ -116,7 +116,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                 df = pd.DataFrame(
                     {
                         "arm_name": [arm.name for arm in trial.arms],
-                        "metric_name": self.name,
+                        "metric_name": self.signature,
                         "sem": self.noise_sd if noisy else 0.0,
                         "trial_index": trial.index,
                         "mean": [
@@ -137,7 +137,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
         except Exception as e:
             return Err(
-                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+                MetricFetchE(message=f"Failed to fetch {self.signature}", exception=e)
             )
 
     # pyre-fixme[14]: `f` overrides method defined in `NoisyFunctionMapMetric`

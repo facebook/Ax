@@ -92,7 +92,7 @@ class NoisyFunctionMapMetric(MapMetric):
             df = pd.DataFrame(
                 {
                     "arm_name": [arm.name for arm in trial.arms],
-                    "metric_name": self.name,
+                    "metric_name": self.signature,
                     "sem": self.noise_sd if noisy else 0.0,
                     "trial_index": trial.index,
                     "mean": [
@@ -110,7 +110,7 @@ class NoisyFunctionMapMetric(MapMetric):
 
         except Exception as e:
             return Err(
-                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+                MetricFetchE(message=f"Failed to fetch {self.signature}", exception=e)
             )
 
     def f(self, x: npt.NDArray) -> Mapping[str, Any]:

@@ -306,7 +306,7 @@ class BestPointMixin(ABC):
         if isinstance(objective, ScalarizedObjective):
             value = 0
             for metric, weight in objective.metric_weights:
-                value += means[metric.name] * weight
+                value += means[metric.signature] * weight
             return value
         else:
             name = objective.metric_names[0]
@@ -384,7 +384,7 @@ class BestPointMixin(ABC):
         optimization_config = optimization_config or none_throws(
             experiment.optimization_config
         )
-        objective = optimization_config.objective.metric.name
+        objective = optimization_config.objective.metric.signature
         minimize = optimization_config.objective.minimize
         map_data = experiment.lookup_data()
         if not isinstance(map_data, MapData):
@@ -471,7 +471,7 @@ class BestPointMixin(ABC):
         if not optimization_config:
             raise ValueError("No optimization config found.")
 
-        objective_metric_name = optimization_config.objective.metric.name
+        objective_metric_name = optimization_config.objective.metric.signature
 
         # get the baseline trial
         data = experiment.lookup_data().df

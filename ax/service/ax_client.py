@@ -1510,13 +1510,13 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             raise UnsupportedError(
                 "Multi-objective experiments contain multiple objectives"
             )
-        return objective.metric.name
+        return objective.metric.signature
 
     @property
     def objective_names(self) -> list[str]:
         """Returns the name of the objective in this optimization."""
         objective = self.objective
-        return [m.name for m in objective.metrics]
+        return [m.signature for m in objective.metrics]
 
     @property
     def metric_definitions(self) -> dict[str, dict[str, Any]]:

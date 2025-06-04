@@ -258,10 +258,10 @@ class TestInfereReferencePointFromExperiment(TestCase):
         # be [-0.35, 0.35].
         self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
         self.assertEqual(inferred_reference_point[0].bound, -0.35)
-        self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+        self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
         self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
         self.assertEqual(inferred_reference_point[1].bound, 0.35)
-        self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+        self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
 
         with mock.patch(
             "ax.plot.pareto_utils.get_pareto_frontier_and_configs",
@@ -309,10 +309,10 @@ class TestInfereReferencePointFromExperiment(TestCase):
             # be [-0.35, 0.35].
             self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
             self.assertEqual(inferred_reference_point[0].bound, -0.35)
-            self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+            self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
-            self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+            self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
 
     def test_infer_reference_point_from_experiment_shuffled_metrics(self) -> None:
         # Generating an experiment with given data.
@@ -387,7 +387,7 @@ class TestInfereReferencePointFromExperiment(TestCase):
 
             self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
             self.assertEqual(inferred_reference_point[0].bound, -0.35)
-            self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+            self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
-            self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+            self.assertEqual(inferred_reference_point[1].metric.signature, "m2")

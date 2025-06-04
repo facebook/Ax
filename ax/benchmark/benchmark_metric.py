@@ -165,7 +165,7 @@ class BenchmarkMetricBase(Metric):
         metadata = trial.run_metadata["benchmark_metadata"]
         self._class_specific_metdata_validation(metadata=metadata)
         backend_simulator = metadata.backend_simulator
-        df = metadata.dfs[self.name]
+        df = metadata.dfs[self.signature]
 
         # Filter out the observable data
         if backend_simulator is None:
@@ -221,7 +221,7 @@ class BenchmarkMetric(BenchmarkMetricBase):
         self, metadata: BenchmarkTrialMetadata | None
     ) -> None:
         if metadata is not None:
-            df = metadata.dfs[self.name]
+            df = metadata.dfs[self.signature]
             if df["step"].nunique() > 1:
                 raise ValueError(
                     f"Trial has data from multiple time steps. This is"

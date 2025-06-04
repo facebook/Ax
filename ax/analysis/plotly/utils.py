@@ -251,7 +251,7 @@ def get_constraint_violated_probabilities(
             "before passing constraints to this method."
         )
 
-    metrics = [constraint.metric.name for constraint in outcome_constraints]
+    metrics = [constraint.metric.signature for constraint in outcome_constraints]
     means = torch.as_tensor(
         [
             [prediction[0][metric_name] for metric_name in metrics]
@@ -267,17 +267,17 @@ def get_constraint_violated_probabilities(
     feasibility_probabilities: dict[str, NDArray] = {}
     for constraint in outcome_constraints:
         if constraint.op == ComparisonOp.GEQ:
-            con_lower_inds = torch.tensor([metrics.index(constraint.metric.name)])
+            con_lower_inds = torch.tensor([metrics.index(constraint.metric.signature)])
             con_lower = torch.tensor([constraint.bound])
             con_upper_inds = torch.as_tensor([])
             con_upper = torch.as_tensor([])
         else:
             con_lower_inds = torch.as_tensor([])
             con_lower = torch.as_tensor([])
-            con_upper_inds = torch.tensor([metrics.index(constraint.metric.name)])
+            con_upper_inds = torch.tensor([metrics.index(constraint.metric.signature)])
             con_upper = torch.tensor([constraint.bound])
 
-        feasibility_probabilities[constraint.metric.name] = (
+        feasibility_probabilities[constraint.metric.signature] = (
             compute_log_prob_feas_from_bounds(
                 means=means,
                 sigmas=sigmas,
@@ -374,7 +374,7 @@ def select_metric(experiment: Experiment) -> str:
             "Cannot infer metric to plot from ScalarizedObjective, please "
             "specify a metric"
         )
-    return experiment.optimization_config.objective.metric.name
+    return experiment.optimization_config.objective.metric.signature
 
 
 def format_parameters_for_effects_by_arm_plot(
@@ -525,7 +525,7 @@ def _add_style_to_effects_by_arm_plot(
             )
         )
     for constraint in outcome_constraints:
-        if constraint.metric.name == metric_name:
+        if constraint.metric.signature == metric_name:
             assert not constraint.relative
             fig.add_hline(
                 y=constraint.bound,
@@ -608,7 +608,7 @@ def get_predictions_by_arm(
                 model=model,
                 obsf=obsf,
                 metric_names={metric_name}.union(
-                    {constraint.metric.name for constraint in outcome_constraints}
+                    {constraint.metric.signature for constraint in outcome_constraints}
                 ),
             )
             for obsf in features

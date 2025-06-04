@@ -184,7 +184,7 @@ def constraints_feasibility(
         )
 
     constraint_metric_name = [
-        constraint.metric.name
+        constraint.metric.signature
         for constraint in derel_optimization_config.outcome_constraints
     ][0]
 

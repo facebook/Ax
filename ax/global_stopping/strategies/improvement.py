@@ -356,7 +356,7 @@ def constraint_satisfaction(trial: BaseTrial) -> bool:
     df = trial.lookup_data().df
     for constraint in outcome_constraints:
         bound = constraint.bound
-        metric_name = constraint.metric.name
+        metric_name = constraint.metric.signature
         metric_data = df.loc[df["metric_name"] == metric_name]
         mean, sem = metric_data.iloc[0][["mean", "sem"]]
         if sem > 0.0:

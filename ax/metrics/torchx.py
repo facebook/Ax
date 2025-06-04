@@ -55,16 +55,16 @@ class TorchXMetric(Metric):
             tracker = FsspecResultTracker(tracker_base)
             res = tracker[trial.index]
 
-            if self.name in res:
-                mean = res[self.name]
+            if self.signature in res:
+                mean = res[self.signature]
                 sem = None
             else:
-                mean = res.get(f"{self.name}/mean")
-                sem = res.get(f"{self.name}/sem")
+                mean = res.get(f"{self.signature}/mean")
+                sem = res.get(f"{self.signature}/sem")
 
             if mean is None and sem is None:
                 raise KeyError(
-                    f"Observation for `{self.name}` not found in tracker at base "
+                    f"Observation for `{self.signature}` not found in tracker at base "
                     f"`{tracker_base}`. Ensure that the trial job is writing the "
                     "results at the same tracker base."
                 )
@@ -72,7 +72,7 @@ class TorchXMetric(Metric):
             df_dict = {
                 "arm_name": none_throws(cast(Trial, trial).arm).name,
                 "trial_index": trial.index,
-                "metric_name": self.name,
+                "metric_name": self.signature,
                 "mean": mean,
                 "sem": sem,
             }
@@ -80,5 +80,5 @@ class TorchXMetric(Metric):
 
         except Exception as e:
             return Err(
-                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+                MetricFetchE(message=f"Failed to fetch {self.signature}", exception=e)
             )

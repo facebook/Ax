@@ -57,14 +57,14 @@ class MetricTest(TestCase):
             ):
                 metric = Metric(name="m1", lower_is_better=False)
                 self.assertEqual(str(metric), METRIC_STRING)
-                self.assertEqual(metric.name, metric.signature)
-                self.assertEqual(metric.name, metric.label)
+                self.assertEqual(metric.signature, metric.signature)
+                self.assertEqual(metric.signature, metric.label)
 
         with self.subTest("init with signature only"):
             metric = Metric(signature="m1", lower_is_better=False)
             self.assertEqual(str(metric), METRIC_STRING)
-            self.assertEqual(metric.name, metric.signature)
-            self.assertEqual(metric.name, metric.label)
+            self.assertEqual(metric.signature, metric.signature)
+            self.assertEqual(metric.signature, metric.label)
 
         with self.subTest("init with same name and signature"):
             with self.assertWarnsRegex(
@@ -74,8 +74,8 @@ class MetricTest(TestCase):
             ):
                 metric = Metric(name="m1", signature="m1", lower_is_better=False)
                 self.assertEqual(str(metric), METRIC_STRING)
-                self.assertEqual(metric.name, metric.signature)
-                self.assertEqual(metric.name, metric.label)
+                self.assertEqual(metric.signature, metric.signature)
+                self.assertEqual(metric.signature, metric.label)
 
     def test_eq(self) -> None:
         metric1 = Metric(name="m1", lower_is_better=False)

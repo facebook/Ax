@@ -1077,7 +1077,10 @@ class Client(WithDBSettingsBase):
                 multi_objective := optimization_config.objective, MultiObjective
             ):
                 for i in range(len(multi_objective.objectives)):
-                    if metric.name == multi_objective.objectives[i].metric.name:
+                    if (
+                        metric.signature
+                        == multi_objective.objectives[i].metric.signature
+                    ):
                         multi_objective._objectives[i]._metric = metric
                         return
 
@@ -1086,13 +1089,13 @@ class Client(WithDBSettingsBase):
                 ScalarizedObjective,
             ):
                 for i in range(len(scalarized_objective.metrics)):
-                    if metric.name == scalarized_objective.metrics[i].name:
+                    if metric.signature == scalarized_objective.metrics[i].signature:
                         scalarized_objective._metrics[i] = metric
                         return
 
             if (
                 isinstance(optimization_config.objective, Objective)
-                and metric.name == optimization_config.objective.metric.name
+                and metric.signature == optimization_config.objective.metric.signature
             ):
                 optimization_config.objective._metric = metric
                 return
@@ -1100,15 +1103,15 @@ class Client(WithDBSettingsBase):
             # Check the outcome constraints
             for i in range(len(optimization_config.outcome_constraints)):
                 if (
-                    metric.name
-                    == optimization_config.outcome_constraints[i].metric.name
+                    metric.signature
+                    == optimization_config.outcome_constraints[i].metric.signature
                 ):
                     optimization_config._outcome_constraints[i]._metric = metric
                     return
 
         # Check the tracking metrics
-        if metric.name in self._experiment._tracking_metrics.keys():
-            self._experiment._tracking_metrics[metric.name] = metric
+        if metric.signature in self._experiment._tracking_metrics.keys():
+            self._experiment._tracking_metrics[metric.signature] = metric
             return
 
         # If an equivalently named Metric does not exist, add it as a tracking

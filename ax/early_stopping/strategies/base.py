@@ -376,7 +376,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             if isinstance(objective, MultiObjective):
                 objective = objective.objectives[0]
 
-            metric_name = objective.metric.name
+            metric_name = objective.metric.signature
             minimize = objective.minimize
         else:
             metric_name = list(self.metric_names)[0]

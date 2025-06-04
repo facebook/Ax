@@ -160,9 +160,9 @@ class MultiTypeExperiment(Experiment):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")
 
         super().add_tracking_metric(metric)
-        self._metric_to_trial_type[metric.name] = trial_type
+        self._metric_to_trial_type[metric.signature] = trial_type
         if canonical_name is not None:
-            self._metric_to_canonical_name[metric.name] = canonical_name
+            self._metric_to_canonical_name[metric.signature] = canonical_name
         return self
 
     def add_tracking_metrics(
@@ -193,12 +193,14 @@ class MultiTypeExperiment(Experiment):
         canonical_name = None
         for metric in metrics:
             if canonical_names is not None:
-                canonical_name = none_throws(canonical_names).get(metric.name, None)
+                canonical_name = none_throws(canonical_names).get(
+                    metric.signature, None
+                )
 
             self.add_tracking_metric(
                 metric=metric,
                 trial_type=metrics_to_trial_types.get(
-                    metric.name, self._default_trial_type
+                    metric.signature, self._default_trial_type
                 ),
                 canonical_name=canonical_name,
             )
@@ -218,18 +220,19 @@ class MultiTypeExperiment(Experiment):
         """
         oc = self.optimization_config
         oc_metrics = oc.metrics if oc else []
-        if metric.name in oc_metrics and trial_type != self._default_trial_type:
+        if metric.signature in oc_metrics and trial_type != self._default_trial_type:
             raise ValueError(
-                f"Metric `{metric.name}` must remain a `{self._default_trial_type}` "
-                "metric because it is part of the optimization_config."
+                f"Metric `{metric.signature}` must remain a "
+                f"`{self._default_trial_type}` metric because it is part of the "
+                "optimization_config."
             )
         elif not self.supports_trial_type(trial_type):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")
 
         super().update_tracking_metric(metric)
-        self._metric_to_trial_type[metric.name] = trial_type
+        self._metric_to_trial_type[metric.signature] = trial_type
         if canonical_name is not None:
-            self._metric_to_canonical_name[metric.name] = canonical_name
+            self._metric_to_canonical_name[metric.signature] = canonical_name
         return self
 
     @copy_doc(Experiment.remove_tracking_metric)
@@ -276,7 +279,7 @@ class MultiTypeExperiment(Experiment):
         metrics = [
             metric
             for metric in (metrics or self.metrics.values())
-            if self.metric_to_trial_type[metric.name] == trial.trial_type
+            if self.metric_to_trial_type[metric.signature] == trial.trial_type
         ]
         # Invoke parent's fetch method using only metrics for this trial_type
         return super()._fetch_trial_data(trial.index, metrics=metrics, **kwargs)

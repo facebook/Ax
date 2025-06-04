@@ -206,10 +206,10 @@ class Encoder:
                 runners.append(runner_sqa)
 
             for metric in tracking_metrics:
-                metric.trial_type = experiment._metric_to_trial_type[metric.name]
-                if metric.name in experiment._metric_to_canonical_name:
+                metric.trial_type = experiment._metric_to_trial_type[metric.signature]
+                if metric.signature in experiment._metric_to_canonical_name:
                     metric.canonical_name = experiment._metric_to_canonical_name[
-                        metric.name
+                        metric.signature
                     ]
         elif experiment.runner:
             runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
@@ -466,7 +466,7 @@ class Encoder:
         # pyre-fixme[29]: `SQAMetric` is not a function.
         return metric_class(
             id=metric.db_id,
-            name=metric.name,
+            name=signature,
             metric_type=metric_type,
             intent=MetricIntent.TRACKING,
             properties=properties,
@@ -479,7 +479,7 @@ class Encoder:
         self, metrics: list[Metric], weights: list[float]
     ) -> dict[str, tuple[Metric, float, SQAMetric, tuple[int, dict[str, Any]]]]:
         return {
-            metric.name: (
+            metric.signature: (
                 metric,
                 weight,
                 cast(SQAMetric, self.config.class_to_sqa_class[Metric]),
@@ -504,7 +504,7 @@ class Encoder:
             objective_sqa = (
                 metric_class(  # pyre-ignore[29]: `SQAMetric` is not a function.
                     id=objective.metric.db_id,
-                    name=objective.metric.name,
+                    name=objective.metric.signature,
                     metric_type=metric_type,
                     intent=MetricIntent.OBJECTIVE,
                     minimize=objective.minimize,
@@ -535,7 +535,7 @@ class Encoder:
             children_objectives.append(
                 objective_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
                     id=objective.metric.db_id,
-                    name=objective.metric.name,
+                    name=objective.metric.signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OBJECTIVE,
                     minimize=objective.minimize,
@@ -629,7 +629,7 @@ class Encoder:
         # pyre-fixme[29]: `SQAMetric` is not a function.
         constraint_sqa = metric_class(
             id=metric.db_id,
-            name=metric.name,
+            name=metric.signature,
             metric_type=metric_type,
             intent=MetricIntent.OUTCOME_CONSTRAINT,
             bound=outcome_constraint.bound,
@@ -707,7 +707,7 @@ class Encoder:
         # pyre-fixme[29]: `SQAMetric` is not a function.
         return metric_class(
             id=metric.db_id,
-            name=metric.name,
+            name=metric.signature,
             metric_type=metric_type,
             intent=MetricIntent.OBJECTIVE_THRESHOLD,
             bound=objective_threshold.bound,

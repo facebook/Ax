@@ -219,21 +219,21 @@ class Metric(SortableBase, SerializationMixin):
     ) -> MetricFetchResult:
         """Fetch data for one trial."""
         raise NotImplementedError(
-            f"Metric {self.name} does not implement data-fetching logic."
+            f"Metric {self.signature} does not implement data-fetching logic."
         )
 
     # NOTE: Override this if your metric requires custom string representation with
-    # more attributes included than just the name.
+    # more attributes included than just the signature.
     def __repr__(self) -> str:
-        return "{class_name}('{metric_name}')".format(
-            class_name=self.__class__.__name__, metric_name=self.name
+        return "{class_name}('{metric_signature}')".format(
+            class_name=self.__class__.__name__, metric_signature=self.signature
         )
 
     @property
     def summary_dict(self) -> dict[str, Any]:
-        """Returns a dictionary containing the metric's name and properties."""
+        """Returns a dictionary containing the metric's signature and properties."""
         return {
-            "name": self.name,
+            "name": self.signature,
             "type": self.__class__.__name__,
             "lower_is_better": self.lower_is_better,
         }
@@ -390,7 +390,9 @@ class Metric(SortableBase, SerializationMixin):
             )[0]
 
             cached_metric_names = cached_trial_data.metric_names
-            metrics_to_fetch = [m for m in metrics if m.name not in cached_metric_names]
+            metrics_to_fetch = [
+                m for m in metrics if m.signature not in cached_metric_names
+            ]
             if not metrics_to_fetch:
                 # If all needed data fetched from cache, no need to fetch any other data
                 # for trial.
@@ -428,7 +430,7 @@ class Metric(SortableBase, SerializationMixin):
                 for metric_name, results in results_by_metric_name.items()
                 # We subset the metrics because cached results might have more
                 # metrics than requested in arguments passed to this method.
-                if metric_name in [metric.name for metric in metrics]
+                if metric_name in [metric.signature for metric in metrics]
             }
             for trial_index, results_by_metric_name in trials_results.items()
         }
@@ -452,7 +454,7 @@ class Metric(SortableBase, SerializationMixin):
         Subclasses should override this to trial data computation for multiple metrics.
         """
         return {
-            metric.name: metric.fetch_trial_data(trial=trial, **kwargs)
+            metric.signature: metric.fetch_trial_data(trial=trial, **kwargs)
             for metric in metrics
         }
 
@@ -510,8 +512,8 @@ class Metric(SortableBase, SerializationMixin):
                     "`fetch_experiment_data_multi`, will soon be deprecated in Ax. "
                     "please leverage instance-methods like `bulk_fetch_trial_data` "
                     "or `bulk_fetch_experiment_data` instead going forward. "
-                    f"Metric {self.name} (class: {self.__class__} in {self.__module__})"
-                    " implementation overrides the class methods."
+                    f"Metric {self.signature} (class: {self.__class__} "
+                    f"in {self.__module__}) implementation overrides the class methods."
                 )
             )
 

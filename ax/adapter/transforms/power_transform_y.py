@@ -132,21 +132,23 @@ class PowerTransformY(Transform):
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
             if isinstance(c, ScalarizedOutcomeConstraint):
-                c_metric_names = [metric.name for metric in c.metrics]
+                c_metric_names = [metric.signature for metric in c.metrics]
                 intersection = set(c_metric_names) & set(self.metric_names)
                 if intersection:
                     raise NotImplementedError(
-                        f"PowerTransformY cannot be used for metric(s) {intersection} "
-                        "that are part of a ScalarizedOutcomeConstraint."
+                        "PowerTransformY cannot be used for metric(s) "
+                        f"{intersection} that are part of a "
+                        "ScalarizedOutcomeConstraint."
                     )
-            elif c.metric.name in self.metric_names:
+            elif c.metric.signature in self.metric_names:
                 if c.relative:
                     raise ValueError(
-                        f"PowerTransformY cannot be applied to metric {c.metric.name} "
-                        "since it is subject to a relative constraint."
+                        "PowerTransformY cannot be applied to metric "
+                        f"{c.metric.signature} since it is subject to "
+                        "a relative constraint."
                     )
                 else:
-                    transform = self.power_transforms[c.metric.name].transform
+                    transform = self.power_transforms[c.metric.signature].transform
                     c.bound = transform(np.array(c.bound, ndmin=2)).item()
         return optimization_config
 
@@ -158,11 +160,13 @@ class PowerTransformY(Transform):
         for c in outcome_constraints:
             if isinstance(c, ScalarizedOutcomeConstraint):
                 raise ValueError("ScalarizedOutcomeConstraint not supported here")
-            elif c.metric.name in self.metric_names:
+            elif c.metric.signature in self.metric_names:
                 if c.relative:
                     raise ValueError("Relative constraints not supported here.")
                 else:
-                    transform = self.power_transforms[c.metric.name].inverse_transform
+                    transform = self.power_transforms[
+                        c.metric.signature
+                    ].inverse_transform
                     c.bound = transform(np.array(c.bound, ndmin=2)).item()
         return outcome_constraints
 

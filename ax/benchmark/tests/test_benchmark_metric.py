@@ -209,7 +209,7 @@ class TestBenchmarkMetric(TestCase):
         self.assertEqual(len(df1), len(trial.arms))
         expected_results = _get_one_step_df(
             batch=batch,
-            metric_name=metric.name,
+            metric_name=metric.signature,
             step=0,
             observe_noise_sd=metric.observe_noise_sd,
         ).drop(columns=["virtual runtime"])

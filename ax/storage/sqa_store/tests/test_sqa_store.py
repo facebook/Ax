@@ -616,7 +616,7 @@ class SQAStoreTest(TestCase):
                     ).objectives
                     for i, objective in enumerate(objectives):
                         metric = objective.metric
-                        self.assertEqual(metric.name, f"m{1 + 2 * i}")
+                        self.assertEqual(metric.signature, f"m{1 + 2 * i}")
                         self.assertEqual(metric.__class__, Metric)
 
     @patch(

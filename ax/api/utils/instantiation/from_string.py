@@ -55,13 +55,13 @@ def optimization_config_from_string(
 
     if isinstance(objective, MultiObjective):
         # Convert OutcomeConstraints to ObjectiveThresholds if relevant
-        objective_metric_names = {metric.name for metric in objective.metrics}
+        objective_metric_names = {metric.signature for metric in objective.metrics}
         true_outcome_constraints = []
         objective_thresholds: list[ObjectiveThreshold] = []
         for outcome_constraint in outcome_constraints or []:
             if (
                 not isinstance(outcome_constraint, ScalarizedOutcomeConstraint)
-                and outcome_constraint.metric.name in objective_metric_names
+                and outcome_constraint.metric.signature in objective_metric_names
             ):
                 objective_thresholds.append(
                     ObjectiveThreshold(
@@ -81,9 +81,9 @@ def optimization_config_from_string(
         )
 
     # Ensure that outcome constraints are not placed on the objective metric
-    objective_metric_names = {metric.name for metric in objective.metrics}
+    objective_metric_names = {metric.signature for metric in objective.metrics}
     for outcome_constraint in outcome_constraints or []:
-        if outcome_constraint.metric.name in objective_metric_names:
+        if outcome_constraint.metric.signature in objective_metric_names:
             raise UserInputError(
                 "Outcome constraints may not be placed on the objective metric "
                 f"except in the multi-objective case, found {objective_str} and "
