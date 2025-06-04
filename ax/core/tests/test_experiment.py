@@ -1653,6 +1653,64 @@ class ExperimentWithMapDataTest(TestCase):
                     B_auxiliary_experiment_1,
                 )
 
+    def test_auxiliary_experiment_operations(self) -> None:
+        """Test the add_auxiliary_experiment method."""
+        # Create a base experiment
+        experiment = get_branin_experiment()
+
+        # Create an auxiliary experiment
+        aux_base_exp = get_branin_experiment()
+        aux_base_exp.name = "aux_exp"
+        aux_exp = AuxiliaryExperiment(experiment=aux_base_exp)
+
+        aux_exp_found = experiment.find_auxiliary_experiment_by_name(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment_name="aux_exp",
+        )
+        self.assertIsNone(aux_exp_found)
+
+        # Add the auxiliary experiment
+        experiment.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=aux_exp,
+        )
+
+        # Verify it was added
+        self.assertEqual(
+            experiment.auxiliary_experiments_by_purpose[
+                AuxiliaryExperimentPurpose.PE_EXPERIMENT
+            ][0],
+            aux_exp,
+        )
+
+        # Add the same auxiliary experiment again
+        experiment.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=aux_exp,
+        )
+
+        # Verify it wasn't duplicated (should still be just one)
+        self.assertEqual(
+            len(
+                experiment.auxiliary_experiments_by_purpose[
+                    AuxiliaryExperimentPurpose.PE_EXPERIMENT
+                ]
+            ),
+            1,
+        )
+
+        aux_exp_found = experiment.find_auxiliary_experiment_by_name(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment_name="aux_exp",
+        )
+        self.assertIs(aux_exp_found, aux_exp)
+
+        aux_exp_found = experiment.find_auxiliary_experiment_by_name(
+            purpose=AuxiliaryExperimentPurpose.BO_EXPERIMENT,
+            auxiliary_experiment_name="aux_exp",
+        )
+        self.assertIsNone(aux_exp_found)
+
     def test_name_and_store_arm_if_not_exists_same_name_different_signature(
         self,
     ) -> None:
