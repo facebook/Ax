@@ -12,7 +12,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 
 from logging import Logger
-from typing import Any, Union
+from typing import Any, Tuple, Union
 
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -490,12 +490,10 @@ class InstantiationBase:
             bound=comparison_multiplier * bound,
         )
 
-    @classmethod
-    def outcome_constraint_from_str(
-        cls,
+    @staticmethod
+    def parse_outcome_constraints(
         representation: str,
-        metric_definitions: dict[str, dict[str, Any]] | None = None,
-    ) -> OutcomeConstraint:
+    ) -> Tuple[str, ComparisonOp, bool, float]:
         """Parse string representation of an outcome constraint."""
         tokens = representation.split()
         assert len(tokens) == 3 and tokens[1] in COMPARISON_OPS, (
@@ -515,9 +513,18 @@ class InstantiationBase:
             raise ValueError(
                 f"Outcome constraint bound should be a float for '{representation}'."
             )
+        return tokens[0], op, rel, bound
+
+    @classmethod
+    def outcome_constraint_from_str(
+        cls,
+        representation: str,
+        metric_definitions: dict[str, dict[str, Any]] | None = None,
+    ) -> OutcomeConstraint:
+        name, op, rel, bound = cls.parse_outcome_constraints(representation)
         return OutcomeConstraint(
             cls._make_metric(
-                name=tokens[0],
+                name=name,
                 for_opt_config=True,
                 metric_definitions=metric_definitions,
                 lower_is_better=op is ComparisonOp.LEQ,
