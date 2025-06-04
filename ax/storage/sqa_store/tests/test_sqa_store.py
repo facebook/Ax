@@ -1609,7 +1609,14 @@ class SQAStoreTest(TestCase):
         # Extract default value.
         properties = serialize_init_args(obj=Metric(name="foo"))
         self.assertEqual(
-            properties, {"name": "foo", "lower_is_better": None, "properties": {}}
+            properties,
+            {
+                "name": "foo",
+                "lower_is_better": None,
+                "properties": {},
+                "signature": "foo",
+                "label": "foo",
+            },
         )
 
         # Extract passed value.
@@ -1618,7 +1625,13 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(
             properties,
-            {"name": "foo", "lower_is_better": True, "properties": {"foo": "bar"}},
+            {
+                "name": "foo",
+                "lower_is_better": True,
+                "properties": {"foo": "bar"},
+                "signature": "foo",
+                "label": "foo",
+            },
         )
 
     def test_RegistryAdditions(self) -> None:
