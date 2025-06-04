@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
+from typing import Any
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -26,6 +27,7 @@ from ax.core.map_metric import MapMetric
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
+from ax.utils.common.constants import Keys
 from pandas import DataFrame, MultiIndex, Series
 
 
@@ -109,9 +111,9 @@ class ExperimentData:
 
     Attributes:
         arm_data: A dataframe, indexed by (trial_index, arm_name), containing the
-            the parameterization of each arm, with one column per parameter.
-            Each row corresponds to the parameterization for the given
-            (trial_index, arm_name) pair.
+            the parameterization of each arm, with one column per parameter, and
+            a column for the metadata. Each row corresponds to the parameterization
+            and metadata for the given (trial_index, arm_name) pair.
         observation_data: A dataframe, indexed by (trial_index, arm_name[, *map_keys])
             map_keys being optional, containing the mean and sem observations for each
             metric. The columns of the dataframe are multi-indexed, with the first level
@@ -254,8 +256,8 @@ def extract_experiment_data(
 
 
 def _extract_arm_data(experiment: Experiment) -> DataFrame:
-    """Extract a dataframe containing the trial index, arm name, and
-    the parameterizations from the given experiment.
+    """Extract a dataframe containing the trial index, arm name,
+    parameterizations, and metadata from the given experiment.
 
     The dataframe will include a row for each (trial_index, arm_name) pair,
     as long as the corresponding trial has some data attached to the experiment.
@@ -266,14 +268,22 @@ def _extract_arm_data(experiment: Experiment) -> DataFrame:
     records: dict[tuple[int, str], TParameterization] = {}
     for trial_index, trial in experiment.trials.items():
         for arm in trial.arms:
-            records[(trial_index, arm.name)] = arm.parameters
+            column_values: dict[str, Any] = arm.parameters
+            metadata = trial._get_candidate_metadata(arm.name) or {}
+            if Keys.TRIAL_COMPLETION_TIMESTAMP not in metadata:
+                if trial._time_completed is not None:
+                    metadata[Keys.TRIAL_COMPLETION_TIMESTAMP] = (
+                        trial._time_completed
+                    ).timestamp()
+            column_values["metadata"] = metadata
+            records[(trial_index, arm.name)] = column_values
     if records:
         df = DataFrame.from_dict(records, orient="index")
         df.index.names = ["trial_index", "arm_name"]
     else:
         # No data, return an empty dataframe with the correct index & columns.
         index = MultiIndex.from_tuples([], names=["trial_index", "arm_name"])
-        df = DataFrame(index=index, columns=list(experiment.parameters))
+        df = DataFrame(index=index, columns=list(experiment.parameters) + ["metadata"])
     return df
 
 
