@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from ax import adapter as adapter_module  # noqa F401
 
 
-OH_PARAM_INFIX = "_OH_PARAM_"
+OH_PARAM_INFIX = "_OH_PARAM"
 
 
 class OneHotEncoder:
