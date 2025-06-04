@@ -33,7 +33,7 @@ from ax.analysis.utils import (
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.trial_status import TrialStatus
+from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.logger import get_logger
@@ -277,12 +277,13 @@ def _prepare_figure(
     candidate_trial = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
     ].max()
-    completed_trials = df[df["trial_status"] == TrialStatus.COMPLETED.name][
+    # Filter out undesired trials like FAILED and ABANDONED trials from plot.
+    trials = df[df["trial_status"].isin([ts.name for ts in STATUSES_EXPECTING_DATA])][
         "trial_index"
     ].unique()
 
-    completed_trials_list = completed_trials.tolist()
-    trial_indices = completed_trials_list.copy()
+    trials_list = trials.tolist()
+    trial_indices = trials_list.copy()
     if not np.isnan(candidate_trial):
         trial_indices.append(candidate_trial)
     scatters = []
@@ -297,7 +298,7 @@ def _prepare_figure(
                 "array": xy_df[f"{x_metric_name}_sem"] * Z_SCORE_95_CI,
                 "color": trial_index_to_color(
                     trial_df=trial_df,
-                    completed_trials_list=completed_trials_list,
+                    trials_list=trials_list,
                     trial_index=trial_index,
                     transparent=True,
                 ),
@@ -308,7 +309,7 @@ def _prepare_figure(
                 "array": xy_df[f"{y_metric_name}_sem"] * Z_SCORE_95_CI,
                 "color": trial_index_to_color(
                     trial_df=trial_df,
-                    completed_trials_list=completed_trials_list,
+                    trials_list=trials_list,
                     trial_index=trial_index,
                     transparent=True,
                 ),
@@ -316,7 +317,7 @@ def _prepare_figure(
         marker = {
             "color": trial_index_to_color(
                 trial_df=trial_df,
-                completed_trials_list=completed_trials_list,
+                trials_list=trials_list,
                 trial_index=trial_index,
                 transparent=False,
             ),

@@ -126,7 +126,7 @@ def get_scatter_point_color(
 
 def trial_index_to_color(
     trial_df: pd.DataFrame,
-    completed_trials_list: list[int],
+    trials_list: list[int],
     trial_index: int,
     transparent: bool,
 ) -> str:
@@ -137,15 +137,19 @@ def trial_index_to_color(
     it calculates a color from the BOTORCH_COLOR_SCALE based on the trial's
     normalized index (relative to all completed trials).
 
+    Note, we are calculating normalized_index here by using the length of the
+    trials list and the index of each trial_index in that list rather than the
+    trial_index associated with each trial. This is done to ensure trial colors
+    are evenly spaced out, even in cases where there are many FAILED trials.
     """
-    max_trial_index = len(completed_trials_list) - 1
+    max_trial_index = len(trials_list) - 1
 
     if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
         return get_scatter_point_color(
             hex_color=LIGHT_AX_BLUE, ci_transparency=transparent
         )
 
-    adj_trial_index = completed_trials_list.index(trial_index)
+    adj_trial_index = trials_list.index(trial_index)
     normalized_index = 0 if max_trial_index == 0 else adj_trial_index / max_trial_index
     color_index = int(normalized_index * (len(BOTORCH_COLOR_SCALE) - 1))
     hex_color = BOTORCH_COLOR_SCALE[color_index]

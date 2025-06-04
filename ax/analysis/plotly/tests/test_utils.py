@@ -20,7 +20,7 @@ from ax.utils.common.testutils import TestCase
 
 class TestUtils(TestCase):
     def test_trial_index_to_color(self) -> None:
-        completed_trials_list = [0, 1, 11]
+        trials_list = [0, 1, 11]
         test_df = pd.DataFrame(
             {
                 "trial_index": [0, 1, 11, 15],  # Trial 15 is a candidate trial
@@ -35,7 +35,7 @@ class TestUtils(TestCase):
         # Test last completed trial is Botorch Blue
         botorch_blue_no_transparency = trial_index_to_color(
             trial_df=test_df.iloc[[2]],
-            completed_trials_list=completed_trials_list,
+            trials_list=trials_list,
             trial_index=11,
             transparent=False,
         )
@@ -47,7 +47,7 @@ class TestUtils(TestCase):
         # Test last completed trial is Botorch Blue with transparency
         botorch_blue_with_transparency = trial_index_to_color(
             trial_df=test_df.iloc[[2]],
-            completed_trials_list=completed_trials_list,
+            trials_list=trials_list,
             trial_index=11,
             transparent=True,
         )
@@ -61,7 +61,7 @@ class TestUtils(TestCase):
         # Test candidate trial is LIGHT_AX_BLUE with transparency
         candidate_light_ax_blue_with_transparency = trial_index_to_color(
             trial_df=test_df.iloc[[3]],
-            completed_trials_list=completed_trials_list,
+            trials_list=trials_list,
             trial_index=15,
             transparent=True,
         )

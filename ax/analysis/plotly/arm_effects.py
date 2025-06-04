@@ -11,7 +11,6 @@ import numpy as np
 
 import pandas as pd
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -32,7 +31,7 @@ from ax.analysis.utils import (
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.trial_status import TrialStatus
+from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
@@ -270,16 +269,17 @@ def _prepare_figure(
     candidate_trial = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
     ].max()
-    completed_trials = df[df["trial_status"] == TrialStatus.COMPLETED.name][
+    # Filter out undesired trials like FAILED and ABANDONED trials from plot.
+    trials = df[df["trial_status"].isin([ts.name for ts in STATUSES_EXPECTING_DATA])][
         "trial_index"
     ].unique()
 
     # Check if candidate_trial is NaN and handle it
-    trial_indices = list(completed_trials)
+    trial_indices = list(trials)
     if not np.isnan(candidate_trial):
         trial_indices.append(candidate_trial)
 
-    completed_trials_list = completed_trials.tolist()
+    trials_list = trials.tolist()
     scatters = []
     for trial_index in trial_indices:
         trial_df = df[df["trial_index"] == trial_index]
@@ -290,7 +290,7 @@ def _prepare_figure(
                 "array": Z_SCORE_95_CI * xy_df[f"{metric_name}_sem"],
                 "color": trial_index_to_color(
                     trial_df=trial_df,
-                    completed_trials_list=completed_trials_list,
+                    trials_list=trials_list,
                     trial_index=trial_index,
                     transparent=True,
                 ),
@@ -300,7 +300,7 @@ def _prepare_figure(
         marker = {
             "color": trial_index_to_color(
                 trial_df=trial_df,
-                completed_trials_list=completed_trials_list,
+                trials_list=trials_list,
                 trial_index=trial_index,
                 transparent=False,
             ),
