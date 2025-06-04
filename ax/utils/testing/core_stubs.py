@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import itertools
 from collections import OrderedDict
-from collections.abc import Iterable, MutableMapping
+from collections.abc import Iterable, Mapping, MutableMapping
 from datetime import datetime, timedelta
 from logging import Logger
 from math import prod
@@ -911,7 +911,7 @@ def get_experiment_with_observations(
     constrained: bool = False,
     with_tracking_metrics: bool = False,
     search_space: SearchSpace | None = None,
-    parameterizations: Sequence[TParameterization] | None = None,
+    parameterizations: Sequence[Mapping[str, TParamValue]] | None = None,
     sems: list[list[float]] | None = None,
     optimization_config: OptimizationConfig | None = None,
 ) -> Experiment:
