@@ -693,18 +693,15 @@ class Client(WithDBSettingsBase):
             else choose_analyses(experiment=self._experiment)
         )
 
-        # Compute Analyses one by one and accumulate Results holding either the
-        # AnalysisCard or an Exception and some metadata
-        results = [
-            analysis.compute_result(
+        # Compute Analyses. If any fails to compute, catch and instead return an
+        # ErrorAnalysisCard which contains the Exception and its associated traceback.
+        cards = [
+            analysis.compute_or_error_card(
                 experiment=self._experiment,
                 generation_strategy=self._generation_strategy,
             )
             for analysis in analyses
         ]
-
-        # Turn Exceptions into MarkdownAnalysisCards with the traceback as the message
-        cards = [result.unwrap_or_else(lambda e: e.error_card()) for result in results]
 
         # Display the AnalysisCards if requested and if the user is in a notebook
         if display:
