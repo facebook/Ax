@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.express as px
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.plotly.color_constants import DISCRETE_ARM_SCALE
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -126,7 +127,7 @@ class BanditRollout(PlotlyAnalysis):
                 "normalized_weight": "Normalized Weight",
                 "arm_name": "Arm Name",
             },
-            color_discrete_sequence=px.colors.qualitative.Alphabet,
+            color_discrete_sequence=DISCRETE_ARM_SCALE,
         )
         return fig
 

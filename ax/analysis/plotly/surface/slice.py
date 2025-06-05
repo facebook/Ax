@@ -11,6 +11,7 @@ from typing import Sequence
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.plotly.color_constants import AX_BLUE
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.surface.utils import (
@@ -19,7 +20,6 @@ from ax.analysis.plotly.surface.utils import (
     select_fixed_value,
 )
 from ax.analysis.plotly.utils import (
-    AX_BLUE,
     get_scatter_point_color,
     select_metric,
     truncate_label,
