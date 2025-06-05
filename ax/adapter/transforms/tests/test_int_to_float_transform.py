@@ -9,15 +9,21 @@
 from copy import deepcopy
 from unittest import mock
 
+import numpy as np
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.int_to_float import IntToFloat, LogIntToFloat
-
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import OrderConstraint, SumConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_robust_search_space
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_robust_search_space,
+)
+from pandas.testing import assert_frame_equal, assert_series_equal
 from pyre_extensions import assert_is_instance
 
 
@@ -40,20 +46,11 @@ class IntToFloatTransformTest(TestCase):
                 )
             ],
         )
-        self.t = IntToFloat(
-            search_space=self.search_space,
-            observations=[],
-        )
+        self.t = IntToFloat(search_space=self.search_space)
         self.t2 = IntToFloat(
-            search_space=self.search_space,
-            observations=[],
-            config={"rounding": "randomized"},
+            search_space=self.search_space, config={"rounding": "randomized"}
         )
-        self.t3 = IntToFloat(
-            search_space=self.search_space,
-            observations=[],
-            config={"min_choices": 3},
-        )
+        self.t3 = IntToFloat(search_space=self.search_space, config={"min_choices": 3})
         self.search_space_with_log = self.search_space.clone()
         assert_is_instance(
             self.search_space_with_log.parameters["a"], RangeParameter
@@ -182,6 +179,67 @@ class IntToFloatTransformTest(TestCase):
         ss2 = self.t4.transform_search_space(ss2)
         self.assertTrue(ss2.parameters["a"].parameter_type, ParameterType.FLOAT)
         self.assertTrue(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
+
+    def test_transform_experiment_data(self) -> None:
+        parameterizations = [
+            {"x": 1.0, "a": 1, "b": "a", "d": 1},
+            {"x": 1.5, "a": 2, "b": "b", "d": 3},
+            {"x": 1.7, "a": 3, "b": "c", "d": 5},
+        ]
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0]],
+            search_space=self.search_space,
+            parameterizations=parameterizations,
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+
+        # Check that the transformed data has float types for 'a' and 'd'.
+        self.assertEqual(transformed_data.arm_data["a"].dtype, np.float64)
+        self.assertEqual(transformed_data.arm_data["d"].dtype, np.float64)
+
+        # Check that the values are the same (just converted to float).
+        assert_series_equal(
+            transformed_data.arm_data["a"], experiment_data.arm_data["a"].astype(float)
+        )
+        assert_series_equal(
+            transformed_data.arm_data["d"], experiment_data.arm_data["d"].astype(float)
+        )
+
+        # Check that other columns remain unchanged.
+        assert_series_equal(
+            transformed_data.arm_data["x"], experiment_data.arm_data["x"]
+        )
+        assert_series_equal(
+            transformed_data.arm_data["b"], experiment_data.arm_data["b"]
+        )
+
+        # Check that observation data is unchanged.
+        assert_frame_equal(
+            transformed_data.observation_data, experiment_data.observation_data
+        )
+
+        # Test with min_choices=3 (only 'd' should be transformed).
+        transformed_data = self.t3.transform_experiment_data(
+            experiment_data=experiment_data
+        )
+
+        # Check that only 'd' is converted to float.
+        self.assertNotEqual(transformed_data.arm_data["a"].dtype, np.float64)
+        self.assertEqual(transformed_data.arm_data["d"].dtype, np.float64)
+
+        # Test with log_scale parameter (both 'a' and 'd' should be transformed).
+        transformed_data = self.t4.transform_experiment_data(
+            experiment_data=experiment_data
+        )
+
+        # Check that both 'a' and 'd' are converted to float.
+        self.assertEqual(transformed_data.arm_data["a"].dtype, np.float64)
+        self.assertEqual(transformed_data.arm_data["d"].dtype, np.float64)
 
     def test_RoundingWithConstrainedIntRanges(self) -> None:
         parameters = [

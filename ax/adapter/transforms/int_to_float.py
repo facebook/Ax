@@ -197,6 +197,16 @@ class IntToFloat(Transform):
 
         return observation_features
 
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        arm_data = experiment_data.arm_data
+        column_to_type = {p: float for p in self.transform_parameters}
+        arm_data = arm_data.astype(dtype=column_to_type)
+        return ExperimentData(
+            arm_data=arm_data, observation_data=experiment_data.observation_data
+        )
+
 
 class LogIntToFloat(IntToFloat):
     """Convert a log-scale RangeParameter of type int to type float.
