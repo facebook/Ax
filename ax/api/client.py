@@ -370,7 +370,7 @@ class Client(WithDBSettingsBase):
             gs = self._generation_strategy_or_choose()
 
             # This will be changed to use gen directly post gen-unfication cc @mgarrard
-            generator_runs = gs.gen_for_multiple_trials_with_multiple_models(
+            generator_runs = gs.gen(
                 experiment=self._experiment,
                 pending_observations=(
                     get_pending_observation_features_based_on_trial_status(

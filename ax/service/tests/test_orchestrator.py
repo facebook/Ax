@@ -391,9 +391,9 @@ class TestAxOrchestrator(TestCase):
         branin_gs = self.sobol_MBM_GS
         with patch.object(
             type(branin_gs),
-            "gen_for_multiple_trials_with_multiple_models",
+            "gen",
             return_value=[[get_generator_run()]],
-        ) as patch_gen_for_multiple_trials_with_multiple_models:
+        ) as patch_gen:
             orchestrator = Orchestrator(
                 experiment=self.branin_experiment,
                 generation_strategy=branin_gs,
@@ -407,7 +407,7 @@ class TestAxOrchestrator(TestCase):
                 OrchestratorInternalError, ".* only one was expected"
             ):
                 orchestrator.run_all_trials()
-            patch_gen_for_multiple_trials_with_multiple_models.assert_called_once()
+            patch_gen.assert_called_once()
 
     def test_run_all_trials_using_runner_and_metrics(self) -> None:
         branin_gs = self.two_sobol_steps_GS
@@ -1384,12 +1384,12 @@ class TestAxOrchestrator(TestCase):
         )
         with patch.object(
             GenerationStrategy,
-            "gen_for_multiple_trials_with_multiple_models",
+            "gen",
             side_effect=OptimizationComplete("test error"),
-        ) as mock_gen_with_multiple_nodes:
+        ) as mock_gen:
             orchestrator.run_n_trials(max_trials=1)
         # no trials should run if _gen_multiple throws an OptimizationComplete error
-        mock_gen_with_multiple_nodes.assert_called_once()
+        mock_gen.assert_called_once()
         self.assertEqual(len(orchestrator.experiment.trials), 0)
 
     @patch(
@@ -1551,17 +1551,17 @@ class TestAxOrchestrator(TestCase):
         )
         self.branin_experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
         gs = orchestrator.generation_strategy
-        gm = gs.gen_for_multiple_trials_with_multiple_models
+        gm = gs.gen
         with patch(  # Record calls to functions, but still execute them.
             self.PENDING_FEATURES_BATCH_EXTRACTOR[0],
             side_effect=self.PENDING_FEATURES_BATCH_EXTRACTOR[1],
         ) as mock_get_pending, patch.object(
             gs,
-            "gen_for_multiple_trials_with_multiple_models",
+            "gen",
             wraps=gm,
-        ) as mock_gen_multi_from_multi:
+        ) as mock_gen:
             orchestrator.run_n_trials(max_trials=1)
-            mock_gen_multi_from_multi.assert_called_once()
+            mock_gen.assert_called_once()
             mock_get_pending.assert_called()
         self.assertEqual(len(orchestrator.experiment.trials), 1)
         trial = assert_is_instance(orchestrator.experiment.trials[0], BatchTrial)
