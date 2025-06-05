@@ -332,27 +332,6 @@ class SQATrial(Base):
     )
 
 
-class SQAAnalysisCard(Base):
-    __tablename__: str = "analysis_card"
-
-    id: Column[int] = Column(Integer, primary_key=True)
-    name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
-    title: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
-    subtitle: Column[str] = Column(Text, nullable=False)
-    level: Column[int] = Column(Integer, nullable=False)
-    dataframe_json: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
-    blob: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
-    blob_annotation: Column[str] = Column(
-        String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False
-    )
-    time_created: Column[datetime] = Column(IntTimestamp, nullable=False)
-    experiment_id: Column[int] = Column(
-        Integer, ForeignKey("experiment_v2.id"), nullable=False
-    )
-    attributes: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
-    category: Column[int] = Column(Integer, nullable=False)
-
-
 class SQAAuxiliaryExperiment(Base):
     __tablename__: str = "auxiliary_experiments"
 
@@ -434,9 +413,6 @@ class SQAExperiment(Base):
         backref=backref("experiment", lazy=True),
         uselist=False,
         lazy=True,
-    )
-    analysis_cards: list[SQAAnalysisCard] = relationship(
-        "SQAAnalysisCard", cascade="all, delete-orphan", lazy="selectin"
     )
     auxiliary_experiments: list[SQAAuxiliaryExperiment] = relationship(
         "SQAAuxiliaryExperiment",

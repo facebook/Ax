@@ -10,7 +10,6 @@ import pandas as pd
 from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
 
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.constraints_feasibility import (
     constraints_feasibility,
     ConstraintsFeasibilityAnalysis,
@@ -161,13 +160,11 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
     def test_compute(self) -> None:
         self.setUp()
         cfa = ConstraintsFeasibilityAnalysis()
-        (card,) = cfa.compute(
+        card = cfa.compute(
             experiment=self.experiment, generation_strategy=self.generation_strategy
         )
         self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
         self.assertEqual(card.subtitle, "All constraints are feasible.")
 
         df_metric_d = pd.DataFrame(
@@ -189,12 +186,11 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         generation_strategy.experiment = experiment
         generation_strategy._curr._fit(experiment=experiment)
         cfa = ConstraintsFeasibilityAnalysis()
-        (card,) = cfa.compute(
+        card = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
         self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Warning")
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
         subtitle = (
             "The constraints feasibility health check utilizes "
             "samples drawn during the optimization process to assess the "
@@ -213,21 +209,19 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             outcome_constraints=[],
         )
         cfa = ConstraintsFeasibilityAnalysis()
-        (card,) = cfa.compute(
+        card = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
         self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.subtitle, "No constraints are specified.")
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
 
     def test_no_optimization_config(self) -> None:
         experiment = get_branin_experiment(has_optimization_config=False)
         cfa = ConstraintsFeasibilityAnalysis()
-        (card,) = cfa.compute(experiment=experiment, generation_strategy=None)
+        card = cfa.compute(experiment=experiment, generation_strategy=None)
         self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.subtitle, "No optimization config is specified.")
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)

@@ -5,16 +5,10 @@
 
 # pyre-strict
 
-from typing import Sequence
 
 from ax.adapter.base import Adapter
 
-from ax.analysis.analysis import (
-    Analysis,
-    AnalysisCard,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
+from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -48,19 +42,15 @@ class Summary(Analysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[AnalysisCard]:
+    ) -> AnalysisCard:
         if experiment is None:
             raise UserInputError("`Summary` analysis requires an `Experiment` input")
 
-        return [
-            self._create_analysis_card(
-                title=(
-                    "Summary for "
-                    f"{experiment.name if experiment.has_name else 'Experiment'}"
-                ),
-                subtitle="High-level summary of the `Trial`-s in this `Experiment`",
-                level=AnalysisCardLevel.MID,
-                df=experiment.to_df(omit_empty_columns=self.omit_empty_columns),
-                category=AnalysisCardCategory.INFO,
-            )
-        ]
+        return self._create_analysis_card(
+            title=(
+                "Summary for "
+                f"{experiment.name if experiment.has_name else 'Experiment'}"
+            ),
+            subtitle="High-level summary of the `Trial`-s in this `Experiment`",
+            df=experiment.to_df(omit_empty_columns=self.omit_empty_columns),
+        )

@@ -6,11 +6,9 @@
 # pyre-strict
 
 from datetime import datetime
-from typing import Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
@@ -50,14 +48,13 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[HealthcheckAnalysisCard]:
+    ) -> HealthcheckAnalysisCard:
         status = HealthcheckStatus.PASS
         subtitle = (
             "The candidate generation health check notifies users "
             "if key criteria for candidate generation are missing. "
         )
         title_status = "Success"
-        level = AnalysisCardLevel.LOW
         if not self.can_generate_candidates:
             subtitle += f"{self.REASON_PREFIX}{self.reason}"
             most_recent_run_time = max(
@@ -70,30 +67,23 @@ class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
             )
             if most_recent_run_time is None:
                 status = HealthcheckStatus.FAIL
-                level = AnalysisCardLevel.HIGH
                 title_status = "Failure"
             else:
                 days_since_last_run = (datetime.now() - most_recent_run_time).days
                 if days_since_last_run > self.days_till_fail:
                     status = HealthcheckStatus.FAIL
-                    level = AnalysisCardLevel.HIGH
                     title_status = "Failure"
                 else:
                     status = HealthcheckStatus.WARNING
-                    level = AnalysisCardLevel.MID
                     title_status = "Warning"
                 subtitle += self.LAST_RUN_TEMPLATE.format(days=days_since_last_run)
         else:
             subtitle += f"{self.reason}"
 
-        return [
-            self._create_healthcheck_analysis_card(
-                title=f"Ax Candidate Generation {title_status}",
-                subtitle=subtitle,
-                df=pd.DataFrame(),
-                level=level,
-                status=status,
-                category=AnalysisCardCategory.DIAGNOSTIC,
-                reason=self.reason,
-            )
-        ]
+        return self._create_healthcheck_analysis_card(
+            title=f"Ax Candidate Generation {title_status}",
+            subtitle=subtitle,
+            df=pd.DataFrame(),
+            status=status,
+            reason=self.reason,
+        )

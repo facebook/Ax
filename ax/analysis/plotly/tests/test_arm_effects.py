@@ -89,7 +89,7 @@ class TestArmEffectsPlot(TestCase):
         cards = default_analysis.compute(
             experiment=self.client._experiment,
             generation_strategy=self.client._generation_strategy,
-        )
+        ).flatten()
 
         # Check that we have cards for both metrics
         self.assertEqual(len(cards), 2)
@@ -136,7 +136,7 @@ class TestArmEffectsPlot(TestCase):
         cards = default_analysis.compute(
             experiment=self.client._experiment,
             generation_strategy=self.client._generation_strategy,
-        )
+        ).flatten()
 
         # Check that we have cards for both metrics
         self.assertEqual(len(cards), 2)
@@ -330,7 +330,7 @@ class TestArmEffectsPlotRel(TestCase):
                 cards = analysis.compute(
                     experiment=self.experiment,
                     generation_strategy=self.generation_strategy,
-                )
+                ).flatten()
 
                 self.assertEqual(len(cards), 1)
 

@@ -6,13 +6,11 @@
 # pyre-strict
 
 
-from typing import Sequence
-
 import markdown
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import Analysis, AnalysisBlobAnnotation, AnalysisCard
+from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardBase
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from IPython.display import Markdown
@@ -20,8 +18,6 @@ from pyre_extensions import override
 
 
 class MarkdownAnalysisCard(AnalysisCard):
-    blob_annotation: AnalysisBlobAnnotation = AnalysisBlobAnnotation.MARKDOWN
-
     def get_markdown(self) -> str:
         return self.blob
 
@@ -43,28 +39,23 @@ class MarkdownAnalysis(Analysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[MarkdownAnalysisCard]: ...
+    ) -> AnalysisCardBase: ...
 
     def _create_markdown_analysis_card(
         self,
         title: str,
         subtitle: str,
-        level: int,
         df: pd.DataFrame,
         message: str,
-        category: int,
     ) -> MarkdownAnalysisCard:
         """
         Make a MarkdownAnalysisCard from this Analysis using provided fields and
         details about the Analysis class.
         """
         return MarkdownAnalysisCard(
-            name=self.name,
-            attributes=self.attributes,
+            name=self.__class__.__name__,
             title=title,
             subtitle=subtitle,
-            level=level,
             df=df,
             blob=message,
-            category=category,
         )
