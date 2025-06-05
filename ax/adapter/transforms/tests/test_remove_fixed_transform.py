@@ -8,8 +8,9 @@
 
 from copy import deepcopy
 
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.remove_fixed import RemoveFixed
-
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
@@ -19,7 +20,11 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_robust_search_space
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_robust_search_space,
+)
+from pandas.testing import assert_frame_equal, assert_series_equal
 
 
 class RemoveFixedTransformTest(TestCase):
@@ -36,10 +41,7 @@ class RemoveFixedTransformTest(TestCase):
                 FixedParameter("c", parameter_type=ParameterType.STRING, value="a"),
             ]
         )
-        self.t = RemoveFixed(
-            search_space=self.search_space,
-            observations=[],
-        )
+        self.t = RemoveFixed(search_space=self.search_space)
 
     def test_Init(self) -> None:
         self.assertEqual(list(self.t.fixed_parameters.keys()), ["c"])
@@ -114,3 +116,56 @@ class RemoveFixedTransformTest(TestCase):
         # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
         self.assertEqual(len(rss._environmental_variables), 2)
         self.assertNotIn("d", rss.parameters)
+
+    def test_transform_experiment_data(self) -> None:
+        parameterizations = [
+            {"a": 1, "b": "a", "c": "a"},
+            {"a": 2, "b": "b", "c": "a"},
+            {"a": 3, "b": "c", "c": "a"},
+        ]
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0]],
+            search_space=self.search_space,
+            parameterizations=parameterizations,
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        copy_experiment_data = deepcopy(experiment_data)
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=copy_experiment_data
+        )
+
+        self.assertIn("c", experiment_data.arm_data)
+        # Check that `c` has been removed.
+        self.assertNotIn("c", transformed_data.arm_data)
+
+        # Check that other columns remain unchanged.
+        assert_series_equal(
+            transformed_data.arm_data["a"], experiment_data.arm_data["a"]
+        )
+        assert_series_equal(
+            transformed_data.arm_data["b"], experiment_data.arm_data["b"]
+        )
+
+        # Check that observation data is unchanged.
+        assert_frame_equal(
+            transformed_data.observation_data, experiment_data.observation_data
+        )
+        self.assertIs(
+            transformed_data.observation_data, copy_experiment_data.observation_data
+        )
+
+        # Test with no fixed features.
+        search_space = self.t.transform_search_space(search_space=self.search_space)
+        t = RemoveFixed(search_space=search_space)
+        copy_transformed_data = deepcopy(transformed_data)
+        transformed_data_2 = t.transform_experiment_data(
+            experiment_data=copy_transformed_data
+        )
+        self.assertEqual(transformed_data_2, transformed_data)
+        self.assertIs(
+            transformed_data_2.observation_data, copy_transformed_data.observation_data
+        )
+        self.assertIsNot(transformed_data_2.arm_data, copy_transformed_data.arm_data)
+        assert_frame_equal(transformed_data_2.arm_data, copy_transformed_data.arm_data)

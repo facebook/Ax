@@ -87,3 +87,11 @@ class RemoveFixed(Transform):
             for p_name, p in self.fixed_parameters.items():
                 obsf.parameters[p_name] = p.value
         return observation_features
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        return ExperimentData(
+            arm_data=experiment_data.arm_data.drop(columns=list(self.fixed_parameters)),
+            observation_data=experiment_data.observation_data,
+        )
