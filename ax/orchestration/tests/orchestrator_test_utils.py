@@ -12,9 +12,9 @@ from random import randint
 from typing import Any
 
 from ax.core.base_trial import BaseTrial, TrialStatus
+from ax.orchestration.orchestrator import Orchestrator
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.orchestrator import Orchestrator
 from pyre_extensions import none_throws
 
 DUMMY_EXCEPTION = "test_exception"
