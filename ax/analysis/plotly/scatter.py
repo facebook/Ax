@@ -385,26 +385,26 @@ def _prepare_figure(
     if "status_quo" in df["arm_name"].values:
         x = df[df["arm_name"] == "status_quo"][f"{x_metric_name}_mean"].iloc[0]
         y = df[df["arm_name"] == "status_quo"][f"{y_metric_name}_mean"].iloc[0]
+        if not np.isnan(x) or not np.isnan(y):
+            figure.add_shape(
+                type="line",
+                yref="paper",
+                x0=x,
+                y0=0,
+                x1=x,
+                y1=1,
+                line={"color": "gray", "dash": "dot"},
+            )
 
-        figure.add_shape(
-            type="line",
-            yref="paper",
-            x0=x,
-            y0=0,
-            x1=x,
-            y1=1,
-            line={"color": "gray", "dash": "dot"},
-        )
-
-        figure.add_shape(
-            type="line",
-            xref="paper",
-            x0=0,
-            y0=y,
-            x1=1,
-            y1=y,
-            line={"color": "gray", "dash": "dot"},
-        )
+            figure.add_shape(
+                type="line",
+                xref="paper",
+                x0=0,
+                y0=y,
+                x1=1,
+                y1=y,
+                line={"color": "gray", "dash": "dot"},
+            )
 
     if show_pareto_frontier:
         # Infeasible arms are not included in the Pareto frontier
