@@ -18,7 +18,7 @@ from ax.analysis.plotly.utils import (
     get_scatter_point_color,
     Z_SCORE_95_CI,
 )
-from ax.analysis.analysis import AnalysisCardBase
+from ax.analysis.analysis_card import AnalysisCardBase
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
 from ax.analysis.plotly.utils import AX_BLUE, get_scatter_point_color, Z_SCORE_95_CI

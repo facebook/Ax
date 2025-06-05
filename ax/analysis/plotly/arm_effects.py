@@ -11,7 +11,7 @@ import numpy as np
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import AnalysisCardBase
+from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_COLOR
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
 from ax.analysis.plotly.utils import (
