@@ -33,7 +33,6 @@ from ax.generators.torch.botorch_modular.generator import (
 )
 from ax.generators.types import TConfig
 from ax.generators.winsorization_config import WinsorizationConfig
-from ax.utils.common.deprecation import _validate_force_random_search
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 
@@ -308,7 +307,6 @@ def choose_generation_strategy_legacy(
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
     derelativize_with_raw_status_quo: bool = False,
-    no_bayesian_optimization: bool | None = None,
     force_random_search: bool = False,
     num_trials: int | None = None,
     num_initialization_trials: int | None = None,
@@ -361,7 +359,6 @@ def choose_generation_strategy_legacy(
             Winsorization when relative constraints are present. Note: automatic
             Winsorization will fail if this is set to `False` (or unset) and there
             are relative constraints present.
-        no_bayesian_optimization: Deprecated. Use `force_random_search`.
         force_random_search: If True, quasi-random generation strategy will be used
             rather than Bayesian optimization.
         num_trials: Total number of trials in the optimization, if
@@ -455,9 +452,6 @@ def choose_generation_strategy_legacy(
     else:  # No additional max parallelism settings, use defaults
         sobol_parallelism = None  # No restriction on Sobol phase
         bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
-
-    # TODO[T199632397] Remove
-    _validate_force_random_search(no_bayesian_optimization, force_random_search)
 
     if not force_random_search and suggested_model is not None:
         if not enforce_sequential_optimization and (
