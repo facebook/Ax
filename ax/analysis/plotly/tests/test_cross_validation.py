@@ -9,11 +9,6 @@ from unittest import mock
 
 from ax.adapter.cross_validation import cross_validate
 from ax.adapter.registry import Generators
-from ax.analysis.analysis import (
-    AnalysisBlobAnnotation,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
 from ax.analysis.plotly.cross_validation import (
     compute_cross_validation_adhoc,
     CrossValidationPlot,
@@ -66,7 +61,9 @@ class TestCrossValidationPlot(TestCase):
         ):
             analysis.compute()
 
-        (card,) = analysis.compute(generation_strategy=self.client.generation_strategy)
+        (card,) = analysis.compute(
+            generation_strategy=self.client.generation_strategy
+        ).flatten()
         self.assertEqual(
             card.name,
             "CrossValidationPlot",
@@ -90,14 +87,12 @@ class TestCrossValidationPlot(TestCase):
                 "is just predicting the mean."
             ),
         )
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
             {"arm_name", "observed", "observed_95_ci", "predicted", "predicted_95_ci"},
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
+
         # Assert that all arms are in the cross validation df
         # because trial index is not specified
         for t in self.client.experiment.trials.values():
@@ -113,7 +108,9 @@ class TestCrossValidationPlot(TestCase):
 
     def test_it_can_specify_trial_index_correctly(self) -> None:
         analysis = CrossValidationPlot(metric_names=["bar"], trial_index=9)
-        (card,) = analysis.compute(generation_strategy=self.client.generation_strategy)
+        (card,) = analysis.compute(
+            generation_strategy=self.client.generation_strategy
+        ).flatten()
         for t in self.client.experiment.trials.values():
             # Skip the last trial because the model was used to generate it
             # and therefore hasn't observed it
@@ -142,7 +139,9 @@ class TestCrossValidationPlot(TestCase):
         adapter = Generators.BOTORCH_MODULAR(
             experiment=self.client.experiment, data=data
         )
-        cards = compute_cross_validation_adhoc(adapter=adapter, labels=metric_mapping)
+        cards = compute_cross_validation_adhoc(
+            adapter=adapter, labels=metric_mapping
+        ).flatten()
         self.assertEqual(len(cards), 2)
         titles = {"Cross Validation for spunky", "Cross Validation for foo2"}
         for card in cards:

@@ -2544,28 +2544,21 @@ class TestAxOrchestrator(TestCase):
         )
 
         with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
-            cards = orchestrator.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+            analysis = ParallelCoordinatesPlot()
+            cards = orchestrator.compute_analyses(analyses=[analysis])
 
             self.assertEqual(len(cards), 1)
+            # TODO[mpolson64] Rethink these tests as we work on storage
             # it saved the error card
-            self.assertIsNotNone(cards[0].db_id)
+            # self.assertIsNotNone(cards[0].db_id)
             self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
             self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
             self.assertEqual(
                 cards[0].subtitle,
-                f"An error occurred while computing {ParallelCoordinatesPlot()}",
+                "ValueError encountered while computing ParallelCoordinatesPlot.",
             )
             self.assertIn("Traceback", cards[0].blob)
-            self.assertTrue(
-                any(
-                    (
-                        "Failed to compute ParallelCoordinatesPlot: "
-                        "No data found for metric "
-                    )
-                    in msg
-                    for msg in lg.output
-                )
-            )
+            self.assertTrue(any("No data found for metric" in msg for msg in lg.output))
         sobol_generator = get_sobol(search_space=self.branin_experiment.search_space)
         sobol_run = sobol_generator.gen(n=1)
         trial = self.branin_experiment.new_trial(generator_run=sobol_run)

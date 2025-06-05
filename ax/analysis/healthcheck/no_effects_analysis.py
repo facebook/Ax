@@ -5,11 +5,9 @@
 
 # pyre-strict
 
-from typing import Sequence
 
 from ax.adapter.base import Adapter
 
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
     HealthcheckAnalysisCard,
@@ -46,7 +44,7 @@ class TestOfNoEffectAnalysis(HealthcheckAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[HealthcheckAnalysisCard]:
+    ) -> HealthcheckAnalysisCard:
         r"""
         Compute the test of no effect separately for all metrics in the
         experiment. If objective metrics are found to not have effects,
@@ -65,8 +63,6 @@ class TestOfNoEffectAnalysis(HealthcheckAnalysis):
         status = HealthcheckStatus.PASS
         subtitle = "Effects are observed for all objective metrics."
         title_status = "Success"
-        level = AnalysisCardLevel.LOW
-        category = AnalysisCardCategory.DIAGNOSTIC
 
         if experiment is None:
             raise UserInputError("TestOfNoEffectAnalysis requires an Experiment.")
@@ -120,13 +116,9 @@ class TestOfNoEffectAnalysis(HealthcheckAnalysis):
             )
             title_status = "Warning"
 
-        return [
-            self._create_healthcheck_analysis_card(
-                title=f"Ax Test of No Effect {title_status}",
-                subtitle=subtitle,
-                df=df_tone,
-                level=level,
-                status=status,
-                category=category,
-            ),
-        ]
+        return self._create_healthcheck_analysis_card(
+            title=f"Ax Test of No Effect {title_status}",
+            subtitle=subtitle,
+            df=df_tone,
+            status=status,
+        )

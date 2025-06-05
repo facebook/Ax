@@ -5,12 +5,11 @@
 
 # pyre-strict
 
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.color_constants import METRIC_CONTINUOUS_COLOR_SCALE
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -52,7 +51,7 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ParallelCoordinatesPlot requires an Experiment")
 
@@ -61,26 +60,22 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
         df = _prepare_data(experiment=experiment, metric=metric_name)
         fig = _prepare_plot(df=df, metric_name=metric_name)
 
-        return [
-            self._create_plotly_analysis_card(
-                title=f"Parallel Coordinates for {metric_name}",
-                subtitle=(
-                    "The parallel coordinates plot displays multi-dimensional "
-                    "data by representing each parameter as a parallel axis. This "
-                    "plot helps in assessing how thoroughly the search space has "
-                    "been explored and in identifying patterns or clusterings "
-                    "associated with high-performing (good) or low-performing (bad) "
-                    "arms. By tracing lines across the axes, one can observe "
-                    "correlations and interactions between parameters, gaining "
-                    "insights into the relationships that contribute to the success "
-                    "or failure of different configurations within the experiment."
-                ),
-                level=AnalysisCardLevel.HIGH,
-                df=df,
-                fig=fig,
-                category=AnalysisCardCategory.INSIGHT,
-            )
-        ]
+        return self._create_plotly_analysis_card(
+            title=f"Parallel Coordinates for {metric_name}",
+            subtitle=(
+                "The parallel coordinates plot displays multi-dimensional "
+                "data by representing each parameter as a parallel axis. This "
+                "plot helps in assessing how thoroughly the search space has "
+                "been explored and in identifying patterns or clusterings "
+                "associated with high-performing (good) or low-performing (bad) "
+                "arms. By tracing lines across the axes, one can observe "
+                "correlations and interactions between parameters, gaining "
+                "insights into the relationships that contribute to the success "
+                "or failure of different configurations within the experiment."
+            ),
+            df=df,
+            fig=fig,
+        )
 
 
 def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:

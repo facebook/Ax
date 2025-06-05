@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_COLOR
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -113,7 +112,7 @@ class ScatterPlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ScatterPlot requires an Experiment")
 
@@ -180,23 +179,19 @@ class ScatterPlot(PlotlyAnalysis):
             else False,
         )
 
-        return [
-            self._create_plotly_analysis_card(
-                title=(
-                    ("Modeled" if self.use_model_predictions else "Observed")
-                    + f" {x_metric_label} vs. {y_metric_label}"
-                ),
-                subtitle=(
-                    "This plot displays the effects of each arm on the two selected "
-                    "metrics. It is useful for understanding the trade-off between "
-                    "the two metrics and for visualizing the Pareto frontier."
-                ),
-                level=AnalysisCardLevel.MID,
-                df=df,
-                fig=figure,
-                category=AnalysisCardCategory.ACTIONABLE,
-            )
-        ]
+        return self._create_plotly_analysis_card(
+            title=(
+                ("Modeled" if self.use_model_predictions else "Observed")
+                + f" {x_metric_label} vs. {y_metric_label}"
+            ),
+            subtitle=(
+                "This plot displays the effects of each arm on the two selected "
+                "metrics. It is useful for understanding the trade-off between "
+                "the two metrics and for visualizing the Pareto frontier."
+            ),
+            df=df,
+            fig=figure,
+        )
 
 
 def compute_scatter_adhoc(
@@ -211,7 +206,7 @@ def compute_scatter_adhoc(
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
     labels: Mapping[str, str] | None = None,
-) -> list[PlotlyAnalysisCard]:
+) -> PlotlyAnalysisCard:
     """
     Compute ScatterPlot cards for the given experiment and either Adapter or
     GenerationStrategy.
@@ -252,13 +247,11 @@ def compute_scatter_adhoc(
         labels=labels,
     )
 
-    return [
-        *analysis.compute(
-            experiment=experiment,
-            generation_strategy=generation_strategy,
-            adapter=adapter,
-        )
-    ]
+    return analysis.compute(
+        experiment=experiment,
+        generation_strategy=generation_strategy,
+        adapter=adapter,
+    )
 
 
 def _prepare_figure(
