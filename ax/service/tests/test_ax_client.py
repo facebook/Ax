@@ -3041,8 +3041,8 @@ class TestAxClient(TestCase):
         )
         with mock.patch.object(
             GenerationStrategy,
-            "gen",
-            wraps=ax_client.generation_strategy.gen,
+            "gen_single_trial",
+            wraps=ax_client.generation_strategy.gen_single_trial,
         ) as mock_gen:
             with self.subTest("fixed_features is None"):
                 ax_client.get_next_trial()
