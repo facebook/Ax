@@ -11,13 +11,10 @@ import numpy as np
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.plotly.color_constants import METRIC_CONTINUOUS_COLOR_SCALE
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import (
-    METRIC_CONTINUOUS_COLOR_SCALE,
-    select_metric,
-    truncate_label,
-)
+from ax.analysis.plotly.utils import select_metric, truncate_label
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
