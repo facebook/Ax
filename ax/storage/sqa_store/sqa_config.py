@@ -37,6 +37,7 @@ from ax.storage.runner_registry import CORE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
+    SQAAnalysisCard,
     SQAArm,
     SQAAuxiliaryExperiment,
     SQAData,
@@ -70,6 +71,7 @@ class SQAConfig:
         # pyre-fixme[7]
         return {
             AbandonedArm: SQAAbandonedArm,
+            AnalysisCard: SQAAnalysisCard,
             Arm: SQAArm,
             Data: SQAData,
             Experiment: SQAExperiment,
