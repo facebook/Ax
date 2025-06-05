@@ -10,6 +10,8 @@ from collections.abc import Sized
 from copy import deepcopy
 
 import numpy as np
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.choice_encode import (
     ChoiceToNumericChoice,
     OrderedChoiceEncode,
@@ -20,7 +22,12 @@ from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_robust_search_space
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_robust_search_space,
+)
+from pandas import DataFrame
+from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
 
@@ -66,10 +73,7 @@ class ChoiceEncodeTransformTest(TestCase):
                 ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5)
             ],
         )
-        self.t = self.t_class(
-            search_space=self.search_space,
-            observations=[],
-        )
+        self.t = self.t_class(search_space=self.search_space)
         self.observation_features = [
             ObservationFeatures(
                 parameters={"x": 2.2, "a": 2, "b": 10.0, "c": 10.0, "d": "r"}
@@ -206,6 +210,79 @@ class ChoiceEncodeTransformTest(TestCase):
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
         self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
         self.assertEqual(rss_new.parameters["c"].parameter_type, ParameterType.INT)
+
+    def test_transform_experiment_data(self) -> None:
+        parameterizations = [
+            {"x": 2.2, "a": 2, "b": 10.0, "c": 10.0, "d": "r", "e": "q"},
+            {"x": 1.0, "a": 1, "b": 1.0, "c": 100.0, "d": "q", "e": "z"},
+            {"x": 1.2, "a": 2, "b": 100.0, "c": 1000.0, "d": "z", "e": "r"},
+        ]
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0]],
+            search_space=self.search_space,
+            parameterizations=parameterizations,
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+
+        # Check that values in arm_data are transformed as expected.
+        if self.t_class is ChoiceToNumericChoice:
+            expected_values = zip(
+                [2.2, 1.0, 1.2],
+                [2, 1, 2],
+                normalize_values([10.0, 1.0, 100.0]),
+                normalize_values([10.0, 100.0, 1000.0]),
+                [1, 0, 2],
+                [1, 2, 0],
+            )
+        elif self.t_class is OrderedChoiceToIntegerRange:
+            expected_values = zip(
+                [2.2, 1.0, 1.2],
+                [2, 1, 2],
+                [1.0, 0.0, 2.0],
+                [0.0, 1.0, 2.0],
+                ["r", "q", "z"],
+                ["q", "z", "r"],
+            )
+        else:
+            raise NotImplementedError
+        expected_arm_data = DataFrame(
+            [
+                {"x": x, "a": a, "b": b, "c": c, "d": d, "e": e}
+                for x, a, b, c, d, e in expected_values
+            ],
+            index=experiment_data.arm_data.index,
+        )
+        assert_frame_equal(
+            transformed_data.arm_data.drop(columns="metadata"), expected_arm_data
+        )
+
+        # Check that observation data is unchanged.
+        assert_frame_equal(
+            transformed_data.observation_data, experiment_data.observation_data
+        )
+
+        # Test with no parameters transformed.
+        # Setting `encoded_parameters` directly to simplify testing.
+        self.t.encoded_parameters = {}
+        copy_experiment_data = deepcopy(experiment_data)
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=copy_experiment_data
+        )
+        # Arm data is same as before but it is not the same object.
+        assert_frame_equal(transformed_data.arm_data, experiment_data.arm_data)
+        self.assertIsNot(transformed_data.arm_data, copy_experiment_data.arm_data)
+        # Observation data is the same object.
+        assert_frame_equal(
+            transformed_data.observation_data, experiment_data.observation_data
+        )
+        self.assertIs(
+            transformed_data.observation_data, copy_experiment_data.observation_data
+        )
 
 
 class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):

@@ -129,6 +129,16 @@ class ChoiceToNumericChoice(Transform):
                         obsf.parameters[p_name] = reverse_transform[pval]
         return observation_features
 
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        return ExperimentData(
+            arm_data=experiment_data.arm_data.replace(
+                to_replace=self.encoded_parameters
+            ),
+            observation_data=experiment_data.observation_data,
+        )
+
 
 class ChoiceEncode(DeprecatedTransformMixin, ChoiceToNumericChoice):
     """Deprecated alias for ChoiceToNumericChoice."""
