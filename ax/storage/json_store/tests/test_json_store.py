@@ -545,7 +545,7 @@ class JSONStoreTest(TestCase):
         # we remove the fake callable kwarg we added, since model does not
         # expect it.
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
-        gr = generation_strategy.gen(experiment)
+        gr = generation_strategy.gen_single_trial(experiment)
         gs_json = object_to_json(
             generation_strategy,
             encoder_registry=CORE_ENCODER_REGISTRY,
@@ -568,7 +568,7 @@ class JSONStoreTest(TestCase):
         generation_strategy = new_generation_strategy
         experiment.new_trial(gr)  # Add previously generated GR as trial.
         # Make generation strategy aware of the trial's data via `gen`.
-        generation_strategy.gen(experiment, data=get_branin_data())
+        generation_strategy.gen_single_trial(experiment, data=get_branin_data())
         gs_json = object_to_json(
             generation_strategy,
             encoder_registry=CORE_ENCODER_REGISTRY,

@@ -140,7 +140,9 @@ class TestAEPsychCriterion(TestCase):
         self.assertFalse(move_to_next_node)
 
         for _i in range(6):
-            experiment.new_trial(generation_strategy.gen(experiment=experiment))
+            experiment.new_trial(
+                generation_strategy.gen_single_trial(experiment=experiment)
+            )
         for trial in experiment.trials.values():
             trial._status = TrialStatus.COMPLETED
 
