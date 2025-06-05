@@ -131,10 +131,10 @@ class TestMetricFetchingErrors(TestCase):
             add_traceback_paste_callable=create_dummy_traceback_pastes
         ).compute(experiment=exp)
         # THEN we get a card with a dataframe of errors
-        self.assertEqual(len(card[0].df), 1)
+        self.assertEqual(len(card.df), 1)
         # AND the dataframe has the right columns in the right order
         self.assertEqual(
-            list(card[0].df.columns),
+            list(card.df.columns),
             [
                 "trial_index",
                 "metric_name",
@@ -144,28 +144,28 @@ class TestMetricFetchingErrors(TestCase):
             ],
         )
         self.assertEqual(
-            card[0].df["trial_index"].iloc[0],
+            card.df["trial_index"].iloc[0],
             0,
         )
         self.assertEqual(
-            card[0].df["metric_name"].iloc[0],
+            card.df["metric_name"].iloc[0],
             "test_metric",
         )
         self.assertEqual(
-            card[0].df["reason"].iloc[0],
+            card.df["reason"].iloc[0],
             "Ran into the following exception: ValueError: "
             "The metric you are fetching is a test metric!",
         )
         self.assertEqual(
-            card[0].df["traceback"].iloc[0],
+            card.df["traceback"].iloc[0],
             "P123",
         )
         self.assertLessEqual(
-            card[0].df["timestamp"].iloc[0],
+            card.df["timestamp"].iloc[0],
             datetime.now().isoformat(),
         )
         self.assertGreaterEqual(
-            card[0].df["timestamp"].iloc[0],
+            card.df["timestamp"].iloc[0],
             (datetime.now() - timedelta(minutes=1)).isoformat(),
         )
 
@@ -188,10 +188,10 @@ class TestMetricFetchingErrors(TestCase):
         # WHEN we compute MetricFetchingErrorsAnalysis without a traceback creator
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
         # THEN we get a card with a dataframe of errors
-        self.assertEqual(len(card[0].df), 1)
+        self.assertEqual(len(card.df), 1)
         # AND the dataframe has the right columns in the right order
         self.assertEqual(
-            list(card[0].df.columns),
+            list(card.df.columns),
             [
                 "trial_index",
                 "metric_name",
@@ -201,24 +201,24 @@ class TestMetricFetchingErrors(TestCase):
             ],
         )
         self.assertEqual(
-            card[0].df["trial_index"].iloc[0],
+            card.df["trial_index"].iloc[0],
             0,
         )
         self.assertEqual(
-            card[0].df["metric_name"].iloc[0],
+            card.df["metric_name"].iloc[0],
             "test_metric",
         )
-        self.assertEqual(card[0].df["reason"].iloc[0], "This is what I do")
+        self.assertEqual(card.df["reason"].iloc[0], "This is what I do")
         self.assertEqual(
-            card[0].df["traceback"].iloc[0],
+            card.df["traceback"].iloc[0],
             "No traceback available",
         )
         self.assertLessEqual(
-            card[0].df["timestamp"].iloc[0],
+            card.df["timestamp"].iloc[0],
             datetime.now().isoformat(),
         )
         self.assertGreaterEqual(
-            card[0].df["timestamp"].iloc[0],
+            card.df["timestamp"].iloc[0],
             (datetime.now() - timedelta(minutes=1)).isoformat(),
         )
 
@@ -242,10 +242,10 @@ class TestMetricFetchingErrors(TestCase):
         # WHEN we compute MetricFetchingErrorsAnalysis
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
         # THEN we get a cards in descending ts order
-        self.assertEqual(len(card[0].df), 2)
+        self.assertEqual(len(card.df), 2)
         self.assertGreater(
-            card[0].df["timestamp"].iloc[0],
-            card[0].df["timestamp"].iloc[1],
+            card.df["timestamp"].iloc[0],
+            card.df["timestamp"].iloc[1],
         )
 
     def test_error_gets_updated_for_same_metric(self) -> None:
@@ -268,8 +268,8 @@ class TestMetricFetchingErrors(TestCase):
 
         self.assertEqual(len(exp._metric_fetching_errors), 1)
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
-        self.assertEqual(len(card[0].df), 1)
-        self.assertGreater(card[0].df["timestamp"].iloc[0], original_ts)
+        self.assertEqual(len(card.df), 1)
+        self.assertGreater(card.df["timestamp"].iloc[0], original_ts)
 
     def test_error_gets_popped_on_successful_fetch(self) -> None:
         # This tests that an error in exp._metric_fetching_errors is popped

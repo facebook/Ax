@@ -14,7 +14,15 @@ from logging import Logger
 from typing import cast, Union
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCard
+from ax.analysis.analysis_card import (
+    AnalysisCard,
+    AnalysisCardBase,
+    AnalysisCardGroup,
+    ErrorAnalysisCard,
+)
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -1097,24 +1105,75 @@ class Decoder:
     def analysis_card_from_sqa(
         self,
         analysis_card_sqa: SQAAnalysisCard,
-    ) -> AnalysisCard:
-        """Convert SQLAlchemy Analysis to Ax Analysis Object."""
-        card = AnalysisCard(
+    ) -> AnalysisCardBase:
+        """Convert SQLAlchemy AnalysisCard to Ax AnalysisCard."""
+        children = analysis_card_sqa.children
+
+        if len(children) > 0:
+            # Decode children and collect index
+            index_to_child_card = {
+                child.order: self.analysis_card_from_sqa(analysis_card_sqa=child)
+                for child in children
+            }
+
+            # Sort children by index
+            children = [card for _order, card in sorted(index_to_child_card.items())]
+
+            return AnalysisCardGroup(
+                name=analysis_card_sqa.name,
+                timestamp=analysis_card_sqa.timestamp,
+                children=children,
+            )
+
+        title = none_throws(analysis_card_sqa.title)
+        subtitle = none_throws(analysis_card_sqa.subtitle)
+        blob = none_throws(analysis_card_sqa.blob)
+        blob_annotation = analysis_card_sqa.blob_annotation
+
+        if blob_annotation == "error":
+            return ErrorAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(analysis_card_sqa.dataframe_json),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+        if blob_annotation == "plotly":
+            return PlotlyAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(analysis_card_sqa.dataframe_json),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+        if blob_annotation == "markdown":
+            return MarkdownAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(analysis_card_sqa.dataframe_json),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+        if blob_annotation == "healthcheck":
+            return HealthcheckAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(analysis_card_sqa.dataframe_json),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+        return AnalysisCard(
             name=analysis_card_sqa.name,
-            title=analysis_card_sqa.title,
-            subtitle=analysis_card_sqa.subtitle,
-            level=analysis_card_sqa.level,
+            title=title,
+            subtitle=subtitle,
             df=read_json(analysis_card_sqa.dataframe_json),
-            blob=analysis_card_sqa.blob,
-            attributes=(
-                {}
-                if analysis_card_sqa.attributes == ""
-                else json.loads(analysis_card_sqa.attributes)
-            ),
-            category=analysis_card_sqa.category,
+            blob=blob,
+            timestamp=analysis_card_sqa.timestamp,
         )
-        card.db_id = analysis_card_sqa.id
-        return card
 
     def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
         """Convert SQLAlchemy Metric to Ax Metric"""

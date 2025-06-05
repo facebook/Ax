@@ -5,11 +5,6 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import (
-    AnalysisBlobAnnotation,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
 from ax.analysis.plotly.surface.contour import compute_contour_adhoc, ContourPlot
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
@@ -85,7 +80,7 @@ class TestContourPlot(TestCase):
         ):
             analysis.compute(experiment=self.client.experiment)
 
-        (card,) = analysis.compute(
+        card = analysis.compute(
             experiment=self.client.experiment,
             generation_strategy=self.client.generation_strategy,
         )
@@ -95,14 +90,11 @@ class TestContourPlot(TestCase):
         )
         self.assertEqual(card.title, self.expected_title)
         self.assertEqual(card.subtitle, self.expected_subtitle)
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
             self.expected_cols,
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         # Assert that any row where sampled is True has a value of x that is
         # sampled in at least one trial.
@@ -128,7 +120,7 @@ class TestContourPlot(TestCase):
         self.assertTrue(card.df["sampled"].sum() <= len(self.client.experiment.trials))
 
     def test_compute_adhoc(self) -> None:
-        (card,) = compute_contour_adhoc(
+        card = compute_contour_adhoc(
             x_parameter_name="x",
             y_parameter_name="y",
             metric_name="bar",
@@ -141,11 +133,8 @@ class TestContourPlot(TestCase):
         )
         self.assertEqual(card.title, self.expected_title)
         self.assertEqual(card.subtitle, self.expected_subtitle)
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual({*card.df.columns}, self.expected_cols)
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         # Assert that any row where sampled is True has a value of x that is
         # sampled in at least one trial.
