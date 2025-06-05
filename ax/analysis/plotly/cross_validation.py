@@ -11,15 +11,17 @@ from typing import Mapping, Sequence
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate, CVResult
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.color_constants import AX_BLUE
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
 from ax.analysis.plotly.utils import (
-    get_nudge_value,
     get_scatter_point_color,
     Z_SCORE_95_CI,
 )
+from ax.analysis.analysis import AnalysisCardBase
+
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
+from ax.analysis.plotly.utils import AX_BLUE, get_scatter_point_color, Z_SCORE_95_CI
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -101,7 +103,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> AnalysisCardBase:
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -120,7 +122,6 @@ class CrossValidationPlot(PlotlyAnalysis):
             k_folds_substring = (
                 f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
             )
-            nudge = get_nudge_value(metric_name=metric_name, experiment=experiment)
 
             # If a human readable metric name is provided, use it in the title
             metric_title = self.labels.get(metric_name, metric_name)
@@ -155,15 +156,15 @@ class CrossValidationPlot(PlotlyAnalysis):
                     "has not picked up on sufficient signal in the data, and instead "
                     "is just predicting the mean."
                 ),
-                level=AnalysisCardLevel.LOW.value + nudge,
                 df=df,
                 fig=fig,
-                category=AnalysisCardCategory.INSIGHT,
             )
 
             cards.append(card)
 
-        return cards
+        return self._create_analysis_card_group_or_card(
+            children=cards,
+        )
 
 
 def compute_cross_validation_adhoc(
@@ -174,7 +175,7 @@ def compute_cross_validation_adhoc(
     experiment: Experiment | None = None,
     generation_strategy: GenerationStrategy | None = None,
     adapter: Adapter | None = None,
-) -> list[PlotlyAnalysisCard]:
+) -> AnalysisCardBase:
     """
     Helper method to expose adhoc cross validation plotting. Only for advanced users in
     a notebook setting.
@@ -216,12 +217,10 @@ def compute_cross_validation_adhoc(
         labels=labels,
     )
 
-    return [
-        *analysis.compute(
-            experiment=experiment,
-            adapter=relevant_adapter,
-        )
-    ]
+    return analysis.compute(
+        experiment=experiment,
+        adapter=relevant_adapter,
+    )
 
 
 def _prepare_data(metric_name: str, cv_results: list[CVResult]) -> pd.DataFrame:

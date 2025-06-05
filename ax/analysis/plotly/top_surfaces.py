@@ -5,9 +5,10 @@
 
 # pyre-strict
 
-from typing import Literal, Sequence
+from typing import Literal
 
 from ax.adapter.base import Adapter
+from ax.analysis.analysis import AnalysisCardBase
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
@@ -37,7 +38,7 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> AnalysisCardBase:
         if experiment is None:
             raise UserInputError(
                 "TopSurfacesAnalysis requires an Experiment to compute."
@@ -48,19 +49,23 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
         else:
             metric_name = select_metric(experiment=experiment)
 
-        (sensitivity_analysis_card,) = SensitivityAnalysisPlot(
-            metric_names=[metric_name],
-            order=self.order,
-            top_k=self.top_k,
-        ).compute(
-            experiment=experiment,
-            generation_strategy=generation_strategy,
-            adapter=adapter,
-        )
-
         # Process the sensitivity analysis card to find the top K surfaces which
         # consist exclusively of tunable parameters (i.e. no fixed parameters, task
         # parameters, or OneHot parameters).
+        (sensitivity_analysis_card,) = (
+            SensitivityAnalysisPlot(
+                metric_names=[metric_name],
+                order=self.order,
+                top_k=self.top_k,
+            )
+            .compute(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            .flatten()
+        )
+
         sensitivity_df = sensitivity_analysis_card.df.copy()
         filtered_df = sensitivity_df[
             sensitivity_df["parameter_name"].apply(
@@ -85,13 +90,9 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
             for surface_name in top_surfaces
         ]
 
-        cards = [sensitivity_analysis_card, *surface_cards]
-
-        # Overwrite the name of the card for grouping purposes during display_analyses.
-        for card in cards:
-            card.name = "TopSurfacesAnalysis"
-
-        return cards
+        return self._create_analysis_card_group(
+            children=[sensitivity_analysis_card, *surface_cards],
+        )
 
 
 def _compute_surface_plot(
@@ -125,10 +126,8 @@ def _compute_surface_plot(
     else:
         analysis = SlicePlot(parameter_name=surface_name, metric_name=metric_name)
 
-    (card,) = analysis.compute(
+    return analysis.compute(
         experiment=experiment,
         generation_strategy=generation_strategy,
         adapter=adapter,
     )
-
-    return card
