@@ -81,3 +81,13 @@ class Logit(Transform):
                     param: float = obsf.parameters[p_name]  # pyre-ignore [9]
                     obsf.parameters[p_name] = expit(param).item()
         return observation_features
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        arm_data = experiment_data.arm_data
+        for p_name in self.transform_parameters:
+            arm_data[p_name] = logit(arm_data[p_name])
+        return ExperimentData(
+            arm_data=arm_data, observation_data=experiment_data.observation_data
+        )
