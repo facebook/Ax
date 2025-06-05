@@ -46,9 +46,9 @@ from ax.core.trial import BaseTrial, Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TParamValue
 from ax.core.utils import get_model_times
-from ax.service.orchestrator import Orchestrator
+from ax.orchestration.orchestrator import Orchestrator
+from ax.orchestration.orchestrator_options import OrchestratorOptions, TrialType
 from ax.service.utils.best_point import get_trace
-from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
 from ax.utils.testing.backend_simulator import BackendSimulator

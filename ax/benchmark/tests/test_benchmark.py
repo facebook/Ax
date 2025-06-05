@@ -58,7 +58,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.service.utils.orchestrator_options import TrialType
+from ax.orchestration.orchestrator_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.logger import get_logger
