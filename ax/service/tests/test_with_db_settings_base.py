@@ -298,7 +298,7 @@ class TestWithDBSettingsBase(TestCase):
         trials = [experiment.new_trial() for _ in range(5)]
         grs = []
         for t in trials:
-            gr = generation_strategy.gen(experiment)
+            gr = generation_strategy.gen_single_trial(experiment)
             grs.append(gr)
             t.add_generator_run(gr)
 

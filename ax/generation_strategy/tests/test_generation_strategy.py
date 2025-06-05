@@ -121,18 +121,18 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
         )
         exp = get_branin_experiment(with_completed_trial=True)
         # Gen with Sobol.
-        exp.new_trial(gs.gen(experiment=exp))
+        exp.new_trial(gs.gen_single_trial(experiment=exp))
         # Model state is not extracted since there is no past GR.
         mock_model_state.assert_not_called()
-        exp.new_trial(gs.gen(experiment=exp))
+        exp.new_trial(gs.gen_single_trial(experiment=exp))
         # Model state is extracted for the model since there is a past GR.
         mock_model_state.assert_called_once()
         mock_model_state.reset_mock()
         # Gen with MBM/BO_MIXED.
-        mbm_gr_1 = gs.gen(experiment=exp)
+        mbm_gr_1 = gs.gen_single_trial(experiment=exp)
         # Model state is not extracted since there is no past GR from this node.
         mock_model_state.assert_not_called()
-        mbm_gr_2 = gs.gen(experiment=exp)
+        mbm_gr_2 = gs.gen_single_trial(experiment=exp)
         # Model state is extracted only once, since there is a GR from only
         # one of these models.
         mock_model_state.assert_called_once()
@@ -140,10 +140,10 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
         self.assertIs(mock_model_state.call_args.kwargs["generator_run"], mbm_gr_1)
         # Change the best model and verify that it generates as well.
         best_model_idx = 1
-        mixed_gr_1 = gs.gen(experiment=exp)
+        mixed_gr_1 = gs.gen_single_trial(experiment=exp)
         # Only one new call for the MBM model.
         self.assertEqual(mock_model_state.call_count, 2)
-        gs.gen(experiment=exp)
+        gs.gen_single_trial(experiment=exp)
         # Two new calls, since we have a GR from the mixed model as well.
         self.assertEqual(mock_model_state.call_count, 4)
         self.assertIs(
@@ -500,9 +500,9 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         for _ in range(5):
-            exp.new_trial(gs.gen(exp))
+            exp.new_trial(gs.gen_single_trial(exp))
         with self.assertRaises(DataRequiredError):
-            gs.gen(exp)
+            gs.gen_single_trial(exp)
 
     def test_do_not_enforce_min_observations(self) -> None:
         # We should be able to move on to the next model if there is not
@@ -521,7 +521,7 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         for _ in range(2):
-            gs.gen(exp)
+            gs.gen_single_trial(exp)
         # Make sure Sobol is used to generate the 6th point.
         self.assertIsInstance(gs.adapter, RandomAdapter)
 
@@ -531,7 +531,7 @@ class TestGenerationStrategy(TestCase):
         gs = self._get_sobol_mbm_step_gs(num_mbm_trials=2)
         expected_seed = None
         for i in range(7):
-            g = gs.gen(exp)
+            g = gs.gen_single_trial(exp)
             exp.new_trial(generator_run=g).run()
             self.assertEqual(len(gs._generator_runs), i + 1)
             if i > 4:
@@ -574,13 +574,13 @@ class TestGenerationStrategy(TestCase):
                 self.assertEqual(ms, {"init_position": i + 1, "seed": expected_seed})
         # Check completeness error message when GS should be done.
         with self.assertRaises(GenerationStrategyCompleted):
-            gs.gen(exp)
+            gs.gen_single_trial(exp)
 
     def test_sobol_MBM_strategy_keep_generating(self) -> None:
         exp = get_branin_experiment()
-        exp.new_trial(generator_run=self.sobol_MBM_step_GS.gen(exp)).run()
+        exp.new_trial(generator_run=self.sobol_MBM_step_GS.gen_single_trial(exp)).run()
         for i in range(1, 15):
-            g = self.sobol_MBM_step_GS.gen(exp)
+            g = self.sobol_MBM_step_GS.gen_single_trial(exp)
             exp.new_trial(generator_run=g).run()
             if i > 4:
                 self.assertIsInstance(self.sobol_MBM_step_GS.adapter, TorchAdapter)
@@ -598,7 +598,7 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         for i in range(1, 6):
-            sobol_generation_strategy.gen(exp, n=1)
+            sobol_generation_strategy.gen_single_trial(exp, n=1)
             self.assertEqual(len(sobol_generation_strategy._generator_runs), i)
 
     # pyre-fixme[56]: Pyre was not able to infer the type of argument
@@ -663,7 +663,7 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         exp = get_branin_experiment()
-        gs.gen(exp)
+        gs.gen_single_trial(exp)
         self.assertFalse(
             assert_is_instance(
                 none_throws(gs.adapter).generator, SobolGenerator
@@ -702,7 +702,7 @@ class TestGenerationStrategy(TestCase):
             steps=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
         )
         self.assertIsNone(sobol_generation_strategy._experiment)
-        sobol_generation_strategy.gen(exp)
+        sobol_generation_strategy.gen_single_trial(exp)
         self.assertIsNotNone(sobol_generation_strategy._experiment)
 
     def test_trials_as_df(self) -> None:
@@ -717,7 +717,7 @@ class TestGenerationStrategy(TestCase):
         with self.assertWarnsRegex(DeprecationWarning, "trials_as_df"):
             self.assertIsNone(sobol_generation_strategy.trials_as_df)
         # Experiment attached with a trial, should match Experiment.to_df().
-        exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
+        exp.new_trial(sobol_generation_strategy.gen_single_trial(experiment=exp))
         with self.assertWarnsRegex(DeprecationWarning, "trials_as_df"):
             trials_df = none_throws(sobol_generation_strategy.trials_as_df)
         self.assertTrue(trials_df.equals(exp.to_df()))
@@ -732,10 +732,10 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         exp.new_trial(
-            generator_run=sobol_generation_strategy.gen(experiment=exp)
+            generator_run=sobol_generation_strategy.gen_single_trial(experiment=exp)
         ).mark_running(no_runner_required=True)
         with self.assertRaises(MaxParallelismReachedException):
-            sobol_generation_strategy.gen(experiment=exp)
+            sobol_generation_strategy.gen_single_trial(experiment=exp)
 
     def test_deduplication_and_fallback(self) -> None:
         # None uses default fallback, which catches
@@ -786,7 +786,7 @@ class TestGenerationStrategy(TestCase):
                 ],
             )
             for _ in range(2):
-                g = sobol.gen(exp)
+                g = sobol.gen_single_trial(exp)
                 exp.new_trial(generator_run=g).run()
 
             self.assertEqual(len(exp.arms_by_signature), 2)
@@ -797,7 +797,7 @@ class TestGenerationStrategy(TestCase):
                 with self.assertRaisesRegex(
                     SearchSpaceExhausted, "Rejection sampling error"
                 ):
-                    g = sobol.gen(exp)
+                    g = sobol.gen_single_trial(exp)
             elif len(fallback_specs) == 0:
                 # With no fallback specs.
                 with self.assertRaisesRegex(
@@ -805,7 +805,7 @@ class TestGenerationStrategy(TestCase):
                 ), mock.patch(
                     "ax.generation_strategy.generation_node.logger.debug"
                 ) as mock_logger:
-                    g = sobol.gen(exp)
+                    g = sobol.gen_single_trial(exp)
                     self.assertEqual(mock_logger.call_count, 5)
                     self.assertIn(
                         "The generator run produced duplicate arms.",
@@ -814,7 +814,7 @@ class TestGenerationStrategy(TestCase):
             else:
                 # With Sobol fallback without generator level deduplication.
                 with self.assertLogs(GenerationNode.__module__, logging.WARNING) as cm:
-                    g = sobol.gen(exp)
+                    g = sobol.gen_single_trial(exp)
                 self.assertTrue(
                     any("gen failed with error" in msg for msg in cm.output)
                 )
@@ -899,14 +899,14 @@ class TestGenerationStrategy(TestCase):
     def test_hierarchical_search_space(self) -> None:
         experiment = get_hierarchical_search_space_experiment()
         self.assertTrue(experiment.search_space.is_hierarchical)
-        self.sobol_GS.gen(experiment=experiment)
+        self.sobol_GS.gen_single_trial(experiment=experiment)
         for _ in range(10):
             # During each iteration, check that all transformed observation features
             # contain all parameters of the flat search space.
             with patch.object(RandomAdapter, "_fit") as mock_model_fit, patch.object(
                 RandomAdapter, "gen"
             ):
-                self.sobol_GS.gen(experiment=experiment)
+                self.sobol_GS.gen_single_trial(experiment=experiment)
                 # We should only fit once for each model
                 self.assertEqual(mock_model_fit.call_count, 1)
                 observations = mock_model_fit.call_args[1].get("observations")
@@ -919,7 +919,7 @@ class TestGenerationStrategy(TestCase):
 
             trial = (
                 experiment.new_trial(
-                    generator_run=self.sobol_GS.gen(experiment=experiment)
+                    generator_run=self.sobol_GS.gen_single_trial(experiment=experiment)
                 )
                 .mark_running(no_runner_required=True)
                 .mark_completed()
@@ -1504,7 +1504,7 @@ class TestGenerationStrategy(TestCase):
         expected_seed = None
 
         for i in range(7):
-            g = self.sobol_MBM_GS_nodes.gen(exp)
+            g = self.sobol_MBM_GS_nodes.gen_single_trial(exp)
             exp.new_trial(generator_run=g).run()
             self.assertEqual(len(self.sobol_MBM_GS_nodes._generator_runs), i + 1)
             if i > 4:
@@ -1552,7 +1552,7 @@ class TestGenerationStrategy(TestCase):
         """
         exp = get_branin_experiment()
         for i in range(7):
-            g = self.sobol_MBM_GS_nodes.gen(exp)
+            g = self.sobol_MBM_GS_nodes.gen_single_trial(exp)
             exp.new_trial(generator_run=g).run()
             self.assertEqual(len(self.sobol_MBM_GS_nodes._generator_runs), i + 1)
         gs_clone = self.sobol_MBM_GS_nodes.clone_reset()
@@ -1589,7 +1589,9 @@ class TestGenerationStrategy(TestCase):
         )
         exp = get_branin_experiment()
         for _ in range(5):
-            trial = exp.new_trial(generator_run=gs.gen(n=1, experiment=exp))
+            trial = exp.new_trial(
+                generator_run=gs.gen_single_trial(n=1, experiment=exp)
+            )
             trial.mark_running(no_runner_required=True)
             exp.attach_data(get_branin_data(trials=[trial]))
             trial.mark_completed()
@@ -1626,10 +1628,10 @@ class TestGenerationStrategy(TestCase):
         exp = get_branin_experiment()
 
         # check that mbm will move to sobol_3 when both are unmet
-        exp.new_trial(generator_run=gs.gen(exp)).run()
-        gs.gen(exp)
+        exp.new_trial(generator_run=gs.gen_single_trial(exp)).run()
+        gs.gen_single_trial(exp)
         self.assertEqual(gs.current_node_name, "mbm")
-        gs.gen(exp)
+        gs.gen_single_trial(exp)
         self.assertEqual(gs.current_node_name, "sobol_3")
 
     def test_transition_edges(self) -> None:
@@ -1663,8 +1665,8 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             gs._curr.transition_edges, {"mbm": self.single_running_trial_criterion}
         )
-        exp.new_trial(generator_run=gs.gen(exp)).run()
-        gs.gen(exp)
+        exp.new_trial(generator_run=gs.gen_single_trial(exp)).run()
+        gs.gen_single_trial(exp)
         self.assertEqual(gs.current_node_name, "mbm")
         self.assertEqual(
             gs._curr.transition_edges,
@@ -2065,7 +2067,7 @@ class TestGenerationStrategy(TestCase):
             trials = []
 
             for _ in range(num_trials_to_gen):
-                gr = gs.gen(
+                gr = gs.gen_single_trial(
                     experiment=exp,
                     pending_observations=get_pending(experiment=exp),
                 )

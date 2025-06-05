@@ -494,7 +494,7 @@ def run_branin_experiment_with_generation_strategy(
     kwargs_for_get_branin_experiment = kwargs_for_get_branin_experiment or {}
     exp = get_branin_experiment(**kwargs_for_get_branin_experiment)
     for _ in range(num_trials):
-        gr = generation_strategy.gen(n=1, experiment=exp)
+        gr = generation_strategy.gen_single_trial(n=1, experiment=exp)
         trial = exp.new_trial(generator_run=gr)
         trial.mark_running(no_runner_required=True)
         exp.attach_data(get_branin_data(trials=[trial]))

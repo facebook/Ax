@@ -412,7 +412,7 @@ class TestDispatchUtils(TestCase):
         sobol = choose_generation_strategy_legacy(
             search_space=get_factorial_search_space(), random_seed=9
         )
-        sobol.gen(experiment=get_experiment(), n=1)
+        sobol.gen_single_trial(experiment=get_experiment(), n=1)
         # First model is actually an adapter, second is the Sobol engine.
         self.assertEqual(
             assert_is_instance(

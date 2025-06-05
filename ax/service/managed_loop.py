@@ -167,7 +167,7 @@ class OptimizationLoop:
     def _get_new_trial(self) -> BaseTrial:
         if self.arms_per_trial == 1:
             return self.experiment.new_trial(
-                generator_run=self.generation_strategy.gen(
+                generator_run=self.generation_strategy.gen_single_trial(
                     experiment=self.experiment,
                     pending_observations=get_pending_observation_features(
                         experiment=self.experiment
@@ -176,7 +176,7 @@ class OptimizationLoop:
             )
         elif self.arms_per_trial > 1:
             return self.experiment.new_batch_trial(
-                generator_run=self.generation_strategy.gen(
+                generator_run=self.generation_strategy.gen_single_trial(
                     experiment=self.experiment, n=self.arms_per_trial
                 )
             )
