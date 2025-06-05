@@ -9,13 +9,13 @@
 from logging import Logger
 from typing import Optional, TYPE_CHECKING
 
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.rounding import (
     contains_constrained_integer,
     randomized_round_parameters,
 )
 from ax.adapter.transforms.utils import construct_new_search_space
-
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -52,11 +52,19 @@ class IntToFloat(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         self.search_space: SearchSpace = none_throws(
             search_space, "IntToFloat requires search space"
+        )
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
         )
         config = config or {}
         self.rounding: str = assert_is_instance(config.get("rounding", "strict"), str)
@@ -201,6 +209,7 @@ class LogIntToFloat(IntToFloat):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
@@ -211,6 +220,7 @@ class LogIntToFloat(IntToFloat):
         super().__init__(
             search_space=search_space,
             observations=observations,
+            experiment_data=experiment_data,
             adapter=adapter,
             config=config,
         )

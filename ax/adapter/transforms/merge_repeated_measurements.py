@@ -13,6 +13,7 @@ from copy import deepcopy
 
 import numpy as np
 from ax.adapter.base import Adapter
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationData, separate_observations
@@ -36,11 +37,19 @@ class MergeRepeatedMeasurements(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         if observations is None:
             raise RuntimeError("MergeRepeatedMeasurements requires observations")
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         # create a mapping of arm_key -> {metric_name: {means: [], vars: []}}
         arm_to_multi_obs: defaultdict[
             str, defaultdict[str, defaultdict[str, list[float]]]

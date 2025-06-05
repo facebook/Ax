@@ -12,6 +12,7 @@ from typing import Callable, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.log_y import match_ci_width
 from ax.core.observation import Observation, ObservationData
@@ -45,16 +46,28 @@ class BilogY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         """Initialize the ``BilogY`` transform.
 
         Args:
-            search_space: The search space of the experiment. Unused.
+            search_space: The search space of the experiment.
             observations: A list of observations from the experiment.
-            adapter: The `Adapter` within which the transform is used.
+            experiment_data: A container for the parameterizations, metadata and
+                observations for the trials in the experiment.
+                Constructed using ``extract_experiment_data``.
+            adapter: Adapter for referencing experiment, status quo, etc.
+            config: A dictionary of options specific to each transform.
         """
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         if observations is None or len(observations) == 0:
             raise DataRequiredError("BilogY requires observations.")
         if adapter is not None and adapter._optimization_config is not None:

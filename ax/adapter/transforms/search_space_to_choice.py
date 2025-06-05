@@ -8,8 +8,8 @@
 
 from typing import Optional, TYPE_CHECKING
 
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-
 from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
@@ -39,6 +39,7 @@ class SearchSpaceToChoice(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
@@ -47,6 +48,8 @@ class SearchSpaceToChoice(Transform):
         super().__init__(
             search_space=search_space,
             observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
             config=config,
         )
         if any(p.is_fidelity for p in search_space.parameters.values()):

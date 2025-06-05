@@ -8,8 +8,8 @@
 
 from typing import Optional, TYPE_CHECKING
 
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
@@ -42,9 +42,17 @@ class ConvertMetricNames(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         assert observations is not None, "ConvertMetricNames requires observations"
         if config is None:
             raise ValueError("Config cannot be none.")

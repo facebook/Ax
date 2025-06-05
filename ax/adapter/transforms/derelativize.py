@@ -45,6 +45,8 @@ class Derelativize(Transform):
     Transform is done in-place.
     """
 
+    no_op_for_experiment_data: bool = True
+
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,

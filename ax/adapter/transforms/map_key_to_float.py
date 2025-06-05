@@ -9,6 +9,7 @@
 from math import isnan
 from typing import Any, Optional, TYPE_CHECKING
 
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.metadata_to_float import MetadataToFloat
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
@@ -46,6 +47,7 @@ class MapKeyToFloat(MetadataToFloat):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
@@ -69,6 +71,7 @@ class MapKeyToFloat(MetadataToFloat):
         super().__init__(
             search_space=search_space,
             observations=observations,
+            experiment_data=experiment_data,
             adapter=adapter,
             config=config,
         )

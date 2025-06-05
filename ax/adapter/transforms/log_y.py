@@ -9,12 +9,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-
 from logging import Logger
 from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -53,6 +53,7 @@ class LogY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: base_adapter.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
@@ -67,6 +68,8 @@ class LogY(Transform):
         super().__init__(
             search_space=search_space,
             observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
             config=config,
         )
         # pyre-fixme[4]: Attribute must be annotated.
