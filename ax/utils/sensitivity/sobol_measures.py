@@ -450,11 +450,9 @@ class SobolSensitivityGPMean:
         second_order: bool = False,
         input_qmc: bool = False,
         num_bootstrap_samples: int = 1,
-        first_order_idcs: torch.Tensor | None = None,
         link_function: Callable[
             [torch.Tensor, torch.Tensor], torch.Tensor
         ] = GaussianLinkMean,
-        mini_batch_size: int = 128,
         discrete_features: list[int] | None = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
@@ -470,13 +468,9 @@ class SobolSensitivityGPMean:
             input_qmc: If True, a qmc Sobol grid is use instead of uniformly random.
             num_bootstrap_samples: If bootstrap is true, the number of bootstraps has
                 to be specified.
-            first_order_idcs: Tensor of previously computed first order indices, where
-                first_order_idcs.shape = torch.Size([dim]).
             link_function: The link function to be used when computing the indices.
                 Indices can be computed for the mean or on samples of the posterior,
                 predictive, but defaults to computing on the mean (GaussianLinkMean).
-            mini_batch_size: The size of the mini-batches used while evaluating the
-                model posterior. Increasing this will increase the memory usage.
             discrete_features: If specified, the inputs associated with the indices in
                 this list are generated using an integer-valued uniform distribution,
                 rather than the default (pseudo-)random continuous uniform distribution.
@@ -903,9 +897,6 @@ def ax_parameter_sens(
         **sobol_kwargs,
     )
     feature_names = digest.feature_names
-    indices_unsigned = array_with_string_indices_to_dict(
-        rows=metrics, cols=feature_names, A=ind.cpu().numpy()
-    )
     if signed:
         ind_deriv = compute_derivatives_from_model_list(
             model_list=model_list,
@@ -932,7 +923,6 @@ def ax_parameter_sens(
             bounds=bounds,
             order="second",
             discrete_features=digest.categorical_features + digest.ordinal_features,
-            first_order_idcs=indices_unsigned,
             **sobol_kwargs,
         )
         second_order_feature_names = [
