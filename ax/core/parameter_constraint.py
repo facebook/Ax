@@ -66,12 +66,10 @@ class ParameterConstraint(SortableBase):
             if parameter_name not in parameter_dict.keys():
                 raise ValueError(f"`{parameter_name}` not present in param_dict.")
 
-        weighted_sum = sum(
+        weighted_sum: float = sum(
             float(parameter_dict[param]) * weight
             for param, weight in self.constraint_dict.items()
         )
-        # Expected `int` for 2nd anonymous parameter to call `int.__le__` but got
-        # `float`.
         return weighted_sum <= self._bound + 1e-8  # allow for numerical imprecision
 
     def clone(self) -> ParameterConstraint:
@@ -267,10 +265,6 @@ def validate_constraint_parameters(parameters: list[Parameter]) -> None:
                 "Parameter constraints only supported for numeric parameters."
             )
 
-        # Constraints on FixedParameters are non-sensical.
-        if isinstance(parameter, FixedParameter):
-            raise ValueError("Parameter constraints not supported for FixedParameter.")
-
         # ChoiceParameters are transformed either using OneHotEncoding
         # or the OrderedChoice transform. Both are non-linear, and
         # Ax models only support linear constraints.
@@ -283,3 +277,10 @@ def validate_constraint_parameters(parameters: list[Parameter]) -> None:
             raise ValueError(
                 "Parameter constraints not allowed on log scale parameters."
             )
+
+    # If all parameters are FixedParameters a constraint does not make sense.
+    if all(isinstance(parameter, FixedParameter) for parameter in parameters):
+        raise ValueError(
+            "Parameter constraints are not supported if all involved parameters "
+            "are of type ``FixedParameter``."
+        )
