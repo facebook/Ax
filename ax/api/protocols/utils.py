@@ -71,7 +71,7 @@ class _APIMetric(MapMetric, ABC):
             record = {
                 "trial_index": trial.index,
                 "arm_name": none_throws(trial.arm).name,
-                "metric_name": self.name,
+                "metric_name": self.signature,
                 self.map_key_info.key: progression,
                 "mean": mean,
                 "sem": sem,
@@ -84,7 +84,9 @@ class _APIMetric(MapMetric, ABC):
             )
         except Exception as e:
             return Err(
-                value=MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+                value=MetricFetchE(
+                    message=f"Failed to fetch {self.signature}", exception=e
+                )
             )
 
 

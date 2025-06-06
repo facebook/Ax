@@ -176,8 +176,8 @@ class StratifiedStandardizeY(Transform):
                     "StratifiedStandardizeY transform does not support relative "
                     f"constraint {c}"
                 )
-            c.bound = (c.bound - self.Ymean[(c.metric.name, strata)]) / self.Ystd[
-                (c.metric.name, strata)
+            c.bound = (c.bound - self.Ymean[(c.metric.signature, strata)]) / self.Ystd[
+                (c.metric.signature, strata)
             ]
         return optimization_config
 
@@ -211,7 +211,7 @@ class StratifiedStandardizeY(Transform):
                     "StratifiedStandardizeY does not support relative constraints"
                 )
             c.bound = float(
-                c.bound * self.Ystd[(c.metric.name, strata)]
-                + self.Ymean[(c.metric.name, strata)]
+                c.bound * self.Ystd[(c.metric.signature, strata)]
+                + self.Ymean[(c.metric.signature, strata)]
             )
         return outcome_constraints

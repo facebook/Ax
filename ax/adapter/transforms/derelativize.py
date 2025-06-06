@@ -96,7 +96,9 @@ class Derelativize(Transform):
             if c.relative:
                 if isinstance(c, ScalarizedOutcomeConstraint):
                     missing_metrics = {
-                        metric.name for metric in c.metrics if metric.name not in f
+                        metric.signature
+                        for metric in c.metrics
+                        if metric.signature not in f
                     }
                     if len(missing_metrics) > 0:
                         raise DataRequiredError(
@@ -107,16 +109,16 @@ class Derelativize(Transform):
                     # sum of its component metrics
                     sq_val = np.sum(
                         [
-                            c.weights[i] * f[metric.name][0]
+                            c.weights[i] * f[metric.signature][0]
                             for i, metric in enumerate(c.metrics)
                         ]
                     )
-                elif c.metric.name in f:
-                    sq_val = f[c.metric.name][0]
+                elif c.metric.signature in f:
+                    sq_val = f[c.metric.signature][0]
                 else:
                     raise DataRequiredError(
                         f"Status-quo metric value not yet available for metric "
-                        f"{c.metric.name}."
+                        f"{c.metric.signature}."
                     )
                 c.bound = derelativize_bound(bound=c.bound, sq_val=sq_val)
                 c.relative = False
@@ -142,12 +144,12 @@ def _warn_if_raw_sq_is_out_of_CI(
     by more than 1.96 standard deviation from the predictions.
     """
     relative_metrics = {
-        oc.metric.name
+        oc.metric.signature
         for oc in optimization_config.all_constraints
         if oc.relative and not isinstance(oc, ScalarizedOutcomeConstraint)
     }.union(
         {
-            metric.name
+            metric.signature
             for oc in optimization_config.all_constraints
             if oc.relative and isinstance(oc, ScalarizedOutcomeConstraint)
             for metric in oc.metrics

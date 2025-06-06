@@ -176,7 +176,7 @@ class TestBenchmarkProblem(TestCase):
                 test_problem.optimal_value, botorch_test_problem._optimal_value
             )
             # test optimization config
-            metric_name = test_problem.optimization_config.objective.metric.name
+            metric_name = test_problem.optimization_config.objective.metric.signature
             self.assertEqual(metric_name, test_problem.name)
             self.assertTrue(test_problem.optimization_config.objective.minimize)
             # test repr method
@@ -188,7 +188,9 @@ class TestBenchmarkProblem(TestCase):
                 outcome_constraint = (
                     test_problem.optimization_config.outcome_constraints[0]
                 )
-                self.assertEqual(outcome_constraint.metric.name, "constraint_slack_0")
+                self.assertEqual(
+                    outcome_constraint.metric.signature, "constraint_slack_0"
+                )
                 self.assertEqual(outcome_constraint.op, ComparisonOp.GEQ)
                 self.assertFalse(outcome_constraint.relative)
                 self.assertEqual(outcome_constraint.bound, 0.0)
@@ -215,7 +217,7 @@ class TestBenchmarkProblem(TestCase):
         opt_config = ax_problem.optimization_config
         outcome_constraints = opt_config.outcome_constraints
         self.assertEqual(
-            [constraint.metric.name for constraint in outcome_constraints],
+            [constraint.metric.signature for constraint in outcome_constraints],
             [f"constraint_slack_{i}" for i in range(botorch_problem.num_constraints)],
         )
         objective = opt_config.objective
@@ -375,13 +377,13 @@ class TestBenchmarkProblem(TestCase):
         objective_metric = assert_is_instance(
             opt_config.objective.metric, BenchmarkMetric
         )
-        self.assertEqual(objective_metric.name, "foo")
+        self.assertEqual(objective_metric.signature, "foo")
         self.assertEqual(objective_metric.observe_noise_sd, True)
         self.assertEqual(objective_metric.lower_is_better, False)
         constraint_metric = assert_is_instance(
             opt_config.outcome_constraints[0].metric, BenchmarkMetric
         )
-        self.assertEqual(constraint_metric.name, "bar")
+        self.assertEqual(constraint_metric.signature, "bar")
         self.assertEqual(constraint_metric.observe_noise_sd, True)
         self.assertEqual(constraint_metric.lower_is_better, False)
 

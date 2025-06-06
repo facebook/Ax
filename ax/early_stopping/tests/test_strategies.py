@@ -86,7 +86,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         )
         test_objective = none_throws(test_experiment.optimization_config).objective
         with self.subTest("provide metric names"):
-            es_strategy = FakeStrategy(metric_names=[test_objective.metric.name])
+            es_strategy = FakeStrategy(metric_names=[test_objective.metric.signature])
             (
                 actual_metric_name,
                 actual_minimize,
@@ -94,7 +94,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
             self.assertEqual(
                 actual_metric_name,
-                test_objective.metric.name,
+                test_objective.metric.signature,
             )
             self.assertEqual(
                 actual_minimize,
@@ -111,7 +111,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
             self.assertEqual(
                 actual_metric_name,
-                test_objective.metric.name,
+                test_objective.metric.signature,
             )
             self.assertEqual(
                 actual_minimize,
@@ -133,7 +133,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )
             self.assertEqual(
                 actual_metric_name,
-                test_multi_objective.objectives[0].metric.name,
+                test_multi_objective.objectives[0].metric.signature,
             )
             self.assertEqual(
                 actual_minimize,
@@ -142,7 +142,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
         with self.subTest("provide metric names -- multi-objective"):
             es_strategy = FakeStrategy(
-                metric_names=[test_multi_objective.objectives[1].metric.name]
+                metric_names=[test_multi_objective.objectives[1].metric.signature]
             )
             (
                 actual_metric_name,
@@ -152,7 +152,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )
             self.assertEqual(
                 actual_metric_name,
-                test_multi_objective.objectives[1].metric.name,
+                test_multi_objective.objectives[1].metric.signature,
             )
             self.assertEqual(
                 actual_minimize,

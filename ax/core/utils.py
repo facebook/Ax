@@ -60,12 +60,12 @@ def get_missing_metrics(
     """
     objective = optimization_config.objective
     if isinstance(objective, MultiObjective):
-        objective_metric_names = [m.name for m in objective.metrics]
+        objective_metric_names = [m.signature for m in objective.metrics]
     else:
-        objective_metric_names = [optimization_config.objective.metric.name]
+        objective_metric_names = [optimization_config.objective.metric.signature]
 
     outcome_constraints_metric_names = [
-        outcome_constraint.metric.name
+        outcome_constraint.metric.signature
         for outcome_constraint in optimization_config.outcome_constraints
     ]
     missing_objectives = {
@@ -147,7 +147,7 @@ def best_feasible_objective(
     """
     # Get objective at each iteration
     objective = optimization_config.objective
-    f = values[objective.metric.name]
+    f = values[objective.metric.signature]
     # Set infeasible points to have infinitely bad values
     infeas_val = np.inf if objective.minimize else -np.inf
     for oc in optimization_config.outcome_constraints:
@@ -155,7 +155,7 @@ def best_feasible_objective(
             raise ValueError(
                 "Benchmark aggregation does not support relative constraints"
             )
-        g = values[oc.metric.name]
+        g = values[oc.metric.signature]
         feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
         f[~feas] = infeas_val
 

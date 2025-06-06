@@ -399,10 +399,10 @@ def extract_objective_thresholds(
     for ot in objective_thresholds:
         if ot.relative:
             raise ValueError(
-                f"Objective {ot.metric.name} has a relative threshold that is not "
+                f"Objective {ot.metric.signature} has a relative threshold that is not "
                 f"supported here."
             )
-        objective_threshold_dict[ot.metric.name] = ot.bound
+        objective_threshold_dict[ot.metric.signature] = ot.bound
 
     # Check that all thresholds correspond to a metric.
     if set(objective_threshold_dict.keys()).difference(set(objective.metric_names)):
@@ -445,14 +445,14 @@ def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.
     if isinstance(objective, ScalarizedObjective):
         s = -1.0 if objective.minimize else 1.0
         for obj_metric, obj_weight in objective.metric_weights:
-            objective_weights[outcomes.index(obj_metric.name)] = obj_weight * s
+            objective_weights[outcomes.index(obj_metric.signature)] = obj_weight * s
     elif isinstance(objective, MultiObjective):
         for obj in objective.objectives:
             s = -1.0 if obj.minimize else 1.0
-            objective_weights[outcomes.index(obj.metric.name)] = s
+            objective_weights[outcomes.index(obj.metric.signature)] = s
     else:
         s = -1.0 if objective.minimize else 1.0
-        objective_weights[outcomes.index(objective.metric.name)] = s
+        objective_weights[outcomes.index(objective.metric.signature)] = s
     return objective_weights
 
 
@@ -468,10 +468,10 @@ def extract_outcome_constraints(
         s = 1 if c.op == ComparisonOp.LEQ else -1
         if isinstance(c, ScalarizedOutcomeConstraint):
             for c_metric, c_weight in c.metric_weights:
-                j = outcomes.index(c_metric.name)
+                j = outcomes.index(c_metric.signature)
                 A[i, j] = s * c_weight
         else:
-            j = outcomes.index(c.metric.name)
+            j = outcomes.index(c.metric.signature)
             A[i, j] = s
         b[i, 0] = s * c.bound
     return (A, b)
@@ -1247,13 +1247,16 @@ def feasible_hypervolume(
     """
     # Get objective at each iteration
     obj_threshold_dict = {
-        ot.metric.name: ot.bound for ot in optimization_config.objective_thresholds
+        ot.metric.signature: ot.bound for ot in optimization_config.objective_thresholds
     }
     f_vals = np.hstack(
-        [values[m.name].reshape(-1, 1) for m in optimization_config.objective.metrics]
+        [
+            values[m.signature].reshape(-1, 1)
+            for m in optimization_config.objective.metrics
+        ]
     )
     obj_thresholds = np.array(
-        [obj_threshold_dict[m.name] for m in optimization_config.objective.metrics]
+        [obj_threshold_dict[m.signature] for m in optimization_config.objective.metrics]
     )
     # Set infeasible points to be the objective threshold
     for oc in optimization_config.outcome_constraints:
@@ -1261,7 +1264,7 @@ def feasible_hypervolume(
             raise ValueError(
                 "Benchmark aggregation does not support relative constraints"
             )
-        g = values[oc.metric.name]
+        g = values[oc.metric.signature]
         feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
         f_vals[~feas] = obj_thresholds
 

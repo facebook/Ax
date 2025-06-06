@@ -41,14 +41,14 @@ class ComputePosteriorParetoFrontierTest(TestCase):
                 self.experiment,
                 self.metrics[0],
                 self.metrics[1],
-                absolute_metrics=[m.name for m in self.metrics],
+                absolute_metrics=[m.signature for m in self.metrics],
             )
         pfr = compute_posterior_pareto_frontier(
             self.experiment,
             self.metrics[0],
             self.metrics[1],
             trial_index=0,
-            absolute_metrics=[m.name for m in self.metrics],
+            absolute_metrics=[m.signature for m in self.metrics],
             num_points=2,
         )
         self.assertIsNone(pfr.arm_names)
@@ -60,6 +60,6 @@ class ComputePosteriorParetoFrontierTest(TestCase):
             self.metrics[0],
             self.metrics[1],
             data=self.experiment.fetch_data(),
-            absolute_metrics=[m.name for m in self.metrics],
+            absolute_metrics=[m.signature for m in self.metrics],
             num_points=2,
         )

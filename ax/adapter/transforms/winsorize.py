@@ -219,7 +219,9 @@ def _get_cutoffs(
         objective = assert_is_instance(
             optimization_config.objective, ScalarizedObjective
         )
-        weight = [w for m, w in objective.metric_weights if m.name == metric_name][0]
+        weight = [w for m, w in objective.metric_weights if m.signature == metric_name][
+            0
+        ]
         # Winsorize from above if the weight is positive and minimize is `True` or the
         # weight is negative and minimize is `False`.
         return _get_auto_winsorization_cutoffs_single_objective(
@@ -273,7 +275,7 @@ def _get_auto_winsorization_cutoffs_multi_objective(
         minimize = [
             objective.minimize
             for objective in objectives.objectives
-            if objective.metric.name == metric_name
+            if objective.metric.signature == metric_name
         ][0]
         return _get_auto_winsorization_cutoffs_single_objective(
             metric_values=metric_values,
@@ -290,7 +292,7 @@ def _obtain_cutoffs_from_outcome_constraints(
     # Check for scalarized outcome constraints for the given metric
     if any(
         isinstance(oc, ScalarizedOutcomeConstraint)
-        and metric_name in [metric.name for metric in oc.metrics]
+        and metric_name in [metric.signature for metric in oc.metrics]
         for oc in optimization_config.outcome_constraints
     ):
         warnings.warn(
@@ -318,7 +320,7 @@ def _get_non_scalarized_outcome_constraints(
         oc
         for oc in optimization_config.outcome_constraints
         if not isinstance(oc, ScalarizedOutcomeConstraint)
-        and oc.metric.name == metric_name
+        and oc.metric.signature == metric_name
     ]
 
 
@@ -329,7 +331,7 @@ def _get_objective_threshold_from_moo_config(
     return [
         ot
         for ot in optimization_config.objective_thresholds
-        if ot.metric.name == metric_name
+        if ot.metric.signature == metric_name
     ]
 
 

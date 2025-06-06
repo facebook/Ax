@@ -128,7 +128,7 @@ class ChemistryMetric(Metric):
             df = pd.DataFrame(
                 {
                     "arm_name": arm_names,
-                    "metric_name": self.name,
+                    "metric_name": self.signature,
                     "mean": mean,
                     "sem": noise_sd,
                     "trial_index": trial.index,
@@ -138,5 +138,5 @@ class ChemistryMetric(Metric):
 
         except Exception as e:
             return Err(
-                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+                MetricFetchE(message=f"Failed to fetch {self.signature}", exception=e)
             )

@@ -1192,16 +1192,17 @@ def validate_transformed_optimization_config(
             )
         if isinstance(c, ScalarizedOutcomeConstraint):
             for c_metric in c.metrics:
-                if c_metric.name not in outcomes:
+                if c_metric.signature not in outcomes:
                     raise DataRequiredError(
-                        f"Scalarized constraint metric component {c.metric.name} "
-                        + "not found in fitted data."
+                        f"Scalarized constraint metric component "
+                        f"{c.metric.signature} not found in fitted data."
                     )
-        elif c.metric.name not in outcomes:
+        elif c.metric.signature not in outcomes:
             raise DataRequiredError(
-                f"Outcome constraint metric {c.metric.name} not found in fitted data."
+                f"Outcome constraint metric {c.metric.signature} not found in fitted "
+                "data."
             )
-    obj_metric_names = [m.name for m in optimization_config.objective.metrics]
+    obj_metric_names = [m.signature for m in optimization_config.objective.metrics]
     for obj_metric_name in obj_metric_names:
         if obj_metric_name not in outcomes:
             raise DataRequiredError(

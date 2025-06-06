@@ -49,7 +49,7 @@ class TestMetricWithException(Metric):
         **kwargs: Any,
     ) -> dict[str, MetricFetchResult]:
         return {
-            metric.name: Err(
+            metric.signature: Err(
                 MetricFetchE(
                     message="This is what I do",
                     exception=ValueError(
@@ -74,7 +74,9 @@ class TestMetricNoException(Metric):
         **kwargs: Any,
     ) -> dict[str, MetricFetchResult]:
         return {
-            metric.name: Err(MetricFetchE(message="This is what I do", exception=None))
+            metric.signature: Err(
+                MetricFetchE(message="This is what I do", exception=None)
+            )
             for metric in metrics
         }
 
@@ -91,7 +93,7 @@ class TestMetricSuccess(Metric):
         metrics: Iterable[Metric],
         **kwargs: Any,
     ) -> dict[str, MetricFetchResult]:
-        return {metric.name: Ok(value=TEST_DATA) for metric in metrics}
+        return {metric.signature: Ok(value=TEST_DATA) for metric in metrics}
 
 
 def create_dummy_traceback_pastes(

@@ -89,7 +89,7 @@ class StandardizeY(Transform):
             available_metrics = set(self.Ymean).intersection(set(self.Ystd))
             if isinstance(c, ScalarizedOutcomeConstraint):
                 # check metrics are present.
-                constraint_metrics = {metric.name for metric in c.metrics}
+                constraint_metrics = {metric.signature for metric in c.metrics}
                 if len(constraint_metrics - available_metrics) > 0:
                     raise DataRequiredError(
                         "`StandardizeY` transform requires constraint metric(s) "
@@ -102,7 +102,7 @@ class StandardizeY(Transform):
                 # update bound C to new c = C.bound - sum_i (wi * mu_i)
                 agg_mean = np.sum(
                     [
-                        c.weights[i] * self.Ymean[metric.name]
+                        c.weights[i] * self.Ymean[metric.signature]
                         for i, metric in enumerate(c.metrics)
                     ]
                 )
@@ -111,18 +111,19 @@ class StandardizeY(Transform):
                 # update the weights in the scalarized constraint
                 # new wi = wi * si
                 new_weight = [
-                    c.weights[i] * self.Ystd[metric.name]
+                    c.weights[i] * self.Ystd[metric.signature]
                     for i, metric in enumerate(c.metrics)
                 ]
                 c.weights = new_weight
             else:
-                if c.metric.name not in available_metrics:
+                if c.metric.signature not in available_metrics:
                     raise DataRequiredError(
                         "`StandardizeY` transform requires constraint metric(s) "
-                        f"{c.metric.name} but got {available_metrics}"
+                        f"{c.metric.signature} but got {available_metrics}"
                     )
                 c.bound = float(
-                    (c.bound - self.Ymean[c.metric.name]) / self.Ystd[c.metric.name]
+                    (c.bound - self.Ymean[c.metric.signature])
+                    / self.Ystd[c.metric.signature]
                 )
         return optimization_config
 
@@ -150,7 +151,7 @@ class StandardizeY(Transform):
             if isinstance(c, ScalarizedOutcomeConstraint):
                 raise ValueError("ScalarizedOutcomeConstraint not supported")
             c.bound = float(
-                c.bound * self.Ystd[c.metric.name] + self.Ymean[c.metric.name]
+                c.bound * self.Ystd[c.metric.signature] + self.Ymean[c.metric.signature]
             )
         return outcome_constraints
 

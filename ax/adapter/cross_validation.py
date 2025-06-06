@@ -304,7 +304,7 @@ def has_good_opt_config_model_fit(
     # Bad fit criteria: Any objective metrics are poorly fit
     # TODO[]: Incl. outcome constraints in assessment
     has_good_opt_config_fit = all(
-        (m.name in assess_model_fit_result.good_fit_metrics_to_fisher_score)
+        (m.signature in assess_model_fit_result.good_fit_metrics_to_fisher_score)
         for m in optimization_config.objective.metrics
     )
     return has_good_opt_config_fit

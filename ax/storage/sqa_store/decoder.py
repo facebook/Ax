@@ -280,9 +280,11 @@ class Decoder:
         # has type Dict[str, Optional[Runner]] but is used as type
         # Uniont[Dict[str, Optional[Runner]], Dict[str, None]]
         experiment._trial_type_to_runner = trial_type_to_runner
-        sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
+        sqa_metric_dict = {
+            metric.signature: metric for metric in experiment_sqa.metrics
+        }
         for tracking_metric in tracking_metrics:
-            sqa_metric = sqa_metric_dict[tracking_metric.name]
+            sqa_metric = sqa_metric_dict[tracking_metric.signature]
             experiment.add_tracking_metric(
                 tracking_metric,
                 trial_type=none_throws(sqa_metric.trial_type),
@@ -1135,6 +1137,14 @@ class Decoder:
         )
         args["name"] = metric_sqa.name
         args["lower_is_better"] = metric_sqa.lower_is_better
+        args["signature"] = (
+            metric_sqa.signature
+            if metric_sqa.signature is not None
+            else metric_sqa.name
+        )
+        args["label"] = (
+            metric_sqa.label if metric_sqa.label is not None else metric_sqa.name
+        )
 
         args = metric_class.deserialize_init_args(args=args)
         metric = metric_class(**args)
@@ -1148,15 +1158,15 @@ class Decoder:
             )
         if metric_sqa.scalarized_objective_weight is not None:
             raise SQADecodeError(
-                f"The metric {metric.name} corresponding to regular objective does not "
-                "have weight attribute"
+                f"The metric {metric.signature} corresponding to regular objective "
+                "does not have weight attribute"
             )
         # Resolve any conflicts between ``lower_is_better`` and ``minimize``.
         minimize = metric_sqa.minimize
         if metric.lower_is_better is not None and metric.lower_is_better != minimize:
             logger.warning(
-                f"Metric {metric.name} has {metric.lower_is_better=} but objective "
-                f"specifies {minimize=}. Overwriting ``lower_is_better`` to match "
+                f"Metric {metric.signature} has {metric.lower_is_better=} but objective"
+                f" specifies {minimize=}. Overwriting ``lower_is_better`` to match "
                 f"the optimization direction {minimize=}."
             )
             metric.lower_is_better = minimize

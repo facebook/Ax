@@ -287,9 +287,13 @@ class TestInstantiationtUtils(TestCase):
         objectives = InstantiationBase.make_objectives(
             {"branin": "minimize", "currin": "maximize"}
         )
-        branin_metric = [o.minimize for o in objectives if o.metric.name == "branin"]
+        branin_metric = [
+            o.minimize for o in objectives if o.metric.signature == "branin"
+        ]
         self.assertTrue(branin_metric[0])
-        currin_metric = [o.minimize for o in objectives if o.metric.name == "currin"]
+        currin_metric = [
+            o.minimize for o in objectives if o.metric.signature == "currin"
+        ]
         self.assertFalse(currin_metric[0])
 
     def test_make_optimization_config(self) -> None:
@@ -347,7 +351,9 @@ class TestInstantiationtUtils(TestCase):
                 outcome_constraints=[],
                 status_quo_defined=False,
             )
-            self.assertEqual(single_optimization_config.objective.metric.name, "branin")
+            self.assertEqual(
+                single_optimization_config.objective.metric.signature, "branin"
+            )
 
     def test_single_valued_choice_to_fixed_param_conversion(self) -> None:
         for use_dependents in [True, False]:

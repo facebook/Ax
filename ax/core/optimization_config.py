@@ -119,17 +119,19 @@ class OptimizationConfig(Base):
     @property
     def metrics(self) -> dict[str, Metric]:
         constraint_metrics = {
-            oc.metric.name: oc.metric
+            oc.metric.signature: oc.metric
             for oc in self.all_constraints
             if not isinstance(oc, ScalarizedOutcomeConstraint)
         }
         scalarized_constraint_metrics = {
-            metric.name: metric
+            metric.signature: metric
             for oc in self.all_constraints
             if isinstance(oc, ScalarizedOutcomeConstraint)
             for metric in oc.metrics
         }
-        objective_metrics = {metric.name: metric for metric in self.objective.metrics}
+        objective_metrics = {
+            metric.signature: metric for metric in self.objective.metrics
+        }
         return {
             **constraint_metrics,
             **scalarized_constraint_metrics,
@@ -195,14 +197,14 @@ class OptimizationConfig(Base):
         outcome_constraints: list[OutcomeConstraint],
     ) -> None:
         constraint_metrics = [
-            constraint.metric.name for constraint in outcome_constraints
+            constraint.metric.signature for constraint in outcome_constraints
         ]
         for metric in unconstrainable_metrics:
-            if metric.name in constraint_metrics:
+            if metric.signature in constraint_metrics:
                 raise ValueError("Cannot constrain on objective metric.")
 
         def get_metric_name(oc: OutcomeConstraint) -> str:
-            return oc.metric.name
+            return oc.metric.signature
 
         sorted_constraints = sorted(outcome_constraints, key=get_metric_name)
         for metric_name, constraints_itr in groupby(
@@ -365,7 +367,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         """Get a mapping from objective metric name to the corresponding
         threshold.
         """
-        return {ot.metric.name: ot for ot in self._objective_thresholds}
+        return {ot.metric.signature: ot for ot in self._objective_thresholds}
 
     @staticmethod
     def _validate_transformed_optimization_config(
@@ -399,7 +401,9 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         outcome_constraints = outcome_constraints or []
         objective_thresholds = objective_thresholds or []
         if isinstance(objective, MultiObjective):
-            objectives_by_name = {obj.metric.name: obj for obj in objective.objectives}
+            objectives_by_name = {
+                obj.metric.signature: obj for obj in objective.objectives
+            }
             check_objective_thresholds_match_objectives(
                 objectives_by_name=objectives_by_name,
                 objective_thresholds=objective_thresholds,
@@ -434,7 +438,7 @@ def check_objective_thresholds_match_objectives(
     """
     obj_thresh_metrics = set()
     for threshold in objective_thresholds:
-        metric_name = threshold.metric.name
+        metric_name = threshold.metric.signature
         if metric_name not in objectives_by_name:
             raise UserInputError(
                 f"Objective threshold {threshold} is on metric '{metric_name}', "

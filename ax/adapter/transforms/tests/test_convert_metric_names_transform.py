@@ -106,7 +106,7 @@ class ConvertMetricNamesTest(TestCase):
     def test_MultipleMetrics(self) -> None:
         # Create copy of online metric for offline
         online_metric = copy(self.experiment.metrics["m1"])
-        online_metric._name = "m3"
+        online_metric._name = online_metric._signature = "m3"
         self.experiment.add_tracking_metric(online_metric, "type2", "m4")
         tconfig = tconfig_from_mt_experiment(self.experiment)
         ConvertMetricNames(None, observations=self.observations, config=tconfig)

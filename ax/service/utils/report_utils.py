@@ -123,7 +123,7 @@ def _get_objective_trace_plot(
     metric_names = (
         metric_name
         for metric_name in [
-            optimization_config.objective.metric.name,
+            optimization_config.objective.metric.signature,
             true_objective_metric_name,
         ]
         if metric_name is not None
@@ -135,7 +135,7 @@ def _get_objective_trace_plot(
             metric_colname=metric_name,
             minimize=none_throws(
                 optimization_config.objective.minimize
-                if optimization_config.objective.metric.name == metric_name
+                if optimization_config.objective.metric.signature == metric_name
                 else experiment.metrics[metric_name].lower_is_better
             ),
             title=f"Best {metric_name} found vs. trial index",
@@ -500,7 +500,7 @@ def get_standard_plots(
         if map_metrics:
             # Sort so that objective metrics appear first
             map_metrics.sort(
-                key=lambda e: e.name in [m.name for m in objective.metrics],
+                key=lambda e: e.signature in [m.signature for m in objective.metrics],
                 reverse=True,
             )
             for by_walltime in [False, True]:
@@ -590,9 +590,9 @@ def _get_curve_plot_dropdown(
             )
         )
         map_df = subsampled_data.map_df
-        metric_df = map_df[map_df["metric_name"] == m.name]
+        metric_df = map_df[map_df["metric_name"] == m.signature]
         xs, ys, legend_labels, plot_stopping_markers = [], [], [], []
-        is_early_stopping_metric = m.name in early_stopping_metrics
+        is_early_stopping_metric = m.signature in early_stopping_metrics
         for trial_idx, df_g in metric_df.groupby("trial_index"):
             if experiment.trials[trial_idx].status not in (
                 TrialStatus.COMPLETED,
@@ -618,10 +618,10 @@ def _get_curve_plot_dropdown(
             )
 
         if len(xs) > 0:
-            xs_by_metric[m.name] = xs
-            ys_by_metric[m.name] = ys
-            legend_labels_by_metric[m.name] = legend_labels
-            stopping_markers_by_metric[m.name] = plot_stopping_markers
+            xs_by_metric[m.signature] = xs
+            ys_by_metric[m.signature] = ys
+            legend_labels_by_metric[m.signature] = legend_labels
+            stopping_markers_by_metric[m.signature] = plot_stopping_markers
 
     if len(xs_by_metric.keys()) == 0:
         return None
@@ -632,17 +632,17 @@ def _get_curve_plot_dropdown(
         else "Curve metrics (i.e., learning curves) by progression"
     )
     return map_data_multiple_metrics_dropdown_plotly(
-        metric_names=[m.name for m in map_metrics],
+        metric_names=[m.signature for m in map_metrics],
         xs_by_metric=xs_by_metric,
         ys_by_metric=ys_by_metric,
         legend_labels_by_metric=legend_labels_by_metric,
         stopping_markers_by_metric=stopping_markers_by_metric,
         title=title,
         xlabels_by_metric={
-            m.name: "wall time" if by_walltime else m.map_key_info.key
+            m.signature: "wall time" if by_walltime else m.map_key_info.key
             for m in map_metrics
         },
-        lower_is_better_by_metric={m.name: m.lower_is_better for m in map_metrics},
+        lower_is_better_by_metric={m.signature: m.lower_is_better for m in map_metrics},
     )
 
 
@@ -836,7 +836,7 @@ def exp_to_df(
             * generation_method
             * any elements of exp.runner.run_metadata_report_keys that are present in
               the trial.run_metadata of each trial
-            * one column per metric (named after the metric.name)
+            * one column per metric (named after the metric.signature)
             * one column per parameter (named after the parameter.name)
     """
 
@@ -869,7 +869,7 @@ def exp_to_df(
 
     # Filter metrics.
     if metrics is not None:
-        metric_names = [m.name for m in metrics]
+        metric_names = [m.signature for m in metrics]
         results = results[results["metric_name"].isin(metric_names)]
 
     # Add `FEASIBLE_COL_NAME` column according to constraints if any.
@@ -1095,7 +1095,7 @@ def _get_metric_name_pairs(
         multi_objective = assert_is_instance(
             none_throws(optimization_config).objective, MultiObjective
         )
-        metric_names = [obj.metric.name for obj in multi_objective.objectives]
+        metric_names = [obj.metric.signature for obj in multi_objective.objectives]
         if len(metric_names) > use_first_n_metrics:
             logger.info(
                 f"Got `metric_names = {metric_names}` of length {len(metric_names)}. "
@@ -1426,7 +1426,7 @@ def maybe_extract_baseline_comparison_values(
         )
         result_list = []
         for objective in multi_objective.objectives:
-            name = objective.metric.name
+            name = objective.metric.signature
             minimize = objective.minimize
             opt_index = (
                 comparison_arm_df[name].idxmin()
@@ -1447,7 +1447,7 @@ def maybe_extract_baseline_comparison_values(
             result_list.append(result_tuple)
         return result_list if result_list else None
 
-    objective_name = optimization_config.objective.metric.name
+    objective_name = optimization_config.objective.metric.signature
     baseline_value = baseline_rows.iloc[0][objective_name]
     comparison_row = comparison_arm_df.iloc[0]
 

@@ -97,7 +97,7 @@ class JenattonTest(TestCase):
         objective = problem.optimization_config.objective
         metric = objective.metric
 
-        self.assertEqual(metric.name, "Jenatton")
+        self.assertEqual(metric.signature, "Jenatton")
         self.assertTrue(objective.minimize)
         self.assertTrue(metric.lower_is_better)
         self.assertEqual(problem.noise_std, 0.0)

@@ -54,7 +54,7 @@ def choose_analyses(experiment: Experiment) -> list[Analysis]:
     # In the single-objective case plot ParallelCoordinates and up to six ScatterPlots
     # for the objective versus other metrics.
     else:
-        objective_name = optimization_config.objective.metric.name
+        objective_name = optimization_config.objective.metric.signature
         # ParallelCoorindates and leave-one-out cross validation
         objective_plots = [
             ParallelCoordinatesPlot(metric_name=objective_name),
@@ -62,7 +62,9 @@ def choose_analyses(experiment: Experiment) -> list[Analysis]:
 
         # Up to six ScatterPlots for other metrics versus the objective,
         # prioritizing optimization config metrics over tracking metrics
-        tracking_metric_names = [metric.name for metric in experiment.tracking_metrics]
+        tracking_metric_names = [
+            metric.signature for metric in experiment.tracking_metrics
+        ]
         other_scatters = [
             ScatterPlot(
                 x_metric_name=objective_name,

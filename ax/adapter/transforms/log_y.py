@@ -92,8 +92,10 @@ class LogY(Transform):
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
-            if c.metric.name in self.metric_names:
-                base_str = f"LogY transform cannot be applied to metric {c.metric.name}"
+            if c.metric.signature in self.metric_names:
+                base_str = (
+                    f"LogY transform cannot be applied to metric {c.metric.signature}"
+                )
                 if c.relative:
                     raise ValueError(
                         f"{base_str} since it is subject to a relative constraint."
@@ -158,7 +160,7 @@ class LogY(Transform):
         fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
         for c in outcome_constraints:
-            if c.metric.name in self.metric_names:
+            if c.metric.signature in self.metric_names:
                 if c.relative:
                     raise ValueError("Unexpected relative transform.")
                 c.bound = np.exp(c.bound)

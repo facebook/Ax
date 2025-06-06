@@ -438,16 +438,16 @@ class Experiment(Base):
         Args:
             metric: Metric to be added.
         """
-        if metric.name in self._tracking_metrics:
+        if metric.signature in self._tracking_metrics:
             raise ValueError(
-                f"Metric `{metric.name}` already defined on experiment. "
+                f"Metric `{metric.signature}` already defined on experiment. "
                 "Use `update_tracking_metric` to update an existing metric definition."
             )
 
         optimization_config = self.optimization_config
-        if optimization_config and metric.name in optimization_config.metrics:
+        if optimization_config and metric.signature in optimization_config.metrics:
             raise ValueError(
-                f"Metric `{metric.name}` already present in experiment's "
+                f"Metric `{metric.signature}` already present in experiment's "
                 "OptimizationConfig. Set a new OptimizationConfig without this metric "
                 "before adding it to tracking metrics."
             )
@@ -455,7 +455,7 @@ class Experiment(Base):
         if isinstance(metric, MapMetric):
             self._default_data_type = DataType.MAP_DATA
 
-        self._tracking_metrics[metric.name] = metric
+        self._tracking_metrics[metric.signature] = metric
         return self
 
     def add_tracking_metrics(self, metrics: list[Metric]) -> Experiment:
@@ -479,10 +479,12 @@ class Experiment(Base):
         Args:
             metric: New metric definition.
         """
-        if metric.name not in self._tracking_metrics:
-            raise ValueError(f"Metric `{metric.name}` doesn't exist on experiment.")
+        if metric.signature not in self._tracking_metrics:
+            raise ValueError(
+                f"Metric `{metric.signature}` doesn't exist on experiment."
+            )
 
-        self._tracking_metrics[metric.name] = metric
+        self._tracking_metrics[metric.signature] = metric
         return self
 
     def remove_tracking_metric(self, metric_name: str) -> Experiment:
@@ -1862,9 +1864,9 @@ class Experiment(Base):
 
         """
         records = {}
-        for metric_name in self.metrics.keys():
-            m = self.metrics[metric_name]
-            records[m.name] = m.summary_dict
+        for metric_signature in self.metrics.keys():
+            m = self.metrics[metric_signature]
+            records[m.signature] = m.summary_dict
         if self.optimization_config is not None:
             opt_config = self.optimization_config
             if self.is_moo_problem:
@@ -1875,23 +1877,23 @@ class Experiment(Base):
             else:
                 objectives = [opt_config.objective]
             for objective in objectives:
-                records[objective.metric.name][METRIC_DF_COLNAMES["goal"]] = (
+                records[objective.metric.signature][METRIC_DF_COLNAMES["goal"]] = (
                     "minimize" if objective.minimize else "maximize"
                 )
 
             for constraint in opt_config.all_constraints:
                 if not isinstance(constraint, ObjectiveThreshold):
-                    records[constraint.metric.name][METRIC_DF_COLNAMES["goal"]] = (
+                    records[constraint.metric.signature][METRIC_DF_COLNAMES["goal"]] = (
                         "constrain"
                     )
                 op = ">= " if constraint.op == ComparisonOp.GEQ else "<= "
                 relative = "%" if constraint.relative else ""
-                records[constraint.metric.name][METRIC_DF_COLNAMES["bound"]] = (
+                records[constraint.metric.signature][METRIC_DF_COLNAMES["bound"]] = (
                     f"{op}{constraint.bound}{relative}"
                 )
 
         for metric in self.tracking_metrics or []:
-            records[metric.name][METRIC_DF_COLNAMES["goal"]] = "track"
+            records[metric.signature][METRIC_DF_COLNAMES["goal"]] = "track"
 
         # Sort metrics rows by purpose and name, then sort columns.
         df = pd.DataFrame(records.values()).fillna(value="None")

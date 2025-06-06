@@ -686,7 +686,7 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
             "Cumulative epochs not supported for problems with outcome constraints."
         )
 
-    objective_name = optimization_config.objective.metric.name
+    objective_name = optimization_config.objective.metric.signature
     data = assert_is_instance(experiment.lookup_data(), MapData)
     map_key = data.map_key_infos[0].key
     map_df = data.map_df
