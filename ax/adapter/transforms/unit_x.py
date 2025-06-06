@@ -34,9 +34,6 @@ class UnitX(Transform):
     Transform is done in-place.
     """
 
-    target_lb: float = 0.0
-    target_range: float = 1.0
-
     def __init__(
         self,
         search_space: SearchSpace | None = None,
@@ -99,9 +96,9 @@ class UnitX(Transform):
                 # p is RangeParameter, but may not be transformed (Int or log)
                 if p_name in self.bounds:
                     l, u = self.bounds[p_name]
-                    new_w = w * (u - l) / self.target_range
+                    new_w = w * (u - l)
                     constraint_dict[p_name] = new_w
-                    bound += self.target_lb * new_w - w * l
+                    bound -= w * l
                 else:
                     constraint_dict[p_name] = w
             new_constraints.append(
@@ -119,9 +116,7 @@ class UnitX(Transform):
                     # pyre: param is declared to have type `float` but is used as
                     # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
                     param: float = obsf.parameters[p_name]
-                    obsf.parameters[p_name] = (
-                        param - self.target_lb
-                    ) / self.target_range * (u - l) + l
+                    obsf.parameters[p_name] = param * (u - l) + l
         return observation_features
 
     def _transform_parameter_distributions(self, search_space: SearchSpace) -> None:
@@ -156,9 +151,7 @@ class UnitX(Transform):
         r"""Transform a univariate distribution in-place."""
         bounds = self.bounds[distribution.parameters[0]]
         p_range = bounds[1] - bounds[0]
-        if p_range == self.target_range and (
-            not is_environmental or bounds[0] == self.target_lb
-        ):
+        if p_range == 1.0 and (not is_environmental or bounds[0] == 0.0):
             # NOTE: This helps avoid raising the error below if using a discrete
             # distribution in cases where we do not need to transform.
             return
@@ -166,12 +159,10 @@ class UnitX(Transform):
         if is_environmental:
             loc = self._normalize_value(loc, bounds)
         else:
-            loc = loc / p_range * self.target_range
+            loc = loc / p_range
         distribution.distribution_parameters["loc"] = loc
         distribution.distribution_parameters["scale"] = (
-            distribution.distribution_parameters.get("scale", 1.0)
-            / p_range
-            * self.target_range
+            distribution.distribution_parameters.get("scale", 1.0) / p_range
         )
         # Check that the distribution is valid after the transform.
         try:
@@ -190,7 +181,7 @@ class UnitX(Transform):
         # Ignore if the ranges of all parameters are same as the target range.
         if (
             all(
-                self.bounds[p_name][1] - self.bounds[p_name][0] == self.target_range
+                self.bounds[p_name][1] - self.bounds[p_name][0] == 1.0
                 for p_name in distribution.parameters
             )
             and not is_environmental
@@ -204,7 +195,7 @@ class UnitX(Transform):
             for i, p in enumerate(distribution.parameters):
                 bounds = self.bounds[p]
                 p_range = bounds[1] - bounds[0]
-                scale_vec[i] = self.target_range / p_range
+                scale_vec[i] = 1.0 / p_range
             cov = np.asarray(distribution.distribution_parameters.get("cov"))
             if cov.shape != (n_dist_params, n_dist_params):
                 raise UserInputError(
@@ -229,7 +220,7 @@ class UnitX(Transform):
                 # then add the target lb.
                 if is_environmental:
                     lbs = np.array([self.bounds[p][0] for p in distribution.parameters])
-                    new_mean = scale_vec * (mean - lbs) + self.target_lb
+                    new_mean = scale_vec * (mean - lbs)
                     distribution.distribution_parameters["mean"] = new_mean
                 else:
                     distribution.distribution_parameters["mean"] = scale_vec * mean
@@ -242,8 +233,18 @@ class UnitX(Transform):
             )
 
     def _normalize_value(self, value: float, bounds: tuple[float, float]) -> float:
-        """Normalize the given value - bounds pair to
-        [self.target_lb, self.target_lb + self.target_range].
-        """
+        """Normalize the given value - bounds pair to [0.0, 1.0]."""
         lower, upper = bounds
-        return (value - lower) / (upper - lower) * self.target_range + self.target_lb
+        return (value - lower) / (upper - lower)
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        arm_data = experiment_data.arm_data
+        if arm_data.empty:
+            return experiment_data
+        for p_name, (l, u) in self.bounds.items():
+            arm_data[p_name] = (arm_data[p_name] - l) / (u - l)
+        return ExperimentData(
+            arm_data=arm_data, observation_data=experiment_data.observation_data
+        )
