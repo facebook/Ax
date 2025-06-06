@@ -1135,6 +1135,14 @@ class Decoder:
         )
         args["name"] = metric_sqa.name
         args["lower_is_better"] = metric_sqa.lower_is_better
+        args["signature"] = (
+            metric_sqa.signature
+            if metric_sqa.signature is not None
+            else metric_sqa.name
+        )
+        args["label"] = (
+            metric_sqa.label if metric_sqa.label is not None else metric_sqa.name
+        )
 
         args = metric_class.deserialize_init_args(args=args)
         metric = metric_class(**args)

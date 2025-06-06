@@ -12,7 +12,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from logging import Logger
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
 from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
@@ -1513,6 +1513,8 @@ class SQAStoreTest(TestCase):
     def test_MetricValidation(self) -> None:
         sqa_metric = SQAMetric(
             name="foobar",
+            signature="foobar",
+            label="foobar",
             intent=MetricIntent.OBJECTIVE,
             metric_type=CORE_METRIC_REGISTRY[BraninMetric],
         )
@@ -1530,6 +1532,8 @@ class SQAStoreTest(TestCase):
 
         sqa_metric = SQAMetric(
             name="foobar",
+            signature="foobar",
+            label="foobar",
             intent=MetricIntent.OBJECTIVE,
             metric_type=CORE_METRIC_REGISTRY[BraninMetric],
             generator_run_id=0,
@@ -1540,6 +1544,24 @@ class SQAStoreTest(TestCase):
             sqa_metric.experiment_id = 0
             with session_scope() as session:
                 session.add(sqa_metric)
+
+    def test_MetricDecodeWithoutSignatureAndLabel(self) -> None:
+        sqa_metric = self.encoder.metric_to_sqa(get_branin_metric())
+        del sqa_metric.__dict__["signature"]
+        del sqa_metric.__dict__["label"]
+        metric = cast(Metric, self.decoder.metric_from_sqa(sqa_metric))
+        self.assertEqual(metric.signature, metric.name)
+        self.assertEqual(metric.label, metric.name)
+
+    def test_MetricEncodeWithoutSignatureAndLabel(self) -> None:
+        metric = get_branin_metric()
+        # pyre-ignore[8]: `_signature` has type `str` but is used as type `None`.
+        metric._signature = None
+        # pyre-ignore[8]: `_signature` has type `str` but is used as type `None`.
+        metric._label = None
+        sqa_metric = self.encoder.metric_to_sqa(metric)
+        self.assertEqual(sqa_metric.signature, sqa_metric.name)
+        self.assertEqual(sqa_metric.label, sqa_metric.name)
 
     def test_MetricEncodeFailure(self) -> None:
         metric = get_branin_metric()
@@ -1609,7 +1631,14 @@ class SQAStoreTest(TestCase):
         # Extract default value.
         properties = serialize_init_args(obj=Metric(name="foo"))
         self.assertEqual(
-            properties, {"name": "foo", "lower_is_better": None, "properties": {}}
+            properties,
+            {
+                "name": "foo",
+                "lower_is_better": None,
+                "properties": {},
+                "signature": "foo",
+                "label": "foo",
+            },
         )
 
         # Extract passed value.
@@ -1618,7 +1647,13 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(
             properties,
-            {"name": "foo", "lower_is_better": True, "properties": {"foo": "bar"}},
+            {
+                "name": "foo",
+                "lower_is_better": True,
+                "properties": {"foo": "bar"},
+                "signature": "foo",
+                "label": "foo",
+            },
         )
 
     def test_RegistryAdditions(self) -> None:
