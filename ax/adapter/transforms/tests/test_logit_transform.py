@@ -8,14 +8,19 @@
 
 from copy import deepcopy
 
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.logit import Logit
-
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_robust_search_space
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_robust_search_space,
+)
+from pandas.testing import assert_frame_equal, assert_series_equal
 from scipy.special import expit, logit
 
 
@@ -55,9 +60,9 @@ class LogitTransformTest(TestCase):
             ]
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def _create_logit_parameter(self, lower, upper, log_scale=False):
+    def _create_logit_parameter(
+        self, lower: float, upper: float, log_scale: bool = False
+    ) -> RangeParameter:
         return RangeParameter(
             "x",
             lower=lower,
@@ -142,3 +147,39 @@ class LogitTransformTest(TestCase):
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)
+
+    def test_transform_experiment_data(self) -> None:
+        parameterizations = [
+            {"x": 0.2, "a": 1, "b": "a"},
+            {"x": 0.5, "a": 2, "b": "b"},
+            {"x": 0.7, "a": 3, "b": "c"},
+        ]
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0]],
+            search_space=self.search_space,
+            parameterizations=parameterizations,
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+
+        # Check that `x` has been log-transformed.
+        assert_series_equal(
+            transformed_data.arm_data["x"], logit(experiment_data.arm_data["x"])
+        )
+
+        # Check that other columns remain unchanged.
+        assert_series_equal(
+            transformed_data.arm_data["a"], experiment_data.arm_data["a"]
+        )
+        assert_series_equal(
+            transformed_data.arm_data["b"], experiment_data.arm_data["b"]
+        )
+
+        # Check that observation data is unchanged.
+        assert_frame_equal(
+            transformed_data.observation_data, experiment_data.observation_data
+        )
