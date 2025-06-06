@@ -17,8 +17,8 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.log_y import match_ci_width
 from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
+from scipy.stats import norm
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -68,8 +68,6 @@ class BilogY(Transform):
             adapter=adapter,
             config=config,
         )
-        if observations is None or len(observations) == 0:
-            raise DataRequiredError("BilogY requires observations.")
         if adapter is not None and adapter._optimization_config is not None:
             # TODO @deriksson: Add support for relative outcome constraints
             self.metric_to_bound: dict[str, float] = {
@@ -117,12 +115,37 @@ class BilogY(Transform):
                     )
         return observation_data
 
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        obs_data = experiment_data.observation_data
+        # This method applies match_ci_width to the corresponding columns.
+        fac = norm.ppf(0.975)
+        for metric, bound in self.metric_to_bound.items():
+            mean = obs_data[("mean", metric)]
+            obs_data[("mean", metric)] = bilog_transform(y=mean, bound=bound)
+            sem = obs_data[("sem", metric)]
+            if sem.isnull().all():
+                # If SEM is NaN, we don't need to transform it.
+                continue
+            d = fac * sem
+            width_asym = bilog_transform(y=mean + d, bound=bound) - bilog_transform(
+                y=mean - d, bound=bound
+            )
+            obs_data[("sem", metric)] = width_asym / (2 * fac)
+        return ExperimentData(
+            arm_data=experiment_data.arm_data, observation_data=obs_data
+        )
+
 
 def bilog_transform(y: npt.NDarray, bound: npt.NDarray) -> npt.NDarray:
     """Bilog transform: f(y) = bound + sign(y - bound) * log(|y - bound| + 1)"""
-    return bound + np.sign(y - bound) * np.log(np.abs(y - bound) + 1)
+    diff = y - bound
+    return bound + np.sign(diff) * np.log(np.abs(diff) + 1)
 
 
 def inv_bilog_transform(y: npt.NDarray, bound: npt.NDarray) -> npt.NDarray:
     """Inverse bilog transform: f(y) = bound + sign(y - bound) * expm1(|y - bound|)"""
-    return bound + np.sign(y - bound) * np.expm1((y - bound) * np.sign(y - bound))
+    diff = y - bound
+    sign = np.sign(diff)
+    return bound + sign * np.expm1(diff * sign)
