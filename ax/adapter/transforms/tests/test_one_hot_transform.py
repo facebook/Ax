@@ -8,14 +8,22 @@
 
 from copy import deepcopy
 
-from ax.adapter.transforms.one_hot import OH_PARAM_INFIX, OneHot
+from ax.adapter.base import DataLoaderConfig
 
+from ax.adapter.data_utils import extract_experiment_data
+
+from ax.adapter.transforms.one_hot import OH_PARAM_INFIX, OneHot
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_robust_search_space
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_robust_search_space,
+)
+from pandas import DataFrame
+from pandas.testing import assert_frame_equal
 
 
 class OneHotTransformTest(TestCase):
@@ -34,9 +42,7 @@ class OneHotTransformTest(TestCase):
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
                 ),
                 ChoiceParameter(
-                    "c",
-                    parameter_type=ParameterType.BOOL,
-                    values=[True, False],
+                    "c", parameter_type=ParameterType.BOOL, values=[True, False]
                 ),
                 ChoiceParameter(
                     "d",
@@ -49,13 +55,9 @@ class OneHotTransformTest(TestCase):
                 ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5)
             ],
         )
-        self.t = OneHot(
-            search_space=self.search_space,
-            observations=[],
-        )
+        self.t = OneHot(search_space=self.search_space)
         self.t2 = OneHot(
             search_space=self.search_space,
-            observations=[],
             config={"rounding": "randomized"},
         )
 
@@ -255,3 +257,55 @@ class OneHotTransformTest(TestCase):
         ]
         untf_obs = self.t.untransform_observation_features(obs_ft)
         self.assertFalse(any(obs.parameters.get("b") == "b" for obs in untf_obs))
+
+    def test_transform_experiment_data(self) -> None:
+        parameterizations = [
+            {"x": 2.2, "a": 2, "b": "b", "c": False, "d": 10.0},
+            {"x": 1.2, "a": 2, "b": "a", "c": False, "d": 100.0},
+        ]
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0]],
+            search_space=self.search_space,
+            parameterizations=parameterizations,
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+
+        # Check that only "b" has been transformed and column names are as expected.
+        base_columns = ["x", "a", "c", "d", "metadata"]
+        transformed_columns = [
+            "b" + OH_PARAM_INFIX + "_0",
+            "b" + OH_PARAM_INFIX + "_1",
+            "b" + OH_PARAM_INFIX + "_2",
+        ]
+        self.assertEqual(
+            set(transformed_data.arm_data),
+            {*base_columns, *transformed_columns},
+        )
+
+        # Untransformed columns are same as before.
+        assert_frame_equal(
+            transformed_data.arm_data[base_columns],
+            experiment_data.arm_data[base_columns],
+        )
+        # Observation data is unchanged.
+        assert_frame_equal(
+            transformed_data.observation_data, experiment_data.observation_data
+        )
+
+        # Transformed columns have correct values.
+        expected_columns = DataFrame(
+            index=transformed_data.arm_data.index,
+            data=[
+                [0.0, 1.0, 0.0],
+                [1.0, 0.0, 0.0],
+            ],
+            columns=transformed_columns,
+        )
+        assert_frame_equal(
+            transformed_data.arm_data[transformed_columns], expected_columns
+        )
