@@ -22,8 +22,8 @@ from ax.utils.sensitivity.derivative_measures import (
     compute_derivatives_from_model_list,
     sample_discrete_parameters,
 )
+from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model, ModelList
-from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import is_ensemble, unnormalize
@@ -444,7 +444,7 @@ def ProbitLinkMean(mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
 class SobolSensitivityGPMean:
     def __init__(
         self,
-        model: Model,  # TODO: narrow type down. E.g. ModelListGP does not work.
+        model: GPyTorchModel,
         bounds: torch.Tensor,
         num_mc_samples: int = 10**4,
         second_order: bool = False,
@@ -461,7 +461,7 @@ class SobolSensitivityGPMean:
         first order indices, total indices and second order indices (if specified ).
 
         Args:
-            model: Botorch model
+            model: BoTorch model whose posterior is a `GPyTorchPosterior`.
             bounds: `2 x d` parameter bounds over which to evaluate model sensitivity.
             method: if "predictive mean", the predictive mean is used for indices
                 computation. If "GP samples", posterior sampling is used instead.
@@ -484,28 +484,25 @@ class SobolSensitivityGPMean:
         self.model = model
         self.second_order = second_order
         self.input_qmc = input_qmc
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.bootstrap = num_bootstrap_samples > 1
+        self.bootstrap: bool = num_bootstrap_samples > 1
         self.num_bootstrap_samples = num_bootstrap_samples
         self.num_mc_samples = num_mc_samples
 
         def input_function(x: Tensor) -> Tensor:
             with torch.no_grad():
-                means, variances = [], []
-                # Since we're only looking at mean & variance, we can freely
-                # use mini-batches.
-                for x_split in x.split(split_size=mini_batch_size):
-                    p = assert_is_instance(
-                        self.model.posterior(x_split),
-                        GPyTorchPosterior,
-                    )
-                    means.append(p.mean)
-                    variances.append(p.variance)
-
-            cat_dim = 1 if is_ensemble(self.model) else 0
-            return link_function(
-                torch.cat(means, dim=cat_dim), torch.cat(variances, dim=cat_dim)
-            )
+                # We only need variances, not covariances, so we use the batch
+                # dimension, turning x from (*batch_dim, n, d) to
+                # (*batch_dim, n, 1, d)
+                p = self.model.posterior(x.unsqueeze(-2))
+                mean = p.mean.squeeze(-2)
+                variance = p.variance.squeeze(-2)
+            if is_ensemble(self.model):
+                # If x has shape [n, d],
+                # the mean will have shape [n, s, m], where 's' is the ensemble
+                # size. Reshape to [s, n, m]
+                mean = torch.swapaxes(mean, -2, -3)
+                variance = torch.swapaxes(variance, -2, -3)
+            return link_function(mean, variance)
 
         self.sensitivity = SobolSensitivity(
             bounds=bounds,
@@ -796,7 +793,7 @@ class SobolSensitivityGPSampling:
 
 
 def compute_sobol_indices_from_model_list(
-    model_list: list[Model],
+    model_list: list[GPyTorchModel],
     bounds: Tensor,
     order: str = "first",
     discrete_features: list[int] | None = None,
@@ -974,7 +971,7 @@ def _get_generator_and_digest(
 
 def _get_model_per_metric(
     generator: LegacyBoTorchGenerator | ModularBoTorchGenerator, metrics: list[str]
-) -> list[Model]:
+) -> list[GPyTorchModel]:
     """For a given TorchGenerator model, returns a list of botorch.models.model.Model
     objects corresponding to - and in the same order as - the given metrics.
     """
@@ -984,7 +981,7 @@ def _get_model_per_metric(
         model_idx = [generator.metric_names.index(m) for m in metrics]
         if not isinstance(gp_model, ModelList):
             if gp_model.num_outputs == 1:  # can accept single output models
-                return [gp_model for _ in model_idx]
+                return [assert_is_instance(gp_model, GPyTorchModel) for _ in model_idx]
             raise NotImplementedError(
                 f"type(adapter.generator.model) = {type(gp_model)}, "
                 "but only ModelList is supported."
