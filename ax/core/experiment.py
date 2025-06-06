@@ -21,7 +21,7 @@ import ax.core.observation as observation
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import BaseTrial
+from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
 from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
@@ -713,6 +713,7 @@ class Experiment(Base):
                 trials=trials,
                 **kwargs,
             )
+
             contains_new_data = contains_new_data or new_results_contains_new_data
 
             # Merge in results
@@ -820,6 +821,8 @@ class Experiment(Base):
             )
         cur_time_millis = current_timestamp_in_millis()
         for trial_index, trial_df in data.true_df.groupby(data.true_df["trial_index"]):
+            if not isinstance(data, MapData):
+                trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
             # Overwrite `df` so that `data` only has current trial data.
             data_init_args["df"] = trial_df
             current_trial_data = (
