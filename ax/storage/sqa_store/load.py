@@ -9,7 +9,6 @@
 from math import ceil
 from typing import Any, cast
 
-from ax.analysis.analysis import AnalysisCard
 from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -24,7 +23,6 @@ from ax.storage.sqa_store.reduced_state import (
     get_query_options_to_defer_large_model_cols,
 )
 from ax.storage.sqa_store.sqa_classes import (
-    SQAAnalysisCard,
     SQAAuxiliaryExperiment,
     SQAExperiment,
     SQAGenerationStrategy,
@@ -637,28 +635,3 @@ def _get_generation_strategy_sqa_immutable_opt_config_and_search_space(
             lazyload("generator_runs.metrics"),
         ],
     )
-
-
-def load_analysis_cards_by_experiment_name(
-    experiment_name: str,
-    config: SQAConfig | None = None,
-) -> list[AnalysisCard]:
-    """Loads analysis cards for an experiment."""
-    config = SQAConfig() if config is None else config
-    decoder = Decoder(config=config)
-    analysis_card_sqa_class: SQAAnalysisCard = cast(
-        SQAAnalysisCard, decoder.config.class_to_sqa_class[AnalysisCard]
-    )
-    exp_sqa_class: SQAExperiment = cast(
-        SQAExperiment, decoder.config.class_to_sqa_class[Experiment]
-    )
-    with session_scope() as session:
-        analysis_cards_sqa = (
-            session.query(analysis_card_sqa_class)
-            .join(exp_sqa_class.analysis_cards)
-            .filter(exp_sqa_class.name == experiment_name)
-        )
-    return [
-        decoder.analysis_card_from_sqa(analysis_card_sqa=analysis_card_sqa)
-        for analysis_card_sqa in analysis_cards_sqa
-    ]

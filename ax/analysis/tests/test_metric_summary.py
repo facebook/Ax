@@ -6,11 +6,6 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.analysis import (
-    AnalysisBlobAnnotation,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
 from ax.analysis.metric_summary import MetricSummary
 from ax.api.client import Client
 from ax.core.metric import Metric
@@ -40,7 +35,7 @@ class TestMetricSummary(TestCase):
             analysis.compute()
 
         experiment = client._experiment
-        (card,) = analysis.compute(experiment=experiment)
+        card = analysis.compute(experiment=experiment)
 
         # Test metadata
         self.assertEqual(card.name, "MetricSummary")
@@ -49,10 +44,7 @@ class TestMetricSummary(TestCase):
             card.subtitle,
             "High-level summary of the `Metric`-s in this `Experiment`",
         )
-        self.assertEqual(card.level, AnalysisCardLevel.MID)
-        self.assertEqual(card.category, AnalysisCardCategory.INFO)
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.DATAFRAME)
 
         # Test dataframe for accuracy
         self.assertEqual(

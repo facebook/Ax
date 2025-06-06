@@ -5,11 +5,9 @@
 
 # pyre-strict
 
-from typing import Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
     HealthcheckAnalysisCard,
@@ -51,7 +49,7 @@ class RegressionAnalysis(HealthcheckAnalysis):
         experiment: Experiment | None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[HealthcheckAnalysisCard]:
+    ) -> HealthcheckAnalysisCard:
         r"""
         Detect the regressing arms for all trials that have data.
 
@@ -108,16 +106,12 @@ class RegressionAnalysis(HealthcheckAnalysis):
             subtitle = subtitle_base + "No metric regessions detected."
             title_status = "Success"
 
-        return [
-            self._create_healthcheck_analysis_card(
-                title=f"Ax Regression Analysis {title_status}",
-                subtitle=subtitle,
-                df=regressions_by_trial_df,
-                level=AnalysisCardLevel.LOW,
-                status=status,
-                category=AnalysisCardCategory.DIAGNOSTIC,
-            ),
-        ]
+        return self._create_healthcheck_analysis_card(
+            title=f"Ax Regression Analysis {title_status}",
+            subtitle=subtitle,
+            df=regressions_by_trial_df,
+            status=status,
+        )
 
 
 def process_regression_dict(
