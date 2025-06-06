@@ -8,10 +8,14 @@
 
 from copy import deepcopy
 
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
-
 from ax.core.observation import ObservationFeatures
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_experiment_with_observations
+from pandas.testing import assert_frame_equal
 
 
 class FillMissingParametersTransformTest(TestCase):
@@ -52,3 +56,45 @@ class FillMissingParametersTransformTest(TestCase):
         t = FillMissingParameters(config={})
         obs_ft3 = t.transform_observation_features(deepcopy(observation_features))
         self.assertEqual(obs_ft3, observation_features)
+
+    def test_transform_experiment_data(self) -> None:
+        parameterizations = [
+            {"x": 0.0},
+            {"x": 1.0, "y": 0.0},
+            {"x": None, "y": None},
+        ]
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0]],
+            parameterizations=parameterizations,
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        # Check that arm_data has NaNs as expected.
+        self.assertEqual(experiment_data.arm_data["x"].isna().sum(), 1)
+        self.assertEqual(experiment_data.arm_data["y"].isna().sum(), 2)
+
+        # Transform and see that NaNs are filled.
+        t = FillMissingParameters(config={"fill_values": {"x": 2.0, "y": 1.0}})
+        transformed_data = t.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+        self.assertEqual(transformed_data.arm_data["x"].tolist(), [0.0, 1.0, 2.0])
+        self.assertEqual(transformed_data.arm_data["y"].tolist(), [1.0, 0.0, 1.0])
+        assert_frame_equal(
+            transformed_data.observation_data, experiment_data.observation_data
+        )
+
+        # Nothing happens if no fill values are given.
+        t = FillMissingParameters(config={})
+        transformed_data = t.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+        self.assertEqual(transformed_data, experiment_data)
+
+        # Check for error if fill_None is False.
+        t = FillMissingParameters(
+            config={"fill_values": {"x": 2.0, "y": 1.0}, "fill_None": False}
+        )
+        with self.assertRaisesRegex(UnsupportedError, "ExperimentData"):
+            t.transform_experiment_data(experiment_data=experiment_data)
