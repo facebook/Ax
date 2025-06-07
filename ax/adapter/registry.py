@@ -266,14 +266,18 @@ class ModelRegistryBase(Enum):
     """
 
     @property
+    def model_key_to_model_setup(self) -> dict[str, ModelSetup]:
+        return MODEL_KEY_TO_MODEL_SETUP
+
+    @property
     def model_class(self) -> type[Generator]:
         """Type of `Model` used for the given model+adapter setup."""
-        return MODEL_KEY_TO_MODEL_SETUP[self.value].model_class
+        return self.model_key_to_model_setup[self.value].model_class
 
     @property
     def adapter_class(self) -> type[Adapter]:
         """Type of `Adapter` used for the given model+adapter setup."""
-        return MODEL_KEY_TO_MODEL_SETUP[self.value].adapter_class
+        return self.model_key_to_model_setup[self.value].adapter_class
 
     def __call__(
         self,
@@ -283,9 +287,9 @@ class ModelRegistryBase(Enum):
         silently_filter_kwargs: bool = False,
         **kwargs: Any,
     ) -> Adapter:
-        if self.value not in MODEL_KEY_TO_MODEL_SETUP:
+        if self.value not in self.model_key_to_model_setup:
             raise UserInputError(f"Unknown model {self.value}")
-        model_setup_info = MODEL_KEY_TO_MODEL_SETUP[self.value]
+        model_setup_info = self.model_key_to_model_setup[self.value]
         model_class = model_setup_info.model_class
         adapter_class = model_setup_info.adapter_class
         if experiment is None:
@@ -393,7 +397,7 @@ class ModelRegistryBase(Enum):
         Returns:
             A tuple of default keyword arguments for the model and the adapter.
         """
-        model_setup_info = none_throws(MODEL_KEY_TO_MODEL_SETUP.get(self.value))
+        model_setup_info = none_throws(self.model_key_to_model_setup.get(self.value))
         return (
             self._get_model_kwargs(info=model_setup_info),
             self._get_bridge_kwargs(info=model_setup_info),
