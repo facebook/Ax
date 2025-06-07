@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import warnings
-from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
@@ -23,26 +22,16 @@ from ax.adapter.cross_validation import (
     CVResult,
     get_fit_and_std_quality_and_generalization_dict,
 )
-from ax.adapter.registry import ModelRegistryBase
-
+from ax.adapter.registry import GeneratorRegistryBase
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
-from ax.exceptions.core import AxWarning, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
-from ax.utils.common.kwargs import (
-    consolidate_kwargs,
-    filter_kwargs,
-    get_function_argument_names,
-)
+from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.serialization import SerializationMixin
 from pyre_extensions import none_throws
-
-
-TModelFactory = Callable[..., Adapter]
 
 
 class GeneratorSpecJSONEncoder(json.JSONEncoder):
@@ -55,9 +44,9 @@ class GeneratorSpecJSONEncoder(json.JSONEncoder):
 
 @dataclass
 class GeneratorSpec(SortableBase, SerializationMixin):
-    model_enum: ModelRegistryBase
-    # Kwargs to pass into the `Model` + `Adapter` constructors in
-    # `ModelRegistryBase.__call__`.
+    generator_enum: GeneratorRegistryBase
+    # Kwargs to pass into the `Adapter` + `Generator` constructors in
+    # `GeneratorRegistryBase.__call__`.
     model_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `Adapter.gen`.
     model_gen_kwargs: dict[str, Any] = field(default_factory=dict)
@@ -69,7 +58,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
 
     # Fitted model, constructed using specified `model_kwargs` and `Data`
     # on `GeneratorSpec.fit`
-    _fitted_model: Adapter | None = None
+    _fitted_adapter: Adapter | None = None
 
     # Stored cross validation results set in cross validate.
     _cv_results: list[CVResult] | None = None
@@ -89,10 +78,10 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         self.model_cv_kwargs = self.model_cv_kwargs or {}
 
     @property
-    def fitted_model(self) -> Adapter:
-        """Returns the fitted Ax model, asserting fit() was called"""
+    def fitted_adapter(self) -> Adapter:
+        """Returns the fitted adapter, asserting fit() was called"""
         self._assert_fitted()
-        return none_throws(self._fitted_model)
+        return none_throws(self._fitted_adapter)
 
     @property
     def fixed_features(self) -> ObservationFeatures | None:
@@ -114,7 +103,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         if self.model_key_override is not None:
             return self.model_key_override
         else:
-            return self.model_enum.value
+            return self.generator_enum.value
 
     def fit(
         self,
@@ -132,21 +121,23 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         # adding contents of `model_kwargs` passed to this method, to
         # `self.model_kwargs`.
         combined_model_kwargs = {**self.model_kwargs, **model_kwargs}
-        if self._fitted_model is not None and self._safe_to_update(
+        if self._fitted_adapter is not None and self._safe_to_update(
             experiment=experiment, combined_model_kwargs=combined_model_kwargs
         ):
             # Update the data on the adapter and call `_fit`.
             # This will skip model fitting if the data has not changed.
-            observations, search_space = self.fitted_model._process_and_transform_data(
-                experiment=experiment, data=data
+            observations, search_space = (
+                self.fitted_adapter._process_and_transform_data(
+                    experiment=experiment, data=data
+                )
             )
-            self.fitted_model._fit_if_implemented(
+            self.fitted_adapter._fit_if_implemented(
                 search_space=search_space, observations=observations, time_so_far=0.0
             )
 
         else:
             # Fit from scratch.
-            self._fitted_model = self.model_enum(
+            self._fitted_adapter = self.generator_enum(
                 experiment=experiment,
                 data=data,
                 **combined_model_kwargs,
@@ -185,10 +176,10 @@ class GeneratorSpec(SortableBase, SerializationMixin):
 
         self._assert_fitted()
         try:
-            self._cv_results = cross_validate(model=self.fitted_model, **cv_kwargs)
+            self._cv_results = cross_validate(model=self.fitted_adapter, **cv_kwargs)
         except NotImplementedError:
             warnings.warn(
-                f"{self.model_enum.value} cannot be cross validated", stacklevel=2
+                f"{self.generator_enum.value} cannot be cross validated", stacklevel=2
             )
             return None, None
 
@@ -229,17 +220,17 @@ class GeneratorSpec(SortableBase, SerializationMixin):
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
         """
-        fitted_model = self.fitted_model
+        fitted_adapter = self.fitted_adapter
         model_gen_kwargs = consolidate_kwargs(
             kwargs_iterable=[self.model_gen_kwargs, model_gen_kwargs],
-            keywords=get_function_argument_names(fitted_model.gen),
+            keywords=get_function_argument_names(fitted_adapter.gen),
         )
         # copy to ensure there is no in-place modification
         model_gen_kwargs = deepcopy(model_gen_kwargs)
-        generator_run = fitted_model.gen(**model_gen_kwargs)
+        generator_run = fitted_adapter.gen(**model_gen_kwargs)
         fit_and_std_quality_and_generalization_dict = (
             get_fit_and_std_quality_and_generalization_dict(
-                fitted_adapter=self.fitted_model,
+                fitted_adapter=self.fitted_adapter,
             )
         )
         generator_run._gen_metadata = (
@@ -255,7 +246,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         Copying is useful to avoid changes to a singleton model spec.
         """
         return self.__class__(
-            model_enum=self.model_enum,
+            generator_enum=self.generator_enum,
             model_kwargs=deepcopy(self.model_kwargs),
             model_gen_kwargs=deepcopy(self.model_gen_kwargs),
             model_cv_kwargs=deepcopy(self.model_cv_kwargs),
@@ -294,7 +285,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
 
     def _assert_fitted(self) -> None:
         """Helper that verifies a model was fitted, raising an error if not"""
-        if self._fitted_model is None:
+        if self._fitted_adapter is None:
             raise UserInputError("No fitted model found. Call fit() to generate one")
 
     def _brief_repr(self) -> str:
@@ -302,7 +293,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         Includes just name and override, but not the various kwargs"""
         return (
             "GeneratorSpec("
-            f"\tmodel_enum={self.model_enum.value}, "
+            f"\tgenerator_enum={self.generator_enum.value}, "
             f"\tmodel_key_override={self.model_key_override}"
             ")"
         )
@@ -319,7 +310,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         )
         return (
             "GeneratorSpec("
-            f"\tmodel_enum={self.model_enum.value}, "
+            f"\tgenerator_enum={self.generator_enum.value}, "
             f"\tmodel_kwargs={model_kwargs}, "
             f"\tmodel_gen_kwargs={model_gen_kwargs}, "
             f"\tmodel_cv_kwargs={model_cv_kwargs}, "
@@ -338,72 +329,3 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         """Returns the unique ID of this model spec"""
         # TODO @mgarrard verify that this is unique enough
         return str(hash(self))
-
-
-@dataclass
-class FactoryFunctionGeneratorSpec(GeneratorSpec):
-    factory_function: TModelFactory | None = None
-    # pyre-ignore[15]: `GeneratorSpec` has this as non-optional
-    model_enum: ModelRegistryBase | None = None
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        if self.model_enum is not None:
-            raise UserInputError(
-                "Use regular `GeneratorSpec` when it's possible to describe the "
-                "model as `ModelRegistryBase` subclass enum member."
-            )
-        if self.factory_function is None:
-            raise UserInputError(
-                "Please specify a valid function returning a `Adapter` instance "
-                "as the required `factory_function` argument to "
-                "`FactoryFunctionGeneratorSpec`."
-            )
-        if self.model_key_override is None:
-            try:
-                # `model` is defined via a factory function.
-                # pyre-ignore[16]: Anonymous callable has no attribute `__name__`.
-                self.model_key_override = none_throws(self.factory_function).__name__
-            except Exception:
-                raise TypeError(
-                    f"{self.factory_function} is not a valid function, cannot extract "
-                    "name. Please provide the model name using `model_key_override`."
-                )
-
-        warnings.warn(
-            "Using a factory function to describe the model, so optimization state "
-            "cannot be stored and optimization is not resumable if interrupted.",
-            AxWarning,
-            stacklevel=3,
-        )
-
-    def fit(
-        self,
-        experiment: Experiment,
-        data: Data | None = None,
-        search_space: SearchSpace | None = None,
-        optimization_config: OptimizationConfig | None = None,
-        **model_kwargs: Any,
-    ) -> None:
-        """Fits the specified model on the given experiment + data using the
-        model kwargs set on the model spec, alongside any passed down as
-        kwargs to this function (local kwargs take precedent)
-        """
-        factory_function = none_throws(self.factory_function)
-        all_kwargs = deepcopy(self.model_kwargs)
-        all_kwargs.update(model_kwargs)
-        self._fitted_model = factory_function(
-            # Factory functions do not have a unified signature; e.g. some factory
-            # functions (like `get_sobol`) require search space instead of experiment.
-            # Therefore, we filter kwargs to remove unnecessary ones and add additional
-            # arguments like `search_space` and `optimization_config`.
-            **filter_kwargs(
-                factory_function,
-                experiment=experiment,
-                data=data,
-                search_space=search_space or experiment.search_space,
-                optimization_config=optimization_config
-                or experiment.optimization_config,
-                **all_kwargs,
-            )
-        )

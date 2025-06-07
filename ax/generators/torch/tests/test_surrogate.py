@@ -66,6 +66,7 @@ from botorch.utils.types import DEFAULT
 from gpytorch.constraints import GreaterThan, Interval
 from gpytorch.kernels import Kernel, LinearKernel, MaternKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood, GaussianLikelihood
+from gpytorch.likelihoods.noise_models import HomoskedasticNoise
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
@@ -174,52 +175,6 @@ class SurrogateInputConstructorsTest(TestCase):
             self.assertEqual(model_kwargs["fidelity_features"], [0])
             self.assertEqual(model_kwargs["categorical_features"], [1])
 
-    def test_surrogate_spec_from_deprecated_args(self) -> None:
-        botorch_model_class = MultiTaskGP
-        botorch_model_kwargs = {"task_feature": 1}
-        outcome_transform_classes: list[type[OutcomeTransform]] = [Standardize]
-        outcome_transform_options = {"Standardize": {"m": 1}}
-        covar_module_class = ScaleKernel
-        covar_module_options = {"base_kernel": MaternKernel(ard_num_dims=2)}
-        likelihood_class = GaussianLikelihood
-        likelihood_options = {"noise_constraint": None}
-        with self.assertWarnsRegex(DeprecationWarning, "model_config"):
-            spec = SurrogateSpec(
-                botorch_model_class=botorch_model_class,
-                botorch_model_kwargs=botorch_model_kwargs,
-                outcome_transform_classes=outcome_transform_classes,
-                outcome_transform_options=outcome_transform_options,
-                covar_module_class=covar_module_class,
-                covar_module_kwargs=covar_module_options,
-                likelihood_class=likelihood_class,
-                likelihood_kwargs=likelihood_options,
-            )
-        expected_spec = SurrogateSpec(
-            model_configs=[
-                ModelConfig(
-                    botorch_model_class=botorch_model_class,
-                    model_options=botorch_model_kwargs,
-                    outcome_transform_classes=outcome_transform_classes,
-                    outcome_transform_options=outcome_transform_options,
-                    covar_module_class=covar_module_class,
-                    covar_module_options=covar_module_options,
-                    likelihood_class=likelihood_class,
-                    likelihood_options=likelihood_options,
-                    input_transform_classes=DEFAULT,
-                    name="from deprecated args",
-                )
-            ],
-        )
-        self.assertEqual(spec, expected_spec)
-        # With input transforms as None to match legacy default.
-        spec = SurrogateSpec(input_transform_classes=None)
-        expected_spec = SurrogateSpec(
-            model_configs=[
-                ModelConfig(input_transform_classes=None, name="from deprecated args")
-            ]
-        )
-        self.assertEqual(spec, expected_spec)
-
     def test__make_botorch_input_transform(self) -> None:
         feature_names = ["a", "b"]
         bounds = [(0.0, 1.0), (0.0, 1.0)]
@@ -282,7 +237,9 @@ class SurrogateInputConstructorsTest(TestCase):
             self.assertEqual(len(tf_values), 2)
             self.assertIsInstance(tf_values[0], Normalize)
             self.assertIsInstance(tf_values[1], Log10)
-            self.assertEqual(tf_values[1].indices.tolist(), [0])
+            self.assertEqual(
+                assert_is_instance(tf_values[1].indices, Tensor).tolist(), [0]
+            )
 
         bounds = [(1.0, 5.0), (2.0, 10.0)]
         search_space_digest = SearchSpaceDigest(
@@ -320,18 +277,17 @@ class SurrogateTest(TestCase):
         self.metric_names = ["metric"]
         self.training_data = [
             SupervisedDataset(
-                X=self.Xs[0],
+                X=self.Xs,
                 # Note: using 1d Y does not match the 2d TorchOptConfig
-                Y=self.Ys[0],
+                Y=self.Ys,
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
             )
         ]
-        self.Ys_standardized = [standardize(Y) for Y in self.Ys]
         self.training_data_standardized = [
             SupervisedDataset(
-                X=self.Xs[0],
-                Y=self.Ys_standardized[0],
+                X=self.Xs,
+                Y=standardize(self.Ys),
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
             )
@@ -364,10 +320,10 @@ class SurrogateTest(TestCase):
         self.ds2 = SupervisedDataset(
             # pyre-fixme[6]: For 1st argument expected `Union[BotorchContainer,
             #  Tensor]` but got `int`.
-            X=2 * self.Xs[0],
+            X=2 * self.Xs,
             # pyre-fixme[6]: For 2nd argument expected `Union[BotorchContainer,
             #  Tensor]` but got `int`.
-            Y=2 * self.Ys[0],
+            Y=2 * self.Ys,
             feature_names=self.feature_names,
             outcome_names=["m2"],
         )
@@ -381,21 +337,27 @@ class SurrogateTest(TestCase):
         if botorch_model_class is SaasFullyBayesianSingleTaskGP:
             mll_options = {"jit_compile": True}
         else:
-            mll_options = None
+            mll_options = {}
 
         if use_outcome_transform:
             outcome_transform_classes: list[type[OutcomeTransform]] = [Standardize]
             outcome_transform_options = {"Standardize": {"m": n_outcomes}}
         else:
             outcome_transform_classes = None
-            outcome_transform_options = None
+            outcome_transform_options = {}
 
         surrogate = Surrogate(
-            botorch_model_class=botorch_model_class,
-            mll_class=self.mll_class,
-            mll_options=mll_options,
-            outcome_transform_classes=outcome_transform_classes,
-            outcome_transform_options=outcome_transform_options,
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=botorch_model_class,
+                        mll_class=self.mll_class,
+                        mll_options=mll_options,
+                        outcome_transform_classes=outcome_transform_classes,
+                        outcome_transform_options=outcome_transform_options,
+                    )
+                ]
+            )
         )
         surrogate_kwargs = botorch_model_class.construct_inputs(self.training_data[0])
         return surrogate, surrogate_kwargs
@@ -427,9 +389,15 @@ class SurrogateTest(TestCase):
     def test_mll_options(self, _, __) -> None:
         mock_mll = MagicMock(self.mll_class)
         surrogate = Surrogate(
-            botorch_model_class=SingleTaskGP,
-            mll_class=mock_mll,
-            mll_options={"some_option": "some_value"},
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        mll_class=mock_mll,
+                        mll_options={"some_option": "some_value"},
+                    )
+                ]
+            )
         )
         surrogate.fit(
             datasets=self.training_data,
@@ -441,17 +409,25 @@ class SurrogateTest(TestCase):
     @mock_botorch_optimize
     def test_copy_options(self) -> None:
         training_data = self.training_data + [self.ds2]
-        d = self.Xs[0].shape[-1]
+        d = self.Xs.shape[-1]
         surrogate = Surrogate(
-            botorch_model_class=SingleTaskGP,
-            likelihood_class=GaussianLikelihood,
-            likelihood_options={"noise_constraint": GreaterThan(1e-3)},
-            mll_class=ExactMarginalLogLikelihood,
-            covar_module_class=ScaleKernel,
-            covar_module_options={"base_kernel": MaternKernel(ard_num_dims=d)},
-            input_transform_classes=[Normalize],
-            outcome_transform_classes=[Standardize],
-            outcome_transform_options={"Standardize": {"m": 1}},
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        likelihood_class=GaussianLikelihood,
+                        likelihood_options={"noise_constraint": GreaterThan(1e-3)},
+                        mll_class=ExactMarginalLogLikelihood,
+                        covar_module_class=ScaleKernel,
+                        covar_module_options={
+                            "base_kernel": MaternKernel(ard_num_dims=d)
+                        },
+                        input_transform_classes=[Normalize],
+                        outcome_transform_classes=[Standardize],
+                        outcome_transform_options={"Standardize": {"m": 1}},
+                    )
+                ]
+            ),
             allow_batched_models=False,
         )
         surrogate.fit(
@@ -510,9 +486,15 @@ class SurrogateTest(TestCase):
     def test_botorch_transforms(self) -> None:
         # Successfully passing down the transforms
         surrogate = Surrogate(
-            botorch_model_class=SingleTaskGP,
-            outcome_transform_classes=[Standardize],
-            input_transform_classes=[Normalize],
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        outcome_transform_classes=[Standardize],
+                        input_transform_classes=[Normalize],
+                    )
+                ]
+            )
         )
         surrogate.fit(
             datasets=self.training_data,
@@ -523,14 +505,22 @@ class SurrogateTest(TestCase):
         self.assertIsInstance(botorch_model.input_transform, Normalize)
         self.assertIsInstance(botorch_model.outcome_transform, Standardize)
         # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute `_m`.
-        self.assertEqual(botorch_model.outcome_transform._m, self.Ys[0].shape[-1])
+        self.assertEqual(botorch_model.outcome_transform._m, self.Ys.shape[-1])
 
         # Error handling if the model does not support transforms.
         surrogate = Surrogate(
-            botorch_model_class=SingleTaskGPWithDifferentConstructor,
-            outcome_transform_classes=[Standardize],
-            outcome_transform_options={"Standardize": {"m": self.Ys[0].shape[-1]}},
-            input_transform_classes=[Normalize],
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGPWithDifferentConstructor,
+                        outcome_transform_classes=[Standardize],
+                        outcome_transform_options={
+                            "Standardize": {"m": self.Ys.shape[-1]}
+                        },
+                        input_transform_classes=[Normalize],
+                    )
+                ]
+            )
         )
         with self.assertRaisesRegex(UserInputError, "BoTorch model"):
             surrogate.fit(
@@ -652,11 +642,14 @@ class SurrogateTest(TestCase):
                 mock_init.assert_called_once()
                 mock_fit.assert_called_once()
                 call_kwargs = mock_init.call_args.kwargs
-                self.assertTrue(torch.equal(call_kwargs["train_X"], self.Xs[0]))
-                self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
+                self.assertTrue(torch.equal(call_kwargs["train_X"], self.Xs))
+                self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys))
                 self.assertIsInstance(call_kwargs["input_transform"], Normalize)
                 self.assertIsNone(call_kwargs["outcome_transform"])
-                self.assertEqual(len(call_kwargs), 4)
+                self.assertEqual(
+                    len(call_kwargs),
+                    6 if botorch_model_class is SaasFullyBayesianSingleTaskGP else 4,
+                )
 
                 mock_construct_inputs.assert_called_with(
                     training_data=self.training_data[0],
@@ -752,22 +745,20 @@ class SurrogateTest(TestCase):
                     mock_load_state_dict.assert_not_called()
 
     @mock_botorch_optimize
-    def test_construct_custom_model(self, use_model_config: bool = False) -> None:
+    def test_construct_custom_model(self) -> None:
         # Test error for unsupported covar_module and likelihood.
-        model_config_kwargs: dict[str, Any] = {
-            "botorch_model_class": SingleTaskGPWithDifferentConstructor,
-            "mll_class": self.mll_class,
-            "covar_module_class": RBFKernel,
-            "likelihood_class": FixedNoiseGaussianLikelihood,
-        }
-        if use_model_config:
-            surrogate = Surrogate(
-                surrogate_spec=SurrogateSpec(
-                    model_configs=[ModelConfig(**model_config_kwargs)]
-                )
+        surrogate = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGPWithDifferentConstructor,
+                        mll_class=self.mll_class,
+                        covar_module_class=RBFKernel,
+                        likelihood_class=FixedNoiseGaussianLikelihood,
+                    )
+                ]
             )
-        else:
-            surrogate = Surrogate(**model_config_kwargs)
+        )
         with self.assertRaisesRegex(UserInputError, "does not support"):
             surrogate.fit(
                 self.training_data,
@@ -775,22 +766,20 @@ class SurrogateTest(TestCase):
             )
         # Pass custom options to a SingleTaskGP and make sure they are used
         noise_constraint = Interval(1e-6, 1e-1)
-        model_config_kwargs = {
-            "botorch_model_class": SingleTaskGP,
-            "mll_class": LeaveOneOutPseudoLikelihood,
-            "covar_module_class": RBFKernel,
-            "covar_module_options": {"ard_num_dims": 3},
-            "likelihood_class": GaussianLikelihood,
-            "likelihood_options": {"noise_constraint": noise_constraint},
-        }
-        if use_model_config:
-            surrogate = Surrogate(
-                surrogate_spec=SurrogateSpec(
-                    model_configs=[ModelConfig(**model_config_kwargs)]
-                )
+        surrogate = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        mll_class=LeaveOneOutPseudoLikelihood,
+                        covar_module_class=RBFKernel,
+                        covar_module_options={"ard_num_dims": 3},
+                        likelihood_class=GaussianLikelihood,
+                        likelihood_options={"noise_constraint": noise_constraint},
+                    )
+                ]
             )
-        else:
-            surrogate = Surrogate(**model_config_kwargs)
+        )
         surrogate.fit(
             self.training_data,
             search_space_digest=self.search_space_digest,
@@ -814,9 +803,6 @@ class SurrogateTest(TestCase):
         #  `ard_num_dims`.
         self.assertEqual(model.covar_module.ard_num_dims, 3)
 
-    def test_construct_custom_model_with_config(self) -> None:
-        self.test_construct_custom_model(use_model_config=True)
-
     def test_construct_model_with_metric_to_model_configs(self) -> None:
         surrogate = Surrogate(
             surrogate_spec=SurrogateSpec(
@@ -829,9 +815,9 @@ class SurrogateTest(TestCase):
         )
         training_data = self.training_data + [
             SupervisedDataset(
-                X=self.Xs[0],
+                X=self.Xs,
                 # Note: using 1d Y does not match the 2d TorchOptConfig
-                Y=self.Ys[0],
+                Y=self.Ys,
                 feature_names=self.feature_names,
                 outcome_names=[f"metric{i}"],
             )
@@ -868,7 +854,7 @@ class SurrogateTest(TestCase):
         self.search_space_digest.task_features.append(-1)
         self.search_space_digest.feature_names.append("task_feat")
         self.search_space_digest.bounds.append((0.0, 1.0))
-        X = self.Xs[0]
+        X = self.Xs
         dataset = MultiTaskDataset(
             datasets=[
                 SupervisedDataset(
@@ -880,7 +866,7 @@ class SurrogateTest(TestCase):
                         dim=-1,
                     ),
                     # Note: using 1d Y does not match the 2d TorchOptConfig
-                    Y=self.Ys[0],
+                    Y=self.Ys,
                     feature_names=self.search_space_digest.feature_names,
                     outcome_names=self.metric_names,
                 )
@@ -920,7 +906,7 @@ class SurrogateTest(TestCase):
             mock_fit.assert_called_once()
             call_kwargs = mock_init.call_args.kwargs
             self.assertTrue(torch.equal(call_kwargs["train_X"], dataset.X))
-            self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
+            self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys))
             covar_module = call_kwargs["covar_module"]
             self.assertIsInstance(covar_module, ScaleMaternKernel)
             self.assertIsInstance(call_kwargs["input_transform"], Normalize)
@@ -1350,11 +1336,11 @@ class SurrogateTest(TestCase):
                 f"{SURROGATE_PATH}.predict_from_model", wraps=predict_from_model
             ) as mock_predict:
                 surrogate.predict(
-                    X=self.Xs[0], use_posterior_predictive=use_posterior_predictive
+                    X=self.Xs, use_posterior_predictive=use_posterior_predictive
                 )
             mock_predict.assert_called_with(
                 model=surrogate.model,
-                X=self.Xs[0],
+                X=self.Xs,
                 use_posterior_predictive=use_posterior_predictive,
             )
 
@@ -1363,8 +1349,8 @@ class SurrogateTest(TestCase):
         #  Set up data with 2 outcomes
         training_data = [
             SupervisedDataset(
-                X=self.Xs[0],
-                Y=self.Ys[0] + i,
+                X=self.Xs,
+                Y=self.Ys.add(i),
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
             )
@@ -1428,7 +1414,7 @@ class SurrogateTest(TestCase):
                 # better predicted objective value (because it had a better
                 # observed objective valu)e, so it should be the best point and
                 # have positive utility
-                self.assertTrue(torch.equal(best_point, self.Xs[0][0]))
+                self.assertTrue(torch.equal(best_point, self.Xs[0]))
                 self.assertGreater(value, 0)
 
             with self.subTest("One point is in the search space"):
@@ -1452,7 +1438,7 @@ class SurrogateTest(TestCase):
                     torch_opt_config=torch_opt_config,
                     options=self.options,
                 )
-                self.assertTrue(torch.equal(best_point, self.Xs[0][0]))
+                self.assertTrue(torch.equal(best_point, self.Xs[0]))
                 # The objective value is `obj[best] - min(obj)`, so when there
                 # is only one feasible point, it is zero
                 self.assertEqual(value, 0)
@@ -1542,9 +1528,7 @@ class SurrogateTest(TestCase):
 
     @mock_botorch_optimize
     def test_w_robust_digest(self) -> None:
-        surrogate = Surrogate(
-            botorch_model_class=SingleTaskGP,
-        )
+        surrogate = Surrogate()
         # Error handling.
         robust_digest = RobustSearchSpaceDigest(
             environmental_variables=["a"],
@@ -1578,9 +1562,7 @@ class SurrogateTest(TestCase):
         )
         self.assertIsInstance(surrogate.model.input_transform, ChainedInputTransform)
         # Input perturbation is constructed.
-        surrogate = Surrogate(
-            botorch_model_class=SingleTaskGP,
-        )
+        surrogate = Surrogate()
         surrogate.fit(
             datasets=self.training_data,
             search_space_digest=SearchSpaceDigest(
@@ -1596,7 +1578,12 @@ class SurrogateTest(TestCase):
         intf_values = list(intf.values())
         self.assertIsInstance(intf_values[0], InputPerturbation)
         self.assertIsInstance(intf_values[1], Normalize)
-        self.assertTrue(torch.equal(intf_values[0].perturbation_set, torch.zeros(2, 2)))
+        self.assertTrue(
+            torch.equal(
+                assert_is_instance(intf_values[0], InputPerturbation).perturbation_set,
+                torch.zeros(2, 2),
+            )
+        )
 
     def test_fit_mixed(self) -> None:
         # Test model construction with categorical variables.
@@ -1669,9 +1656,9 @@ class SurrogateWithModelListTest(TestCase):
             task_features=self.task_features,
         )
         self.ds1 = SupervisedDataset(
-            X=Xs1[0],
-            Y=Ys1[0],
-            Yvar=Yvars1[0],
+            X=Xs1,
+            Y=Ys1,
+            Yvar=Yvars1,
             feature_names=self.feature_names,
             outcome_names=self.outcomes[:1],
         )
@@ -1679,9 +1666,9 @@ class SurrogateWithModelListTest(TestCase):
             dtype=self.dtype, task_features=self.task_features
         )
         ds2 = SupervisedDataset(
-            X=Xs2[0],
-            Y=Ys2[0],
-            Yvar=Yvars2[0],
+            X=Xs2,
+            Y=Ys2,
+            Yvar=Yvars2,
             feature_names=self.feature_names,
             outcome_names=self.outcomes[1:],
         )
@@ -1698,15 +1685,15 @@ class SurrogateWithModelListTest(TestCase):
         for submodel_cls in self.botorch_submodel_class_per_outcome.values():
             self.assertEqual(submodel_cls, MultiTaskGP)
         self.ds3 = SupervisedDataset(
-            X=Xs1[0],
-            Y=Ys2[0],
-            Yvar=Yvars2[0],
+            X=Xs1,
+            Y=Ys2,
+            Yvar=Yvars2,
             feature_names=self.feature_names,
             outcome_names=self.outcomes[1:],
         )
-        self.Xs = Xs1 + Xs2
-        self.Ys = Ys1 + Ys2
-        self.Yvars = Yvars1 + Yvars2
+        self.Xs = [Xs1, Xs2]
+        self.Ys = [Ys1, Ys2]
+        self.Yvars = [Yvars1, Yvars2]
         self.fixed_noise_training_data = [self.ds1, ds2]
         self.supervised_training_data = [
             SupervisedDataset(
@@ -1721,9 +1708,15 @@ class SurrogateWithModelListTest(TestCase):
             RANK: 1,
         }
         self.surrogate = Surrogate(
-            botorch_model_class=MultiTaskGP,
-            mll_class=self.mll_class,
-            model_options=self.submodel_options_per_outcome,
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=MultiTaskGP,
+                        mll_class=self.mll_class,
+                        model_options=self.submodel_options_per_outcome,
+                    )
+                ]
+            )
         )
 
     def test_init(self) -> None:
@@ -1770,10 +1763,10 @@ class SurrogateWithModelListTest(TestCase):
                     datasets=datasets, search_space_digest=search_space_digest
                 )
             # Should construct inputs for MTGP twice.
-            self.assertEqual(len(mock_MTGP_construct_inputs.call_args_list), 2)
+            self.assertEqual(mock_MTGP_construct_inputs.call_count, 2)
             self.assertEqual(mock_fit.call_count, 2)
             # First construct inputs should be called for MTGP with training data #0.
-            for idx in range(len(mock_MTGP_construct_inputs.call_args_list)):
+            for idx in range(mock_MTGP_construct_inputs.call_count):
                 expected_training_data = SupervisedDataset(
                     X=self.Xs[idx],
                     Y=self.Ys[idx],
@@ -1782,8 +1775,7 @@ class SurrogateWithModelListTest(TestCase):
                     outcome_names=[self.outcomes[idx]],
                 )
                 self.assertEqual(
-                    # `call_args` is a tuple of (args, kwargs), and we check kwargs.
-                    mock_MTGP_construct_inputs.call_args_list[idx][1],
+                    mock_MTGP_construct_inputs.call_args_list[idx].kwargs,
                     {
                         "task_feature": self.task_features[0],
                         "training_data": expected_training_data,
@@ -1796,42 +1788,45 @@ class SurrogateWithModelListTest(TestCase):
     def test_fit(self) -> None:
         default_class = self.botorch_model_class
         cases = {
-            "default": Surrogate(
+            "default": ModelConfig(
                 botorch_model_class=default_class,
                 mll_class=ExactMarginalLogLikelihood,
                 # Check that empty lists also work fine.
                 outcome_transform_classes=[],
                 input_transform_classes=[],
             ),
-            "bayesian_stgp": Surrogate(
+            "bayesian_stgp": ModelConfig(
                 botorch_model_class=SaasFullyBayesianSingleTaskGP
             ),
-            "bayesian_mtgp": Surrogate(
+            "bayesian_mtgp": ModelConfig(
                 botorch_model_class=SaasFullyBayesianMultiTaskGP
             ),
-            "batch": Surrogate(
+            "batch": ModelConfig(
                 botorch_model_class=SingleTaskGP, mll_class=ExactMarginalLogLikelihood
             ),
-            "ModelListGP": Surrogate(
-                botorch_model_class=SingleTaskGP,
-                mll_class=ExactMarginalLogLikelihood,
-                allow_batched_models=False,
+            "ModelListGP": ModelConfig(
+                botorch_model_class=SingleTaskGP, mll_class=ExactMarginalLogLikelihood
             ),
         }
 
         # offset makes task feature point to valid outcome indices
         Xs, Ys, Yvars, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=-1)
         ds1 = SupervisedDataset(
-            X=Xs[0],
-            Y=Ys[0],
-            Yvar=Yvars[0],
+            X=Xs,
+            Y=Ys,
+            Yvar=Yvars,
             feature_names=self.feature_names,
             outcome_names=self.outcomes[:1],
         )
         datasets = [ds1, ds1]
 
-        for case, surrogate in cases.items():
-            # Reset mocks
+        for case, model_config in cases.items():
+            surrogate = Surrogate(
+                surrogate_spec=SurrogateSpec(
+                    model_configs=[model_config],
+                    allow_batched_models=case != "ModelListGP",
+                ),
+            )
 
             # Checking that model is None before `fit` (and `construct`) calls.
             self.assertIsNone(surrogate._model)
@@ -1899,14 +1894,20 @@ class SurrogateWithModelListTest(TestCase):
     @mock_botorch_optimize
     def test_with_botorch_transforms(self) -> None:
         surrogate = Surrogate(
-            botorch_model_class=SingleTaskGPWithDifferentConstructor,
-            mll_class=ExactMarginalLogLikelihood,
-            input_transform_classes=[Normalize],
-            input_transform_options={
-                "Normalize": {"d": 3, "bounds": None, "indices": None}
-            },
-            outcome_transform_classes=[Standardize],
-            outcome_transform_options={"Standardize": {"m": 1}},
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGPWithDifferentConstructor,
+                        mll_class=ExactMarginalLogLikelihood,
+                        input_transform_classes=[Normalize],
+                        input_transform_options={
+                            "Normalize": {"d": 3, "bounds": None, "indices": None}
+                        },
+                        outcome_transform_classes=[Standardize],
+                        outcome_transform_options={"Standardize": {"m": 1}},
+                    )
+                ]
+            )
         )
         with self.assertRaisesRegex(
             UserInputError,
@@ -1921,14 +1922,20 @@ class SurrogateWithModelListTest(TestCase):
                 ),
             )
         surrogate = Surrogate(
-            botorch_model_class=SingleTaskGP,
-            mll_class=ExactMarginalLogLikelihood,
-            input_transform_classes=[Normalize],
-            input_transform_options={
-                "Normalize": {"d": 3, "bounds": None, "indices": None}
-            },
-            outcome_transform_classes=[Standardize],
-            outcome_transform_options={"Standardize": {"m": 1}},
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        mll_class=ExactMarginalLogLikelihood,
+                        input_transform_classes=[Normalize],
+                        input_transform_options={
+                            "Normalize": {"d": 3, "bounds": None, "indices": None}
+                        },
+                        outcome_transform_classes=[Standardize],
+                        outcome_transform_options={"Standardize": {"m": 1}},
+                    )
+                ]
+            )
         )
         surrogate.fit(
             datasets=self.supervised_training_data,
@@ -1966,15 +1973,21 @@ class SurrogateWithModelListTest(TestCase):
             [{}, {}],
         ]:
             surrogate = Surrogate(
-                botorch_model_class=SingleTaskGP,
-                mll_class=ExactMarginalLogLikelihood,
-                covar_module_class=MaternKernel,
-                covar_module_options=submodel_covar_module_options,
-                likelihood_class=GaussianLikelihood,
-                likelihood_options=submodel_likelihood_options,
-                input_transform_classes=[Normalize],
-                outcome_transform_classes=[Standardize],
-                outcome_transform_options={"Standardize": {"m": 1}},
+                surrogate_spec=SurrogateSpec(
+                    model_configs=[
+                        ModelConfig(
+                            botorch_model_class=SingleTaskGP,
+                            mll_class=ExactMarginalLogLikelihood,
+                            covar_module_class=MaternKernel,
+                            covar_module_options=submodel_covar_module_options,
+                            likelihood_class=GaussianLikelihood,
+                            likelihood_options=submodel_likelihood_options,
+                            input_transform_classes=[Normalize],
+                            outcome_transform_classes=[Standardize],
+                            outcome_transform_options={"Standardize": {"m": 1}},
+                        )
+                    ]
+                )
             )
             surrogate.fit(
                 datasets=self.supervised_training_data,
@@ -2000,12 +2013,19 @@ class SurrogateWithModelListTest(TestCase):
 
             for m in models:
                 self.assertEqual(type(m.likelihood), GaussianLikelihood)
-                self.assertEqual(type(m.covar_module), MaternKernel)
+                covar_module = assert_is_instance(m.covar_module, MaternKernel)
+                self.assertEqual(type(covar_module), MaternKernel)
                 if submodel_covar_module_options:
-                    self.assertEqual(m.covar_module.ard_num_dims, 3)
+                    self.assertEqual(covar_module.ard_num_dims, 3)
                 else:
-                    self.assertEqual(m.covar_module.ard_num_dims, None)
-                m_noise_constraint = m.likelihood.noise_covar.raw_noise_constraint
+                    self.assertEqual(covar_module.ard_num_dims, None)
+                noise_covar = assert_is_instance(
+                    assert_is_instance(m.likelihood, GaussianLikelihood).noise_covar,
+                    HomoskedasticNoise,
+                )
+                m_noise_constraint = assert_is_instance(
+                    noise_covar.raw_noise_constraint, Interval
+                )
                 if submodel_likelihood_options:
                     self.assertEqual(type(m_noise_constraint), Interval)
                     self.assertEqual(
@@ -2022,8 +2042,12 @@ class SurrogateWithModelListTest(TestCase):
     def test_w_robust_digest(self) -> None:
         surrogate = Surrogate(
             surrogate_spec=SurrogateSpec(
-                botorch_model_class=SingleTaskGP,
-                input_transform_classes=[],
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        input_transform_classes=[],
+                    )
+                ]
             )
         )
         # Error handling.

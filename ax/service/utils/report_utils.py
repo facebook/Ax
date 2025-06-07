@@ -69,7 +69,7 @@ from pandas.core.frame import DataFrame
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
-    from ax.service.scheduler import Scheduler
+    from ax.service.orchestrator import Orchestrator
 
 
 logger: Logger = get_logger(__name__)
@@ -1184,25 +1184,25 @@ def _objective_vs_true_objective_scatter(
 # TODO: may want to have a way to do this with a plot_fn
 # that returns a list of plots, such as get_standard_plots
 def get_figure_and_callback(
-    plot_fn: Callable[[Scheduler], go.Figure],
-) -> tuple[go.Figure, Callable[[Scheduler], None]]:
+    plot_fn: Callable[[Orchestrator], go.Figure],
+) -> tuple[go.Figure, Callable[[Orchestrator], None]]:
     """
     Produce a figure and a callback for updating the figure in place.
 
-    A likely use case is that `plot_fn` takes a Scheduler instance and
+    A likely use case is that `plot_fn` takes a Orchestrator instance and
     returns a plotly Figure. Then `get_figure_and_callback` will produce a
     figure and callback that updates that figure according to `plot_fn`
-    when the callback is passed to `Scheduler.run_n_trials` or
-    `Scheduler.run_all_trials`.
+    when the callback is passed to `orchestrator.run_n_trials` or
+    `orchestrator.run_all_trials`.
 
     Args:
-        plot_fn: A function for producing a Plotly figure from a scheduler.
+        plot_fn: A function for producing a Plotly figure from a orchestrator.
             If `plot_fn` raises a `RuntimeError`, the update will be skipped
             and optimization will proceed.
 
     Example:
-        >>> def _plot(scheduler: Scheduler):
-        >>>     standard_plots = get_standard_plots(scheduler.experiment)
+        >>> def _plot(orchestrator:Orchestrator):
+        >>>     standard_plots = get_standard_plots(orchestrator.experiment)
         >>>     return standard_plots[0]
         >>>
         >>> fig, callback = get_figure_and_callback(_plot)
@@ -1210,9 +1210,9 @@ def get_figure_and_callback(
     fig = go.FigureWidget(layout=go.Layout())
 
     # pyre-fixme[53]: Captured variable `fig` is not annotated.
-    def _update_fig_in_place(scheduler: Scheduler) -> None:
+    def _update_fig_in_place(orchestrator: Orchestrator) -> None:
         try:
-            new_fig = plot_fn(scheduler)
+            new_fig = plot_fn(orchestrator)
         except RuntimeError as e:
             logging.warning(
                 f"Plotting function called via callback failed with error {e}."
@@ -1225,10 +1225,10 @@ def get_figure_and_callback(
             overwrite=True,
         )
 
-    # pyre-fixme[7]: Expected `Tuple[Figure, typing.Callable[[Scheduler], None]]`
+    # pyre-fixme[7]: Expected `Tuple[Figure, typing.Callable[[Orchestrator], None]]`
     #  but got `Tuple[FigureWidget,
-    #  typing.Callable(get_figure_and_callback._update_fig_in_place)[[Named(scheduler,
-    #  Scheduler)], None]]`.
+    #  typing.Callable(get_figure_and_callback._update_fig_in_place)[[Named(orchestrator,
+    #  Orchestrator)], None]]`.
     return fig, _update_fig_in_place
 
 
@@ -1532,10 +1532,10 @@ def warn_if_unpredictable_metrics(
         A string warning the user about unpredictable metrics, if applicable.
     """
     # Get fit quality dict.
-    adapter = generation_strategy.model  # Optional[Adapter]
+    adapter = generation_strategy.adapter  # Optional[Adapter]
     if adapter is None:  # Need to re-fit the model.
         generation_strategy._curr._fit(experiment=experiment)
-        adapter = cast(Adapter, generation_strategy.model)
+        adapter = cast(Adapter, generation_strategy.adapter)
     if isinstance(adapter, RandomAdapter):
         logger.debug(
             "Current adapter on GenerationStrategy is RandomAdapter. "

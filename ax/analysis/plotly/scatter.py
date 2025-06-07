@@ -8,20 +8,23 @@
 from logging import Logger
 from typing import Mapping, Sequence
 
+import numpy as np
+
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_COLOR
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
-    is_predictive,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
-    trial_status_to_plotly_color,
+    trial_index_to_color,
     truncate_label,
+    Z_SCORE_95_CI,
 )
 from ax.analysis.utils import (
     extract_relevant_adapter,
@@ -30,7 +33,7 @@ from ax.analysis.utils import (
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.trial_status import TrialStatus
+from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.logger import get_logger
@@ -121,7 +124,7 @@ class ScatterPlot(PlotlyAnalysis):
                 adapter=adapter,
             )
 
-            if not is_predictive(relevant_adapter):
+            if not relevant_adapter.can_predict:
                 logger.warning(
                     f"Adapter {relevant_adapter} cannot make out of sample "
                     "predictions, falling back to EmpiricalBayesThompson."
@@ -271,71 +274,86 @@ def _prepare_figure(
 ) -> go.Figure:
     # Initialize the Scatters one at a time since we cannot specify multiple different
     # error bar colors from within one trace.
-    scatters = [
-        go.Scatter(
-            x=df[
-                (df["trial_status"] == trial_status)
-                & ~df[f"{x_metric_name}_mean"].isna()
-            ][f"{x_metric_name}_mean"],
-            y=df[
-                (df["trial_status"] == trial_status)
-                & ~df[f"{x_metric_name}_mean"].isna()
-            ][f"{y_metric_name}_mean"],
-            error_x=(
-                {
-                    "type": "data",
-                    "array": df[df["trial_status"] == trial_status][
-                        f"{x_metric_name}_sem"
-                    ]
-                    * 1.96,
-                    "color": trial_status_to_plotly_color(
-                        trial_status=trial_status, ci_transparency=True
-                    ),
-                }
-                if not df[f"{x_metric_name}_sem"].isna().all()
-                else None
-            ),
-            error_y=(
-                {
-                    "type": "data",
-                    "array": df[df["trial_status"] == trial_status][
-                        f"{y_metric_name}_sem"
-                    ]
-                    * 1.96,
-                    "color": trial_status_to_plotly_color(
-                        trial_status=trial_status, ci_transparency=True
-                    ),
-                }
-                if not df[f"{y_metric_name}_sem"].isna().all()
-                else None
-            ),
-            mode="markers",
-            marker={
-                "color": trial_status_to_plotly_color(
-                    trial_status=trial_status, ci_transparency=False
+    candidate_trial = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
+        "trial_index"
+    ].max()
+    # Filter out undesired trials like FAILED and ABANDONED trials from plot.
+    trials = df[df["trial_status"].isin([ts.name for ts in STATUSES_EXPECTING_DATA])][
+        "trial_index"
+    ].unique()
+
+    trials_list = trials.tolist()
+    trial_indices = trials_list.copy()
+    if not np.isnan(candidate_trial):
+        trial_indices.append(candidate_trial)
+    scatters = []
+
+    for trial_index in trial_indices:
+        error_x, error_y = None, None
+        trial_df = df[df["trial_index"] == trial_index]
+        xy_df = trial_df[~trial_df[f"{x_metric_name}_mean"].isna()]
+        if not xy_df[f"{x_metric_name}_sem"].isna().all():
+            error_x = {
+                "type": "data",
+                "array": xy_df[f"{x_metric_name}_sem"] * Z_SCORE_95_CI,
+                "color": trial_index_to_color(
+                    trial_df=trial_df,
+                    trials_list=trials_list,
+                    trial_index=trial_index,
+                    transparent=True,
                 ),
-                "line": {
-                    "width": df[df["trial_status"] == trial_status].apply(
-                        lambda row: 2
-                        if row["p_feasible"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                        else 0,
-                        axis=1,
-                    ),
-                    "color": "red",
-                },
+            }
+        if not xy_df[f"{y_metric_name}_sem"].isna().all():
+            error_y = {
+                "type": "data",
+                "array": xy_df[f"{y_metric_name}_sem"] * Z_SCORE_95_CI,
+                "color": trial_index_to_color(
+                    trial_df=trial_df,
+                    trials_list=trials_list,
+                    trial_index=trial_index,
+                    transparent=True,
+                ),
+            }
+        marker = {
+            "color": trial_index_to_color(
+                trial_df=trial_df,
+                trials_list=trials_list,
+                trial_index=trial_index,
+                transparent=False,
+            ),
+            "line": {
+                "width": trial_df.apply(
+                    lambda row: 2
+                    if row["p_feasible"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
+                    else 0,
+                    axis=1,
+                ),
+                "color": CONSTRAINT_VIOLATION_COLOR,
             },
-            # Apply user-friendly name for UNKNOWN_GENERATION_NODE
-            name=trial_status,
-            hoverinfo="text",
-            text=df[df["trial_status"] == trial_status].apply(
+        }
+
+        text = (
+            trial_df.apply(
                 lambda row: get_arm_tooltip(
                     row=row, metric_names=[x_metric_name, y_metric_name]
                 ),
                 axis=1,
             ),
         )
-        for trial_status in df["trial_status"].unique()
-    ]
+
+        scatters.append(
+            go.Scatter(
+                x=xy_df[f"{x_metric_name}_mean"],
+                y=xy_df[f"{y_metric_name}_mean"],
+                error_x=error_x,
+                error_y=error_y,
+                mode="markers",
+                marker=marker,
+                name=f"Trial {trial_index}",
+                hoverinfo="text",
+                text=text,
+            )
+        )
 
     figure = go.Figure(data=scatters)
     figure.update_layout(
@@ -367,26 +385,26 @@ def _prepare_figure(
     if "status_quo" in df["arm_name"].values:
         x = df[df["arm_name"] == "status_quo"][f"{x_metric_name}_mean"].iloc[0]
         y = df[df["arm_name"] == "status_quo"][f"{y_metric_name}_mean"].iloc[0]
+        if not np.isnan(x) or not np.isnan(y):
+            figure.add_shape(
+                type="line",
+                yref="paper",
+                x0=x,
+                y0=0,
+                x1=x,
+                y1=1,
+                line={"color": "gray", "dash": "dot"},
+            )
 
-        figure.add_shape(
-            type="line",
-            yref="paper",
-            x0=x,
-            y0=0,
-            x1=x,
-            y1=1,
-            line={"color": "gray", "dash": "dot"},
-        )
-
-        figure.add_shape(
-            type="line",
-            xref="paper",
-            x0=0,
-            y0=y,
-            x1=1,
-            y1=y,
-            line={"color": "gray", "dash": "dot"},
-        )
+            figure.add_shape(
+                type="line",
+                xref="paper",
+                x0=0,
+                y0=y,
+                x1=1,
+                y1=y,
+                line={"color": "gray", "dash": "dot"},
+            )
 
     if show_pareto_frontier:
         # Infeasible arms are not included in the Pareto frontier

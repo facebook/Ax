@@ -11,15 +11,10 @@ from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
 from ax.adapter.adapter_utils import extract_search_space_digest
-from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
-
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
-from ax.generation_strategy.model_spec import (
-    FactoryFunctionGeneratorSpec,
-    GeneratorSpec,
-)
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -41,7 +36,7 @@ class BaseGeneratorSpecTest(TestCase):
 class GeneratorSpecTest(BaseGeneratorSpecTest):
     @mock_botorch_optimize
     def test_construct(self) -> None:
-        ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
+        ms = GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR)
         with self.assertRaises(UserInputError):
             ms.gen(n=1)
         ms.fit(experiment=self.experiment, data=self.data)
@@ -55,7 +50,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         wraps=extract_search_space_digest,
     )
     def test_fit(self, wrapped_extract_ssd: Mock) -> None:
-        ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
+        ms = GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR)
         # This should fit the model as usual.
         ms.fit(experiment=self.experiment, data=self.data)
         wrapped_extract_ssd.assert_called_once()
@@ -66,15 +61,15 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             ms.fit(experiment=self.experiment, data=self.data)
         mock_logger.debug.assert_called_with(
             "The observations are identical to the last set of observations "
-            "used to fit the model. Skipping model fitting."
+            "used to fit the generator. Skipping generator fitting."
         )
         wrapped_extract_ssd.assert_called_once()
 
     def test_model_key(self) -> None:
-        ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
+        ms = GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR)
         self.assertEqual(ms.model_key, "BoTorch")
         ms = GeneratorSpec(
-            model_enum=Generators.BOTORCH_MODULAR,
+            generator_enum=Generators.BOTORCH_MODULAR,
             model_key_override="MBM with defaults",
         )
         self.assertEqual(ms.model_key, "MBM with defaults")
@@ -91,7 +86,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         fake_mb._process_and_transform_data = MagicMock(return_value=(None, None))
         mock_enum.return_value = fake_mb
         ms = GeneratorSpec(
-            model_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
+            generator_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
         )
         ms.fit(
             experiment=self.experiment,
@@ -154,7 +149,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         mock_enum = Mock()
         mock_enum.return_value = "fake-adapter"
         ms = GeneratorSpec(
-            model_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
+            generator_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
         )
         ms.fit(
             experiment=self.experiment,
@@ -172,7 +167,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         mock_diagnostics.assert_not_called()
 
     def test_fixed_features(self) -> None:
-        ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
+        ms = GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR)
         self.assertIsNone(ms.fixed_features)
         new_features = ObservationFeatures(parameters={"a": 1.0})
         ms.fixed_features = new_features
@@ -180,7 +175,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self.assertEqual(ms.model_gen_kwargs["fixed_features"], new_features)
 
     def test_gen_attaches_empty_model_fit_metadata_if_fit_not_applicable(self) -> None:
-        ms = GeneratorSpec(model_enum=Generators.SOBOL)
+        ms = GeneratorSpec(generator_enum=Generators.SOBOL)
         ms.fit(experiment=self.experiment, data=self.data)
         gr = ms.gen(n=1)
         gen_metadata = none_throws(gr.gen_metadata)
@@ -190,7 +185,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self.assertEqual(gen_metadata["model_std_generalization"], None)
 
     def test_gen_attaches_model_fit_metadata_if_applicable(self) -> None:
-        ms = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
+        ms = GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR)
         ms.fit(experiment=self.experiment, data=self.data)
         gr = ms.gen(n=1)
         gen_metadata = none_throws(gr.gen_metadata)
@@ -201,7 +196,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
 
     def test_spec_string_representation(self) -> None:
         ms = GeneratorSpec(
-            model_enum=Generators.BOTORCH_MODULAR,
+            generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs={"test_model_kwargs": 1},
             model_gen_kwargs={"test_gen_kwargs": 1},
             model_cv_kwargs={"test_cv_kwargs": 1},
@@ -218,7 +213,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
 
     def test_brief_rep(self) -> None:
         ms = GeneratorSpec(
-            model_enum=Generators.BOTORCH_MODULAR,
+            generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs={"test_model_kwargs": 1},
             model_gen_kwargs={"test_gen_kwargs": 1},
             model_cv_kwargs={"test_cv_kwargs": 1},
@@ -232,23 +227,3 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self.assertNotIn("test_gen_kwargs", repr_str)
         self.assertNotIn("test_cv_kwargs", repr_str)
         self.assertIn("test_model_key_override", repr_str)
-
-
-class FactoryFunctionGeneratorSpecTest(BaseGeneratorSpecTest):
-    def test_construct(self) -> None:
-        ms = FactoryFunctionGeneratorSpec(factory_function=get_sobol)
-        with self.assertRaises(UserInputError):
-            ms.gen(n=1)
-        ms.fit(experiment=self.experiment, data=self.data)
-        ms.gen(n=1)
-
-    def test_model_key(self) -> None:
-        ms = FactoryFunctionGeneratorSpec(factory_function=get_sobol)
-        self.assertEqual(ms.model_key, "get_sobol")
-        with self.assertRaisesRegex(TypeError, "cannot extract name"):
-            # pyre-ignore[6] - Invalid factory function for testing.
-            FactoryFunctionGeneratorSpec(factory_function="test")
-        ms = FactoryFunctionGeneratorSpec(
-            factory_function=get_sobol, model_key_override="fancy sobol"
-        )
-        self.assertEqual(ms.model_key, "fancy sobol")

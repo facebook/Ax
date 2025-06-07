@@ -9,12 +9,15 @@
 import math
 from dataclasses import dataclass
 
+from ax.adapter.registry import Generators
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.types import TParameterization
+from ax.exceptions.generation_strategy import AxGenerationException
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
 from pyre_extensions import none_throws
 
@@ -44,6 +47,12 @@ class CenterGenerationNode(ExternalGenerationNode):
         )
         self.search_space: SearchSpace | None = None
         self.next_node_name = next_node_name
+        self.fallback_specs: dict[type[Exception], GeneratorSpec] = {
+            AxGenerationException: GeneratorSpec(
+                generator_enum=Generators.SOBOL, model_key_override="Fallback_Sobol"
+            ),
+            **self.fallback_specs,  # This includes the default fallbacks.
+        }
 
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:
         self.search_space = experiment.search_space
@@ -63,8 +72,9 @@ class CenterGenerationNode(ExternalGenerationNode):
         values [0, 1] will be sampled as 1.
         Fixed parameters are returned at their only allowed value.
         """
+        search_space = none_throws(self.search_space)
         parameters = {}
-        for name, p in none_throws(self.search_space).parameters.items():
+        for name, p in search_space.parameters.items():
             if isinstance(p, RangeParameter):
                 if p.logit_scale:
                     raise NotImplementedError(f"`logit_scale` is not supported. {p=}")
@@ -79,6 +89,17 @@ class CenterGenerationNode(ExternalGenerationNode):
                 parameters[name] = p.value
             else:
                 raise NotImplementedError(f"Parameter type {type(p)} is not supported.")
-        if isinstance(self.search_space, HierarchicalSearchSpace):
-            parameters = self.search_space._cast_parameterization(parameters=parameters)
+        if isinstance(search_space, HierarchicalSearchSpace):
+            parameters = search_space._cast_parameterization(parameters=parameters)
+
+        # Check for search space membership, which will check if the generated
+        # point satisfies the parameter constraints.
+        if not search_space.check_membership(parameterization=parameters):
+            # TODO: Improve this handling by instead choosing the point
+            # in the center of the feasible set (e.g. by finding the)
+            # Chebyshev center of the constraint polytope.
+            raise AxGenerationException(
+                "Center of the search space does not satisfy parameter constraints. "
+                "The generation strategy will fallback to Sobol. "
+            )
         return parameters

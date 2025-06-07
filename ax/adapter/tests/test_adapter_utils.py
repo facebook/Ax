@@ -242,19 +242,19 @@ class TestAdapterUtils(TestCase):
                     name="range", parameter_type=ParameterType.FLOAT, lower=0, upper=1
                 ),
                 RangeParameter(
-                    name="choice_OH_PARAM__0",
+                    name="choice_OH_PARAM_0",
                     parameter_type=ParameterType.FLOAT,
                     lower=0,
                     upper=1,
                 ),
                 RangeParameter(
-                    name="choice_OH_PARAM__1",
+                    name="choice_OH_PARAM_1",
                     parameter_type=ParameterType.FLOAT,
                     lower=0,
                     upper=1,
                 ),
                 RangeParameter(
-                    name="choice_OH_PARAM__2",
+                    name="choice_OH_PARAM_2",
                     parameter_type=ParameterType.FLOAT,
                     lower=0,
                     upper=1,
@@ -359,7 +359,7 @@ class TestAdapterUtils(TestCase):
     def test_get_in_desing_adapter_training_data(self) -> None:
         def get_adapter(min: float, max: float) -> TorchAdapter:
             return TorchAdapter(
-                model=BoTorchGenerator(),
+                generator=BoTorchGenerator(),
                 experiment=get_experiment_with_observations(
                     observations=[[0.5, 1.0], [1.5, 2.0]],
                     parameterizations=[

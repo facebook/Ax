@@ -28,7 +28,11 @@ from ax.generators.random.sobol import SobolGenerator
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
+from ax.generators.torch.botorch_modular.surrogate import (
+    ModelConfig,
+    Surrogate,
+    SurrogateSpec,
+)
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -73,7 +77,7 @@ class ModelRegistryTest(TestCase):
             data=exp.fetch_data(),
         )
         self.assertIsInstance(gpei, TorchAdapter)
-        generator = assert_is_instance(gpei.model, BoTorchGenerator)
+        generator = assert_is_instance(gpei.generator, BoTorchGenerator)
         self.assertEqual(generator.botorch_acqf_class, qExpectedImprovement)
         self.assertEqual(generator.acquisition_class, Acquisition)
         self.assertEqual(generator.acquisition_options, {"best_f": 0.0})
@@ -96,11 +100,15 @@ class ModelRegistryTest(TestCase):
         saasbo = Generators.SAASBO(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(saasbo, TorchAdapter)
         self.assertEqual(saasbo._model_key, "SAASBO")
-        generator = assert_is_instance(saasbo.model, BoTorchGenerator)
+        generator = assert_is_instance(saasbo.generator, BoTorchGenerator)
         surrogate_spec = generator.surrogate_spec
         self.assertEqual(
             surrogate_spec,
-            SurrogateSpec(botorch_model_class=SaasFullyBayesianSingleTaskGP),
+            SurrogateSpec(
+                model_configs=[
+                    ModelConfig(botorch_model_class=SaasFullyBayesianSingleTaskGP)
+                ]
+            ),
         )
         self.assertEqual(
             generator.surrogate.surrogate_spec.model_configs[0].botorch_model_class,
@@ -223,7 +231,7 @@ class ModelRegistryTest(TestCase):
             experiment=exp, data=data, min_weight=0.0
         )
         self.assertIsInstance(eb_thompson, DiscreteAdapter)
-        self.assertIsInstance(eb_thompson.model, EmpiricalBayesThompsonSampler)
+        self.assertIsInstance(eb_thompson.generator, EmpiricalBayesThompsonSampler)
         thompson_run = eb_thompson.gen(n=5)
         self.assertEqual(len(thompson_run.arms), 5)
 
@@ -236,7 +244,7 @@ class ModelRegistryTest(TestCase):
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
         data = exp.fetch_data()
         thompson = Generators.THOMPSON(experiment=exp, data=data)
-        self.assertIsInstance(thompson.model, ThompsonSampler)
+        self.assertIsInstance(thompson.generator, ThompsonSampler)
 
     def test_enum_uniform(self) -> None:
         """Tests uniform random instantiation through the Generators enum."""
@@ -323,17 +331,23 @@ class ModelRegistryTest(TestCase):
                 if use_saas
                 else [
                     Surrogate(
-                        botorch_model_class=MultiTaskGP,
-                        mll_class=ExactMarginalLogLikelihood,
-                        covar_module_class=ScaleMaternKernel,
-                        covar_module_options={
-                            "ard_num_dims": DEFAULT,
-                            "lengthscale_prior": GammaPrior(6.0, 3.0),
-                            "outputscale_prior": GammaPrior(2.0, 0.15),
-                            "batch_shape": DEFAULT,
-                        },
-                        allow_batched_models=False,
-                        model_options={},
+                        surrogate_spec=SurrogateSpec(
+                            model_configs=[
+                                ModelConfig(
+                                    botorch_model_class=MultiTaskGP,
+                                    mll_class=ExactMarginalLogLikelihood,
+                                    covar_module_class=ScaleMaternKernel,
+                                    covar_module_options={
+                                        "ard_num_dims": DEFAULT,
+                                        "lengthscale_prior": GammaPrior(6.0, 3.0),
+                                        "outputscale_prior": GammaPrior(2.0, 0.15),
+                                        "batch_shape": DEFAULT,
+                                    },
+                                    model_options={},
+                                )
+                            ],
+                            allow_batched_models=False,
+                        )
                     ),
                     None,
                 ]
@@ -347,7 +361,7 @@ class ModelRegistryTest(TestCase):
                     surrogate=surrogate,
                 )
                 self.assertIsInstance(mtgp, TorchAdapter)
-                generator = assert_is_instance(mtgp.model, BoTorchGenerator)
+                generator = assert_is_instance(mtgp.generator, BoTorchGenerator)
                 self.assertEqual(generator.acquisition_class, Acquisition)
                 is_moo = isinstance(
                     exp.optimization_config, MultiObjectiveOptimizationConfig
@@ -391,7 +405,7 @@ class ModelRegistryTest(TestCase):
         exp = get_branin_experiment()
         sobol = Generators.SOBOL(experiment=exp)
         gr = sobol.gen(n=1)
-        expected_state = sobol.model._get_state()
+        expected_state = sobol.generator._get_state()
         self.assertEqual(gr._model_state_after_gen, expected_state)
         extracted = _extract_model_state_after_gen(
             generator_run=gr, model_class=SobolGenerator

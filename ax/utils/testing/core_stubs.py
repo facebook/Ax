@@ -10,9 +10,8 @@
 from __future__ import annotations
 
 import itertools
-
 from collections import OrderedDict
-from collections.abc import Iterable, MutableMapping
+from collections.abc import Iterable, Mapping, MutableMapping
 from datetime import datetime, timedelta
 from logging import Logger
 from math import prod
@@ -89,7 +88,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
     MinTrials,
@@ -115,7 +114,7 @@ from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
+from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import set_rng_seed
@@ -435,6 +434,7 @@ def get_branin_experiment_with_timestamp_map_metric(
     rate: float | None = None,
     map_tracking_metric: bool = False,
     decay_function_name: str = "exp_decay",
+    with_trials_and_data: bool = False,
 ) -> Experiment:
     tracking_metric = (
         get_map_metric(
@@ -468,6 +468,19 @@ def get_branin_experiment_with_timestamp_map_metric(
     if with_status_quo:
         exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
 
+    if with_trials_and_data:
+        # Add a couple trials with different number of timestamps.
+        # Each fetch attaches data with a new timestamp / progression.
+        # We end up with 4 rows of data for trial 0 and 2 for trial 1.
+        exp.new_trial().add_arm(Arm(parameters={"x1": 0.0, "x2": 0.0})).run()
+        for _ in range(2):
+            exp.fetch_data()
+        exp.new_trial().add_arm(Arm(parameters={"x1": 1.0, "x2": 1.0})).run()
+        for _ in range(2):
+            exp.fetch_data()
+        # Add a trial with no data.
+        exp.new_trial().add_arm(Arm(parameters={"x1": 2.0, "x2": 2.0})).run()
+
     return exp
 
 
@@ -481,7 +494,7 @@ def run_branin_experiment_with_generation_strategy(
     kwargs_for_get_branin_experiment = kwargs_for_get_branin_experiment or {}
     exp = get_branin_experiment(**kwargs_for_get_branin_experiment)
     for _ in range(num_trials):
-        gr = generation_strategy.gen(n=1, experiment=exp)
+        gr = generation_strategy.gen_single_trial(n=1, experiment=exp)
         trial = exp.new_trial(generator_run=gr)
         trial.mark_running(no_runner_required=True)
         exp.attach_data(get_branin_data(trials=[trial]))
@@ -898,7 +911,7 @@ def get_experiment_with_observations(
     constrained: bool = False,
     with_tracking_metrics: bool = False,
     search_space: SearchSpace | None = None,
-    parameterizations: Sequence[TParameterization] | None = None,
+    parameterizations: Sequence[Mapping[str, TParamValue]] | None = None,
     sems: list[list[float]] | None = None,
     optimization_config: OptimizationConfig | None = None,
 ) -> Experiment:
@@ -2641,7 +2654,7 @@ class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_indices: set[int],
         experiment: Experiment,
-        **kwargs: dict[str, Any],
+        current_node: GenerationNode | None = None,
     ) -> dict[int, str | None]:
         return self.early_stop_trials
 
@@ -2736,57 +2749,65 @@ def get_botorch_model_with_default_acquisition_class() -> BoTorchGenerator:
     )
 
 
-def get_botorch_model_with_surrogate_specs() -> BoTorchGenerator:
-    return BoTorchGenerator(
-        surrogate_specs={
-            "name": SurrogateSpec(
-                model_configs=[
-                    ModelConfig(
-                        model_options={"some_option": "some_value"},
-                        covar_module_class=DefaultRBFKernel,
-                        covar_module_options={"inactive_features": []},
-                    )
-                ]
-            )
-        }
-    )
-
-
-def get_botorch_model_with_surrogate_spec() -> BoTorchGenerator:
-    return BoTorchGenerator(
-        surrogate_spec=SurrogateSpec(botorch_model_kwargs={"some_option": "some_value"})
-    )
+def get_botorch_model_with_surrogate_spec(
+    with_covar_module: bool = True,
+) -> BoTorchGenerator:
+    if with_covar_module:
+        config = ModelConfig(
+            model_options={"some_option": "some_value"},
+            covar_module_class=DefaultRBFKernel,
+            covar_module_options={"inactive_features": []},
+        )
+    else:
+        config = ModelConfig(
+            model_options={"some_option": "some_value"},
+        )
+    return BoTorchGenerator(surrogate_spec=SurrogateSpec(model_configs=[config]))
 
 
 def get_surrogate() -> Surrogate:
     return Surrogate(
-        botorch_model_class=get_model_type(),
-        mll_class=get_mll_type(),
+        surrogate_spec=SurrogateSpec(
+            model_configs=[
+                ModelConfig(
+                    botorch_model_class=get_model_type(),
+                    mll_class=get_mll_type(),
+                )
+            ]
+        )
     )
 
 
 def get_surrogate_spec_with_default() -> SurrogateSpec:
     return SurrogateSpec(
-        botorch_model_class=SingleTaskGP,
-        covar_module_class=ScaleMaternKernel,
-        covar_module_kwargs={
-            "ard_num_dims": DEFAULT,
-            "lengthscale_prior": GammaPrior(6.0, 3.0),
-            "outputscale_prior": GammaPrior(2.0, 0.15),
-            "batch_shape": DEFAULT,
-        },
+        model_configs=[
+            ModelConfig(
+                botorch_model_class=SingleTaskGP,
+                covar_module_class=ScaleMaternKernel,
+                covar_module_options={
+                    "ard_num_dims": DEFAULT,
+                    "lengthscale_prior": GammaPrior(6.0, 3.0),
+                    "outputscale_prior": GammaPrior(2.0, 0.15),
+                    "batch_shape": DEFAULT,
+                },
+            )
+        ]
     )
 
 
 def get_surrogate_spec_with_lognormal() -> SurrogateSpec:
     return SurrogateSpec(
-        botorch_model_class=SingleTaskGP,
-        covar_module_class=RBFKernel,
-        covar_module_kwargs={
-            "ard_num_dims": DEFAULT,
-            "lengthscale_prior": LogNormalPrior(-4.0, 1.0),
-            "batch_shape": DEFAULT,
-        },
+        model_configs=[
+            ModelConfig(
+                botorch_model_class=SingleTaskGP,
+                covar_module_class=RBFKernel,
+                covar_module_options={
+                    "ard_num_dims": DEFAULT,
+                    "lengthscale_prior": LogNormalPrior(-4.0, 1.0),
+                    "batch_shape": DEFAULT,
+                },
+            )
+        ]
     )
 
 
@@ -2840,16 +2861,16 @@ def get_chained_input_transform() -> ChainedInputTransform:
 
 
 ##############################
-# Scheduler
+# Orchestrator
 ##############################
 
 
-def get_default_scheduler_options() -> SchedulerOptions:
-    return SchedulerOptions()
+def get_default_orchestrator_options() -> OrchestratorOptions:
+    return OrchestratorOptions()
 
 
-def get_scheduler_options_batch_trial() -> SchedulerOptions:
-    return SchedulerOptions(trial_type=TrialType.BATCH_TRIAL)
+def get_orchestrator_options_batch_trial() -> OrchestratorOptions:
+    return OrchestratorOptions(trial_type=TrialType.BATCH_TRIAL)
 
 
 ##############################
@@ -2941,26 +2962,26 @@ def get_online_sobol_mbm_generation_strategy(
             ],
         ),
     ]
-    sobol_model_spec = GeneratorSpec(
-        model_enum=Generators.SOBOL,
+    sobol_generator_spec = GeneratorSpec(
+        generator_enum=Generators.SOBOL,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
-    mbm_model_spec = GeneratorSpec(
-        model_enum=Generators.BOTORCH_MODULAR,
+    mbm_generator_spec = GeneratorSpec(
+        generator_enum=Generators.BOTORCH_MODULAR,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
     sobol_node = GenerationNode(
         node_name="sobol_node",
         transition_criteria=sobol_criterion,
-        model_specs=[sobol_model_spec],
+        generator_specs=[sobol_generator_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     mbm_node = GenerationNode(
         node_name="MBM_node",
         transition_criteria=[],
-        model_specs=[mbm_model_spec],
+        generator_specs=[mbm_generator_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     return GenerationStrategy(

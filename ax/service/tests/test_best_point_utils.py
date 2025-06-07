@@ -310,12 +310,12 @@ class TestBestPointUtils(TestCase):
         )
 
         for _ in range(3):
-            generator_run = gs.gen(experiment=exp, n=1)
+            generator_run = gs.gen_single_trial(experiment=exp, n=1)
             trial = exp.new_trial(generator_run=generator_run)
             trial.run().mark_completed()
             exp.attach_data(exp.fetch_data())
 
-        generator_run = gs.gen(experiment=exp, n=1)
+        generator_run = gs.gen_single_trial(experiment=exp, n=1)
         trial = exp.new_trial(generator_run=generator_run)
         trial.run().mark_completed()
 
@@ -346,7 +346,7 @@ class TestBestPointUtils(TestCase):
             ):
                 self.assertIsNotNone(
                     get_best_parameters_from_model_predictions_with_trial_index(
-                        experiment=exp, adapter=gs.model
+                        experiment=exp, adapter=gs.adapter
                     )
                 )
                 self.assertTrue(
@@ -367,14 +367,14 @@ class TestBestPointUtils(TestCase):
             ):
                 self.assertIsNotNone(
                     get_best_parameters_from_model_predictions_with_trial_index(
-                        experiment=exp, adapter=gs.model
+                        experiment=exp, adapter=gs.adapter
                     )
                 )
                 mock_model_best_point.assert_called()
 
         # Assert the non-mocked method works correctly as well
         res = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=exp, adapter=gs.model
+            experiment=exp, adapter=gs.adapter
         )
         trial_index, best_params, predict_arm = none_throws(res)
         self.assertIsNotNone(best_params)
@@ -385,7 +385,7 @@ class TestBestPointUtils(TestCase):
         for trial in exp.trials.values():
             trial.generator_run._best_arm_predictions = None
         res = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=exp, adapter=gs.model
+            experiment=exp, adapter=gs.adapter
         )
         trial_index, best_params_no_gr, predict_arm_no_gr = none_throws(res)
         self.assertEqual(best_params, best_params_no_gr)
@@ -505,7 +505,7 @@ class TestBestPointUtils(TestCase):
             get_best_raw_objective_point_with_trial_index(exp)
         self.assertIsNone(
             get_best_parameters_from_model_predictions_with_trial_index(
-                experiment=exp, adapter=gs.model
+                experiment=exp, adapter=gs.adapter
             )
         )
         self.assertIsNone(get_best_by_raw_objective_with_trial_index(experiment=exp))
@@ -531,7 +531,7 @@ class TestBestPointUtils(TestCase):
             get_best_raw_objective_point_with_trial_index(experiment=exp)
         self.assertIsNone(
             get_best_parameters_from_model_predictions_with_trial_index(
-                experiment=exp, adapter=gs.model
+                experiment=exp, adapter=gs.adapter
             )
         )
         self.assertIsNone(get_best_by_raw_objective_with_trial_index(experiment=exp))

@@ -69,23 +69,23 @@ class GenResults:
 
 
 class Adapter:
-    """The main object for using models in Ax.
+    """The main object for using generators in Ax.
 
-    Adapter specifies 3 methods for using models:
+    Adapter specifies 3 methods for using generators:
 
-    - predict: Make model predictions. This method is not optimized for
+    - predict: Make predictions with the generator. This method is not optimized for
       speed and so should be used primarily for plotting or similar tasks
       and not inside an optimization loop.
-    - gen: Use the model to generate new candidates.
-    - cross_validate: Do cross validation to assess model predictions.
+    - gen: Use the generator to generate new candidates.
+    - cross_validate: Do cross validation to assess generator predictions.
 
     Adapter converts Ax types like Data and Arm to types that are
-    meant to be consumed by the models. The data sent to the model will depend
+    meant to be consumed by the generators. The data sent to the generator will depend
     on the implementation of the subclass, which will specify the actual API
-    for external model.
+    for external generator.
 
     This class also applies a sequence of transforms to the input data and
-    problem specification which can be used to ensure that the external model
+    problem specification which can be used to ensure that the external generator
     receives appropriate inputs.
 
     Subclasses will implement what is here referred to as the "terminal
@@ -97,7 +97,7 @@ class Adapter:
         self,
         *,
         experiment: Experiment,
-        model: Generator,
+        generator: Generator,
         search_space: SearchSpace | None = None,
         data: Data | None = None,
         transforms: Sequence[type[Transform]] | None = None,
@@ -112,17 +112,17 @@ class Adapter:
         fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         """
-        Applies transforms and fits model.
+        Applies transforms and fits the generator.
 
         Args:
             experiment: An ``Experiment`` object representing the setup and the
                 current state of the experiment, including the search space,
                 trials and observation data. It is used to extract various
                 attributes, and is not mutated.
-            model: A ``Generator`` that is used for generating candidates.
-                Its interface will be specified in subclasses. If model requires
+            generator: A ``Generator`` that is used for generating candidates.
+                Its interface will be specified in subclasses. If generator requires
                 initialization, that should be done prior to its use here.
-            search_space: An optional ``SearchSpace`` for fitting  the model.
+            search_space: An optional ``SearchSpace`` for fitting the generator.
                 If not provided, `experiment.search_space` is used.
                 The search space may be modified during ``Adapter.gen``, e.g.,
                 to try out a different set of parameter bounds or constraints.
@@ -137,20 +137,20 @@ class Adapter:
             transform_configs: A dictionary from transform name to the
                 transform config dictionary.
             optimization_config: An optional ``OptimizationConfig`` defining how to
-                optimize the model. Defaults to `experiment.optimization_config`.
+                optimize the generator. Defaults to `experiment.optimization_config`.
             expand_model_space: If True, expand range parameter bounds in model
                 space to cover given training data. This will make the modeling
                 space larger than the search space if training data fall outside
                 the search space. Will also include training points that violate
                 parameter constraints in the modeling.
-            fit_tracking_metrics: Whether to fit a model for tracking metrics.
+            fit_tracking_metrics: Whether to fit a surrogate model for tracking metrics.
                 Setting this to False will improve runtime at the expense of
                 models not being available for predicting tracking metrics.
                 NOTE: This can only be set to False when the optimization config
                 is provided.
-            fit_on_init: Whether to fit the model on initialization. This can
-                be used to skip model fitting when a fitted model is not needed.
-                To fit the model afterwards, use `_process_and_transform_data`
+            fit_on_init: Whether to fit the generator on initialization. This can
+                be used to skip generator fitting when a fitted generator is not needed.
+                To fit the generator afterwards, use `_process_and_transform_data`
                 to get the transformed inputs and call `_fit_if_implemented` with
                 the transformed inputs.
             data_loader_config: A DataLoaderConfig of options for loading data. See the
@@ -236,8 +236,8 @@ class Adapter:
         # NOTE: training data must be set before setting the status quo.
         self._set_status_quo(experiment=experiment)
 
-        # Save model, apply terminal transform, and fit.
-        self.model = model
+        # Save generator, apply terminal transform, and fit.
+        self.generator = generator
         if fit_on_init:
             observations, search_space = self._transform_data(
                 observations=observations_raw,
@@ -251,19 +251,31 @@ class Adapter:
                 time_so_far=time.monotonic() - t_fit_start,
             )
 
+    @property
+    def can_predict(self) -> bool:
+        """Whether this adapter can predict outcomes for new parameterizations."""
+        return self.generator.can_predict
+
+    @property
+    def can_model_in_sample(self) -> bool:
+        """Whether this adapter can model (e.g. apply shrinkage) on observed
+        parameterizations (in this case, it needs to support calling `predict`()
+        on points in the training data / provided during `fit()`)."""
+        return self.generator.can_model_in_sample
+
     def _fit_if_implemented(
         self,
         search_space: SearchSpace,
         observations: list[Observation],
         time_so_far: float,
     ) -> None:
-        r"""Fits the model if `_fit` is implemented and stores fit time.
+        r"""Fits the generator if `_fit` is implemented and stores fit time.
 
         Args:
-            search_space: A transformed search space for fitting the model.
-            observations: The observations to fit the model with. These should
+            search_space: A transformed search space for fitting the generator.
+            observations: The observations to fit the generator with. These should
                 also be transformed.
-            time_so_far: Time spent in initializing the model up to
+            time_so_far: Time spent in initializing the generator up to
                 `_fit_if_implemented` call.
         """
         try:
@@ -329,7 +341,7 @@ class Adapter:
         if transforms is not None:
             for t in transforms:
                 t_instance = t(
-                    search_space=search_space,
+                    search_space=search_space.clone(),
                     observations=observations,
                     adapter=self,
                     config=transform_configs.get(t.__name__, None),
@@ -532,13 +544,13 @@ class Adapter:
         return self._model_space
 
     def get_training_data(self) -> list[Observation]:
-        """A copy of the (untransformed) data with which the model was fit."""
+        """A copy of the (untransformed) data with which the generator was fit."""
         return deepcopy(self._training_data)
 
     @property
     def training_in_design(self) -> list[bool]:
         """For each observation in the training data, a bool indicating if it
-        is in-design for the model.
+        is in-design for the generator.
         """
         return self._training_in_design
 
@@ -566,7 +578,7 @@ class Adapter:
         search_space: SearchSpace,
         observations: list[Observation],
     ) -> None:
-        """Apply terminal transform and fit model."""
+        """Apply terminal transform and fit the generator."""
         raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement `_fit`."
         )
@@ -767,7 +779,7 @@ class Adapter:
         model_gen_options: TConfig | None = None,
     ) -> GeneratorRun:
         """
-        Generate new points from the underlying model according to
+        Generate new points from the underlying generator according to
         search_space, optimization_config and other parameters.
 
         Args:
@@ -780,7 +792,7 @@ class Adapter:
                 features that should be fixed at specified values during
                 generation.
             model_gen_options: A config dictionary that is passed along to the
-                model. See `TorchOptConfig` for details.
+                generator. See `TorchOptConfig` for details.
 
         Returns:
             A GeneratorRun object that contains the generated points and other metadata.
@@ -843,7 +855,7 @@ class Adapter:
                     model_predictions=self.predict([best_obsf]), arm_idx=0
                 )
         except Exception as e:
-            logger.debug(f"Model predictions failed with error {e}.")
+            logger.debug(f"Generator predictions failed with error {e}.")
             model_predictions = None
 
         if best_obsf is None:
@@ -1013,27 +1025,27 @@ class Adapter:
         self._bridge_kwargs = bridge_kwargs
 
     def _get_serialized_model_state(self) -> dict[str, Any]:
-        """Obtains the state of the underlying model (if using a stateful one)
+        """Obtains the state of the underlying generator (if using a stateful one)
         in a readily JSON-serializable form.
         """
-        return self.model.serialize_state(raw_state=self.model._get_state())
+        return self.generator.serialize_state(raw_state=self.generator._get_state())
 
     def _deserialize_model_state(
         self, serialized_state: dict[str, Any]
     ) -> dict[str, Any]:
-        return self.model.deserialize_state(serialized_state=serialized_state)
+        return self.generator.deserialize_state(serialized_state=serialized_state)
 
     def feature_importances(self, metric_name: str) -> dict[str, float]:
         """Computes feature importances for a single metric.
 
-        Depending on the type of the model, this method will approach sensitivity
+        Depending on the type of the generator, this method will approach sensitivity
         analysis (calculating the sensitivity of the metric to changes in the search
         space's parameters, a.k.a. features) differently.
 
-        For Bayesian optimization models (BoTorch models), this method uses parameter
-        inverse lengthscales to compute normalized feature importances.
+        For Bayesian optimization generators (BoTorch generators), this method uses
+        parameter inverse lengthscales to compute normalized feature importances.
 
-        NOTE: Currently, this is only implemented for GP models.
+        NOTE: Currently, this is only implemented for GP-based generators.
 
         Args:
             metric_name: Name of metric to compute feature importances for.
@@ -1103,7 +1115,7 @@ class Adapter:
         )
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(model={self.model})"
+        return f"{self.__class__.__name__}(generator={self.generator})"
 
 
 def unwrap_observation_data(observation_data: list[ObservationData]) -> TModelPredict:

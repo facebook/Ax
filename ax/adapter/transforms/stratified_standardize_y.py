@@ -10,6 +10,7 @@ from collections import defaultdict
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.standardize_y import compute_standardization_parameters
 from ax.core.observation import Observation, ObservationFeatures, separate_observations
@@ -47,24 +48,35 @@ class StratifiedStandardizeY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         """Initialize StratifiedStandardizeY.
 
         Args:
-            search_space: The experiment search space.
-            observations: Observations from the experiment for all previous trials.
-            adapter: The adapter.
-            config: A that may containing a "parameter_name" key specifying the name of
-                the parameter to use for stratification and a "strata_mapping" key
-                that corresponds to a dictionary that maps parameter values to strata
-                for standardization. The strata can be of type bool, int, str, or
-                float.
+            search_space: The search space of the experiment.
+            observations: A list of observations from the experiment.
+            experiment_data: A container for the parameterizations, metadata and
+                observations for the trials in the experiment.
+                Constructed using ``extract_experiment_data``.
+            adapter: Adapter for referencing experiment, status quo, etc.
+            config: A dictionary of options that may contain a "parameter_name" key
+                specifying the name of the parameter to use for stratification and a
+                "strata_mapping" key that corresponds to a dictionary that maps
+                parameter values to strata for standardization. The strata can be
+                of type bool, int, str, or float.
 
         """
         assert search_space is not None, "StratifiedStandardizeY requires search space"
         assert observations is not None, "StratifiedStandardizeY requires observations"
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         # Get parameter name for standardization.
         self.strata_mapping = None  # pyre-ignore [8]
         if config is not None and "parameter_name" in config:

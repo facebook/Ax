@@ -32,7 +32,7 @@ from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import ModelListGP, SingleTaskGP
-from botorch.models.transforms.input import Warp
+from botorch.models.transforms.input import InputTransform, Warp
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
 from gpytorch.kernels.constant_kernel import ConstantKernel
@@ -41,7 +41,7 @@ from gpytorch.likelihoods.gaussian_likelihood import FixedNoiseGaussianLikelihoo
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 FIT_MODEL_MO_PATH = f"{get_and_fit_model.__module__}.fit_gpytorch_mll"
@@ -70,16 +70,16 @@ class LegacyBoTorchGeneratorTest(TestCase):
         model = LegacyBoTorchGenerator(multitask_gp_ranks={"y": 2, "w": 1})
         datasets = [
             SupervisedDataset(
-                X=Xs1[0],
-                Y=Ys1[0],
-                Yvar=Yvars1[0],
+                X=Xs1,
+                Y=Ys1,
+                Yvar=Yvars1,
                 feature_names=feature_names,
                 outcome_names=["y"],
             ),
             SupervisedDataset(
-                X=Xs2[0],
-                Y=Ys2[0],
-                Yvar=Yvars2[0],
+                X=Xs2,
+                Y=Ys2,
+                Yvar=Yvars2,
                 feature_names=feature_names,
                 outcome_names=["w"],
             ),
@@ -137,16 +137,16 @@ class LegacyBoTorchGeneratorTest(TestCase):
         model = LegacyBoTorchGenerator(**kwargs)
         datasets = [
             SupervisedDataset(
-                X=Xs1[0],
-                Y=Ys1[0],
-                Yvar=Yvars1[0],
+                X=Xs1,
+                Y=Ys1,
+                Yvar=Yvars1,
                 feature_names=feature_names,
                 outcome_names=metric_names,
             ),
             SupervisedDataset(
-                X=Xs2[0],
-                Y=Ys2[0],
-                Yvar=Yvars2[0],
+                X=Xs2,
+                Y=Ys2,
+                Yvar=Yvars2,
                 feature_names=feature_names,
                 outcome_names=metric_names,
             ),
@@ -219,19 +219,19 @@ class LegacyBoTorchGeneratorTest(TestCase):
                 # Test ModelListGP
 
                 # make training data different for each output
-                Xs2_diff = [Xs2[0] + 0.1]
+                Xs2_diff = [Xs2 + 0.1]
                 datasets = [
                     SupervisedDataset(
-                        X=Xs1[0],
-                        Y=Ys1[0],
-                        Yvar=Yvars1[0],
+                        X=Xs1,
+                        Y=Ys1,
+                        Yvar=Yvars1,
                         feature_names=feature_names,
                         outcome_names=metric_names,
                     ),
                     SupervisedDataset(
                         X=Xs2_diff[0],
-                        Y=Ys2[0],
-                        Yvar=Yvars2[0],
+                        Y=Ys2,
+                        Yvar=Yvars2,
                         feature_names=feature_names,
                         outcome_names=metric_names,
                     ),
@@ -257,19 +257,21 @@ class LegacyBoTorchGeneratorTest(TestCase):
                     self.assertIsInstance(mll, mll_cls)
 
                 # Check attributes
-                self.assertTrue(torch.equal(model.Xs[0], Xs1[0]))
+                self.assertTrue(torch.equal(model.Xs[0], Xs1))
                 self.assertTrue(torch.equal(model.Xs[1], Xs2_diff[0]))
-                self.assertEqual(model.dtype, Xs1[0].dtype)
-                self.assertEqual(model.device, Xs1[0].device)
+                self.assertEqual(model.dtype, Xs1.dtype)
+                self.assertEqual(model.device, Xs1.device)
                 self.assertIsInstance(model.model, ModelListGP)
 
                 # Check fitting
                 model_list = cast(ModelListGP, model.model).models
-                untransformed_inputs = [Xs1[0], Xs2_diff[0]]
+                untransformed_inputs = [Xs1, Xs2_diff[0]]
 
                 if use_input_warping:
                     transformed_inputs = [
-                        model.input_transform.preprocess_transform(x)
+                        assert_is_instance(
+                            model.input_transform, InputTransform
+                        ).preprocess_transform(x)
                         for model, x in zip(model_list, untransformed_inputs)
                     ]
                 else:
@@ -286,12 +288,8 @@ class LegacyBoTorchGeneratorTest(TestCase):
                         model_list[i].likelihood, _GaussianLikelihoodBase
                     )
 
-                self.assertTrue(
-                    torch.equal(model_list[0].train_targets, Ys1[0].view(-1))
-                )
-                self.assertTrue(
-                    torch.equal(model_list[1].train_targets, Ys2[0].view(-1))
-                )
+                self.assertTrue(torch.equal(model_list[0].train_targets, Ys1.view(-1)))
+                self.assertTrue(torch.equal(model_list[1].train_targets, Ys2.view(-1)))
                 if use_input_warping:
                     self.assertTrue(model.use_input_warping)
                 for m in model_list:
@@ -304,16 +302,16 @@ class LegacyBoTorchGeneratorTest(TestCase):
             # Test batched multi-output SingleTaskGP
             datasets_block = [
                 SupervisedDataset(
-                    X=Xs1[0],
-                    Y=Ys1[0],
-                    Yvar=Yvars1[0],
+                    X=Xs1,
+                    Y=Ys1,
+                    Yvar=Yvars1,
                     feature_names=feature_names,
                     outcome_names=metric_names,
                 ),
                 SupervisedDataset(
-                    X=Xs2[0],
-                    Y=Ys2[0],
-                    Yvar=Yvars2[0],
+                    X=Xs2,
+                    Y=Ys2,
+                    Yvar=Yvars2,
                     feature_names=feature_names,
                     outcome_names=metric_names,
                 ),
@@ -332,27 +330,25 @@ class LegacyBoTorchGeneratorTest(TestCase):
             _mock_fit_model.assert_called_once()
 
             # Check attributes
-            self.assertTrue(torch.equal(model.Xs[0], Xs1[0]))
-            self.assertTrue(torch.equal(model.Xs[1], Xs2[0]))
-            self.assertEqual(model.dtype, Xs1[0].dtype)
-            self.assertEqual(model.device, Xs1[0].device)
+            self.assertTrue(torch.equal(model.Xs[0], Xs1))
+            self.assertTrue(torch.equal(model.Xs[1], Xs2))
+            self.assertEqual(model.dtype, Xs1.dtype)
+            self.assertEqual(model.device, Xs1.device)
             if use_input_warping:
                 self.assertIsInstance(model.model, ModelListGP)
                 models = model.model.models
             else:
                 models = [model.model]
-            Ys = [Ys1[0], Ys2[0]]
+            Ys = [Ys1, Ys2]
             for i, m in enumerate(models):
                 self.assertIsInstance(m, SingleTaskGP)
                 self.assertIsInstance(m.likelihood, FixedNoiseGaussianLikelihood)
 
                 if not use_input_warping:
-                    expected_train_inputs = Xs1[0].unsqueeze(0).expand(2, *Xs1[0].shape)
-                    expected_train_targets = torch.cat(Ys1 + Ys2, dim=-1).permute(1, 0)
+                    expected_train_inputs = Xs1.unsqueeze(0).expand(2, *Xs1.shape)
+                    expected_train_targets = torch.cat([Ys1, Ys2], dim=-1).permute(1, 0)
                 else:
-                    expected_train_inputs = m.input_transform.preprocess_transform(
-                        Xs1[0]
-                    )
+                    expected_train_inputs = m.input_transform.preprocess_transform(Xs1)
                     expected_train_targets = Ys[i].squeeze(-1)
                 # Check fitting
                 # train inputs should be `o x n x 1`
@@ -370,7 +366,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
             objective_transform = get_objective_weights_transform(objective_weights)
             infeasible_cost = (
                 get_infeasible_cost(
-                    X=Xs1[0], model=model.model, objective=objective_transform
+                    X=Xs1, model=model.model, objective=objective_transform
                 )
                 .detach()
                 .clone()
@@ -378,8 +374,8 @@ class LegacyBoTorchGeneratorTest(TestCase):
             expected_infeasible_cost = -1 * torch.min(
                 # pyre-fixme[20]: Argument `1` expected.
                 objective_transform(
-                    model.model.posterior(Xs1[0]).mean
-                    - 6 * model.model.posterior(Xs1[0]).variance.sqrt()
+                    model.model.posterior(Xs1).mean
+                    - 6 * model.model.posterior(Xs1).variance.sqrt()
                 ).min(),
                 torch.tensor(0.0, **tkwargs),
             )
@@ -541,16 +537,16 @@ class LegacyBoTorchGeneratorTest(TestCase):
             # Test cross-validation
             combined_datasets = [
                 SupervisedDataset(
-                    Xs1[0],
-                    Y=Ys1[0],
-                    Yvar=Yvars1[0],
+                    Xs1,
+                    Y=Ys1,
+                    Yvar=Yvars1,
                     feature_names=feature_names,
                     outcome_names=metric_names,
                 ),
                 SupervisedDataset(
-                    Xs2[0],
-                    Y=Ys2[0],
-                    Yvar=Yvars2[0],
+                    Xs2,
+                    Y=Ys2,
+                    Yvar=Yvars2,
                     feature_names=feature_names,
                     outcome_names=metric_names,
                 ),
@@ -585,7 +581,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
                 unfit_model.cross_validate(
                     datasets=combined_datasets,
                     search_space_digest=search_space_digest,
-                    X_test=Xs1[0],
+                    X_test=Xs1,
                 )
             with self.assertRaisesRegex(
                 RuntimeError,
@@ -607,9 +603,9 @@ class LegacyBoTorchGeneratorTest(TestCase):
                 for key, val in true_state_dict.items()
             }
             model = get_and_fit_model(
-                Xs=Xs1,
-                Ys=Ys1,
-                Yvars=Yvars1,
+                Xs=[Xs1],
+                Ys=[Ys1],
+                Yvars=[Yvars1],
                 task_features=[],
                 fidelity_features=[],
                 metric_names=[metric_names[0]],
@@ -623,9 +619,9 @@ class LegacyBoTorchGeneratorTest(TestCase):
             true_state_dict["mean_module.raw_constant"] += 0.1
             true_state_dict["covar_module.raw_lengthscale"] += 0.1
             model = get_and_fit_model(
-                Xs=Xs1,
-                Ys=Ys1,
-                Yvars=Yvars1,
+                Xs=[Xs1],
+                Ys=[Ys1],
+                Yvars=[Yvars1],
                 task_features=[],
                 fidelity_features=[],
                 metric_names=[metric_names[0]],
@@ -671,9 +667,9 @@ class LegacyBoTorchGeneratorTest(TestCase):
                 model.fit(
                     datasets=[
                         SupervisedDataset(
-                            X=Xs1[0],
-                            Y=Ys1[0],
-                            Yvar=Yvars1[0],
+                            X=Xs1,
+                            Y=Ys1,
+                            Yvar=Yvars1,
                             feature_names=feature_names,
                             outcome_names=metric_names,
                         )
@@ -717,7 +713,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
             dtype=torch.float, cuda=False, constant_noise=True
         )
         # make infeasible
-        Xs2[0] = -1 * Xs2[0]
+        Xs2 = -1 * Xs2
         objective_weights = torch.tensor(
             [-1.0, 1.0], dtype=torch.float, device=torch.device("cpu")
         )
@@ -732,16 +728,16 @@ class LegacyBoTorchGeneratorTest(TestCase):
             model.fit(
                 datasets=[
                     SupervisedDataset(
-                        X=Xs1[0],
-                        Y=Ys1[0],
-                        Yvar=Yvars1[0],
+                        X=Xs1,
+                        Y=Ys1,
+                        Yvar=Yvars1,
                         feature_names=feature_names,
                         outcome_names=metric_names,
                     ),
                     SupervisedDataset(
-                        X=Xs2[0],
-                        Y=Ys2[0],
-                        Yvar=Yvars2[0],
+                        X=Xs2,
+                        Y=Ys2,
+                        Yvar=Yvars2,
                         feature_names=feature_names,
                         outcome_names=metric_names,
                     ),

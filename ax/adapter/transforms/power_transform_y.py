@@ -12,6 +12,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import numpy as np
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import get_data, match_ci_width_truncated
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -51,15 +52,19 @@ class PowerTransformY(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         """Initialize the ``PowerTransformY`` transform.
 
         Args:
-            search_space: The search space of the experiment. Unused.
+            search_space: The search space of the experiment.
             observations: A list of observations from the experiment.
-            adapter: The `Adapter` within which the transform is used. Unused.
+            experiment_data: A container for the parameterizations, metadata and
+                observations for the trials in the experiment.
+                Constructed using ``extract_experiment_data``.
+            adapter: Adapter for referencing experiment, status quo, etc.
             config: A dictionary of options to control the behavior of the transform.
                 Can contain the following keys:
                 - "metrics": A list of metric names to apply the transform to. If
@@ -67,6 +72,13 @@ class PowerTransformY(Transform):
                 - "clip_mean": Whether to clip the mean to the image of the transform.
                     Defaults to True.
         """
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         if observations is None or len(observations) == 0:
             raise DataRequiredError("PowerTransformY requires observations.")
         # pyre-fixme[9]: Can't annotate config["metrics"] properly.

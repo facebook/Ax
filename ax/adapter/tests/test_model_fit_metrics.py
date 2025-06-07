@@ -27,7 +27,11 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.scheduler import get_fitted_adapter, Scheduler, SchedulerOptions
+from ax.service.orchestrator import (
+    get_fitted_adapter,
+    Orchestrator,
+    OrchestratorOptions,
+)
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import _entropy_via_kde, entropy_of_observations
@@ -59,27 +63,27 @@ class TestAdapterFitMetrics(TestCase):
         self.generation_strategy = GenerationStrategy(
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=NUM_SOBOL,
                     max_parallelism=NUM_SOBOL,
                 ),
-                GenerationStep(model=Generators.BOTORCH_MODULAR, num_trials=-1),
+                GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=-1),
             ]
         )
 
     def test_model_fit_metrics(self) -> None:
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=self.branin_experiment,
             generation_strategy=self.generation_strategy,
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
         # need to run some trials to initialize the Adapter
-        scheduler.run_n_trials(max_trials=NUM_SOBOL + 1)
+        orchestrator.run_n_trials(max_trials=NUM_SOBOL + 1)
 
-        adapter = get_fitted_adapter(scheduler)
+        adapter = get_fitted_adapter(orchestrator)
         self.assertEqual(len(adapter.get_training_data()), NUM_SOBOL)
 
-        adapter = get_fitted_adapter(scheduler, force_refit=True)
+        adapter = get_fitted_adapter(orchestrator, force_refit=True)
         self.assertEqual(len(adapter.get_training_data()), NUM_SOBOL + 1)
 
         # testing compute_model_fit_metrics_from_adapter with default metrics

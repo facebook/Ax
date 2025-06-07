@@ -9,15 +9,18 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from functools import partial
+from itertools import product
 
-from ax.adapter.base import Adapter
+from ax.adapter.base import Adapter, DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.bilog_y import bilog_transform, BilogY, inv_bilog_transform
-
+from ax.adapter.transforms.log_y import match_ci_width
 from ax.core.observation import observations_from_data
-from ax.exceptions.core import DataRequiredError
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
+from pandas.testing import assert_frame_equal, assert_series_equal
 
 
 class BilogYTest(TestCase):
@@ -29,25 +32,30 @@ class BilogYTest(TestCase):
             with_relative_constraint=True,
         )
         self.data = self.exp.fetch_data()
+        self.bound = self.exp.optimization_config.outcome_constraints[1].bound
 
-    def get_mb(self) -> Adapter:
+    def get_adapter(self) -> Adapter:
         return Adapter(
             search_space=self.exp.search_space,
-            model=Generator(),
+            generator=Generator(),
             experiment=self.exp,
             data=self.exp.lookup_data(),
         )
 
     def test_Init(self) -> None:
-        observations = observations_from_data(
-            experiment=self.exp, data=self.exp.lookup_data()
-        )
+        # With adapter.
         t = BilogY(
             search_space=self.exp.search_space,
-            observations=observations,
-            adapter=self.get_mb(),
+            adapter=self.get_adapter(),
         )
-        self.assertEqual(t.metric_to_bound, {"branin_e": -0.25})
+        self.assertEqual(t.metric_to_bound, {"branin_e": self.bound})
+
+        with self.subTest("With no adapter"):
+            t = BilogY(
+                search_space=self.exp.search_space,
+                adapter=None,
+            )
+            self.assertEqual(t.metric_to_bound, {})
 
     def test_Bilog(self) -> None:
         self.assertAlmostEqual(
@@ -78,8 +86,7 @@ class BilogYTest(TestCase):
         )
         t = BilogY(
             search_space=self.exp.search_space,
-            observations=observations,
-            adapter=self.get_mb(),
+            adapter=self.get_adapter(),
         )
 
         # Transform
@@ -138,10 +145,7 @@ class BilogYTest(TestCase):
     def test_TransformOptimizationConfig(self) -> None:
         t = BilogY(
             search_space=self.exp.search_space,
-            observations=observations_from_data(
-                experiment=self.exp, data=self.exp.lookup_data()
-            ),
-            adapter=self.get_mb(),
+            adapter=self.get_adapter(),
         )
         oc = self.exp.optimization_config
         # This should be a no-op
@@ -149,40 +153,54 @@ class BilogYTest(TestCase):
         self.assertEqual(new_oc, oc)
 
     def test_TransformSearchSpace(self) -> None:
-        t = BilogY(
-            search_space=self.exp.search_space,
-            observations=observations_from_data(
-                experiment=self.exp, data=self.exp.lookup_data()
-            ),
-            adapter=self.get_mb(),
-        )
+        t = BilogY(search_space=self.exp.search_space, adapter=self.get_adapter())
         # This should be a no-op
         new_ss = t.transform_search_space(self.exp.search_space)
         self.assertEqual(new_ss, self.exp.search_space)
 
-    def test_AdapterIsNone(self) -> None:
-        t = BilogY(
-            search_space=self.exp.search_space,
-            observations=observations_from_data(
-                experiment=self.exp, data=self.exp.lookup_data()
-            ),
-            adapter=None,
+    def test_transform_experiment_data(self) -> None:
+        t = BilogY(search_space=self.exp.search_space, adapter=self.get_adapter())
+        experiment_data = extract_experiment_data(
+            experiment=self.exp, data_loader_config=DataLoaderConfig()
         )
-        self.assertEqual(t.metric_to_bound, {})
+        transformed_data = t.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
 
-    def test_Raises(self) -> None:
-        exp = get_branin_experiment(with_status_quo=True, with_batch=True)
-        with self.assertRaisesRegex(DataRequiredError, "BilogY requires observations."):
-            BilogY(
-                search_space=exp.search_space,
-                observations=observations_from_data(
-                    experiment=exp, data=exp.lookup_data()
-                ),
-                adapter=None,
-            )
-        # Relative constraints should raise
-        exp = get_branin_experiment(
-            with_status_quo=True,
-            with_completed_batch=True,
-            with_relative_constraint=True,
+        # Check that arm data is identical.
+        assert_frame_equal(transformed_data.arm_data, experiment_data.arm_data)
+
+        # Check that non-constraint metrics are unchanged.
+        cols = list(product(("mean", "sem"), ("branin", "branin_d")))
+        assert_frame_equal(
+            transformed_data.observation_data[cols],
+            experiment_data.observation_data[cols],
+        )
+
+        # Check that `branin_e` has been transformed correctly.
+        assert_series_equal(
+            transformed_data.observation_data[("mean", "branin_e")],
+            bilog_transform(
+                experiment_data.observation_data[("mean", "branin_e")], bound=self.bound
+            ),
+        )
+        # Sem is smaller than before.
+        self.assertTrue(
+            (
+                transformed_data.observation_data[("sem", "branin_e")]
+                < experiment_data.observation_data[("sem", "branin_e")]
+            ).all()
+        )
+        # Compare against transforming the old way.
+        mean, var = match_ci_width(
+            mean=experiment_data.observation_data[("mean", "branin_e")],
+            variance=experiment_data.observation_data[("sem", "branin_e")] ** 2,
+            transform=partial(bilog_transform, bound=self.bound),
+        )
+        assert_series_equal(
+            transformed_data.observation_data[("mean", "branin_e")], mean
+        )
+        # Can't use assert_series_equal since the metadata is destroyed in var.
+        self.assertTrue(
+            transformed_data.observation_data[("sem", "branin_e")].equals(var**0.5)
         )

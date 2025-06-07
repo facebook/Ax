@@ -56,7 +56,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.metrics.branin import branin, BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient, ObjectiveProperties
@@ -219,9 +219,9 @@ def get_client_with_simple_discrete_moo_problem(
 ) -> AxClient:
     gs = GenerationStrategy(
         steps=[
-            GenerationStep(model=Generators.SOBOL, num_trials=3),
+            GenerationStep(generator=Generators.SOBOL, num_trials=3),
             GenerationStep(
-                model=Generators.BOTORCH_MODULAR,
+                generator=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs={
                     # To avoid search space exhausted errors.
@@ -507,7 +507,7 @@ class TestAxClient(TestCase):
         """
         ax_client = get_branin_optimization()
         self.assertEqual(
-            [s.model for s in none_throws(ax_client.generation_strategy)._steps],
+            [s.generator for s in none_throws(ax_client.generation_strategy)._steps],
             [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -538,7 +538,7 @@ class TestAxClient(TestCase):
                 sample_size=i,
             )
         # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.model._model_key, "BoTorch")
+        self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
         trials_df = ax_client.get_trials_data_frame()
@@ -725,7 +725,7 @@ class TestAxClient(TestCase):
             },
         )
         self.assertEqual(
-            [s.model for s in none_throws(ax_client.generation_strategy)._steps],
+            [s.generator for s in none_throws(ax_client.generation_strategy)._steps],
             [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -767,7 +767,7 @@ class TestAxClient(TestCase):
                 sample_size=i,
             )
         # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.model._model_key, "BoTorch")
+        self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")
         ax_client.get_contour_plot(metric_name="branin")
         ax_client.get_contour_plot(metric_name="b")
         trials_df = ax_client.get_trials_data_frame()
@@ -791,7 +791,7 @@ class TestAxClient(TestCase):
         """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -931,7 +931,7 @@ class TestAxClient(TestCase):
         """
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         ax_client.create_experiment(
@@ -1028,7 +1028,7 @@ class TestAxClient(TestCase):
     def test_create_single_objective_experiment_with_objectives_dict(self) -> None:
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -1356,7 +1356,7 @@ class TestAxClient(TestCase):
         """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -1520,7 +1520,7 @@ class TestAxClient(TestCase):
         """Check that we do not allow constraints on the objective metric."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaises(ValueError):
@@ -2502,7 +2502,7 @@ class TestAxClient(TestCase):
         )
         ax_client.fit_model()
         self.assertEqual(
-            ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
+            ax_client.generation_strategy._curr.generator_spec_to_gen_from.model_key,
             "BoTorch",
         )
 
@@ -2527,7 +2527,7 @@ class TestAxClient(TestCase):
         # This overwrites the `predict` call to return the original observations,
         # while testing the rest of the code as if we're using predictions.
         # pyre-fixme[16]: `Optional` has no attribute `model`.
-        model = ax_client.generation_strategy.model.model
+        model = ax_client.generation_strategy.adapter.generator
         ys = model.surrogate.training_data[0].Y
         with patch.object(
             model, "predict", return_value=(ys, torch.zeros(*ys.shape, ys.shape[-1]))
@@ -2572,7 +2572,7 @@ class TestAxClient(TestCase):
             num_trials=20, minimize=minimize, outcome_constraints=outcome_constraints
         )
         self.assertEqual(
-            ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
+            ax_client.generation_strategy._curr.generator_spec_to_gen_from.model_key,
             "Sobol",
         )
 
@@ -3041,8 +3041,8 @@ class TestAxClient(TestCase):
         )
         with mock.patch.object(
             GenerationStrategy,
-            "gen",
-            wraps=ax_client.generation_strategy.gen,
+            "gen_single_trial",
+            wraps=ax_client.generation_strategy.gen_single_trial,
         ) as mock_gen:
             with self.subTest("fixed_features is None"):
                 ax_client.get_next_trial()
@@ -3107,7 +3107,7 @@ class TestAxClient(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="Sobol",
-                    model_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
+                    generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                 )
             ],
         )

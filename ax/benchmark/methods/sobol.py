@@ -18,7 +18,7 @@ def get_sobol_generation_strategy() -> GenerationStrategy:
     return GenerationStrategy(
         name="Sobol",
         steps=[
-            GenerationStep(model=Generators.SOBOL, num_trials=-1),
+            GenerationStep(generator=Generators.SOBOL, num_trials=-1),
         ],
     )
 

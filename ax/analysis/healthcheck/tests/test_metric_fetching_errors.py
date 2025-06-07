@@ -8,18 +8,35 @@
 from datetime import datetime, timedelta
 from typing import Any, Iterable
 
+import pandas as pd
+
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
 
 from ax.core.base_trial import BaseTrial
+from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
-from ax.service.scheduler import Scheduler, SchedulerOptions
-from ax.utils.common.result import Err
+from ax.service.orchestrator import Orchestrator, OrchestratorOptions
+from ax.utils.common.result import Err, Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
+TEST_DATA = Data(
+    df=pd.DataFrame(
+        [
+            {
+                "arm_name": "0_0",
+                "metric_name": "test_metric",
+                "mean": 1.0,
+                "sem": 2.0,
+                "trial_index": 0,
+            }
+        ]
+    )
+)
 
-class BogusMetricWithException(Metric):
+
+class TestMetricWithException(Metric):
     @classmethod
     def is_available_while_running(cls) -> bool:
         return True
@@ -36,7 +53,7 @@ class BogusMetricWithException(Metric):
                 MetricFetchE(
                     message="This is what I do",
                     exception=ValueError(
-                        "The metric you are fetching is totally bogus!"
+                        "The metric you are fetching is a test metric!"
                     ),
                 )
             )
@@ -44,7 +61,7 @@ class BogusMetricWithException(Metric):
         }
 
 
-class BogusMetricNoException(Metric):
+class TestMetricNoException(Metric):
     @classmethod
     def is_available_while_running(cls) -> bool:
         return True
@@ -60,6 +77,21 @@ class BogusMetricNoException(Metric):
             metric.name: Err(MetricFetchE(message="This is what I do", exception=None))
             for metric in metrics
         }
+
+
+class TestMetricSuccess(Metric):
+    @classmethod
+    def is_available_while_running(cls) -> bool:
+        return True
+
+    @classmethod
+    def fetch_trial_data_multi(
+        cls,
+        trial: BaseTrial,
+        metrics: Iterable[Metric],
+        **kwargs: Any,
+    ) -> dict[str, MetricFetchResult]:
+        return {metric.name: Ok(value=TEST_DATA) for metric in metrics}
 
 
 def create_dummy_traceback_pastes(
@@ -79,20 +111,20 @@ def create_dummy_traceback_pastes(
 
 class TestMetricFetchingErrors(TestCase):
     def test_metric_fetching_errors_with_traceback(self) -> None:
-        # GIVEN an experiment with a bogus metric and running trial
+        # GIVEN an experiment with a test metric and running trial
         exp = get_branin_experiment(with_batch=True)
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        exp.add_tracking_metric(BogusMetricWithException(name="bogus_metric"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
+        exp.add_tracking_metric(TestMetricWithException(name="test_metric"))
+        # AND GIVEN that experiment has tried to fetch data through the orchestrator
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 1)
         # WHEN we compute MetricFetchingErrorsAnalysis with a traceback creator
         card = MetricFetchingErrorsAnalysis(
@@ -117,12 +149,12 @@ class TestMetricFetchingErrors(TestCase):
         )
         self.assertEqual(
             card[0].df["metric_name"].iloc[0],
-            "bogus_metric",
+            "test_metric",
         )
         self.assertEqual(
             card[0].df["reason"].iloc[0],
             "Ran into the following exception: ValueError: "
-            "The metric you are fetching is totally bogus!",
+            "The metric you are fetching is a test metric!",
         )
         self.assertEqual(
             card[0].df["traceback"].iloc[0],
@@ -138,20 +170,20 @@ class TestMetricFetchingErrors(TestCase):
         )
 
     def test_metric_fetching_errors_without_traceback(self) -> None:
-        # GIVEN an experiment with a bogus metric and running trial
+        # GIVEN an experiment with a test metric and running trial
         exp = get_branin_experiment(with_batch=True)
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        exp.add_tracking_metric(BogusMetricNoException(name="bogus_metric"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
+        exp.add_tracking_metric(TestMetricNoException(name="test_metric"))
+        # AND GIVEN that experiment has tried to fetch data through the orchestrator
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 1)
         # WHEN we compute MetricFetchingErrorsAnalysis without a traceback creator
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
@@ -174,7 +206,7 @@ class TestMetricFetchingErrors(TestCase):
         )
         self.assertEqual(
             card[0].df["metric_name"].iloc[0],
-            "bogus_metric",
+            "test_metric",
         )
         self.assertEqual(card[0].df["reason"].iloc[0], "This is what I do")
         self.assertEqual(
@@ -190,54 +222,24 @@ class TestMetricFetchingErrors(TestCase):
             (datetime.now() - timedelta(minutes=1)).isoformat(),
         )
 
-    def test_max_records(self) -> None:
-        # GIVEN an experiment with a bogus metric and running trial
-        exp = get_branin_experiment(with_batch=True)
-        # it won't fetch an already completed trial
-        exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        exp.add_tracking_metric(BogusMetricWithException(name="bogus_metric"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
-            experiment=exp,
-            generation_strategy=choose_generation_strategy_legacy(
-                search_space=exp.search_space
-            ),
-            options=SchedulerOptions(),
-        )
-        scheduler.poll_and_process_results()
-        # so it fetches again
-        exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        scheduler.poll_and_process_results()
-        self.assertEqual(len(exp._metric_fetching_errors), 2)
-        # WHEN we compute MetricFetchingErrorsAnalysis with max_records=1
-        card = MetricFetchingErrorsAnalysis(max_records=1).compute(experiment=exp)
-        # THEN we get the most recent error
-        self.assertEqual(len(card[0].df), 1)
-        self.assertEqual(
-            card[0].df.loc[0, "timestamp"],
-            max(e["timestamp"] for e in exp._metric_fetching_errors),
-        )
-
     def test_error_order(self) -> None:
-        # GIVEN an experiment with a bogus metric and running trial
+        # GIVEN an experiment with a test metric and running trial
         exp = get_branin_experiment(with_batch=True)
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        exp.add_tracking_metric(BogusMetricWithException(name="bogus_metric"))
-        # AND GIVEN that experiment has tried to fetch data through the scheduler
-        scheduler = Scheduler(
+        exp.add_tracking_metric(TestMetricWithException(name="test_metric1"))
+        exp.add_tracking_metric(TestMetricWithException(name="test_metric2"))
+        # AND GIVEN that experiment has tried to fetch data through the orchestrator
+        orchestrator = Orchestrator(
             experiment=exp,
             generation_strategy=choose_generation_strategy_legacy(
                 search_space=exp.search_space
             ),
-            options=SchedulerOptions(),
+            options=OrchestratorOptions(),
         )
-        scheduler.poll_and_process_results()
-        # so it fetches again
-        exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        scheduler.poll_and_process_results()
+        orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 2)
-        # WHEN we compute MetricFetchingErrorsAnalysis with max_records=1
+        # WHEN we compute MetricFetchingErrorsAnalysis
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
         # THEN we get a cards in descending ts order
         self.assertEqual(len(card[0].df), 2)
@@ -245,3 +247,50 @@ class TestMetricFetchingErrors(TestCase):
             card[0].df["timestamp"].iloc[0],
             card[0].df["timestamp"].iloc[1],
         )
+
+    def test_error_gets_updated_for_same_metric(self) -> None:
+        # This tests that an error in exp._metric_fetching_errors is updated
+        exp = get_branin_experiment(with_batch=True)
+        exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
+        exp.add_tracking_metric(TestMetricWithException(name="test_metric"))
+
+        orchestrator = Orchestrator(
+            experiment=exp,
+            generation_strategy=choose_generation_strategy_legacy(
+                search_space=exp.search_space
+            ),
+            options=OrchestratorOptions(),
+        )
+        orchestrator.poll_and_process_results()
+        original_ts = exp._metric_fetching_errors[(0, "test_metric")]["timestamp"]
+        exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
+        orchestrator.poll_and_process_results()
+
+        self.assertEqual(len(exp._metric_fetching_errors), 1)
+        card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
+        self.assertEqual(len(card[0].df), 1)
+        self.assertGreater(card[0].df["timestamp"].iloc[0], original_ts)
+
+    def test_error_gets_popped_on_successful_fetch(self) -> None:
+        # This tests that an error in exp._metric_fetching_errors is popped
+        # on a successful fetch
+        exp = get_branin_experiment(with_batch=True)
+        exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
+        exp.add_tracking_metric(TestMetricWithException(name="test_metric"))
+
+        orchestrator = Orchestrator(
+            experiment=exp,
+            generation_strategy=choose_generation_strategy_legacy(
+                search_space=exp.search_space
+            ),
+            options=OrchestratorOptions(),
+        )
+        orchestrator.poll_and_process_results()
+        self.assertEqual(len(exp._metric_fetching_errors), 1)
+
+        exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
+        exp.remove_tracking_metric("test_metric")
+        exp.add_tracking_metric(TestMetricSuccess(name="test_metric"))
+        orchestrator.poll_and_process_results()
+
+        self.assertEqual(len(exp._metric_fetching_errors), 0)

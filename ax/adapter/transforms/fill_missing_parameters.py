@@ -8,11 +8,12 @@
 
 from typing import Optional, TYPE_CHECKING
 
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
+from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -37,9 +38,17 @@ class FillMissingParameters(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         config = config or {}
         self.fill_values: TParameterization | None = config.get(  # pyre-ignore[8]
             "fill_values", None
@@ -60,3 +69,25 @@ class FillMissingParameters(Transform):
             }
             obsf.parameters.update(fill_params)
         return observation_features
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        if self.fill_values is None:
+            return experiment_data
+        if self.fill_None is False:
+            # This shouldn't be relevant in regular usage. We add both
+            # FillMissingParameters and Cast as default transfroms in
+            # Adapter. Cast will drop parameterizations with missing / None
+            # values, so not filling None will just lead to it being dropped.
+            # The exception is added here for completeness.
+            raise UnsupportedError(
+                "Transforming `ExperimentData` is not supported for "
+                "FillMissingParameters with fill_None=False. "
+                "We cannot distinguish between parameters that are missing "
+                "and those that are None in `ExperimentData`. "
+            )
+        return ExperimentData(
+            arm_data=experiment_data.arm_data.fillna(value=self.fill_values),
+            observation_data=experiment_data.observation_data,
+        )

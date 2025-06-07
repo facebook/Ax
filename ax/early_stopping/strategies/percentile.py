@@ -15,6 +15,7 @@ from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
+from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 
@@ -88,6 +89,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_indices: set[int],
         experiment: Experiment,
+        current_node: GenerationNode | None = None,
     ) -> dict[int, str | None]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
         of the trials at the same step.
@@ -95,6 +97,10 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         Args:
             trial_indices: Indices of candidate trials to consider for early stopping.
             experiment: Experiment that contains the trials and other contextual data.
+            current_node: The current ``GenerationNode`` on the ``GenerationStrategy``
+                used to generate trials for the ``Experiment``. Early stopping
+                strategies may utilize components of the current node when making
+                stopping decisions.
 
         Returns:
             A dictionary mapping trial indices that should be early stopped to

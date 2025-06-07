@@ -13,7 +13,7 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
-from dataclasses import dataclass, field, InitVar
+from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Mapping
 
@@ -80,10 +80,6 @@ from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.evaluation import AIC, BIC, compute_in_sample_model_fit_metric, MLL
 from botorch.utils.transforms import normalize_indices
 from botorch.utils.types import _DefaultType, DEFAULT
-from gpytorch.kernels import Kernel
-from gpytorch.likelihoods.likelihood import Likelihood
-from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
-from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.models.exact_gp import ExactGP
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
@@ -421,38 +417,6 @@ def _raise_deprecation_warning(
     return warnings_raised
 
 
-def get_model_config_from_deprecated_args(
-    botorch_model_class: type[Model] | None,
-    model_options: dict[str, Any] | None,
-    mll_class: type[MarginalLogLikelihood] | None,
-    mll_options: dict[str, Any] | None,
-    outcome_transform_classes: list[type[OutcomeTransform]] | None,
-    outcome_transform_options: dict[str, dict[str, Any]] | None,
-    input_transform_classes: list[type[InputTransform]] | _DefaultType | None,
-    input_transform_options: dict[str, dict[str, Any]] | None,
-    covar_module_class: type[Kernel] | None,
-    covar_module_options: dict[str, Any] | None,
-    likelihood_class: type[Likelihood] | None,
-    likelihood_options: dict[str, Any] | None,
-) -> ModelConfig:
-    """Construct a ModelConfig from deprecated arguments."""
-    return ModelConfig(
-        botorch_model_class=botorch_model_class,
-        model_options=(model_options or {}).copy(),
-        mll_class=mll_class,
-        mll_options=(mll_options or {}).copy(),
-        outcome_transform_classes=outcome_transform_classes,
-        outcome_transform_options=(outcome_transform_options or {}).copy(),
-        input_transform_classes=input_transform_classes,
-        input_transform_options=(input_transform_options or {}).copy(),
-        covar_module_class=covar_module_class,
-        covar_module_options=(covar_module_options or {}).copy(),
-        likelihood_class=likelihood_class,
-        likelihood_options=(likelihood_options or {}).copy(),
-        name="from deprecated args",
-    )
-
-
 @dataclass(frozen=True)
 class SurrogateSpec:
     """
@@ -464,66 +428,8 @@ class SurrogateSpec:
     If ``outcomes`` is left empty then no outcomes will be fit to the Surrogate.
 
     Args:
-        botorch_model_class: ``Model`` class to be used as the underlying
-            BoTorch model. If None is provided a model class will be selected (either
-            one for all outcomes or a ModelList with separate models for each outcome)
-            will be selected automatically based off the datasets at `construct` time.
-            This argument is deprecated in favor of model_configs.
-        model_options: Dictionary of options / kwargs for the BoTorch
-            ``Model`` constructed during ``Surrogate.fit``.
-            Note that the corresponding attribute will later be updated to include any
-            additional kwargs passed into ``BoTorchGenerator.fit``.
-            This argument is deprecated in favor of model_configs.
-        mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
-            This argument is deprecated in favor of model_configs.
-        mll_options: Dictionary of options / kwargs for the MLL. This argument is
-            deprecated in favor of model_configs.
-        outcome_transform_classes: List of BoTorch outcome transforms classes. Passed
-            down to the BoTorch ``Model``. Multiple outcome transforms can be chained
-            together using ``ChainedOutcomeTransform``. This argument is deprecated in
-            favor of model_configs.
-        outcome_transform_options: Outcome transform classes kwargs. The keys are
-            class string names and the values are dictionaries of outcome transform
-            kwargs. For example,
-            `
-            outcome_transform_classes = [Standardize]
-            outcome_transform_options = {
-                "Standardize": {"m": 1},
-            `
-            For more options see `botorch/models/transforms/outcome.py`. This argument
-                is deprecated in favor of model_configs.
-        input_transform_classes: List of BoTorch input transforms classes.
-            Passed down to the BoTorch ``Model``. Multiple input transforms
-            will be chained together using ``ChainedInputTransform``.
-            If `DEFAULT`, a default set of input transforms may be constructed
-            based on the search space digest (in `_construct_default_input_transforms`).
-            To disable this behavior, pass in `input_transform_classes=None`.
-            This argument is deprecated in favor of model_configs.
-        input_transform_options: Input transform classes kwargs. The keys are
-            class string names and the values are dictionaries of input transform
-            kwargs. For example,
-            `
-            input_transform_classes = [Normalize, Round]
-            input_transform_options = {
-                "Normalize": {"d": 3},
-                "Round": {"integer_indices": [0], "categorical_features": {1: 2}},
-            }
-            `
-            For more input options see `botorch/models/transforms/input.py`.
-            This argument is deprecated in favor of model_configs.
-        covar_module_class: Covariance module class. This gets initialized after
-            parsing the ``covar_module_options`` in ``covar_module_argparse``,
-            and gets passed to the model constructor as ``covar_module``.
-            This argument is deprecated in favor of model_configs.
-        covar_module_options: Covariance module kwargs. This argument is deprecated
-            in favor of model_configs.
-        likelihood: ``Likelihood`` class. This gets initialized with
-            ``likelihood_options`` and gets passed to the model constructor.
-            This argument is deprecated in favor of model_configs.
-        likelihood_options: Likelihood options. This argument is deprecated in favor
-            of model_configs.
         model_configs: List of model configs. Each model config is a specification of
-            a model. These should be used in favor of the above deprecated arguments.
+            a surrogate model. Defaults to a single ``ModelConfig`` with all defaults.
         metric_to_model_configs: Dictionary mapping metric names to a list of model
             configs for that metric.
         eval_criterion: The name of the evaluation criteria to use. These are defined in
@@ -533,91 +439,12 @@ class SurrogateSpec:
             cross-validation.
     """
 
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    botorch_model_class: InitVar[type[Model] | None] = None
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    botorch_model_kwargs: InitVar[dict[str, Any] | None] = None
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    mll_class: InitVar[type[MarginalLogLikelihood] | None] = None
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    mll_kwargs: InitVar[dict[str, Any] | None] = None
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    covar_module_class: InitVar[type[Kernel] | None] = None
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    covar_module_kwargs: InitVar[dict[str, Any] | None] = None
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    likelihood_class: InitVar[type[Likelihood] | None] = None
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    likelihood_kwargs: InitVar[dict[str, Any] | None] = None
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    input_transform_classes: InitVar[
-        list[type[InputTransform]] | _DefaultType | None
-    ] = DEFAULT
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    input_transform_options: InitVar[dict[str, dict[str, Any]] | None] = None
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    outcome_transform_classes: InitVar[list[type[OutcomeTransform]] | None] = None
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    outcome_transform_options: InitVar[dict[str, dict[str, Any]] | None] = None
-
-    model_configs: list[ModelConfig] = field(default_factory=list)
+    model_configs: list[ModelConfig] = field(default_factory=lambda: [ModelConfig()])
     metric_to_model_configs: dict[str, list[ModelConfig]] = field(default_factory=dict)
     eval_criterion: str = RANK_CORRELATION
     outcomes: list[str] = field(default_factory=list)
     allow_batched_models: bool = True
     use_posterior_predictive: bool = False
-
-    def __post_init__(
-        self,
-        botorch_model_class: type[Model] | None,
-        botorch_model_kwargs: dict[str, Any] | None,
-        mll_class: type[MarginalLogLikelihood],
-        mll_kwargs: dict[str, Any] | None,
-        covar_module_class: type[Kernel] | None,
-        covar_module_kwargs: dict[str, Any] | None,
-        likelihood_class: type[Likelihood] | None,
-        likelihood_kwargs: dict[str, Any] | None,
-        input_transform_classes: list[type[InputTransform]] | None,
-        input_transform_options: dict[str, dict[str, Any]] | None,
-        outcome_transform_classes: list[type[OutcomeTransform]] | None,
-        outcome_transform_options: dict[str, dict[str, Any]] | None,
-    ) -> None:
-        warnings_raised = _raise_deprecation_warning(
-            is_surrogate=False,
-            botorch_model_class=botorch_model_class,
-            botorch_model_kwargs=botorch_model_kwargs,
-            mll_class=mll_class,
-            mll_kwargs=mll_kwargs,
-            outcome_transform_classes=outcome_transform_classes,
-            outcome_transform_options=outcome_transform_options,
-            input_transform_classes=input_transform_classes,
-            input_transform_options=input_transform_options,
-            covar_module_class=covar_module_class,
-            covar_module_options=covar_module_kwargs,
-            likelihood_class=likelihood_class,
-            likelihood_options=likelihood_kwargs,
-        )
-        if len(self.model_configs) == 0:
-            model_config = get_model_config_from_deprecated_args(
-                botorch_model_class=botorch_model_class,
-                model_options=botorch_model_kwargs,
-                mll_class=mll_class,
-                mll_options=mll_kwargs,
-                outcome_transform_classes=outcome_transform_classes,
-                outcome_transform_options=outcome_transform_options,
-                input_transform_classes=input_transform_classes,
-                input_transform_options=input_transform_options,
-                covar_module_class=covar_module_class,
-                covar_module_options=covar_module_kwargs,
-                likelihood_class=likelihood_class,
-                likelihood_options=likelihood_kwargs,
-            )
-            object.__setattr__(self, "model_configs", [model_config])
-        elif warnings_raised:
-            raise UserInputError(
-                "model_configs and deprecated arguments were both specified. "
-                "Please use model_configs and remove deprecated arguments."
-            )
 
 
 class Surrogate(Base):
@@ -630,64 +457,9 @@ class Surrogate(Base):
     and is not meant to be used outside of it.
 
     Args:
-        botorch_model_class: ``Model`` class to be used as the underlying
-            BoTorch model. If None is provided a model class will be selected (either
-            one for all outcomes or a ModelList with separate models for each outcome)
-            will be selected automatically based off the datasets at `construct` time.
-            This argument is deprecated in favor of model_configs.
-        model_options: Dictionary of options / kwargs for the BoTorch
-            ``Model`` constructed during ``Surrogate.fit``.
-            Note that the corresponding attribute will later be updated to include any
-            additional kwargs passed into ``BoTorchGenerator.fit``.
-            This argument is deprecated in favor of model_configs.
-        mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
-            This argument is deprecated in favor of model_configs.
-        mll_options: Dictionary of options / kwargs for the MLL. This argument is
-            deprecated in favor of model_configs.
-        outcome_transform_classes: List of BoTorch outcome transforms classes. Passed
-            down to the BoTorch ``Model``. Multiple outcome transforms can be chained
-            together using ``ChainedOutcomeTransform``. This argument is deprecated in
-            favor of model_configs.
-        outcome_transform_options: Outcome transform classes kwargs. The keys are
-            class string names and the values are dictionaries of outcome transform
-            kwargs. For example,
-            `
-            outcome_transform_classes = [Standardize]
-            outcome_transform_options = {
-                "Standardize": {"m": 1},
-            `
-            For more options see `botorch/models/transforms/outcome.py`. This argument
-                is deprecated in favor of model_configs.
-        input_transform_classes: List of BoTorch input transforms classes.
-            Passed down to the BoTorch ``Model``. Multiple input transforms
-            will be chained together using ``ChainedInputTransform``.
-            If `DEFAULT`, a default set of input transforms may be constructed
-            based on the search space digest. To disable this behavior, pass
-            in `input_transform_classes=None`.
-            This argument is deprecated in favor of model_configs.
-        input_transform_options: Input transform classes kwargs. The keys are
-            class string names and the values are dictionaries of input transform
-            kwargs. For example,
-            `
-            input_transform_classes = [Normalize, Round]
-            input_transform_options = {
-                "Normalize": {"d": 3},
-                "Round": {"integer_indices": [0], "categorical_features": {1: 2}},
-            }
-            `
-            For more input options see `botorch/models/transforms/input.py`.
-            This argument is deprecated in favor of model_configs.
-        covar_module_class: Covariance module class. This gets initialized after
-            parsing the ``covar_module_options`` in ``covar_module_argparse``,
-            and gets passed to the model constructor as ``covar_module``.
-            This argument is deprecated in favor of model_configs.
-        covar_module_options: Covariance module kwargs. This argument is deprecated
-            in favor of model_configs.
-        likelihood: ``Likelihood`` class. This gets initialized with
-            ``likelihood_options`` and gets passed to the model constructor.
-            This argument is deprecated in favor of model_configs.
-        likelihood_options: Likelihood options. This argument is deprecated in favor
-            of model_configs.
+        surrogate_spec: A ``SurrogateSpec`` that specifies the option to use when
+            constructing the surrogate models. See the docstring of ``SurrogateSpec``
+            for supported options and ``ModelConfig`` for additional details.
         allow_batched_models: Set to true to fit the models in a batch if supported.
             Set to false to fit individual models to each metric in a loop.
         refit_on_cv: Whether to refit the model on the cross-validation folds.
@@ -704,66 +476,13 @@ class Surrogate(Base):
     def __init__(
         self,
         surrogate_spec: SurrogateSpec | None = None,
-        botorch_model_class: type[Model] | None = None,
-        model_options: dict[str, Any] | None = None,
-        mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
-        mll_options: dict[str, Any] | None = None,
-        outcome_transform_classes: list[type[OutcomeTransform]] | None = None,
-        outcome_transform_options: dict[str, dict[str, Any]] | None = None,
-        input_transform_classes: list[type[InputTransform]]
-        | _DefaultType
-        | None = DEFAULT,
-        input_transform_options: dict[str, dict[str, Any]] | None = None,
-        covar_module_class: type[Kernel] | None = None,
-        covar_module_options: dict[str, Any] | None = None,
-        likelihood_class: type[Likelihood] | None = None,
-        likelihood_options: dict[str, Any] | None = None,
         allow_batched_models: bool = True,
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
         metric_to_best_model_config: dict[str, ModelConfig] | None = None,
     ) -> None:
-        warnings_raised = _raise_deprecation_warning(
-            is_surrogate=True,
-            botorch_model_class=botorch_model_class,
-            model_options=model_options,
-            mll_class=mll_class,
-            mll_options=mll_options,
-            outcome_transform_classes=outcome_transform_classes,
-            outcome_transform_options=outcome_transform_options,
-            input_transform_classes=input_transform_classes,
-            input_transform_options=input_transform_options,
-            covar_module_class=covar_module_class,
-            covar_module_options=covar_module_options,
-            likelihood_class=likelihood_class,
-            likelihood_options=likelihood_options,
-        )
-        # check if surrogate_spec is provided
         if surrogate_spec is None:
-            # create surrogate spec from deprecated arguments
-            model_config = get_model_config_from_deprecated_args(
-                botorch_model_class=botorch_model_class,
-                model_options=model_options,
-                mll_class=mll_class,
-                mll_options=mll_options,
-                outcome_transform_classes=outcome_transform_classes,
-                outcome_transform_options=outcome_transform_options,
-                input_transform_classes=input_transform_classes,
-                input_transform_options=input_transform_options,
-                covar_module_class=covar_module_class,
-                covar_module_options=covar_module_options,
-                likelihood_class=likelihood_class,
-                likelihood_options=likelihood_options,
-            )
-            surrogate_spec = SurrogateSpec(
-                model_configs=[model_config], allow_batched_models=allow_batched_models
-            )
-
-        elif warnings_raised:
-            raise UserInputError(
-                "model_configs and deprecated arguments were both specified. "
-                "Please use model_configs and remove deprecated arguments."
-            )
+            surrogate_spec = SurrogateSpec(allow_batched_models=allow_batched_models)
 
         self.surrogate_spec: SurrogateSpec = surrogate_spec
         # Store the last dataset used to fit the model for a given metric(s).

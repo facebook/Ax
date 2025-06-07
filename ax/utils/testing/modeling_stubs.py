@@ -32,7 +32,6 @@ from ax.generation_strategy.best_model_selector import (
 )
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_node import GenerationNode
-
 from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
@@ -41,7 +40,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     IsSingleObjective,
@@ -49,7 +48,11 @@ from ax.generation_strategy.transition_criterion import (
     MinimumPreferenceOccurances,
     MinTrials,
 )
-from ax.generators.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.torch.botorch_modular.surrogate import (
+    ModelConfig,
+    Surrogate,
+    SurrogateSpec,
+)
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.testing.core_stubs import (
@@ -61,6 +64,7 @@ from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.transforms.input import InputTransform, Normalize
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 
 logger: Logger = get_logger(__name__)
 
@@ -177,7 +181,7 @@ def get_generation_strategy(
     if with_generation_nodes:
         gs = sobol_gpei_generation_node_gs()
         if with_callable_model_kwarg:
-            gs._curr.model_spec_to_gen_from.model_kwargs["model_constructor"] = (
+            gs._curr.generator_spec_to_gen_from.model_kwargs["model_constructor"] = (
                 get_sobol
             )
     else:
@@ -289,14 +293,14 @@ def sobol_gpei_generation_node_gs(
     auto_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
     is_SOO_mbm_criterion = [IsSingleObjective(transition_to="MBM_node")]
     step_model_kwargs = {"silently_filter_kwargs": True}
-    sobol_model_spec = GeneratorSpec(
-        model_enum=Generators.SOBOL,
+    sobol_generator_spec = GeneratorSpec(
+        generator_enum=Generators.SOBOL,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
-    mbm_model_specs = [
+    mbm_generator_specs = [
         GeneratorSpec(
-            model_enum=Generators.BOTORCH_MODULAR,
+            generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs=step_model_kwargs,
             model_gen_kwargs={},
         )
@@ -304,11 +308,11 @@ def sobol_gpei_generation_node_gs(
     sobol_node = GenerationNode(
         node_name="sobol_node",
         transition_criteria=sobol_criterion,
-        model_specs=[sobol_model_spec],
+        generator_specs=[sobol_generator_spec],
     )
     if with_model_selection:
         # This is just MBM with different transforms.
-        mbm_model_specs.append(GeneratorSpec(model_enum=Generators.BO_MIXED))
+        mbm_generator_specs.append(GeneratorSpec(generator_enum=Generators.BO_MIXED))
         best_model_selector = SingleDiagnosticBestModelSelector(
             diagnostic=FISHER_EXACT_TEST_P,
             metric_aggregation=ReductionCriterion.MEAN,
@@ -321,21 +325,21 @@ def sobol_gpei_generation_node_gs(
         mbm_node = GenerationNode(
             node_name="MBM_node",
             transition_criteria=auto_mbm_criterion,
-            model_specs=mbm_model_specs,
+            generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
         )
     elif with_unlimited_gen_mbm:
         # no TC defined is equivalent to unlimited gen
         mbm_node = GenerationNode(
             node_name="MBM_node",
-            model_specs=mbm_model_specs,
+            generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
         )
     elif with_is_SOO_transition:
         mbm_node = GenerationNode(
             node_name="MBM_node",
             transition_criteria=is_SOO_mbm_criterion,
-            model_specs=mbm_model_specs,
+            generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
         )
 
@@ -343,7 +347,7 @@ def sobol_gpei_generation_node_gs(
         mbm_node = GenerationNode(
             node_name="MBM_node",
             transition_criteria=mbm_criterion,
-            model_specs=mbm_model_specs,
+            generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
         )
 
@@ -389,7 +393,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
         nodes=[
             GenerationNode(
                 node_name="Sobol",
-                model_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
+                generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                 transition_criteria=[
                     MinTrials(
                         threshold=1,
@@ -399,9 +403,9 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
             ),
             GenerationNode(
                 node_name="MBM",
-                model_specs=[
+                generator_specs=[
                     GeneratorSpec(
-                        model_enum=Generators.BOTORCH_MODULAR,
+                        generator_enum=Generators.BOTORCH_MODULAR,
                     ),
                 ],
                 transition_criteria=[
@@ -418,9 +422,9 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
             ),
             GenerationNode(
                 node_name="MTGP",
-                model_specs=[
+                generator_specs=[
                     GeneratorSpec(
-                        model_enum=Generators.ST_MTGP,
+                        generator_enum=Generators.ST_MTGP,
                     ),
                 ],
             ),
@@ -544,29 +548,41 @@ def get_legacy_list_surrogate_generation_step_as_dict() -> dict[str, Any]:
 
 def get_surrogate_generation_step() -> GenerationStep:
     return GenerationStep(
-        model=Generators.BOTORCH_MODULAR,
+        generator=Generators.BOTORCH_MODULAR,
         num_trials=-1,
         max_parallelism=1,
         model_kwargs={
             "surrogate": Surrogate(
-                botorch_model_class=SaasFullyBayesianSingleTaskGP,
-                input_transform_classes=[Normalize],
-                input_transform_options={
-                    "Normalize": {
-                        "d": 3,
-                        "indices": None,
-                        "transform_on_train": True,
-                        "transform_on_eval": True,
-                        "transform_on_fantasize": True,
-                        "reverse": False,
-                        "min_range": 1e-08,
-                        "learn_bounds": False,
-                    }
-                },
-                outcome_transform_classes=[Standardize],
-                outcome_transform_options={
-                    "Standardize": {"m": 1, "outputs": None, "min_stdv": 1e-8}
-                },
+                surrogate_spec=SurrogateSpec(
+                    model_configs=[
+                        ModelConfig(
+                            botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                            input_transform_classes=[Normalize],
+                            input_transform_options={
+                                "Normalize": {
+                                    "d": 3,
+                                    "indices": None,
+                                    "transform_on_train": True,
+                                    "transform_on_eval": True,
+                                    "transform_on_fantasize": True,
+                                    "reverse": False,
+                                    "min_range": 1e-08,
+                                    "learn_bounds": False,
+                                }
+                            },
+                            outcome_transform_classes=[Standardize],
+                            outcome_transform_options={
+                                "Standardize": {
+                                    "m": 1,
+                                    "outputs": None,
+                                    "min_stdv": 1e-8,
+                                }
+                            },
+                            mll_class=ExactMarginalLogLikelihood,
+                            name="from deprecated args",
+                        )
+                    ]
+                )
             ),
             "botorch_acqf_class": qNoisyExpectedImprovement,
         },

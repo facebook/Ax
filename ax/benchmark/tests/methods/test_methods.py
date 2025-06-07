@@ -13,14 +13,14 @@ import numpy as np
 from ax.adapter.registry import Generators
 from ax.benchmark.benchmark import (
     benchmark_replication,
+    get_benchmark_orchestrator_options,
     get_benchmark_runner,
-    get_benchmark_scheduler_options,
 )
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
-from ax.benchmark.problems.registry import get_problem
+from ax.benchmark.problems.registry import get_benchmark_problem
 from ax.core.experiment import Experiment
-from ax.service.scheduler import Scheduler
+from ax.service.orchestrator import Orchestrator
 from ax.service.utils.best_point import (
     get_best_by_raw_objective_with_trial_index,
     get_best_parameters_from_model_predictions_with_trial_index,
@@ -51,7 +51,7 @@ class TestMethods(TestCase):
         self.assertEqual(method.name, expected_name)
         gs = method.generation_strategy
         sobol, kg = gs._steps
-        self.assertEqual(kg.model, Generators.BOTORCH_MODULAR)
+        self.assertEqual(kg.generator, Generators.BOTORCH_MODULAR)
         model_kwargs = none_throws(kg.model_kwargs)
         self.assertEqual(model_kwargs["botorch_acqf_class"], qKnowledgeGradient)
         surrogate_spec = model_kwargs["surrogate_spec"]
@@ -69,7 +69,7 @@ class TestMethods(TestCase):
     def _test_benchmark_replication_runs(
         self, batch_size: int, acqf_cls: type[AcquisitionFunction]
     ) -> None:
-        problem = get_problem(problem_key="ackley4")
+        problem = get_benchmark_problem(problem_key="ackley4")
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,
             batch_size=batch_size,
@@ -83,9 +83,11 @@ class TestMethods(TestCase):
         self.assertEqual(method.name, "test")
         # Only run one non-Sobol trial
         n_total_trials = n_sobol_trials + 1
-        problem = get_problem(problem_key="ackley4", num_trials=n_total_trials)
+        problem = get_benchmark_problem(
+            problem_key="ackley4", num_trials=n_total_trials
+        )
         result = benchmark_replication(
-            problem=problem, method=method, seed=0, scheduler_logging_level=WARNING
+            problem=problem, method=method, seed=0, orchestrator_logging_level=WARNING
         )
         self.assertTrue(np.isfinite(result.score_trace).all())
         self.assertEqual(result.optimization_trace.shape, (n_total_trials,))
@@ -117,10 +119,12 @@ class TestMethods(TestCase):
         self.assertEqual(method.name, "Sobol")
         gs = method.generation_strategy
         self.assertEqual(len(gs._steps), 1)
-        self.assertEqual(gs._steps[0].model, Generators.SOBOL)
+        self.assertEqual(gs._steps[0].generator, Generators.SOBOL)
 
     def _test_get_best_parameters(self, use_model_predictions: bool) -> None:
-        problem = get_problem(problem_key="ackley4", num_trials=2, noise_std=1.0)
+        problem = get_benchmark_problem(
+            problem_key="ackley4", num_trials=2, noise_std=1.0
+        )
 
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,
@@ -137,16 +141,14 @@ class TestMethods(TestCase):
             runner=get_benchmark_runner(problem=problem),
         )
 
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=experiment,
             generation_strategy=method.generation_strategy.clone_reset(),
-            options=get_benchmark_scheduler_options(
-                method=method, logging_level=WARNING
-            ),
+            options=get_benchmark_orchestrator_options(method=method),
         )
 
         with with_rng_seed(seed=0):
-            scheduler.run_n_trials(max_trials=problem.num_trials)
+            orchestrator.run_n_trials(max_trials=problem.num_trials)
 
         # because the second trial is a BoTorch trial, the model should be used
         best_point_mixin_path = "ax.service.utils.best_point_mixin.best_point_utils."

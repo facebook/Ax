@@ -10,7 +10,6 @@ import warnings
 from collections import OrderedDict
 
 import numpy as np
-
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError
@@ -60,22 +59,19 @@ class BoTorchGeneratorUtilsTest(TestCase):
             dtype=self.dtype,
             offset=1.0,  # Making this data different.
         )
-        self.fixed_noise_dataset = [
-            SupervisedDataset(
-                X=X,
-                Y=Y,
-                Yvar=Yvar,
-                feature_names=self.feature_names,
-                outcome_names=[mn],
-            )
-            for X, Y, Yvar, mn in zip(self.Xs, self.Ys, self.Yvars, self.metric_names)
-        ][0]
-        self.supervised_dataset = [
-            SupervisedDataset(
-                X=X, Y=Y, feature_names=self.feature_names, outcome_names=[mn]
-            )
-            for X, Y, mn in zip(self.Xs, self.Ys, self.metric_names)
-        ][0]
+        self.fixed_noise_dataset = SupervisedDataset(
+            X=self.Xs,
+            Y=self.Ys,
+            Yvar=self.Yvars,
+            feature_names=self.feature_names,
+            outcome_names=self.metric_names,
+        )
+        self.supervised_dataset = SupervisedDataset(
+            X=self.Xs,
+            Y=self.Ys,
+            feature_names=self.feature_names,
+            outcome_names=self.metric_names,
+        )
         self.none_Yvars = [torch.tensor([[np.nan], [np.nan]])]
         self.task_features = []
         self.objective_thresholds = torch.tensor([0.5, 1.5])
@@ -173,7 +169,8 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, 0.0]),
                     is_moo=False,
-                )
+                ),
+                datasets=[self.supervised_dataset],
             ),
         )
         self.assertEqual(
@@ -182,7 +179,8 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, -1.0]),
                     is_moo=True,
-                )
+                ),
+                datasets=[self.supervised_dataset],
             ),
         )
 
@@ -248,12 +246,11 @@ class BoTorchGeneratorUtilsTest(TestCase):
             use_model_list(
                 datasets=[
                     SupervisedDataset(
-                        X=self.Xs[0],
-                        Y=Y,
+                        X=self.Xs,
+                        Y=self.Ys,
                         feature_names=self.feature_names,
                         outcome_names=["y"],
                     )
-                    for Y in self.Ys
                 ],
                 model_configs=[ModelConfig(botorch_model_class=SingleTaskGP)],
                 search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
@@ -265,12 +262,11 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 datasets=2
                 * [
                     SupervisedDataset(
-                        X=self.Xs[0],
-                        Y=Y,
+                        X=self.Xs,
+                        Y=self.Ys,
                         feature_names=self.feature_names,
                         outcome_names=["y"],
                     )
-                    for Y in self.Ys
                 ],
                 model_configs=[ModelConfig(botorch_model_class=SingleTaskGP)],
                 search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
@@ -282,12 +278,11 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 datasets=2
                 * [
                     SupervisedDataset(
-                        X=self.Xs[0],
-                        Y=Y,
+                        X=self.Xs,
+                        Y=self.Ys,
                         feature_names=self.feature_names,
                         outcome_names=["y"],
                     )
-                    for Y in self.Ys
                 ],
                 model_configs=[ModelConfig(botorch_model_class=SingleTaskGP)],
                 search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
@@ -298,14 +293,14 @@ class BoTorchGeneratorUtilsTest(TestCase):
             use_model_list(
                 datasets=[
                     SupervisedDataset(
-                        X=self.Xs[0],
-                        Y=self.Ys[0],
+                        X=self.Xs,
+                        Y=self.Ys,
                         feature_names=self.feature_names,
                         outcome_names=["y"],
                     ),
                     SupervisedDataset(
-                        X=self.Xs2[0],
-                        Y=self.Ys2[0],
+                        X=self.Xs2,
+                        Y=self.Ys2,
                         feature_names=self.feature_names,
                         outcome_names=["y"],
                     ),
@@ -338,14 +333,14 @@ class BoTorchGeneratorUtilsTest(TestCase):
             use_model_list(
                 datasets=[
                     SupervisedDataset(
-                        X=self.Xs[0],
-                        Y=self.Ys[0],
+                        X=self.Xs,
+                        Y=self.Ys,
                         feature_names=self.feature_names,
                         outcome_names=["y"],
                     ),
                     SupervisedDataset(
-                        X=self.Xs2[0],
-                        Y=self.Ys2[0],
+                        X=self.Xs2,
+                        Y=self.Ys2,
                         feature_names=self.feature_names,
                         outcome_names=["y"],
                     ),
@@ -360,8 +355,8 @@ class BoTorchGeneratorUtilsTest(TestCase):
             use_model_list(
                 datasets=[
                     SupervisedDataset(
-                        X=self.Xs[0],
-                        Y=self.Ys[0].repeat(1, 2),
+                        X=self.Xs,
+                        Y=self.Ys.repeat(1, 2),
                         feature_names=self.feature_names,
                         outcome_names=["y1", "y2"],
                     ),

@@ -40,12 +40,12 @@ class TestAEPsychCriterion(TestCase):
             name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=-1,
                     completion_criteria=[criterion],
                 ),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR,
+                    generator=Generators.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -84,7 +84,7 @@ class TestAEPsychCriterion(TestCase):
         self.assertTrue(move_to_next_node)
 
         self.assertEqual(
-            generation_strategy._curr.model_spec_to_gen_from.model_enum,
+            generation_strategy._curr.generator_spec_to_gen_from.generator_enum,
             Generators.BOTORCH_MODULAR,
         )
 
@@ -100,10 +100,12 @@ class TestAEPsychCriterion(TestCase):
             name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL, num_trials=-1, completion_criteria=criteria
+                    generator=Generators.SOBOL,
+                    num_trials=-1,
+                    completion_criteria=criteria,
                 ),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR,
+                    generator=Generators.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -138,7 +140,9 @@ class TestAEPsychCriterion(TestCase):
         self.assertFalse(move_to_next_node)
 
         for _i in range(6):
-            experiment.new_trial(generation_strategy.gen(experiment=experiment))
+            experiment.new_trial(
+                generation_strategy.gen_single_trial(experiment=experiment)
+            )
         for trial in experiment.trials.values():
             trial._status = TrialStatus.COMPLETED
 
@@ -159,6 +163,6 @@ class TestAEPsychCriterion(TestCase):
         self.assertTrue(move_to_next_node)
 
         self.assertEqual(
-            generation_strategy._curr.model_spec_to_gen_from.model_enum,
+            generation_strategy._curr.generator_spec_to_gen_from.generator_enum,
             Generators.BOTORCH_MODULAR,
         )

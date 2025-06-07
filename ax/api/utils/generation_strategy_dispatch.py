@@ -17,11 +17,9 @@ from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MinTrials
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
-from botorch.models.transforms.input import Normalize, Warp
-from gpytorch.kernels.linear_kernel import LinearKernel
 
 
 def _get_sobol_node(
@@ -82,9 +80,9 @@ def _get_sobol_node(
     ]
     return GenerationNode(
         node_name="Sobol",
-        model_specs=[
+        generator_specs=[
             GeneratorSpec(
-                model_enum=Generators.SOBOL,
+                generator_enum=Generators.SOBOL,
                 model_kwargs={"seed": initialization_random_seed},
             )
         ],
@@ -108,16 +106,6 @@ def _get_mbm_node(
     # Construct the surrogate spec.
     if method == "fast":
         model_configs = [ModelConfig(name="MBM defaults")]
-    elif method == "balanced":
-        model_configs = [
-            ModelConfig(name="MBM defaults"),
-            ModelConfig(
-                covar_module_class=LinearKernel,
-                input_transform_classes=[Warp, Normalize],
-                input_transform_options={"Normalize": {"center": 0.0}},
-                name="LinearKernel with Warp",
-            ),
-        ]
     else:
         raise UnsupportedError(f"Unsupported generation method: {method}.")
 
@@ -125,9 +113,9 @@ def _get_mbm_node(
 
     return GenerationNode(
         node_name="MBM",
-        model_specs=[
+        generator_specs=[
             GeneratorSpec(
-                model_enum=Generators.BOTORCH_MODULAR,
+                generator_enum=Generators.BOTORCH_MODULAR,
                 model_kwargs={
                     "surrogate_spec": SurrogateSpec(model_configs=model_configs),
                     "torch_device": device,
@@ -161,9 +149,9 @@ def choose_generation_strategy(
         nodes = [
             GenerationNode(
                 node_name="Sobol",
-                model_specs=[
+                generator_specs=[
                     GeneratorSpec(
-                        model_enum=Generators.SOBOL,
+                        generator_enum=Generators.SOBOL,
                         model_kwargs={"seed": struct.initialization_random_seed},
                     )
                 ],

@@ -11,17 +11,17 @@ import numpy as np
 
 import pandas as pd
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
-
+from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_COLOR
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
-    trial_status_to_plotly_color,
+    trial_index_to_color,
     truncate_label,
+    Z_SCORE_95_CI,
 )
 from ax.analysis.utils import (
     extract_relevant_adapter,
@@ -30,7 +30,7 @@ from ax.analysis.utils import (
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.trial_status import TrialStatus
+from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
@@ -263,55 +263,71 @@ def _prepare_figure(
     show_cumulative_best: bool,
     lower_is_better: bool,
 ) -> go.Figure:
-    # Prepare separate scatter traces for each trial status. Each trace has (x, y)
+    # Prepare separate scatter traces for each trial index. Each trace has (x, y)
     # points for the arms which we have a mean for in the provided dataframe.
-    scatters = [
-        go.Scatter(
-            x=df[
-                (df["trial_status"] == trial_status) & ~df[f"{metric_name}_mean"].isna()
-            ]["arm_name"],
-            y=df[
-                (df["trial_status"] == trial_status) & ~df[f"{metric_name}_mean"].isna()
-            ][f"{metric_name}_mean"],
-            error_y=(
-                {
-                    "type": "data",
-                    "array": df[
-                        (df["trial_status"] == trial_status)
-                        & ~df[f"{metric_name}_mean"].isna()
-                    ][f"{metric_name}_sem"]
-                    * 1.96,
-                    "color": trial_status_to_plotly_color(
-                        trial_status=trial_status, ci_transparency=True
-                    ),
-                }
-                if not df[f"{metric_name}_sem"].isna().all()
-                else None
-            ),
-            mode="markers",
-            marker={
-                "color": trial_status_to_plotly_color(
-                    trial_status=trial_status, ci_transparency=False
+    candidate_trial = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
+        "trial_index"
+    ].max()
+    # Filter out undesired trials like FAILED and ABANDONED trials from plot.
+    trials = df[df["trial_status"].isin([ts.name for ts in STATUSES_EXPECTING_DATA])][
+        "trial_index"
+    ].unique()
+
+    # Check if candidate_trial is NaN and handle it
+    trial_indices = list(trials)
+    if not np.isnan(candidate_trial):
+        trial_indices.append(candidate_trial)
+
+    trials_list = trials.tolist()
+    scatters = []
+    for trial_index in trial_indices:
+        trial_df = df[df["trial_index"] == trial_index]
+        xy_df = trial_df[~trial_df[f"{metric_name}_mean"].isna()]
+        if not trial_df[f"{metric_name}_sem"].isna().all():
+            error_y = {
+                "type": "data",
+                "array": Z_SCORE_95_CI * xy_df[f"{metric_name}_sem"],
+                "color": trial_index_to_color(
+                    trial_df=trial_df,
+                    trials_list=trials_list,
+                    trial_index=trial_index,
+                    transparent=True,
                 ),
-                "line": {
-                    "width": df[df["trial_status"] == trial_status].apply(
-                        lambda row: 2
-                        if row["p_feasible"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                        else 0,
-                        axis=1,
-                    ),
-                    "color": "red",
-                },
-            },
-            # Apply user-friendly name for UNKNOWN_GENERATION_NODE
-            name=trial_status,
-            hoverinfo="text",
-            text=df[df["trial_status"] == trial_status].apply(
-                lambda row: get_arm_tooltip(row=row, metric_names=[metric_name]), axis=1
+            }
+        else:
+            error_y = None
+        marker = {
+            "color": trial_index_to_color(
+                trial_df=trial_df,
+                trials_list=trials_list,
+                trial_index=trial_index,
+                transparent=False,
             ),
+            "line": {
+                "width": trial_df.apply(
+                    lambda row: 2
+                    if row["p_feasible"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
+                    else 0,
+                    axis=1,
+                ),
+                "color": CONSTRAINT_VIOLATION_COLOR,
+            },
+        }
+        text = trial_df.apply(
+            lambda row: get_arm_tooltip(row=row, metric_names=[metric_name]), axis=1
         )
-        for trial_status in df["trial_status"].unique()
-    ]
+        scatters.append(
+            go.Scatter(
+                x=xy_df["arm_name"],
+                y=xy_df[f"{metric_name}_mean"],
+                error_y=error_y,
+                mode="markers",
+                marker=marker,
+                name=f"Trial {trial_index}",
+                hoverinfo="text",
+                text=text,
+            )
+        )
 
     figure = go.Figure(data=scatters)
     figure.update_layout(

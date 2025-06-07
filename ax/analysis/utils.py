@@ -14,7 +14,6 @@ import pandas as pd
 import torch
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
-from ax.analysis.plotly.utils import is_predictive
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
@@ -68,18 +67,18 @@ def extract_relevant_adapter(
 
     generation_strategy = none_throws(generation_strategy)
 
-    if (model := generation_strategy.model) is not None:
-        return model
+    if (adapter := generation_strategy.adapter) is not None:
+        return adapter
 
     if experiment is None:
         raise UserInputError(
-            "Provided GenerationStrategy has no model, but no Experiment was provided "
-            "to source data to fit the model."
+            "Provided GenerationStrategy has no adapter, but no Experiment was "
+            "provided to source data to fit the adapter."
         )
 
     generation_strategy.current_node._fit(experiment=experiment)
 
-    return none_throws(generation_strategy.model)
+    return none_throws(generation_strategy.adapter)
 
 
 def prepare_arm_data(
@@ -161,10 +160,10 @@ def prepare_arm_data(
                 "Must provide an adapter to use model predictions for the analysis."
             )
 
-        if not is_predictive(adapter=adapter):
+        if not adapter.can_model_in_sample:
             logger.info(
-                "Using Empirical Bayes to model effects because we were unable to find "
-                " a suitable adapter."
+                "Provided adapter is unable to model effects. "
+                "Using Empirical Bayes as falback."
             )
 
             trial_indices = None  # This will indicate all trials to `lookup_data`

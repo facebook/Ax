@@ -29,7 +29,7 @@ from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoder import (
     _DEPRECATED_MODEL_TO_REPLACEMENT,
@@ -74,14 +74,13 @@ from ax.utils.testing.core_stubs import (
     get_botorch_model,
     get_botorch_model_with_default_acquisition_class,
     get_botorch_model_with_surrogate_spec,
-    get_botorch_model_with_surrogate_specs,
     get_branin_data,
     get_branin_experiment,
     get_branin_experiment_with_timestamp_map_metric,
     get_branin_metric,
     get_chained_input_transform,
     get_choice_parameter,
-    get_default_scheduler_options,
+    get_default_orchestrator_options,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_data,
     get_experiment_with_map_data,
@@ -107,6 +106,7 @@ from ax.utils.testing.core_stubs import (
     get_objective_threshold,
     get_optimization_config,
     get_or_early_stopping_strategy,
+    get_orchestrator_options_batch_trial,
     get_order_constraint,
     get_outcome_constraint,
     get_parameter_constraint,
@@ -118,7 +118,6 @@ from ax.utils.testing.core_stubs import (
     get_risk_measure,
     get_robust_search_space,
     get_scalarized_objective,
-    get_scheduler_options_batch_trial,
     get_search_space,
     get_sebo_acquisition_class,
     get_sorted_choice_parameter,
@@ -136,8 +135,12 @@ from ax.utils.testing.core_stubs import (
 from ax.utils.testing.modeling_stubs import (
     get_generation_strategy,
     get_input_transform_type,
+    get_legacy_list_surrogate_generation_step_as_dict,
     get_observation_features,
     get_outcome_transfrom_type,
+    get_surrogate_as_dict,
+    get_surrogate_generation_step,
+    get_surrogate_spec_as_dict,
     get_to_new_sq_transform_type,
     get_transform_type,
     sobol_gpei_generation_node_gs,
@@ -145,6 +148,7 @@ from ax.utils.testing.modeling_stubs import (
 from ax.utils.testing.utils import generic_equals
 from ax.utils.testing.utils_testing_stubs import get_backend_simulator_with_trials
 from botorch.models import SingleTaskGP
+from botorch.models.transforms.input import Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.normal import SobolQMCNormalSampler
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -176,7 +180,6 @@ TEST_CASES = [
     ("BoTorchGenerator", get_botorch_model),
     ("BoTorchGenerator", get_botorch_model_with_default_acquisition_class),
     ("BoTorchGenerator", get_botorch_model_with_surrogate_spec),
-    ("BoTorchGenerator", get_botorch_model_with_surrogate_specs),
     ("BraninMetric", get_branin_metric),
     ("CenterGenerationNode", partial(CenterGenerationNode, next_node_name="SOBOL")),
     ("ChainedInputTransform", get_chained_input_transform),
@@ -284,8 +287,8 @@ TEST_CASES = [
     ("RiskMeasure", get_risk_measure),
     ("RobustSearchSpace", get_robust_search_space),
     ("ScalarizedObjective", get_scalarized_objective),
-    ("SchedulerOptions", get_default_scheduler_options),
-    ("SchedulerOptions", get_scheduler_options_batch_trial),
+    ("OrchestratorOptions", get_default_orchestrator_options),
+    ("OrchestratorOptions", get_orchestrator_options_batch_trial),
     ("SearchSpace", get_search_space),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
@@ -532,17 +535,17 @@ class JSONStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertGreater(len(new_generation_strategy._steps), 0)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
         # Model has not yet been initialized on this GS since it hasn't generated
         # anything yet.
-        self.assertIsNone(new_generation_strategy.model)
+        self.assertIsNone(new_generation_strategy.adapter)
 
         # Check that we can encode and decode the generation strategy after
         # it has generated some generator runs. Since we now need to `gen`,
         # we remove the fake callable kwarg we added, since model does not
         # expect it.
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
-        gr = generation_strategy.gen(experiment)
+        gr = generation_strategy.gen_single_trial(experiment)
         gs_json = object_to_json(
             generation_strategy,
             encoder_registry=CORE_ENCODER_REGISTRY,
@@ -558,14 +561,14 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
 
         # Check that we can encode and decode the generation strategy after
         # it has generated some trials and been updated with some data.
         generation_strategy = new_generation_strategy
         experiment.new_trial(gr)  # Add previously generated GR as trial.
         # Make generation strategy aware of the trial's data via `gen`.
-        generation_strategy.gen(experiment, data=get_branin_data())
+        generation_strategy.gen_single_trial(experiment, data=get_branin_data())
         gs_json = object_to_json(
             generation_strategy,
             encoder_registry=CORE_ENCODER_REGISTRY,
@@ -581,7 +584,7 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
 
     def test_EncodeDecodeNumpy(self) -> None:
         arr = np.array([[1, 2, 3], [4, 5, 6]])
@@ -827,6 +830,7 @@ class JSONStoreTest(TestCase):
         generation_step = object_from_json(json)
         self.assertIsInstance(generation_step, GenerationStep)
         self.assertEqual(generation_step.model_kwargs, {"other_kwarg": 5})
+        self.assertEqual(generation_step.generator, Generators.BOTORCH_MODULAR)
 
     def test_generator_run_backwards_compatibility(self) -> None:
         # Test that we can load a generator run with deprecated kwargs.
@@ -965,7 +969,7 @@ class JSONStoreTest(TestCase):
         self.assertEqual(len(node.input_constructors), 2)
         # Check that transforms got correctly deserialized.
         self.assertEqual(
-            node.model_specs[0].model_kwargs["transforms"],
+            node.generator_specs[0].model_kwargs["transforms"],
             [OneHot, Log],
         )
 
@@ -1029,8 +1033,9 @@ class JSONStoreTest(TestCase):
             "refit_on_cv": False,
             "warm_start_refit": True,
         }
-        expected_object = get_botorch_model_with_surrogate_spec()
+        expected_object = get_botorch_model_with_surrogate_spec(with_covar_module=False)
         expected_object.surrogate_spec.model_configs[0].input_transform_classes = None
+        expected_object.surrogate_spec.model_configs[0].name = "from deprecated args"
         # The new default value is None; we need to manually set it to the old value
         self.assertIsNone(
             none_throws(expected_object.surrogate_spec).model_configs[0].mll_class
@@ -1039,6 +1044,79 @@ class JSONStoreTest(TestCase):
             0
         ].mll_class = ExactMarginalLogLikelihood
         self.assertEqual(object_from_json(object_json), expected_object)
+
+    def test_mbm_backwards_compatibility_2(self) -> None:
+        # Ensure Modular BoTorch Generators saved before the Multi-surrogate
+        # MBM refactor in D41637384 can be loaded and converted from using a
+        # ListSurrogate to a Surrogate
+        converted_object = object_from_json(
+            get_legacy_list_surrogate_generation_step_as_dict()
+        )
+        new_object = get_surrogate_generation_step()
+        # Converted object is a generation step without a strategy associated with it;
+        # unset the generation strategy of the new object too, to match.
+        new_object._generation_strategy = None
+        self.assertEqual(converted_object, new_object)
+
+        # Check that we can deserialize Surrogate with input_transform
+        # & outcome_transform kwargs.
+        converted_object = object_from_json(get_surrogate_as_dict())
+        new_object = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        mll_class=ExactMarginalLogLikelihood,
+                        input_transform_classes=None,
+                        name="from deprecated args",
+                    )
+                ],
+                allow_batched_models=False,
+            ),
+        )
+        self.assertEqual(converted_object, new_object)
+
+        # Check with SurrogateSpec.
+        for model_class, legacy_input_transform in [
+            (None, False),  # None maps to SingleTaskGP.
+            ("FixedNoiseGP", True),
+        ]:
+            converted_object = object_from_json(
+                get_surrogate_spec_as_dict(
+                    model_class=model_class,
+                    with_legacy_input_transform=legacy_input_transform,
+                ),
+            )
+            extra_args = {}
+            if legacy_input_transform:
+                extra_args["input_transform_classes"] = [Normalize]
+                extra_args["input_transform_options"] = {
+                    "Normalize": {
+                        "d": 7,
+                        "indices": None,
+                        "bounds": None,
+                        "batch_shape": torch.Size([]),
+                        "transform_on_train": True,
+                        "transform_on_eval": True,
+                        "transform_on_fantasize": True,
+                        "reverse": False,
+                        "min_range": 1e-08,
+                        "learn_bounds": False,
+                    }
+                }
+            else:
+                extra_args["input_transform_classes"] = None
+            new_object = SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SingleTaskGP,
+                        mll_class=ExactMarginalLogLikelihood,
+                        name="from deprecated args",
+                        **extra_args,
+                    )
+                ],
+                allow_batched_models=False,
+            )
+            self.assertEqual(converted_object, new_object)
 
     def test_multi_objective_backwards_compatibility(self) -> None:
         object_json = {

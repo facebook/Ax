@@ -43,7 +43,7 @@ from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.plot.pareto_utils import get_tensor_converter_model
+from ax.plot.pareto_utils import get_tensor_converter_adapter
 from ax.utils.common.logger import get_logger
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 from numpy import nan
@@ -63,7 +63,7 @@ def derelativize_opt_config(
     )
     optimization_config = tf.transform_optimization_config(
         optimization_config=optimization_config.clone(),
-        adapter=get_tensor_converter_model(
+        adapter=get_tensor_converter_adapter(
             experiment=experiment,
             data=experiment.lookup_data(trial_indices=trial_indices),
         ),
@@ -418,7 +418,7 @@ def get_pareto_optimal_parameters(
 
     # Use existing adapter if it supports MOO otherwise create a new MOO adapter
     # to use for Pareto frontier extraction.
-    adapter = generation_strategy.model
+    adapter = generation_strategy.adapter
     is_moo_adapter = (
         adapter
         and isinstance(adapter, TorchAdapter)

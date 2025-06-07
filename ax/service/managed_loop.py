@@ -142,7 +142,7 @@ class OptimizationLoop:
     ) -> OptimizationLoop:
         """Constructs an asynchronous `OptimizationLoop` using Ax runners and
         metrics."""
-        # NOTE: Could use `Scheduler` to implement this if needed.
+        # NOTE: Could use `Orchestrator` to implement this if needed.
         raise NotImplementedError
 
     def _call_evaluation_function(
@@ -167,7 +167,7 @@ class OptimizationLoop:
     def _get_new_trial(self) -> BaseTrial:
         if self.arms_per_trial == 1:
             return self.experiment.new_trial(
-                generator_run=self.generation_strategy.gen(
+                generator_run=self.generation_strategy.gen_single_trial(
                     experiment=self.experiment,
                     pending_observations=get_pending_observation_features(
                         experiment=self.experiment
@@ -176,7 +176,7 @@ class OptimizationLoop:
             )
         elif self.arms_per_trial > 1:
             return self.experiment.new_batch_trial(
-                generator_run=self.generation_strategy.gen(
+                generator_run=self.generation_strategy.gen_single_trial(
                     experiment=self.experiment, n=self.arms_per_trial
                 )
             )
@@ -253,7 +253,7 @@ class OptimizationLoop:
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
         best_point = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=self.experiment, adapter=self.generation_strategy.model
+            experiment=self.experiment, adapter=self.generation_strategy.adapter
         )
         if best_point is not None:
             _, parameterizations, predictions = best_point
@@ -267,7 +267,7 @@ class OptimizationLoop:
 
     def get_current_model(self) -> Adapter | None:
         """Obtain the most recently used model in optimization."""
-        return self.generation_strategy.model
+        return self.generation_strategy.adapter
 
 
 def optimize(

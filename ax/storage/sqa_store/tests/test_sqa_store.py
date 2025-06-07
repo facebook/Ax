@@ -360,7 +360,7 @@ class SQAStoreTest(TestCase):
             is_test=True,
         )
         aux_exp_gs = get_generation_strategy(with_callable_model_kwarg=False)
-        aux_exp.new_trial(aux_exp_gs.gen(experiment=aux_exp))
+        aux_exp.new_trial(aux_exp_gs.gen_single_trial(experiment=aux_exp))
         save_experiment(aux_exp, config=self.config)
         # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
         purpose = self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT
@@ -377,7 +377,7 @@ class SQAStoreTest(TestCase):
             },
         )
         target_exp_gs = get_generation_strategy(with_callable_model_kwarg=False)
-        target_exp.new_trial(target_exp_gs.gen(experiment=target_exp))
+        target_exp.new_trial(target_exp_gs.gen_single_trial(experiment=target_exp))
         self.assertIsNone(target_exp.db_id)
         save_experiment(target_exp, config=self.config)
         self.assertIsNotNone(target_exp.db_id)
@@ -744,8 +744,8 @@ class SQAStoreTest(TestCase):
         gs = get_generation_strategy(
             with_experiment=True, with_callable_model_kwarg=False
         )
-        gs.gen(experiment=gs.experiment)
-        gs.gen(experiment=gs.experiment)
+        gs.gen_single_trial(experiment=gs.experiment)
+        gs.gen_single_trial(experiment=gs.experiment)
 
         save_experiment(gs.experiment)
         save_generation_strategy(gs)
@@ -965,7 +965,7 @@ class SQAStoreTest(TestCase):
     def test_EncodeGeneratorRunReducedState(self) -> None:
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
-        gr = gs.gen(experiment=exp)
+        gr = gs.gen_single_trial(experiment=exp)
 
         for key in [attr.key for attr in GR_LARGE_MODEL_ATTRS]:
             self.assertIsNotNone(getattr(gr, f"_{key}"))
@@ -988,7 +988,7 @@ class SQAStoreTest(TestCase):
     def test_load_and_save_generator_run_reduced_state(self) -> None:
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
-        gr = gs.gen(experiment=exp)
+        gr = gs.gen_single_trial(experiment=exp)
         original_gen_metadata = {"foo": "bar"}
         gr._gen_metadata = original_gen_metadata
         exp.new_trial(generator_run=gr)
@@ -1715,8 +1715,10 @@ class SQAStoreTest(TestCase):
         # Since we now need to `gen`, we remove the fake callable kwarg we added,
         # since model does not expect it.
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        generation_strategy.gen(experiment, data=get_branin_data())
+        experiment.new_trial(
+            generation_strategy.gen_single_trial(experiment=experiment)
+        )
+        generation_strategy.gen_single_trial(experiment, data=get_branin_data())
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
         # Try restoring the generation strategy using the experiment its
@@ -1729,7 +1731,7 @@ class SQAStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
             none_throws(new_generation_strategy._experiment)._name, experiment._name
@@ -1787,7 +1789,7 @@ class SQAStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(
-            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum,
+            new_generation_strategy._nodes[0].generator_spec_to_gen_from.generator_enum,
             Generators,
         )
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
@@ -1828,8 +1830,10 @@ class SQAStoreTest(TestCase):
         generation_strategy = get_generation_strategy(
             with_generation_nodes=True, with_callable_model_kwarg=False
         )
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        generation_strategy.gen(experiment, data=get_branin_data())
+        experiment.new_trial(
+            generation_strategy.gen_single_trial(experiment=experiment)
+        )
+        generation_strategy.gen_single_trial(experiment, data=get_branin_data())
         save_experiment(experiment)
 
         save_generation_strategy(generation_strategy=generation_strategy)
@@ -1844,7 +1848,7 @@ class SQAStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(
-            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum,
+            new_generation_strategy._nodes[0].generator_spec_to_gen_from.generator_enum,
             Generators,
         )
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
@@ -1858,8 +1862,10 @@ class SQAStoreTest(TestCase):
         """
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         experiment = get_branin_experiment()
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        generation_strategy.gen(experiment, data=get_branin_data())
+        experiment.new_trial(
+            generation_strategy.gen_single_trial(experiment=experiment)
+        )
+        generation_strategy.gen_single_trial(experiment, data=get_branin_data())
         self.assertEqual(len(generation_strategy._generator_runs), 2)
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
@@ -1886,19 +1892,17 @@ class SQAStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         # Now the generation strategies should be equal.
-        # Reloaded generation strategy will not have attributes associated with fitting
-        # the model until after it's used to fit the model or generate candidates, so
-        # we unset those attributes here and compare equality of the rest.
-        generation_strategy._model = None
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
             none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
-        experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
+        experiment.new_trial(
+            new_generation_strategy.gen_single_trial(experiment=experiment)
+        )
 
     def test_EncodeDecodeGenerationStrategyReducedStateLoadExperiment(self) -> None:
         """Try restoring the generation strategy using the experiment its
@@ -1907,8 +1911,10 @@ class SQAStoreTest(TestCase):
         """
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         experiment = get_branin_experiment()
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        generation_strategy.gen(experiment, data=get_branin_data())
+        experiment.new_trial(
+            generation_strategy.gen_single_trial(experiment=experiment)
+        )
+        generation_strategy.gen_single_trial(experiment, data=get_branin_data())
         self.assertEqual(len(generation_strategy._generator_runs), 2)
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
@@ -1953,12 +1959,14 @@ class SQAStoreTest(TestCase):
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
             none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
-        experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
+        experiment.new_trial(
+            new_generation_strategy.gen_single_trial(experiment=experiment)
+        )
 
     def test_UpdateGenerationStrategy(self) -> None:
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
@@ -1968,7 +1976,9 @@ class SQAStoreTest(TestCase):
         save_experiment(experiment)
 
         # add generator run, save, reload
-        experiment.new_trial(generator_run=generation_strategy.gen(experiment))
+        experiment.new_trial(
+            generator_run=generation_strategy.gen_single_trial(experiment)
+        )
         save_generation_strategy(generation_strategy=generation_strategy)
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
@@ -1981,7 +1991,9 @@ class SQAStoreTest(TestCase):
 
         # add another generator run, save, reload
         experiment.new_trial(
-            generator_run=generation_strategy.gen(experiment, data=get_branin_data())
+            generator_run=generation_strategy.gen_single_trial(
+                experiment, data=get_branin_data()
+            )
         )
         save_generation_strategy(generation_strategy=generation_strategy)
         save_experiment(experiment)
@@ -2000,10 +2012,6 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # Reloaded generation strategy will not have attributes associated with fitting
-        # the model until after it's used to fit the model or generate candidates, so
-        # we unset those attributes here and compare equality of the rest.
-        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
         self.assertIsNotNone(loaded_generation_strategy._experiment)
         self.assertEqual(
@@ -2034,7 +2042,7 @@ class SQAStoreTest(TestCase):
         generator_runs = []
         for i in range(7):
             data = get_branin_data() if i > 0 else None
-            gr = generation_strategy.gen(experiment, data=data)
+            gr = generation_strategy.gen_single_trial(experiment, data=data)
             generator_runs.append(gr)
             trial = experiment.new_trial(generator_run=gr).mark_running(
                 no_runner_required=True
@@ -2060,7 +2068,7 @@ class SQAStoreTest(TestCase):
         generator_runs = []
         for i in range(7):
             data = get_branin_data() if i > 0 else None
-            gr = generation_strategy.gen(experiment, data=data)
+            gr = generation_strategy.gen_single_trial(experiment, data=data)
             generator_runs.append(gr)
             trial = experiment.new_trial(generator_run=gr).mark_running(
                 no_runner_required=True
@@ -2219,7 +2227,9 @@ class SQAStoreTest(TestCase):
         _mock_gr_from_sqa.reset_mock()
 
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
+        experiment.new_trial(
+            generation_strategy.gen_single_trial(experiment=experiment)
+        )
 
         save_generation_strategy(generation_strategy=generation_strategy)
         load_generation_strategy_by_experiment_name(experiment_name=experiment.name)
@@ -2310,7 +2320,7 @@ class SQAStoreTest(TestCase):
         # experiment loading.
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
-        trial = exp.new_trial(gs.gen(experiment=exp))
+        trial = exp.new_trial(gs.gen_single_trial(experiment=exp))
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
             self.assertIsNotNone(
                 getattr(trial.generator_run, f"_{instrumented_attr.key}")

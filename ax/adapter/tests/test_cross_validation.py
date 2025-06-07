@@ -55,7 +55,9 @@ class CrossValidationTest(TestCase):
         )
         with mock_botorch_optimize_context_manager():
             self.adapter = TorchAdapter(
-                experiment=self.experiment, model=BoTorchGenerator(), transforms=[UnitX]
+                experiment=self.experiment,
+                generator=BoTorchGenerator(),
+                transforms=[UnitX],
             )
         self.training_data = self.adapter.get_training_data()
         self.observation_data = ObservationData(

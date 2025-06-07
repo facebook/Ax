@@ -7,6 +7,7 @@
 # pyre-strict
 
 import dataclasses
+import warnings
 from contextlib import ExitStack
 from copy import deepcopy
 from itertools import product
@@ -40,6 +41,7 @@ from botorch.acquisition.input_constructors import (
     _register_acqf_input_constructor,
     get_acqf_input_constructor,
 )
+from botorch.acquisition.logei import qLogProbabilityOfFeasibility
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
@@ -72,8 +74,7 @@ ACQ_OPTIONS: dict[str, SobolQMCNormalSampler] = {
 class BoTorchGeneratorTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.botorch_model_class = SingleTaskGP
-        self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
+        self.surrogate = Surrogate()
         self.acquisition_class = Acquisition
         self.botorch_acqf_class = qExpectedImprovement
         self.acquisition_options = ACQ_OPTIONS
@@ -98,21 +99,21 @@ class BoTorchGeneratorTest(TestCase):
             self.metric_names,  # This is just ["y"].
         ) = get_torch_test_data(dtype=self.dtype)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
-        self.X_test = Xs2[0]
+        self.X_test = Xs2
         self.block_design_training_data = [
             SupervisedDataset(
-                X=self.Xs[0],
-                Y=self.Ys[0],
-                Yvar=self.Yvars[0],
+                X=self.Xs,
+                Y=self.Ys,
+                Yvar=self.Yvars,
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
             )
         ]
         self.non_block_design_training_data = self.block_design_training_data + [
             SupervisedDataset(
-                X=Xs2[0],
-                Y=Ys2[0],
-                Yvar=Yvars2[0],
+                X=Xs2,
+                Y=Ys2,
+                Yvar=Yvars2,
                 feature_names=self.feature_names,
                 outcome_names=["y2"],
             )
@@ -133,7 +134,7 @@ class BoTorchGeneratorTest(TestCase):
         self.objective_weights = torch.tensor([1.0], **tkwargs)
         self.outcome_constraints = (
             torch.tensor([[1.0]], **tkwargs),
-            torch.tensor([[-5.0]], **tkwargs),
+            torch.tensor([[3.5]], **tkwargs),
         )
         self.moo_objective_weights = torch.tensor([1.0, 1.5, 0.0], **tkwargs)
         self.moo_objective_thresholds = torch.tensor(
@@ -141,7 +142,7 @@ class BoTorchGeneratorTest(TestCase):
         )
         self.moo_outcome_constraints = (
             torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
-            torch.tensor([[-5.0]], **tkwargs),
+            torch.tensor([[3.5]], **tkwargs),
         )
         self.linear_constraints = None
         self.fixed_features = None
@@ -156,9 +157,9 @@ class BoTorchGeneratorTest(TestCase):
                 outcome_names=[mn],
             )
             for X, Y, Yvar, mn in zip(
-                assert_is_instance(self.Xs, list) * 3,
-                self.Ys + Ys2 + self.Ys,
-                assert_is_instance(self.Yvars, list) * 3,
+                [self.Xs for _ in range(3)],
+                [self.Ys, Ys2, self.Ys],
+                [self.Yvars for _ in range(3)],
                 self.moo_metric_names,
             )
         ]
@@ -177,6 +178,20 @@ class BoTorchGeneratorTest(TestCase):
             objective_thresholds=self.moo_objective_thresholds,
             outcome_constraints=self.moo_outcome_constraints,
             is_moo=True,
+        )
+        self.torch_opt_config_infeas = dataclasses.replace(
+            self.torch_opt_config,
+            outcome_constraints=(
+                torch.tensor([[1.0]], **tkwargs),
+                torch.tensor([[-5.0]], **tkwargs),
+            ),
+        )
+        self.moo_torch_opt_config_infeas = dataclasses.replace(
+            self.moo_torch_opt_config,
+            outcome_constraints=(
+                torch.tensor([[1.0]], **tkwargs),
+                torch.tensor([[-5.0]], **tkwargs),
+            ),
         )
 
     def test_init(self) -> None:
@@ -358,25 +373,6 @@ class BoTorchGeneratorTest(TestCase):
             self.model.predict(X=self.X_test, use_posterior_predictive=True)
         mock_predict.assert_called_with(X=self.X_test, use_posterior_predictive=True)
 
-    def test_with_surrogate_specs_input(self) -> None:
-        spec1 = SurrogateSpec(
-            botorch_model_class=SingleTaskGP,
-            outcomes=["y1", "y3"],
-        )
-        surrogate_specs = {
-            "Vanilla": spec1,
-            "Bayesian": SurrogateSpec(
-                botorch_model_class=SaasFullyBayesianSingleTaskGP,
-                outcomes=["y2"],
-            ),
-        }
-        with self.assertRaisesRegex(DeprecationWarning, "Support for multiple"):
-            BoTorchGenerator(surrogate_specs=surrogate_specs)
-
-        with self.assertWarnsRegex(DeprecationWarning, "surrogate_specs"):
-            model = BoTorchGenerator(surrogate_specs={"s": spec1})
-        self.assertIs(model.surrogate_spec, spec1)
-
     @mock_botorch_optimize
     def test_cross_validate(self) -> None:
         self.model.fit(
@@ -520,7 +516,11 @@ class BoTorchGeneratorTest(TestCase):
             torch.tensor([2.0]),
             torch.tensor([1.0]),
         )
-        surrogate = Surrogate(botorch_model_class=botorch_model_class)
+        surrogate = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[ModelConfig(botorch_model_class=botorch_model_class)]
+            )
+        )
         model = BoTorchGenerator(
             surrogate=surrogate,
             acquisition_class=Acquisition,
@@ -557,10 +557,6 @@ class BoTorchGeneratorTest(TestCase):
                 search_space_digest=search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
-        self.assertEqual(
-            gen_results.gen_metadata["metric_to_model_config_name"],
-            {"y": "from deprecated args"},
-        )
         # Assert acquisition initialized with expected arguments
         mock_init_acqf.assert_called_once_with(
             search_space_digest=search_space_digest,
@@ -591,7 +587,7 @@ class BoTorchGeneratorTest(TestCase):
         self.assertEqual(m.num_outputs, 1)
         training_data = ckwargs["training_data"]
         self.assertIsInstance(training_data, SupervisedDataset)
-        self.assertTrue(torch.equal(training_data.X, self.Xs[0]))
+        self.assertTrue(torch.equal(training_data.X, self.Xs))
         self.assertTrue(
             torch.equal(
                 training_data.Y,
@@ -659,7 +655,11 @@ class BoTorchGeneratorTest(TestCase):
     @mock_botorch_optimize
     def test_feature_importances(self) -> None:
         for botorch_model_class in [SingleTaskGP, SaasFullyBayesianSingleTaskGP]:
-            surrogate = Surrogate(botorch_model_class=botorch_model_class)
+            surrogate = Surrogate(
+                surrogate_spec=SurrogateSpec(
+                    model_configs=[ModelConfig(botorch_model_class=botorch_model_class)]
+                )
+            )
             model = BoTorchGenerator(
                 surrogate=surrogate,
                 acquisition_class=Acquisition,
@@ -779,6 +779,102 @@ class BoTorchGeneratorTest(TestCase):
         self.assertEqual(model._botorch_acqf_class, qLogNoisyExpectedImprovement)
 
     @mock_botorch_optimize
+    @mock.patch(
+        f"{MODEL_PATH}.choose_botorch_acqf_class", wraps=choose_botorch_acqf_class
+    )
+    def test_p_feas(
+        self,
+        mock_choose_botorch_acqf_class: Mock,
+    ) -> None:
+        """Test that we dispatch to `qLogProbabilityOfFeasibility`
+        when no feasible points have been found"""
+        moo_training_data_non_block = [
+            SupervisedDataset(
+                X=X,
+                Y=Y,
+                Yvar=Yvar,
+                feature_names=self.feature_names,
+                outcome_names=[mn],
+            )
+            for X, Y, Yvar, mn in zip(
+                [self.Xs, self.Xs[:1], self.Xs[1:]],
+                [self.Ys, self.Ys[:1] + 1, self.Ys[1:]],
+                [self.Yvars, self.Yvars[:1], self.Yvars[1:]],
+                self.moo_metric_names,
+            )
+        ]
+
+        for datasets, torch_opt_config in zip(
+            (
+                self.block_design_training_data,
+                self.moo_training_data,
+                moo_training_data_non_block,
+            ),
+            (
+                self.torch_opt_config_infeas,
+                self.moo_torch_opt_config_infeas,
+                self.moo_torch_opt_config_infeas,
+            ),
+        ):
+            model = BoTorchGenerator(
+                surrogate=self.surrogate,
+                acquisition_class=Acquisition,
+                acquisition_options=self.acquisition_options,
+            )
+            model.surrogate.fit(
+                datasets=datasets,
+                search_space_digest=self.search_space_digest,
+            )
+            self.assertIsNone(model._botorch_acqf_class)  # Should not have been set
+            # Gen
+            with self.subTest("No mocks"):
+                with warnings.catch_warnings(record=True) as ws:
+                    gen_results = model.gen(
+                        n=1,
+                        search_space_digest=self.search_space_digest,
+                        torch_opt_config=torch_opt_config,
+                    )
+                self.assertEqual(len(ws), 0)
+                mock_choose_botorch_acqf_class.assert_called()
+                mock_choose_botorch_acqf_class.reset_mock()
+                self.assertEqual(
+                    model._botorch_acqf_class, qLogProbabilityOfFeasibility
+                )
+                self.assertTrue(torch.isfinite(gen_results.points).all())
+            # Evaluate acqf
+            points = model.evaluate_acquisition_function(
+                X=self.X_test,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=torch_opt_config,
+                acq_options=self.acquisition_options,
+            )
+            mock_choose_botorch_acqf_class.assert_called()
+            mock_choose_botorch_acqf_class.reset_mock()
+            self.assertEqual(points.shape, torch.Size([1]))
+            # Setting use_p_feasible to False should turn off pFeas
+            model = BoTorchGenerator(
+                surrogate=self.surrogate,
+                acquisition_class=Acquisition,
+                acquisition_options=self.acquisition_options,
+                use_p_feasible=False,
+            )
+            model.surrogate.fit(
+                datasets=datasets,
+                search_space_digest=self.search_space_digest,
+            )
+            gen_results = model.gen(
+                n=1,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=torch_opt_config,
+            )
+            self.assertEqual(
+                model._botorch_acqf_class,
+                qLogNoisyExpectedHypervolumeImprovement
+                if torch_opt_config.is_moo
+                else qLogNoisyExpectedImprovement,
+            )
+
+    @mock_botorch_optimize
     def test_surrogate_model_options_propagation(self) -> None:
         surrogate_spec = SurrogateSpec()
         model = BoTorchGenerator(surrogate_spec=surrogate_spec)
@@ -890,7 +986,7 @@ class BoTorchGeneratorTest(TestCase):
         self.assertEqual(m.num_outputs, 2)
         training_data = ckwargs["training_data"]
         self.assertIsNotNone(training_data.Yvar)
-        self.assertTrue(torch.equal(training_data.X, self.Xs[0]))
+        self.assertTrue(torch.equal(training_data.X, self.Xs))
         self.assertTrue(
             torch.equal(
                 training_data.Y,

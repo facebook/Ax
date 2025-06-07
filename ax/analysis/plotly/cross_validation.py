@@ -10,15 +10,29 @@ from typing import Mapping, Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.adapter.cross_validation import cross_validate
+from ax.adapter.cross_validation import cross_validate, CVResult
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.plotly.color_constants import AX_BLUE
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import get_nudge_value, get_scatter_point_color
+from ax.analysis.plotly.utils import (
+    get_nudge_value,
+    get_scatter_point_color,
+    Z_SCORE_95_CI,
+)
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from plotly import express as px, graph_objects as go
+from plotly import graph_objects as go
+
+TRANSPARENT_AX_BLUE: str = get_scatter_point_color(
+    hex_color=AX_BLUE,
+    ci_transparency=True,
+)
+FILLED_AX_BLUE: str = get_scatter_point_color(
+    hex_color=AX_BLUE,
+    ci_transparency=False,
+)
 
 
 class CrossValidationPlot(PlotlyAnalysis):
@@ -95,13 +109,11 @@ class CrossValidationPlot(PlotlyAnalysis):
         )
 
         cards = []
+        cv_results = cross_validate(
+            model=relevant_adapter, folds=self.folds, untransform=self.untransform
+        )
         for metric_name in self.metric_names or relevant_adapter.metric_names:
-            df = _prepare_data(
-                adapter=relevant_adapter,
-                metric_name=metric_name,
-                folds=self.folds,
-                untransform=self.untransform,
-            )
+            df = _prepare_data(metric_name=metric_name, cv_results=cv_results)
 
             fig = _prepare_plot(df=df)
 
@@ -212,18 +224,7 @@ def compute_cross_validation_adhoc(
     ]
 
 
-def _prepare_data(
-    adapter: Adapter,
-    metric_name: str,
-    folds: int,
-    untransform: bool,
-) -> pd.DataFrame:
-    cv_results = cross_validate(
-        model=adapter,
-        folds=folds,
-        untransform=untransform,
-    )
-
+def _prepare_data(metric_name: str, cv_results: list[CVResult]) -> pd.DataFrame:
     records = []
     for observed, predicted in cv_results:
         # Find the index of the metric in observed and predicted
@@ -248,9 +249,9 @@ def _prepare_data(
                 # Compute the 95% confidence intervals for plotting purposes
                 "observed_95_ci": observed.data.covariance[observed_i][observed_i]
                 ** 0.5
-                * 1.96,
+                * Z_SCORE_95_CI,
                 "predicted_95_ci": predicted.covariance[predicted_i][predicted_i] ** 0.5
-                * 1.96,
+                * Z_SCORE_95_CI,
             }
             records.append(record)
     return pd.DataFrame.from_records(records)
@@ -267,29 +268,19 @@ def _prepare_plot(
             y=df["predicted"],
             mode="markers",
             marker={
-                # Plotly blue
-                "color": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
-                    ci_transparency=False,
-                ),
+                "color": FILLED_AX_BLUE,
             },
             error_x={
                 "type": "data",
                 "array": df["observed_95_ci"],
                 "visible": True,
-                "color": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
-                    ci_transparency=True,
-                ),
+                "color": TRANSPARENT_AX_BLUE,
             },
             error_y={
                 "type": "data",
                 "array": df["predicted_95_ci"],
                 "visible": True,
-                "color": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
-                    ci_transparency=True,
-                ),
+                "color": TRANSPARENT_AX_BLUE,
             },
             text=df["arm_name"],
             hovertemplate=(
@@ -299,10 +290,7 @@ def _prepare_plot(
                 + "<extra></extra>"  # Removes the trace name from the hover
             ),
             hoverlabel={
-                "bgcolor": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
-                    ci_transparency=True,
-                ),
+                "bgcolor": TRANSPARENT_AX_BLUE,
                 "font": {"color": "black"},
             },
         )

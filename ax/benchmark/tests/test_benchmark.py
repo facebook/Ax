@@ -24,8 +24,8 @@ from ax.benchmark.benchmark import (
     benchmark_replication,
     compute_baseline_value_from_sobol,
     compute_score_trace,
+    get_benchmark_orchestrator_options,
     get_benchmark_result_with_cumulative_steps,
-    get_benchmark_scheduler_options,
     get_opt_trace_by_steps,
     get_oracle_experiment_from_params,
 )
@@ -47,7 +47,7 @@ from ax.benchmark.methods.sobol import (
     get_sobol_benchmark_method,
     get_sobol_generation_strategy,
 )
-from ax.benchmark.problems.registry import get_problem
+from ax.benchmark.problems.registry import get_benchmark_problem
 from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -57,8 +57,8 @@ from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
-from ax.service.utils.scheduler_options import TrialType
+from ax.generation_strategy.generator_spec import GeneratorSpec
+from ax.service.utils.orchestrator_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.logger import get_logger
@@ -109,14 +109,14 @@ class TestBenchmark(TestCase):
             method=method,
             seed=seed,
             strip_runner_before_saving=strip_runner_before_saving,
-            scheduler_logging_level=WARNING,
+            orchestrator_logging_level=WARNING,
         )
 
     @mock_botorch_optimize
     def test_batch(self) -> None:
         batch_size = 5
 
-        problem = get_problem("ackley4", num_trials=2)
+        problem = get_benchmark_problem("ackley4", num_trials=2)
         for sequential in [False, True]:
             with self.subTest(sequential=sequential):
                 batch_method_joint = get_sobol_botorch_modular_acquisition(
@@ -139,7 +139,7 @@ class TestBenchmark(TestCase):
                         problem=problem,
                         method=batch_method_joint,
                         seeds=[0],
-                        scheduler_logging_level=WARNING,
+                        orchestrator_logging_level=WARNING,
                     )
                 mock_optimize_acqf.assert_called_once()
                 self.assertEqual(
@@ -211,7 +211,7 @@ class TestBenchmark(TestCase):
         method = get_sobol_benchmark_method(distribute_replications=False)
         problems = [
             get_single_objective_benchmark_problem(),
-            get_problem("jenatton", num_trials=6),
+            get_benchmark_problem("jenatton", num_trials=6),
         ]
         for problem in problems:
             res = self.benchmark_replication(problem=problem, method=method, seed=0)
@@ -496,7 +496,7 @@ class TestBenchmark(TestCase):
                     method=method,
                     seed=0,
                     strip_runner_before_saving=False,
-                    scheduler_logging_level=logging.DEBUG,
+                    orchestrator_logging_level=logging.DEBUG,
                 )
             experiment = none_throws(result.experiment)
             runner = assert_is_instance(experiment.runner, BenchmarkRunner)
@@ -745,7 +745,7 @@ class TestBenchmark(TestCase):
             "ax.benchmark.problems.hpo.torchvision._REGISTRY",
             {"MNIST": TestDataset},
         ):
-            mnist_problem = get_problem(
+            mnist_problem = get_benchmark_problem(
                 problem_key="hpo_pytorch_cnn_MNIST", name="MNIST", num_trials=6
             )
         for method, problem, expected_name in [
@@ -755,7 +755,9 @@ class TestBenchmark(TestCase):
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     distribute_replications=True,
                 ),
-                get_problem("constrained_gramacy_observed_noise", num_trials=6),
+                get_benchmark_problem(
+                    "constrained_gramacy_observed_noise", num_trials=6
+                ),
                 "MBM::SingleTaskGP_qLogNEI",
             ),
             (
@@ -863,7 +865,7 @@ class TestBenchmark(TestCase):
                 problem=problem,
                 method=method,
                 seeds=(0, 1),
-                scheduler_logging_level=WARNING,
+                orchestrator_logging_level=WARNING,
             )
 
         self.assertEqual(len(agg.results), 2)
@@ -894,7 +896,7 @@ class TestBenchmark(TestCase):
                 problems=problems,
                 methods=methods,
                 seeds=(0, 1),
-                scheduler_logging_level=WARNING,
+                orchestrator_logging_level=WARNING,
             )
 
         self.assertEqual(len(aggs), 2)
@@ -929,7 +931,7 @@ class TestBenchmark(TestCase):
                 problem=problem,
                 method=method,
                 seeds=(0, 1),
-                scheduler_logging_level=WARNING,
+                orchestrator_logging_level=WARNING,
             )
         elapsed = monotonic() - start
         self.assertGreater(elapsed, timeout_seconds)
@@ -950,7 +952,7 @@ class TestBenchmark(TestCase):
                 nodes=[
                     GenerationNode(
                         node_name="Sobol",
-                        model_specs=[
+                        generator_specs=[
                             GeneratorSpec(
                                 Generators.SOBOL, model_kwargs={"deduplicate": True}
                             )
@@ -1069,7 +1071,7 @@ class TestBenchmark(TestCase):
         self._test_multi_fidelity_or_multi_task(fidelity_or_task="fidelity")
         self._test_multi_fidelity_or_multi_task(fidelity_or_task="task")
 
-    def test_get_benchmark_scheduler_options(self) -> None:
+    def test_get_benchmark_orchestrator_options(self) -> None:
         for include_sq, batch_size in product((False, True), (1, 2)):
             method = BenchmarkMethod(
                 generation_strategy=get_sobol_mbm_generation_strategy(
@@ -1079,28 +1081,28 @@ class TestBenchmark(TestCase):
                 max_pending_trials=2,
                 batch_size=batch_size,
             )
-            scheduler_options = get_benchmark_scheduler_options(
+            orchestrator_options = get_benchmark_orchestrator_options(
                 method=method, include_sq=include_sq
             )
-            self.assertEqual(scheduler_options.max_pending_trials, 2)
-            self.assertEqual(scheduler_options.init_seconds_between_polls, 0)
-            self.assertEqual(scheduler_options.min_seconds_before_poll, 0)
-            self.assertEqual(scheduler_options.batch_size, batch_size)
+            self.assertEqual(orchestrator_options.max_pending_trials, 2)
+            self.assertEqual(orchestrator_options.init_seconds_between_polls, 0)
+            self.assertEqual(orchestrator_options.min_seconds_before_poll, 0)
+            self.assertEqual(orchestrator_options.batch_size, batch_size)
             self.assertEqual(
-                scheduler_options.run_trials_in_batches, method.run_trials_in_batches
+                orchestrator_options.run_trials_in_batches, method.run_trials_in_batches
             )
             self.assertEqual(
-                scheduler_options.early_stopping_strategy,
+                orchestrator_options.early_stopping_strategy,
                 method.early_stopping_strategy,
             )
             self.assertEqual(
-                scheduler_options.trial_type,
+                orchestrator_options.trial_type,
                 TrialType.BATCH_TRIAL
                 if include_sq or batch_size > 1
                 else TrialType.TRIAL,
             )
             self.assertEqual(
-                scheduler_options.status_quo_weight, 1.0 if include_sq else 0.0
+                orchestrator_options.status_quo_weight, 1.0 if include_sq else 0.0
             )
 
     def test_replication_with_status_quo(self) -> None:
@@ -1266,7 +1268,7 @@ class TestBenchmark(TestCase):
                 get_opt_trace_by_steps(experiment=none_throws(result.experiment))
 
         with self.subTest("Constrained"):
-            problem = get_problem("constrained_gramacy_observed_noise")
+            problem = get_benchmark_problem("constrained_gramacy_observed_noise")
             result = self.benchmark_replication(problem=problem, method=method, seed=0)
             with self.assertRaisesRegex(
                 NotImplementedError,

@@ -211,7 +211,7 @@ def get_observed_pareto_frontiers(
             # Make sure status quo is always included, for derelativization
             arm_names.append(experiment.status_quo.name)
         data = Data(data.df[data.df["arm_name"].isin(arm_names)])
-    mb = get_tensor_converter_model(experiment=experiment, data=data)
+    mb = get_tensor_converter_adapter(experiment=experiment, data=data)
     pareto_observations = observed_pareto_frontier(adapter=mb)
     # Convert to ParetoFrontierResults
     objective_metric_names = {
@@ -315,7 +315,7 @@ def to_nonrobust_search_space(search_space: SearchSpace) -> SearchSpace:
         return search_space
 
 
-def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchAdapter:
+def get_tensor_converter_adapter(experiment: Experiment, data: Data) -> TorchAdapter:
     """
     Constructs a minimal model for converting things to tensors.
 
@@ -337,7 +337,7 @@ def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchAdapt
         experiment=experiment,
         search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
-        model=TorchGenerator(),
+        generator=TorchGenerator(),
         transforms=[SearchSpaceToFloat],
         data_loader_config=DataLoaderConfig(
             fit_out_of_design=True,
@@ -595,7 +595,7 @@ def infer_reference_point_from_experiment(
         )
 
     # Reading experiment data.
-    adapter = get_tensor_converter_model(
+    adapter = get_tensor_converter_adapter(
         experiment=experiment,
         data=data,
     )

@@ -41,7 +41,7 @@ class TestBenchmarkMethod(TestCase):
         method = BenchmarkMethod(name="Sobol10", generation_strategy=self.gs)
         for node in method.generation_strategy._nodes:
             self.assertFalse(
-                none_throws(node.model_spec_to_gen_from.model_kwargs).get(
+                none_throws(node.generator_spec_to_gen_from.model_kwargs).get(
                     "fit_tracking_metrics"
                 )
             )

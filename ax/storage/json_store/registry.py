@@ -13,7 +13,7 @@ from typing import Any
 import torch
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.factory import Generators
-from ax.adapter.registry import ModelRegistryBase
+from ax.adapter.registry import GeneratorRegistryBase
 from ax.adapter.transforms.base import Transform
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
@@ -82,7 +82,7 @@ from ax.generation_strategy.generation_node_input_constructors import (
     NodeInputConstructors,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
@@ -109,7 +109,7 @@ from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
+from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.storage.json_store.decoders import (
     class_from_json,
     default_from_json,
@@ -136,12 +136,12 @@ from ax.storage.json_store.encoders import (
     generation_step_to_dict,
     generation_strategy_to_dict,
     generator_run_to_dict,
+    generator_spec_to_dict,
     improvement_global_stopping_strategy_to_dict,
     logical_early_stopping_strategy_to_dict,
     map_data_to_dict,
     map_key_info_to_dict,
     metric_to_dict,
-    model_spec_to_dict,
     multi_objective_optimization_config_to_dict,
     multi_objective_to_dict,
     multi_type_experiment_to_dict,
@@ -231,7 +231,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     MinimumTrialsInStatus: transition_criterion_to_dict,
     MinimumPreferenceOccurances: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
-    GeneratorSpec: model_spec_to_dict,
+    GeneratorSpec: generator_spec_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,
@@ -348,7 +348,9 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "IsSingleObjective": IsSingleObjective,
     "Keys": Keys,
     "LifecycleStage": LifecycleStage,
-    "ListSurrogate": Surrogate,  # For backwards compatibility
+    # DEPRECATED; remains here backward compatibility, with old class
+    # name linked to the new corresponding class
+    "ListSurrogate": Surrogate,
     "L2NormMetric": L2NormMetric,
     "LogNormalPrior": LogNormalPrior,
     "MapData": MapData,
@@ -360,7 +362,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MinTrials": MinTrials,
     "MinimumTrialsInStatus": MinimumTrialsInStatus,
     "MinimumPreferenceOccurances": MinimumPreferenceOccurances,
-    "ModelRegistryBase": ModelRegistryBase,
+    "GeneratorRegistryBase": GeneratorRegistryBase,
+    "ModelRegistryBase": GeneratorRegistryBase,
     "ModelConfig": ModelConfig,
     "Models": Generators,
     "ModelSpec": GeneratorSpec,
@@ -374,6 +377,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Objective": Objective,
     "ObjectiveThreshold": ObjectiveThreshold,
     "OptimizationConfig": OptimizationConfig,
+    "OrchestratorOptions": OrchestratorOptions,
     "OrEarlyStoppingStrategy": OrEarlyStoppingStrategy,
     "OrderConstraint": OrderConstraint,
     "OutcomeConstraint": OutcomeConstraint,
@@ -394,7 +398,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "RobustSearchSpace": RobustSearchSpace,
     "Round": Round,
     "ScalarizedObjective": ScalarizedObjective,
-    "SchedulerOptions": SchedulerOptions,
+    "SchedulerOptions": OrchestratorOptions,  # DEPRECATED; backward compatibility
     "SearchSpace": SearchSpace,
     "SimTrial": SimTrial,
     "SingleDiagnosticBestModelSelector": SingleDiagnosticBestModelSelector,
@@ -403,7 +407,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "SklearnModelType": SklearnModelType,
     "SumConstraint": SumConstraint,
     "Surrogate": Surrogate,
-    "SurrogateMetric": BenchmarkMetric,  # backward-compatiblity
+    "SurrogateMetric": BenchmarkMetric,  # DEPRECATED; backward compatibility
     "SobolQMCNormalSampler": SobolQMCNormalSampler,
     "SyntheticRunner": SyntheticRunner,
     "SurrogateSpec": SurrogateSpec,

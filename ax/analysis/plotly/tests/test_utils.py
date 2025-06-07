@@ -9,37 +9,68 @@ import pandas as pd
 from ax.analysis.plotly.utils import (
     get_arm_tooltip,
     get_constraint_violated_probabilities,
-    trial_status_to_plotly_color,
+    trial_index_to_color,
 )
 from ax.core.metric import Metric
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from plotly import express as px
 
 
 class TestUtils(TestCase):
-    def test_trial_status_to_plotly_color(self) -> None:
-        plotly_blue = px.colors.hex_to_rgb(px.colors.qualitative.Plotly[0])
-        solid_completed_blue = trial_status_to_plotly_color(
-            trial_status="COMPLETED", ci_transparency=False
+    def test_trial_index_to_color(self) -> None:
+        trials_list = [0, 1, 11]
+        test_df = pd.DataFrame(
+            {
+                "trial_index": [0, 1, 11, 15],  # Trial 15 is a candidate trial
+                "trial_status": [
+                    TrialStatus.COMPLETED.name,
+                    TrialStatus.COMPLETED.name,
+                    TrialStatus.COMPLETED.name,
+                    TrialStatus.CANDIDATE.name,
+                ],
+            }
+        )
+        # Test last completed trial is Botorch Blue
+        botorch_blue_no_transparency = trial_index_to_color(
+            trial_df=test_df.iloc[[2]],
+            trials_list=trials_list,
+            trial_index=11,
+            transparent=False,
+        )
+        expected_color = (
+            "rgba(76, 110, 243, 1)"  # RGB for Botorch Blue with no transparency
+        )
+        self.assertEqual(botorch_blue_no_transparency, expected_color)
+
+        # Test last completed trial is Botorch Blue with transparency
+        botorch_blue_with_transparency = trial_index_to_color(
+            trial_df=test_df.iloc[[2]],
+            trials_list=trials_list,
+            trial_index=11,
+            transparent=True,
+        )
+        expected_color_with_transparency = (
+            "rgba(76, 110, 243, 0.5)"  # RGB for #4C6EF3 with transparency
         )
         self.assertEqual(
-            solid_completed_blue,
-            f"rgba({plotly_blue[0]}, {plotly_blue[1]}, {plotly_blue[2]}, 1)",
+            botorch_blue_with_transparency, expected_color_with_transparency
         )
 
-        ci_completed_blue = trial_status_to_plotly_color(
-            trial_status="COMPLETED", ci_transparency=True
+        # Test candidate trial is LIGHT_AX_BLUE with transparency
+        candidate_light_ax_blue_with_transparency = trial_index_to_color(
+            trial_df=test_df.iloc[[3]],
+            trials_list=trials_list,
+            trial_index=15,
+            transparent=True,
+        )
+        expected_color_for_candidate = (
+            "rgba(173, 192, 253, 0.5)"  # RGB for LIGHT_AX_BLUE with transparency
         )
         self.assertEqual(
-            ci_completed_blue,
-            f"rgba({plotly_blue[0]}, {plotly_blue[1]}, {plotly_blue[2]}, 0.5)",
+            candidate_light_ax_blue_with_transparency, expected_color_for_candidate
         )
-
-        # Ensure we do not get a KeyError on a trial status name that is not
-        # expected.
-        trial_status_to_plotly_color(trial_status="StrangeStatus")
 
     def test_get_arm_tooltip(self) -> None:
         row = pd.Series(

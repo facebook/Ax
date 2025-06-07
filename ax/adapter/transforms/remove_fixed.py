@@ -8,9 +8,9 @@
 
 from typing import Optional, TYPE_CHECKING
 
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import construct_new_search_space
-
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -34,10 +34,18 @@ class RemoveFixed(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "RemoveFixed requires search space"
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         # Identify parameters that should be transformed
         self.fixed_parameters: dict[str, FixedParameter] = {
             p_name: p
@@ -79,3 +87,11 @@ class RemoveFixed(Transform):
             for p_name, p in self.fixed_parameters.items():
                 obsf.parameters[p_name] = p.value
         return observation_features
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        return ExperimentData(
+            arm_data=experiment_data.arm_data.drop(columns=list(self.fixed_parameters)),
+            observation_data=experiment_data.observation_data,
+        )

@@ -7,9 +7,8 @@
 # pyre-strict
 
 import dataclasses
-import warnings
 from collections import OrderedDict
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 import numpy.typing as npt
@@ -74,6 +73,8 @@ class BoTorchGenerator(TorchGenerator, Base):
             scratch on refit. NOTE: This setting is ignored during
             ``cross_validate`` if ``refit_on_cv`` is False. This is also used in
             Surrogate.model_selection.
+        use_p_feasible: Whether we consider dispatching to
+            ``qLogProbabilityOfFeasibility`` in ``choose_botorch_acqf_class``.
     """
 
     acquisition_class: type[Acquisition]
@@ -82,50 +83,38 @@ class BoTorchGenerator(TorchGenerator, Base):
     surrogate_spec: SurrogateSpec | None
     _surrogate: Surrogate | None
 
+    _user_specified_botorch_acqf_class: type[AcquisitionFunction] | None
     _botorch_acqf_class: type[AcquisitionFunction] | None
     _supports_robust_optimization: bool = True
 
     def __init__(
         self,
         surrogate_spec: SurrogateSpec | None = None,
-        surrogate_specs: Mapping[str, SurrogateSpec] | None = None,
         surrogate: Surrogate | None = None,
         acquisition_class: type[Acquisition] | None = None,
         acquisition_options: dict[str, Any] | None = None,
         botorch_acqf_class: type[AcquisitionFunction] | None = None,
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
+        use_p_feasible: bool = True,
     ) -> None:
         # Check that only one surrogate related option is provided.
-        if bool(surrogate_spec) + bool(surrogate_specs) + bool(surrogate) > 1:
+        if surrogate_spec is not None and surrogate is not None:
             raise UserInputError(
-                "Only one of `surrogate_spec`, `surrogate_specs`, and `surrogate` "
+                "Only one of `surrogate_spec` or `surrogate` "
                 "can be specified. Please use `surrogate_spec`."
             )
-        if surrogate_specs is not None:
-            if len(surrogate_specs) > 1:
-                raise DeprecationWarning(
-                    "Support for multiple `Surrogate`s has been deprecated. "
-                    "Please use the `surrogate_spec` input in the future to "
-                    "specify a single `Surrogate`."
-                )
-            warnings.warn(
-                "The `surrogate_specs` argument is deprecated in favor of "
-                "`surrogate_spec`, which accepts a single `SurrogateSpec` object. "
-                "Please use `surrogate_spec` in the future.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            surrogate_spec = next(iter(surrogate_specs.values()))
         self.surrogate_spec = surrogate_spec
         self._surrogate = surrogate
 
         self.acquisition_class = acquisition_class or Acquisition
         self.acquisition_options = acquisition_options or {}
+        self._user_specified_botorch_acqf_class = botorch_acqf_class
         self._botorch_acqf_class = botorch_acqf_class
 
         self.refit_on_cv = refit_on_cv
         self.warm_start_refit = warm_start_refit
+        self.use_p_feasible = use_p_feasible
 
     @property
     def surrogate(self) -> Surrogate:
@@ -401,7 +390,7 @@ class BoTorchGenerator(TorchGenerator, Base):
         Returns:
             A BoTorch ``AcquisitionFunction`` instance.
         """
-        if not self._botorch_acqf_class:
+        if self._user_specified_botorch_acqf_class is None:
             if torch_opt_config.risk_measure is not None:
                 raise UnsupportedError(
                     "Automated selection of `botorch_acqf_class` is not supported "
@@ -409,7 +398,9 @@ class BoTorchGenerator(TorchGenerator, Base):
                     "`botorch_acqf_class` as part of `model_kwargs`."
                 )
             self._botorch_acqf_class = choose_botorch_acqf_class(
-                torch_opt_config=torch_opt_config
+                torch_opt_config=torch_opt_config,
+                datasets=self.surrogate.training_data,
+                use_p_feasible=self.use_p_feasible,
             )
 
         return self.acquisition_class(

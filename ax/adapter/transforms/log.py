@@ -9,12 +9,14 @@
 import math
 from typing import Optional, TYPE_CHECKING
 
+import numpy as np
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -31,10 +33,18 @@ class Log(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "Log requires search space"
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         # Identify parameters that should be transformed
         self.transform_parameters: set[str] = {
             p_name
@@ -50,9 +60,7 @@ class Log(Transform):
         for obsf in observation_features:
             for p_name in self.transform_parameters:
                 if p_name in obsf.parameters:
-                    # pyre: param is declared to have type `float` but is used
-                    # pyre-fixme[9]: as type `Optional[typing.Union[bool, float, str]]`.
-                    param: float = obsf.parameters[p_name]
+                    param: float = assert_is_instance(obsf.parameters[p_name], float)
                     obsf.parameters[p_name] = math.log10(param)
         return observation_features
 
@@ -75,8 +83,16 @@ class Log(Transform):
         for obsf in observation_features:
             for p_name in self.transform_parameters:
                 if p_name in obsf.parameters:
-                    # pyre: param is declared to have type `float` but is used
-                    # pyre-fixme[9]: as type `Optional[typing.Union[bool, float, str]]`.
-                    param: float = obsf.parameters[p_name]
+                    param: float = assert_is_instance(obsf.parameters[p_name], float)
                     obsf.parameters[p_name] = math.pow(10, param)
         return observation_features
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        arm_data = experiment_data.arm_data
+        for p_name in self.transform_parameters:
+            arm_data[p_name] = np.log10(arm_data[p_name])
+        return ExperimentData(
+            arm_data=arm_data, observation_data=experiment_data.observation_data
+        )

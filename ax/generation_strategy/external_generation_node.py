@@ -19,7 +19,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import TransitionCriterion
 
 
@@ -74,7 +74,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         t_init_start = time.monotonic()
         super().__init__(
             node_name=node_name,
-            model_specs=[],
+            generator_specs=[],
             best_model_selector=None,
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,
@@ -113,12 +113,12 @@ class ExternalGenerationNode(GenerationNode, ABC):
         """
 
     @property
-    def _fitted_model(self) -> None:
+    def _fitted_adapter(self) -> None:
         return None
 
     @property
-    def model_spec_to_gen_from(self) -> GeneratorSpec | None:
-        return self._model_spec_to_gen_from
+    def generator_spec_to_gen_from(self) -> GeneratorSpec | None:
+        return self._generator_spec_to_gen_from
 
     def _fit(
         self,
@@ -180,7 +180,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
         """
-        if self._model_spec_to_gen_from is not None:
+        if self._generator_spec_to_gen_from is not None:
             # This is the fallback case. Generate using base GNode logic.
             gr = super()._gen(
                 experiment=experiment,
@@ -189,8 +189,8 @@ class ExternalGenerationNode(GenerationNode, ABC):
                 pending_observations=pending_observations,
                 **model_gen_kwargs,
             )
-            # Unset self._model_spec_to_gen_from before returning.
-            self._model_spec_to_gen_from = None
+            # Unset self._generator_spec_to_gen_from before returning.
+            self._generator_spec_to_gen_from = None
             return gr
         t_gen_start = time.monotonic()
         n = 1 if n is None else n

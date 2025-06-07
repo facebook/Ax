@@ -347,7 +347,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
 }
 
 
-def get_problem(
+def get_benchmark_problem(
     problem_key: str,
     registry: Mapping[str, BenchmarkProblemRegistryEntry] | None = None,
     **additional_kwargs: Any,

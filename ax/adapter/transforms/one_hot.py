@@ -9,6 +9,8 @@
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.rounding import randomized_onehot_round, strict_onehot_round
 from ax.adapter.transforms.utils import construct_new_search_space
@@ -24,7 +26,7 @@ if TYPE_CHECKING:
     from ax import adapter as adapter_module  # noqa F401
 
 
-OH_PARAM_INFIX = "_OH_PARAM_"
+OH_PARAM_INFIX = "_OH_PARAM"
 
 
 class OneHotEncoder:
@@ -86,10 +88,18 @@ class OneHot(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "OneHot requires search space"
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         # Identify parameters that should be transformed
         # pyre-fixme[4]: Attribute must be annotated.
         self.rounding = "strict"
@@ -198,3 +208,35 @@ class OneHot(Transform):
                 )
                 obsf.parameters[p_name] = val
         return observation_features
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        arm_data = experiment_data.arm_data
+        for p_name, values in self.encoded_values.items():
+            # First, replace values with 0, 1, 2, so that column names are as expected.
+            arm_data = arm_data.replace(
+                to_replace={p_name: {v: i for i, v in enumerate(values)}}
+            ).astype({p_name: int})
+
+            if len(values) == 2:
+                # Handle the special case. Only need to rename the column.
+                arm_data = arm_data.rename(columns={p_name: p_name + OH_PARAM_INFIX})
+            else:
+                # Use get_dummies to one-hot encode the column.
+                arm_data = pd.get_dummies(
+                    arm_data,
+                    columns=[p_name],
+                    prefix=p_name + OH_PARAM_INFIX,
+                    # Could be int, but using float to match the parameter type.
+                    dtype=float,
+                )
+                # Make sure all expected columns are present, even if there is no
+                # corresponding value in the data.
+                for i in range(len(values)):
+                    if f"{p_name}{OH_PARAM_INFIX}_{i}" not in arm_data:
+                        arm_data[f"{p_name}{OH_PARAM_INFIX}_{i}"] = 0.0
+
+        return ExperimentData(
+            arm_data=arm_data, observation_data=experiment_data.observation_data
+        )

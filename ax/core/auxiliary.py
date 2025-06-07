@@ -31,6 +31,11 @@ class AuxiliaryExperiment(SortableBase):
         """
         Lightweight container of an experiment, and its data,
         that will be used as auxiliary information for another experiment.
+        Args:
+            experiment: The Ax experiment with the auxiliary data.
+            is_active: Whether the auxiliary experiment relation to the target
+                experiment is currently active.
+            data: Auxiliary data.
         """
         self.experiment = experiment
         self.data: Data = data or experiment.lookup_data()

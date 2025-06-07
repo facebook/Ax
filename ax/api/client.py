@@ -44,7 +44,7 @@ from ax.early_stopping.strategies import (
 )
 from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.scheduler import Scheduler, SchedulerOptions
+from ax.service.orchestrator import Orchestrator, OrchestratorOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.decoder import (
@@ -175,7 +175,7 @@ class Client(WithDBSettingsBase):
 
     def configure_generation_strategy(
         self,
-        method: Literal["balanced", "fast", "random_search"] = "fast",
+        method: Literal["fast", "random_search"] = "fast",
         # Initialization options
         initialization_budget: int | None = None,
         initialization_random_seed: int | None = None,
@@ -370,7 +370,7 @@ class Client(WithDBSettingsBase):
             gs = self._generation_strategy_or_choose()
 
             # This will be changed to use gen directly post gen-unfication cc @mgarrard
-            generator_runs = gs.gen_for_multiple_trials_with_multiple_models(
+            generator_runs = gs.gen(
                 experiment=self._experiment,
                 pending_observations=(
                     get_pending_observation_features_based_on_trial_status(
@@ -460,7 +460,11 @@ class Client(WithDBSettingsBase):
                     f"Trial {trial_index} marked completed but metrics "
                     f"{missing_metrics} are missing, marking trial FAILED."
                 )
-                self.mark_trial_failed(trial_index=trial_index)
+                self.mark_trial_failed(
+                    trial_index=trial_index,
+                    failed_reason=f"{missing_metrics} are missing, marking trial\
+                    FAILED.",
+                )
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -569,14 +573,18 @@ class Client(WithDBSettingsBase):
         es_response = none_throws(
             self._early_stopping_strategy_or_choose()
         ).should_stop_trials_early(
-            trial_indices={trial_index}, experiment=self._experiment
+            trial_indices={trial_index},
+            experiment=self._experiment,
+            current_node=self._generation_strategy_or_choose()._curr,
         )
 
         # TODO[mpolson64]: log the returned reason for stopping the trial
         return trial_index in es_response
 
     # -------------------- Section 2.3 Marking trial status manually ----------------
-    def mark_trial_failed(self, trial_index: int) -> None:
+    def mark_trial_failed(
+        self, trial_index: int, failed_reason: str | None = None
+    ) -> None:
         """
         Manually mark a trial as FAILED. FAILED trials typically may be re-suggested by
         ``get_next_trials``, though this is controlled by the ``GenerationStrategy``.
@@ -584,6 +592,7 @@ class Client(WithDBSettingsBase):
         Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_failed()
+        self._experiment.trials[trial_index]._failed_reason = failed_reason
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -627,18 +636,17 @@ class Client(WithDBSettingsBase):
         initial_seconds_between_polls: int = 1,
     ) -> None:
         """
-        Run up to max_trials trials in a loop by creating an ephemeral ``Scheduler``
-        under the hood using the ``Experiment``, ``GenerationStrategy``, ``Metrics``,
-        and ``Runner`` attached to this ``Client`` along with the provided
-        ``OrchestrationConfig``.
+        Run maximum_trials trials in a loop by creating an ephemeral Orchestrator under
+        the hood using the Experiment, GenerationStrategy, Metrics, and Runner attached
+        to this AxClient along with the provided OrchestrationConfig.
 
         Saves to database on completion if ``storage_config`` is present.
         """
 
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=self._experiment,
             generation_strategy=self._generation_strategy_or_choose(),
-            options=SchedulerOptions(
+            options=OrchestratorOptions(
                 max_pending_trials=parallelism,
                 tolerated_trial_failure_rate=tolerated_trial_failure_rate,
                 init_seconds_between_polls=initial_seconds_between_polls,
@@ -648,8 +656,8 @@ class Client(WithDBSettingsBase):
             else None,
         )
 
-        # Note: This scheduler call will handle storage internally
-        scheduler.run_n_trials(max_trials=max_trials)
+        # Note: This Orchestrator call will handle storage internally
+        orchestrator.run_n_trials(max_trials=max_trials)
 
     # -------------------- Section 3. Analyze ---------------------------------------
     def compute_analyses(
@@ -888,7 +896,7 @@ class Client(WithDBSettingsBase):
             )
 
         try:
-            mean, covariance = none_throws(self._generation_strategy.model).predict(
+            mean, covariance = none_throws(self._generation_strategy.adapter).predict(
                 observation_features=[
                     # pyre-fixme[6]: Core Ax allows users to specify TParameterization
                     # values as None but we do not allow this in the API.

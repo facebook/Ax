@@ -23,7 +23,7 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import AxError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.plot.pareto_utils import (
-    get_tensor_converter_model,
+    get_tensor_converter_adapter,
     infer_reference_point_from_experiment,
 )
 from ax.utils.common.logger import get_logger
@@ -237,7 +237,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         if reference_trial_index in self.hv_by_trial:
             hv_reference = self.hv_by_trial[reference_trial_index]
         else:
-            mb_reference = get_tensor_converter_model(
+            mb_reference = get_tensor_converter_adapter(
                 experiment=experiment, data=Data(data_df_reference)
             )
             hv_reference = observed_hypervolume(
@@ -250,7 +250,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             return False, message
 
         # Computing HV at current trial
-        mb = get_tensor_converter_model(experiment=experiment, data=Data(data_df))
+        mb = get_tensor_converter_adapter(experiment=experiment, data=Data(data_df))
         hv = observed_hypervolume(mb, objective_thresholds=objective_thresholds)
         self.hv_by_trial[trial_to_check] = hv
 

@@ -34,6 +34,8 @@ class ThompsonSamplerTest(TestCase):
 
     def test_ThompsonSampler(self) -> None:
         generator = ThompsonSampler(min_weight=0.0)
+        self.assertFalse(generator.can_predict)
+        self.assertFalse(generator.can_model_in_sample)
         self.assertEqual(generator.topk, 1)
         generator.fit(
             Xs=self.Xs,

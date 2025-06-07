@@ -10,6 +10,7 @@ from typing import Any, Optional, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.deprecated_transform_mixin import DeprecatedTransformMixin
 from ax.adapter.transforms.utils import ClosestLookupDict, construct_new_search_space
@@ -50,10 +51,18 @@ class ChoiceToNumericChoice(Transform):
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "ChoiceToNumericChoice requires search space"
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         # Identify parameters that should be transformed
         self.encoded_parameters: dict[str, dict[TParamValue, TParamValue]] = {}
         self.encoded_parameters_inverse: dict[str, ClosestLookupDict] = {}
@@ -120,6 +129,16 @@ class ChoiceToNumericChoice(Transform):
                         obsf.parameters[p_name] = reverse_transform[pval]
         return observation_features
 
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        return ExperimentData(
+            arm_data=experiment_data.arm_data.replace(
+                to_replace=self.encoded_parameters
+            ),
+            observation_data=experiment_data.observation_data,
+        )
+
 
 class ChoiceEncode(DeprecatedTransformMixin, ChoiceToNumericChoice):
     """Deprecated alias for ChoiceToNumericChoice."""
@@ -146,10 +165,18 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
     def __init__(
         self,
         search_space: SearchSpace,
-        observations: list[Observation],
+        observations: list[Observation] | None = None,
+        experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
+        super().__init__(
+            search_space=search_space,
+            observations=observations,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         # Identify parameters that should be transformed
         self.encoded_parameters: dict[str, dict[TParamValue, int]] = {}
         for p in search_space.parameters.values():

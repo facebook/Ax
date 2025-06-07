@@ -35,7 +35,6 @@ class MetricFetchingErrorsAnalysis(HealthcheckAnalysis):
 
     def __init__(
         self,
-        max_records: int = 10,
         add_traceback_paste_callable: Callable[
             [str, list[dict[str, Any]]], list[dict[str, Any]]
         ]
@@ -49,7 +48,6 @@ class MetricFetchingErrorsAnalysis(HealthcheckAnalysis):
             link added to each error's traceback if available. If no function is
             provided, no traceback information will be included in the health check.
         """
-        self.max_records = max_records
         self.add_traceback_paste_callable = add_traceback_paste_callable
 
     @override
@@ -66,7 +64,7 @@ class MetricFetchingErrorsAnalysis(HealthcheckAnalysis):
 
         metric_fetch_errors = experiment._metric_fetching_errors
 
-        if not metric_fetch_errors:
+        if len(metric_fetch_errors) == 0:
             return [
                 self._create_healthcheck_analysis_card(
                     title="Metric Fetch Errors",
@@ -78,15 +76,13 @@ class MetricFetchingErrorsAnalysis(HealthcheckAnalysis):
                 )
             ]
 
+        metric_fetch_errors = [
+            e for e in metric_fetch_errors.values() if self._validate_fields(errors=e)
+        ]
+
         metric_fetch_errors = sorted(
             metric_fetch_errors, key=lambda e: e["timestamp"], reverse=True
         )
-        if self.max_records is not None:
-            metric_fetch_errors = metric_fetch_errors[: self.max_records]
-
-        metric_fetch_errors = [
-            e for e in metric_fetch_errors if self._validate_fields(errors=e)
-        ]
 
         if self.add_traceback_paste_callable is not None:
             metric_fetch_errors = self.add_traceback_paste_callable(

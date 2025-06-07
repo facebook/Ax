@@ -183,7 +183,10 @@ class Experiment(Base):
         if optimization_config is not None:
             self.optimization_config = optimization_config
 
-        self._metric_fetching_errors: list[dict[str, Union[int, str]]] = []
+        # Keyed on tuple[trial_index, metric_name].
+        self._metric_fetching_errors: dict[
+            tuple[int, str], dict[str, Union[int, str]]
+        ] = {}
 
     @property
     def has_name(self) -> bool:
@@ -946,6 +949,7 @@ class Experiment(Base):
             for metric_name, result in metrics.items():
                 if isinstance(result, Ok):
                     oks.append(result)
+                    self._metric_fetching_errors.pop((trial_index, metric_name), None)
                 elif isinstance(result, Err):
                     msg = (
                         "Discovered Metric fetching Err while attaching data "
@@ -1554,7 +1558,7 @@ class Experiment(Base):
             error_data["reason"] = reason_for_failure
             error_data["traceback"] = metric_fetch_e.tb_str() or ""
 
-        self._metric_fetching_errors.append(error_data)
+        self._metric_fetching_errors[(trial_index, metric_name)] = error_data
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + f"({self._name})"
@@ -1981,6 +1985,56 @@ class Experiment(Base):
         if omit_empty_columns:
             df = df.loc[:, df.notnull().any()]
         return df
+
+    def add_auxiliary_experiment(
+        self,
+        purpose: AuxiliaryExperimentPurpose,
+        auxiliary_experiment: AuxiliaryExperiment,
+    ) -> None:
+        """Add a (non-duplicated) auxiliary experiment to this experiment.
+
+        This method adds the auxiliary experiment as the first element in the list
+        of auxiliary experiments with the specified purpose. If the auxiliary is
+        already present, it is moved to the first position in the list.
+
+        Args:
+            purpose: The purpose of the auxiliary experiment.
+            auxiliary_experiment: The auxiliary experiment to add.
+        """
+        if purpose not in self.auxiliary_experiments_by_purpose:
+            # if no aux experiment, make aux the first one
+            self.auxiliary_experiments_by_purpose[purpose] = [auxiliary_experiment]
+            return
+
+        # Add or move auxiliary_experiment to be the first element
+        # Adding to the first and use the order as a default tie-breaker when multiple
+        # auxiliary experiments are present but only one is going to be used.
+        self.auxiliary_experiments_by_purpose[purpose] = [auxiliary_experiment] + [
+            item
+            for item in self.auxiliary_experiments_by_purpose[purpose]
+            if item != auxiliary_experiment
+        ]
+
+    def find_auxiliary_experiment_by_name(
+        self,
+        purpose: AuxiliaryExperimentPurpose,
+        auxiliary_experiment_name: str,
+    ) -> AuxiliaryExperiment | None:
+        """Find the aux experiment with the given name and purpose in the experiment.
+
+        Args:
+            purpose: The purpose of the aux experiment.
+            auxiliary_experiment_name: The name of the aux experiment.
+
+        Returns:
+            The aux experiment with the given name and purpose, or None if not found.
+        """
+        if purpose not in self.auxiliary_experiments_by_purpose:
+            return None
+        for auxiliary_experiment in self.auxiliary_experiments_by_purpose[purpose]:
+            if auxiliary_experiment.experiment.name == auxiliary_experiment_name:
+                return auxiliary_experiment
+        return None
 
     @property
     def auxiliary_experiments_by_purpose_for_storage(

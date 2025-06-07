@@ -13,7 +13,11 @@ from ax.adapter.pairwise import PairwiseAdapter
 from ax.core import Metric, Objective, OptimizationConfig
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from ax.generators.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.torch.botorch_modular.surrogate import (
+    ModelConfig,
+    Surrogate,
+    SurrogateSpec,
+)
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.preference_stubs import get_pbo_experiment
@@ -40,12 +44,18 @@ class PairwiseAdapterTest(TestCase):
     )
     def test_PairwiseAdapter(self) -> None:
         surrogate = Surrogate(
-            botorch_model_class=PairwiseGP,
-            mll_class=PairwiseLaplaceMarginalLogLikelihood,
-            input_transform_classes=[Normalize],
-            input_transform_options={
-                "Normalize": {"d": len(self.experiment.parameters)}
-            },
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=PairwiseGP,
+                        mll_class=PairwiseLaplaceMarginalLogLikelihood,
+                        input_transform_classes=[Normalize],
+                        input_transform_options={
+                            "Normalize": {"d": len(self.experiment.parameters)}
+                        },
+                    )
+                ]
+            )
         )
 
         cases = [
@@ -63,7 +73,7 @@ class PairwiseAdapterTest(TestCase):
                 experiment=self.experiment,
                 search_space=self.experiment.search_space,
                 data=self.data,
-                model=BoTorchGenerator(
+                generator=BoTorchGenerator(
                     botorch_acqf_class=botorch_acqf_class,
                     surrogate=surrogate,
                 ),

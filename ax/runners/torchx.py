@@ -118,15 +118,15 @@ try:
             tracker_base: str,
             component: Callable[..., AppDef],
             component_const_params: dict[str, Any] | None = None,
-            scheduler: str = "local",
+            orchestrator: str = "local",
             cfg: Mapping[str, CfgVal] | None = None,
         ) -> None:
             self._component: Callable[..., AppDef] = component
-            self._scheduler: str = scheduler
+            self._orchestrator: str = orchestrator
             self._cfg: Mapping[str, CfgVal] | None = cfg
             # need to use the same runner in case it has state
-            # e.g. torchx's local_scheduler has state hence need to poll status
-            # on the same scheduler instance
+            # e.g. torchx's local_orchestrator has state hence need to poll status
+            # on the same Orchestrator instance
             self._torchx_runner: torchx_Runner = get_runner()
             self._tracker_base = tracker_base
             self._component_const_params: dict[str, Any] = component_const_params or {}
@@ -134,7 +134,7 @@ try:
         def run(self, trial: BaseTrial) -> dict[str, Any]:
             """
             Submits the trial (which maps to an AppDef) as a job
-            onto the scheduler using ``torchx.runner``.
+            onto the Orchestrator using ``torchx.runner``.
 
             ..  note:: only supports `Trial` (not `BatchTrial`).
             """
@@ -157,7 +157,7 @@ try:
                 parameters["tracker_base"] = self._tracker_base
 
             appdef = self._component(**parameters)
-            app_handle = self._torchx_runner.run(appdef, self._scheduler, self._cfg)
+            app_handle = self._torchx_runner.run(appdef, self._orchestrator, self._cfg)
             return {
                 TORCHX_APP_HANDLE: app_handle,
                 TORCHX_RUNNER: self._torchx_runner,

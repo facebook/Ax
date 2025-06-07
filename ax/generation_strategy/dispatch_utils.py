@@ -13,7 +13,11 @@ from typing import Any, cast
 
 import torch
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.registry import Generators, MODEL_KEY_TO_MODEL_SETUP, ModelRegistryBase
+from ax.adapter.registry import (
+    GeneratorRegistryBase,
+    Generators,
+    MODEL_KEY_TO_MODEL_SETUP,
+)
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.experiment import Experiment
@@ -29,7 +33,6 @@ from ax.generators.torch.botorch_modular.generator import (
 )
 from ax.generators.types import TConfig
 from ax.generators.winsorization_config import WinsorizationConfig
-from ax.utils.common.deprecation import _validate_force_random_search
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 
@@ -61,7 +64,7 @@ def _make_sobol_step(
 ) -> GenerationStep:
     """Shortcut for creating a Sobol generation step."""
     return GenerationStep(
-        model=Generators.SOBOL,
+        generator=Generators.SOBOL,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
@@ -77,7 +80,7 @@ def _make_botorch_step(
     min_trials_observed: int | None = None,
     enforce_num_trials: bool = True,
     max_parallelism: int | None = None,
-    model: ModelRegistryBase = Generators.BOTORCH_MODULAR,
+    generator: GeneratorRegistryBase = Generators.BOTORCH_MODULAR,
     model_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
@@ -110,7 +113,7 @@ def _make_botorch_step(
     )
 
     if not no_winsorization:
-        _, default_bridge_kwargs = model.view_defaults()
+        _, default_bridge_kwargs = generator.view_defaults()
         default_transforms = default_bridge_kwargs["transforms"]
         transforms = model_kwargs.get("transforms", default_transforms)
         model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
@@ -119,7 +122,7 @@ def _make_botorch_step(
                 winsorization_transform_config
             )
 
-    if MODEL_KEY_TO_MODEL_SETUP[model.value].model_class != ModularBoTorchGenerator:
+    if MODEL_KEY_TO_MODEL_SETUP[generator.value].model_class != ModularBoTorchGenerator:
         if verbose is not None:
             model_kwargs.update({"verbose": verbose})
         if disable_progbar is not None:
@@ -134,7 +137,7 @@ def _make_botorch_step(
             "dropping these arguments."
         )
     return GenerationStep(
-        model=model,
+        generator=generator,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
@@ -150,7 +153,7 @@ def _suggest_gp_model(
     num_trials: int | None = None,
     optimization_config: OptimizationConfig | None = None,
     use_saasbo: bool = False,
-) -> None | ModelRegistryBase:
+) -> None | GeneratorRegistryBase:
     """Suggest a model based on the search space. None means we use Sobol.
 
     1. We use Sobol if the number of total iterations in the optimization is
@@ -304,7 +307,6 @@ def choose_generation_strategy_legacy(
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
     derelativize_with_raw_status_quo: bool = False,
-    no_bayesian_optimization: bool | None = None,
     force_random_search: bool = False,
     num_trials: int | None = None,
     num_initialization_trials: int | None = None,
@@ -320,7 +322,7 @@ def choose_generation_strategy_legacy(
     disable_progbar: bool | None = None,
     jit_compile: bool | None = None,
     experiment: Experiment | None = None,
-    suggested_model_override: ModelRegistryBase | None = None,
+    suggested_model_override: GeneratorRegistryBase | None = None,
     fit_out_of_design: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
@@ -357,7 +359,6 @@ def choose_generation_strategy_legacy(
             Winsorization when relative constraints are present. Note: automatic
             Winsorization will fail if this is set to `False` (or unset) and there
             are relative constraints present.
-        no_bayesian_optimization: Deprecated. Use `force_random_search`.
         force_random_search: If True, quasi-random generation strategy will be used
             rather than Bayesian optimization.
         num_trials: Total number of trials in the optimization, if
@@ -452,9 +453,6 @@ def choose_generation_strategy_legacy(
         sobol_parallelism = None  # No restriction on Sobol phase
         bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
 
-    # TODO[T199632397] Remove
-    _validate_force_random_search(no_bayesian_optimization, force_random_search)
-
     if not force_random_search and suggested_model is not None:
         if not enforce_sequential_optimization and (
             max_parallelism_override or max_parallelism_cap
@@ -544,7 +542,7 @@ def choose_generation_strategy_legacy(
             )
         steps.append(
             _make_botorch_step(
-                model=suggested_model,
+                generator=suggested_model,
                 winsorization_config=winsorization_config,
                 derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
                 no_winsorization=no_winsorization,

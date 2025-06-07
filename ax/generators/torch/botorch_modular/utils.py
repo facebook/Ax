@@ -23,13 +23,19 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.logei import qLogNoisyExpectedImprovement
+from botorch.acquisition.logei import (
+    qLogNoisyExpectedImprovement,
+    qLogProbabilityOfFeasibility,
+)
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import PairwiseLaplaceMarginalLogLikelihood
-from botorch.models.fully_bayesian import FullyBayesianSingleTaskGP
+from botorch.models.fully_bayesian import (
+    AbstractFullyBayesianSingleTaskGP,
+    FullyBayesianSingleTaskGP,
+)
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
@@ -40,6 +46,7 @@ from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
+from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.types import _DefaultType, DEFAULT
@@ -280,12 +287,50 @@ def choose_model_class(
 
 def choose_botorch_acqf_class(
     torch_opt_config: TorchOptConfig,
+    datasets: Sequence[SupervisedDataset] | None,
+    use_p_feasible: bool = True,
 ) -> type[AcquisitionFunction]:
-    """Chooses a BoTorch ``AcquisitionFunction`` class.
+    """Chooses the most suitable BoTorch `AcquisitionFunction` class.
 
-    Current logic relies on ``TorchOptConfig.is_moo`` field to determine
-    whether to use qLogNEHVI (for MOO) or qLogNEI for (SOO).
+    Args:
+        torch_opt_config: The torch optimization config.
+        datasets: The datasets that were used to fit the model.
+        use_p_feasible: Whether we dispatch to `qLogProbabilityOfFeasibility` when
+            there are no feasible points in the training data.
+
+    Returns:
+        A BoTorch `AcquisitionFunction` class. The current logic chooses between:
+            - `qLogProbabilityOfFeasibility` if there are outcome constraints and
+                no feasible point has been found.
+            - `qLogNoisyExpectedImprovement` for single-objective optimization.
+            - `qLogNoisyExpectedHypervolumeImprovement`` for multi-objective
+                optimization.
     """
+
+    # Check if the training data is feasible.
+    if (
+        use_p_feasible
+        and torch_opt_config.outcome_constraints is not None
+        and datasets is not None
+    ):
+        con_tfs = (
+            get_outcome_constraint_transforms(torch_opt_config.outcome_constraints)
+            or []
+        )
+        # NOTE: `convert_to_block_design` will drop points that are only observed by
+        # some of the metrics which is natural as we are using observed values to
+        # determine feasibility.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=AxWarning)
+            dataset = convert_to_block_design(datasets=datasets, force=True)[0]
+        con_observed = torch.stack([con(dataset.Y) for con in con_tfs], dim=-1)
+        feas_point_found = (con_observed <= 0).all(dim=-1).any().item()
+
+        if not feas_point_found:
+            acqf_class = qLogProbabilityOfFeasibility
+            logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
+            return acqf_class
+
     if torch_opt_config.is_moo:
         acqf_class = qLogNoisyExpectedHypervolumeImprovement
     else:
@@ -492,10 +537,11 @@ def _fit_botorch_model_gpytorch(
     fit_gpytorch_mll(mll)
 
 
-@fit_botorch_model.register(FullyBayesianSingleTaskGP)
-@fit_botorch_model.register(SaasFullyBayesianMultiTaskGP)
+@fit_botorch_model.register(
+    (AbstractFullyBayesianSingleTaskGP, SaasFullyBayesianMultiTaskGP)
+)
 def _fit_botorch_model_fully_bayesian_nuts(
-    model: FullyBayesianSingleTaskGP | SaasFullyBayesianMultiTaskGP,
+    model: AbstractFullyBayesianSingleTaskGP | SaasFullyBayesianMultiTaskGP,
     mll_class: type[MarginalLogLikelihood],
     mll_options: dict[str, Any] | None = None,
 ) -> None:

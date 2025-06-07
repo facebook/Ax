@@ -11,6 +11,7 @@ from typing import Sequence
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.plotly.color_constants import AX_BLUE
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.surface.utils import (
@@ -22,13 +23,14 @@ from ax.analysis.plotly.utils import (
     get_scatter_point_color,
     select_metric,
     truncate_label,
+    Z_SCORE_95_CI,
 )
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from plotly import express as px, graph_objects as go
+from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
 
@@ -224,16 +226,18 @@ def _prepare_plot(
     y = df[f"{metric_name}_mean"].tolist()
 
     # Convert the SEMs to 95% confidence intervals
-    y_upper = (df[f"{metric_name}_mean"] + 1.96 * df[f"{metric_name}_sem"]).tolist()
-    y_lower = (df[f"{metric_name}_mean"] - 1.96 * df[f"{metric_name}_sem"]).tolist()
-
-    plotly_blue = px.colors.qualitative.Plotly[0]
+    y_upper = (
+        df[f"{metric_name}_mean"] + Z_SCORE_95_CI * df[f"{metric_name}_sem"]
+    ).tolist()
+    y_lower = (
+        df[f"{metric_name}_mean"] - Z_SCORE_95_CI * df[f"{metric_name}_sem"]
+    ).tolist()
 
     # Draw a line at the mean and a shaded region between the upper and lower bounds
     line = go.Scatter(
         x=x,
         y=y,
-        line={"color": plotly_blue},
+        line={"color": AX_BLUE},
         mode="lines",
         name=metric_name,
         showlegend=False,
@@ -244,7 +248,7 @@ def _prepare_plot(
         # Concatenate upper and lower bounds in reverse order
         y=y_upper + y_lower[::-1],
         fill="toself",
-        fillcolor=get_scatter_point_color(hex_color=plotly_blue, ci_transparency=True),
+        fillcolor=get_scatter_point_color(hex_color=AX_BLUE, ci_transparency=True),
         line={"color": "rgba(255,255,255,0)"},  # Make "line" transparent
         hoverinfo="skip",
         showlegend=False,
