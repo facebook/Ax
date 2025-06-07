@@ -8,11 +8,13 @@
 
 import warnings
 from copy import deepcopy
+from math import sqrt
 from typing import Any, SupportsIndex
 from unittest import mock
 
 import numpy as np
-from ax.adapter.base import Adapter
+from ax.adapter.base import Adapter, DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.winsorize import (
     _get_auto_winsorization_cutoffs_outcome_constraint,
     _get_auto_winsorization_cutoffs_single_objective,
@@ -43,9 +45,12 @@ from ax.generators.base import Generator
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
     get_observations_with_invalid_value,
     get_optimization_config,
 )
+from pandas import DataFrame
+from pandas.testing import assert_frame_equal
 
 INF = float("inf")
 OBSERVATION_DATA = [
@@ -85,9 +90,27 @@ class WinsorizeTransformTest(TestCase):
             Observation(features=ObservationFeatures({}), data=obsd)
             for obsd in [self.obsd1, self.obsd2]
         ]
+        self.experiment_data = extract_experiment_data(
+            experiment=get_experiment_with_observations(
+                observations=[  # Same means as above.
+                    [0.0, 0.0],
+                    [0.0, 1.0],
+                    [1.0, 2.0],
+                    [2.0, 1.0],
+                ],
+                sems=[
+                    [1.0, sqrt(2.0)],
+                    [1.0, sqrt(3.0)],
+                    [1.0, sqrt(2.0)],
+                    [1.0, sqrt(3.0)],
+                ],
+            ),
+            data_loader_config=DataLoaderConfig(),
+        )
+
         self.t = Winsorize(
             search_space=None,
-            observations=deepcopy(self.observations),
+            experiment_data=self.experiment_data,
             config={
                 "winsorization_config": WinsorizationConfig(upper_quantile_margin=0.2)
             },
@@ -317,17 +340,13 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(cutoffs, (-6.5, 13.5))
 
     def test_winsorization_single_objective(self) -> None:
-        metric_values = [-100, 0, 1, 2, 3, 4, 5, 6, 7, 50]
+        metric_values = [-100.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 50.0]
         cutoffs = _get_auto_winsorization_cutoffs_single_objective(
-            # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
-            metric_values=metric_values,
-            minimize=True,
+            metric_values=metric_values, minimize=True
         )
         self.assertEqual(cutoffs, (-INF, 13.5))
         cutoffs = _get_auto_winsorization_cutoffs_single_objective(
-            # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
-            metric_values=metric_values,
-            minimize=False,
+            metric_values=metric_values, minimize=False
         )
         self.assertEqual(cutoffs, (-6.5, INF))
 
@@ -641,6 +660,38 @@ class WinsorizeTransformTest(TestCase):
                 ValueError, f"Non-finite data found for metric m1: {invalid_value}"
             ):
                 Winsorize(search_space=None, observations=observations, config=config)
+
+    def test_transform_experiment_data(self) -> None:
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(self.experiment_data)
+        )
+        # Data is within winsorization bounds. No change.
+        self.assertEqual(self.experiment_data, transformed_data)
+
+        # Modify the cutoffs to check for winsorization.
+        self.t.cutoffs["m1"] = (0.5, 1.0)
+        self.t.cutoffs["m2"] = (-INF, 1.5)
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(self.experiment_data)
+        )
+        # Check that the data is winsorized correctly.
+        expected_mean = DataFrame(
+            index=transformed_data.observation_data.index,
+            columns=transformed_data.observation_data["mean"].columns,
+            data=[
+                [0.5, 0.0],
+                [0.5, 1.0],
+                [1.0, 1.5],
+                [1.0, 1.0],
+            ],
+        )
+        assert_frame_equal(transformed_data.observation_data["mean"], expected_mean)
+        # Sem and arm data are not modified.
+        assert_frame_equal(
+            transformed_data.observation_data["sem"],
+            self.experiment_data.observation_data["sem"],
+        )
+        assert_frame_equal(transformed_data.arm_data, self.experiment_data.arm_data)
 
 
 def get_transform(
