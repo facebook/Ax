@@ -22,6 +22,7 @@ from ax.core.types import TParamValue
 from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
+from pyre_extensions import none_throws
 
 
 if TYPE_CHECKING:
@@ -46,7 +47,7 @@ class StandardizeY(Transform):
         adapter: Optional["base_adapter.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
-        if observations is None or len(observations) == 0:
+        if (observations is None or len(observations) == 0) and experiment_data is None:
             raise DataRequiredError("`StandardizeY` transform requires non-empty data.")
         super().__init__(
             search_space=search_space,
@@ -55,12 +56,17 @@ class StandardizeY(Transform):
             adapter=adapter,
             config=config,
         )
-        observation_data = [obs.data for obs in observations]
-        Ys = get_data(observation_data=observation_data)
+        if experiment_data is not None:
+            means_df = experiment_data.observation_data["mean"]
+            # Dropping NaNs here since the DF will have NaN for missing values.
+            Ys = {name: column.dropna().values for name, column in means_df.items()}
+        else:
+            observation_data = [obs.data for obs in none_throws(observations)]
+            Ys = get_data(observation_data=observation_data)
         # Compute means and SDs
         # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
         # pyre-fixme[4]: Attribute must be annotated.
-        self.Ymean, self.Ystd = compute_standardization_parameters(Ys)
+        self.Ymean, self.Ystd = compute_standardization_parameters(Ys=Ys)
 
     def _transform_observation_data(
         self,
@@ -153,6 +159,25 @@ class StandardizeY(Transform):
                 c.bound * self.Ystd[c.metric.name] + self.Ymean[c.metric.name]
             )
         return outcome_constraints
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        obs_data = experiment_data.observation_data
+        # Process metrics one by one.
+        for metric in self.Ymean:
+            mean_col = obs_data["mean", metric]
+            obs_data["mean", metric] = (mean_col - self.Ymean[metric]) / self.Ystd[
+                metric
+            ]
+            sem_col = obs_data["sem", metric]
+            if sem_col.isnull().all():
+                # If SEM is NaN, we don't need to transform it.
+                continue
+            obs_data["sem", metric] = sem_col / self.Ystd[metric]
+        return ExperimentData(
+            arm_data=experiment_data.arm_data, observation_data=obs_data
+        )
 
 
 def compute_standardization_parameters(
