@@ -678,7 +678,6 @@ class TestBenchmark(TestCase):
     def _test_replication_with_inference_value(
         self,
         batch_size: int,
-        use_model_predictions: bool,
         report_inference_value_as_trace: bool,
     ) -> None:
         seed = 1
@@ -686,7 +685,6 @@ class TestBenchmark(TestCase):
             model_cls=SingleTaskGP,
             acquisition_cls=qLogNoisyExpectedImprovement,
             distribute_replications=False,
-            use_model_predictions_for_best_point=use_model_predictions,
             num_sobol_trials=3,
             batch_size=batch_size,
         )
@@ -713,23 +711,15 @@ class TestBenchmark(TestCase):
         self.assertTrue((res.inference_trace >= res.oracle_trace).all())
 
     def test_replication_with_inference_value(self) -> None:
-        for (
-            use_model_predictions,
-            batch_size,
-            report_inference_value_as_trace,
-        ) in product(
-            [False, True],
-            [1, 2],
-            [False, True],
+        for batch_size, report_inference_value_as_trace in product(
+            [1, 2], [False, True]
         ):
             with self.subTest(
                 batch_size=batch_size,
-                use_model_predictions=use_model_predictions,
                 report_inference_value_as_trace=report_inference_value_as_trace,
             ):
                 self._test_replication_with_inference_value(
                     batch_size=batch_size,
-                    use_model_predictions=use_model_predictions,
                     report_inference_value_as_trace=report_inference_value_as_trace,
                 )
 

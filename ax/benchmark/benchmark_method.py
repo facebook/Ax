@@ -35,13 +35,6 @@ class BenchmarkMethod(Base):
             replication.
         distribute_replications: Indicates whether the replications should be
             run in a distributed manner. Ax itself does not use this attribute.
-        use_model_predictions_for_best_point: Whether to use model
-            predictions with ``get_pareto_optimal_parameters`` (if
-            multi-objective) or `BestPointMixin._get_best_trial` (if
-            single-objective). However, note that if multi-objective,
-            best-point selection is not currently supported and
-            ``get_pareto_optimal_parameters`` will raise a
-            ``NotImplementedError``.
         batch_size: Number of arms per trial. If greater than 1, trials are
             ``BatchTrial``s; otherwise, they are ``Trial``s. Defaults to 1. This
             and the following arguments are passed to ``OrchestratorOptions``.
@@ -54,7 +47,6 @@ class BenchmarkMethod(Base):
 
     timeout_hours: float = 4.0
     distribute_replications: bool = False
-    use_model_predictions_for_best_point: bool = False
 
     batch_size: int | None = 1
     run_trials_in_batches: bool = False
@@ -119,7 +111,6 @@ class BenchmarkMethod(Base):
             experiment=experiment,
             generation_strategy=self.generation_strategy,
             optimization_config=optimization_config,
-            use_model_predictions=self.use_model_predictions_for_best_point,
         )
         if result is None:
             # This can happen if no points are predicted to satisfy all outcome
