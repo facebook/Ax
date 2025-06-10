@@ -332,13 +332,11 @@ def _prepare_figure(
             },
         }
 
-        text = (
-            trial_df.apply(
-                lambda row: get_arm_tooltip(
-                    row=row, metric_names=[x_metric_name, y_metric_name]
-                ),
-                axis=1,
+        text = trial_df.apply(
+            lambda row: get_arm_tooltip(
+                row=row, metric_names=[x_metric_name, y_metric_name]
             ),
+            axis=1,
         )
 
         scatters.append(
