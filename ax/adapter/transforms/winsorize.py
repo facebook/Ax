@@ -37,7 +37,7 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.generators.types import TConfig, WinsorizationConfig
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -100,7 +100,7 @@ class Winsorize(Transform):
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
-        if observations is None or len(observations) == 0:
+        if (observations is None or len(observations) == 0) and experiment_data is None:
             raise DataRequiredError("`Winsorize` transform requires non-empty data.")
         super().__init__(
             search_space=search_space,
@@ -118,20 +118,26 @@ class Winsorize(Transform):
             )
         if config is None:
             config = {}
-        observation_data = [obs.data for obs in observations]
 
         # Get config settings.
         winsorization_config = config.get("winsorization_config", {})
         use_raw_sq = _get_and_validate_use_raw_sq(config=config)
         self.cutoffs = {}
-        all_metric_values = get_data(observation_data=observation_data)
+        if experiment_data is not None:
+            means_df = experiment_data.observation_data["mean"]
+            # Dropping NaNs here since the DF will have NaN for missing values.
+            all_metric_values = {
+                name: column.dropna().values for name, column in means_df.items()
+            }
+        else:
+            observation_data = [obs.data for obs in none_throws(observations)]
+            all_metric_values = get_data(observation_data=observation_data)
         for metric_name, metric_values in all_metric_values.items():
             self.cutoffs[metric_name] = _get_cutoffs(
                 metric_name=metric_name,
                 metric_values=metric_values,
                 winsorization_config=winsorization_config,
                 adapter=adapter,
-                observations=observations,
                 optimization_config=optimization_config,
                 use_raw_sq=use_raw_sq,
             )
@@ -150,13 +156,29 @@ class Winsorize(Transform):
                 obsd.means[idx] = min(obsd.means[idx], self.cutoffs[metric_name][1])
         return observation_data
 
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        obs_data = experiment_data.observation_data
+        # NOTE: Operating on metrics one by one rather than calling
+        # obs_data["mean"].clip with dict valued bounds, since profiling
+        # showed this to be faster. I suspect calling with dict values
+        # operates over rows, which is less efficient than operating over columns.
+        for m, (lower, upper) in self.cutoffs.items():
+            # Observation data columns are multi-indexed, with first level index
+            # being "mean" or "sem" and the second level being the metric name.
+            # This here updates the "mean" column for the given metric in-place.
+            obs_data["mean", m] = obs_data["mean", m].clip(lower=lower, upper=upper)
+        return ExperimentData(
+            arm_data=experiment_data.arm_data, observation_data=obs_data
+        )
+
 
 def _get_cutoffs(
     metric_name: str,
     metric_values: list[float],
     winsorization_config: WinsorizationConfig | dict[str, WinsorizationConfig],
     adapter: Optional["adapter_module.base.Adapter"],
-    observations: list[Observation] | None,
     optimization_config: OptimizationConfig | None,
     use_raw_sq: bool,
 ) -> tuple[float, float]:
@@ -200,9 +222,7 @@ def _get_cutoffs(
                 "not set to `True`."
             )
         optimization_config = derelativize_optimization_config_with_raw_status_quo(
-            optimization_config=optimization_config,
-            adapter=adapter,
-            observations=observations,
+            optimization_config=optimization_config, adapter=adapter
         )
 
     # Non-objective metrics - obtain cutoffs from outcome_constraints.
@@ -374,11 +394,8 @@ def _get_auto_winsorization_cutoffs_outcome_constraint(
     with a GEQ constraint.
     """
     Y = np.array(metric_values)
-    # TODO: replace interpolation->method once it becomes standard.
-    # pyre-fixme[28]: Unexpected keyword argument `interpolation`.
-    q1 = np.percentile(Y, q=25, interpolation="lower")
-    # pyre-fixme[28]: Unexpected keyword argument `interpolation`.
-    q3 = np.percentile(Y, q=75, interpolation="higher")
+    q1 = np.percentile(Y, q=25, method="lower")
+    q3 = np.percentile(Y, q=75, method="higher")
     lower_cutoff, upper_cutoff = DEFAULT_CUTOFFS
     for oc in outcome_constraints:
         bnd = oc.bound
@@ -418,75 +435,18 @@ def _quantiles_to_cutoffs(
     elif lower == 0.0:  # Use the default cutoff if there is no winsorization
         cutoff_l = DEFAULT_CUTOFFS[0]
     else:
-        # pyre-fixme[28]: Unexpected keyword argument `interpolation`.
-        cutoff_l = np.percentile(Y, lower * 100, interpolation="lower")
+        cutoff_l = np.percentile(Y, lower * 100, method="lower")
 
     if upper == AUTO_WINS_QUANTILE:
         cutoff_u = _get_tukey_cutoffs(Y=Y, lower=False)
     elif upper == 0.0:  # Use the default cutoff if there is no winsorization
         cutoff_u = DEFAULT_CUTOFFS[1]
     else:
-        # pyre-fixme[28]: Unexpected keyword argument `interpolation`.
-        cutoff_u = np.percentile(Y, (1 - upper) * 100, interpolation="higher")
+        cutoff_u = np.percentile(Y, (1 - upper) * 100, method="higher")
 
     cutoff_l = min(cutoff_l, bnd_l) if bnd_l is not None else cutoff_l
     cutoff_u = max(cutoff_u, bnd_u) if bnd_u is not None else cutoff_u
     return (cutoff_l, cutoff_u)
-
-
-def _get_cutoffs_from_legacy_transform_config(
-    metric_name: str,
-    metric_values: list[float],
-    transform_config: TConfig,
-) -> tuple[float, float]:
-    winsorization_config = WinsorizationConfig()
-    if "winsorization_lower" in transform_config:
-        winsorization_lower = transform_config["winsorization_lower"]
-        if isinstance(winsorization_lower, dict):
-            if metric_name in winsorization_lower:
-                winsorization_config.lower_quantile_margin = winsorization_lower[
-                    # pyre-fixme [6]: In call `dict.__getitem__`, for 1st positional
-                    # argument, expected `int` but got `str`.
-                    metric_name
-                ]
-        elif isinstance(winsorization_lower, (int, float)):
-            winsorization_config.lower_quantile_margin = winsorization_lower
-    if "winsorization_upper" in transform_config:
-        winsorization_upper = transform_config["winsorization_upper"]
-        if isinstance(winsorization_upper, dict):
-            if metric_name in winsorization_upper:
-                winsorization_config.upper_quantile_margin = winsorization_upper[
-                    # pyre-fixme [6]: In call `dict.__getitem__`, for 1st positional
-                    # argument, expected `int` but got `str`.
-                    metric_name
-                ]
-        elif isinstance(winsorization_upper, (int, float)):
-            winsorization_config.upper_quantile_margin = winsorization_upper
-    if "percentile_bounds" in transform_config:
-        percentile_bounds = transform_config["percentile_bounds"]
-        output_percentile_bounds = (None, None)
-        if isinstance(percentile_bounds, dict):
-            if metric_name in percentile_bounds:
-                # pyre-fixme [6]: In call `dict.__getitem__`, for 1st positional
-                # argument, expected `int` but got `str`.
-                output_percentile_bounds = percentile_bounds[metric_name]
-        elif isinstance(percentile_bounds, tuple):
-            output_percentile_bounds = percentile_bounds
-        if len(output_percentile_bounds) != 2 or not all(
-            isinstance(pb, (int, float)) or pb is None
-            for pb in output_percentile_bounds
-        ):
-            raise ValueError(
-                f"Expected percentile_bounds for metric {metric_name} to be "
-                f"of the form (l, u), got {output_percentile_bounds}."
-            )
-        winsorization_config.lower_boundary = output_percentile_bounds[0]
-        winsorization_config.upper_boundary = output_percentile_bounds[1]
-    return _quantiles_to_cutoffs(
-        metric_name=metric_name,
-        metric_values=metric_values,
-        metric_config=winsorization_config,
-    )
 
 
 def _get_and_validate_use_raw_sq(config: TConfig) -> bool:

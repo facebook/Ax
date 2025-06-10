@@ -16,7 +16,7 @@ from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from ax.adapter.transforms.derelativize import Derelativize
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
@@ -161,18 +161,13 @@ def construct_new_search_space(
 
 
 def derelativize_optimization_config_with_raw_status_quo(
-    optimization_config: OptimizationConfig,
-    adapter: adapter_module.base.Adapter,
-    observations: list[Observation] | None,
+    optimization_config: OptimizationConfig, adapter: adapter_module.base.Adapter
 ) -> OptimizationConfig:
     """Derelativize optimization_config using raw status-quo values"""
     tf = Derelativize(
         search_space=adapter.model_space.clone(),
-        observations=observations,
         config={"use_raw_status_quo": True},
     )
     return tf.transform_optimization_config(
-        optimization_config=optimization_config.clone(),
-        adapter=adapter,
-        fixed_features=ObservationFeatures(parameters={}),
+        optimization_config=optimization_config.clone(), adapter=adapter
     )

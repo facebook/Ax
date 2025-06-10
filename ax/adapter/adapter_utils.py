@@ -756,13 +756,9 @@ def get_pareto_frontier_and_configs(
     # Transform optimization config.
 
     # de-relativize outcome constraints and objective thresholds
-    observations = adapter.get_training_data()
-
     optimization_config = assert_is_instance(
         derelativize_optimization_config_with_raw_status_quo(
-            optimization_config=optimization_config,
-            adapter=adapter,
-            observations=observations,
+            optimization_config=optimization_config, adapter=adapter
         ),
         MultiObjectiveOptimizationConfig,
     )
