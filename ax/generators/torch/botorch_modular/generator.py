@@ -37,7 +37,7 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.deterministic import FixedSingleSampleModel
 from botorch.settings import validate_input_scaling
 from botorch.utils.datasets import SupervisedDataset
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
@@ -86,6 +86,7 @@ class BoTorchGenerator(TorchGenerator, Base):
     _user_specified_botorch_acqf_class: type[AcquisitionFunction] | None
     _botorch_acqf_class: type[AcquisitionFunction] | None
     _supports_robust_optimization: bool = True
+    _acquisition: Acquisition | None = None
 
     def __init__(
         self,
@@ -224,11 +225,13 @@ class BoTorchGenerator(TorchGenerator, Base):
             acqf_options=self.acquisition_options,
             model_gen_options=torch_opt_config.model_gen_options,
         )
-        acqf = self._instantiate_acquisition(
+        self._acquisition = self._instantiate_acquisition(
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
             acq_options=acq_options,
         )
+        acqf = none_throws(self._acquisition)
+
         botorch_rounding_func = get_rounding_func(torch_opt_config.rounding_func)
         candidates, expected_acquisition_value, weights = acqf.optimize(
             n=n,
