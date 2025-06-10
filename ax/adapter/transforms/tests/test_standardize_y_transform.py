@@ -10,6 +10,8 @@ from copy import deepcopy
 from math import sqrt
 
 import numpy as np
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -19,7 +21,12 @@ from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConst
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_observations_with_invalid_value
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_observations_with_invalid_value,
+)
+from pandas import DataFrame
+from pandas.testing import assert_frame_equal
 
 
 class StandardizeYTransformTest(TestCase):
@@ -48,6 +55,23 @@ class StandardizeYTransformTest(TestCase):
             search_space=None,
             observations=[obs1, obs2],
         )
+        self.experiment_data = extract_experiment_data(
+            experiment=get_experiment_with_observations(
+                observations=[  # Same means as above.
+                    [1.0, 2.0],
+                    [1.0, 1.0],
+                    [1.0, 2.0],
+                    [1.0, 1.0],
+                ],
+                sems=[
+                    [1.0, sqrt(2.0)],
+                    [1.0, sqrt(3.0)],
+                    [1.0, sqrt(2.0)],
+                    [1.0, sqrt(3.0)],
+                ],
+            ),
+            data_loader_config=DataLoaderConfig(),
+        )
 
     def test_Init(self) -> None:
         self.assertEqual(self.t.Ymean, {"m1": 1.0, "m2": 1.5})
@@ -57,6 +81,13 @@ class StandardizeYTransformTest(TestCase):
                 search_space=None,
                 observations=[],
             )
+        # Initialize with experiment data.
+        t = StandardizeY(
+            search_space=None,
+            experiment_data=self.experiment_data,
+        )
+        self.assertEqual(t.Ymean, {"m1": 1.0, "m2": 1.5})
+        self.assertEqual(t.Ystd, {"m1": 1.0, "m2": sqrt(1 / 3)})
 
     def test_TransformObservations(self) -> None:
         obsd1_t = ObservationData(
@@ -162,6 +193,43 @@ class StandardizeYTransformTest(TestCase):
                 ValueError, f"Non-finite data found for metric m1: {invalid_value}"
             ):
                 StandardizeY(observations=observations, config={"metrics": ["m1"]})
+
+    def test_transform_experiment_data(self) -> None:
+        experiment_data = deepcopy(self.experiment_data)
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=experiment_data
+        )
+        # Check that arm data is identical.
+        self.assertIs(experiment_data.arm_data, transformed_data.arm_data)
+        assert_frame_equal(
+            self.experiment_data.arm_data,
+            transformed_data.arm_data,
+        )
+        # Check that observation data is transformed correctly.
+        observation_data = transformed_data.observation_data
+        sq3 = sqrt(3.0)
+        expected_means = DataFrame(
+            index=observation_data.index,
+            columns=observation_data["mean"].columns,
+            data=[
+                [0.0, 0.5 * sq3],
+                [0.0, -0.5 * sq3],
+                [0.0, 0.5 * sq3],
+                [0.0, -0.5 * sq3],
+            ],
+        )
+        assert_frame_equal(observation_data["mean"], expected_means)
+        expected_sems = DataFrame(
+            index=observation_data.index,
+            columns=observation_data["sem"].columns,
+            data=[
+                [1.0, sqrt(2.0) * sq3],
+                [1.0, sqrt(3.0) * sq3],
+                [1.0, sqrt(2.0) * sq3],
+                [1.0, sqrt(3.0) * sq3],
+            ],
+        )
+        assert_frame_equal(observation_data["sem"], expected_sems)
 
 
 def osd_allclose(osd1: ObservationData, osd2: ObservationData) -> bool:
