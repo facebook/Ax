@@ -23,8 +23,10 @@ from ax.adapter.adapter_utils import (
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
+from ax.adapter.transforms.choice_encode import ChoiceToNumericChoice
 from ax.adapter.transforms.derelativize import derelativize_bound
-from ax.adapter.transforms.search_space_to_float import SearchSpaceToFloat
+from ax.adapter.transforms.remove_fixed import RemoveFixed
+from ax.adapter.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -338,7 +340,7 @@ def get_tensor_converter_adapter(experiment: Experiment, data: Data) -> TorchAda
         search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
         generator=TorchGenerator(),
-        transforms=[SearchSpaceToFloat],
+        transforms=[SearchSpaceToChoice, ChoiceToNumericChoice, RemoveFixed],
         data_loader_config=DataLoaderConfig(
             fit_out_of_design=True,
         ),
