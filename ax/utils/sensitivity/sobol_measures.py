@@ -487,9 +487,13 @@ class SobolSensitivityGPMean:
                 # We only need variances, not covariances, so we use the batch
                 # dimension, turning x from (*batch_dim, n, d) to
                 # (*batch_dim, n, 1, d)
-                p = self.model.posterior(x.unsqueeze(-2))
-                mean = p.mean.squeeze(-2)
-                variance = p.variance.squeeze(-2)
+                means, variances = [], []
+                for x_ in x.unsqueeze(-2).split(4096):
+                    p = self.model.posterior(x_)
+                    means.append(p.mean.squeeze(-2))
+                    variances.append(p.variance.squeeze(-2))
+                mean = torch.cat(means, dim=0)
+                variance = torch.cat(variances, dim=0)
             if is_ensemble(self.model):
                 # If x has shape [n, d],
                 # the mean will have shape [n, s, m], where 's' is the ensemble
