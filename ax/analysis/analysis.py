@@ -7,9 +7,9 @@
 
 from __future__ import annotations
 
-import time
 import traceback
 from abc import ABC, abstractmethod
+from datetime import datetime
 from logging import Logger
 from typing import Any, Protocol, Sequence
 
@@ -17,7 +17,7 @@ import pandas as pd
 from ax.adapter.base import Adapter
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
 from ax.utils.tutorials.environment import is_running_in_papermill
@@ -63,7 +63,7 @@ html_grid_template = """
 """
 
 
-class AnalysisCardBase(Base, ABC):
+class AnalysisCardBase(SortableBase, ABC):
     """
     Abstract base class for "cards", the result of a call to Analyis.compute(...).
     Cards may either be a single card (AnalysisCard and its subclasses) or an ordered
@@ -81,16 +81,16 @@ class AnalysisCardBase(Base, ABC):
     name: str
     # Timestamp is especially useful when querying the database for the most recently
     # produced artifacts.
-    _timestamp: int
+    _timestamp: datetime
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, timestamp: datetime | None = None) -> None:
         """
         Args:
             name: The class name of the Analysis that produced this card (ex.
             "Summary", "ArmEffects", etc.).
         """
         self.name = name
-        self._timestamp = int(time.time())
+        self._timestamp = timestamp if timestamp is not None else datetime.now()
 
     @abstractmethod
     def flatten(self) -> list[AnalysisCard]:
@@ -100,6 +100,10 @@ class AnalysisCardBase(Base, ABC):
         safely be ignored (ex. when rendering a collection of cards in an IPython).
         """
         pass
+
+    @property
+    def _unique_id(self) -> str:
+        return str(hash(str(self.__dict__)))
 
 
 class AnalysisCardGroup(AnalysisCardBase):
@@ -115,8 +119,13 @@ class AnalysisCardGroup(AnalysisCardBase):
 
     children: list[AnalysisCardBase]
 
-    def __init__(self, name: str, children: Sequence[AnalysisCardBase]) -> None:
-        super().__init__(name=name)
+    def __init__(
+        self,
+        name: str,
+        children: Sequence[AnalysisCardBase],
+        timestamp: datetime | None = None,
+    ) -> None:
+        super().__init__(name=name, timestamp=timestamp)
         self.children = [*children]
 
     def flatten(self) -> list[AnalysisCard]:
@@ -176,8 +185,9 @@ class AnalysisCard(AnalysisCardBase):
         subtitle: str,
         df: pd.DataFrame,
         blob: str,
+        timestamp: datetime | None = None,
     ) -> None:
-        super().__init__(name=name)
+        super().__init__(name=name, timestamp=timestamp)
 
         self.title = title
         self.subtitle = subtitle
@@ -242,26 +252,30 @@ class AnalysisCard(AnalysisCardBase):
 
 
 class ErrorAnalysisCard(AnalysisCard):
-    def __init__(self, analysis_name: str, exception: Exception) -> None:
-        super().__init__(
-            name=analysis_name,
-            title=f"{analysis_name} Error",
-            subtitle=(
-                f"{exception.__class__.__name__} encountered while computing "
-                f"{analysis_name}."
-            ),
-            df=pd.DataFrame(),
-            blob="".join(
-                traceback.format_exception(
-                    type(exception),
-                    exception,
-                    exception.__traceback__,
-                )
-            ),
-        )
-
     # TODO: Implement improved rendering which shows the traceback.
     # def _ipython_display_(self) -> None: ...
+    pass
+
+
+def error_card_from_exception(
+    analysis_name: str, exception: Exception
+) -> ErrorAnalysisCard:
+    return ErrorAnalysisCard(
+        name=analysis_name,
+        title=f"{analysis_name} Error",
+        subtitle=(
+            f"An {exception.__class__.__name__} occurred while computing "
+            f"{analysis_name}."
+        ),
+        df=pd.DataFrame(),
+        blob="".join(
+            traceback.format_exception(
+                type(exception),
+                exception,
+                exception.__traceback__,
+            )
+        ),
+    )
 
 
 class AnalysisE(ExceptionE):
@@ -277,7 +291,7 @@ class AnalysisE(ExceptionE):
         self.analysis = analysis
 
     def error_card(self) -> ErrorAnalysisCard:
-        return ErrorAnalysisCard(
+        return error_card_from_exception(
             analysis_name=self.analysis.__class__.__name__,
             exception=self.exception,
         )

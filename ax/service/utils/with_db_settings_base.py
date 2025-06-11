@@ -8,10 +8,10 @@
 
 import re
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from logging import INFO, Logger
 
-from ax.analysis.analysis import AnalysisCard
+from ax.analysis.analysis import AnalysisCardBase
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -22,6 +22,7 @@ from ax.exceptions.core import (
     UnsupportedError,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.storage.sqa_store.save import save_analysis_card
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from pyre_extensions import none_throws
@@ -467,15 +468,15 @@ class WithDBSettingsBase:
             return True
         return False
 
-    def _save_analysis_cards_to_db_if_possible(
+    def _save_analysis_card_to_db_if_possible(
         self,
         experiment: Experiment,
-        analysis_cards: Iterable[AnalysisCard],
+        analysis_card: AnalysisCardBase,
     ) -> bool:
         if self.db_settings_set:
-            _save_analysis_cards_to_db_if_possible(
+            _save_analysis_card_to_db(
                 experiment=experiment,
-                analysis_cards=analysis_cards,
+                analysis_card=analysis_card,
                 sqa_config=self.db_settings.encoder.config,
                 suppress_all_errors=self._suppress_all_errors,
             )
@@ -629,18 +630,17 @@ def _update_experiment_properties_in_db(
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
 )
-def _save_analysis_cards_to_db_if_possible(
+def _save_analysis_card_to_db(
     experiment: Experiment,
-    analysis_cards: Iterable[AnalysisCard],
+    analysis_card: AnalysisCardBase,
     sqa_config: SQAConfig,
     suppress_all_errors: bool,  # Used by the decorator.
 ) -> None:
-    pass
-    # save_analysis_cards(
-    #     experiment=experiment,
-    #     analysis_cards=[*analysis_cards],
-    #     config=sqa_config,
-    # )
+    save_analysis_card(
+        experiment=experiment,
+        analysis_card=analysis_card,
+        config=sqa_config,
+    )
 
 
 def try_load_generation_strategy(

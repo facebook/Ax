@@ -10,6 +10,15 @@ from enum import Enum
 from logging import Logger
 from typing import Any, cast
 
+from ax.analysis.analysis import (
+    AnalysisCard,
+    AnalysisCardBase,
+    AnalysisCardGroup,
+    ErrorAnalysisCard,
+)
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial
@@ -46,6 +55,7 @@ from ax.storage.json_store.encoder import object_to_json
 from ax.storage.sqa_store.load import _get_experiment_id
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
+    SQAAnalysisCard,
     SQAArm,
     SQAAuxiliaryExperiment,
     SQAData,
@@ -1136,3 +1146,67 @@ class Encoder:
             )
             for auxiliary_experiment in auxiliary_experiments
         ]
+
+    def analysis_card_to_sqa(
+        self,
+        analysis_card: AnalysisCardBase,
+        experiment_id: int,
+        order: int | None,
+    ) -> SQAAnalysisCard:
+        """Convert Ax analysis to SQLAlchemy."""
+
+        # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[BaseAnalysis]`.
+        analysis_card_class: SQAAnalysisCard = self.config.class_to_sqa_class[
+            AnalysisCard
+        ]
+
+        if isinstance(analysis_card, AnalysisCardGroup):
+            # pyre-fixme[29]: `SQAAnalysisCard` is not a function.
+            sqa_card = analysis_card_class(
+                id=analysis_card.db_id,
+                experiment_id=experiment_id,
+                name=analysis_card.name,
+                timestamp=analysis_card._timestamp,
+                order=order,
+                title=None,
+                subtitle=None,
+                dataframe_json=None,
+                blob=None,
+                blob_annotation=None,
+            )
+
+            for i, child_card in enumerate(analysis_card.children):
+                sqa_card.children.append(
+                    self.analysis_card_to_sqa(
+                        analysis_card=child_card, experiment_id=experiment_id, order=i
+                    )
+                )
+
+            return sqa_card
+
+        card = assert_is_instance(analysis_card, AnalysisCard)
+
+        if isinstance(card, ErrorAnalysisCard):
+            blob_annotation = "error"
+        elif isinstance(card, PlotlyAnalysisCard):
+            blob_annotation = "plotly"
+        elif isinstance(card, MarkdownAnalysisCard):
+            blob_annotation = "markdown"
+        elif isinstance(card, HealthcheckAnalysisCard):
+            blob_annotation = "healthcheck"
+        else:
+            blob_annotation = "dataframe"
+
+        # pyre-fixme[29]: `SQAAnalysisCard` is not a function.
+        return analysis_card_class(
+            id=card.db_id,
+            experiment_id=experiment_id,
+            name=card.name,
+            timestamp=card._timestamp,
+            order=order,
+            title=card.title,
+            subtitle=card.subtitle,
+            dataframe_json=card.df.to_json(),
+            blob=card.blob,
+            blob_annotation=blob_annotation,
+        )

@@ -9,7 +9,10 @@
 from math import ceil
 from typing import Any, cast
 
+from ax.analysis.analysis import AnalysisCard, AnalysisCardBase
+
 from ax.core.auxiliary import AuxiliaryExperiment
+
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -23,6 +26,7 @@ from ax.storage.sqa_store.reduced_state import (
     get_query_options_to_defer_large_model_cols,
 )
 from ax.storage.sqa_store.sqa_classes import (
+    SQAAnalysisCard,
     SQAAuxiliaryExperiment,
     SQAExperiment,
     SQAGenerationStrategy,
@@ -635,3 +639,46 @@ def _get_generation_strategy_sqa_immutable_opt_config_and_search_space(
             lazyload("generator_runs.metrics"),
         ],
     )
+
+
+def load_analysis_cards_by_experiment_name(
+    experiment_name: str,
+    config: SQAConfig | None = None,
+) -> list[AnalysisCardBase]:
+    """
+    Loads analysis cards for an experiment. Only return the AnalysisCards which are the
+    root of their group (i.e. they have no parent). These AnalysisCards will contain
+    their children AnalysisCards recursively, up to depth 20 in the card tree.
+    """
+    config = SQAConfig() if config is None else config
+    decoder = Decoder(config=config)
+
+    analysis_card_sqa_class: SQAAnalysisCard = cast(
+        SQAAnalysisCard, decoder.config.class_to_sqa_class[AnalysisCard]
+    )
+
+    # Create query options which will recursively load all children of the
+    # SQAAnalysisCard up to depth 20
+    card_query_options = joinedload(analysis_card_sqa_class.children)
+    for _ in range(19):
+        card_query_options = card_query_options.joinedload(
+            analysis_card_sqa_class.children
+        )
+
+    exp_sqa_class: SQAExperiment = cast(
+        SQAExperiment, decoder.config.class_to_sqa_class[Experiment]
+    )
+
+    with session_scope() as session:
+        query = (
+            session.query(analysis_card_sqa_class)
+            .join(exp_sqa_class.analysis_cards)
+            .filter(exp_sqa_class.name == experiment_name)
+            .filter(analysis_card_sqa_class.parent_id == None)  # noqa: E711
+        )
+        analysis_cards_sqa = query.options(card_query_options).all()
+
+    return [
+        decoder.analysis_card_from_sqa(analysis_card_sqa=analysis_card_sqa)
+        for analysis_card_sqa in analysis_cards_sqa
+    ]
