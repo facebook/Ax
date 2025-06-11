@@ -2555,7 +2555,7 @@ class TestAxOrchestrator(TestCase):
             self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
             self.assertEqual(
                 cards[0].subtitle,
-                "An ValueError occurred while computing ParallelCoordinatesPlot.",
+                "ValueError encountered while computing ParallelCoordinatesPlot.",
             )
             self.assertIn("Traceback", cards[0].blob)
             self.assertTrue(any("No data found for metric" in msg for msg in lg.output))

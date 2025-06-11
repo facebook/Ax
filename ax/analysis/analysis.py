@@ -61,6 +61,7 @@ class Analysis(Protocol):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
     ) -> Result[AnalysisCardBase, AnalysisE]:
         """
         Utility method to compute an AnalysisCard as a Result. This can be useful for
@@ -69,7 +70,9 @@ class Analysis(Protocol):
 
         try:
             card = self.compute(
-                experiment=experiment, generation_strategy=generation_strategy
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
             )
             return Ok(value=card)
 
@@ -84,6 +87,22 @@ class Analysis(Protocol):
                     analysis=self,
                 )
             )
+
+    def compute_or_error_card(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> AnalysisCardBase:
+        """
+        Utility method to compute an AnalysisCard or an ErrorAnalysisCard if an
+        exception is raised.
+        """
+        return self.compute_result(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        ).unwrap_or_else(error_card_from_analysis_e)
 
     def _create_analysis_card(
         self,
@@ -131,27 +150,6 @@ class Analysis(Protocol):
         return self._create_analysis_card_group(children=children)
 
 
-def error_card_from_exception(
-    analysis_name: str, exception: Exception
-) -> ErrorAnalysisCard:
-    return ErrorAnalysisCard(
-        name=analysis_name,
-        title=f"{analysis_name} Error",
-        subtitle=(
-            f"An {exception.__class__.__name__} occurred while computing "
-            f"{analysis_name}."
-        ),
-        df=pd.DataFrame(),
-        blob="".join(
-            traceback.format_exception(
-                type(exception),
-                exception,
-                exception.__traceback__,
-            )
-        ),
-    )
-
-
 class AnalysisE(ExceptionE):
     analysis: Analysis
 
@@ -164,8 +162,17 @@ class AnalysisE(ExceptionE):
         super().__init__(message, exception)
         self.analysis = analysis
 
-    def error_card(self) -> ErrorAnalysisCard:
-        return error_card_from_exception(
-            analysis_name=self.analysis.__class__.__name__,
-            exception=self.exception,
-        )
+
+def error_card_from_analysis_e(
+    analysis_e: AnalysisE,
+) -> ErrorAnalysisCard:
+    analysis_name = analysis_e.analysis.__class__.__name__
+    exception_name = analysis_e.exception.__class__.__name__
+
+    return ErrorAnalysisCard(
+        name=analysis_name,
+        title=f"{analysis_name} Error",
+        subtitle=f"{exception_name} encountered while computing {analysis_name}.",
+        df=pd.DataFrame(),
+        blob=analysis_e.tb_str() or "",
+    )
