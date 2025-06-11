@@ -7,7 +7,7 @@
 
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+
 from ax.analysis.healthcheck.search_space_analysis import (
     boundary_proportions_message,
     search_space_boundary_proportions,
@@ -32,10 +32,8 @@ class TestSearchSpaceAnalysis(TestCase):
         ]
         experiment.new_batch_trial(generator_run=GeneratorRun(arms=arms))
         ssa = SearchSpaceAnalysis(trial_index=0)
-        (card,) = ssa.compute(experiment=experiment)
+        card = ssa.compute(experiment=experiment)
 
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
         self.assertEqual(card.name, "SearchSpaceAnalysis")
         self.assertEqual(card.title, "Ax Search Space Analysis Warning")
         subtitle = (
@@ -56,8 +54,7 @@ class TestSearchSpaceAnalysis(TestCase):
         ]
         experiment.new_batch_trial(generator_run=GeneratorRun(arms=arms))
         ssa = SearchSpaceAnalysis(trial_index=1)
-        (card,) = ssa.compute(experiment=experiment)
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        card = ssa.compute(experiment=experiment)
         self.assertEqual(card.name, "SearchSpaceAnalysis")
         self.assertEqual(card.title, "Ax Search Space Analysis Success")
         self.assertEqual(
@@ -77,8 +74,7 @@ class TestSearchSpaceAnalysis(TestCase):
         ]
         experiment.new_batch_trial(generator_run=GeneratorRun(arms=arms))
         ssa = SearchSpaceAnalysis(trial_index=2)
-        (card,) = ssa.compute(experiment=experiment)
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
+        card = ssa.compute(experiment=experiment)
         self.assertEqual(card.name, "SearchSpaceAnalysis")
         self.assertEqual(card.title, "Ax Search Space Analysis Warning")
         self.assertTrue("x1" in card.subtitle)

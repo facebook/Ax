@@ -6,11 +6,10 @@
 # pyre-strict
 
 import math
-from typing import Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardBase
 from ax.analysis.plotly.color_constants import AX_BLUE
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -71,7 +70,7 @@ class SlicePlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("SlicePlot requires an Experiment")
 
@@ -100,24 +99,20 @@ class SlicePlot(PlotlyAnalysis):
             display_sampled=self._display_sampled,
         )
 
-        return [
-            self._create_plotly_analysis_card(
-                title=f"{self.parameter_name} vs. {metric_name}",
-                subtitle=(
-                    "The slice plot provides a one-dimensional view of predicted "
-                    f"outcomes for {metric_name} as a function of a single parameter, "
-                    "while keeping all other parameters fixed at their status_quo "
-                    "value (or mean value if status_quo is unavailable). "
-                    "This visualization helps in understanding the sensitivity and "
-                    "impact of changes in the selected parameter on the predicted "
-                    "metric outcomes."
-                ),
-                level=AnalysisCardLevel.LOW,
-                df=df,
-                fig=fig,
-                category=AnalysisCardCategory.INSIGHT,
-            )
-        ]
+        return self._create_plotly_analysis_card(
+            title=f"{self.parameter_name} vs. {metric_name}",
+            subtitle=(
+                "The slice plot provides a one-dimensional view of predicted "
+                f"outcomes for {metric_name} as a function of a single parameter, "
+                "while keeping all other parameters fixed at their status_quo "
+                "value (or mean value if status_quo is unavailable). "
+                "This visualization helps in understanding the sensitivity and "
+                "impact of changes in the selected parameter on the predicted "
+                "metric outcomes."
+            ),
+            df=df,
+            fig=fig,
+        )
 
 
 def compute_slice_adhoc(
@@ -127,7 +122,7 @@ def compute_slice_adhoc(
     adapter: Adapter | None = None,
     metric_name: str | None = None,
     display_sampled: bool = True,
-) -> list[PlotlyAnalysisCard]:
+) -> AnalysisCardBase:
     """
     Helper method to expose adhoc slice plotting. Only for advanced users in
     a notebook setting.
@@ -150,13 +145,11 @@ def compute_slice_adhoc(
         display_sampled=display_sampled,
     )
 
-    return [
-        *analysis.compute(
-            experiment=experiment,
-            generation_strategy=generation_strategy,
-            adapter=adapter,
-        )
-    ]
+    return analysis.compute(
+        experiment=experiment,
+        generation_strategy=generation_strategy,
+        adapter=adapter,
+    )
 
 
 def _prepare_data(

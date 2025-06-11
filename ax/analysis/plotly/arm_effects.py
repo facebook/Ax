@@ -11,9 +11,9 @@ import numpy as np
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardBase
 from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_COLOR
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
@@ -110,7 +110,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> AnalysisCardBase:
         if experiment is None:
             raise UserInputError("ArmEffectsPlot requires an Experiment.")
 
@@ -143,7 +143,7 @@ class ArmEffectsPlot(PlotlyAnalysis):
             for metric_name in metric_names
         }
 
-        return [
+        cards = [
             self._create_plotly_analysis_card(
                 title=(
                     f"{'Modeled' if self.use_model_predictions else 'Observed'} Arm "
@@ -159,7 +159,6 @@ class ArmEffectsPlot(PlotlyAnalysis):
                     use_model_predictions=self.use_model_predictions,
                     trial_index=self.trial_index,
                 ),
-                level=AnalysisCardLevel.HIGH,
                 df=df[
                     [
                         "trial_index",
@@ -183,10 +182,13 @@ class ArmEffectsPlot(PlotlyAnalysis):
                     lower_is_better=experiment.metrics[metric_name].lower_is_better
                     or False,
                 ),
-                category=AnalysisCardCategory.ACTIONABLE,
             )
             for metric_name in metric_names
         ]
+
+        return self._create_analysis_card_group_or_card(
+            children=cards,
+        )
 
 
 def compute_arm_effects_adhoc(
@@ -201,7 +203,7 @@ def compute_arm_effects_adhoc(
     additional_arms: Sequence[Arm] | None = None,
     labels: Mapping[str, str] | None = None,
     show_cumulative_best: bool = False,
-) -> list[PlotlyAnalysisCard]:
+) -> AnalysisCardBase:
     """
     Compute ArmEffectsPlot cards for the given experiment and either Adapter or
     GenerationStrategy.
@@ -245,13 +247,11 @@ def compute_arm_effects_adhoc(
         show_cumulative_best=show_cumulative_best,
     )
 
-    return [
-        *analysis.compute(
-            experiment=experiment,
-            generation_strategy=generation_strategy,
-            adapter=adapter,
-        )
-    ]
+    return analysis.compute(
+        experiment=experiment,
+        generation_strategy=generation_strategy,
+        adapter=adapter,
+    )
 
 
 def _prepare_figure(

@@ -7,10 +7,9 @@
 
 from __future__ import annotations
 
-import json
+import time
 import traceback
-from collections.abc import Iterable
-from enum import Enum, IntEnum
+from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Any, Protocol, Sequence
 
@@ -22,9 +21,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
 from ax.utils.tutorials.environment import is_running_in_papermill
-from IPython import get_ipython
-from IPython.display import display, DisplayObject, HTML, Markdown
-from plotly import graph_objects as go
+from IPython.display import display, HTML, Markdown
 
 logger: Logger = get_logger(__name__)
 
@@ -66,45 +63,103 @@ html_grid_template = """
 """
 
 
-class AnalysisCardLevel(IntEnum):
-    DEBUG = 0
-    LOW = 10
-    MID = 20
-    HIGH = 30
-    CRITICAL = 40
+class AnalysisCardBase(Base, ABC):
+    """
+    Abstract base class for "cards", the result of a call to Analyis.compute(...).
+    Cards may either be a single card (AnalysisCard and its subclasses) or an ordered
+    collection of cards (AnalysisCardGroup) -- together these three classes form a
+    tree structure which can hold arbitrarily nested collections of cards.
 
+    When rendering in an IPython environment (ex. Jupyter), use AnalyisCardBase.flatten
+    to produce an ordered list of cards to render.
 
-class AnalysisCardCategory(IntEnum):
-    ERROR = 0
-    ACTIONABLE = 1
-    INSIGHT = 2
-    DIAGNOSTIC = 3  # Equivalent to "health check" in online setting
-    INFO = 4
+    Args:
+        name: The class name of the Analysis that produced this card (ex. "Summary",
+        "ArmEffects", etc.).
+    """
 
-
-class AnalysisBlobAnnotation(Enum):
-    DATAFRAME = "dataframe"
-    PLOTLY = "plotly"
-    MARKDOWN = "markdown"
-    HEALTHCHECK = "healthcheck"
-    ERROR = "error"
-
-
-class AnalysisCard(Base):
-    # Name of the analysis computed, usually the class name of the Analysis which
-    # produced the card. Useful for grouping by when querying a large collection of
-    # cards.
     name: str
-    # Arguments passed to the Analysis which produced the card, or their eventual
-    # values if they were inferred.
-    attributes: dict[str, Any]
+    # Timestamp is especially useful when querying the database for the most recently
+    # produced artifacts.
+    _timestamp: int
+
+    def __init__(self, name: str) -> None:
+        """
+        Args:
+            name: The class name of the Analysis that produced this card (ex.
+            "Summary", "ArmEffects", etc.).
+        """
+        self.name = name
+        self._timestamp = int(time.time())
+
+    @abstractmethod
+    def flatten(self) -> list[AnalysisCard]:
+        """
+        Returns a list of AnalysisCards contained in this card in order. This is useful
+        when processing a collection of cards where order is necessary but grouping can
+        safely be ignored (ex. when rendering a collection of cards in an IPython).
+        """
+        pass
+
+
+class AnalysisCardGroup(AnalysisCardBase):
+    """
+    An ordered collection of AnalysisCards. This is useful for grouping related
+    analyses together.
+
+    This is analogous to a "branch node" in a tree structure.
+
+    Args:
+        name: The name of the Analysis that produced this card.
+    """
+
+    children: list[AnalysisCardBase]
+
+    def __init__(self, name: str, children: Sequence[AnalysisCardBase]) -> None:
+        super().__init__(name=name)
+        self.children = [*children]
+
+    def flatten(self) -> list[AnalysisCard]:
+        return [child for child in self.children for child in child.flatten()]
+
+    def _ipython_display_(self) -> None:
+        """
+        IPython display hook. This is called when the AnalysisCard is rendered in an
+        IPython environment (ex. Jupyter). This method should not be implemented by
+        subclasses; instead they should implement the representation-specific helpers
+        such as _body_html_ and _body_papermill_.
+        """
+
+        if is_running_in_papermill():
+            for card in self.flatten():
+                display(Markdown(f"**{card.title}**\n\n{card.subtitle}"))
+                display(card._body_papermill())
+                return
+
+        display(
+            HTML(
+                html_grid_template.format(
+                    card_divs="".join([card._repr_html_() for card in self.flatten()])
+                )
+            )
+        )
+
+
+class AnalysisCard(AnalysisCardBase):
+    """
+    The ultimate result of a call to Analysis.compute(...). This holds the raw data
+    produced by the compute function as a dataframe, and some arbitrary blob of data
+    which will be rendered in the card in a notebook or a UI front-end (e.g. a Plotly
+    figure, Markdown formatted text etc.)
+
+    Subclasses of AnalysisCard define the structure of the blob (ex. a Plotly Figure)
+    and implement methods for rendering the card in a useful way.
+
+    This is analogous to a "leaf node" in a tree structure.
+    """
 
     title: str
     subtitle: str
-
-    # Level of the card with respect to its importance. Higher levels are more
-    # important, and will be displayed first.
-    level: int
 
     df: pd.DataFrame  # Raw data produced by the Analysis
 
@@ -113,47 +168,24 @@ class AnalysisCard(Base):
     # the blob and presenting it to the user (ex. PlotlyAnalysisCard.get_figure()
     # decodes the blob into a go.Figure object).
     blob: str
-    # Type of the card (ex: "insight", "diagnostic"), useful for
-    # grouping the cards to display only one category in notebook environments.
-    category: int
-    # How to interpret the blob (ex. "dataframe", "plotly", "markdown")
-    blob_annotation: AnalysisBlobAnnotation = AnalysisBlobAnnotation.DATAFRAME
-
-    # Singleton for tracking whether this is the first time the AnalysisCard is being
-    # initialized. This is used to control whether the custom IPython Formatter
-    # needs to be registered.
-    _first_initialization: bool = True
 
     def __init__(
         self,
         name: str,
         title: str,
         subtitle: str,
-        level: int,
         df: pd.DataFrame,
         blob: str,
-        category: int,
-        attributes: dict[str, Any] | None = None,
     ) -> None:
-        self.name = name
+        super().__init__(name=name)
+
         self.title = title
         self.subtitle = subtitle
-        self.level = level
         self.df = df
         self.blob = blob
-        self.attributes = {} if attributes is None else attributes
-        self.category = category
 
-        if AnalysisCard._first_initialization:
-            AnalysisCard._first_initialization = False
-
-            # Register a custom IPython Formatter for lists of AnalysisCard objects.
-            # This allows the result of Analysis.compute(...) to be displayed in a
-            # useful way in IPython environments (ex. Jupyter).
-            ip = get_ipython()
-            if ip is not None:
-                html_formatter = ip.display_formatter.formatters["text/html"]
-                html_formatter.for_type(list, _analysis_card_list_html_formatter)
+    def flatten(self) -> list[AnalysisCard]:
+        return [self]
 
     def _ipython_display_(self) -> None:
         """
@@ -198,10 +230,10 @@ class AnalysisCard(Base):
 
         return f"<div class='content'>{self.df.to_html()}</div>"
 
-    def _body_papermill(self) -> DisplayObject | go.Figure | pd.DataFrame:
+    def _body_papermill(self) -> Any:  # pyre-ignore[3]
         """
         Return the body of the AnalysisCard in a simplified format for when html is
-        undesirable.
+        undesirable (ex. when rendering the Ax website).
 
         By default, this method displays the raw data in a pandas DataFrame.
         """
@@ -210,117 +242,26 @@ class AnalysisCard(Base):
 
 
 class ErrorAnalysisCard(AnalysisCard):
-    blob_annotation: AnalysisBlobAnnotation = AnalysisBlobAnnotation.ERROR
-
-
-def display_cards(
-    cards: Iterable[AnalysisCard], minimum_level: int = AnalysisCardLevel.LOW
-) -> None:
-    """
-    Display a collection of AnalysisCards in IPython environments (ex. Jupyter).
-
-    Cards get grouped by name then sorted by level, descending. Cards with level less
-    than minimum_level are filtered out.
-
-    Args:
-        cards: Collection of AnalysisCards to display.
-        minimum_level: Minimum level of cards to display.
-    """
-    # If we are running in papermill, display the cards one by one. Otherwise, generate
-    # and display the full HTML
-    if is_running_in_papermill():
-        for card in _group_and_sort_cards(cards=cards, minimum_level=minimum_level):
-            display(card)
-    else:
-        display(
-            HTML(
-                _generate_cards_html(
-                    cards=_group_and_sort_cards(
-                        cards=cards, minimum_level=minimum_level
-                    )
+    def __init__(self, analysis_name: str, exception: Exception) -> None:
+        super().__init__(
+            name=analysis_name,
+            title=f"{analysis_name} Error",
+            subtitle=(
+                f"{exception.__class__.__name__} encountered while computing "
+                f"{analysis_name}."
+            ),
+            df=pd.DataFrame(),
+            blob="".join(
+                traceback.format_exception(
+                    type(exception),
+                    exception,
+                    exception.__traceback__,
                 )
-            )
+            ),
         )
 
-
-def _group_and_sort_cards(
-    cards: Iterable[AnalysisCard], minimum_level: int = AnalysisCardLevel.LOW
-) -> list[AnalysisCard]:
-    """
-    Group like cards together, filter out cards with level less than minimum_level,
-    and sort by level.
-
-    Args:
-        cards: Collection of AnalysisCards to display.
-        minimum_level: Minimum level of cards to display.
-    """
-    # Group cards by name, filter out cards with level less than minimum_level, and
-    # sort the resulting groups by level, descending.
-    card_groups = [
-        sorted(
-            [
-                card
-                for card in cards
-                if card.name == name and card.level >= minimum_level
-            ],
-            key=lambda card: card.level,
-            reverse=True,
-        )
-        for name in {card.name for card in cards}
-    ]
-
-    # Sort the groups by maximum level, descending, then flatten the groups into a
-    # single list.
-    return [
-        card
-        for group in sorted(
-            card_groups,
-            key=lambda group: max([card.level for card in group])
-            if len(group) > 0
-            else 0,
-            reverse=True,
-        )
-        for card in group
-    ]
-
-
-def _generate_cards_html(cards: Iterable[AnalysisCard]) -> str:
-    """
-    Generate HTML for a collection of AnalysisCards.
-
-    Args:
-        cards: Collection of AnalysisCards to display.
-        minimum_level: Minimum level of cards to display.
-    """
-
-    return html_grid_template.format(
-        card_divs="".join([card._repr_html_() for card in cards])
-    )
-
-
-# pyre-ignore[2]: IPython formatter for can truly take in any object.
-def _analysis_card_list_html_formatter(obj: Any) -> str | None:
-    """
-    IPython HTML formatter for lists of AnalysisCards. This is used to conveniently
-    display the return values from Analysis.compute(...) or
-    Client.compute_analyses(...).
-
-    Will either return the HTML representation of the list of AnalysisCards, or None
-    if the default IPython formatter should be used instead.
-    """
-
-    if not isinstance(obj, list):
-        return None
-
-    # Do not use the custom formatter if we are running in papermill.
-    if is_running_in_papermill():
-        return None
-
-    # Intentionally using generator expression to avoid materializing the list.
-    if not all(isinstance(card, AnalysisCard) for card in obj):
-        return None
-
-    return _generate_cards_html(obj)
+    # TODO: Implement improved rendering which shows the traceback.
+    # def _ipython_display_(self) -> None: ...
 
 
 class AnalysisE(ExceptionE):
@@ -335,25 +276,11 @@ class AnalysisE(ExceptionE):
         super().__init__(message, exception)
         self.analysis = analysis
 
-    def error_card(self) -> list[AnalysisCard]:
-        return [
-            ErrorAnalysisCard(
-                name=self.analysis.name,
-                title=f"{self.analysis.name} Error",
-                subtitle=f"An error occurred while computing {self.analysis}",
-                attributes=self.analysis.attributes,
-                blob="".join(
-                    traceback.format_exception(
-                        type(self.exception),
-                        self.exception,
-                        self.exception.__traceback__,
-                    )
-                ),
-                df=pd.DataFrame(),
-                level=AnalysisCardLevel.DEBUG,
-                category=AnalysisCardCategory.ERROR,
-            )
-        ]
+    def error_card(self) -> ErrorAnalysisCard:
+        return ErrorAnalysisCard(
+            analysis_name=self.analysis.__class__.__name__,
+            exception=self.exception,
+        )
 
 
 class Analysis(Protocol):
@@ -375,18 +302,12 @@ class Analysis(Protocol):
     these settings in the compute method.
     """
 
-    """
-    The exception class to use when computing this Analysis. This is used to
-    construct the AnalysisE when an exception is thrown during compute.
-    """
-    exception_class: type[AnalysisE] = AnalysisE
-
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[AnalysisCard]:
+    ) -> AnalysisCardBase:
         # Note: when implementing compute always prefer experiment.lookup_data() to
         # experiment.fetch_data() to avoid unintential data fetching within the report
         # generation.
@@ -396,7 +317,7 @@ class Analysis(Protocol):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
-    ) -> Result[Sequence[AnalysisCard], AnalysisE]:
+    ) -> Result[AnalysisCardBase, AnalysisE]:
         """
         Utility method to compute an AnalysisCard as a Result. This can be useful for
         computing many Analyses at once and handling Exceptions later.
@@ -407,11 +328,13 @@ class Analysis(Protocol):
                 experiment=experiment, generation_strategy=generation_strategy
             )
             return Ok(value=card)
+
         except Exception as e:
-            logger.error(f"Failed to compute {self.__class__.__name__}: {e}")
+            logger.error(f"Failed to compute {self.__class__.__name__}")
+            logger.error(traceback.format_exc())
 
             return Err(
-                value=self.exception_class(
+                value=AnalysisE(
                     message=f"Failed to compute {self.__class__.__name__}",
                     exception=e,
                     analysis=self,
@@ -422,41 +345,43 @@ class Analysis(Protocol):
         self,
         title: str,
         subtitle: str,
-        level: int,
         df: pd.DataFrame,
-        category: int,
     ) -> AnalysisCard:
         """
         Make an AnalysisCard from this Analysis using provided fields and
         details about the Analysis class.
         """
         return AnalysisCard(
-            name=self.name,
-            attributes=self.attributes,
+            name=self.__class__.__name__,
             title=title,
             subtitle=subtitle,
-            level=level,
             df=df,
             blob=df.to_json(),
-            category=category,
         )
 
-    @property
-    def name(self) -> str:
-        """The name the AnalysisCard will be given in compute."""
-        return self.__class__.__name__
+    def _create_analysis_card_group(
+        self,
+        children: Sequence[AnalysisCardBase],
+    ) -> AnalysisCardGroup:
+        """
+        Make an AnalysisCardGroup from this Analysis using provided fields and
+        details about the Analysis class.
+        """
+        return AnalysisCardGroup(
+            name=self.__class__.__name__,
+            children=children,
+        )
 
-    @property
-    def attributes(self) -> dict[str, Any]:
-        """The attributes the AnalysisCard will be given in compute."""
-        return self.__dict__
+    def _create_analysis_card_group_or_card(
+        self,
+        children: Sequence[AnalysisCardBase],
+    ) -> AnalysisCardBase:
+        """
+        Make an AnalysisCardGroup from this Analysis using provided fields and
+        details about the Analysis class. If there is only one child, return the child
+        directly instead of wrapping it in a group.
+        """
+        if len(children) == 1:
+            return children[0]
 
-    def __repr__(self) -> str:
-        try:
-            return (
-                f"{self.__class__.__name__}(name={self.name}, "
-                f"attributes={json.dumps(self.attributes)})"
-            )
-        # in case there is logic in name or attributes that throws a json error
-        except Exception:
-            return self.__class__.__name__
+        return self._create_analysis_card_group(children=children)
