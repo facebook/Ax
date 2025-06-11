@@ -159,7 +159,7 @@ def _relativize_values(
             sem_c=sq_sem,
             as_percent=True,
         )
-        means, sems = list(means), list(sems)
+        means, sems = means_arr.tolist(), sems_arr.tolist()
     return means, sems
 
 
