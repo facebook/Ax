@@ -9,8 +9,11 @@
 from copy import deepcopy
 
 import numpy as np
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.core.arm import Arm
+from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
@@ -19,9 +22,14 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UnsupportedError
+from ax.core.types import TParameterization
+from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_robust_search_space
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_robust_search_space,
+)
+from pandas.testing import assert_frame_equal, assert_series_equal
 
 
 class SearchSpaceToChoiceTest(TestCase):
@@ -36,14 +44,24 @@ class SearchSpaceToChoiceTest(TestCase):
                 ),
             ]
         )
+        parameterizations: list[TParameterization] = [
+            {"a": 2, "b": "a"},
+            {"a": 3, "b": "b"},
+            {"a": 3, "b": "c"},
+        ]
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0]],
+            search_space=self.search_space,
+            parameterizations=parameterizations,
+        )
+        self.experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
         self.observation_features = [
-            ObservationFeatures(parameters={"a": 2, "b": "a"}),
-            ObservationFeatures(parameters={"a": 3, "b": "b"}),
-            ObservationFeatures(parameters={"a": 3, "b": "c"}),
+            ObservationFeatures(parameters=p) for p in parameterizations
         ]
         self.signature_to_parameterization = {
-            Arm(parameters=obsf.parameters).signature: obsf.parameters
-            for obsf in self.observation_features
+            Arm(parameters=p).signature: p for p in parameterizations
         }
         self.transformed_features = [
             ObservationFeatures(
@@ -63,18 +81,62 @@ class SearchSpaceToChoiceTest(TestCase):
             for obsf in self.observation_features
         ]
         self.t = SearchSpaceToChoice(
-            search_space=self.search_space,
-            observations=self.observations,
+            search_space=self.search_space, experiment_data=self.experiment_data
         )
         self.t2 = SearchSpaceToChoice(
-            search_space=self.search_space,
-            observations=self.observations[:1],
+            search_space=self.search_space, observations=self.observations[:1]
         )
         self.t3 = SearchSpaceToChoice(
             search_space=self.search_space,
             observations=self.observations,
             config={"use_ordered": True},
         )
+
+    def test_validation(self) -> None:
+        # Test with no data.
+        with self.assertRaisesRegex(DataRequiredError, "non-empty data"):
+            SearchSpaceToChoice(
+                search_space=self.search_space,
+                observations=[],
+            )
+        # Test with empty experiment data.
+        with self.assertRaisesRegex(DataRequiredError, "non-empty experiment data"):
+            SearchSpaceToChoice(
+                search_space=self.search_space,
+                experiment_data=extract_experiment_data(
+                    experiment=Experiment(search_space=self.search_space),
+                    data_loader_config=DataLoaderConfig(),
+                ),
+            )
+
+        # Test error if there are fidelities.
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "a",
+                    lower=1,
+                    upper=3,
+                    parameter_type=ParameterType.FLOAT,
+                    is_fidelity=True,
+                    target_value=3,
+                )
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "fidelity"):
+            SearchSpaceToChoice(
+                search_space=ss,
+                observations=self.observations,
+            )
+
+        # Test for error with robust search space.
+        rss = get_robust_search_space()
+        with self.assertRaisesRegex(
+            UnsupportedError, "not supported for RobustSearchSpace"
+        ):
+            SearchSpaceToChoice(
+                search_space=rss,
+                observations=self.observations,
+            )
 
     def test_TransformSearchSpace(self) -> None:
         ss2 = self.search_space.clone()
@@ -98,25 +160,6 @@ class SearchSpaceToChoiceTest(TestCase):
             is_ordered=True,
         )
         self.assertEqual(ss2.parameters.get("arms"), expected_parameter)
-
-        # Test error if there are fidelities
-        ss3 = SearchSpace(
-            parameters=[
-                RangeParameter(
-                    "a",
-                    lower=1,
-                    upper=3,
-                    parameter_type=ParameterType.FLOAT,
-                    is_fidelity=True,
-                    target_value=3,
-                )
-            ]
-        )
-        with self.assertRaises(ValueError):
-            SearchSpaceToChoice(
-                search_space=ss3,
-                observations=[],
-            )
 
     def test_TransformSearchSpaceWithFixedParam(self) -> None:
         ss2 = self.search_space.clone()
@@ -148,11 +191,34 @@ class SearchSpaceToChoiceTest(TestCase):
         )[0]
         self.assertEqual(untsfm_empty_obs_param, empty_obs_param)
 
-    def test_w_robust_search_space(self) -> None:
-        rss = get_robust_search_space()
-        # Raises an error in __init__.
-        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
-            SearchSpaceToChoice(
-                search_space=rss,
-                observations=[],
-            )
+    def test_transform_experiment_data(self) -> None:
+        # Empty data is returned unchanged.
+        empty_data = extract_experiment_data(
+            experiment=Experiment(search_space=self.search_space),
+            data_loader_config=DataLoaderConfig(),
+        )
+        copy_empty_data = deepcopy(empty_data)
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=copy_empty_data
+        )
+        self.assertIs(copy_empty_data, transformed_data)
+        self.assertEqual(transformed_data, empty_data)
+
+        # Data is transformed to the signature.
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(self.experiment_data)
+        )
+        # Columns only include arms and metadata.
+        self.assertEqual(set(transformed_data.arm_data), {"arms", "metadata"})
+        # Metadata is unchanged.
+        assert_series_equal(
+            transformed_data.arm_data["metadata"],
+            self.experiment_data.arm_data["metadata"],
+        )
+        # Arms are replaced by signatures.
+        expected_arms = list(self.signature_to_parameterization)
+        self.assertEqual(transformed_data.arm_data["arms"].tolist(), expected_arms)
+        # Observation data is unchanged.
+        assert_frame_equal(
+            transformed_data.observation_data, self.experiment_data.observation_data
+        )
