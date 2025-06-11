@@ -13,6 +13,7 @@ from unittest.mock import patch
 import numpy as np
 import torch
 from ax.adapter.registry import Generators
+from ax.adapter.torch import TorchAdapter
 from ax.core.data import Data
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -29,6 +30,7 @@ from ax.plot.pareto_frontier import (
 from ax.plot.pareto_utils import (
     _extract_observed_pareto_2d,
     get_observed_pareto_frontiers,
+    get_tensor_converter_adapter,
     infer_reference_point_from_experiment,
     logger,
     to_nonrobust_search_space,
@@ -391,3 +393,13 @@ class TestInfereReferencePointFromExperiment(TestCase):
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
             self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+
+    def test_get_tensor_converter_adapter(self) -> None:
+        # Test that it can convert experiments with different number of observations.
+        for num_observations in (1, 10, 2000):
+            experiment = get_experiment_with_observations(
+                observations=[[0.0] for _ in range(num_observations)],
+            )
+            self.assertIsInstance(
+                get_tensor_converter_adapter(experiment=experiment), TorchAdapter
+            )

@@ -8,11 +8,10 @@
 from unittest.mock import Mock
 
 import pandas as pd
-
+from ax.adapter.registry import Generators
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.generator_run import GeneratorRun
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.trial import Trial
 from ax.exceptions.core import DataRequiredError
@@ -20,8 +19,6 @@ from ax.service.utils.best_point import get_trace
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
-    get_arm_weights2,
-    get_arms_from_dict,
     get_experiment_with_batch_trial,
     get_experiment_with_observations,
     get_experiment_with_trial,
@@ -142,8 +139,7 @@ class TestBestPointMixin(TestCase):
         # completed/early-stopped trial
         trial1 = assert_is_instance(trial, BatchTrial).clone_to()
         trial1.mark_abandoned(unsafe=True)
-        arms = get_arms_from_dict(get_arm_weights2())
-        trial2 = exp.new_batch_trial(GeneratorRun(arms))
+        trial2 = exp.new_batch_trial(Generators.SOBOL(experiment=exp).gen(n=3))
         trial2.mark_running(no_runner_required=True).mark_completed()
         df_dict2 = []
         for i, arm in enumerate(trial2.arms):
