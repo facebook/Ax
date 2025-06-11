@@ -20,7 +20,7 @@ from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acqui
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_benchmark_problem
 from ax.core.experiment import Experiment
-from ax.service.orchestrator import Orchestrator
+from ax.orchestration.orchestrator import Orchestrator
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
 )

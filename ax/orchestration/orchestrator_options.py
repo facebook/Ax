@@ -6,17 +6,13 @@
 # pyre-strict
 
 from dataclasses import dataclass, field
-from enum import Enum
 from logging import INFO
 from typing import Any
 
+from ax.core.base_trial import TrialType
+
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
-
-
-class TrialType(Enum):
-    TRIAL = 0
-    BATCH_TRIAL = 1
 
 
 @dataclass(frozen=True)

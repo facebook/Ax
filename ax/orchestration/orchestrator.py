@@ -44,9 +44,9 @@ from ax.exceptions.generation_strategy import (
     OptimizationConfigRequired,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.orchestration.orchestrator_options import OrchestratorOptions, TrialType
 from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.executils import retry_on_exception

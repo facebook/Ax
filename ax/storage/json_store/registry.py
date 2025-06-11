@@ -109,8 +109,8 @@ from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
+from ax.orchestration.orchestrator_options import OrchestratorOptions, TrialType
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.storage.json_store.decoders import (
     class_from_json,
     default_from_json,
