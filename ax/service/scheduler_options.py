@@ -10,5 +10,5 @@ class SchedulerOptions:
     raise DeprecationWarning(
         "SchedulerOptions is deprecated following renaming of the Scheduler to "
         "Orchestrator. Please use OrchestratorOptions instead; import with: "
-        "`from ax.service.orchestrator_options import OrchestratorOptions`"
+        "`from ax.orchestration.orchestrator_options import OrchestratorOptions`"
     )

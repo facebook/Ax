@@ -113,8 +113,8 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.orchestration.orchestrator_options import OrchestratorOptions, TrialType
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import set_rng_seed

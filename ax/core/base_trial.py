@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import Any, TYPE_CHECKING
 
 import pandas as pd
@@ -39,6 +40,16 @@ if TYPE_CHECKING:
 MANUAL_GENERATION_METHOD_STR = "Manual"
 UNKNOWN_GENERATION_METHOD_STR = "Unknown"
 STATUS_QUO_GENERATION_METHOD_STR = "Status Quo"
+
+
+class TrialType(Enum):
+    """Enum for types of trials that exist in Ax.
+    For an overview of the distinction between ``Trial`` and
+    ``BatchTrial``, see https://ax.dev/docs/experiment#trial-and-batch-trial.
+    """
+
+    TRIAL = 0  # Corresponds to `Trial`
+    BATCH_TRIAL = 1  # Corresponds to `BatchTrial`
 
 
 def immutable_once_run(func: Callable) -> Callable:
