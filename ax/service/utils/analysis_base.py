@@ -7,7 +7,8 @@
 
 from collections.abc import Iterable
 
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardCategory
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -27,9 +28,7 @@ class AnalysisBase(WithDBSettingsBase):
     # is never initialized
     generation_strategy: GenerationStrategy
 
-    def _choose_analyses(
-        self, categories: list[AnalysisCardCategory] | None = None
-    ) -> list[Analysis]:
+    def _choose_analyses(self) -> list[Analysis]:
         """
         Choose Analyses to compute based on the Experiment, GenerationStrategy, etc.
         """
@@ -64,24 +63,15 @@ class AnalysisBase(WithDBSettingsBase):
 
         # Compute Analyses one by one and accumulate Results holding either the
         # AnalysisCard or an Exception and some metadata
-        results = [
-            analysis.compute_result(
+        children = [
+            analysis.compute_or_error_card(
                 experiment=self.experiment,
                 generation_strategy=self.generation_strategy,
             )
             for analysis in analyses
         ]
 
-        # Turn Exceptions into MarkdownAnalysisCards with the traceback as the message
-        cards = [
-            card
-            for result in results
-            for card in result.unwrap_or_else(lambda e: e.error_card())
-        ]
-
-        # Save the AnalysisCards to the database if possible
-        self._save_analysis_cards_to_db_if_possible(
-            experiment=self.experiment, analysis_cards=cards
-        )
-
-        return cards
+        return AnalysisCardGroup(
+            name="",
+            children=children,
+        ).flatten()

@@ -6,11 +6,9 @@
 # pyre-strict
 
 import math
-from typing import Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.color_constants import METRIC_CONTINUOUS_COLOR_SCALE
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
@@ -68,7 +66,7 @@ class ContourPlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ContourPlot requires an Experiment")
 
@@ -102,29 +100,25 @@ class ContourPlot(PlotlyAnalysis):
             display_sampled=self._display_sampled,
         )
 
-        return [
-            self._create_plotly_analysis_card(
-                title=(
-                    f"{self.x_parameter_name}, {self.y_parameter_name} vs. "
-                    f"{metric_name}"
-                ),
-                subtitle=(
-                    "The contour plot visualizes the predicted outcomes "
-                    f"for {metric_name} across a two-dimensional parameter space, "
-                    "with other parameters held fixed at their status_quo value "
-                    "(or mean value if status_quo is unavailable). This plot helps "
-                    "in identifying regions of optimal performance and understanding "
-                    "how changes in the selected parameters influence the predicted "
-                    "outcomes. Contour lines represent levels of constant predicted "
-                    "values, providing insights into the gradient and potential optima "
-                    "within the parameter space."
-                ),
-                level=AnalysisCardLevel.LOW,
-                df=df,
-                fig=fig,
-                category=AnalysisCardCategory.INSIGHT,
-            )
-        ]
+        return self._create_plotly_analysis_card(
+            title=(
+                f"{self.x_parameter_name}, {self.y_parameter_name} vs. "
+                f"{metric_name}"
+            ),
+            subtitle=(
+                "The contour plot visualizes the predicted outcomes "
+                f"for {metric_name} across a two-dimensional parameter space, "
+                "with other parameters held fixed at their status_quo value "
+                "(or mean value if status_quo is unavailable). This plot helps "
+                "in identifying regions of optimal performance and understanding "
+                "how changes in the selected parameters influence the predicted "
+                "outcomes. Contour lines represent levels of constant predicted "
+                "values, providing insights into the gradient and potential optima "
+                "within the parameter space."
+            ),
+            df=df,
+            fig=fig,
+        )
 
 
 def compute_contour_adhoc(
@@ -135,7 +129,7 @@ def compute_contour_adhoc(
     adapter: Adapter | None = None,
     metric_name: str | None = None,
     display_sampled: bool = True,
-) -> list[PlotlyAnalysisCard]:
+) -> PlotlyAnalysisCard:
     """
     Helper method to expose adhoc contour plotting. Only for advanced users in
     a notebook setting.
@@ -157,13 +151,11 @@ def compute_contour_adhoc(
         metric_name=metric_name,
         display_sampled=display_sampled,
     )
-    return [
-        *analysis.compute(
-            experiment=experiment,
-            generation_strategy=generation_strategy,
-            adapter=adapter,
-        )
-    ]
+    return analysis.compute(
+        experiment=experiment,
+        generation_strategy=generation_strategy,
+        adapter=adapter,
+    )
 
 
 def _prepare_data(

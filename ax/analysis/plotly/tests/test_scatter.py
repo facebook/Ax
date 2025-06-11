@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import AnalysisBlobAnnotation
+
 from ax.analysis.plotly.scatter import compute_scatter_adhoc, ScatterPlot
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
@@ -84,7 +84,7 @@ class TestScatterPlot(TestCase):
             x_metric_name="foo", y_metric_name="bar", use_model_predictions=False
         )
 
-        (card,) = default_analysis.compute(
+        card = default_analysis.compute(
             experiment=self.client._experiment,
             generation_strategy=self.client._generation_strategy,
         )
@@ -104,7 +104,6 @@ class TestScatterPlot(TestCase):
             },
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         # Check that we have one row per arm and that each arm appears only once
         self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
@@ -120,7 +119,7 @@ class TestScatterPlot(TestCase):
             x_metric_name="foo", y_metric_name="bar", use_model_predictions=True
         )
 
-        (card,) = default_analysis.compute(
+        card = default_analysis.compute(
             experiment=self.client._experiment,
             generation_strategy=self.client._generation_strategy,
         )
@@ -141,7 +140,6 @@ class TestScatterPlot(TestCase):
         )
 
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         # Check that we have one row per arm and that each arm appears only once
         self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))

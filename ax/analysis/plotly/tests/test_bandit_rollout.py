@@ -4,11 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-from ax.analysis.analysis import (
-    AnalysisBlobAnnotation,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
 
 from ax.analysis.plotly.bandit_rollout import BanditRollout
 from ax.core.experiment import Experiment
@@ -42,7 +37,9 @@ class TestBanditRollout(TestCase):
 
         with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
             analysis.compute()
-        (card,) = analysis.compute(experiment=self.experiment)
+
+        card = analysis.compute(experiment=self.experiment)
+
         self.assertEqual(card.name, "BanditRollout")
         self.assertEqual(
             card.title, f"Bandit Rollout Weights by Trial for {self.experiment.name}"
@@ -62,14 +59,11 @@ class TestBanditRollout(TestCase):
                 "understanding of experimental results."
             ),
         )
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
             {"trial_index", "arm_name", "arm_weight", "normalized_weight"},
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
     def test_online(self) -> None:
         # Test ParallelCoordinatesPlot can be computed for a variety of experiments
