@@ -237,11 +237,11 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         if reference_trial_index in self.hv_by_trial:
             hv_reference = self.hv_by_trial[reference_trial_index]
         else:
-            mb_reference = get_tensor_converter_adapter(
+            adapter_reference = get_tensor_converter_adapter(
                 experiment=experiment, data=Data(data_df_reference)
             )
             hv_reference = observed_hypervolume(
-                adapter=mb_reference, objective_thresholds=objective_thresholds
+                adapter=adapter_reference, objective_thresholds=objective_thresholds
             )
             self.hv_by_trial[reference_trial_index] = hv_reference
 
@@ -250,8 +250,12 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             return False, message
 
         # Computing HV at current trial
-        mb = get_tensor_converter_adapter(experiment=experiment, data=Data(data_df))
-        hv = observed_hypervolume(mb, objective_thresholds=objective_thresholds)
+        adapter = get_tensor_converter_adapter(
+            experiment=experiment, data=Data(data_df)
+        )
+        hv = observed_hypervolume(
+            adapter=adapter, objective_thresholds=objective_thresholds
+        )
         self.hv_by_trial[trial_to_check] = hv
 
         hv_improvement = (hv - hv_reference) / hv_reference
