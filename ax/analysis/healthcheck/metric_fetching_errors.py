@@ -7,11 +7,10 @@
 
 from collections.abc import Callable
 from logging import Logger
-from typing import Any, Sequence, Union
+from typing import Any, Union
 
 import pandas as pd
 from ax.adapter import Adapter
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
     HealthcheckAnalysisCard,
@@ -56,7 +55,7 @@ class MetricFetchingErrorsAnalysis(HealthcheckAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[HealthcheckAnalysisCard]:
+    ) -> HealthcheckAnalysisCard:
         if experiment is None:
             raise UserInputError("MetricFetchingErrorsAnalysis requires an Experiment.")
 
@@ -65,16 +64,12 @@ class MetricFetchingErrorsAnalysis(HealthcheckAnalysis):
         metric_fetch_errors = experiment._metric_fetching_errors
 
         if len(metric_fetch_errors) == 0:
-            return [
-                self._create_healthcheck_analysis_card(
-                    title="Metric Fetch Errors",
-                    subtitle="No metric fetch errors found.",
-                    level=AnalysisCardLevel.DEBUG + 1,
-                    df=df,
-                    status=HealthcheckStatus.PASS,
-                    category=AnalysisCardCategory.DIAGNOSTIC,
-                )
-            ]
+            return self._create_healthcheck_analysis_card(
+                title="Metric Fetch Errors",
+                subtitle="No metric fetch errors found.",
+                df=df,
+                status=HealthcheckStatus.PASS,
+            )
 
         metric_fetch_errors = [
             e for e in metric_fetch_errors.values() if self._validate_fields(errors=e)
@@ -123,16 +118,12 @@ class MetricFetchingErrorsAnalysis(HealthcheckAnalysis):
         }
         subtitle = df.rename(columns=subtitle_df_columns)
 
-        return [
-            self._create_healthcheck_analysis_card(
-                title="Metric Fetch Errors",
-                subtitle=subtitle.to_markdown(index=False),
-                level=AnalysisCardLevel.DEBUG + 1,
-                df=df,
-                status=HealthcheckStatus.WARNING,
-                category=AnalysisCardCategory.DIAGNOSTIC,
-            )
-        ]
+        return self._create_healthcheck_analysis_card(
+            title="Metric Fetch Errors",
+            subtitle=subtitle.to_markdown(index=False),
+            df=df,
+            status=HealthcheckStatus.WARNING,
+        )
 
     @staticmethod
     def _validate_fields(errors: dict[str, Union[int, str]]) -> bool:
