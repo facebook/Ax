@@ -9,10 +9,17 @@
 from collections.abc import Iterator
 from copy import deepcopy
 from itertools import product
+from typing import cast
 
 import numpy as np
 from ax.adapter import Adapter
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
+from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
+from ax.api.client import Client
+from ax.api.configs import RangeParameterConfig
+from ax.api.utils.generation_strategy_dispatch import _get_sobol_node
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
 from ax.core.objective import Objective
@@ -20,11 +27,22 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UserInputError
-from ax.generators.base import Generator
-from ax.utils.common.testutils import TestCase
-from pyre_extensions import assert_is_instance
 
+from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
+from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
+from ax.exceptions.core import UserInputError
+from ax.generation_strategy.center_generation_node import CenterGenerationNode
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generator_spec import GeneratorSpec
+from ax.generators.base import Generator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
+from ax.utils.common.testutils import TestCase
+from botorch.acquisition.logei import qLogExpectedImprovement
+from botorch.models.gp_regression import SingleTaskGP
+from pyre_extensions import assert_is_instance, none_throws
 
 WIDTHS = [2.0, 4.0, 8.0]
 HEIGHTS = [4.0, 2.0, 8.0]
@@ -32,14 +50,202 @@ STEP_ENDS = [1, 5, 3]
 DEFAULT_MAP_KEY: str = MapMetric.map_key_info.key
 
 
-def _enumerate() -> Iterator[tuple[int, float, float, float]]:
-    yield from (
-        (trial_index, width, height, float(i + 1))
-        for trial_index, (width, height, step_end) in enumerate(
-            zip(WIDTHS, HEIGHTS, STEP_ENDS)
+class ClientTest(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+
+        seed = 8888
+        range_parameters = [
+            RangeParameterConfig(name="width", parameter_type="float", bounds=(1, 20)),
+            RangeParameterConfig(name="height", parameter_type="float", bounds=(1, 20)),
+        ]
+
+        self.initialization_budget = 10
+        self.max_steps = 15
+        self.metric_name = "test_loss"
+        self.num_parameters = len(range_parameters)
+
+        objective = f"-{self.metric_name}"
+
+        surrogate_spec = SurrogateSpec(
+            model_configs=[ModelConfig(botorch_model_class=SingleTaskGP)]
         )
-        for i in range(step_end)
-    )
+        generator_spec = GeneratorSpec(
+            generator_enum=Generators.BOTORCH_MODULAR,
+            model_kwargs={
+                "surrogate_spec": surrogate_spec,
+                "botorch_acqf_class": qLogExpectedImprovement,
+                "transforms": [MapKeyToFloat] + MBM_X_trans + Y_trans,
+                "data_loader_config": DataLoaderConfig(
+                    fit_only_completed_map_metrics=False,
+                    latest_rows_per_group=1,
+                ),
+            },
+        )
+
+        generation_strategy = self._construct_generation_strategy(
+            generator_spec=generator_spec,
+            initialization_budget=self.initialization_budget,
+            seed=seed,
+        )
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            min_progression=3,
+            min_curves=3,
+        )
+
+        self.client = Client()
+        self.client.configure_experiment(parameters=range_parameters)
+        self.client.configure_optimization(objective=objective)
+        self.client.set_generation_strategy(generation_strategy=generation_strategy)
+        self.client.set_early_stopping_strategy(
+            early_stopping_strategy=early_stopping_strategy
+        )
+
+    @staticmethod
+    def _construct_generation_strategy(
+        generator_spec: GeneratorSpec,
+        initialization_budget: int,
+        seed: int,
+    ) -> GenerationStrategy:
+        """Constructs a Center + Sobol + Modular BoTorch `GenerationStrategy`
+        using the provided `generator_spec` for the Modular BoTorch node.
+        """
+        sobol_node = _get_sobol_node(
+            initialization_budget=initialization_budget,
+            min_observed_initialization_trials=None,
+            initialize_with_center=True,
+            use_existing_trials_for_initialization=True,
+            allow_exceeding_initialization_budget=False,
+            initialization_random_seed=seed,
+        )
+        center_node = CenterGenerationNode(next_node_name=sobol_node.node_name)
+        botorch_node = GenerationNode(
+            node_name="MBM",
+            generator_specs=[generator_spec],
+            should_deduplicate=True,
+        )
+        return GenerationStrategy(
+            name=f"Center+Sobol+{botorch_node.node_name}",
+            nodes=[center_node, sobol_node, botorch_node],
+        )
+
+    @staticmethod
+    def _loss_fn(step: int, width: float, height: float) -> float:
+        return 100.0 / (10.0 + width * step) + 0.1 * height
+
+    def _simulate(
+        self,
+        with_early_stopping: bool = True,
+        with_progression: bool = True,
+    ) -> None:
+        """Simulate typical usage of Client API."""
+        for _ in range(self.initialization_budget):
+            (trial_data,) = self.client.get_next_trials(max_trials=1).items()
+            trial_index, parameters = trial_data
+            kwargs: dict[str, float] = {k: float(v) for k, v in parameters.items()}
+
+            stopped: bool = False
+            if with_early_stopping:
+                for i in range(self.max_steps - 1):
+                    step = i + 1
+                    result = self._loss_fn(step=step, **kwargs)
+                    self.client.attach_data(
+                        trial_index=trial_index,
+                        raw_data={self.metric_name: result},
+                        progression=step if with_progression else None,
+                    )
+                    if stopped := self.client.should_stop_trial_early(
+                        trial_index=trial_index
+                    ):
+                        self.client.mark_trial_early_stopped(trial_index=trial_index)
+                        break
+
+            if not stopped:
+                result = self._loss_fn(step=self.max_steps, **kwargs)
+                self.client.complete_trial(
+                    trial_index=trial_index,
+                    raw_data={self.metric_name: result},
+                    progression=self.max_steps if with_progression else None,
+                )
+
+    def _test_no_early_stopping(self, with_progression: bool) -> None:
+        self._simulate(
+            with_early_stopping=False,
+            with_progression=with_progression,
+        )
+
+        # ensure there are no early-stopped trials for the purposes of this test
+        self.assertEqual(
+            len(self.client._experiment.trials_by_status[TrialStatus.EARLY_STOPPED]),
+            0,
+        )
+
+        self.client.get_next_trials(max_trials=1)
+
+        adapter = assert_is_instance(
+            self.client._generation_strategy.adapter, TorchAdapter
+        )
+        generator = assert_is_instance(adapter.generator, BoTorchGenerator)
+        surrogate = generator.surrogate
+        (dataset,) = surrogate.training_data
+
+        # the transform behaves as a no-op (list of parameters to add to
+        # search space is empty)
+        self.assertListEqual(
+            assert_is_instance(
+                adapter.transforms["MapKeyToFloat"], MapKeyToFloat
+            )._parameter_list,
+            [],
+        )
+
+        # progression information is omitted from data propagated to the model
+        self.assertListEqual(dataset.feature_names, ["width", "height"])
+
+    def test_no_early_stopping_with_progression(self) -> None:
+        self._test_no_early_stopping(with_progression=True)
+
+    def test_no_early_stopping_no_progression(self) -> None:
+        self._test_no_early_stopping(with_progression=False)
+
+    def test_with_early_stopping_with_progression(self) -> None:
+        self._simulate(with_early_stopping=True, with_progression=True)
+
+        # ensure there are early-stopped trials for the purposes of this test
+        self.assertGreater(
+            len(self.client._experiment.trials_by_status[TrialStatus.EARLY_STOPPED]),
+            0,
+        )
+
+        (trial_index,) = self.client.get_next_trials(max_trials=1)
+
+        adapter = assert_is_instance(
+            self.client._generation_strategy.adapter, TorchAdapter
+        )
+        generator = assert_is_instance(adapter.generator, BoTorchGenerator)
+        surrogate = generator.surrogate
+        (dataset,) = surrogate.training_data
+
+        # check that the data being fed includes all trials, including
+        # early-stopped trials
+        self.assertEqual(
+            dataset.X.shape,
+            (self.initialization_budget, self.num_parameters + 1),
+        )
+
+        # check that the data being fed to the model is properly
+        # contextualized with progression information
+        self.assertListEqual(dataset.feature_names, ["width", "height", "step"])
+
+        trial = cast(Trial, self.client._experiment.trials[trial_index])
+        generator_run = none_throws(trial.generator_run)
+        candidate_metadata_by_arm_signature = none_throws(
+            generator_run.candidate_metadata_by_arm_signature
+        )
+        signature = none_throws(trial.arm).signature
+        candidate_metadata = none_throws(candidate_metadata_by_arm_signature[signature])
+
+        # check that candidate is generated at the target progression
+        self.assertEqual(int(candidate_metadata["step"]), self.max_steps)
 
 
 class MapKeyToFloatTransformTest(TestCase):
@@ -73,7 +279,7 @@ class MapKeyToFloatTransformTest(TestCase):
         )
 
         self.observations = []
-        for trial_index, width, height, step in _enumerate():
+        for trial_index, width, height, step in self._enumerate():
             obs_feat = ObservationFeatures(
                 trial_index=trial_index,
                 parameters={"width": width, "height": height},
@@ -89,6 +295,16 @@ class MapKeyToFloatTransformTest(TestCase):
 
         # does not require explicitly specifying `config`
         self.t = MapKeyToFloat(observations=self.observations, adapter=self.adapter)
+
+    @staticmethod
+    def _enumerate() -> Iterator[tuple[int, float, float, float]]:
+        yield from (
+            (trial_index, width, height, float(i + 1))
+            for trial_index, (width, height, step_end) in enumerate(
+                zip(WIDTHS, HEIGHTS, STEP_ENDS)
+            )
+            for i in range(step_end)
+        )
 
     def test_Init(self) -> None:
         # Check for error if adapter & parameters are not provided.
@@ -163,7 +379,7 @@ class MapKeyToFloatTransformTest(TestCase):
                     },
                     metadata={"foo": 42},
                 )
-                for trial_index, width, height, step in _enumerate()
+                for trial_index, width, height, step in self._enumerate()
             ],
         )
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
