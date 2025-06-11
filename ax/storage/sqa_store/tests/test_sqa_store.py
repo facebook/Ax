@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pandas as pd
 
 from ax.adapter.registry import Generators
-from ax.analysis.analysis import AnalysisCard, AnalysisCardGroup
+from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm

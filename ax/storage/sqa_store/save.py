@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from logging import Logger
 from typing import Any, cast
 
-from ax.analysis.analysis import AnalysisCardBase
+from ax.analysis.analysis_card import AnalysisCardBase
 
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data

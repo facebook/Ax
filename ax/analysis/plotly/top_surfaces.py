@@ -8,7 +8,7 @@
 from typing import Literal
 
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import AnalysisCardBase
+from ax.analysis.analysis_card import AnalysisCardBase
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
