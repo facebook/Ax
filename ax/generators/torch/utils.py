@@ -43,6 +43,7 @@ from botorch.acquisition.objective import (
     ConstrainedMCObjective,
     GenericMCObjective,
     IdentityMCObjective,
+    LearnedObjective,
     LinearMCObjective,
     MCAcquisitionObjective,
     PosteriorTransform,
@@ -400,6 +401,7 @@ def get_botorch_objective_and_transform(
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
     X_observed: Tensor | None = None,
     risk_measure: RiskMeasureMCObjective | None = None,
+    learned_objective_preference_model: Model | None = None,
 ) -> tuple[MCAcquisitionObjective | None, PosteriorTransform | None]:
     """Constructs a BoTorch `AcquisitionObjective` object.
 
@@ -422,6 +424,15 @@ def get_botorch_objective_and_transform(
         A two-tuple containing (optionally) an `MCAcquisitionObjective` and
         (optionally) a `PosteriorTransform`.
     """
+
+    if learned_objective_preference_model is not None:
+        if risk_measure is not None:
+            raise UnsupportedError(
+                "Risk measures are not supported in with a preference objective."
+            )
+        objective = LearnedObjective(pref_model=learned_objective_preference_model)
+        return objective, None
+
     if risk_measure is not None:
         risk_measure = _get_risk_measure(
             model=model,

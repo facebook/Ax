@@ -2022,6 +2022,7 @@ class Experiment(Base):
         self,
         purpose: AuxiliaryExperimentPurpose,
         auxiliary_experiment_name: str,
+        raise_if_not_found: bool = False,
     ) -> AuxiliaryExperiment | None:
         """Find the aux experiment with the given name and purpose in the experiment.
 
@@ -2031,13 +2032,22 @@ class Experiment(Base):
 
         Returns:
             The aux experiment with the given name and purpose, or None if not found.
+            if raise_if_not_found is True, raises a ValueError if not found.
         """
-        if purpose not in self.auxiliary_experiments_by_purpose:
-            return None
-        for auxiliary_experiment in self.auxiliary_experiments_by_purpose[purpose]:
-            if auxiliary_experiment.experiment.name == auxiliary_experiment_name:
-                return auxiliary_experiment
-        return None
+        found_aux_exp = None
+        if purpose in self.auxiliary_experiments_by_purpose:
+            for auxiliary_experiment in self.auxiliary_experiments_by_purpose[purpose]:
+                if auxiliary_experiment.experiment.name == auxiliary_experiment_name:
+                    found_aux_exp = auxiliary_experiment
+                    break
+
+        if raise_if_not_found:
+            if found_aux_exp is None:
+                raise UserInputError(
+                    f"Auxiliary experiment {auxiliary_experiment_name} is not "
+                    f"found for purpose {purpose}."
+                )
+        return found_aux_exp
 
     @property
     def auxiliary_experiments_by_purpose_for_storage(

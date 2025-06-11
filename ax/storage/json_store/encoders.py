@@ -26,6 +26,7 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
@@ -333,6 +334,19 @@ def optimization_config_to_dict(
         "objective": optimization_config.objective,
         "outcome_constraints": optimization_config.outcome_constraints,
         "risk_measure": optimization_config.risk_measure,
+    }
+
+
+def preference_optimization_config_to_dict(
+    preference_optimization_config: PreferenceOptimizationConfig,
+) -> dict[str, Any]:
+    """Convert Ax optimization config to a dictionary."""
+    pref_profile_name = preference_optimization_config.preference_profile_name
+    return {
+        "__type": preference_optimization_config.__class__.__name__,
+        "objective": preference_optimization_config.objective,
+        "outcome_constraints": preference_optimization_config.outcome_constraints,
+        "preference_profile_name": pref_profile_name,
     }
 
 
