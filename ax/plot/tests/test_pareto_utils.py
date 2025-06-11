@@ -29,6 +29,7 @@ from ax.plot.pareto_frontier import (
 )
 from ax.plot.pareto_utils import (
     _extract_observed_pareto_2d,
+    _relativize_values,
     get_observed_pareto_frontiers,
     get_tensor_converter_adapter,
     infer_reference_point_from_experiment,
@@ -37,6 +38,7 @@ from ax.plot.pareto_utils import (
 )
 
 from ax.utils.common.testutils import TestCase
+from ax.utils.stats.statstools import relativize
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
@@ -403,3 +405,34 @@ class TestInfereReferencePointFromExperiment(TestCase):
             self.assertIsInstance(
                 get_tensor_converter_adapter(experiment=experiment), TorchAdapter
             )
+
+    def test__relativize_values(self) -> None:
+        # With NaN sem.
+        means = [1.0, 2.0, 3.0]
+        sems = [float("nan"), 1.0, float("nan")]
+        tf_mean, tf_sem = _relativize_values(
+            means=means,
+            sems=sems,
+            sq_mean=2.0,
+            sq_sem=1.0,
+        )
+        self.assertIs(sems, tf_sem)
+        self.assertEqual(tf_mean, [-50.0, 0.0, 50.0])
+
+        # With non-NaN sem.
+        sems = [0.5, 1.0, 0.3]
+        tf_mean, tf_sem = _relativize_values(
+            means=means,
+            sems=sems,
+            sq_mean=2.0,
+            sq_sem=1.0,
+        )
+        rel_mean, rel_sem = relativize(
+            means_t=np.array(means),
+            sems_t=np.array(sems),
+            mean_c=2.0,
+            sem_c=1.0,
+            as_percent=True,
+        )
+        self.assertEqual(tf_mean, rel_mean.tolist())
+        self.assertEqual(tf_sem, rel_sem.tolist())
