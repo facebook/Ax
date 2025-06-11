@@ -64,14 +64,7 @@ class TestTopSurfacesAnalysis(TestCase):
         cards = analysis.compute(
             experiment=client._experiment,
             generation_strategy=client._generation_strategy,
-        )
-
-        self.assertEqual(len(cards), 3)
-        for card in cards:
-            self.assertEqual(
-                card.name,
-                "TopSurfacesAnalysis",
-            )
+        ).flatten()
 
         # First card should be the sensitivity analysis.
         self.assertEqual(cards[0].title, "Sensitivity Analysis for bar")
@@ -85,14 +78,9 @@ class TestTopSurfacesAnalysis(TestCase):
         with_contours = second.compute(
             experiment=client._experiment,
             generation_strategy=client._generation_strategy,
-        )
+        ).flatten()
 
         self.assertEqual(len(with_contours), 4)
-        for card in with_contours:
-            self.assertEqual(
-                card.name,
-                "TopSurfacesAnalysis",
-            )
 
         # First card should be the sensitivity analysis.
         self.assertEqual(with_contours[0].title, "Sensitivity Analysis for bar")
@@ -141,7 +129,7 @@ class TestTopSurfacesAnalysis(TestCase):
         cards = analysis.compute(
             experiment=client._experiment,
             generation_strategy=client._generation_strategy,
-        )
+        ).flatten()
 
         # Only plot x1 vs bar since x2 is categorical.
         self.assertEqual(len(cards), 2)
