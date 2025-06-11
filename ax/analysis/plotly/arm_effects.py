@@ -29,6 +29,7 @@ from ax.analysis.utils import (
     prepare_arm_data,
 )
 from ax.core.arm import Arm
+from ax.core.base_trial import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
 from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.exceptions.core import UserInputError
@@ -280,9 +281,19 @@ def _prepare_figure(
 
     trials_list = trials.tolist()
     scatters = []
+    # Sort the dataframe by trial index and arm name.
+    # Non-default arm names (not digit + underscore + digit) are sorted to the front.
+    # default arm names (e.g. 0_0, 1_8) are sorted that '0_1' < '0_5' < '0_10'
+    df = sort_by_trial_index_and_arm_name(df=df)
+    # Add a column combining trial_index and arm_name to be used as x mark
+    df["x_key_order"] = df["trial_index"].astype(str) + ":" + df["arm_name"]
+    arm_order = []
+    arm_label = []
     for trial_index in trial_indices:
         trial_df = df[df["trial_index"] == trial_index]
         xy_df = trial_df[~trial_df[f"{metric_name}_mean"].isna()]
+        arm_order = arm_order + xy_df["x_key_order"].to_list()
+        arm_label = arm_label + xy_df["arm_name"].to_list()
         if not trial_df[f"{metric_name}_sem"].isna().all():
             error_y = {
                 "type": "data",
@@ -318,7 +329,7 @@ def _prepare_figure(
         )
         scatters.append(
             go.Scatter(
-                x=xy_df["arm_name"],
+                x=xy_df["x_key_order"],
                 y=xy_df[f"{metric_name}_mean"],
                 error_y=error_y,
                 mode="markers",
@@ -336,29 +347,8 @@ def _prepare_figure(
         yaxis_tickformat=".2%" if is_relative else None,
         legend=LEGEND_POSITION,
         margin=MARGIN_REDUCUTION,
+        xaxis={"tickvals": arm_order, "ticktext": arm_label},
     )
-
-    # Order arms by trial index, then by arm name. Always put additional arms last.
-    arm_order: list[str] = df.sort_values(by=["trial_index", "arm_name"])[
-        "arm_name"
-    ].tolist()
-
-    additional_arm_names = df[df["trial_index"] == -1]["arm_name"].tolist()
-
-    arm_order = [
-        *[arm_name for arm_name in arm_order if arm_name == status_quo_arm_name],
-        *[
-            arm_name
-            for arm_name in arm_order
-            if arm_name not in additional_arm_names and arm_name != status_quo_arm_name
-        ],
-        *[
-            arm_name
-            for arm_name in arm_order
-            if arm_name in additional_arm_names and arm_name != status_quo_arm_name
-        ],
-    ]
-    figure.update_xaxes(categoryorder="array", categoryarray=arm_order)
 
     # Add a horizontal line for the status quo.
     if status_quo_arm_name in df["arm_name"].values:
@@ -404,7 +394,7 @@ def _prepare_figure(
                         arm_name,
                         df[df["arm_name"] == arm_name][f"{metric_name}_mean"].iloc[0],
                     )
-                    for arm_name in arm_order
+                    for arm_name in arm_label
                     if df[df["arm_name"] == arm_name]["p_feasible"].iloc[0]
                     >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
                 ]
