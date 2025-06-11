@@ -44,6 +44,7 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
@@ -154,6 +155,7 @@ from ax.storage.json_store.encoders import (
     parameter_distribution_to_dict,
     pathlib_to_dict,
     percentile_early_stopping_strategy_to_dict,
+    preference_optimization_config_to_dict,
     range_parameter_to_dict,
     risk_measure_to_dict,
     robust_search_space_to_dict,
@@ -255,6 +257,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     pathlib.WindowsPath: pathlib_to_dict,
     pathlib.PurePosixPath: pathlib_to_dict,
     pathlib.PureWindowsPath: pathlib_to_dict,
+    PreferenceOptimizationConfig: preference_optimization_config_to_dict,
     RangeParameter: range_parameter_to_dict,
     RiskMeasure: risk_measure_to_dict,
     RobustSearchSpace: robust_search_space_to_dict,
@@ -389,6 +392,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "PurePath": pathlib_from_json,
     "PosixPath": pathlib_from_json,
     "WindowsPath": pathlib_from_json,
+    "PreferenceOptimizationConfig": PreferenceOptimizationConfig,
     "PurePosixPath": pathlib_from_json,
     "PureWindowsPath": pathlib_from_json,
     "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,

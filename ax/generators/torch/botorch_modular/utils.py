@@ -331,7 +331,7 @@ def choose_botorch_acqf_class(
             logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
             return acqf_class
 
-    if torch_opt_config.is_moo:
+    if torch_opt_config.is_moo and not torch_opt_config.use_learned_objective:
         acqf_class = qLogNoisyExpectedHypervolumeImprovement
     else:
         acqf_class = qLogNoisyExpectedImprovement

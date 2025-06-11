@@ -26,18 +26,19 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.objective import Objective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import (
     Observation,
     ObservationData,
     ObservationFeatures,
     recombine_observations,
 )
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import OptimizationConfig, PreferenceOptimizationConfig
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import DataRequiredError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
@@ -907,14 +908,6 @@ class TorchAdapterTest(TestCase):
         pref_metrics = ["metric2", "metric3"]
         metric_names = ["metric1", "metric2", "metric3"]
 
-        exp = get_pbo_experiment(
-            num_parameters=4,
-            num_experimental_metrics=3,
-            tracking_metric_names=metric_names,
-            num_experimental_trials=4,
-            num_preference_trials=0,
-            num_preference_trials_w_repeated_arm=0,
-        )
         pe_exp_with_data = get_pbo_experiment(
             num_parameters=len(pref_metrics),
             num_experimental_metrics=0,
@@ -923,11 +916,33 @@ class TorchAdapterTest(TestCase):
             num_preference_trials=3,
             num_preference_trials_w_repeated_arm=5,
             unbounded_search_space=True,
+            experiment_name="pe_exp",
         )
 
-        exp.auxiliary_experiments_by_purpose[
-            AuxiliaryExperimentPurpose.PE_EXPERIMENT
-        ] = [AuxiliaryExperiment(experiment=pe_exp_with_data)]
+        pref_opt_config = PreferenceOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=Metric(name=pref_m), minimize=False)
+                    for pref_m in pref_metrics
+                ]
+            ),
+            preference_profile_name=pe_exp_with_data.name,
+        )
+
+        exp = get_pbo_experiment(
+            num_parameters=4,
+            num_experimental_metrics=3,
+            tracking_metric_names=metric_names,
+            num_experimental_trials=4,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+            experiment_name="bo_exp",
+            optimization_config=pref_opt_config,
+        )
+        exp.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=AuxiliaryExperiment(experiment=pe_exp_with_data),
+        )
 
         surrogate_specs = [
             # Default, minimum surrogate spec
@@ -1001,19 +1016,10 @@ class TorchAdapterTest(TestCase):
             cross_validate(adapter)
             adapter.gen(n=2)
 
-    @mock_botorch_optimize
     def test_fitting_auxiliary_experiment_empty_dataset(self) -> None:
         pref_metrics = ["metric2", "metric3"]
         metric_names = ["metric1", "metric2", "metric3"]
 
-        exp = get_pbo_experiment(
-            num_parameters=4,
-            num_experimental_metrics=3,
-            tracking_metric_names=metric_names,
-            num_experimental_trials=4,
-            num_preference_trials=0,
-            num_preference_trials_w_repeated_arm=0,
-        )
         empty_pe_exp = get_pbo_experiment(
             num_parameters=len(pref_metrics),
             num_experimental_metrics=0,
@@ -1022,11 +1028,33 @@ class TorchAdapterTest(TestCase):
             num_preference_trials=0,
             num_preference_trials_w_repeated_arm=0,
             unbounded_search_space=True,
+            experiment_name="pe_exp",
         )
 
-        exp.auxiliary_experiments_by_purpose[
-            AuxiliaryExperimentPurpose.PE_EXPERIMENT
-        ] = [AuxiliaryExperiment(experiment=empty_pe_exp)]
+        pref_opt_config = PreferenceOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=Metric(name=pref_m), minimize=False)
+                    for pref_m in pref_metrics
+                ]
+            ),
+            preference_profile_name=empty_pe_exp.name,
+        )
+
+        exp = get_pbo_experiment(
+            num_parameters=4,
+            num_experimental_metrics=3,
+            tracking_metric_names=metric_names,
+            num_experimental_trials=4,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+            experiment_name="bo_exp",
+            optimization_config=pref_opt_config,
+        )
+        exp.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=AuxiliaryExperiment(experiment=empty_pe_exp),
+        )
 
         surrogate_specs = [
             # Default, minimum surrogate spec
@@ -1074,28 +1102,15 @@ class TorchAdapterTest(TestCase):
             ),
         ]
 
-        expected_warning = (
-            "WARNING:ax.adapter.torch:No data found in the auxiliary "
-            "preference exploration experiment. Skipping."
-        )
         for surrogate_spec in surrogate_specs:
-            with self.assertLogs("ax", level="WARNING") as cm:
-                adapter = TorchAdapter(
+            with self.assertRaisesRegex(
+                DataRequiredError,
+                "No data found in the auxiliary preference exploration experiment.",
+            ):
+                TorchAdapter(
                     experiment=exp,
                     data=exp.lookup_data(),
                     generator=BoTorchGenerator(
                         surrogate_spec=surrogate_spec,
                     ),
                 )
-            self.assertEqual(cm.output, [expected_warning])
-
-            generator = assert_is_instance(adapter.generator, BoTorchGenerator)
-            # we won't construct a preference model if there is no PE data
-            self.assertNotIn(
-                (Keys.PAIRWISE_PREFERENCE_QUERY.value,),
-                generator.surrogate._submodels,
-            )
-
-            # Checking CV and gen works correctly
-            cross_validate(adapter)
-            adapter.gen(n=2)

@@ -90,6 +90,7 @@ class TorchOptConfig:
     is_moo: bool = False
     risk_measure: RiskMeasureMCObjective | None = None
     fit_out_of_design: bool = False
+    use_learned_objective: bool = False
 
 
 @dataclass(frozen=True)
