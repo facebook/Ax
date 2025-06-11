@@ -7,7 +7,8 @@
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardBase
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCard, AnalysisCardBase
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go, io as pio

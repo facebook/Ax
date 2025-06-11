@@ -11,7 +11,7 @@ from typing import Mapping, Sequence
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate, CVResult
-from ax.analysis.analysis import AnalysisCardBase
+from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import AX_BLUE
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
