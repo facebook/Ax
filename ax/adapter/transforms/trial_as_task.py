@@ -15,7 +15,7 @@ from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.utils import get_target_trial_index
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
@@ -72,14 +72,20 @@ class TrialAsTask(Transform):
             adapter=adapter,
             config=config,
         )
-        assert observations is not None, "TrialAsTask requires observations"
         assert adapter is not None, "TrialAsTask requires adapter"
-        # Identify values of trial.
-        trials = {obs.features.trial_index for obs in observations}
         if isinstance(search_space, RobustSearchSpace):
             raise UnsupportedError(
                 "TrialAsTask transform is not supported for RobustSearchSpace."
             )
+        if (observations is None or len(observations) == 0) and experiment_data is None:
+            raise DataRequiredError(
+                "`TrialAsTask` transform requires observations or experiment_data."
+            )
+        # Identify values of trial.
+        if experiment_data is not None:
+            trials = set(experiment_data.arm_data.index.get_level_values("trial_index"))
+        else:
+            trials = {obs.features.trial_index for obs in none_throws(observations)}
         if None in trials:
             raise ValueError(
                 "Unable to use trial as task since not all observations have "
@@ -108,8 +114,6 @@ class TrialAsTask(Transform):
                     )
         else:
             # Set TRIAL_PARAM for each trial to the corresponding trial_index.
-            # pyre-fixme[6]: Expected `Union[bytes, str, typing.SupportsInt]` for
-            #  1st param but got `Optional[np.int64]`.
             self.trial_level_map = {TRIAL_PARAM: {int(b): str(b) for b in trials}}
         if len(self.trial_level_map) == 1:
             level_dict = next(iter(self.trial_level_map.values()))
@@ -128,7 +132,7 @@ class TrialAsTask(Transform):
                 del self.trial_level_map[p_name]
                 continue
             if config is not None and "target_trial" in config:
-                target_trial = int(config["target_trial"])  # pyre-ignore [6]
+                target_trial = int(config["target_trial"])
             else:
                 target_trial = none_throws(
                     get_target_trial_index(
@@ -219,3 +223,15 @@ class TrialAsTask(Transform):
                 # pyre-fixme[61]: `pval` may not be initialized here.
                 obsf.trial_index = self.inverse_map[pval]
         return observation_features
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        arm_data = experiment_data.arm_data
+        for p_name, level_dict in self.trial_level_map.items():
+            arm_data[p_name] = arm_data.index.get_level_values("trial_index").map(
+                level_dict
+            )
+        return ExperimentData(
+            arm_data=arm_data, observation_data=experiment_data.observation_data
+        )

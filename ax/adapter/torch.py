@@ -55,6 +55,7 @@ from ax.core.observation import (
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import (
     ComparisonOp,
@@ -63,7 +64,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
-from ax.exceptions.core import DataRequiredError, UnsupportedError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
 from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
@@ -136,13 +137,19 @@ class TorchAdapter(Adapter):
         self.device: torch.device | None = torch_device
         self._default_model_gen_options: TConfig = default_model_gen_options or {}
 
-        # Handle init for multi-objective optimization.
         self.is_moo_problem: bool = False
+        self.preference_profile_name: str | None = None
         if optimization_config or (experiment and experiment.optimization_config):
             optimization_config = none_throws(
                 optimization_config or experiment.optimization_config
             )
+            # Handle init for multi-objective optimization.
             self.is_moo_problem = optimization_config.is_moo_problem
+
+            if isinstance(optimization_config, PreferenceOptimizationConfig):
+                self.preference_profile_name = (
+                    optimization_config.preference_profile_name
+                )
 
         # Tracks last set of observations used to fit the generator, to skip
         # generator fitting when it's not necessary.
@@ -629,25 +636,27 @@ class TorchAdapter(Adapter):
         aux_datasets = []
         # Extract datasets needed from auxiliary experiments
         # For preference exploration
-        aux_pe_exp_list = self._experiment.auxiliary_experiments_by_purpose.get(
-            AuxiliaryExperimentPurpose.PE_EXPERIMENT
-        )
-        if aux_pe_exp_list:
-            if len(aux_pe_exp_list) > 1:
-                logger.warning(
-                    "Multiple auxiliary preference exploration experiments are not yet "
-                    "supported. Using the first one only."
+        optimization_config = self._optimization_config
+        if isinstance(optimization_config, PreferenceOptimizationConfig):
+            target_pe_aux_exp_name = optimization_config.preference_profile_name
+            target_pe_aux_exp = none_throws(
+                self._experiment.find_auxiliary_experiment_by_name(
+                    purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+                    auxiliary_experiment_name=target_pe_aux_exp_name,
+                    raise_if_not_found=True,
                 )
-
-            aux_pe_exp = aux_pe_exp_list[0]
-            pe_exp, pe_data = aux_pe_exp.experiment, aux_pe_exp.data
+            )
+            # This is the name of the PE experiment on which we fit
+            # the learned objective preference model
+            self.preference_profile_name = target_pe_aux_exp_name
+            pe_exp, pe_data = target_pe_aux_exp.experiment, target_pe_aux_exp.data
 
             if pe_data.df.empty:
-                logger.warning(
-                    "No data found in the auxiliary preference exploration experiment. "
-                    "Skipping."
+                raise DataRequiredError(
+                    "No data found in the auxiliary preference exploration "
+                    "experiment. Play the preference game first or use another"
+                    "preference profile with recorded preference data."
                 )
-                return datasets
 
             pe_obs = observations_from_data(experiment=pe_exp, data=pe_data)
             pe_obs_features, pe_obs_data = separate_observations(pe_obs)
@@ -725,7 +734,7 @@ class TorchAdapter(Adapter):
             search_space_digest=search_space_digest,
         )
 
-        # Do not support handling of contextual datasets in legacy BoTorch generators
+        # Do not support handling of auxiliary datasets in legacy BoTorch generators
         if not isinstance(self.generator, LegacyBoTorchGenerator):
             datasets = self._update_w_aux_exp_datasets(datasets=datasets)
 
@@ -779,6 +788,19 @@ class TorchAdapter(Adapter):
         """
         if not self.parameters:
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
+
+        # Ensure the preference model we fit is the one used in optimization_config
+        if isinstance(optimization_config, PreferenceOptimizationConfig) and (
+            optimization_config.preference_profile_name != self.preference_profile_name
+        ):
+            raise UserInputError(
+                "The preference profile name in the optimization config does not match "
+                "the name of the preference profile used to fit the preference model. "
+                f"Expected {self.preference_profile_name} but got "
+                f"{optimization_config.preference_profile_name}. "
+                "Consider updating `experiment.optimization_config` and refit "
+                "the model before proceeding with gen."
+            )
 
         augmented_model_gen_options = {
             **self._default_model_gen_options,
@@ -968,6 +990,11 @@ class TorchAdapter(Adapter):
                 )
             else:
                 risk_measure = extract_risk_measure(risk_measure=risk_measure)
+
+        use_learned_objective = False
+        if isinstance(optimization_config, PreferenceOptimizationConfig):
+            use_learned_objective = True
+
         torch_opt_config = TorchOptConfig(
             objective_weights=obj_w,
             outcome_constraints=out_c,
@@ -981,6 +1008,7 @@ class TorchAdapter(Adapter):
             is_moo=optimization_config.is_moo_problem,
             risk_measure=risk_measure,
             fit_out_of_design=self._data_loader_config.fit_out_of_design,
+            use_learned_objective=use_learned_objective,
         )
         return search_space_digest, torch_opt_config
 

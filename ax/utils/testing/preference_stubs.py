@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 import torch
-from ax.core import Arm, GeneratorRun
+from ax.core import Arm, GeneratorRun, OptimizationConfig
 from ax.core.experiment import Experiment
 from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.service.utils.instantiation import InstantiationBase
@@ -85,6 +85,7 @@ def get_pbo_experiment(
     partial_data: bool = False,
     unbounded_search_space: bool = False,
     experiment_name: str = "pref_experiment",
+    optimization_config: OptimizationConfig | None = None,
 ) -> Experiment:
     """Create synthetic preferential BO experiment"""
     if tracking_metric_names is None:
@@ -100,17 +101,19 @@ def get_pbo_experiment(
         assert len(parameter_names) == num_parameters
 
     param_bounds = [10.0, 30.0] if not unbounded_search_space else [-1e9, 1e9]
-    sq = (
-        {param_name: np.mean(param_bounds) for param_name in parameter_names}
-        if include_sq
-        else None
-    )
+    if include_sq:
+        sq = {param_name: np.mean(param_bounds) for param_name in parameter_names}
+        sq_arm = Arm(parameters=sq)
+    else:
+        sq = None
+        sq_arm = None
+
     parameters = [
         {
             "name": param_name,
             "type": "range",
             # make the default search space non-unit for better clarity in testing
-            "bounds": param_bounds,
+            "bounds": param_bounds,  # Changed from list to tuple
         }
         for param_name in parameter_names
     ]
@@ -119,27 +122,43 @@ def get_pbo_experiment(
         num_preference_trials > 0 or num_preference_trials_w_repeated_arm > 0
     )
 
-    if has_preference_query:
-        objectives = {Keys.PAIRWISE_PREFERENCE_QUERY.value: "maximize"}
+    if optimization_config:
+        opt_config = optimization_config
+    elif has_preference_query:
+        opt_config = InstantiationBase.make_optimization_config(
+            objectives={Keys.PAIRWISE_PREFERENCE_QUERY.value: "maximize"},
+            objective_thresholds=[],
+            outcome_constraints=[],
+            status_quo_defined=True,
+        )
     elif len(tracking_metric_names) > 0:
-        objectives = {tracking_metric_names[0]: "maximize"}
+        opt_config = InstantiationBase.make_optimization_config(
+            objectives={tracking_metric_names[0]: "maximize"},
+            objective_thresholds=[],
+            outcome_constraints=[],
+            status_quo_defined=True,
+        )
     else:
-        objectives = None
+        opt_config = None
 
-    experiment = InstantiationBase.make_experiment(
+    tracking_metrics = [
+        InstantiationBase._make_metric(name=metric_name)
+        for metric_name in tracking_metric_names
+    ]
+
+    experiment = Experiment(
         name=experiment_name,
         description="This is a test exp",
         experiment_type="NOTEBOOK",
-        owners=["test_owner"],
-        # pyre-ignore: Incompatible parameter type [6]
-        parameters=parameters,
-        objectives=objectives,
-        tracking_metric_names=tracking_metric_names,
+        search_space=InstantiationBase.make_search_space(
+            # pyre-fixme[6]: Incompatible parameter type
+            parameters=parameters,
+            parameter_constraints=None,
+        ),
+        optimization_config=opt_config,
+        tracking_metrics=tracking_metrics,
         is_test=True,
-        # pyre-fixme[6]: For 9th argument expected `Optional[Dict[str, Union[None,
-        #  bool, float, int, str]]]` but got `Optional[Dict[str,
-        #  floating[typing.Any]]]`.
-        status_quo=sq,
+        status_quo=sq_arm,
     )
 
     # Adding arms with experimental metrics

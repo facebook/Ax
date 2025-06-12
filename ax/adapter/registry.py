@@ -33,7 +33,6 @@ from ax.adapter.transforms.choice_encode import (
 from ax.adapter.transforms.derelativize import Derelativize
 from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
 from ax.adapter.transforms.int_to_float import IntToFloat, LogIntToFloat
-from ax.adapter.transforms.ivw import IVW
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.logit import Logit
 from ax.adapter.transforms.merge_repeated_measurements import MergeRepeatedMeasurements
@@ -142,7 +141,7 @@ Mixed_transforms: list[type[Transform]] = [
     UnitX,
 ]
 
-Y_trans: list[type[Transform]] = [IVW, Derelativize, BilogY, StandardizeY]
+Y_trans: list[type[Transform]] = [Derelativize, BilogY, StandardizeY]
 
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.

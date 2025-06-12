@@ -6,6 +6,8 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from itertools import groupby
 
 from ax.core.metric import Metric
@@ -19,6 +21,7 @@ from ax.core.outcome_constraint import (
 from ax.core.risk_measures import RiskMeasure
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
+from pyre_extensions import assert_is_instance
 
 
 TRefPoint = list[ObjectiveThreshold]
@@ -457,3 +460,76 @@ def check_objective_thresholds_match_objectives(
                 f"but {metric_name} is being "
                 f"{'minimized' if minimize else 'maximized'}."
             )
+
+
+class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
+    def __init__(
+        self,
+        objective: MultiObjective,
+        preference_profile_name: str,
+        outcome_constraints: list[OutcomeConstraint] | None = None,
+    ) -> None:
+        """Inits PreferenceOptimizationConfig.
+
+        Args:
+            objective: Metric+direction to use for the optimization. Should be a
+                MultiObjective.
+            preference_profile_name: The name of the auxiliary experiment to use as the
+                preference profile for the experiment. An auxiliary experiment with
+                this name and purpose PE_EXPERIMENT should be attached to
+                the experiment.
+            outcome_constraints: Constraints on metrics. Not yet supported.
+        """
+        if outcome_constraints:
+            raise NotImplementedError(
+                "Outcome constraints are not yet supported in "
+                "PreferenceOptimizationConfig"
+            )
+
+        # Call parent's __init__ with objective_thresholds=None and risk_measure=None
+        super().__init__(
+            objective=objective,
+            outcome_constraints=outcome_constraints,
+            objective_thresholds=None,
+            risk_measure=None,
+        )
+        self.preference_profile_name = preference_profile_name
+
+    # pyre-ignore[14]: Inconsistent override.
+    def clone_with_args(
+        self,
+        objective: MultiObjective | None = None,
+        preference_profile_name: str | None = None,
+        outcome_constraints: list[OutcomeConstraint] | None = None,
+    ) -> PreferenceOptimizationConfig:
+        """Make a copy of this optimization config."""
+        objective = (
+            assert_is_instance(self.objective.clone(), MultiObjective)
+            if objective is None
+            else objective
+        )
+
+        preference_profile_name = (
+            self.preference_profile_name
+            if preference_profile_name is None
+            else preference_profile_name
+        )
+        outcome_constraints = (
+            [constraint.clone() for constraint in self.outcome_constraints]
+            if outcome_constraints is None
+            else outcome_constraints
+        )
+
+        return PreferenceOptimizationConfig(
+            objective=objective,
+            preference_profile_name=preference_profile_name,
+            outcome_constraints=outcome_constraints,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            "objective=" + repr(self.objective) + ", "
+            "preference_profile_name=" + repr(self.preference_profile_name) + ", "
+            "outcome_constraints=" + repr(self.outcome_constraints)
+        )

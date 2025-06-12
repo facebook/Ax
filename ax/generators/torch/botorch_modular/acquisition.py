@@ -17,7 +17,7 @@ from typing import Any, Mapping, Sequence
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxError, SearchSpaceExhausted
+from ax.exceptions.core import AxError, DataRequiredError, SearchSpaceExhausted
 from ax.generators.model_utils import (
     all_ordinal_features_are_integer_valued,
     enumerate_discrete_combinations,
@@ -238,6 +238,18 @@ class Acquisition(Base):
                 if subset_idcs is not None
                 else self._objective_thresholds
             )
+
+        learned_objective_preference_model = None
+        if torch_opt_config.use_learned_objective:
+            if (Keys.PAIRWISE_PREFERENCE_QUERY.value,) not in surrogate._submodels:
+                raise DataRequiredError(
+                    "PreferenceOptimizationConfig is used but missing "
+                    "preference objective model. Double check if the preference "
+                    "exploration auxiliary experiment has data."
+                )
+            learned_objective_preference_model = surrogate._submodels[
+                (Keys.PAIRWISE_PREFERENCE_QUERY.value,)
+            ]
         objective, posterior_transform = self.get_botorch_objective_and_transform(
             botorch_acqf_class=botorch_acqf_class,
             model=model,
@@ -246,7 +258,9 @@ class Acquisition(Base):
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
             risk_measure=torch_opt_config.risk_measure,
+            learned_objective_preference_model=learned_objective_preference_model,
         )
+
         target_fidelities = {
             k: v
             for k, v in search_space_digest.target_values.items()
@@ -528,6 +542,7 @@ class Acquisition(Base):
         outcome_constraints: tuple[Tensor, Tensor] | None = None,
         X_observed: Tensor | None = None,
         risk_measure: RiskMeasureMCObjective | None = None,
+        learned_objective_preference_model: Model | None = None,
     ) -> tuple[MCAcquisitionObjective | None, PosteriorTransform | None]:
         return get_botorch_objective_and_transform(
             botorch_acqf_class=botorch_acqf_class,
@@ -536,4 +551,5 @@ class Acquisition(Base):
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
             risk_measure=risk_measure,
+            learned_objective_preference_model=learned_objective_preference_model,
         )

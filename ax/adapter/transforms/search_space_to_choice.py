@@ -14,9 +14,10 @@ from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.exceptions.core import UnsupportedError
+from ax.core.types import TParameterization, TParamValue
+from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.generators.types import TConfig
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -44,7 +45,10 @@ class SearchSpaceToChoice(Transform):
         config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "SearchSpaceToChoice requires search space"
-        assert observations is not None, "SeachSpaceToChoice requires observations"
+        if (observations is None or len(observations) == 0) and experiment_data is None:
+            raise DataRequiredError(
+                "`SeachSpaceToChoice` transform requires non-empty data."
+            )
         super().__init__(
             search_space=search_space,
             observations=observations,
@@ -62,14 +66,28 @@ class SearchSpaceToChoice(Transform):
                 "SearchSpaceToChoice transform is not supported for RobustSearchSpace."
             )
         self.parameter_name = "arms"
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.signature_to_parameterization = {
-            Arm(parameters=obs.features.parameters).signature: obs.features.parameters
-            for obs in observations
-        }
+        self.parameter_names: list[str] = list(search_space.parameters)
+        if experiment_data is not None:
+            arm_data = experiment_data.arm_data
+            if arm_data.empty:
+                raise DataRequiredError(
+                    "SearchSpaceToChoice transform requires non-empty experiment data."
+                )
+            arm_data = arm_data[self.parameter_names]
+            self.signature_to_parameterization: dict[str, TParameterization] = {
+                Arm(parameters=row).signature: row.copy()
+                for row in arm_data.to_dict(orient="records")
+            }
+        else:
+            self.signature_to_parameterization: dict[str, TParameterization] = {
+                Arm(
+                    parameters=obs.features.parameters.copy()
+                ).signature: obs.features.parameters
+                for obs in none_throws(observations)
+            }
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        values = list(self.signature_to_parameterization.keys())
+        values: list[TParamValue] = list(self.signature_to_parameterization.keys())
         if len(values) > 1:
             parameter = ChoiceParameter(
                 name=self.parameter_name,
@@ -106,6 +124,23 @@ class SearchSpaceToChoice(Transform):
         for obsf in observation_features:
             # Do not untransform empty dict as it wasn't transformed in the first place
             if len(obsf.parameters) != 0:
-                signature = obsf.parameters[self.parameter_name]
+                signature = assert_is_instance(
+                    obsf.parameters[self.parameter_name], str
+                )
                 obsf.parameters = self.signature_to_parameterization[signature]
         return observation_features
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        arm_data = experiment_data.arm_data
+        if arm_data.empty:
+            return experiment_data
+        arm_data[self.parameter_name] = arm_data[self.parameter_names].apply(
+            lambda row: Arm(parameters=row).signature, axis=1
+        )
+        arm_data = arm_data[[self.parameter_name, "metadata"]]
+        return ExperimentData(
+            arm_data=arm_data,
+            observation_data=experiment_data.observation_data,
+        )

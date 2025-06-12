@@ -16,6 +16,7 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
+from ax.core.experiment import sort_by_trial_index_and_arm_name
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -65,6 +66,7 @@ from ax.utils.testing.core_stubs import (
     get_test_map_data_experiment,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
+from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
 DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
@@ -696,6 +698,81 @@ class ExperimentTest(TestCase):
         self.assertEqual(
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
         )
+
+    def test_attach_and_sort_data(self) -> None:
+        n = 4
+        exp = self._setupBraninExperiment(n)
+        batch = exp.trials[0]
+        batch.mark_completed()
+        self.assertEqual(exp.completed_trials, [batch])
+
+        # test sorting data
+        unsorted_df = pd.DataFrame(
+            {
+                "arm_name": [
+                    "0_0",
+                    "0_2",
+                    "0_11",
+                    "0_1",
+                    "status_quo",
+                    "1_0",
+                    "1_1",
+                    "1_2",
+                    "1_13",
+                ],
+                "metric_name": ["b"] * 9,
+                "mean": list(range(1, 10)),
+                "sem": [0.1 + i * 0.05 for i in range(9)],
+                "trial_index": [0, 0, 0, 0, 0, 1, 1, 1, 1],
+            }
+        )
+
+        sorted_dfs = []
+        sorted_dfs.append(
+            pd.DataFrame(
+                {
+                    "trial_index": [0] * 5,
+                    "arm_name": [
+                        "status_quo",
+                        "0_0",
+                        "0_1",
+                        "0_2",
+                        "0_11",
+                    ],
+                    "metric_name": ["b"] * 5,
+                    "mean": [5.0, 1.0, 4.0, 2.0, 3.0],
+                    "sem": [0.3, 0.1, 0.25, 0.15, 0.2],
+                }
+            )
+        )
+
+        sorted_dfs.append(
+            pd.DataFrame(
+                {
+                    "trial_index": [1] * 4,
+                    "arm_name": [
+                        "1_0",
+                        "1_1",
+                        "1_2",
+                        "1_13",
+                    ],
+                    "metric_name": ["b"] * 4,
+                    "mean": [6.0, 7.0, 8.0, 9.0],
+                    "sem": [0.35, 0.4, 0.45, 0.5],
+                }
+            )
+        )
+
+        exp.attach_data(
+            Data(
+                df=unsorted_df,
+            )
+        )
+        for trial_index in [0, 1]:
+            assert_frame_equal(
+                list(exp.data_by_trial[trial_index].values())[0].df,
+                sorted_dfs[trial_index],
+            )
 
     def test_immutable_search_space_and_opt_config(self) -> None:
         mutable_exp = self._setupBraninExperiment(n=5)
@@ -1750,3 +1827,73 @@ class ExperimentWithMapDataTest(TestCase):
             experiment._name_and_store_arm_if_not_exists(
                 arm=arm_2, proposed_name="different proposed name"
             )
+
+    def test_sorting_data_by_trial_index_and_arm_name(self) -> None:
+        # test sorting data
+        unsorted_df = pd.DataFrame(
+            {
+                "trial_index": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+                "arm_name": [
+                    "0_0",
+                    "0_2",
+                    "custom_arm_1",
+                    "0_11",
+                    "status_quo",
+                    "0_1",
+                    "1_0",
+                    "custom_arm_2",
+                    "1_1",
+                    "status_quo",
+                    "1_2",
+                    "1_3",
+                ],
+                "metric_name": ["b"] * 12,
+                "mean": [float(x) for x in range(1, 13)],
+                "sem": [0.1 + i * 0.05 for i in range(12)],
+            }
+        )
+
+        expected_sorted_df = pd.DataFrame(
+            {
+                "trial_index": [0] * 6 + [1] * 6,
+                "arm_name": [
+                    "custom_arm_1",
+                    "status_quo",
+                    "0_0",
+                    "0_1",
+                    "0_2",
+                    "0_11",
+                    "custom_arm_2",
+                    "status_quo",
+                    "1_0",
+                    "1_1",
+                    "1_2",
+                    "1_3",
+                ],
+                "metric_name": ["b"] * 12,
+                "mean": [3.0, 5.0, 1.0, 6.0, 2.0, 4.0, 8.0, 10.0, 7.0, 9.0, 11.0, 12.0],
+                "sem": [
+                    0.2,
+                    0.3,
+                    0.1,
+                    0.35,
+                    0.15,
+                    0.25,
+                    0.45,
+                    0.55,
+                    0.4,
+                    0.5,
+                    0.6,
+                    0.65,
+                ],
+            }
+        )
+
+        sorted_df = sort_by_trial_index_and_arm_name(
+            df=unsorted_df,
+        )
+
+        assert_frame_equal(
+            sorted_df,
+            expected_sorted_df,
+        )

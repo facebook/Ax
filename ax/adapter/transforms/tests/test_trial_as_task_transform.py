@@ -9,7 +9,8 @@
 from copy import deepcopy
 
 import numpy as np
-from ax.adapter.base import Adapter
+from ax.adapter.base import Adapter, DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.trial_as_task import TrialAsTask
 from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -18,6 +19,8 @@ from ax.exceptions.core import UnsupportedError
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment, get_robust_search_space
+from pandas.testing import assert_frame_equal
+from pyre_extensions import assert_is_instance
 
 
 class TrialAsTaskTransformTest(TestCase):
@@ -40,6 +43,9 @@ class TrialAsTaskTransformTest(TestCase):
         self.exp.trials[0].mark_completed()
         self.exp.fetch_data()
 
+        self.experiment_data = extract_experiment_data(
+            experiment=self.exp, data_loader_config=DataLoaderConfig()
+        )
         self.training_feats = [
             ObservationFeatures({"x1": 1, "x2": 1}, trial_index=0),
             ObservationFeatures({"x1": 2, "x2": 2}, trial_index=0),
@@ -58,7 +64,7 @@ class TrialAsTaskTransformTest(TestCase):
 
         self.t = TrialAsTask(
             search_space=self.exp.search_space,
-            observations=self.training_obs,
+            experiment_data=self.experiment_data,
             adapter=self.adapter,
         )
         self.bm = {
@@ -195,13 +201,10 @@ class TrialAsTaskTransformTest(TestCase):
         ss2 = deepcopy(self.exp.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(set(ss2.parameters.keys()), {"x1", "x2", "TRIAL_PARAM"})
-        p = ss2.parameters["TRIAL_PARAM"]
+        p = assert_is_instance(ss2.parameters["TRIAL_PARAM"], ChoiceParameter)
         self.assertEqual(p.parameter_type, ParameterType.STRING)
-        # pyre-fixme[16]: `Parameter` has no attribute `values`.
         self.assertEqual(set(p.values), {"0", "1", "2"})
-        # pyre-fixme[16]: `Parameter` has no attribute `is_task`.
         self.assertTrue(p.is_task)
-        # pyre-fixme[16]: `Parameter` has no attribute `is_ordered`.
         self.assertFalse(p.is_ordered)
         self.assertEqual(p.target_value, "1")
         ss2 = deepcopy(self.exp.search_space)
@@ -234,7 +237,7 @@ class TrialAsTaskTransformTest(TestCase):
         )
         ss2 = deepcopy(self.exp.search_space)
         ss2 = t.transform_search_space(ss2)
-        p = ss2.parameters["trial_index"]
+        p = assert_is_instance(ss2.parameters["trial_index"], ChoiceParameter)
         self.assertEqual(p.parameter_type, ParameterType.INT)
         self.assertEqual(set(p.values), {10, 11, 12})
         self.assertTrue(p.is_ordered)
@@ -254,7 +257,7 @@ class TrialAsTaskTransformTest(TestCase):
     def test_less_than_two_trials(self) -> None:
         # test transform is a no-op with less than two trials
         exp = get_branin_experiment()
-        exp.new_trial().add_arm(Arm(parameters={"x": 1}))
+        exp.new_trial().add_arm(Arm(parameters={"x1": 1, "x2": 1}))
         adapter = Adapter(
             search_space=exp.search_space,
             generator=Generator(),
@@ -281,8 +284,8 @@ class TrialAsTaskTransformTest(TestCase):
     def test_less_than_two_levels(self) -> None:
         # test transform is a no-op with less than two trials
         exp = get_branin_experiment()
-        exp.new_trial().add_arm(Arm(parameters={"x": 1}))
-        exp.new_trial().add_arm(Arm(parameters={"x": 2}))
+        exp.new_trial().add_arm(Arm(parameters={"x1": 1, "x2": 1}))
+        exp.new_trial().add_arm(Arm(parameters={"x1": 2, "x2": 2}))
         adapter = Adapter(
             search_space=exp.search_space,
             generator=Generator(),
@@ -306,3 +309,39 @@ class TrialAsTaskTransformTest(TestCase):
         )
         ss2 = exp.search_space.clone()
         self.assertEqual(t.transform_search_space(ss2), exp.search_space)
+
+    def test_transform_experiment_data(self) -> None:
+        # Experiment data has 16 rows for trial 0 and 2 rows each for trials 1 & 2.
+        def make_expected(values: tuple[str, str, str]) -> list[str]:
+            return [values[0]] * 16 + [values[1]] * 2 + [values[2]] * 2
+
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(self.experiment_data)
+        )
+        # Check that arm data has trial parameter added.
+        self.assertEqual(
+            transformed_data.arm_data["TRIAL_PARAM"].to_list(),
+            make_expected(values=("0", "1", "2")),
+        )
+        # Check that other columns are unchanged.
+        assert_frame_equal(
+            transformed_data.arm_data.drop(columns="TRIAL_PARAM"),
+            self.experiment_data.arm_data,
+        )
+        # Check that observation data is unchanged.
+        assert_frame_equal(
+            transformed_data.observation_data, self.experiment_data.observation_data
+        )
+
+        # Test with alternative transform config.
+        transformed_data = self.t2.transform_experiment_data(
+            experiment_data=deepcopy(self.experiment_data)
+        )
+        self.assertEqual(
+            transformed_data.arm_data["bp1"].to_list(),
+            make_expected(values=("v1", "v2", "v3")),
+        )
+        self.assertEqual(
+            transformed_data.arm_data["bp2"].to_list(),
+            make_expected(values=("u1", "u1", "u2")),
+        )

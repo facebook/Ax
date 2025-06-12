@@ -77,9 +77,7 @@ class TransformUtilsTest(TestCase):
             optimization_config=optimization_config,
         )
         new_opt_config = derelativize_optimization_config_with_raw_status_quo(
-            optimization_config=optimization_config,
-            adapter=adapter,
-            observations=OBSERVATION_DATA,
+            optimization_config=optimization_config, adapter=adapter
         )
         expected_bound_values = {"m1": 0.9975, "m2": 1.995, "m3": 5.985}
         for oc in new_opt_config.all_constraints:

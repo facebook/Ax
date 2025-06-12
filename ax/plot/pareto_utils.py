@@ -21,10 +21,9 @@ from ax.adapter.adapter_utils import (
     observed_pareto_frontier,
 )
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.registry import Generators
+from ax.adapter.registry import Generators, MBM_X_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.derelativize import derelativize_bound
-from ax.adapter.transforms.search_space_to_float import SearchSpaceToFloat
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -160,7 +159,7 @@ def _relativize_values(
             sem_c=sq_sem,
             as_percent=True,
         )
-        means, sems = list(means), list(sems)
+        means, sems = means_arr.tolist(), sems_arr.tolist()
     return means, sems
 
 
@@ -211,8 +210,8 @@ def get_observed_pareto_frontiers(
             # Make sure status quo is always included, for derelativization
             arm_names.append(experiment.status_quo.name)
         data = Data(data.df[data.df["arm_name"].isin(arm_names)])
-    mb = get_tensor_converter_adapter(experiment=experiment, data=data)
-    pareto_observations = observed_pareto_frontier(adapter=mb)
+    adapter = get_tensor_converter_adapter(experiment=experiment, data=data)
+    pareto_observations = observed_pareto_frontier(adapter=adapter)
     # Convert to ParetoFrontierResults
     objective_metric_names = {
         metric.name
@@ -315,7 +314,9 @@ def to_nonrobust_search_space(search_space: SearchSpace) -> SearchSpace:
         return search_space
 
 
-def get_tensor_converter_adapter(experiment: Experiment, data: Data) -> TorchAdapter:
+def get_tensor_converter_adapter(
+    experiment: Experiment, data: Data | None = None
+) -> TorchAdapter:
     """
     Constructs a minimal model for converting things to tensors.
 
@@ -338,7 +339,7 @@ def get_tensor_converter_adapter(experiment: Experiment, data: Data) -> TorchAda
         search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
         generator=TorchGenerator(),
-        transforms=[SearchSpaceToFloat],
+        transforms=MBM_X_trans,
         data_loader_config=DataLoaderConfig(
             fit_out_of_design=True,
         ),
