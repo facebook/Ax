@@ -8,6 +8,7 @@
 
 import logging
 import warnings
+from itertools import product
 from typing import Any
 
 import torch
@@ -37,6 +38,7 @@ from ax.utils.testing.core_stubs import (
     run_branin_experiment_with_generation_strategy,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -66,9 +68,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
             device = torch.device("cpu")
             sobol_gpei = choose_generation_strategy_legacy(
-                search_space=get_branin_search_space(),
-                verbose=True,
-                torch_device=device,
+                search_space=get_branin_search_space(), torch_device=device
             )
             expected_model_kwargs["torch_device"] = device
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
@@ -139,7 +139,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("Sobol (because of too many categories)"):
             sobol_large = choose_generation_strategy_legacy(
-                search_space=get_large_factorial_search_space(), verbose=True
+                search_space=get_large_factorial_search_space()
             )
             self.assertEqual(sobol_large._steps[0].generator, Generators.SOBOL)
             self.assertEqual(len(sobol_large._steps), 1)
@@ -148,9 +148,7 @@ class TestDispatchUtils(TestCase):
                 choose_generation_strategy_legacy.__module__, logging.WARNING
             ) as logger:
                 sobol_large = choose_generation_strategy_legacy(
-                    search_space=get_large_factorial_search_space(),
-                    verbose=True,
-                    use_saasbo=True,
+                    search_space=get_large_factorial_search_space(), use_saasbo=True
                 )
                 self.assertTrue(
                     any(
@@ -255,7 +253,12 @@ class TestDispatchUtils(TestCase):
             )
             self.assertEqual(sobol_fullybayesian._steps[0].generator, Generators.SOBOL)
             self.assertEqual(sobol_fullybayesian._steps[0].num_trials, 3)
-            self.assertEqual(sobol_fullybayesian._steps[1].generator, Generators.SAASBO)
+            bo_step = sobol_fullybayesian._steps[1]
+            self.assertEqual(bo_step.generator, Generators.BOTORCH_MODULAR)
+            model_config = bo_step.model_kwargs["surrogate_spec"].model_configs[0]
+            self.assertEqual(
+                model_config.botorch_model_class, SaasFullyBayesianSingleTaskGP
+            )
         with self.subTest("SAASBO MOO"):
             sobol_fullybayesianmoo = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
@@ -270,9 +273,11 @@ class TestDispatchUtils(TestCase):
                 sobol_fullybayesianmoo._steps[0].generator, Generators.SOBOL
             )
             self.assertEqual(sobol_fullybayesianmoo._steps[0].num_trials, 3)
+            bo_step = sobol_fullybayesianmoo._steps[1]
+            self.assertEqual(bo_step.generator, Generators.BOTORCH_MODULAR)
+            model_config = bo_step.model_kwargs["surrogate_spec"].model_configs[0]
             self.assertEqual(
-                sobol_fullybayesianmoo._steps[1].generator,
-                Generators.SAASBO,
+                model_config.botorch_model_class, SaasFullyBayesianSingleTaskGP
             )
         with self.subTest("SAASBO"):
             sobol_fullybayesian_large = choose_generation_strategy_legacy(
@@ -285,10 +290,13 @@ class TestDispatchUtils(TestCase):
                 sobol_fullybayesian_large._steps[0].generator, Generators.SOBOL
             )
             self.assertEqual(sobol_fullybayesian_large._steps[0].num_trials, 30)
+            bo_step = sobol_fullybayesian_large._steps[1]
+            self.assertEqual(bo_step.generator, Generators.BOTORCH_MODULAR)
+            model_config = bo_step.model_kwargs["surrogate_spec"].model_configs[0]
             self.assertEqual(
-                sobol_fullybayesian_large._steps[1].generator,
-                Generators.SAASBO,
+                model_config.botorch_model_class, SaasFullyBayesianSingleTaskGP
             )
+
         with self.subTest("num_initialization_trials"):
             ss = get_large_factorial_search_space()
             for _, param in ss.parameters.items():
@@ -351,62 +359,6 @@ class TestDispatchUtils(TestCase):
                 "Winsorize": {"derelativize_with_raw_status_quo": False},
             },
         )
-
-    @mock_botorch_optimize
-    def test_disable_progbar(self) -> None:
-        for disable_progbar in (True, False):
-            with self.subTest(str(disable_progbar)):
-                sobol_saasbo = choose_generation_strategy_legacy(
-                    search_space=get_branin_search_space(),
-                    disable_progbar=disable_progbar,
-                    use_saasbo=True,
-                )
-                self.assertEqual(sobol_saasbo._steps[0].generator, Generators.SOBOL)
-                self.assertNotIn(
-                    "disable_progbar",
-                    none_throws(sobol_saasbo._steps[0].model_kwargs),
-                )
-                self.assertEqual(sobol_saasbo._steps[1].generator, Generators.SAASBO)
-                self.assertNotIn(
-                    "disable_progbar",
-                    none_throws(sobol_saasbo._steps[0].model_kwargs),
-                )
-                # TODO[T164389105] Rewrite choose_generation_strategy to be MBM first
-                # Once this task is complete we should check disable_progbar gets
-                # propagated correctly (right now it is dropped). Ex.:
-                # self.assertEqual(
-                #     none_throws(sobol_saasbo._steps[1].model_kwargs)["disable_progbar"],
-                #     disable_progbar,
-                # )
-                run_branin_experiment_with_generation_strategy(
-                    generation_strategy=sobol_saasbo
-                )
-
-    @mock_botorch_optimize
-    def test_disable_progbar_for_non_saasbo_discards_the_model_kwarg(self) -> None:
-        for disable_progbar in (True, False):
-            with self.subTest(str(disable_progbar)):
-                gp_saasbo = choose_generation_strategy_legacy(
-                    search_space=get_branin_search_space(),
-                    disable_progbar=disable_progbar,
-                    use_saasbo=False,
-                )
-                self.assertEqual(len(gp_saasbo._steps), 2)
-                self.assertEqual(gp_saasbo._steps[0].generator, Generators.SOBOL)
-                self.assertNotIn(
-                    "disable_progbar",
-                    none_throws(gp_saasbo._steps[0].model_kwargs),
-                )
-                self.assertEqual(
-                    gp_saasbo._steps[1].generator, Generators.BOTORCH_MODULAR
-                )
-                self.assertNotIn(
-                    "disable_progbar",
-                    none_throws(gp_saasbo._steps[1].model_kwargs),
-                )
-                run_branin_experiment_with_generation_strategy(
-                    generation_strategy=gp_saasbo
-                )
 
     def test_setting_random_seed(self) -> None:
         sobol = choose_generation_strategy_legacy(
@@ -752,57 +704,72 @@ class TestDispatchUtils(TestCase):
             )
 
     @mock_botorch_optimize
-    def test_jit_compile(self) -> None:
-        for jit_compile in (True, False):
-            with self.subTest(str(jit_compile)):
+    def test_saas_options(self) -> None:
+        for jit_compile, use_input_warping, disable_progbar in product(
+            (True, False), (True, False), (True, False)
+        ):
+            with self.subTest(
+                f"jit_compile: {jit_compile}, use_input_warping: {use_input_warping},"
+                f" disable_progbar: {disable_progbar}"
+            ):
                 sobol_saasbo = choose_generation_strategy_legacy(
                     search_space=get_branin_search_space(),
                     jit_compile=jit_compile,
+                    disable_progbar=disable_progbar,
                     use_saasbo=True,
+                    use_input_warping=use_input_warping,
                 )
                 self.assertEqual(sobol_saasbo._steps[0].generator, Generators.SOBOL)
                 self.assertNotIn(
                     "jit_compile",
                     none_throws(sobol_saasbo._steps[0].model_kwargs),
                 )
-                self.assertEqual(sobol_saasbo._steps[1].generator, Generators.SAASBO)
                 self.assertNotIn(
-                    "jit_compile",
+                    "disable_progbar",
                     none_throws(sobol_saasbo._steps[0].model_kwargs),
                 )
-                # TODO[T164389105] Rewrite choose_generation_strategy to be MBM first
-                # Once this task is complete we should check jit_compile gets
-                # propagated correctly (right now it is dropped). Ex.:
-                # self.assertEqual(
-                #     none_throws(sobol_saasbo._steps[1].model_kwargs)["jit_compile"],
-                #     jit_compile,
-                # )
+                bo_step = sobol_saasbo._steps[1]
+                self.assertEqual(bo_step.generator, Generators.BOTORCH_MODULAR)
+                model_config = bo_step.model_kwargs["surrogate_spec"].model_configs[0]
+                self.assertIs(
+                    model_config.botorch_model_class, SaasFullyBayesianSingleTaskGP
+                )
+                self.assertEqual(model_config.mll_options["jit_compile"], jit_compile)
+                self.assertEqual(
+                    model_config.mll_options["disable_progbar"], disable_progbar
+                )
+                self.assertEqual(
+                    model_config.model_options["use_input_warping"], use_input_warping
+                )
                 run_branin_experiment_with_generation_strategy(
                     generation_strategy=sobol_saasbo,
                 )
 
     @mock_botorch_optimize
-    def test_jit_compile_for_non_saasbo_discards_the_model_kwarg(self) -> None:
-        for jit_compile in (True, False):
+    def test_non_saasbo_discards_irrelevant_model_kwargs(self) -> None:
+        for jit_compile, use_input_warping, disable_progbar in product(
+            (True, False), (True, False), (True, False)
+        ):
             with self.subTest(str(jit_compile)):
                 gp_saasbo = choose_generation_strategy_legacy(
                     search_space=get_branin_search_space(),
                     jit_compile=jit_compile,
+                    disable_progbar=disable_progbar,
                     use_saasbo=False,
+                    use_input_warping=use_input_warping,
                 )
                 self.assertEqual(len(gp_saasbo._steps), 2)
                 self.assertEqual(gp_saasbo._steps[0].generator, Generators.SOBOL)
                 self.assertNotIn(
-                    "jit_compile",
-                    none_throws(gp_saasbo._steps[0].model_kwargs),
+                    "jit_compile", none_throws(gp_saasbo._steps[0].model_kwargs)
                 )
-                self.assertEqual(
-                    gp_saasbo._steps[1].generator, Generators.BOTORCH_MODULAR
-                )
-                self.assertNotIn(
-                    "jit_compile",
-                    none_throws(gp_saasbo._steps[1].model_kwargs),
-                )
+                bo_step = gp_saasbo._steps[1]
+                self.assertEqual(bo_step.generator, Generators.BOTORCH_MODULAR)
+
+                model_kwargs = none_throws(bo_step.model_kwargs)
+                for k in ("jit_compile", "disable_progbar", "use_input_warping"):
+                    self.assertNotIn(k, model_kwargs)
+                self.assertNotIn("surrogate_spec", model_kwargs)
                 run_branin_experiment_with_generation_strategy(
                     generation_strategy=gp_saasbo,
                 )
