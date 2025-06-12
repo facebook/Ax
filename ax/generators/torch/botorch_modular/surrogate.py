@@ -37,6 +37,7 @@ from ax.generators.torch.botorch_modular.utils import (
     convert_to_block_design,
     copy_model_config_with_default_values,
     fit_botorch_model,
+    get_cv_fold,
     ModelConfig,
     subset_state_dict,
     use_model_list,
@@ -72,6 +73,7 @@ from botorch.models.transforms.input import (
     Normalize,
 )
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
+from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.settings import validate_input_scaling
 from botorch.utils.containers import SliceContainer
@@ -437,6 +439,8 @@ class SurrogateSpec:
         outcomes: List of outcomes names.
         use_posterior_predictive: Whether to use posterior predictive in
             cross-validation.
+        num_folds: The number of folds to use in cross-validation. If None, then
+            leave-one-out.
     """
 
     model_configs: list[ModelConfig] = field(default_factory=lambda: [ModelConfig()])
@@ -445,6 +449,7 @@ class SurrogateSpec:
     outcomes: list[str] = field(default_factory=list)
     allow_batched_models: bool = True
     use_posterior_predictive: bool = False
+    num_folds: int | None = 10
 
 
 class Surrogate(Base):
@@ -910,28 +915,31 @@ class Surrogate(Base):
         if isinstance(dataset, MultiTaskDataset):
             # only evaluate model on target task
             target_dataset = dataset.datasets[dataset.target_outcome_name]
-            X, Y = target_dataset.X, target_dataset.Y
         else:
-            X, Y = dataset.X, dataset.Y
-        train_mask = torch.ones(X.shape[0], dtype=torch.bool, device=X.device)
-        pred_Y = np.zeros(X.shape[-2])
-        pred_Yvar = np.zeros(X.shape[-2])
-        # TODO: add hyperparameter to set the number of folds
-        for i in range(X.shape[-2]):
-            train_mask[i] = 0
-            # split data into train and test
-            train_dataset = dataset.clone(mask=train_mask)
-            # Note: for MT models, `output_tasks` is set on the model, so we
-            # don't need to add the task feature here if missing
-            test_X = X[i : i + 1]
-            # fit model to all but one data point
-            # TODO: consider batchifying
+            target_dataset = dataset
+        X, Y = target_dataset.X, target_dataset.Y
+        num_folds = self.surrogate_spec.num_folds
+        if num_folds is None or num_folds > X.shape[0]:
+            num_folds = X.shape[0]
+        test_folds = np.array_split(
+            ary=torch.arange(X.shape[0], device=X.device),
+            indices_or_sections=num_folds,
+        )
+        cv_folds = (
+            get_cv_fold(dataset=dataset, X=X, Y=Y, idcs=idcs)  # pyre-ignore[6]
+            for idcs in test_folds
+        )
+
+        pred_Y = []
+        pred_Yvar = []
+        obs_Y = []
+        for fold in cv_folds:
             # Since each CV fold removes points from the training data, the
             # remaining observations will not pass the input scaling checks.
             # To avoid confusing users with warnings, we disable these checks.
             with validate_input_scaling(False):
                 loo_model = self._construct_model(
-                    dataset=train_dataset,
+                    dataset=fold.train_dataset,
                     search_space_digest=search_space_digest,
                     model_config=model_config,
                     state_dict=state_dict,
@@ -940,22 +948,30 @@ class Surrogate(Base):
             # evaluate model
             with torch.no_grad():
                 posterior = loo_model.posterior(
-                    test_X,
+                    fold.test_X,
                     observation_noise=self.surrogate_spec.use_posterior_predictive,
                 )
                 # TODO: support non-GPyTorch posteriors
                 posterior = assert_is_instance(posterior, GPyTorchPosterior)
-                pred_mean = posterior.mean
-                pred_var = posterior.variance
-            pred_Y[i] = pred_mean.view(-1).cpu().numpy()
-            pred_Yvar[i] = pred_var.view(-1).cpu().numpy()
-            train_mask[i] = 1
+                if isinstance(posterior, GaussianMixturePosterior):
+                    pred_mean = posterior.mixture_mean
+                    pred_var = posterior.mixture_variance
+                else:
+                    pred_mean = posterior.mean
+                    pred_var = posterior.variance
+            pred_Y.append(pred_mean)
+            pred_Yvar.append(pred_var)
+            obs_Y.append(fold.test_Y)
+        # Stack results
+        pred_Y = torch.cat(pred_Y)
+        pred_Yvar = torch.cat(pred_Yvar)
+        obs_Y = torch.cat(obs_Y)
         # evaluate model fit metric
         diag_fn = DIAGNOSTIC_FNS[none_throws(self.surrogate_spec.eval_criterion)]
         return diag_fn(
-            y_obs=Y.view(-1).cpu().numpy(),
-            y_pred=pred_Y,
-            se_pred=np.sqrt(pred_Yvar),
+            y_obs=obs_Y.view(-1).cpu().numpy(),
+            y_pred=pred_Y.view(-1).cpu().numpy(),
+            se_pred=np.sqrt(pred_Yvar.view(-1).cpu().numpy()),
         )
 
     def _discard_cached_model_and_data_if_search_space_digest_changed(
