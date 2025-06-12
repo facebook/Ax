@@ -1173,31 +1173,17 @@ class TestBenchmark(TestCase):
     def test_get_inference_trace_from_params(self) -> None:
         problem = get_single_objective_benchmark_problem()
         with self.subTest("No params"):
-            n_elements = 4
             result = _get_inference_trace_from_params(
-                best_params_list=[], problem=problem, n_elements=n_elements
+                best_params_list=[], problem=problem
             )
-            self.assertEqual(len(result), n_elements)
-            self.assertTrue(np.isnan(result).all())
+            self.assertEqual(len(result), 0)
 
-        with self.subTest("Wrong number of params"):
-            n_elements = 4
-            with self.assertRaisesRegex(RuntimeError, "Expected 4 elements"):
-                _get_inference_trace_from_params(
-                    best_params_list=[{"x0": 0.0, "x1": 0.0}],
-                    problem=problem,
-                    n_elements=n_elements,
-                )
-
-        with self.subTest("Correct number of params"):
-            n_elements = 2
+        with self.subTest("Normal case"):
             best_params_list = [{"x0": 0.0, "x1": 0.0}, {"x0": 1.0, "x1": 1.0}]
             result = _get_inference_trace_from_params(
                 best_params_list=best_params_list,
                 problem=problem,
-                n_elements=n_elements,
             )
-            self.assertEqual(len(result), n_elements)
             self.assertFalse(np.isnan(result).any())
             expected_trace = [
                 problem.test_function.evaluate_true(params=params).item()

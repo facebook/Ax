@@ -12,7 +12,6 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.trial_status import TrialStatus
 from ax.core.types import TParameterization
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 
@@ -61,9 +60,11 @@ class BenchmarkMethod(Base):
         self,
         experiment: Experiment,
         optimization_config: OptimizationConfig,
-    ) -> TParameterization:
+    ) -> TParameterization | None:
         """
-        Get the most promising point. NOTE: Only SOO is supported.
+        Get the most promising point.
+
+        Only SOO is supported. It will return None if no best point can be found.
 
         Args:
             experiment: The experiment to get the data from. This should contain
@@ -78,18 +79,6 @@ class BenchmarkMethod(Base):
                 "supported for multi-objective problems."
             )
 
-        if len(experiment.trials) == 0:
-            raise ValueError(
-                "Cannot identify a best point if experiment has no trials."
-            )
-
-        def _get_first_parameterization_from_last_trial() -> TParameterization:
-            return experiment.trials[max(experiment.trials)].arms[0].parameters
-
-        # Note: This has the same effect as orchestrator.get_best_parameters
-        if len(experiment.trials_by_status[TrialStatus.COMPLETED]) == 0:
-            return _get_first_parameterization_from_last_trial()
-
         result = BestPointMixin._get_best_trial(
             experiment=experiment,
             generation_strategy=self.generation_strategy,
@@ -98,6 +87,6 @@ class BenchmarkMethod(Base):
         if result is None:
             # This can happen if no points are predicted to satisfy all outcome
             # constraints.
-            return _get_first_parameterization_from_last_trial()
+            return None
         _, params, _ = none_throws(result)
         return params
