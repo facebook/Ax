@@ -514,7 +514,7 @@ def predict_from_model(
     changed to compute quantiles instead when Ax supports non-Gaussian distributions.
 
     Args:
-        model: A botorch Model.
+        model: A BoTorch Model.
         X: A `n x d` tensor of input parameters.
         use_posterior_predictive: A boolean indicating if the predictions
             should be from the posterior predictive (i.e. including
@@ -525,18 +525,26 @@ def predict_from_model(
         Tensor: The predicted posterior covariance as a `n x o x o`-dim tensor.
     """
     with torch.no_grad():
-        # TODO: Allow Posterior to (optionally) return the full covariance matrix
-        posterior = model.posterior(X, observation_noise=use_posterior_predictive)
-        if isinstance(posterior, GaussianMixturePosterior):
-            mean = posterior.mixture_mean.cpu().detach()
-            var = posterior.mixture_variance.cpu().detach().clamp_min(0)
-        elif isinstance(posterior, (GPyTorchPosterior, PosteriorList)):
-            mean = posterior.mean.cpu().detach()
-            var = posterior.variance.cpu().detach().clamp_min(0)
-        else:
-            raise UnsupportedError(
-                "Non-Gaussian posteriors are currently not supported."
-            )
+        means, variances = [], []
+        for x_ in X.split(4096):
+            # NOTE: Do not unsqueeze x_ here. Likely due to a matmul issue
+            # this ends up using a lot of memory with batched models.
+            # See https://github.com/pytorch/botorch/issues/2310.
+            posterior = model.posterior(x_, observation_noise=use_posterior_predictive)
+            if isinstance(posterior, GaussianMixturePosterior):
+                mean = posterior.mixture_mean.cpu().detach()
+                var = posterior.mixture_variance.cpu().detach().clamp_min(0)
+            elif isinstance(posterior, (GPyTorchPosterior, PosteriorList)):
+                mean = posterior.mean.cpu().detach()
+                var = posterior.variance.cpu().detach().clamp_min(0)
+            else:
+                raise UnsupportedError(
+                    "Non-Gaussian posteriors are currently not supported."
+                )
+            means.append(mean)
+            variances.append(var)
+        mean = torch.cat(means, dim=0)
+        var = torch.cat(variances, dim=0)
     cov = torch.diag_embed(var)
     return mean, cov
 
