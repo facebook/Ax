@@ -396,10 +396,9 @@ def _update_benchmark_tracking_vars_in_place(
         # problems, because Ax's best-point functionality doesn't know
         # to predict at the target task or fidelity.
         if compute_best_params:
-            (best_params,) = method.get_best_parameters(
+            best_params = method.get_best_parameters(
                 experiment=experiment,
                 optimization_config=problem.optimization_config,
-                n_points=problem.n_best_points,
             )
             best_params_list.append(best_params)
 

@@ -91,8 +91,6 @@ class BenchmarkProblem(Base):
             default) or the ``inference_trace``. See ``BenchmarkResult`` for
             more information. Currently, this is only supported for
             single-objective problems.
-        n_best_points: Number of points for a best-point selector to recommend.
-            Currently, only ``n_best_points=1`` is supported.
         step_runtime_function: Optionally, a function that takes in ``params``
             (typically dictionaries mapping strings to ``TParamValue``s) and
             returns the runtime of an step. If ``step_runtime_function`` is
@@ -111,7 +109,6 @@ class BenchmarkProblem(Base):
     baseline_value: float
     search_space: SearchSpace = field(repr=False)
     report_inference_value_as_trace: bool = False
-    n_best_points: int = 1
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
     target_fidelity_and_task: Mapping[str, TParamValue] = field(default_factory=dict)
     status_quo_params: Mapping[str, TParamValue] | None = None
@@ -121,8 +118,6 @@ class BenchmarkProblem(Base):
 
     def __post_init__(self) -> None:
         # Validate inputs
-        if self.n_best_points != 1:
-            raise NotImplementedError("Only `n_best_points=1` is currently supported.")
         if self.report_inference_value_as_trace and self.is_moo:
             raise NotImplementedError(
                 "Inference trace is not supported for MOO. Please set "
