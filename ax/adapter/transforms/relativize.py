@@ -25,6 +25,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
 from ax.utils.stats.statstools import relativize, unrelativize
 from pyre_extensions import none_throws
@@ -58,7 +59,6 @@ class BaseRelativize(Transform, ABC):
         config: TConfig | None = None,
     ) -> None:
         cls_name = self.__class__.__name__
-        assert observations is not None, f"{cls_name} requires observations"
         super().__init__(
             search_space=search_space,
             observations=observations,
@@ -71,9 +71,11 @@ class BaseRelativize(Transform, ABC):
             adapter, f"{cls_name} transform requires an adapter"
         )
 
+        sq_data_by_trial = self.adapter.status_quo_data_by_trial
+        if not sq_data_by_trial:  # None or empty dict.
+            raise DataRequiredError(f"{cls_name} requires status quo data.")
         self.status_quo_data_by_trial: dict[int, ObservationData] = none_throws(
-            self.adapter.status_quo_data_by_trial,
-            f"{cls_name} requires status quo data.",
+            sq_data_by_trial.copy()
         )
         # use latest index of latest observed trial by default
         # to handle pending trials, which may not have a trial_index
@@ -168,6 +170,48 @@ class BaseRelativize(Transform, ABC):
         """Unrelativize the data"""
         return self._rel_op_on_observations(
             observations=observations, rel_op=unrelativize
+        )
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        observation_data = experiment_data.observation_data.copy(deep=True)
+        all_trial_indices = observation_data.index.get_level_values(
+            "trial_index"
+        ).unique()
+        if not all_trial_indices.isin(self.status_quo_data_by_trial.keys()).all():
+            raise ValueError(
+                f"{self.__class__.__name__} requires status quo data for all "
+                f"trials in the experiment data. Found trial indices "
+                f"{all_trial_indices} but status quo data is only available for "
+                f"trials {list(self.status_quo_data_by_trial.keys())}."
+            )
+
+        trial_indices = observation_data.index.get_level_values("trial_index")
+        for metric in observation_data["mean"].columns:
+            # Create arrays of control values for each row based on trial_index.
+            mean_c, sem_c = [], []
+            for idx in trial_indices:
+                sq_data = self.status_quo_data_by_trial[idx]
+                j = get_metric_index(data=sq_data, metric_name=metric)
+                mean_c.append(sq_data.means[j])
+                sem_c.append(sq_data.covariance[j, j] ** 0.5)
+
+            # Relativize the whole column in one operation.
+            observation_data["mean", metric], observation_data["sem", metric] = (
+                relativize(
+                    means_t=observation_data["mean", metric],
+                    sems_t=observation_data["sem", metric],
+                    mean_c=np.array(mean_c),
+                    sem_c=np.array(sem_c),
+                    as_percent=True,
+                    control_as_constant=self.control_as_constant,
+                )
+            )
+
+        return ExperimentData(
+            arm_data=experiment_data.arm_data,
+            observation_data=observation_data,
         )
 
     def _get_relative_data_from_obs(

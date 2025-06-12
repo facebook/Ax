@@ -151,8 +151,8 @@ def positive_part_james_stein(
 def relativize(
     means_t: npt.NDArray | list[float] | float,
     sems_t: npt.NDArray | list[float] | float,
-    mean_c: float,
-    sem_c: float,
+    mean_c: npt.NDArray | float,
+    sem_c: npt.NDArray | float,
     bias_correction: bool = True,
     cov_means: npt.NDArray | list[float] | float = 0.0,
     as_percent: bool = False,
