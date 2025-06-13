@@ -19,6 +19,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
+from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -69,7 +70,10 @@ class StratifiedStandardizeY(Transform):
 
         """
         assert search_space is not None, "StratifiedStandardizeY requires search space"
-        assert observations is not None, "StratifiedStandardizeY requires observations"
+        if observations is None and experiment_data is None:
+            raise DataRequiredError(
+                "StratifiedStandardizeY requires observations or experiment_data."
+            )
         super().__init__(
             search_space=search_space,
             observations=observations,
@@ -124,13 +128,33 @@ class StratifiedStandardizeY(Transform):
             # pyre-ignore [8]
             self.strata_mapping = {v: v for v in strat_p.values}
         # Compute means and SDs
-        observation_features, observation_data = separate_observations(observations)
-        Ys: defaultdict[tuple[str, TParamValue], list[float]] = defaultdict(list)
-        for j, obsd in enumerate(observation_data):
-            v = none_throws(observation_features[j].parameters[self.p_name])
-            strata = self.strata_mapping[v]
-            for i, m in enumerate(obsd.metric_names):
-                Ys[(m, strata)].append(obsd.means[i])
+        if observations is not None:
+            observation_features, observation_data = separate_observations(observations)
+            Ys: defaultdict[tuple[str, TParamValue], list[float]] = defaultdict(list)
+            for j, obsd in enumerate(observation_data):
+                v = none_throws(observation_features[j].parameters[self.p_name])
+                strata = self.strata_mapping[v]
+                for i, m in enumerate(obsd.metric_names):
+                    Ys[(m, strata)].append(obsd.means[i])
+        else:
+            experiment_data = none_throws(experiment_data)
+            if len(experiment_data.observation_data.index.names) > 2:
+                raise NotImplementedError(
+                    "StratifiedStandardizeY does not support experiment data with "
+                    "map keys."
+                )
+            strata = (
+                experiment_data.arm_data[self.p_name]
+                .map(self.strata_mapping)
+                .rename("strata")
+            )
+            means = experiment_data.observation_data["mean"]
+            Ys: dict[tuple[str, TParamValue], list[float]] = {}
+            # Group means by strata values and extract corresponding Ys.
+            for strata_value, group in means.groupby(strata.loc[means.index]):
+                for m in means.columns:
+                    Ys[(m, strata_value)] = group[m].dropna().values.tolist()
+
         # Expected `DefaultDict[typing.Union[str, typing.Tuple[str,
         # Optional[typing.Union[bool, float, str]]]], List[float]]` for 1st anonymous
         # parameter to call
@@ -215,3 +239,27 @@ class StratifiedStandardizeY(Transform):
                 + self.Ymean[(c.metric.name, strata)]
             )
         return outcome_constraints
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        strata = (
+            experiment_data.arm_data[self.p_name]
+            .map(self.strata_mapping)
+            .rename("strata")
+        )
+        obs_data = experiment_data.observation_data
+        mean_data = obs_data["mean"]
+        # Get strata values for each row by matching (trial_index, arm_name).
+        strata = strata.loc[[v[:2] for v in mean_data.index.values]]
+        for metric in mean_data:
+            means = strata.apply(lambda x: self.Ymean[(metric, x)])  # noqa B023
+            stds = strata.apply(lambda x: self.Ystd[(metric, x)])  # noqa B023
+            obs_data[("mean", metric)] = (obs_data[("mean", metric)] - means) / stds
+            if obs_data[("sem", metric)].isnull().all():
+                # If SEM is NaN, we don't need to transform it.
+                continue
+            obs_data[("sem", metric)] = obs_data[("sem", metric)] / stds
+        return ExperimentData(
+            arm_data=experiment_data.arm_data, observation_data=obs_data
+        )
