@@ -53,22 +53,25 @@ class TestBenchmarkMethod(TestCase):
         pain, so in that file, we just run a benchmark.
         """
         search_space = get_continuous_search_space(bounds=[(0, 1)])
-        experiment = Experiment(name="test", is_test=True, search_space=search_space)
         moo_config = get_moo_opt_config(outcome_names=["a", "b"], ref_point=[0, 0])
+        experiment = Experiment(
+            name="test",
+            is_test=True,
+            search_space=search_space,
+            optimization_config=moo_config,
+        )
 
         method = BenchmarkMethod(generation_strategy=self.gs)
 
         with self.subTest("MOO not supported"), self.assertRaisesRegex(
             NotImplementedError, "Please use `get_pareto_optimal_parameters`"
         ):
-            method.get_best_parameters(
-                experiment=experiment, optimization_config=moo_config
-            )
+            method.get_best_parameters(experiment=experiment)
 
         soo_config = get_soo_opt_config(outcome_names=["a"])
         with self.subTest("Empty experiment"):
             result = method.get_best_parameters(
-                experiment=experiment, optimization_config=soo_config
+                experiment=experiment.clone_with(optimization_config=soo_config),
             )
             self.assertIsNone(result)
 
@@ -77,10 +80,7 @@ class TestBenchmarkMethod(TestCase):
                 observations=[[1, -1], [2, -1]],
                 constrained=True,
             )
-            best_point = method.get_best_parameters(
-                experiment=experiment,
-                optimization_config=none_throws(experiment.optimization_config),
-            )
+            best_point = method.get_best_parameters(experiment=experiment)
             self.assertIsNone(best_point)
 
         with self.subTest("No completed trials"):
@@ -89,8 +89,5 @@ class TestBenchmarkMethod(TestCase):
             for _ in range(3):
                 trial = experiment.new_trial(generator_run=sobol_generator.gen(n=1))
                 trial.run()
-            best_point = method.get_best_parameters(
-                experiment=experiment,
-                optimization_config=none_throws(experiment.optimization_config),
-            )
+            best_point = method.get_best_parameters(experiment=experiment)
             self.assertIsNone(best_point)
