@@ -92,18 +92,17 @@ def determine_optimizer(
             # If there are less than `MAX_CHOICES_ENUMERATE` choices, we will
             # evaluate all of them and pick the best.
             # If there are less than `MAX_CARDINALITY_FOR_LOCAL_SEARCH` choices
-            # for all parameters, if there are any categorical features, or if
-            # any of the parameters has non-integer valued choices, we will use
-            # local search.  Otherwise, we will use the mixed alternating optimizer,
-            # which may use continuous relaxation for the high cardinality
-            # parameters, while using local search for the remaining parameters.
+            # for all parameters or if any of the parameters has non-integer
+            # valued choices, we will use local search. Otherwise, we will use
+            # the mixed alternating optimizer, which may use continuous relaxation
+            # for the high cardinality parameters, while using local search for
+            # the remaining parameters.
             cardinalities = [len(c) for c in discrete_choices.values()]
             max_cardinality = max(cardinalities)
             total_discrete_choices = reduce(operator.mul, cardinalities)
             if total_discrete_choices > MAX_CHOICES_ENUMERATE:
                 if (
                     max_cardinality <= MAX_CARDINALITY_FOR_LOCAL_SEARCH
-                    or len(ssd.categorical_features) > 0
                     or not all_ordinal_features_are_integer_valued(ssd=ssd)
                 ):
                     optimizer = "optimize_acqf_discrete_local_search"
@@ -114,17 +113,16 @@ def determine_optimizer(
         else:
             n_combos = math.prod([len(v) for v in discrete_choices.values()])
             # If there are
-            # - any categorical features (except for those handled by transforms),
             # - any ordinal features with non-integer choices,
-            # - or less than `ALTERNATING_OPTIMIZER_THRESHOLD` combinations
-            # of discrete choices, we will use `optimize_acqf_mixed`, which
-            # enumerates all discrete combinations and optimizes the continuous
-            # features with discrete features being fixed. Otherwise, we will
-            # use `optimize_acqf_mixed_alternating`, which alternates between
+            # - less than `ALTERNATING_OPTIMIZER_THRESHOLD` combinations of
+            #   discrete choices,
+            # we will use `optimize_acqf_mixed`, which enumerates all discrete
+            # combinations and optimizes the continuous features with discrete
+            # features being fixed. Otherwise, we will use
+            # `optimize_acqf_mixed_alternating`, which alternates between
             # continuous and discrete optimization steps.
             if (
                 n_combos <= ALTERNATING_OPTIMIZER_THRESHOLD
-                or len(ssd.categorical_features) > 0
                 or not all_ordinal_features_are_integer_valued(ssd=ssd)
             ):
                 optimizer = "optimize_acqf_mixed"
@@ -502,6 +500,7 @@ class Acquisition(Base):
                 acq_function=self.acqf,
                 bounds=bounds,
                 discrete_dims=search_space_digest.ordinal_features,
+                cat_dims=search_space_digest.categorical_features,
                 q=n,
                 post_processing_func=rounding_func,
                 fixed_features=fixed_features,
