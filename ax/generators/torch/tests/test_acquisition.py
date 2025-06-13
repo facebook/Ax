@@ -596,8 +596,7 @@ class AcquisitionTest(TestCase):
     @mock_botorch_optimize
     def test_optimize_acqf_discrete_too_many_choices(self) -> None:
         # Check that mixed optimizer is used when there are too many choices.
-        # If there are categorical features or non-integer valued discrete
-        # features, it should use local search.
+        # If there are non-integer valued discrete features, it should use local search.
         ssd_ordinal_integer = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 100 * (i + 1)) for i in range(3)],
@@ -621,7 +620,7 @@ class AcquisitionTest(TestCase):
         acquisition = self.get_acquisition_function()
         for ssd, expected_optimizer in [
             (ssd_ordinal_integer, "optimize_acqf_mixed_alternating"),
-            (ssd_categorical_integer, "optimize_acqf_discrete_local_search"),
+            (ssd_categorical_integer, "optimize_acqf_mixed_alternating"),
             (ssd_ordinal_noninteger, "optimize_acqf_discrete_local_search"),
         ]:
             # Mock optimize_acqf_discrete_local_search because it isn't handled
@@ -693,6 +692,8 @@ class AcquisitionTest(TestCase):
             discrete_choices={1: list(range(16))},
         )
         acquisition = self.get_acquisition_function()
+
+        # Check with ordinal discrete features.
         with mock.patch(
             f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
             wraps=optimize_acqf_mixed_alternating,
@@ -713,6 +714,7 @@ class AcquisitionTest(TestCase):
             acq_function=acquisition.acqf,
             bounds=mock.ANY,
             discrete_dims=[1],
+            cat_dims=[],
             q=3,
             options={
                 "init_batch_limit": 32,
@@ -725,21 +727,57 @@ class AcquisitionTest(TestCase):
             num_restarts=2,
             raw_samples=4,
         )
-        # Check that it is not used if there are non-integer or categorical
-        # discrete dimensions.
-        ssd1 = dataclasses.replace(ssd, categorical_features=[0])
-        ssd2 = dataclasses.replace(
+
+        # Check with cateogrial features but no non-integer features.
+        ssd_categorical = dataclasses.replace(
+            ssd, ordinal_features=[], categorical_features=[1]
+        )
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
+            wraps=optimize_acqf_mixed_alternating,
+        ) as mock_alternating:
+            acquisition.optimize(
+                n=3,
+                search_space_digest=ssd_categorical,
+                inequality_constraints=self.inequality_constraints,
+                fixed_features={0: 0.5},
+                rounding_func=self.rounding_func,
+                optimizer_options={
+                    "options": {"maxiter_alternating": 2},
+                    "num_restarts": 2,
+                    "raw_samples": 4,
+                },
+            )
+        mock_alternating.assert_called_with(
+            acq_function=acquisition.acqf,
+            bounds=mock.ANY,
+            discrete_dims=[],
+            cat_dims=[1],
+            q=3,
+            options={
+                "init_batch_limit": 32,
+                "batch_limit": 5,
+                "maxiter_alternating": 2,
+            },
+            inequality_constraints=self.inequality_constraints,
+            fixed_features={0: 0.5},
+            post_processing_func=self.rounding_func,
+            num_restarts=2,
+            raw_samples=4,
+        )
+
+        # Check that it is not used if there are non-integer discrete dimensions.
+        ssd_nonint = dataclasses.replace(
             ssd,
             ordinal_features=[0, 1],
             discrete_choices={0: [0.1, 0.6], 1: list(range(26))},
         )
-        for ssd in [ssd1, ssd2]:
-            with mock.patch(
-                f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
-                wraps=optimize_acqf_mixed_alternating,
-            ) as mock_alternating:
-                acquisition.optimize(n=3, search_space_digest=ssd)
-            mock_alternating.assert_not_called()
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
+            wraps=optimize_acqf_mixed_alternating,
+        ) as mock_alternating:
+            acquisition.optimize(n=3, search_space_digest=ssd_nonint)
+        mock_alternating.assert_not_called()
 
     @mock.patch(
         f"{DummyOneShotAcquisitionFunction.__module__}."
