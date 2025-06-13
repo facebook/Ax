@@ -6,11 +6,6 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.analysis import (
-    AnalysisBlobAnnotation,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
 from ax.analysis.plotly.parallel_coordinates import (
     _get_parameter_dimension,
     ParallelCoordinatesPlot,
@@ -36,7 +31,7 @@ class TestParallelCoordinatesPlot(TestCase):
         with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
             analysis.compute()
 
-        (card,) = analysis.compute(experiment=experiment)
+        card = analysis.compute(experiment=experiment)
         self.assertEqual(card.name, "ParallelCoordinatesPlot")
         self.assertEqual(card.title, "Parallel Coordinates for branin")
         self.assertEqual(
@@ -53,13 +48,10 @@ class TestParallelCoordinatesPlot(TestCase):
                 "different configurations within the experiment."
             ),
         )
-        self.assertEqual(card.level, AnalysisCardLevel.HIGH)
-        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns}, {"trial_index", "arm_name", "branin", "x1", "x2"}
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         analysis_no_metric = ParallelCoordinatesPlot()
         _ = analysis_no_metric.compute(experiment=experiment)

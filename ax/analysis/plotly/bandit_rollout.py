@@ -5,12 +5,11 @@
 
 # pyre-strict
 
-from typing import List, Sequence
+from typing import List
 
 import pandas as pd
 import plotly.express as px
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.plotly.color_constants import DISCRETE_ARM_SCALE
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.core.batch_trial import BatchTrial
@@ -137,7 +136,7 @@ class BanditRollout(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("BanditRollout requires an Experiment")
 
@@ -146,24 +145,20 @@ class BanditRollout(PlotlyAnalysis):
         )
         fig = self._prepare_plot(df=df, experiment_name=experiment.name)
 
-        return [
-            self._create_plotly_analysis_card(
-                title=f"Bandit Rollout Weights by Trial for {experiment.name}",
-                subtitle=(
-                    "The Bandit Rollout visualization provides a comprehensive "
-                    "overview of the allocation of weights across different trials "
-                    "and arms. By representing each trial as a distinct axis, this "
-                    "plot allows for the examination of exploration and exploitation "
-                    "dynamics over time. It aids in identifying trends and patterns in "
-                    "arm performance, offering insights into the effectiveness of the "
-                    "bandit algorithm. Observing the distribution of weights can "
-                    "reveal correlations and interactions that contribute to the "
-                    "success or failure of various strategies, enhancing the "
-                    "understanding of experimental results."
-                ),
-                level=AnalysisCardLevel.LOW,
-                category=AnalysisCardCategory.INSIGHT,
-                df=df,
-                fig=fig,
-            )
-        ]
+        return self._create_plotly_analysis_card(
+            title=f"Bandit Rollout Weights by Trial for {experiment.name}",
+            subtitle=(
+                "The Bandit Rollout visualization provides a comprehensive "
+                "overview of the allocation of weights across different trials "
+                "and arms. By representing each trial as a distinct axis, this "
+                "plot allows for the examination of exploration and exploitation "
+                "dynamics over time. It aids in identifying trends and patterns in "
+                "arm performance, offering insights into the effectiveness of the "
+                "bandit algorithm. Observing the distribution of weights can "
+                "reveal correlations and interactions that contribute to the "
+                "success or failure of various strategies, enhancing the "
+                "understanding of experimental results."
+            ),
+            df=df,
+            fig=fig,
+        )
