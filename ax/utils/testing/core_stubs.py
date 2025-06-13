@@ -63,6 +63,7 @@ from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, Sea
 from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,
+    TCandidateMetadata,
     TModelCov,
     TModelMean,
     TModelPredict,
@@ -914,6 +915,7 @@ def get_experiment_with_observations(
     parameterizations: Sequence[Mapping[str, TParamValue]] | None = None,
     sems: list[list[float]] | None = None,
     optimization_config: OptimizationConfig | None = None,
+    candidate_metadata: Sequence[TCandidateMetadata] | None = None,
 ) -> Experiment:
     if observations:
         multi_objective = (len(observations[0]) - constrained) > 1
@@ -992,11 +994,18 @@ def get_experiment_with_observations(
     for i, obs_i in enumerate(observations):
         sems_i = sems[i] if sems is not None else [None] * len(obs_i)
         if parameterizations is not None:
-            trial = exp.new_trial(
-                generator_run=GeneratorRun(arms=[Arm(parameters=parameterizations[i])])
-            )
+            arm = Arm(parameters=parameterizations[i])
         else:
-            trial = exp.new_trial(generator_run=sobol_generator.gen(1))
+            arm = sobol_generator.gen(1).arms[0]
+        if candidate_metadata is not None:
+            metadata = {arm.signature: candidate_metadata[i]}
+        else:
+            metadata = None
+        trial = exp.new_trial(
+            generator_run=GeneratorRun(
+                arms=[arm], candidate_metadata_by_arm_signature=metadata
+            )
+        )
 
         data = Data(
             df=pd.DataFrame.from_records(
