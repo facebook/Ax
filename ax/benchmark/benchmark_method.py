@@ -61,20 +61,9 @@ class BenchmarkMethod(Base):
         self,
         experiment: Experiment,
         optimization_config: OptimizationConfig,
-        n_points: int,
-    ) -> list[TParameterization]:
+    ) -> TParameterization:
         """
-        Get ``n_points`` promising points. NOTE: Only SOO with n_points = 1 is
-        supported.
-
-        The expected use case is that these points will be evaluated against an
-        oracle for hypervolume (if multi-objective) or for the value of the best
-        parameter (if single-objective).
-
-        For multi-objective cases, ``n_points > 1`` is needed. For SOO, ``n_points > 1``
-        reflects setups where we can choose some points which will then be
-        evaluated noiselessly or at high fidelity and then use the best one.
-
+        Get the most promising point. NOTE: Only SOO is supported.
 
         Args:
             experiment: The experiment to get the data from. This should contain
@@ -82,7 +71,6 @@ class BenchmarkMethod(Base):
                 contain oracle values.
             optimization_config: The ``optimization_config`` for the corresponding
                 ``BenchmarkProblem``.
-            n_points: The number of points to return.
         """
         if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
             raise NotImplementedError(
@@ -90,10 +78,6 @@ class BenchmarkMethod(Base):
                 "supported for multi-objective problems."
             )
 
-        if n_points != 1:
-            raise NotImplementedError(
-                f"Currently only n_points=1 is supported. Got {n_points=}."
-            )
         if len(experiment.trials) == 0:
             raise ValueError(
                 "Cannot identify a best point if experiment has no trials."
@@ -102,10 +86,9 @@ class BenchmarkMethod(Base):
         def _get_first_parameterization_from_last_trial() -> TParameterization:
             return experiment.trials[max(experiment.trials)].arms[0].parameters
 
-        # SOO, n=1 case.
         # Note: This has the same effect as orchestrator.get_best_parameters
         if len(experiment.trials_by_status[TrialStatus.COMPLETED]) == 0:
-            return [_get_first_parameterization_from_last_trial()]
+            return _get_first_parameterization_from_last_trial()
 
         result = BestPointMixin._get_best_trial(
             experiment=experiment,
@@ -115,7 +98,6 @@ class BenchmarkMethod(Base):
         if result is None:
             # This can happen if no points are predicted to satisfy all outcome
             # constraints.
-            params = _get_first_parameterization_from_last_trial()
-        else:
-            _, params, _ = none_throws(result)
-        return [params]
+            return _get_first_parameterization_from_last_trial()
+        _, params, _ = none_throws(result)
+        return params
