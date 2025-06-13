@@ -44,14 +44,17 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
 from ax.core.trial_status import TrialStatus
-from ax.core.types import TParamValue
+from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
+from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.orchestrator import Orchestrator
 from ax.service.utils.best_point import get_trace
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
 from ax.utils.testing.backend_simulator import BackendSimulator
+
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
@@ -336,6 +339,31 @@ def _get_inference_trace_from_params(
     )
 
 
+def get_best_parameters(
+    experiment: Experiment, generation_strategy: GenerationStrategy
+) -> TParameterization | None:
+    """
+    Get the most promising point.
+
+    Only SOO is supported. It will return None if no best point can be found.
+
+    Args:
+        experiment: The experiment to get the data from. This should contain
+            values that would be observed in a realistic setting and not
+            contain oracle values.
+    """
+    result = BestPointMixin._get_best_trial(
+        experiment=experiment,
+        generation_strategy=generation_strategy,
+    )
+    if result is None:
+        # This can happen if no points are predicted to satisfy all outcome
+        # constraints.
+        return None
+    _, params, _ = none_throws(result)
+    return params
+
+
 def _update_benchmark_tracking_vars_in_place(
     experiment: Experiment,
     method: BenchmarkMethod,
@@ -386,7 +414,9 @@ def _update_benchmark_tracking_vars_in_place(
         if problem.is_moo or is_mf_or_mt:
             best_params = None
         else:
-            best_params = method.get_best_parameters(experiment=experiment)
+            best_params = get_best_parameters(
+                experiment=experiment, generation_strategy=method.generation_strategy
+            )
         best_params_list.append(best_params)
 
 
