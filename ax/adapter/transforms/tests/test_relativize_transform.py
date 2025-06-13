@@ -11,11 +11,14 @@ from unittest.mock import Mock
 import numpy as np
 import numpy.typing as npt
 from ax.adapter import Adapter
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.registry import Generators
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.relativize import (
     BaseRelativize,
     Relativize,
+    relativize,
     RelativizeWithConstantControl,
 )
 from ax.core import BatchTrial
@@ -29,6 +32,7 @@ from ax.core.observation import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import DataRequiredError
 from ax.generators.base import Generator
 from ax.metrics.branin import BraninMetric
 from ax.utils.common.testutils import TestCase
@@ -41,6 +45,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_with_multi_task,
     get_search_space,
 )
+from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -82,10 +87,7 @@ class RelativizeDataTest(TestCase):
                 AssertionError,
                 f"{relativize_cls.__name__} transform requires an adapter",
             ):
-                relativize_cls(
-                    search_space=None,
-                    observations=[],
-                )
+                relativize_cls(search_space=None)
 
     def test_relativize_transform_requires_a_adapter_to_have_status_quo_data(
         self,
@@ -95,13 +97,10 @@ class RelativizeDataTest(TestCase):
             sobol = Generators.SOBOL(experiment=get_branin_experiment())
             self.assertIsNone(sobol.status_quo)
             with self.assertRaisesRegex(
-                AssertionError, f"{relativize_cls.__name__} requires status quo data."
+                DataRequiredError,
+                f"{relativize_cls.__name__} requires status quo data.",
             ):
-                relativize_cls(
-                    search_space=None,
-                    observations=[],
-                    adapter=sobol,
-                ).transform_observations(
+                relativize_cls(search_space=None, adapter=sobol).transform_observations(
                     observations=[
                         Observation(
                             data=ObservationData(
@@ -116,10 +115,7 @@ class RelativizeDataTest(TestCase):
                 )
 
             # adapter has status quo
-            exp = get_branin_experiment(
-                with_batch=True,
-                with_status_quo=True,
-            )
+            exp = get_branin_experiment(with_batch=True, with_status_quo=True)
             # making status_quo out of design
             none_throws(exp._status_quo)._parameters["x1"] = 10000.0
             for t in exp.trials.values():
@@ -130,11 +126,7 @@ class RelativizeDataTest(TestCase):
                 t.mark_completed()
             data = exp.fetch_data()
             adapter = Adapter(
-                search_space=exp.search_space,
-                generator=Generator(),
-                transforms=[relativize_cls],
-                experiment=exp,
-                data=data,
+                experiment=exp, generator=Generator(), transforms=[relativize_cls]
             )
             mean_in_data = data.df.query(
                 f"arm_name == '{none_throws(exp.status_quo).name}'"
@@ -143,15 +135,6 @@ class RelativizeDataTest(TestCase):
             self.assertEqual(
                 mean_in_data,
                 none_throws(adapter.status_quo_data_by_trial)[0].means[0],
-            )
-            # reset SQ
-            none_throws(exp._status_quo)._parameters["x1"] = 0.0
-            adapter = Adapter(
-                search_space=exp.search_space,
-                generator=Generator(),
-                transforms=[relativize_cls],
-                experiment=exp,
-                data=data,
             )
 
             # create a new experiment
@@ -166,10 +149,9 @@ class RelativizeDataTest(TestCase):
                 )
                 t.mark_completed()
             new_data = new_exp.fetch_data()
-            new_observations = observations_from_data(experiment=new_exp, data=new_data)
-            # calls adapter._set_training_data inside
-            adapter._set_training_data(
-                observations=new_observations, search_space=new_exp.search_space
+            # Construct adapter with the new data.
+            adapter = Adapter(
+                experiment=new_exp, generator=Generator(), transforms=[relativize_cls]
             )
             # The new data is different from the original data
             self.assertNotEqual(data, new_data)
@@ -182,22 +164,12 @@ class RelativizeDataTest(TestCase):
                 mean_in_data,
                 none_throws(adapter.status_quo_data_by_trial)[0].means[0],
             )
-
-            # Can still find status_quo_data_by_trial when status_quo name is None
-            mb_sq = none_throws(adapter._status_quo)
-            mb_sq.arm_name = None
-            self.assertIsNotNone(adapter.status_quo_data_by_trial)
-            self.assertEqual(len(adapter.status_quo_data_by_trial), 1)
             # test transform edge cases
             observations = observations_from_data(
                 experiment=exp,
                 data=data,
             )
-            tf = relativize_cls(
-                search_space=None,
-                observations=observations,
-                adapter=adapter,
-            )
+            tf = relativize_cls(search_space=None, adapter=adapter)
             # making observation coming from trial_index not in adapter
             observations[0].features.trial_index = 999
             self.assertRaises(ValueError, tf.transform_observations, observations)
@@ -362,11 +334,7 @@ class RelativizeDataTest(TestCase):
             )
             observations = recombine_observations(obs_features, obs_data, arm_names)
             for relativize_cls in [Relativize, RelativizeWithConstantControl]:
-                transform = relativize_cls(
-                    search_space=None,
-                    observations=observations,
-                    adapter=adapter,
-                )
+                transform = relativize_cls(search_space=None, adapter=adapter)
                 relative_obs = transform.transform_observations(observations)
                 self.assertEqual(relative_obs[0].data.metric_names, ["foo"])
                 self.assertAlmostEqual(relative_obs[0].data.means[0], 0, places=4)
@@ -420,11 +388,7 @@ class RelativizeDataTest(TestCase):
 
         # not checking RelativizeWithConstantControl here
         # because relativize_data uses delta method
-        transform = Relativize(
-            search_space=None,
-            observations=observations,
-            adapter=adapter,
-        )
+        transform = Relativize(search_space=None, adapter=adapter)
 
         relative_obs_t = transform.transform_observations(observations)
         self.maxDiff = None
@@ -452,6 +416,46 @@ class RelativizeDataTest(TestCase):
             all(np.isclose(covariances[0], covariances[1])),
             covariances,
         )
+
+    def test_transform_experiment_data(self) -> None:
+        experiment = get_branin_with_multi_task()
+        experiment.fetch_data()
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        adapter = Adapter(experiment=experiment, generator=Generator())
+        for relativize_cls in [Relativize, RelativizeWithConstantControl]:
+            t = relativize_cls(search_space=experiment.search_space, adapter=adapter)
+            relativized_data = t.transform_experiment_data(
+                experiment_data=deepcopy(experiment_data)
+            )
+            self.assertNotEqual(experiment_data, relativized_data)
+            # Check that arm data hasn't changed.
+            assert_frame_equal(relativized_data.arm_data, experiment_data.arm_data)
+            # Check that observation data was relativized correctly.
+            expected_mean, expected_sem = [], []
+            for index, row in experiment_data.observation_data.iterrows():
+                sq_row = experiment_data.observation_data.loc[
+                    (assert_is_instance(index, tuple)[0], "status_quo")
+                ]
+                mean, sem = relativize(
+                    means_t=row["mean", "branin"],
+                    sems_t=row["sem", "branin"],
+                    mean_c=sq_row["mean", "branin"],
+                    sem_c=sq_row["sem", "branin"],
+                    as_percent=True,
+                    control_as_constant=t.control_as_constant,
+                )
+                expected_mean.append(mean)
+                expected_sem.append(sem)
+            self.assertEqual(
+                relativized_data.observation_data[("mean", "branin")].tolist(),
+                expected_mean,
+            )
+            self.assertEqual(
+                relativized_data.observation_data[("sem", "branin")].tolist(),
+                expected_sem,
+            )
 
 
 class RelativizeDataOptConfigTest(TestCase):

@@ -16,6 +16,7 @@ from ax.adapter.transforms.tests.test_relativize_transform import RelativizeData
 from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.core.batch_trial import BatchTrial
 from ax.core.observation import observations_from_data
+from ax.exceptions.core import DataRequiredError
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -85,7 +86,7 @@ class TransformToNewSQSpecificTest(TestCase):
         self.adapter._status_quo_name = None
 
         with self.assertRaisesRegex(
-            AssertionError, "TransformToNewSQ requires status quo data."
+            DataRequiredError, "TransformToNewSQ requires status quo data."
         ):
             TransformToNewSQ(
                 search_space=None,
