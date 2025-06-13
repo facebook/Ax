@@ -8,14 +8,16 @@
 
 from collections.abc import Iterator
 from copy import deepcopy
+from unittest.mock import ANY
 
-import numpy as np
 from ax.adapter.transforms.metadata_to_float import MetadataToFloat
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationFeatures, observations_from_data
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pyre_extensions import assert_is_instance
 
 
@@ -24,12 +26,10 @@ HEIGHTS = [4.0, 2.0, 8.0]
 STEPS_ENDS = [1, 5, 3]
 
 
-def _enumerate() -> Iterator[tuple[int, float, float, float]]:
+def _enumerate() -> Iterator[tuple[float, float, float]]:
     yield from (
-        (trial_index, width, height, float(i + 1))
-        for trial_index, (width, height, steps_end) in enumerate(
-            zip(WIDTHS, HEIGHTS, STEPS_ENDS)
-        )
+        (width, height, float(i + 1))
+        for (width, height, steps_end) in zip(WIDTHS, HEIGHTS, STEPS_ENDS)
         for i in range(steps_end)
     )
 
@@ -54,21 +54,26 @@ class MetadataToFloatTransformTest(TestCase):
                 ),
             ]
         )
-
-        self.observations = []
-        for trial_index, width, height, steps in _enumerate():
-            obs_feat = ObservationFeatures(
-                trial_index=trial_index,
-                parameters={"width": width, "height": height},
-                metadata={
+        self.experiment = get_experiment_with_observations(
+            observations=[[0.0] for _ in range(sum(STEPS_ENDS))],
+            search_space=self.search_space,
+            parameterizations=[
+                {"width": w, "height": h}
+                for steps_end, w, h in zip(STEPS_ENDS, WIDTHS, HEIGHTS)
+                for _ in range(steps_end)
+            ],
+            candidate_metadata=[
+                {
                     "foo": 42,
                     "bar": 3.0 * steps,
-                },
-            )
-            obs_data = ObservationData(
-                metric_names=[], means=np.array([]), covariance=np.empty((0, 0))
-            )
-            self.observations.append(Observation(features=obs_feat, data=obs_data))
+                }
+                for steps_end, _w, _h in zip(STEPS_ENDS, WIDTHS, HEIGHTS)
+                for steps in range(1, steps_end + 1)
+            ],
+        )
+        self.observations = observations_from_data(
+            experiment=self.experiment, data=self.experiment.lookup_data()
+        )
 
         self.t = MetadataToFloat(
             observations=self.observations,
@@ -135,9 +140,9 @@ class MetadataToFloatTransformTest(TestCase):
                         "height": height,
                         "bar": 3.0 * steps,
                     },
-                    metadata={"foo": 42},
+                    metadata={"foo": 42, Keys.TRIAL_COMPLETION_TIMESTAMP: ANY},
                 )
-                for trial_index, width, height, steps in _enumerate()
+                for trial_index, (width, height, steps) in enumerate(_enumerate())
             ],
         )
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
