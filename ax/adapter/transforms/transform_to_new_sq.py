@@ -107,6 +107,81 @@ class TransformToNewSQ(BaseRelativize):
     ) -> list[OutcomeConstraint]:
         return outcome_constraints
 
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        observation_data = experiment_data.observation_data.copy(deep=True)
+        all_trial_indices = observation_data.index.get_level_values(
+            "trial_index"
+        ).unique()
+        if not all_trial_indices.isin(self.status_quo_data_by_trial.keys()).all():
+            raise ValueError(
+                f"{self.__class__.__name__} requires status quo data for all "
+                f"trials in the experiment data. Found trial indices "
+                f"{all_trial_indices} but status quo data is only available for "
+                f"trials {list(self.status_quo_data_by_trial.keys())}."
+            )
+
+        trial_indices = observation_data.index.get_level_values("trial_index")
+        transform_mask = trial_indices != self.default_trial_idx
+        # Get the target trial's status quo data
+        target_sq_data = self.status_quo_data_by_trial[self.default_trial_idx]
+
+        metrics = observation_data["mean"].columns
+        if not transform_mask.any():
+            # Nothing to transform, set metrics to empty list to skip the loop.
+            # We still need to drop SQ after.
+            metrics = []
+
+        for metric in metrics:
+            # Create arrays of control values for each row based on trial_index.
+            mean_c, sem_c = [], []
+            for idx in trial_indices:
+                sq_data = self.status_quo_data_by_trial[idx]
+                j = get_metric_index(data=sq_data, metric_name=metric)
+                mean_c.append(sq_data.means[j])
+                sem_c.append(sq_data.covariance[j, j] ** 0.5)
+            mean_c = np.array(mean_c)
+            sem_c = np.array(sem_c)
+
+            # Only transform rows that are not from the target trial.
+            means_t = observation_data.loc[transform_mask, ("mean", metric)]
+            sems_t = observation_data.loc[transform_mask, ("sem", metric)]
+
+            # Relativize with respect to original trial's status quo.
+            means_rel, sems_rel = relativize(
+                means_t=means_t,
+                sems_t=sems_t,
+                mean_c=mean_c[transform_mask],
+                sem_c=sem_c[transform_mask],
+                as_percent=False,
+                control_as_constant=self.control_as_constant,
+            )
+
+            # Unrelativize with respect to target trial's status quo.
+            target_j = get_metric_index(data=target_sq_data, metric_name=metric)
+            target_mean_c = target_sq_data.means[target_j]
+            abs_target_mean_c = np.abs(target_mean_c)
+            observation_data.loc[transform_mask, ("mean", metric)] = (
+                means_rel * abs_target_mean_c + target_mean_c
+            )
+            observation_data.loc[transform_mask, ("sem", metric)] = (
+                sems_rel * abs_target_mean_c
+            )
+
+        # Drop SQ observations from the data
+        observation_data = observation_data[
+            observation_data.index.get_level_values("arm_name") != self._status_quo_name
+        ]
+        arm_data = experiment_data.arm_data
+        arm_data = arm_data[
+            arm_data.index.get_level_values("arm_name") != self._status_quo_name
+        ]
+        return ExperimentData(
+            arm_data=arm_data,
+            observation_data=observation_data,
+        )
+
     def _get_relative_data_from_obs(
         self,
         obs: Observation,
