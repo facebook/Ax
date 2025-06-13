@@ -320,28 +320,17 @@ def _get_oracle_trace_from_arms(
 
 
 def _get_inference_trace_from_params(
-    best_params_list: Sequence[Mapping[str, TParamValue]],
+    best_params_list: Sequence[Mapping[str, TParamValue] | None],
     problem: BenchmarkProblem,
-    n_elements: int,
 ) -> npt.NDArray:
     """
     Get the inference value of each parameterization in ``best_params_list``.
-
-    ``best_params_list`` can be empty, indicating that inference value is not
-    supported for this benchmark, in which case the returned array will be all
-    NaNs with length ``n_elements``. If it is not empty, it must have length
-    ``n_elements``.
     """
-    if len(best_params_list) == 0:
-        return np.full(n_elements, np.nan)
-    if len(best_params_list) != n_elements:
-        raise RuntimeError(
-            f"Expected {n_elements} elements in `best_params_list`, got "
-            f"{len(best_params_list)}."
-        )
     return np.array(
         [
-            _get_oracle_value_of_params(params=params, problem=problem)
+            float("NaN")
+            if params is None
+            else _get_oracle_value_of_params(params=params, problem=problem)
             for params in best_params_list
         ]
     )
@@ -353,7 +342,7 @@ def _update_benchmark_tracking_vars_in_place(
     problem: BenchmarkProblem,
     cost_trace: list[float],
     evaluated_arms_list: list[set[Arm]],
-    best_params_list: list[Mapping[str, TParamValue]],
+    best_params_list: list[Mapping[str, TParamValue] | None],
     completed_trial_idcs: set[int],
 ) -> None:
     """
@@ -373,7 +362,6 @@ def _update_benchmark_tracking_vars_in_place(
     completed_trial_idcs |= newly_completed_trials
 
     is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
-    compute_best_params = not (problem.is_moo or is_mf_or_mt)
 
     if len(newly_completed_trials) > 0:
         previous_cost = cost_trace[-1] if len(cost_trace) > 0 else 0.0
@@ -395,12 +383,14 @@ def _update_benchmark_tracking_vars_in_place(
         # It's also not supported for multi-fidelity or multi-task
         # problems, because Ax's best-point functionality doesn't know
         # to predict at the target task or fidelity.
-        if compute_best_params:
+        if problem.is_moo or is_mf_or_mt:
+            best_params = None
+        else:
             best_params = method.get_best_parameters(
                 experiment=experiment,
                 optimization_config=problem.optimization_config,
             )
-            best_params_list.append(best_params)
+        best_params_list.append(best_params)
 
 
 def benchmark_replication(
@@ -468,7 +458,7 @@ def benchmark_replication(
     # Since multiple trials can complete at once, there may be fewer elements in
     # these traces than the number of trials run.
     cost_trace: list[float] = []
-    best_params_list: list[Mapping[str, TParamValue]] = []  # For inference trace
+    best_params_list: list[Mapping[str, TParamValue] | None] = []  # For inference trace
     evaluated_arms_list: list[set[Arm]] = []  # For oracle trace
     completed_trial_idcs: set[int] = set()
 
@@ -520,9 +510,7 @@ def benchmark_replication(
         )
 
     inference_trace = _get_inference_trace_from_params(
-        best_params_list=best_params_list,
-        problem=problem,
-        n_elements=len(cost_trace),
+        best_params_list=best_params_list, problem=problem
     )
     oracle_trace = _get_oracle_trace_from_arms(
         evaluated_arms_list=evaluated_arms_list, problem=problem

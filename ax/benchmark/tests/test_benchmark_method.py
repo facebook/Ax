@@ -66,12 +66,11 @@ class TestBenchmarkMethod(TestCase):
             )
 
         soo_config = get_soo_opt_config(outcome_names=["a"])
-        with self.subTest("Empty experiment"), self.assertRaisesRegex(
-            ValueError, "Cannot identify a best point if experiment has no trials"
-        ):
-            method.get_best_parameters(
+        with self.subTest("Empty experiment"):
+            result = method.get_best_parameters(
                 experiment=experiment, optimization_config=soo_config
             )
+            self.assertIsNone(result)
 
         with self.subTest("All constraints violated"):
             experiment = get_experiment_with_observations(
@@ -82,7 +81,7 @@ class TestBenchmarkMethod(TestCase):
                 experiment=experiment,
                 optimization_config=none_throws(experiment.optimization_config),
             )
-            self.assertEqual(best_point, experiment.trials[1].arms[0].parameters)
+            self.assertIsNone(best_point)
 
         with self.subTest("No completed trials"):
             experiment = get_experiment_with_observations(observations=[])
@@ -94,4 +93,4 @@ class TestBenchmarkMethod(TestCase):
                 experiment=experiment,
                 optimization_config=none_throws(experiment.optimization_config),
             )
-            self.assertEqual(best_point, experiment.trials[2].arms[0].parameters)
+            self.assertIsNone(best_point)
