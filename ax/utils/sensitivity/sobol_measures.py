@@ -26,7 +26,7 @@ from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model, ModelList
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
-from botorch.utils.transforms import is_ensemble, unnormalize
+from botorch.utils.transforms import unnormalize
 from pyre_extensions import assert_is_instance
 from torch import Tensor
 
@@ -483,23 +483,18 @@ class SobolSensitivityGPMean:
         self.num_mc_samples = num_mc_samples
 
         def input_function(x: Tensor) -> Tensor:
+            assert x.ndim == 2, "Input must be a 2D tensor."
             with torch.no_grad():
-                # We only need variances, not covariances, so we use the batch
-                # dimension, turning x from (*batch_dim, n, d) to
-                # (*batch_dim, n, 1, d)
+                # NOTE: Do not unsqueeze x_ here. Likely due to a matmul issue
+                # this ends up using a lot of memory with batched models.
+                # See https://github.com/pytorch/botorch/issues/2310.
                 means, variances = [], []
-                for x_ in x.unsqueeze(-2).split(4096):
+                for x_ in x.split(4096):
                     p = self.model.posterior(x_)
-                    means.append(p.mean.squeeze(-2))
-                    variances.append(p.variance.squeeze(-2))
-                mean = torch.cat(means, dim=0)
-                variance = torch.cat(variances, dim=0)
-            if is_ensemble(self.model):
-                # If x has shape [n, d],
-                # the mean will have shape [n, s, m], where 's' is the ensemble
-                # size. Reshape to [s, n, m]
-                mean = torch.swapaxes(mean, -2, -3)
-                variance = torch.swapaxes(variance, -2, -3)
+                    means.append(p.mean)
+                    variances.append(p.variance)
+                mean = torch.cat(means, dim=-2)
+                variance = torch.cat(variances, dim=-2)
             return link_function(mean, variance)
 
         self.sensitivity = SobolSensitivity(
