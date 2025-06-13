@@ -46,44 +46,6 @@ class TestBenchmarkProblem(TestCase):
         self.maxDiff = None
         super().setUp()
 
-    def test_inference_value_not_implemented(self) -> None:
-        objectives = [
-            Objective(metric=BenchmarkMetric(name, lower_is_better=True))
-            for name in ["Branin", "Currin"]
-        ]
-        optimization_config = OptimizationConfig(objective=objectives[0])
-        test_function = BoTorchTestFunction(
-            botorch_problem=Branin(), outcome_names=["Branin"]
-        )
-        with self.assertRaisesRegex(NotImplementedError, "Only `n_best_points=1`"):
-            BenchmarkProblem(
-                name="foo",
-                optimization_config=optimization_config,
-                num_trials=1,
-                optimal_value=0.0,
-                baseline_value=1.0,
-                search_space=SearchSpace(parameters=[]),
-                test_function=test_function,
-                n_best_points=2,
-            )
-
-        with self.assertRaisesRegex(
-            NotImplementedError, "Inference trace is not supported for MOO"
-        ):
-            BenchmarkProblem(
-                name="foo",
-                optimization_config=MultiObjectiveOptimizationConfig(
-                    objective=MultiObjective(objectives)
-                ),
-                num_trials=1,
-                optimal_value=0.0,
-                search_space=SearchSpace(parameters=[]),
-                baseline_value=1.0,
-                test_function=test_function,
-                n_best_points=1,
-                report_inference_value_as_trace=True,
-            )
-
     def test_mismatch_of_names_on_test_function_and_opt_config_raises(self) -> None:
         objectives = [
             Objective(metric=BenchmarkMetric(name, lower_is_better=True))

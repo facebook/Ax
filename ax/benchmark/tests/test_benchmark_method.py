@@ -62,22 +62,15 @@ class TestBenchmarkMethod(TestCase):
             NotImplementedError, "not currently supported for multi-objective"
         ):
             method.get_best_parameters(
-                experiment=experiment, optimization_config=moo_config, n_points=1
+                experiment=experiment, optimization_config=moo_config
             )
 
         soo_config = get_soo_opt_config(outcome_names=["a"])
-        with self.subTest("Multiple points not supported"), self.assertRaisesRegex(
-            NotImplementedError, "only n_points=1"
-        ):
-            method.get_best_parameters(
-                experiment=experiment, optimization_config=soo_config, n_points=2
-            )
-
         with self.subTest("Empty experiment"), self.assertRaisesRegex(
             ValueError, "Cannot identify a best point if experiment has no trials"
         ):
             method.get_best_parameters(
-                experiment=experiment, optimization_config=soo_config, n_points=1
+                experiment=experiment, optimization_config=soo_config
             )
 
         with self.subTest("All constraints violated"):
@@ -86,12 +79,10 @@ class TestBenchmarkMethod(TestCase):
                 constrained=True,
             )
             best_point = method.get_best_parameters(
-                n_points=1,
                 experiment=experiment,
                 optimization_config=none_throws(experiment.optimization_config),
             )
-            self.assertEqual(len(best_point), 1)
-            self.assertEqual(best_point[0], experiment.trials[1].arms[0].parameters)
+            self.assertEqual(best_point, experiment.trials[1].arms[0].parameters)
 
         with self.subTest("No completed trials"):
             experiment = get_experiment_with_observations(observations=[])
@@ -100,9 +91,7 @@ class TestBenchmarkMethod(TestCase):
                 trial = experiment.new_trial(generator_run=sobol_generator.gen(n=1))
                 trial.run()
             best_point = method.get_best_parameters(
-                n_points=1,
                 experiment=experiment,
                 optimization_config=none_throws(experiment.optimization_config),
             )
-            self.assertEqual(len(best_point), 1)
-            self.assertEqual(best_point[0], experiment.trials[2].arms[0].parameters)
+            self.assertEqual(best_point, experiment.trials[2].arms[0].parameters)
