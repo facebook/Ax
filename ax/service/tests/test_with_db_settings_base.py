@@ -11,7 +11,6 @@ import string
 from unittest.mock import patch
 
 from ax.core.experiment import Experiment
-
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.with_db_settings_base import (
@@ -31,7 +30,7 @@ from ax.storage.sqa_store.save import (
 )
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_experiment, get_generator_run
+from ax.utils.testing.core_stubs import DEFAULT_USER, get_experiment, get_generator_run
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 
 
@@ -348,7 +347,10 @@ class TestWithDBSettingsBase(TestCase):
         loaded_experiment = _load_experiment(
             experiment.name, decoder=self.with_db_settings.db_settings.decoder
         )
-        self.assertEqual(loaded_experiment._properties, {"test_property": True})
+        self.assertEqual(
+            loaded_experiment._properties,
+            {"test_property": True, "owners": [DEFAULT_USER]},
+        )
 
     def test_try_load_generation_strategy(self) -> None:
         experiment, generation_strategy = self.init_experiment_and_generation_strategy(
