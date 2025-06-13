@@ -11,7 +11,7 @@ from collections.abc import Callable, Sequence
 from datetime import datetime
 
 from logging import Logger
-from typing import Any, cast
+from typing import Any, cast, Type
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -45,15 +45,20 @@ from pyre_extensions import assert_is_instance, none_throws
 logger: Logger = get_logger(__name__)
 
 
-def save_experiment(experiment: Experiment, config: SQAConfig | None = None) -> None:
+def save_experiment(
+    experiment: Experiment,
+    config: SQAConfig | None = None,
+    encoder_cls: Type[Encoder] = Encoder,
+    decoder_cls: Type[Decoder] = Decoder,
+) -> None:
     """Save experiment (using default SQAConfig)."""
     if not isinstance(experiment, Experiment):
         raise ValueError("Can only save instances of Experiment")
     if not experiment.has_name:
         raise ValueError("Experiment name must be set prior to saving.")
     config = SQAConfig() if config is None else config
-    encoder = Encoder(config=config)
-    decoder = Decoder(config=config)
+    encoder = encoder_cls(config=config)
+    decoder = decoder_cls(config=config)
     _save_experiment(experiment=experiment, encoder=encoder, decoder=decoder)
 
 
@@ -62,7 +67,6 @@ def _save_experiment(
     encoder: Encoder,
     decoder: Decoder,
     return_sqa: bool = False,
-    validation_kwargs: dict[str, Any] | None = None,
 ) -> SQABase | None:
     """Save experiment, using given Encoder instance.
 
@@ -88,7 +92,6 @@ def _save_experiment(
     encoder.validate_experiment_metadata(
         experiment,
         existing_sqa_experiment_id=existing_sqa_experiment_id,
-        **(validation_kwargs or {}),
     )
 
     experiment_sqa = _merge_into_session(
