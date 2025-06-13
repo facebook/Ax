@@ -17,10 +17,12 @@ from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCar
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
+    LEGEND_BASE_OFFSET,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
     trial_index_to_color,
     truncate_label,
+    X_TICKER_SCALING_FACTOR,
     Z_SCORE_95_CI,
 )
 from ax.analysis.utils import (
@@ -340,12 +342,22 @@ def _prepare_figure(
             )
         )
 
+    # get the max length of x-ticker (arm name) to set the xaxis label and
+    # legend position
+    # This assumes the x-tickers are rotated 90 degrees (vertical) so legend
+    # will be always below the x-label ('Arm Name').
+    max_label_len = max(len(label) for label in arm_label)
+    legend_y = LEGEND_BASE_OFFSET - (max_label_len / X_TICKER_SCALING_FACTOR)
+
+    legend_position = LEGEND_POSITION.copy()
+    legend_position["y"] = legend_y
+
     figure = go.Figure(data=scatters)
     figure.update_layout(
         xaxis_title="Arm Name",
         yaxis_title=metric_label,
         yaxis_tickformat=".2%" if is_relative else None,
-        legend=LEGEND_POSITION,
+        legend=legend_position,
         margin=MARGIN_REDUCUTION,
         xaxis={"tickvals": arm_order, "ticktext": arm_label},
     )

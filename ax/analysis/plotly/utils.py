@@ -102,6 +102,14 @@ LEGEND_POSITION: dict[str, Union[float, str]] = {
     "title_text": "",  # remove title
 }
 
+# The Base y-offset (in normalized coordinates) to place the legend
+# below the plot area.
+LEGEND_BASE_OFFSET: float = -0.1
+
+# This scaling factor controls how much additional space is added
+# based on the max tick label length
+X_TICKER_SCALING_FACTOR: int = 40
+
 MARGIN_REDUCUTION: dict[str, int] = {"t": 50}
 
 # Always use the same transparency factor for CI colors to improve legibility when many
