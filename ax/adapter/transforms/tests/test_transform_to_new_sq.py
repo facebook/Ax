@@ -6,11 +6,14 @@
 # pyre-strict
 
 
+from copy import deepcopy
 from unittest import mock
 
 import numpy as np
 import numpy.typing as npt
 from ax.adapter import Adapter
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.tests.test_relativize_transform import RelativizeDataTest
 from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
@@ -19,12 +22,14 @@ from ax.core.observation import observations_from_data
 from ax.exceptions.core import DataRequiredError
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
+from ax.utils.stats.statstools import relativize
 from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
     get_branin_experiment,
     get_branin_optimization_config,
     get_sobol,
 )
+from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
 
@@ -190,3 +195,81 @@ class TransformToNewSQSpecificTest(TestCase):
             )
 
         self.assertEqual(t.default_trial_idx, 1)
+
+    def test_transform_experiment_data(self) -> None:
+        # Create two more trials with different SQ observations.
+        sobol = get_sobol(search_space=self.exp.search_space)
+        for sq_val in (2.0, 3.0):
+            t = self.exp.new_batch_trial(
+                generator_run=sobol.gen(2), add_status_quo_arm=True
+            ).mark_completed(unsafe=True)
+            data = get_branin_data_batch(batch=t)
+            data.df.loc[(data.df["arm_name"] == "status_quo"), "mean"] = sq_val
+            self.exp.attach_data(data=data)
+        self._refresh_adapter()
+
+        experiment_data = extract_experiment_data(
+            experiment=self.exp, data_loader_config=DataLoaderConfig()
+        )
+
+        # Create the transform with trial 2 as the target.
+        tf = TransformToNewSQ(
+            search_space=None,
+            adapter=self.adapter,
+            config={"target_trial_index": 2},
+        )
+        transformed_data = tf.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+
+        # Verify that status quo observations are dropped.
+        self.assertFalse(
+            (
+                transformed_data.observation_data.index.get_level_values("arm_name")
+                == self.adapter.status_quo_name
+            ).any()
+        )
+        # Verify that data from the target trial is not transformed.
+        target_trial_data = experiment_data.observation_data.loc[2]
+        target_trial_data = target_trial_data[
+            target_trial_data.index.get_level_values("arm_name")
+            != self.adapter.status_quo_name
+        ]
+        transformed_target_trial_data = transformed_data.observation_data.loc[2]
+        assert_frame_equal(target_trial_data, transformed_target_trial_data)
+
+        # Check that the data for trials 0 and 1 are transformed correctly.
+        sq_data_target = self.adapter.status_quo_data_by_trial[2]
+        for t_idx in (0, 1):
+            sq_data = self.adapter.status_quo_data_by_trial[t_idx]
+            # Get the data for the non-sq arms.
+            trial_data = experiment_data.observation_data.loc[t_idx]
+            trial_data = trial_data[
+                trial_data.index.get_level_values("arm_name")
+                != self.adapter.status_quo_name
+            ]
+            # Relativize the data with respect to the SQ for the trial.
+            means_rel, sems_rel = relativize(
+                means_t=trial_data["mean", "branin"],
+                sems_t=trial_data["sem", "branin"],
+                mean_c=sq_data.means[0],
+                sem_c=sq_data.covariance[0, 0] ** 0.5,
+                as_percent=False,
+                control_as_constant=tf.control_as_constant,
+            )
+            # Derelativize using target SQ.
+            target_mean = sq_data_target.means[0]
+            abs_target_mean = np.abs(target_mean)
+            means = means_rel * abs_target_mean + target_mean
+            sems = sems_rel * abs_target_mean
+            self.assertTrue(
+                np.allclose(
+                    means,
+                    transformed_data.observation_data.loc[t_idx]["mean", "branin"],
+                )
+            )
+            self.assertTrue(
+                np.allclose(
+                    sems, transformed_data.observation_data.loc[t_idx]["sem", "branin"]
+                )
+            )
