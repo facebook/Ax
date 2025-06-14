@@ -155,8 +155,5 @@ class TestMethods(TestCase):
             + "get_best_parameters_from_model_predictions_with_trial_index",
             wraps=get_best_parameters_from_model_predictions_with_trial_index,
         ) as mock_get_best_parameters_from_predictions:
-            method.get_best_parameters(
-                experiment=experiment,
-                optimization_config=problem.optimization_config,
-            )
+            method.get_best_parameters(experiment=experiment)
         mock_get_best_parameters_from_predictions.assert_called_once()
