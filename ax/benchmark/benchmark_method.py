@@ -8,10 +8,7 @@
 from dataclasses import dataclass
 
 from ax.core.experiment import Experiment
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.types import TParameterization
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 
@@ -73,12 +70,6 @@ class BenchmarkMethod(Base):
             optimization_config: The ``optimization_config`` for the corresponding
                 ``BenchmarkProblem``.
         """
-        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
-            raise NotImplementedError(
-                "BenchmarkMethod.get_pareto_optimal_parameters is not currently "
-                "supported for multi-objective problems."
-            )
-
         result = BestPointMixin._get_best_trial(
             experiment=experiment,
             generation_strategy=self.generation_strategy,

@@ -59,7 +59,7 @@ class TestBenchmarkMethod(TestCase):
         method = BenchmarkMethod(generation_strategy=self.gs)
 
         with self.subTest("MOO not supported"), self.assertRaisesRegex(
-            NotImplementedError, "not currently supported for multi-objective"
+            NotImplementedError, "Please use `get_pareto_optimal_parameters`"
         ):
             method.get_best_parameters(
                 experiment=experiment, optimization_config=moo_config
