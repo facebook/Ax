@@ -386,10 +386,7 @@ def _update_benchmark_tracking_vars_in_place(
         if problem.is_moo or is_mf_or_mt:
             best_params = None
         else:
-            best_params = method.get_best_parameters(
-                experiment=experiment,
-                optimization_config=problem.optimization_config,
-            )
+            best_params = method.get_best_parameters(experiment=experiment)
         best_params_list.append(best_params)
 
 

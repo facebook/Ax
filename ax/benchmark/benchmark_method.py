@@ -8,7 +8,6 @@
 from dataclasses import dataclass
 
 from ax.core.experiment import Experiment
-from ax.core.optimization_config import OptimizationConfig
 from ax.core.types import TParameterization
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 
@@ -53,11 +52,7 @@ class BenchmarkMethod(Base):
         if self.name == "DEFAULT":
             self.name = self.generation_strategy.name
 
-    def get_best_parameters(
-        self,
-        experiment: Experiment,
-        optimization_config: OptimizationConfig,
-    ) -> TParameterization | None:
+    def get_best_parameters(self, experiment: Experiment) -> TParameterization | None:
         """
         Get the most promising point.
 
@@ -67,13 +62,10 @@ class BenchmarkMethod(Base):
             experiment: The experiment to get the data from. This should contain
                 values that would be observed in a realistic setting and not
                 contain oracle values.
-            optimization_config: The ``optimization_config`` for the corresponding
-                ``BenchmarkProblem``.
         """
         result = BestPointMixin._get_best_trial(
             experiment=experiment,
             generation_strategy=self.generation_strategy,
-            optimization_config=optimization_config,
         )
         if result is None:
             # This can happen if no points are predicted to satisfy all outcome
