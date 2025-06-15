@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 import numpy as np
 import torch
+from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
 from ax.benchmark.benchmark import (
     _get_inference_trace_from_params,
@@ -26,6 +27,7 @@ from ax.benchmark.benchmark import (
     compute_score_trace,
     get_benchmark_orchestrator_options,
     get_benchmark_result_with_cumulative_steps,
+    get_best_parameters,
     get_opt_trace_by_steps,
     get_oracle_experiment_from_params,
 )
@@ -33,6 +35,7 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_problem_from_botorch,
+    get_continuous_search_space,
     get_moo_opt_config,
     get_soo_opt_config,
 )
@@ -48,6 +51,8 @@ from ax.benchmark.methods.sobol import (
     get_sobol_generation_strategy,
 )
 from ax.benchmark.problems.registry import get_benchmark_problem
+
+from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -75,7 +80,7 @@ from ax.utils.testing.benchmark_stubs import (
     TestDataset,
 )
 
-from ax.utils.testing.core_stubs import get_experiment
+from ax.utils.testing.core_stubs import get_experiment, get_experiment_with_observations
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
@@ -1280,3 +1285,56 @@ class TestBenchmark(TestCase):
         self.assertTrue(np.isnan(transformed.inference_trace).all())
         self.assertEqual(transformed.score_trace.max(), result.score_trace.max())
         self.assertLessEqual(transformed.score_trace.min(), result.score_trace.min())
+
+    def test_get_best_parameters(self) -> None:
+        """
+        Whether this produces the correct values is tested more thoroughly in
+        other tests such as `test_replication_with_inference_value` and
+        `test_get_inference_trace_from_params`.  Setting up an experiment with
+        data and trials without just running a benchmark is a pain, so in those
+        tests, we just run a benchmark.
+        """
+        gs = get_sobol_generation_strategy()
+
+        search_space = get_continuous_search_space(bounds=[(0, 1)])
+        moo_config = get_moo_opt_config(outcome_names=["a", "b"], ref_point=[0, 0])
+        experiment = Experiment(
+            name="test",
+            is_test=True,
+            search_space=search_space,
+            optimization_config=moo_config,
+        )
+
+        with self.subTest("MOO not supported"), self.assertRaisesRegex(
+            NotImplementedError, "Please use `get_pareto_optimal_parameters`"
+        ):
+            get_best_parameters(experiment=experiment, generation_strategy=gs)
+
+        soo_config = get_soo_opt_config(outcome_names=["a"])
+        with self.subTest("Empty experiment"):
+            result = get_best_parameters(
+                experiment=experiment.clone_with(optimization_config=soo_config),
+                generation_strategy=gs,
+            )
+            self.assertIsNone(result)
+
+        with self.subTest("All constraints violated"):
+            experiment = get_experiment_with_observations(
+                observations=[[1, -1], [2, -1]],
+                constrained=True,
+            )
+            best_point = get_best_parameters(
+                experiment=experiment, generation_strategy=gs
+            )
+            self.assertIsNone(best_point)
+
+        with self.subTest("No completed trials"):
+            experiment = get_experiment_with_observations(observations=[])
+            sobol_generator = get_sobol(search_space=experiment.search_space)
+            for _ in range(3):
+                trial = experiment.new_trial(generator_run=sobol_generator.gen(n=1))
+                trial.run()
+            best_point = get_best_parameters(
+                experiment=experiment, generation_strategy=gs
+            )
+            self.assertIsNone(best_point)

@@ -7,24 +7,13 @@
 
 
 from logging import WARNING
-from unittest.mock import patch
 
 import numpy as np
 from ax.adapter.registry import Generators
-from ax.benchmark.benchmark import (
-    benchmark_replication,
-    get_benchmark_orchestrator_options,
-    get_benchmark_runner,
-)
+from ax.benchmark.benchmark import benchmark_replication
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_benchmark_problem
-from ax.core.experiment import Experiment
-from ax.service.orchestrator import Orchestrator
-from ax.service.utils.best_point import (
-    get_best_parameters_from_model_predictions_with_trial_index,
-)
-from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -119,41 +108,3 @@ class TestMethods(TestCase):
         gs = method.generation_strategy
         self.assertEqual(len(gs._steps), 1)
         self.assertEqual(gs._steps[0].generator, Generators.SOBOL)
-
-    def test_get_best_parameters(self) -> None:
-        problem = get_benchmark_problem(
-            problem_key="ackley4", num_trials=2, noise_std=1.0
-        )
-
-        method = get_sobol_botorch_modular_acquisition(
-            model_cls=SingleTaskGP,
-            acquisition_cls=qLogExpectedImprovement,
-            distribute_replications=False,
-            num_sobol_trials=1,
-        )
-
-        experiment = Experiment(
-            name="test",
-            search_space=problem.search_space,
-            optimization_config=problem.optimization_config,
-            runner=get_benchmark_runner(problem=problem),
-        )
-
-        orchestrator = Orchestrator(
-            experiment=experiment,
-            generation_strategy=method.generation_strategy.clone_reset(),
-            options=get_benchmark_orchestrator_options(method=method),
-        )
-
-        with with_rng_seed(seed=0):
-            orchestrator.run_n_trials(max_trials=problem.num_trials)
-
-        # because the second trial is a BoTorch trial, the model should be used
-        best_point_mixin_path = "ax.service.utils.best_point_mixin.best_point_utils."
-        with patch(
-            best_point_mixin_path
-            + "get_best_parameters_from_model_predictions_with_trial_index",
-            wraps=get_best_parameters_from_model_predictions_with_trial_index,
-        ) as mock_get_best_parameters_from_predictions:
-            method.get_best_parameters(experiment=experiment)
-        mock_get_best_parameters_from_predictions.assert_called_once()

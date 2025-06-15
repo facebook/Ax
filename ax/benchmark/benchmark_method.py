@@ -7,14 +7,10 @@
 
 from dataclasses import dataclass
 
-from ax.core.experiment import Experiment
-from ax.core.types import TParameterization
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.base import Base
-from pyre_extensions import none_throws
 
 
 @dataclass(kw_only=True)
@@ -51,25 +47,3 @@ class BenchmarkMethod(Base):
     def __post_init__(self) -> None:
         if self.name == "DEFAULT":
             self.name = self.generation_strategy.name
-
-    def get_best_parameters(self, experiment: Experiment) -> TParameterization | None:
-        """
-        Get the most promising point.
-
-        Only SOO is supported. It will return None if no best point can be found.
-
-        Args:
-            experiment: The experiment to get the data from. This should contain
-                values that would be observed in a realistic setting and not
-                contain oracle values.
-        """
-        result = BestPointMixin._get_best_trial(
-            experiment=experiment,
-            generation_strategy=self.generation_strategy,
-        )
-        if result is None:
-            # This can happen if no points are predicted to satisfy all outcome
-            # constraints.
-            return None
-        _, params, _ = none_throws(result)
-        return params
