@@ -10,6 +10,8 @@ from copy import deepcopy
 from math import sqrt
 
 import numpy as np
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.stratified_standardize_y import StratifiedStandardizeY
 from ax.adapter.transforms.tests.test_standardize_y_transform import osd_allclose
 from ax.core.metric import Metric
@@ -20,7 +22,11 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import DataRequiredError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_experiment_with_observations
+from pandas import DataFrame
+from pandas.testing import assert_frame_equal
 
 
 class StratifiedStandardizeYTransformTest(TestCase):
@@ -99,6 +105,22 @@ class StratifiedStandardizeYTransformTest(TestCase):
                 metric=self.m2, op=ComparisonOp.LEQ, bound=3.5, relative=False
             ),
         ]
+        self.experiment = get_experiment_with_observations(
+            observations=[[1.0, 2.0], [1.0, 8.0], [3.0, 1.0], [3.0, 2.0]],
+            sems=[
+                [1.0, sqrt(2.0)],
+                [1.0, sqrt(3.0)],
+                [1.0, sqrt(2.0)],
+                [1.0, sqrt(3.0)],
+            ],
+            search_space=self.search_space,
+            parameterizations=[
+                {"x": 2.0, "z": "a"},
+                {"x": 3.0, "z": "a"},
+                {"x": 5.0, "z": "b"},
+                {"x": 7.0, "z": "b"},
+            ],
+        )
 
     def test_Init(self) -> None:
         Ymean_expected = {
@@ -120,6 +142,10 @@ class StratifiedStandardizeYTransformTest(TestCase):
         self.assertEqual(set(self.t.Ystd), set(Ystd_expected))
         for k, v in self.t.Ystd.items():
             self.assertAlmostEqual(v, Ystd_expected[k])
+        with self.assertRaisesRegex(
+            DataRequiredError, "requires observations or experiment_data"
+        ):
+            StratifiedStandardizeY(search_space=self.search_space)
         with self.assertRaises(ValueError):
             # No parameter specified
             StratifiedStandardizeY(
@@ -349,3 +375,81 @@ class StratifiedStandardizeYTransformTest(TestCase):
                 relative=False,
             ),
         ]
+
+    def test_transform_experiment_data(self) -> None:
+        experiment_data = extract_experiment_data(
+            experiment=self.experiment,
+            data_loader_config=DataLoaderConfig(),
+        )
+        transform = StratifiedStandardizeY(
+            search_space=self.search_space,
+            experiment_data=experiment_data,
+            config={"parameter_name": "z"},
+        )
+        transformed_data = transform.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+
+        # Check that arm data is identical.
+        assert_frame_equal(experiment_data.arm_data, transformed_data.arm_data)
+
+        # Check that observation data is transformed correctly.
+        observation_data = transformed_data.observation_data
+        std_m2_a = sqrt(2) * 3
+        std_m2_b = sqrt(2) * 0.5
+        expected_means = DataFrame(
+            index=observation_data.index,
+            columns=observation_data["mean"].columns,
+            data=[
+                [0.0, (2.0 - 5.0) / std_m2_a],
+                [0.0, (8.0 - 5.0) / std_m2_a],
+                [0.0, (1.0 - 1.5) / std_m2_b],
+                [0.0, (2.0 - 1.5) / std_m2_b],
+            ],
+        )
+        assert_frame_equal(observation_data["mean"], expected_means)
+
+        expected_sems = DataFrame(
+            index=observation_data.index,
+            columns=observation_data["sem"].columns,
+            data=[
+                [1.0, sqrt(2.0) / std_m2_a],
+                [1.0, sqrt(3.0) / std_m2_a],
+                [1.0, sqrt(2.0) / std_m2_b],
+                [1.0, sqrt(3.0) / std_m2_b],
+            ],
+        )
+        assert_frame_equal(observation_data["sem"], expected_sems)
+
+    def test_init_with_experiment_data(self) -> None:
+        experiment_data = extract_experiment_data(
+            experiment=self.experiment,
+            data_loader_config=DataLoaderConfig(),
+        )
+
+        # Initialize transform with experiment data
+        transform = StratifiedStandardizeY(
+            search_space=self.search_space,
+            experiment_data=experiment_data,
+            config={"parameter_name": "z"},
+        )
+
+        # Check that transform was initialized correctly.
+        expected_ymean = {
+            ("m1", "a"): 1.0,
+            ("m2", "a"): 5.0,
+            ("m1", "b"): 3.0,
+            ("m2", "b"): 1.5,
+        }
+        expected_ystd = {
+            ("m1", "a"): 1.0,  # Default to 1.0 when std is too small
+            ("m2", "a"): sqrt(2) * 3.0,
+            ("m1", "b"): 1.0,  # Default to 1.0 when std is too small
+            ("m2", "b"): sqrt(2) * 0.5,
+        }
+        self.assertEqual(transform.Ymean, expected_ymean)
+
+        # For Ystd, check almost equal for each value due to floating point precision.
+        self.assertEqual(set(transform.Ystd), set(expected_ystd))
+        for k, v in transform.Ystd.items():
+            self.assertAlmostEqual(v, expected_ystd[k])
