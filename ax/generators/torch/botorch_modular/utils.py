@@ -57,6 +57,7 @@ from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
+
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
 logger: Logger = get_logger(__name__)
 
@@ -562,4 +563,30 @@ def _fit_botorch_model_not_implemented(
         "to the `fit_botorch_model` dispatcher. To do so, decorate a function "
         "that accepts `model`, `mll_class` and `mll_options` inputs with "
         f"`@fit_botorch_model.register({model.__class__.__name__})`."
+    )
+
+
+@dataclass(frozen=True)
+class CVFold:
+    """
+    Args:
+        train_dataset: The training dataset for the fold.
+        test_X: The test inputs for the fold.
+        test_Y: The test outputs for the fold.
+    """
+
+    train_dataset: SupervisedDataset
+    test_X: Tensor
+    test_Y: Tensor
+
+
+def get_cv_fold(
+    dataset: SupervisedDataset, X: Tensor, Y: Tensor, idcs: Tensor
+) -> CVFold:
+    train_mask = torch.ones(X.shape[0], dtype=torch.bool, device=X.device)
+    train_mask[idcs] = 0
+    return CVFold(
+        train_dataset=dataset.clone(mask=train_mask),
+        test_X=X[idcs],
+        test_Y=Y[idcs],
     )

@@ -19,6 +19,7 @@ from ax.generators.torch.botorch_modular.utils import (
     choose_model_class,
     construct_acquisition_and_optimizer_options,
     convert_to_block_design,
+    get_cv_fold,
     ModelConfig,
     subset_state_dict,
     use_model_list,
@@ -539,3 +540,25 @@ class BoTorchGeneratorUtilsTest(TestCase):
             self.assertTrue(torch.equal(m0_state_dict[k], subsetted_m0_state_dict[k]))
         # Check that it can be loaded on the model.
         m0.load_state_dict(subsetted_m0_state_dict)
+
+    def test_get_folds(self) -> None:
+        X = torch.rand(10, 2)
+        Y = torch.rand(10, 1)
+        Yvar = torch.rand(10, 1)
+        dataset = SupervisedDataset(
+            X=X, Y=Y, Yvar=Yvar, feature_names=["x1", "x2"], outcome_names=["y"]
+        )
+        # CV
+        cv_fold = get_cv_fold(
+            dataset=dataset,
+            X=X,
+            Y=Y,
+            idcs=torch.arange(3),
+        )
+        self.assertTrue(torch.equal(cv_fold.test_X, X[:3]))
+        self.assertTrue(torch.equal(cv_fold.test_Y, Y[:3]))
+        self.assertTrue(torch.equal(cv_fold.train_dataset.X, X[3:]))
+        self.assertTrue(torch.equal(cv_fold.train_dataset.Y, Y[3:]))
+        self.assertTrue(
+            torch.equal(cv_fold.train_dataset.Yvar, Yvar[3:])  # pyre-ignore[6]
+        )
