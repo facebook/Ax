@@ -76,6 +76,28 @@ class MapKeyToFloat(MetadataToFloat):
             config=config,
         )
 
+    def _get_values_for_parameter(
+        self,
+        name: str,
+        observations: list[Observation] | None,
+        experiment_data: ExperimentData | None,
+    ) -> set[float]:
+        if experiment_data is not None:
+            obs_data = experiment_data.observation_data
+            if name not in obs_data.index.names:
+                raise ValueError(
+                    f"Parameter {name} is not in the index of the observation data."
+                )
+            return set(
+                obs_data.index.unique(level=name).dropna().astype(float).tolist()
+            )
+        # For Observations, the logic is identical to the parent class.
+        return super()._get_values_for_parameter(
+            name=name,
+            observations=observations,
+            experiment_data=experiment_data,
+        )
+
     def _transform_observation_feature(self, obsf: ObservationFeatures) -> None:
         if len(obsf.parameters) == 0:
             obsf.parameters = {p.name: p.upper for p in self._parameter_list}
@@ -87,3 +109,15 @@ class MapKeyToFloat(MetadataToFloat):
             if isnan(metadata[p.name]):
                 metadata[p.name] = p.upper
         super()._transform_observation_feature(obsf)
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        """No-op transform for experiment data.
+
+        This operates based on the assumption that the relevant map keys already
+        exist on the index of the observation data (verified in __init__),
+        and the downstream code will extract the map keys from there directly.
+        We do not need to duplicate the map keys in the arm data.
+        """
+        return experiment_data

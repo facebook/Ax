@@ -60,9 +60,9 @@ class MetadataToFloat(Transform):
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
-        if observations is None or not observations:
+        if (observations is None or not observations) and experiment_data is None:
             raise DataRequiredError(
-                "`MetadataToRange` transform requires non-empty data."
+                f"`{self.__class__.__name__}` transform requires non-empty data."
             )
         super().__init__(
             search_space=search_space,
@@ -79,12 +79,9 @@ class MetadataToFloat(Transform):
 
         self._parameter_list: list[RangeParameter] = []
         for name in self.parameters:
-            values: set[float] = set()
-            for obs in observations:
-                obsf_metadata = none_throws(obs.features.metadata)
-                value = float(assert_is_instance(obsf_metadata[name], SupportsFloat))
-                if not isnan(value):
-                    values.add(value)
+            values: set[float] = self._get_values_for_parameter(
+                name=name, observations=observations, experiment_data=experiment_data
+            )
 
             if len(values) == 0:
                 logger.debug(
@@ -127,6 +124,24 @@ class MetadataToFloat(Transform):
             )
             self._parameter_list.append(parameter)
 
+    def _get_values_for_parameter(
+        self,
+        name: str,
+        observations: list[Observation] | None,
+        experiment_data: ExperimentData | None,
+    ) -> set[float]:
+        if experiment_data is not None:
+            all_metadata = experiment_data.arm_data["metadata"]
+            return all_metadata.str.get(name).dropna().astype(float).tolist()
+
+        values: set[float] = set()
+        for obs in none_throws(observations):
+            obsf_metadata = none_throws(obs.features.metadata)
+            value = float(assert_is_instance(obsf_metadata[name], SupportsFloat))
+            if not isnan(value):
+                values.add(value)
+        return values
+
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for parameter in self._parameter_list:
             search_space.add_parameter(parameter.clone())
@@ -156,6 +171,18 @@ class MetadataToFloat(Transform):
             src=none_throws(obsf.metadata),
             dst=obsf.parameters,
             keys=[p.name for p in self._parameter_list],
+        )
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        arm_data = experiment_data.arm_data
+        metadata = arm_data["metadata"]
+        for name in self.parameters:
+            arm_data[name] = metadata.apply(lambda x: x.pop(name))  # noqa B023
+        return ExperimentData(
+            arm_data=arm_data,
+            observation_data=experiment_data.observation_data,
         )
 
 
