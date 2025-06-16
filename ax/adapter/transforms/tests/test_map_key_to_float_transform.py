@@ -12,6 +12,7 @@ from typing import cast
 import numpy as np
 from ax.adapter import Adapter
 from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
@@ -263,14 +264,20 @@ class MapKeyToFloatTransformTest(TestCase):
         with self.assertRaisesRegex(UserInputError, "optimization config"):
             MapKeyToFloat(observations=self.observations)
 
-        # Check for default initialization
-        self.assertEqual(len(self.t._parameter_list), 1)
-        (p,) = self.t._parameter_list
-        self.assertEqual(p.name, self.map_key)
-        self.assertEqual(p.parameter_type, ParameterType.FLOAT)
-        self.assertEqual(p.lower, 0.0)
-        self.assertEqual(p.upper, 4.0)
-        self.assertFalse(p.log_scale)  # False since lower is 0.0.
+        experiment_data = extract_experiment_data(
+            experiment=self.experiment,
+            data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=False),
+        )
+        t2 = MapKeyToFloat(experiment_data=experiment_data, adapter=self.adapter)
+        for t in (self.t, t2):
+            # Check for default initialization
+            self.assertEqual(len(t._parameter_list), 1)
+            (p,) = t._parameter_list
+            self.assertEqual(p.name, self.map_key)
+            self.assertEqual(p.parameter_type, ParameterType.FLOAT)
+            self.assertEqual(p.lower, 0.0)
+            self.assertEqual(p.upper, 4.0)
+            self.assertFalse(p.log_scale)  # False since lower is 0.0.
 
         # specifying a parameter name that is not in the observation features' metadata
         with self.assertRaisesRegex(KeyError, "'baz'"):
@@ -500,3 +507,16 @@ class MapKeyToFloatTransformTest(TestCase):
         self.assertEqual(
             tf_obs_ft[1].parameters, {"x1": 0.1, "x2": 0.9, "map_key": 12346.0}
         )
+
+    def test_transform_experiment_data(self) -> None:
+        experiment_data = extract_experiment_data(
+            experiment=self.experiment,
+            data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=False),
+        )
+        copy_experiment_data = deepcopy(experiment_data)
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=copy_experiment_data
+        )
+        # Check that it is returned unmodified.
+        self.assertIs(copy_experiment_data, transformed_data)
+        self.assertEqual(experiment_data, transformed_data)
