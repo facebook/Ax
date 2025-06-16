@@ -106,7 +106,9 @@ class ModelRegistryTest(TestCase):
             surrogate_spec,
             SurrogateSpec(
                 model_configs=[
-                    ModelConfig(botorch_model_class=SaasFullyBayesianSingleTaskGP)
+                    ModelConfig(
+                        botorch_model_class=SaasFullyBayesianSingleTaskGP, name="SAASBO"
+                    )
                 ]
             ),
         )

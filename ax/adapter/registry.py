@@ -237,7 +237,9 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         default_model_kwargs={
             "surrogate_spec": SurrogateSpec(
                 model_configs=[
-                    ModelConfig(botorch_model_class=SaasFullyBayesianSingleTaskGP)
+                    ModelConfig(
+                        botorch_model_class=SaasFullyBayesianSingleTaskGP, name="SAASBO"
+                    )
                 ]
             )
         },
@@ -249,7 +251,10 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         default_model_kwargs={
             "surrogate_spec": SurrogateSpec(
                 model_configs=[
-                    ModelConfig(botorch_model_class=SaasFullyBayesianMultiTaskGP)
+                    ModelConfig(
+                        botorch_model_class=SaasFullyBayesianMultiTaskGP,
+                        name="SAAS_MTGP",
+                    )
                 ]
             )
         },
