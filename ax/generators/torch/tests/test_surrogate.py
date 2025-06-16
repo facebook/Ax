@@ -61,6 +61,7 @@ from botorch.models.transforms.input import (
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from botorch.utils.evaluation import compute_in_sample_model_fit_metric
+from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import standardize
 from botorch.utils.types import DEFAULT
 from gpytorch.constraints import GreaterThan, Interval
@@ -1243,6 +1244,60 @@ class SurrogateTest(TestCase):
         self.assertIsInstance(model.models[0].covar_module, MaternKernel)
         # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(model.models[1].covar_module, RBFKernel)
+
+    @patch(
+        "ax.generators.torch.botorch_modular.surrogate.DIAGNOSTIC_FNS",
+        wraps=DIAGNOSTIC_FNS,
+    )
+    def test_cross_validation(self, mock_diag_dict: Mock) -> None:
+        # Make a larger training set for testing CV folding
+        X = draw_sobol_samples(bounds=torch.tensor(self.bounds).T, n=20, q=1).squeeze()
+        Y = torch.rand([20, 1], **self.tkwargs)
+        training_data = [
+            SupervisedDataset(
+                X=X,
+                Y=Y,
+                Yvar=0.1 * torch.ones_like(Y),
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
+            )
+        ]
+        # Prep the mock
+        mock_rc = Mock(side_effect=[1.0, 2.0, 3.0, 4.0, 5.0])
+        d = {"Rank correlation": mock_rc}
+        mock_diag_dict.__getitem__.side_effect = d.__getitem__
+
+        # LOO CV
+        surrogate = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[ModelConfig()],
+                num_folds=None,
+            ),
+            refit_on_cv=False,
+        )
+        surrogate.fit(
+            datasets=training_data,
+            search_space_digest=self.search_space_digest,
+        )
+        surrogate.cross_validate(
+            dataset=training_data[0],
+            model_config=ModelConfig(),
+            search_space_digest=self.search_space_digest,
+        )
+        self.assertEqual(len(mock_rc.call_args[1]["y_pred"]), 20)
+
+        # 10-fold CV
+        surrogate_spec = SurrogateSpec(
+            model_configs=[ModelConfig()],
+            num_folds=10,
+        )
+        surrogate.surrogate_spec = surrogate_spec
+        surrogate.cross_validate(
+            dataset=training_data[0],
+            model_config=ModelConfig(),
+            search_space_digest=self.search_space_digest,
+        )
+        self.assertEqual(len(mock_rc.call_args[1]["y_pred"]), 20)
 
     def test_fit_multiple_model_configs_multiple_iterations(self) -> None:
         """This test reproduces multiple iterations of model fitting in a
