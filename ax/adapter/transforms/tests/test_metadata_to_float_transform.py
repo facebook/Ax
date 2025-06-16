@@ -10,6 +10,8 @@ from collections.abc import Iterator
 from copy import deepcopy
 from unittest.mock import ANY
 
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.metadata_to_float import MetadataToFloat
 from ax.core.observation import ObservationFeatures, observations_from_data
 from ax.core.parameter import ParameterType, RangeParameter
@@ -18,6 +20,7 @@ from ax.exceptions.core import DataRequiredError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
+from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
 
@@ -74,6 +77,10 @@ class MetadataToFloatTransformTest(TestCase):
         self.observations = observations_from_data(
             experiment=self.experiment, data=self.experiment.lookup_data()
         )
+        self.experiment_data = extract_experiment_data(
+            experiment=self.experiment,
+            data_loader_config=DataLoaderConfig(),
+        )
 
         self.t = MetadataToFloat(
             observations=self.observations,
@@ -81,28 +88,33 @@ class MetadataToFloatTransformTest(TestCase):
                 "parameters": {"bar": {"log_scale": True}},
             },
         )
+        self.t2 = MetadataToFloat(
+            experiment_data=self.experiment_data,
+            config={
+                "parameters": {"bar": {"log_scale": True}},
+            },
+        )
 
     def test_Init(self) -> None:
-        self.assertEqual(len(self.t._parameter_list), 1)
-
-        p = self.t._parameter_list[0]
-
-        # check that the parameter options are specified in a sensible manner
-        # by default if the user does not specify them explicitly
-        self.assertEqual(p.name, "bar")
-        self.assertEqual(p.parameter_type, ParameterType.FLOAT)
-        self.assertEqual(p.lower, 3.0)
-        self.assertEqual(p.upper, 15.0)
-        self.assertTrue(p.log_scale)
-        self.assertFalse(p.logit_scale)
-        self.assertIsNone(p.digits)
-        self.assertFalse(p.is_fidelity)
-        self.assertIsNone(p.target_value)
+        for t in (self.t, self.t2):
+            self.assertEqual(len(t._parameter_list), 1)
+            p = t._parameter_list[0]
+            # check that the parameter options are specified in a sensible manner
+            # by default if the user does not specify them explicitly
+            self.assertEqual(p.name, "bar")
+            self.assertEqual(p.parameter_type, ParameterType.FLOAT)
+            self.assertEqual(p.lower, 3.0)
+            self.assertEqual(p.upper, 15.0)
+            self.assertTrue(p.log_scale)
+            self.assertFalse(p.logit_scale)
+            self.assertIsNone(p.digits)
+            self.assertFalse(p.is_fidelity)
+            self.assertIsNone(p.target_value)
 
         with self.assertRaisesRegex(DataRequiredError, "requires non-empty data"):
             MetadataToFloat(search_space=None, observations=None)
         with self.assertRaisesRegex(DataRequiredError, "requires non-empty data"):
-            MetadataToFloat(search_space=None, observations=[])
+            MetadataToFloat(search_space=None)
 
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
@@ -147,3 +159,26 @@ class MetadataToFloatTransformTest(TestCase):
         )
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
+
+    def test_transform_experiment_data(self) -> None:
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(self.experiment_data)
+        )
+        # Check that arm data now has a new column for the transformed parameter.
+        expected_bar_values = [
+            3.0 * s for steps in STEPS_ENDS for s in range(1, steps + 1)
+        ]
+        self.assertEqual(transformed_data.arm_data["bar"].tolist(), expected_bar_values)
+        # Metadata has been updated to remove the transform parameter.
+        for m in transformed_data.arm_data["metadata"]:
+            self.assertNotIn("bar", m)
+        # Remaining columns are unchanged.
+        assert_frame_equal(
+            transformed_data.arm_data.drop(columns=["bar", "metadata"]),
+            self.experiment_data.arm_data.drop(columns=["metadata"]),
+        )
+        # Observation data is not changed.
+        assert_frame_equal(
+            transformed_data.observation_data,
+            self.experiment_data.observation_data,
+        )
