@@ -142,3 +142,37 @@ class TestDispatchUtils(TestCase):
                 self.assertEqual(model_key, "Sobol")
             else:
                 self.assertEqual(model_key, "BoTorch")
+
+    def test_choose_gs_no_initialization(self) -> None:
+        struct = GenerationStrategyDispatchStruct(
+            method="fast", initialization_budget=0
+        )
+        gs = choose_generation_strategy(struct=struct)
+        self.assertEqual(len(gs._nodes), 1)
+        self.assertEqual(gs.name, "MBM:fast")
+        mbm_node = gs._nodes[0]
+        self.assertEqual(mbm_node.node_name, "MBM")
+
+    def test_choose_gs_center_only_initialization(self) -> None:
+        struct = GenerationStrategyDispatchStruct(
+            method="fast", initialization_budget=1, initialize_with_center=True
+        )
+        gs = choose_generation_strategy(struct=struct)
+        self.assertEqual(len(gs._nodes), 2)
+        self.assertEqual(gs.name, "Center+MBM:fast")
+        center_node = gs._nodes[0]
+        self.assertEqual(center_node.node_name, "CenterOfSearchSpace")
+        mbm_node = gs._nodes[1]
+        self.assertEqual(mbm_node.node_name, "MBM")
+
+    def test_choose_gs_single_sobol_initialization(self) -> None:
+        struct = GenerationStrategyDispatchStruct(
+            method="fast", initialization_budget=1, initialize_with_center=False
+        )
+        gs = choose_generation_strategy(struct=struct)
+        self.assertEqual(len(gs._nodes), 2)
+        self.assertEqual(gs.name, "Sobol+MBM:fast")
+        sobol_node = gs._nodes[0]
+        self.assertEqual(sobol_node.node_name, "Sobol")
+        mbm_node = gs._nodes[1]
+        self.assertEqual(mbm_node.node_name, "MBM")
