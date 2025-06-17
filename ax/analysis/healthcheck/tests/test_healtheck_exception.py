@@ -32,11 +32,7 @@ class TestHealtheckException(TestCase):
     def test_error_analysis_card_on_exception(self) -> None:
         analysis = self.DummyAnalysis()
         with self.assertLogs("ax.analysis.analysis", "ERROR") as logs:
-            analysis_cards = (
-                analysis.compute_result()
-                .unwrap_or_else(lambda e: e.error_card())
-                .flatten()
-            )
+            analysis_cards = analysis.compute_or_error_card().flatten()
         # Check that the error message is logged
         self.assertEqual(len(logs.output), 2)
         self.assertIn(ERROR_MESSAGE, logs.output[1])
