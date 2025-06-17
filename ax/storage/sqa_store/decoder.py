@@ -14,7 +14,7 @@ from logging import Logger
 from typing import cast, Union
 
 import pandas as pd
-from ax.analysis.analysis import (
+from ax.analysis.analysis_card import (
     AnalysisCard,
     AnalysisCardBase,
     AnalysisCardGroup,

@@ -9,7 +9,7 @@ from typing import Literal, Mapping, Sequence
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
-from ax.analysis.analysis import AnalysisCardBase
+from ax.analysis.analysis_card import AnalysisCardBase
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
 from ax.analysis.plotly.utils import (

@@ -7,7 +7,8 @@
 
 from collections.abc import Iterable
 
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardGroup
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
