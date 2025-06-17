@@ -5,13 +5,9 @@
 
 # pyre-strict
 
-from typing import Sequence
-
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.transforms.derelativize import Derelativize
-
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
@@ -48,7 +44,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[HealthcheckAnalysisCard]:
+    ) -> HealthcheckAnalysisCard:
         r"""
         Compute the feasibility of the constraints for the experiment.
 
@@ -65,9 +61,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         status = HealthcheckStatus.PASS
         subtitle = "All constraints are feasible."
         title_status = "Success"
-        level = AnalysisCardLevel.LOW
         df = pd.DataFrame()
-        category = AnalysisCardCategory.DIAGNOSTIC
 
         if experiment is None:
             raise UserInputError(
@@ -76,32 +70,24 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
 
         if experiment.optimization_config is None:
             subtitle = "No optimization config is specified."
-            return [
-                self._create_healthcheck_analysis_card(
-                    title=f"Ax Constraints Feasibility {title_status}",
-                    subtitle=subtitle,
-                    df=df,
-                    level=level,
-                    status=status,
-                    category=category,
-                ),
-            ]
+            return self._create_healthcheck_analysis_card(
+                title=f"Ax Constraints Feasibility {title_status}",
+                subtitle=subtitle,
+                df=df,
+                status=status,
+            )
 
         if (
             experiment.optimization_config.outcome_constraints is None
             or len(experiment.optimization_config.outcome_constraints) == 0
         ):
             subtitle = "No constraints are specified."
-            return [
-                self._create_healthcheck_analysis_card(
-                    title=f"Ax Constraints Feasibility {title_status}",
-                    subtitle=subtitle,
-                    df=df,
-                    level=level,
-                    status=status,
-                    category=category,
-                )
-            ]
+            return self._create_healthcheck_analysis_card(
+                title=f"Ax Constraints Feasibility {title_status}",
+                subtitle=subtitle,
+                df=df,
+                status=status,
+            )
 
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
@@ -139,16 +125,12 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             )
             title_status = "Warning"
 
-        return [
-            self._create_healthcheck_analysis_card(
-                title=f"Ax Constraints Feasibility {title_status}",
-                subtitle=subtitle,
-                df=df,
-                level=level,
-                status=status,
-                category=category,
-            ),
-        ]
+        return self._create_healthcheck_analysis_card(
+            title=f"Ax Constraints Feasibility {title_status}",
+            subtitle=subtitle,
+            df=df,
+            status=status,
+        )
 
 
 def constraints_feasibility(

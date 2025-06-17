@@ -13,11 +13,7 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-from ax.analysis.analysis import (  # Used as a return type
-    Analysis,
-    AnalysisCard,
-    display_cards,
-)
+from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.analysis.dispatch import choose_analyses
 from ax.analysis.summary import Summary
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
@@ -60,6 +56,8 @@ from ax.storage.json_store.registry import (
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
+
+from IPython.display import display as ipython_display
 from pyre_extensions import assert_is_instance, none_throws
 from typing_extensions import Self
 
@@ -705,22 +703,14 @@ class Client(WithDBSettingsBase):
         ]
 
         # Turn Exceptions into MarkdownAnalysisCards with the traceback as the message
-        cards = [
-            card
-            for result in results
-            for card in result.unwrap_or_else(lambda e: e.error_card())
-        ]
+        cards = [result.unwrap_or_else(lambda e: e.error_card()) for result in results]
 
         # Display the AnalysisCards if requested and if the user is in a notebook
         if display:
-            display_cards(cards=cards)
+            for card in cards:
+                ipython_display(card)
 
-        # Save the AnalysisCards to the database if possible
-        self._save_analysis_cards_to_db_if_possible(
-            experiment=self._experiment, analysis_cards=cards
-        )
-
-        return cards
+        return [leaf for card in cards for leaf in card.flatten()]
 
     def summarize(self) -> pd.DataFrame:
         """
@@ -744,7 +734,7 @@ class Client(WithDBSettingsBase):
             - **PARAMETER_NAME: The parameter value for the arm, for each parameter
         """
 
-        (card,) = Summary(omit_empty_columns=True).compute(
+        card = Summary(omit_empty_columns=True).compute(
             experiment=self._experiment,
             generation_strategy=self._maybe_generation_strategy,
         )

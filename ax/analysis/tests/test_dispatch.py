@@ -17,7 +17,7 @@ class TestUtils(TestCase):
     def test_choose_analyses(self) -> None:
         analyses = choose_analyses(experiment=get_branin_experiment())
         self.assertEqual(
-            {analysis.name for analysis in analyses},
+            {analysis.__class__.__name__ for analysis in analyses},
             {
                 "ParallelCoordinatesPlot",
                 "TopSurfacesAnalysis",
@@ -31,6 +31,6 @@ class TestUtils(TestCase):
             experiment=get_branin_experiment_with_multi_objective()
         )
         self.assertEqual(
-            {analysis.name for analysis in analyses},
+            {analysis.__class__.__name__ for analysis in analyses},
             {"TopSurfacesAnalysis", "ScatterPlot", "Summary", "CrossValidationPlot"},
         )
