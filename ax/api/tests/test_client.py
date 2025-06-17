@@ -909,25 +909,19 @@ class TestClient(TestCase):
         client.configure_generation_strategy()
 
         with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
-            cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+            analysis = ParallelCoordinatesPlot()
+            cards = client.compute_analyses(analyses=[analysis])
 
             self.assertEqual(len(cards), 1)
             self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
             self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
             self.assertEqual(
                 cards[0].subtitle,
-                f"An error occurred while computing {ParallelCoordinatesPlot()}",
+                "ValueError encountered while computing ParallelCoordinatesPlot.",
             )
             self.assertIn("Traceback", cards[0].blob)
             self.assertTrue(
-                any(
-                    (
-                        "Failed to compute ParallelCoordinatesPlot: "
-                        "No data found for metric "
-                    )
-                    in msg
-                    for msg in lg.output
-                )
+                any(("No data found for metric") in msg for msg in lg.output)
             )
 
         for trial_index, _ in client.get_next_trials(max_trials=1).items():

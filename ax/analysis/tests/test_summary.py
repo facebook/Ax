@@ -7,11 +7,6 @@
 
 import numpy as np
 import pandas as pd
-from ax.analysis.analysis import (
-    AnalysisBlobAnnotation,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
 from ax.analysis.summary import Summary
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
@@ -53,7 +48,7 @@ class TestSummary(TestCase):
             analysis.compute()
 
         experiment = client._experiment
-        (card,) = analysis.compute(experiment=experiment)
+        card = analysis.compute(experiment=experiment)
 
         # Test metadata
         self.assertEqual(card.name, "Summary")
@@ -62,10 +57,7 @@ class TestSummary(TestCase):
             card.subtitle,
             "High-level summary of the `Trial`-s in this `Experiment`",
         )
-        self.assertEqual(card.level, AnalysisCardLevel.MID)
-        self.assertEqual(card.category, AnalysisCardCategory.INFO)
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.DATAFRAME)
 
         # Test dataframe for accuracy
         self.assertEqual(
@@ -110,7 +102,7 @@ class TestSummary(TestCase):
 
         # Test without omitting empty columns
         analysis_no_omit = Summary(omit_empty_columns=False)
-        (card_no_omit,) = analysis_no_omit.compute(experiment=experiment)
+        card_no_omit = analysis_no_omit.compute(experiment=experiment)
         self.assertEqual(
             {*card_no_omit.df.columns},
             {

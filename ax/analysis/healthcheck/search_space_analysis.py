@@ -5,13 +5,12 @@
 
 # pyre-strict
 
-from typing import Sequence, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
 from ax.adapter.base import Adapter
 
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
     HealthcheckAnalysisCard,
@@ -57,7 +56,7 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[HealthcheckAnalysisCard]:
+    ) -> HealthcheckAnalysisCard:
         if experiment is None:
             raise UserInputError("SearchSpaceAnalysis requires an Experiment.")
 
@@ -68,7 +67,6 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
             "in the form of increased optimization performance.\n\n"
         )
         title_status = "Success"
-        level = AnalysisCardLevel.LOW
 
         trial = experiment.trials[self.trial_index]
         arms = trial.arms
@@ -87,20 +85,15 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
             status = HealthcheckStatus.WARNING
             additional_subtitle = msg
             title_status = "Warning"
-            level = AnalysisCardLevel.LOW
         else:
             additional_subtitle = "Search space does not need to be updated."
 
-        return [
-            self._create_healthcheck_analysis_card(
-                title=f"Ax Search Space Analysis {title_status}",
-                subtitle=subtitle_base + additional_subtitle,
-                df=boundary_proportions_df[["boundary", "proportion", "bound"]],
-                level=level,
-                status=status,
-                category=AnalysisCardCategory.DIAGNOSTIC,
-            ),
-        ]
+        return self._create_healthcheck_analysis_card(
+            title=f"Ax Search Space Analysis {title_status}",
+            subtitle=subtitle_base + additional_subtitle,
+            df=boundary_proportions_df[["boundary", "proportion", "bound"]],
+            status=status,
+        )
 
 
 def search_space_boundary_proportions(

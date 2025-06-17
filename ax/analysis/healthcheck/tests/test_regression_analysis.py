@@ -8,7 +8,7 @@
 
 import numpy as np
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+
 from ax.analysis.healthcheck.regression_analysis import RegressionAnalysis
 from ax.core.data import Data
 from ax.utils.common.testutils import TestCase
@@ -33,7 +33,7 @@ class TestRegressionAnalysis(TestCase):
 
         experiment.attach_data(Data(df=df))
         ra = RegressionAnalysis(prob_threshold=0.90)
-        (card,) = ra.compute(experiment=experiment, generation_strategy=None)
+        card = ra.compute(experiment=experiment, generation_strategy=None)
         self.assertEqual(card.name, "RegressionAnalysis")
         self.assertEqual(card.title, "Ax Regression Analysis Warning")
         self.assertTrue(
@@ -41,8 +41,6 @@ class TestRegressionAnalysis(TestCase):
             and "branin_b" in card.subtitle
             and "Trial 0" in card.subtitle
         )
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
 
         df = pd.DataFrame(
             {
@@ -55,7 +53,7 @@ class TestRegressionAnalysis(TestCase):
         )
         experiment.attach_data(Data(df=df))
         ra = RegressionAnalysis(prob_threshold=0.90)
-        (card,) = ra.compute(experiment=experiment, generation_strategy=None)
+        card = ra.compute(experiment=experiment, generation_strategy=None)
         self.assertEqual(card.name, "RegressionAnalysis")
         self.assertEqual(card.title, "Ax Regression Analysis Success")
         self.assertEqual(
@@ -69,4 +67,3 @@ class TestRegressionAnalysis(TestCase):
                 "No metric regessions detected."
             ),
         )
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)

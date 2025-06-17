@@ -6,11 +6,6 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.analysis import (
-    AnalysisBlobAnnotation,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
 from ax.analysis.search_space_summary import SearchSpaceSummary
 from ax.api.client import Client
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
@@ -45,7 +40,7 @@ class TestSearchSpaceSummary(TestCase):
             analysis.compute()
 
         experiment = client._experiment
-        (card,) = analysis.compute(experiment=experiment)
+        card = analysis.compute(experiment=experiment)
 
         # Test metadata
         self.assertEqual(card.name, "SearchSpaceSummary")
@@ -61,10 +56,7 @@ class TestSearchSpaceSummary(TestCase):
                 "exploration."
             ),
         )
-        self.assertEqual(card.level, AnalysisCardLevel.MID)
-        self.assertEqual(card.category, AnalysisCardCategory.INFO)
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.DATAFRAME)
 
         # Test dataframe for accuracy
         self.assertEqual(

@@ -5,12 +5,9 @@
 
 # pyre-strict
 
-from typing import Sequence
-
 import numpy as np
 import plotly.express as px
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.utils import select_metric
@@ -60,7 +57,7 @@ class ProgressionPlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ProgressionPlot requires an Experiment")
 
@@ -135,22 +132,18 @@ class ProgressionPlot(PlotlyAnalysis):
                 )
             )
 
-        return [
-            self._create_plotly_analysis_card(
-                title=f"{metric_name} by {x_axis_name.replace('_', ' ')}",
-                subtitle=(
-                    "The progression plot tracks the evolution of each metric "
-                    "over the course of the experiment. This visualization is "
-                    "typically used to monitor the improvement of metrics over "
-                    "Trial iterations, but can also be useful in informing decisions "
-                    "about early stopping for Trials."
-                ),
-                level=AnalysisCardLevel.MID,
-                df=df,
-                fig=fig,
-                category=AnalysisCardCategory.INSIGHT,
-            )
-        ]
+        return self._create_plotly_analysis_card(
+            title=f"{metric_name} by {x_axis_name.replace('_', ' ')}",
+            subtitle=(
+                "The progression plot tracks the evolution of each metric "
+                "over the course of the experiment. This visualization is "
+                "typically used to monitor the improvement of metrics over "
+                "Trial iterations, but can also be useful in informing decisions "
+                "about early stopping for Trials."
+            ),
+            df=df,
+            fig=fig,
+        )
 
 
 def _calculate_wallclock_timeseries(
