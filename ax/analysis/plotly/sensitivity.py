@@ -9,9 +9,9 @@ from typing import Literal, Mapping, Sequence
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCardBase
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
 from ax.analysis.plotly.utils import (
     COLOR_FOR_DECREASES,
     COLOR_FOR_INCREASES,
@@ -72,7 +72,7 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> AnalysisCardBase:
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -110,15 +110,15 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
                     f"Understand how each parameter affects {metric_label} according "
                     f"to a {self.order}-order sensitivity analysis."
                 ),
-                level=AnalysisCardLevel.MID,
-                category=AnalysisCardCategory.INSIGHT,
                 df=df,
                 fig=fig,
             )
 
             cards.append(card)
 
-        return cards
+        return self._create_analysis_card_group_or_card(
+            children=cards,
+        )
 
 
 def compute_sensitivity_adhoc(
@@ -127,7 +127,7 @@ def compute_sensitivity_adhoc(
     labels: Mapping[str, str] | None = None,
     order: Literal["first", "second", "total"] = "total",
     top_k: int | None = None,
-) -> list[PlotlyAnalysisCard]:
+) -> AnalysisCardBase:
     """
     Compute SensitivityAnalysis cards for the given experiment and either Adapter or
     GenerationStrategy.
@@ -153,7 +153,7 @@ def compute_sensitivity_adhoc(
         top_k=top_k,
         labels=labels,
     )
-    return [*analysis.compute(adapter=adapter)]
+    return analysis.compute(adapter=adapter)
 
 
 def _prepare_data(

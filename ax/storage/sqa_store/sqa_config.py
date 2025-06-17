@@ -11,8 +11,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from ax.analysis.analysis import AnalysisCard
-
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import AbandonedArm
@@ -37,7 +35,6 @@ from ax.storage.runner_registry import CORE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
-    SQAAnalysisCard,
     SQAArm,
     SQAAuxiliaryExperiment,
     SQAData,
@@ -68,7 +65,7 @@ class SQAConfig:
     """
 
     def _default_class_to_sqa_class(self=None) -> dict[type[Base], type[SQABase]]:
-        # pyre-ignore [7]
+        # pyre-fixme[7]
         return {
             AbandonedArm: SQAAbandonedArm,
             Arm: SQAArm,
@@ -81,7 +78,6 @@ class SQAConfig:
             Metric: SQAMetric,
             Runner: SQARunner,
             Trial: SQATrial,
-            AnalysisCard: SQAAnalysisCard,
             AuxiliaryExperiment: SQAAuxiliaryExperiment,
         }
 
