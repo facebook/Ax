@@ -159,22 +159,32 @@ def choose_generation_strategy(
         ]
         gs_name = "QuasiRandomSearch"
     else:
-        nodes = [
-            _get_sobol_node(
-                initialization_budget=struct.initialization_budget,
-                min_observed_initialization_trials=struct.min_observed_initialization_trials,  # noqa: E501
-                initialize_with_center=struct.initialize_with_center,
-                use_existing_trials_for_initialization=struct.use_existing_trials_for_initialization,  # noqa: E501
-                allow_exceeding_initialization_budget=struct.allow_exceeding_initialization_budget,  # noqa: E501
-                initialization_random_seed=struct.initialization_random_seed,
-            ),
-            _get_mbm_node(
-                method=struct.method,
-                torch_device=struct.torch_device,
-            ),
-        ]
-        gs_name = f"Sobol+MBM:{struct.method}"
-    if struct.initialize_with_center:
+        mbm_node = _get_mbm_node(
+            method=struct.method,
+            torch_device=struct.torch_device,
+        )
+        if (
+            struct.initialization_budget is None
+            or struct.initialization_budget > struct.initialize_with_center
+        ):
+            nodes = [
+                _get_sobol_node(
+                    initialization_budget=struct.initialization_budget,
+                    min_observed_initialization_trials=struct.min_observed_initialization_trials,  # noqa: E501
+                    initialize_with_center=struct.initialize_with_center,
+                    use_existing_trials_for_initialization=struct.use_existing_trials_for_initialization,  # noqa: E501
+                    allow_exceeding_initialization_budget=struct.allow_exceeding_initialization_budget,  # noqa: E501
+                    initialization_random_seed=struct.initialization_random_seed,
+                ),
+                mbm_node,
+            ]
+            gs_name = f"Sobol+MBM:{struct.method}"
+        else:
+            nodes = [mbm_node]
+            gs_name = f"MBM:{struct.method}"
+    if struct.initialize_with_center and (
+        struct.initialization_budget is None or struct.initialization_budget > 0
+    ):
         center_node = CenterGenerationNode(next_node_name=nodes[0].node_name)
         nodes.insert(0, center_node)
         gs_name = f"Center+{gs_name}"
