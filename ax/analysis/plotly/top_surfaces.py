@@ -8,7 +8,7 @@
 from typing import Literal
 
 from ax.adapter.base import Adapter
-from ax.analysis.analysis_card import AnalysisCardBase
+from ax.analysis.analysis_card import AnalysisCardGroup
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
@@ -38,7 +38,7 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> AnalysisCardBase:
+    ) -> AnalysisCardGroup:
         if experiment is None:
             raise UserInputError(
                 "TopSurfacesAnalysis requires an Experiment to compute."
@@ -90,8 +90,32 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
             for surface_name in top_surfaces
         ]
 
+        slice_cards = [card for card in surface_cards if card.name == "SlicePlot"]
+        contour_cards = [card for card in surface_cards if card.name == "ContourPlot"]
+
+        slices = (
+            AnalysisCardGroup(
+                name=f"{metric_name} SlicePlots",
+                children=slice_cards,
+            )
+            if len(slice_cards) > 0
+            else None
+        )
+        contours = (
+            AnalysisCardGroup(
+                name=f"{metric_name} ContourPlots",
+                children=contour_cards,
+            )
+            if len(contour_cards) > 0
+            else None
+        )
+
         return self._create_analysis_card_group(
-            children=[sensitivity_analysis_card, *surface_cards],
+            children=[
+                group
+                for group in [sensitivity_analysis_card, slices, contours]
+                if group is not None
+            ],
         )
 
 
