@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import inspect
-import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
@@ -81,7 +80,7 @@ from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedD
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.evaluation import AIC, BIC, compute_in_sample_model_fit_metric, MLL
 from botorch.utils.transforms import normalize_indices
-from botorch.utils.types import _DefaultType, DEFAULT
+from botorch.utils.types import _DefaultType
 from gpytorch.models.exact_gp import ExactGP
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
@@ -378,45 +377,6 @@ def _construct_submodules(
         submodules["outcome_transform"] = None
 
     return submodules
-
-
-def _raise_deprecation_warning(
-    is_surrogate: bool = False,
-    **kwargs: Any,
-) -> bool:
-    """Raise deprecation warnings for deprecated arguments.
-
-    Args:
-        is_surrogate: A boolean indicating whether the warning is called from
-            Surrogate.
-
-    Returns:
-        A boolean indicating whether any deprecation warnings were raised.
-    """
-    msg = "{k} is deprecated and will be removed in a future version. "
-    if is_surrogate:
-        msg += "Please specify {k} via `surrogate_spec.model_configs`."
-    else:
-        msg += "Please specify {k} via `model_configs`."
-    warnings_raised = False
-    default_is_dict = {"botorch_model_kwargs", "mll_kwargs"}
-    default_is_default = {"input_transform_classes"}
-    for k, v in kwargs.items():
-        should_raise = False
-        if k in default_is_dict:
-            if v not in [{}, None]:
-                should_raise = True
-        elif k in default_is_default:
-            if v != DEFAULT:
-                should_raise = True
-        if should_raise:
-            warnings.warn(
-                msg.format(k=k),
-                DeprecationWarning,
-                stacklevel=3,
-            )
-            warnings_raised = True
-    return warnings_raised
 
 
 @dataclass(frozen=True)
