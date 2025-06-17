@@ -880,7 +880,7 @@ class Client(WithDBSettingsBase):
     def predict(
         self,
         points: Sequence[TParameterization],
-    ) -> list[TOutcome]:
+    ) -> list[dict[str, tuple[float, float]]]:
         """
         Use the current surrogate model to predict the outcome of the provided
         list of parameterizations.
@@ -915,7 +915,7 @@ class Client(WithDBSettingsBase):
             {
                 metric_name: (
                     mean[metric_name][i],
-                    covariance[metric_name][metric_name][i],
+                    covariance[metric_name][metric_name][i] ** 0.5,
                 )
                 for metric_name in mean.keys()
             }

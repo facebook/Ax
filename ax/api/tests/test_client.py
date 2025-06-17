@@ -8,6 +8,7 @@
 import random
 from collections.abc import Mapping
 from typing import Any
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -1143,8 +1144,20 @@ class TestClient(TestCase):
 
         # Check we've predicted something for foo and bar but not baz (which is a
         # tracking metric)
-        point = client.predict(points=[{"x1": 0.5}])
-        self.assertEqual({*point[0].keys()}, {"foo", "bar"})
+        (prediction,) = client.predict(points=[{"x1": 0.5}])
+        self.assertEqual(set(prediction), {"foo", "bar"})
+        # Check that we're returning SEM not variance.
+        pred_mean = {"foo": [0.25], "bar": [0.0]}
+        pred_cov = {
+            "foo": {"foo": [4.0], "bar": [9.0]},
+            "bar": {"foo": [9.0], "bar": [16.0]},
+        }
+        with mock.patch(
+            "ax.adapter.torch.TorchAdapter.predict", return_value=(pred_mean, pred_cov)
+        ) as mock_predict:
+            (prediction,) = client.predict(points=[{"x1": 0.5}])
+        mock_predict.assert_called_once()
+        self.assertEqual(prediction, {"foo": (0.25, 2.0), "bar": (0.0, 4.0)})
 
     def test_json_storage(self) -> None:
         client = Client()
