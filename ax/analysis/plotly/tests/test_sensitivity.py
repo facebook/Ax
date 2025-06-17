@@ -8,11 +8,6 @@
 from itertools import product
 
 from ax.adapter.registry import Generators
-from ax.analysis.analysis import (
-    AnalysisBlobAnnotation,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
 from ax.analysis.plotly.sensitivity import (
     compute_sensitivity_adhoc,
     SensitivityAnalysisPlot,
@@ -92,7 +87,9 @@ class TestSensitivityAnalysisPlot(TestCase):
         ):
             analysis.compute()
 
-        (card,) = analysis.compute(generation_strategy=client._generation_strategy)
+        (card,) = analysis.compute(
+            generation_strategy=client._generation_strategy
+        ).flatten()
         self.assertEqual(
             card.name,
             "SensitivityAnalysisPlot",
@@ -103,18 +100,17 @@ class TestSensitivityAnalysisPlot(TestCase):
             "Understand how each parameter affects bar according to a first-order "
             "sensitivity analysis.",
         )
-        self.assertEqual(card.level, AnalysisCardLevel.MID)
-        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
             {"parameter_name", "sensitivity"},
         )
         self.assertEqual(len(card.df), 2)
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         second_order = SensitivityAnalysisPlot(metric_names=["bar"], order="second")
-        (card,) = second_order.compute(generation_strategy=client._generation_strategy)
+        (card,) = second_order.compute(
+            generation_strategy=client._generation_strategy
+        ).flatten()
         self.assertEqual(len(card.df), 3)  # 2 first order + 1 second order
 
     @mock_botorch_optimize
@@ -123,7 +119,9 @@ class TestSensitivityAnalysisPlot(TestCase):
         client = get_test_client()
         data = client.experiment.lookup_data()
         adapter = Generators.BOTORCH_MODULAR(experiment=client.experiment, data=data)
-        cards = compute_sensitivity_adhoc(adapter=adapter, labels=metric_mapping)
+        cards = compute_sensitivity_adhoc(
+            adapter=adapter, labels=metric_mapping
+        ).flatten()
         self.assertEqual(len(cards), 1)
         card = cards[0]
         self.assertEqual(card.name, "SensitivityAnalysisPlot")
