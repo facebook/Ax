@@ -12,10 +12,11 @@ import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate, CVResult
 from ax.analysis.analysis import AnalysisCardBase
+from ax.analysis.plotly.color_constants import AX_BLUE
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
+from ax.analysis.plotly.utils import get_scatter_point_color, Z_SCORE_95_CI
 
-from ax.analysis.plotly.utils import AX_BLUE, get_scatter_point_color, Z_SCORE_95_CI
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
