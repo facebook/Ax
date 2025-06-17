@@ -420,3 +420,49 @@ class SQAExperiment(Base):
         lazy="selectin",
         foreign_keys=[SQAAuxiliaryExperiment.target_experiment_id],
     )
+
+    analysis_cards: list[SQAAnalysisCard] = relationship(
+        "SQAAnalysisCard", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class SQAAnalysisCard(Base):
+    __tablename__: str = "analysis_card_v2"
+
+    id: Column[int] = Column(Integer, primary_key=True)
+
+    experiment_id: Column[int] = Column(
+        Integer, ForeignKey("experiment_v2.id"), nullable=False
+    )
+    name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
+    timestamp: Column[datetime] = Column(IntTimestamp, nullable=False)
+
+    parent_id: Column[int | None] = Column(
+        Integer,
+        ForeignKey("analysis_card_v2.id"),
+        nullable=True,
+    )
+    order: Column[int | None] = Column(Integer, nullable=True)
+
+    title: Column[str | None] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=True)
+    subtitle: Column[str | None] = Column(Text, nullable=True)
+    dataframe_json: Column[str | None] = Column(Text(LONGTEXT_BYTES), nullable=True)
+    blob: Column[str | None] = Column(Text(LONGTEXT_BYTES), nullable=True)
+    blob_annotation: Column[str | None] = Column(
+        String(NAME_OR_TYPE_FIELD_LENGTH), nullable=True
+    )
+
+    # pyre-ignore[4] Using Any here because using SQAAnalysisCard causes Pyre to hang
+    parent: Any = relationship(
+        "SQAAnalysisCard",
+        back_populates="children",
+        remote_side=[id],
+        lazy="selectin",
+    )
+    # pyre-ignore[4] Using Any here because using SQAAnalysisCard causes Pyre to hang
+    children: list[Any] = relationship(
+        "SQAAnalysisCard",
+        cascade="all, delete-orphan",
+        back_populates="parent",
+        lazy="selectin",
+    )

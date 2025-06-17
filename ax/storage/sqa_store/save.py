@@ -12,6 +12,8 @@ from collections.abc import Callable, Sequence
 from logging import Logger
 from typing import Any, cast, Type
 
+from ax.analysis.analysis import AnalysisCardBase
+
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -20,7 +22,7 @@ from ax.core.metric import Metric
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.runner import Runner
 from ax.core.trial import Trial
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import AxError, UserInputError
 from ax.exceptions.storage import SQADecodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope, SQABase
@@ -331,6 +333,48 @@ def save_or_update_data_for_trials(
             update_trial_status(trial_with_updated_status=trial, config=encoder.config)
 
 
+def save_analysis_card(
+    analysis_card: AnalysisCardBase,
+    experiment: Experiment,
+    config: SQAConfig | None = None,
+) -> None:
+    # Start up SQA encoder.
+    config = SQAConfig() if config is None else config
+    encoder = Encoder(config=config)
+    decoder = Decoder(config=config)
+
+    _save_analysis_card(
+        analysis_card=analysis_card,
+        experiment=experiment,
+        order=None,
+        encoder=encoder,
+        decoder=decoder,
+    )
+
+
+def _save_analysis_card(
+    analysis_card: AnalysisCardBase,
+    experiment: Experiment,
+    order: int | None,
+    encoder: Encoder,
+    decoder: Decoder,
+) -> None:
+    if experiment.db_id is None:
+        raise AxError(
+            f"Experiment {experiment.name} should be saved before analysis cards."
+        )
+
+    _merge_into_session_in_session_decode(
+        obj=analysis_card,
+        encode_func=encoder.analysis_card_to_sqa,
+        decode_func=decoder.analysis_card_from_sqa,
+        encode_args={
+            "experiment_id": experiment.db_id,
+            "order": order,
+        },
+    )
+
+
 def update_generation_strategy(
     generation_strategy: GenerationStrategy,
     generator_runs: list[GeneratorRun],
@@ -570,6 +614,7 @@ def _merge_into_session(
         session.flush()
 
     new_obj = decode_func(new_sqa, **(decode_args or {}))
+
     _copy_db_ids_if_possible(obj=obj, new_obj=new_obj)
 
     return new_sqa
@@ -632,6 +677,37 @@ def _bulk_merge_into_session(
         _copy_db_ids_if_possible(obj=obj, new_obj=new_obj)
 
     return new_sqas
+
+
+def _merge_into_session_in_session_decode(
+    obj: Base,
+    encode_func: Callable,
+    decode_func: Callable,
+    encode_args: dict[str, Any] | None = None,
+    decode_args: dict[str, Any] | None = None,
+    modify_sqa: Callable | None = None,
+) -> SQABase:
+    """_merge_into_session variant where we stay in the same session scope for
+    decoding. Useful for dealing with recursive SQA objects (ex. SQAAnalysisCard).
+
+    NOTE: Because this performs decoding while holding a DB session open, it
+    should only be used when strictly necessary.
+    """
+    sqa = encode_func(obj, **(encode_args or {}))
+
+    if modify_sqa is not None:
+        modify_sqa(sqa=sqa)
+
+    with session_scope() as session:
+        new_sqa = session.merge(sqa)
+
+        session.flush()
+
+        new_obj = decode_func(new_sqa, **(decode_args or {}))
+
+    _copy_db_ids_if_possible(obj=obj, new_obj=new_obj)
+
+    return new_sqa
 
 
 # pyre-fixme[2]: Parameter annotation cannot be `Any`.
