@@ -87,6 +87,22 @@ class AnalysisCardBase(SortableBase, ABC):
         """
         pass
 
+    @abstractmethod
+    def hierarchy_str(self, level: int = 0) -> str:
+        """
+        Returns a string representation of the card's nested hierarchy structure. This
+        is useful for debugging and logging.
+
+        Example:
+            Root
+                Child 1
+                    Grandchild 1
+                    Grandchild 2
+                Child 2
+                    Grandchild 3
+        """
+        pass
+
     @property
     def _unique_id(self) -> str:
         return str(hash(str(self.__dict__)))
@@ -121,6 +137,11 @@ class AnalysisCardGroup(AnalysisCardBase):
 
     def flatten(self) -> list[AnalysisCard]:
         return [child for child in self.children for child in child.flatten()]
+
+    def hierarchy_str(self, level: int = 0) -> str:
+        return f"{'    ' * level}{self.name}\n" + "\n".join(
+            child.hierarchy_str(level=level + 1) for child in self.children
+        )
 
     def _ipython_display_(self) -> None:
         """
@@ -187,6 +208,9 @@ class AnalysisCard(AnalysisCardBase):
 
     def flatten(self) -> list[AnalysisCard]:
         return [self]
+
+    def hierarchy_str(self, level: int = 0) -> str:
+        return f"{'    ' * level}{self.title}"
 
     def _ipython_display_(self) -> None:
         """
