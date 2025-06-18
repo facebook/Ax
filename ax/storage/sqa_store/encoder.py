@@ -10,7 +10,7 @@ from enum import Enum
 from logging import Logger
 from typing import Any, cast
 
-from ax.analysis.analysis import (
+from ax.analysis.analysis_card import (
     AnalysisCard,
     AnalysisCardBase,
     AnalysisCardGroup,
