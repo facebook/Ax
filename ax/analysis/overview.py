@@ -6,14 +6,25 @@
 # pyre-strict
 
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import Analysis
+from ax.analysis.analysis import Analysis, ErrorAnalysisCard
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.diagnostics import DiagnosticAnalysis
+from ax.analysis.healthcheck.can_generate_candidates import (
+    CanGenerateCandidatesAnalysis,
+)
+from ax.analysis.healthcheck.constraints_feasibility import (
+    ConstraintsFeasibilityAnalysis,
+)
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
+from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
+from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 from ax.analysis.insights import InsightsAnalysis
 from ax.analysis.results import ResultsAnalysis
 from ax.core.experiment import Experiment
+from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 
 class OverviewAnalysis(Analysis):
@@ -39,10 +50,29 @@ class OverviewAnalysis(Analysis):
             * Diagnostic
                 * CrossValidationPlots
             * Healthchecks
-                * TODO
+                * MetricFetchingErrorsAnalysis
+                * CanGenerateCandidatesAnalysis
+                * ConstraintsFeasibilityAnalysis
+                * SearchSpaceAnalysis
+                * ShouldGenerateCandidates
             * Trial-level information
                 * TODO
     """
+
+    def __init__(
+        self,
+        can_generate: bool | None = None,
+        can_generate_reason: str | None = None,
+        can_generate_days_till_fail: int | None = None,
+        should_generate: bool | None = None,
+        should_generate_reason: str | None = None,
+    ) -> None:
+        super().__init__()
+        self.can_generate = can_generate
+        self.can_generate_reason = can_generate_reason
+        self.can_generate_days_till_fail = can_generate_days_till_fail
+        self.should_generate = should_generate
+        self.should_generate_reason = should_generate_reason
 
     @override
     def compute(
@@ -72,6 +102,73 @@ class OverviewAnalysis(Analysis):
             adapter=adapter,
         )
 
+        health_check_analyses = [
+            MetricFetchingErrorsAnalysis(),
+            CanGenerateCandidatesAnalysis(
+                can_generate_candidates=self.can_generate,
+                reason=self.can_generate_reason,
+                days_till_fail=self.can_generate_days_till_fail,
+            )
+            if self.can_generate is not None
+            and self.can_generate_reason is not None
+            and self.can_generate_days_till_fail is not None
+            else None,
+            ConstraintsFeasibilityAnalysis(),
+            *[
+                SearchSpaceAnalysis(trial_index=trial.index)
+                for trial in none_throws(experiment).trials_by_status[
+                    TrialStatus.CANDIDATE
+                ]
+            ],
+            *[
+                ShouldGenerateCandidates(
+                    should_generate=self.should_generate,
+                    reason=self.should_generate_reason,
+                    trial_index=trial.index,
+                )
+                for trial in none_throws(experiment).trials_by_status[
+                    TrialStatus.CANDIDATE
+                ]
+                if self.should_generate is not None
+                and self.should_generate_reason is not None
+            ],
+        ]
+
+        health_check_cards = [
+            analyis.compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            for analyis in health_check_analyses
+            if analyis is not None
+        ]
+
+        non_passing_health_checks = [
+            card
+            for card in health_check_cards
+            if (isinstance(card, HealthcheckAnalysisCard) and not card.is_passing())
+            or isinstance(card, ErrorAnalysisCard)
+        ]
+
+        health_checks_group = (
+            AnalysisCardGroup(
+                name="HealthchecksAnalysis",
+                children=non_passing_health_checks,
+            )
+            if len(non_passing_health_checks) > 0
+            else None
+        )
+
         return self._create_analysis_card_group(
-            children=[results_group, insights_group, diagnostics_group]
+            children=[
+                group
+                for group in [
+                    results_group,
+                    insights_group,
+                    diagnostics_group,
+                    health_checks_group,
+                ]
+                if group is not None
+            ]
         )

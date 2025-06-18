@@ -28,6 +28,9 @@ class HealthcheckAnalysisCard(AnalysisCard):
     def get_status(self) -> HealthcheckStatus:
         return HealthcheckStatus(json.loads(self.blob)["status"])
 
+    def is_passing(self) -> bool:
+        return self.get_status() == HealthcheckStatus.PASS
+
     def get_aditional_attrs(self) -> dict[str, str | int | float | bool]:
         return json.loads(self.blob)
 
