@@ -11,9 +11,11 @@ from typing import Optional, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationFeatures, separate_observations
+from ax.core.parameter import PARAMETER_PYTHON_TYPE_MAP, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
+from pandas import Series
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
@@ -27,7 +29,7 @@ class Cast(Transform):
 
     This is a default transform that should run across all models.
 
-    NOTE: In case where searh space is hierarchical and this transform is
+    NOTE: In case where the search space is hierarchical and this transform is
     configured to flatten it:
       * All calls to `Cast.transform_...` transform Ax objects defined in
         terms of hierarchical search space, to their definitions in terms of
@@ -223,3 +225,81 @@ class Cast(Transform):
                 # No `None`s in the parameterization.
                 new_obsf.append(obsf)
         return new_obsf
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        """Cast the column values of the given experiment data to the
+        data type corresponding to the ``ParameterType``. If any rows
+        include None / NaN values for the parameterization, they are dropped.
+
+        For `HierarchicalSearchSpace`, the parameterizations are flattened
+        before applying the rest of the transform.
+        """
+        arm_data = experiment_data.arm_data
+        # If applicable, flatten first to fill otherwise NaN values.
+        # See `CastTransformTest.test_transform_experiment_data_flatten` for an
+        # example of the arm_data before and after the flattening operation.
+        # Any parameter values that are missing in the corresponding columns
+        # are filled with the values from `metadata["Keys.FULL_PARAMETERIZATION"]`.
+        # If the metadata does not include the full parameterization, a dummy
+        # value is constructed, either randomly or by using the middle of the
+        # parameter domain, depending on the `use_random_dummy_values` flag.
+        if self.flatten_hss:
+            # NOTE: This could probably be vectorized to operate more efficiently,
+            # however it is non-trivial since we need to extract values from the
+            # metadata of each row and fill any missing values after.
+            # This is applying the logic of `Cast.transform_observation_features`
+            # to the df as a quick solution.
+            def flatten_row(row: Series) -> Series:
+                obs_ft = ObservationFeatures(
+                    parameters=row.drop("metadata").dropna().to_dict(),
+                    metadata=row["metadata"],
+                )
+                flattened = assert_is_instance(
+                    self.search_space, HierarchicalSearchSpace
+                ).flatten_observation_features(
+                    observation_features=obs_ft,
+                    inject_dummy_values_to_complete_flat_parameterization=(
+                        self.inject_dummy_values_to_complete_flat_parameterization
+                    ),
+                    use_random_dummy_values=self.use_random_dummy_values,
+                )
+                return Series(
+                    name=row.name,
+                    data=flattened.parameters | {"metadata": row["metadata"]},
+                )
+
+            arm_data = arm_data.apply(flatten_row, axis=1)
+
+        parameter_names = list(arm_data.columns)
+        parameter_names.remove("metadata")
+
+        # Drop rows with None / NaN values. These are dropped in `parameter.cast`
+        # call in `Cast.transform_observation_features`.
+        arm_data = arm_data.dropna(axis="index", how="any", subset=parameter_names)
+        # Update observation_data to include the same indices.
+        observation_data = experiment_data.observation_data
+        index_names = list(observation_data.index.names)
+        if len(index_names) == 2:
+            observation_data = observation_data.loc[arm_data.index]
+        else:
+            observation_data = observation_data.loc[
+                observation_data.index.droplevel(level=index_names[2:]).isin(
+                    arm_data.index
+                )
+            ]
+
+        # Cast columns to the correct datatype & round RangeParameters, if applicable.
+        column_to_type = {
+            p: PARAMETER_PYTHON_TYPE_MAP[self.search_space.parameters[p].parameter_type]
+            for p in parameter_names
+        }
+        arm_data = arm_data.astype(dtype=column_to_type, copy=False)
+        # Round to digits if any parameter specifies it.
+        for p_name in parameter_names:
+            parameter = self.search_space.parameters[p_name]
+            if isinstance(parameter, RangeParameter) and parameter.digits is not None:
+                arm_data[p_name] = arm_data[p_name].round(parameter.digits)
+
+        return ExperimentData(arm_data=arm_data, observation_data=observation_data)

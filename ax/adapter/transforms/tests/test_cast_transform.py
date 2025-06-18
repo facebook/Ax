@@ -10,6 +10,8 @@ from copy import deepcopy
 from unittest.mock import patch
 
 import numpy as np
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import ExperimentData, extract_experiment_data
 from ax.adapter.transforms.cast import Cast
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import (
@@ -22,7 +24,13 @@ from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_hierarchical_search_space
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_timestamp_map_metric,
+    get_experiment_with_observations,
+    get_hierarchical_search_space,
+)
+from pandas import DataFrame
+from pandas.testing import assert_frame_equal
 
 
 class CastTransformTest(TestCase):
@@ -312,3 +320,144 @@ class CastTransformTest(TestCase):
             ),
         ]
         self.assertEqual(tf_observations, expected)
+
+    def test_transform_experiment_data_flatten(self) -> None:
+        # Tests for flattening of hierarchical parameterizations.
+        columns = [
+            "model",
+            "learning_rate",
+            "l2_reg_weight",
+            "num_boost_rounds",
+            "metadata",
+        ]
+        arm_data = DataFrame.from_dict(  # Same data used in `setUp`.
+            {
+                (0, "0_0"): {
+                    "model": "Linear",
+                    "learning_rate": 0.01,
+                    "l2_reg_weight": 0.0001,
+                    "metadata": {
+                        Keys.FULL_PARAMETERIZATION: {
+                            "model": "Linear",
+                            "learning_rate": 0.01,
+                            "l2_reg_weight": 0.0001,
+                            "num_boost_rounds": 12,
+                        }
+                    },
+                },
+                (1, "1_0"): {
+                    "model": "XGBoost",
+                    "num_boost_rounds": 12,
+                    "metadata": {
+                        Keys.FULL_PARAMETERIZATION: {
+                            "model": "XGBoost",
+                            "learning_rate": 0.01,
+                            "l2_reg_weight": 0.0001,
+                            "num_boost_rounds": 12,
+                        }
+                    },
+                },
+            },
+            orient="index",
+            columns=columns,
+        )
+        arm_data.index.names = ["trial_index", "arm_name"]
+        experiment_data = ExperimentData(
+            arm_data=arm_data, observation_data=DataFrame()
+        )
+        transformed = self.t_hss.transform_experiment_data(
+            experiment_data=experiment_data
+        )
+        expected_arm_data = DataFrame.from_dict(
+            {
+                (0, "0_0"): {
+                    "model": "Linear",
+                    "learning_rate": 0.01,
+                    "l2_reg_weight": 0.0001,
+                    "num_boost_rounds": 12,
+                    "metadata": {
+                        Keys.FULL_PARAMETERIZATION: {
+                            "model": "Linear",
+                            "learning_rate": 0.01,
+                            "l2_reg_weight": 0.0001,
+                            "num_boost_rounds": 12,
+                        }
+                    },
+                },
+                (1, "1_0"): {
+                    "model": "XGBoost",
+                    "learning_rate": 0.01,
+                    "l2_reg_weight": 0.0001,
+                    "num_boost_rounds": 12,
+                    "metadata": {
+                        Keys.FULL_PARAMETERIZATION: {
+                            "model": "XGBoost",
+                            "learning_rate": 0.01,
+                            "l2_reg_weight": 0.0001,
+                            "num_boost_rounds": 12,
+                        }
+                    },
+                },
+            },
+            orient="index",
+            columns=columns,
+        )
+        expected_arm_data.index.names = ["trial_index", "arm_name"]
+        assert_frame_equal(transformed.arm_data, expected_arm_data)
+
+    def test_transform_experiment_data_cast(self) -> None:
+        # Test for casting to the correct data type and dropping of Nones.
+        experiment = get_experiment_with_observations(
+            observations=[[0.0], [1.0], [2.0]],
+            parameterizations=[
+                {"x": 1, "y": None},
+                {"x": 2, "y": 2.0},
+                {"x": 3, "y": 3},
+            ],
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        transformed = Cast(
+            search_space=experiment.search_space
+        ).transform_experiment_data(experiment_data=deepcopy(experiment_data))
+        # Arm data should drop row 0 and cast to float.
+        expected_arm_data = (
+            experiment_data.arm_data.copy(deep=True)
+            .iloc[[1, 2]]
+            .astype({"x": float, "y": float})
+        )
+        assert_frame_equal(transformed.arm_data, expected_arm_data)
+        # Observation data should drop row 0.
+        expected_obs_data = experiment_data.observation_data.copy(deep=True).iloc[
+            [1, 2]
+        ]
+        assert_frame_equal(transformed.observation_data, expected_obs_data)
+
+    def test_transform_experiment_data_cast_map_data(self) -> None:
+        # Check that indexing for removal of NaNs works correctly with MapData.
+        experiment = get_branin_experiment_with_timestamp_map_metric(
+            with_trials_and_data=True
+        )
+        # Add some data for the last trial as well.
+        experiment.fetch_data()
+        # Update the last trial to mark parameterization as None.
+        experiment.trials[2].arms[0]._parameters["x1"] = None
+
+        experiment_data = extract_experiment_data(
+            experiment=experiment,
+            data_loader_config=DataLoaderConfig(
+                fit_only_completed_map_metrics=False,
+                latest_rows_per_group=None,
+            ),
+        )
+        transformed_data = Cast(
+            search_space=experiment.search_space
+        ).transform_experiment_data(experiment_data=deepcopy(experiment_data))
+        # Arm data should only include first three rows.
+        assert_frame_equal(transformed_data.arm_data, experiment_data.arm_data.iloc[:2])
+        # Observation data should include all but last row for last trial.
+        assert_frame_equal(
+            transformed_data.observation_data,
+            experiment_data.observation_data.iloc[:-1],
+        )
