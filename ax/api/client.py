@@ -590,8 +590,7 @@ class Client(WithDBSettingsBase):
 
         Saves to database on completion if ``storage_config`` is present.
         """
-        self._experiment.trials[trial_index].mark_failed()
-        self._experiment.trials[trial_index]._failed_reason = failed_reason
+        self._experiment.trials[trial_index].mark_failed(reason=failed_reason)
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
