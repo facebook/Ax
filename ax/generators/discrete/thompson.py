@@ -229,11 +229,11 @@ class ThompsonSampler(DiscreteGenerator):
         samples_per_metric = np.zeros(
             (k, num_samples, len(none_throws(self.Ys)))
         )  # k x num_samples x m
-        for i, Y in enumerate(none_throws(self.Ys)):  # (k x 1)
-            Yvar = none_throws(self.Yvars)[i]  # (k x 1)
+        for i, Y in enumerate(none_throws(self.Ys)):  # (k)
+            Yvar = none_throws(self.Yvars)[i]  # (k)
             cov = np.diag(Yvar)  # (k x k)
             samples = np.random.multivariate_normal(
-                Y, cov, num_samples
+                mean=Y, cov=cov, size=num_samples
             ).T  # (k x num_samples)
             samples_per_metric[:, :, i] = samples
         return samples_per_metric
