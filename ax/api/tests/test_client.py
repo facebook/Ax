@@ -917,7 +917,7 @@ class TestClient(TestCase):
             self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
             self.assertEqual(
                 cards[0].subtitle,
-                "An ValueError occurred while computing ParallelCoordinatesPlot.",
+                "ValueError encountered while computing ParallelCoordinatesPlot.",
             )
             self.assertIn("Traceback", cards[0].blob)
             self.assertTrue(
