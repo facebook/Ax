@@ -64,7 +64,6 @@ try:  # We don't require SQLAlchemy by default.
         _save_generation_strategy,
         _save_or_update_trials,
         _update_generation_strategy,
-        save_analysis_cards,
         update_properties_on_experiment,
         update_runner_on_experiment,
     )
@@ -636,11 +635,12 @@ def _save_analysis_cards_to_db_if_possible(
     sqa_config: SQAConfig,
     suppress_all_errors: bool,  # Used by the decorator.
 ) -> None:
-    save_analysis_cards(
-        experiment=experiment,
-        analysis_cards=[*analysis_cards],
-        config=sqa_config,
-    )
+    pass
+    # save_analysis_cards(
+    #     experiment=experiment,
+    #     analysis_cards=[*analysis_cards],
+    #     config=sqa_config,
+    # )
 
 
 def try_load_generation_strategy(
