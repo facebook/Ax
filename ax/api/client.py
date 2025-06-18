@@ -13,7 +13,8 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-from ax.analysis.analysis import Analysis, AnalysisCard
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.dispatch import choose_analyses
 from ax.analysis.summary import Summary
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
