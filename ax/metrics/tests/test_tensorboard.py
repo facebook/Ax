@@ -15,8 +15,8 @@ import numpy as np
 
 import pandas as pd
 from ax.core.map_data import MapData
-from ax.core.metric import MetricFetchE
-from ax.metrics.tensorboard import TensorboardMetric
+from ax.metrics.tensorboard import logger, TensorboardMetric
+from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_trial
 from pyre_extensions import assert_is_instance
@@ -122,12 +122,17 @@ class TensorboardMetricTest(TestCase):
             "_get_event_multiplexer_for_trial",
             return_value=nan_multiplexer,
         ):
-            result = metric.fetch_trial_data(trial=trial)
+            with mock.patch.object(logger, "warning") as mock_warning:
+                result = metric.fetch_trial_data(trial=trial)
+                mock_warning.assert_called_once_with("Found NaNs or Infs in data.")
 
-        err = assert_is_instance(result.unwrap_err(), MetricFetchE)
-        self.assertEqual(err.message, "Failed to fetch data for loss")
-        self.assertEqual(str(err.exception), "Found NaNs or Infs in data")
+        assert_is_instance(result, Ok)
+        map_data = assert_is_instance(result.unwrap(), MapData)
+        self.assertTrue(
+            np.array_equal(map_data.map_df["mean"].to_numpy(), nan_data, equal_nan=True)
+        )
 
+        # testing inf data
         inf_data = [1, 2, np.inf, 4]
         inf_multiplexer = _get_fake_multiplexer(fake_data=inf_data)
 
@@ -139,11 +144,13 @@ class TensorboardMetricTest(TestCase):
             "_get_event_multiplexer_for_trial",
             return_value=inf_multiplexer,
         ):
-            result = metric.fetch_trial_data(trial=trial)
+            with mock.patch.object(logger, "warning") as mock_warning:
+                result = metric.fetch_trial_data(trial=trial)
+                mock_warning.assert_called_once_with("Found NaNs or Infs in data.")
 
-        err = assert_is_instance(result.unwrap_err(), MetricFetchE)
-        self.assertEqual(err.message, "Failed to fetch data for loss")
-        self.assertEqual(str(err.exception), "Found NaNs or Infs in data")
+        assert_is_instance(result, Ok)
+        map_data = assert_is_instance(result.unwrap(), MapData)
+        self.assertTrue(np.array_equal(map_data.map_df["mean"].to_numpy(), inf_data))
 
     def test_smoothing(self) -> None:
         fake_data = [8.0, 4.0, 2.0, 1.0]
