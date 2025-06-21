@@ -20,10 +20,12 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
@@ -218,6 +220,46 @@ class ExperimentData:
             arm_data=self.arm_data.copy(),
             observation_data=observation_data,
         )
+
+    def convert_to_list_of_observations(self) -> list[Observation]:
+        """Converts the ``ExperimentData`` to a list of ``Observation`` objects.
+
+        This is useful for compatibility with some older methods that expect
+        the `Adapter` training data to be a list of ``Observation`` objects.
+        """
+        if self.observation_data.index.names != ["trial_index", "arm_name"]:
+            raise UnsupportedError(
+                "Converting to list of observations is only supported when the "
+                "index of the observation data is (trial_index, arm_name). "
+                f"Got {self.observation_data.index=}. You can use `ExperimentData."
+                "filter_latest_observations` to filter to the latest observations "
+                "for each (trial_index, arm_name) before calling this method."
+            )
+        observations = []
+        # pyre-ignore [23]: Pyre doesn't know the structure of the index.
+        for (trial_index, arm_name), row in self.arm_data.iterrows():
+            obs_ft = ObservationFeatures(
+                # NOTE: It is crucial to pop metadata first here.
+                # Otherwise, it'd end up in parameters.
+                metadata=row.pop("metadata"),
+                parameters=row.dropna().to_dict(),
+                trial_index=trial_index,
+            )
+            data_row = self.observation_data.loc[(trial_index, arm_name)]
+            metric_names = list(data_row["mean"].dropna().index)
+            if len(metric_names) == 0:
+                continue
+            obs_data = ObservationData(
+                metric_names=metric_names,
+                means=data_row["mean"][metric_names].to_numpy().reshape(-1),
+                covariance=np.diag(
+                    np.square(data_row["sem"][metric_names].to_numpy().reshape(-1))
+                ),
+            )
+            observations.append(
+                Observation(features=obs_ft, data=obs_data, arm_name=arm_name)
+            )
+        return observations
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ExperimentData):
