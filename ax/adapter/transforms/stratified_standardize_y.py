@@ -19,7 +19,6 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
-from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -44,6 +43,8 @@ class StratifiedStandardizeY(Transform):
 
     Transform is done in-place.
     """
+
+    requires_data_for_initialization: bool = True
 
     def __init__(
         self,
@@ -70,10 +71,6 @@ class StratifiedStandardizeY(Transform):
 
         """
         assert search_space is not None, "StratifiedStandardizeY requires search space"
-        if observations is None and experiment_data is None:
-            raise DataRequiredError(
-                "StratifiedStandardizeY requires observations or experiment_data."
-            )
         super().__init__(
             search_space=search_space,
             observations=observations,

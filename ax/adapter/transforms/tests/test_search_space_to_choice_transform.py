@@ -100,7 +100,7 @@ class SearchSpaceToChoiceTest(TestCase):
                 observations=[],
             )
         # Test with empty experiment data.
-        with self.assertRaisesRegex(DataRequiredError, "non-empty experiment data"):
+        with self.assertRaisesRegex(DataRequiredError, "non-empty data"):
             SearchSpaceToChoice(
                 search_space=self.search_space,
                 experiment_data=extract_experiment_data(

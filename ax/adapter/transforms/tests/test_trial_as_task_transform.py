@@ -250,7 +250,7 @@ class TrialAsTaskTransformTest(TestCase):
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             TrialAsTask(
                 search_space=rss,
-                observations=[],
+                observations=self.training_obs,
                 adapter=self.adapter,
             )
 

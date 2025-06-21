@@ -15,7 +15,7 @@ from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.utils import get_target_trial_index
-from ax.exceptions.core import DataRequiredError, UnsupportedError
+from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
@@ -57,6 +57,8 @@ class TrialAsTask(Transform):
     Transform is done in-place.
     """
 
+    requires_data_for_initialization: bool = True
+
     def __init__(
         self,
         search_space: SearchSpace | None = None,
@@ -76,10 +78,6 @@ class TrialAsTask(Transform):
         if isinstance(search_space, RobustSearchSpace):
             raise UnsupportedError(
                 "TrialAsTask transform is not supported for RobustSearchSpace."
-            )
-        if (observations is None or len(observations) == 0) and experiment_data is None:
-            raise DataRequiredError(
-                "`TrialAsTask` transform requires observations or experiment_data."
             )
         # Identify values of trial.
         if experiment_data is not None:

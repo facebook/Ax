@@ -142,9 +142,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         self.assertEqual(set(self.t.Ystd), set(Ystd_expected))
         for k, v in self.t.Ystd.items():
             self.assertAlmostEqual(v, Ystd_expected[k])
-        with self.assertRaisesRegex(
-            DataRequiredError, "requires observations or experiment_data"
-        ):
+        with self.assertRaisesRegex(DataRequiredError, "requires non-empty data"):
             StratifiedStandardizeY(search_space=self.search_space)
         with self.assertRaises(ValueError):
             # No parameter specified

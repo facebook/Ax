@@ -30,12 +30,7 @@ from ax.core.outcome_constraint import (
     ScalarizedOutcomeConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import (
-    AxWarning,
-    DataRequiredError,
-    UnsupportedError,
-    UserInputError,
-)
+from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.types import TConfig, WinsorizationConfig
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -90,6 +85,8 @@ class Winsorize(Transform):
     the optimization config.
     """
 
+    requires_data_for_initialization: bool = True
+
     cutoffs: dict[str, tuple[float, float]]
 
     def __init__(
@@ -100,8 +97,6 @@ class Winsorize(Transform):
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
-        if (observations is None or len(observations) == 0) and experiment_data is None:
-            raise DataRequiredError("`Winsorize` transform requires non-empty data.")
         super().__init__(
             search_space=search_space,
             observations=observations,

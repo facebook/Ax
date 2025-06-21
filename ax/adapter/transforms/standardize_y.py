@@ -39,6 +39,8 @@ class StandardizeY(Transform):
     Transform is done in-place.
     """
 
+    requires_data_for_initialization: bool = True
+
     def __init__(
         self,
         search_space: SearchSpace | None = None,
@@ -47,8 +49,6 @@ class StandardizeY(Transform):
         adapter: Optional["base_adapter.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
-        if (observations is None or len(observations) == 0) and experiment_data is None:
-            raise DataRequiredError("`StandardizeY` transform requires non-empty data.")
         super().__init__(
             search_space=search_space,
             observations=observations,

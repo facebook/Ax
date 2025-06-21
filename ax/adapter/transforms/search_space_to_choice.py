@@ -15,7 +15,7 @@ from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization, TParamValue
-from ax.exceptions.core import DataRequiredError, UnsupportedError
+from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -36,6 +36,8 @@ class SearchSpaceToChoice(Transform):
     Transform is done in-place.
     """
 
+    requires_data_for_initialization: bool = True
+
     def __init__(
         self,
         search_space: SearchSpace | None = None,
@@ -45,10 +47,6 @@ class SearchSpaceToChoice(Transform):
         config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "SearchSpaceToChoice requires search space"
-        if (observations is None or len(observations) == 0) and experiment_data is None:
-            raise DataRequiredError(
-                "`SeachSpaceToChoice` transform requires non-empty data."
-            )
         super().__init__(
             search_space=search_space,
             observations=observations,
@@ -68,11 +66,7 @@ class SearchSpaceToChoice(Transform):
         self.parameter_name = "arms"
         self.parameter_names: list[str] = list(search_space.parameters)
         if experiment_data is not None:
-            arm_data = experiment_data.arm_data
-            if arm_data.empty:
-                raise DataRequiredError(
-                    "SearchSpaceToChoice transform requires non-empty experiment data."
-                )
+            arm_data = experiment_data.arm_data[self.parameter_names]
             arm_data = arm_data[self.parameter_names]
             self.signature_to_parameterization: dict[str, TParameterization] = {
                 Arm(parameters=row).signature: row.copy()
