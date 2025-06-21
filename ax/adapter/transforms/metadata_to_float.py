@@ -19,7 +19,6 @@ from ax.core import ParameterType
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
@@ -47,6 +46,8 @@ class MetadataToFloat(Transform):
     Transform is done in-place.
     """
 
+    requires_data_for_initialization: bool = True
+
     DEFAULT_LOG_SCALE: bool = False
     DEFAULT_LOGIT_SCALE: bool = False
     DEFAULT_IS_FIDELITY: bool = False
@@ -60,10 +61,6 @@ class MetadataToFloat(Transform):
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
-        if (observations is None or not observations) and experiment_data is None:
-            raise DataRequiredError(
-                f"`{self.__class__.__name__}` transform requires non-empty data."
-            )
         super().__init__(
             search_space=search_space,
             observations=observations,

@@ -19,10 +19,9 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
 from ax.utils.common.typeutils import assert_is_instance_list
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 from sklearn.preprocessing import PowerTransformer
 
 if TYPE_CHECKING:
@@ -47,6 +46,8 @@ class PowerTransformY(Transform):
     values to the image of the transform. This behavior can be controlled via the
     `clip_mean` setting.
     """
+
+    requires_data_for_initialization: bool = True
 
     def __init__(
         self,
@@ -79,20 +80,25 @@ class PowerTransformY(Transform):
             adapter=adapter,
             config=config,
         )
-        if observations is None or len(observations) == 0:
-            raise DataRequiredError("PowerTransformY requires observations.")
         # pyre-fixme[9]: Can't annotate config["metrics"] properly.
         metric_names: list[str] | None = config.get("metrics", None) if config else None
         self.clip_mean: bool = (
             assert_is_instance(config.get("clip_mean", True), bool) if config else True
         )
-        observation_data = [obs.data for obs in observations]
-        Ys = get_data(observation_data=observation_data, metric_names=metric_names)
+        if experiment_data is not None:
+            means_df = experiment_data.observation_data["mean"]
+            # Dropping NaNs here since the DF will have NaN for missing values.
+            Ys = {name: column.dropna().values for name, column in means_df.items()}
+        else:
+            observation_data = [obs.data for obs in none_throws(observations)]
+            Ys = get_data(observation_data=observation_data, metric_names=metric_names)
         self.metric_names: list[str] = list(Ys.keys())
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.power_transforms = _compute_power_transforms(Ys=Ys)
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.inv_bounds = _compute_inverse_bounds(self.power_transforms, tol=1e-10)
+        self.power_transforms: dict[str, PowerTransformer] = _compute_power_transforms(
+            Ys=Ys
+        )
+        self.inv_bounds: dict[str, tuple[float, float]] = _compute_inverse_bounds(
+            self.power_transforms, tol=1e-10
+        )
 
     def _transform_observation_data(
         self,

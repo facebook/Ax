@@ -20,7 +20,7 @@ from ax.core.observation import (
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.generators.types import TConfig
 
 
@@ -58,6 +58,8 @@ class Transform:
     # Set this to True if the transform does not need to transform ExperimentData.
     # If True, base method will return the input unmodified. Otherwise, it'll error out.
     no_op_for_experiment_data: bool = False
+    # Set this to True if the transform requires non-empty data for initialization.
+    requires_data_for_initialization: bool = False
 
     def __init__(
         self,
@@ -85,6 +87,16 @@ class Transform:
                 "Only one of `experiment_data` or `observations` should be provided. "
                 f"Got {experiment_data=}, {observations=}."
             )
+        if self.requires_data_for_initialization:
+            has_non_empty_observations = observations is not None and len(observations)
+            has_non_empty_experiment_data = (
+                experiment_data is not None
+                and not experiment_data.observation_data.empty
+            )
+            if not (has_non_empty_observations or has_non_empty_experiment_data):
+                raise DataRequiredError(
+                    f"`{self.__class__.__name__}` transform requires non-empty data."
+                )
         if config is None:
             config = {}
         self.config = config
