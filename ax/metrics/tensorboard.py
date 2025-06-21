@@ -232,9 +232,12 @@ try:
                 .reset_index()
             )
 
-            # If there are any NaNs or Infs in the data, raise an Exception
+            # If there are any NaNs or Infs in the data, we raise a warning, but still
+            # allow the data to be loaded, because it's possible that the NaNs/Infs
+            # can be dealt with during the transform stage. E.g. learning curves can be
+            # useful, even if they contain NaNs/Infs, particularly in the early parts
             if np.any(~np.isfinite(df["mean"])):
-                raise ValueError("Found NaNs or Infs in data")
+                logger.warning("Found NaNs or Infs in data.")
 
             # Apply per-metric post-processing
             # Apply cumulative "best" (min if lower_is_better)
