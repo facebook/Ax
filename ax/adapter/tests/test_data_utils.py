@@ -6,12 +6,14 @@
 
 # pyre-strict
 
+from copy import deepcopy
 from unittest import mock
 
 import numpy as np
 from ax.adapter.data_utils import DataLoaderConfig, extract_experiment_data
 from ax.adapter.registry import Generators
 from ax.core.data import Data
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.constants import Keys
@@ -350,3 +352,53 @@ class TestDataUtils(TestCase):
             [(0, "0_0", 0.0), (1, "1_0", 0.0)]
         ].droplevel(2)
         assert_frame_equal(filtered_data.observation_data, expected_obs_data)
+
+    def test_convert_to_list_of_observations(self) -> None:
+        exp = get_branin_experiment_with_timestamp_map_metric(with_trials_and_data=True)
+        # Compelete the first trial, so that it has metadata.
+        exp.trials[0].mark_completed()
+        experiment_data = extract_experiment_data(
+            experiment=exp,
+            data_loader_config=DataLoaderConfig(
+                fit_only_completed_map_metrics=False,
+                latest_rows_per_group=None,
+            ),
+        )
+        with self.assertRaisesRegex(UnsupportedError, "only supported when the index"):
+            experiment_data.convert_to_list_of_observations()
+        experiment_data = experiment_data.filter_latest_observations()
+        copy_data = deepcopy(experiment_data)
+        observations = experiment_data.convert_to_list_of_observations()
+        # Experiment data shouldn't be modified.
+        self.assertEqual(experiment_data, copy_data)
+        # Check that the observations are correct.
+        expected = [
+            Observation(
+                features=ObservationFeatures(
+                    parameters={"x1": 0.0, "x2": 0.0},
+                    trial_index=0,
+                    metadata={Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
+                ),
+                data=ObservationData(
+                    metric_names=["branin", "branin_map"],
+                    # Means are deterministic based on the parameterization.
+                    means=np.array([55.602112642270264, 55.602112642270264]),
+                    covariance=np.diag([0.0, 0.0]),
+                ),
+                arm_name="0_0",
+            ),
+            Observation(
+                features=ObservationFeatures(
+                    parameters={"x1": 1.0, "x2": 1.0},
+                    trial_index=1,
+                    metadata={},
+                ),
+                data=ObservationData(
+                    metric_names=["branin", "branin_map"],
+                    means=np.array([27.702905548512433, 27.702905548512433]),
+                    covariance=np.diag([0.0, 0.0]),
+                ),
+                arm_name="1_0",
+            ),
+        ]
+        self.assertEqual(observations, expected)
