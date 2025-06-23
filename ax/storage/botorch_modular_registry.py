@@ -314,4 +314,11 @@ def register_kernel(kernel_class: type[Kernel]) -> None:
     CLASS_TO_REVERSE_REGISTRY[Kernel].update({class_name: kernel_class})
 
 
+def register_mll(mll_class: type[MarginalLogLikelihood]) -> None:
+    """Add a custom mll class to the SQA and JSON registries."""
+    class_name = mll_class.__name__
+    CLASS_TO_REGISTRY[MarginalLogLikelihood].update({mll_class: class_name})
+    CLASS_TO_REVERSE_REGISTRY[MarginalLogLikelihood].update({class_name: mll_class})
+
+
 register_acquisition(SEBOAcquisition)
