@@ -90,17 +90,17 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
             for letter in "ab"
         ]
-        # appease Pyre (this condition is True)
-        if isinstance(exp.optimization_config, MultiObjectiveOptimizationConfig):
-            exp.optimization_config = exp.optimization_config.clone_with_args(
-                objective_thresholds=objective_thresholds,
-                outcome_constraints=outcome_constraints,
-            )
+        exp.optimization_config = assert_is_instance(
+            exp.optimization_config, MultiObjectiveOptimizationConfig
+        ).clone_with_args(
+            objective_thresholds=objective_thresholds,
+            outcome_constraints=outcome_constraints,
+        )
 
-        n_outcomes = 3 if outcome_constraints is not None else 2
+        n_outcomes = len(exp.metrics)
         exp.attach_data(
             get_branin_data_multi_objective(
-                trial_indices=exp.trials.keys(), num_outcomes=n_outcomes
+                trial_indices=exp.trials.keys(), outcomes=list(exp.metrics)
             ),
         )
         adapter = TorchAdapter(
@@ -264,16 +264,14 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
             for letter in "ab"
         ]
-        # appease Pyre (this condition is True)
-        if isinstance(exp.optimization_config, MultiObjectiveOptimizationConfig):
-            exp.optimization_config = exp.optimization_config.clone_with_args(
-                objective_thresholds=objective_thresholds,
-            )
+        exp.optimization_config = assert_is_instance(
+            exp.optimization_config, MultiObjectiveOptimizationConfig
+        ).clone_with_args(
+            objective_thresholds=objective_thresholds,
+        )
 
         exp.attach_data(
-            get_branin_data_multi_objective(
-                trial_indices=exp.trials.keys(), num_outcomes=2
-            ),
+            get_branin_data_multi_objective(trial_indices=exp.trials.keys()),
         )
         adapter = TorchAdapter(
             experiment=exp,
@@ -347,13 +345,13 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                         op=ComparisonOp.LEQ,
                     )
                 )
-            # pyre-fixme[16]: Optional type has no attribute `clone_with_args`.
-            optimization_config = exp.optimization_config.clone_with_args(
-                objective_thresholds=objective_thresholds
-            )
+            optimization_config = assert_is_instance(
+                exp.optimization_config, MultiObjectiveOptimizationConfig
+            ).clone_with_args(objective_thresholds=objective_thresholds)
             exp.attach_data(
                 get_branin_data_multi_objective(
-                    trial_indices=exp.trials.keys(), num_outcomes=num_objectives
+                    trial_indices=exp.trials.keys(),
+                    outcomes=list(optimization_config.metrics),
                 )
             )
             adapter = TorchAdapter(

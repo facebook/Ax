@@ -761,6 +761,16 @@ def get_branin_experiment_with_multi_objective(
     with_choice_parameter: bool = False,
     with_fixed_parameter: bool = False,
 ) -> Experiment:
+    optimization_config = (
+        get_branin_multi_objective_optimization_config(
+            has_objective_thresholds=has_objective_thresholds,
+            num_objectives=num_objectives,
+            with_relative_constraint=with_relative_constraint,
+            with_absolute_constraint=with_absolute_constraint,
+        )
+        if has_optimization_config
+        else None
+    )
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(
@@ -768,16 +778,7 @@ def get_branin_experiment_with_multi_objective(
             with_choice_parameter=with_choice_parameter,
             with_fixed_parameter=with_fixed_parameter,
         ),
-        optimization_config=(
-            get_branin_multi_objective_optimization_config(
-                has_objective_thresholds=has_objective_thresholds,
-                num_objectives=num_objectives,
-                with_relative_constraint=with_relative_constraint,
-                with_absolute_constraint=with_absolute_constraint,
-            )
-            if has_optimization_config
-            else None
-        ),
+        optimization_config=optimization_config,
         runner=SyntheticRunner(),
         is_test=True,
     )
@@ -810,8 +811,7 @@ def get_branin_experiment_with_multi_objective(
         exp.status_quo = status_quo
     else:
         status_quo = None
-    num_constraint_outcomes = with_relative_constraint + with_absolute_constraint
-    num_outcomes = num_objectives + num_constraint_outcomes
+    outcome_names = list(exp.metrics)
     if with_batch or with_completed_batch:
         sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
         sobol_run = sobol_generator.gen(n=5)
@@ -820,12 +820,13 @@ def get_branin_experiment_with_multi_objective(
         ).add_generator_run(sobol_run)
 
         if with_completed_batch:
+            assert has_optimization_config
             trial.mark_running(no_runner_required=True)
             exp.attach_data(
                 get_branin_data_multi_objective(
                     trial_indices=[trial.index],
                     arm_names=[arm.name for arm in trial.arms],
-                    num_outcomes=num_outcomes,
+                    outcomes=outcome_names,
                 )
             )  # Add data for one trial
             trial.mark_completed()
@@ -837,11 +838,11 @@ def get_branin_experiment_with_multi_objective(
             trial = exp.new_trial(generator_run=sobol_run)
 
             if with_completed_trial:
+                assert has_optimization_config
                 trial.mark_running(no_runner_required=True)
                 exp.attach_data(
                     get_branin_data_multi_objective(
-                        trial_indices=[trial.index],
-                        num_outcomes=num_outcomes,
+                        trial_indices=[trial.index], outcomes=outcome_names
                     )
                 )  # Add data for one trial
                 trial.mark_completed()
@@ -2617,22 +2618,24 @@ def get_branin_data_batch(
 def get_branin_data_multi_objective(
     trial_indices: Iterable[int] | None = None,
     arm_names: Iterable[str] | None = None,
-    num_outcomes: int = 2,
+    outcomes: Sequence[str] | None = None,
 ) -> Data:
-    _validate_num_outcomes(num_outcomes=num_outcomes)
-    suffixes = ["a", "b", "c", "d", "e"]
+    if outcomes is None:
+        outcomes = ["branin_a", "branin_b"]
+    else:
+        _validate_num_outcomes(num_outcomes=len(outcomes))
 
     df_dicts = [
         {
             "trial_index": trial_index,
-            "metric_name": f"branin_{suffixes[i]}",
+            "metric_name": outcome,
             "arm_name": arm_name,
             "mean": 5.0,
             "sem": 0.0,
         }
         for trial_index in (trial_indices or [0])
         for arm_name in arm_names or [f"{trial_index}_0"]
-        for i in range(num_outcomes)
+        for outcome in outcomes
     ]
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
