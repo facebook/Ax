@@ -18,6 +18,7 @@ from ax.analysis.summary import Summary
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -53,10 +54,16 @@ class ResultsAnalysis(Analysis):
                 for constraint in optimization_config.outcome_constraints
             ]
 
+        # Relativize the effects if the status quo is set and there are BatchTrials
+        # present.
+        relativize = experiment.status_quo is not None and any(
+            isinstance(trial, BatchTrial) for trial in experiment.trials.values()
+        )
         # Compute both observed and modeled effects for each objective and constraint.
         arm_effect_pair_group = (
             ArmEffectsPair(
-                metric_names=[*objective_names, *constraint_names]
+                metric_names=[*objective_names, *constraint_names],
+                relativize=relativize,
             ).compute_or_error_card(
                 experiment=experiment,
                 generation_strategy=generation_strategy,
@@ -75,6 +82,7 @@ class ResultsAnalysis(Analysis):
                     ScatterPlot(
                         x_metric_name=x,
                         y_metric_name=y,
+                        relativize=relativize,
                     ).compute_or_error_card(
                         experiment=experiment,
                         generation_strategy=generation_strategy,
@@ -97,6 +105,7 @@ class ResultsAnalysis(Analysis):
                     ScatterPlot(
                         x_metric_name=objective_name,
                         y_metric_name=constraint_name,
+                        relativize=relativize,
                     ).compute_or_error_card(
                         experiment=experiment,
                         generation_strategy=generation_strategy,

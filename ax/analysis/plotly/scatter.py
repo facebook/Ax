@@ -181,8 +181,9 @@ class ScatterPlot(PlotlyAnalysis):
 
         return self._create_plotly_analysis_card(
             title=(
-                ("Modeled" if self.use_model_predictions else "Observed")
-                + f" {x_metric_label} vs. {y_metric_label}"
+                f"{'Modeled' if self.use_model_predictions else 'Observed'} "
+                f"{'Relativized ' if self.relativize else ''}Effects:"
+                f" {x_metric_label} vs. {y_metric_label}"
             ),
             subtitle=(
                 "This plot displays the effects of each arm on the two selected "

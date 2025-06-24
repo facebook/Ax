@@ -100,7 +100,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         n_outcomes = 3 if outcome_constraints is not None else 2
         exp.attach_data(
             get_branin_data_multi_objective(
-                trial_indices=exp.trials.keys(), num_objectives=n_outcomes
+                trial_indices=exp.trials.keys(), num_outcomes=n_outcomes
             ),
         )
         adapter = TorchAdapter(
@@ -272,7 +272,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
 
         exp.attach_data(
             get_branin_data_multi_objective(
-                trial_indices=exp.trials.keys(), num_objectives=2
+                trial_indices=exp.trials.keys(), num_outcomes=2
             ),
         )
         adapter = TorchAdapter(
@@ -353,7 +353,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
             exp.attach_data(
                 get_branin_data_multi_objective(
-                    trial_indices=exp.trials.keys(), num_objectives=num_objectives
+                    trial_indices=exp.trials.keys(), num_outcomes=num_objectives
                 )
             )
             adapter = TorchAdapter(
