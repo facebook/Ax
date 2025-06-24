@@ -1213,6 +1213,18 @@ class Experiment(Base):
             lifecycle_stage=lifecycle_stage,
         )
 
+    def get_batch_trial(self, trial_index: int) -> BatchTrial:
+        """
+        Return a trial on experiment cast as BatchTrial
+        Args:
+            trial_index: The index of the trial to lookup data for.
+        Returns:
+            The requested trial cast as BatchTrial
+        """
+        return assert_is_instance(
+            self.get_trials_by_indices(trial_indices=[trial_index])[0], BatchTrial
+        )
+
     def get_trials_by_indices(self, trial_indices: Iterable[int]) -> list[BaseTrial]:
         """Grabs trials on this experiment by their indices."""
         trial_indices = list(trial_indices)
