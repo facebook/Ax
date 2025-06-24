@@ -495,6 +495,66 @@ def get_branin_experiment_with_timestamp_map_metric(
     return exp
 
 
+def get_multi_objective_branin_experiment_with_timestamp_map_metric(
+    with_status_quo: bool = False,
+    rate: float | None = None,
+    has_objective_thresholds: bool = True,
+    bounds: list[float] | None = None,
+    map_tracking_metric: bool = False,
+) -> Experiment:
+    """Returns"""
+
+    def get_map_metric(name: str) -> BraninTimestampMapMetric:
+        return BraninTimestampMapMetric(
+            name=name,
+            param_names=["x1", "x2"],
+            rate=rate,
+            lower_is_better=True,
+        )
+
+    num_objectives = 2
+    bounds = bounds or [99.0, 99.0]
+    objective_thresholds = [
+        ObjectiveThreshold(
+            metric=get_branin_metric(name=f"branin_map_{m}"),
+            bound=bound,
+            op=ComparisonOp.LEQ,
+            relative=False,
+        )
+        for m, bound in zip(range(num_objectives), bounds)
+    ]
+    tracking_metrics = (
+        [get_map_metric(f"tracking_branin_map_{m}") for m in range(num_objectives)]
+        if map_tracking_metric
+        else [BraninMetric(name="branin", param_names=["x1", "x2"])]
+    )
+    exp = Experiment(
+        name="multi_objective_branin_with_timestamp_map_metric",
+        search_space=get_branin_search_space(),
+        optimization_config=MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(
+                        metric=get_map_metric(f"branin_map_{m}"),
+                    )
+                    for m in range(num_objectives)
+                ],
+            ),
+            objective_thresholds=(
+                objective_thresholds if has_objective_thresholds else None
+            ),
+        ),
+        tracking_metrics=cast(list[Metric], tracking_metrics),
+        runner=SyntheticRunner(),
+        default_data_type=DataType.MAP_DATA,
+    )
+
+    if with_status_quo:
+        exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+
+    return exp
+
+
 def run_branin_experiment_with_generation_strategy(
     generation_strategy: GenerationStrategy,
     num_trials: int = 6,
@@ -519,9 +579,20 @@ def get_test_map_data_experiment(
     num_fetches: int,
     num_complete: int,
     map_tracking_metric: bool = False,
+    multi_objective: bool = False,
+    bounds: list[float] | None = None,
 ) -> Experiment:
-    experiment = get_branin_experiment_with_timestamp_map_metric(
-        rate=0.5, map_tracking_metric=map_tracking_metric
+    experiment = (
+        get_multi_objective_branin_experiment_with_timestamp_map_metric(
+            rate=0.5,
+            bounds=bounds,
+            map_tracking_metric=map_tracking_metric,
+        )
+        if multi_objective
+        else get_branin_experiment_with_timestamp_map_metric(
+            rate=0.5,
+            map_tracking_metric=map_tracking_metric,
+        )
     )
     experiment._properties = {"owners": [DEFAULT_USER]}
     for i in range(num_trials):
