@@ -294,11 +294,9 @@ class SensitivityAnalysisTest(TestCase):
                 )
                 base_indices = getattr(sobol_gp_mean, f"{order}_order_indices")()
                 # can compare values because we sample with deterministic seeds
-                self.assertTrue(
-                    torch.allclose(
-                        indices,
-                        base_indices.unsqueeze(0).expand(num_models, indices.shape[1]),
-                    )
+                self.assertAllClose(
+                    indices,
+                    base_indices.unsqueeze(0).expand(num_models, indices.shape[1]),
                 )
 
     def test_SobolGPMean_SAASBO_Ax_utils(self) -> None:
@@ -534,12 +532,8 @@ class SensitivityAnalysisTest(TestCase):
         Arnd = A.round()
         Brnd = B.round()
         # testing that the discrete feature is integer valued
-        self.assertTrue(
-            torch.allclose(Arnd[:, discrete_feature], A[:, discrete_feature])
-        )
-        self.assertTrue(
-            torch.allclose(Brnd[:, discrete_feature], B[:, discrete_feature])
-        )
+        self.assertAllClose(Arnd[:, discrete_feature], A[:, discrete_feature])
+        self.assertAllClose(Brnd[:, discrete_feature], B[:, discrete_feature])
 
         # testing that the other features are not integer valued
         self.assertFalse(torch.allclose(Arnd, A))
@@ -623,7 +617,7 @@ class SensitivityAnalysisTest(TestCase):
         for i in discrete_features:  # Make sure we sampled integers in the right range
             self.assertTrue(B[:, i].min() >= bounds[0, i])
             self.assertTrue(B[:, i].max() <= bounds[1, i])
-            self.assertTrue(torch.allclose(B[:, i], B[:, i].round()))
+            self.assertAllClose(B[:, i], B[:, i].round())
         # discrete_features=None should be a no-op
         B = sample_discrete_parameters(
             input_mc_samples=A.clone(),

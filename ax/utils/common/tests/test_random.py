@@ -28,7 +28,7 @@ class TestRandom(TestCase):
         set_rng_seed(seed)
         self.assertEqual(random.random(), native_rand)
         self.assertTrue(np.allclose(np_rand, np.random.rand(5)))
-        self.assertTrue(torch.allclose(torch_rand, torch.rand(5)))
+        self.assertAllClose(torch_rand, torch.rand(5))
 
     def test_with_rng_seed(self, with_none_seed: bool = False) -> None:
         # Test that the context manager sets the seed and restores the state.
@@ -66,7 +66,7 @@ class TestRandom(TestCase):
             set_rng_seed(0)
             self.assertEqual(random.random(), native_rand)
             self.assertTrue(np.allclose(numpy_rand, np.random.rand(5)))
-            self.assertTrue(torch.allclose(torch_rand, torch.rand(5)))
+            self.assertAllClose(torch_rand, torch.rand(5))
 
     def test_with_rng_seed_with_none_seed(self) -> None:
         self.test_with_rng_seed(with_none_seed=True)

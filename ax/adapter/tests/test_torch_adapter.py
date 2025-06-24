@@ -343,9 +343,7 @@ class TorchAdapterTest(TestCase):
         self.assertEqual(acqf_vals, [mock_acq_val])
         mock_acqf.assert_called_once()
         expected_tensor = torch.tensor([[expected_X]], dtype=torch.double)
-        self.assertTrue(
-            torch.allclose(mock_acqf.call_args.kwargs["X"], expected_tensor)
-        )
+        self.assertAllClose(mock_acqf.call_args.kwargs["X"], expected_tensor)
 
         # Test evaluating at multiple points.
         # Case 1: List[ObsFeat, ObsFeat], should be 2 x 1 x d.
@@ -357,10 +355,8 @@ class TorchAdapterTest(TestCase):
                 observation_features=[obsf, obsf.clone()]
             )
         mock_acqf.assert_called_once()
-        self.assertTrue(
-            torch.allclose(
-                mock_acqf.call_args.kwargs["X"], expected_tensor.repeat(2, 1, 1)
-            )
+        self.assertAllClose(
+            mock_acqf.call_args.kwargs["X"], expected_tensor.repeat(2, 1, 1)
         )
         # Case 2: List[List[ObsFeat, ObsFeat]], should be 1 x 2 x d.
         with mock.patch(
@@ -371,10 +367,8 @@ class TorchAdapterTest(TestCase):
                 observation_features=[[obsf, obsf.clone()]]
             )
         mock_acqf.assert_called_once()
-        self.assertTrue(
-            torch.allclose(
-                mock_acqf.call_args.kwargs["X"], expected_tensor.repeat(1, 2, 1)
-            )
+        self.assertAllClose(
+            mock_acqf.call_args.kwargs["X"], expected_tensor.repeat(1, 2, 1)
         )
 
     def test_best_point(self) -> None:

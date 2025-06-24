@@ -318,9 +318,7 @@ class TestSebo(TestCase):
             search_space_digest=self.search_space_digest,
             optimizer_options=optimizer_options,  # pyre-ignore
         )
-        self.assertTrue(
-            torch.allclose(xopt[0, 1:], torch.tensor([0.5, 0.5], **self.tkwargs))
-        )
+        self.assertAllClose(xopt[0, 1:], torch.tensor([0.5, 0.5], **self.tkwargs))
         self.assertTrue(
             torch.isclose(xopt[0, 0], torch.tensor(1.0, **self.tkwargs), atol=0.3)
         )
@@ -332,10 +330,8 @@ class TestSebo(TestCase):
         X_true = torch.tensor(
             [[0.5, 0, 0.5], [0, 0.5, 0.95], [0.1, 0, 0.06]], **self.tkwargs
         )
-        self.assertTrue(
-            torch.allclose(
-                clamp_to_target(X, torch.zeros(1, 3, **self.tkwargs), 0.05), X_true
-            )
+        self.assertAllClose(
+            clamp_to_target(X, torch.zeros(1, 3, **self.tkwargs), 0.05), X_true
         )
 
     @mock.patch(f"{SEBOACQUISITION_PATH}.optimize_acqf_homotopy")

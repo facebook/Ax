@@ -105,4 +105,4 @@ class MixedIntegerProblemsTest(TestCase):
             ) as mock_call:
                 test_function.evaluate_true(params=params)
             actual = mock_call.call_args.kwargs["X"]
-            self.assertTrue(torch.allclose(actual, expected_arg))
+            self.assertAllClose(actual, expected_arg)
