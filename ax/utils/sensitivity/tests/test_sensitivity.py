@@ -298,7 +298,7 @@ class SensitivityAnalysisTest(TestCase, AxTorchTestCaseMixin):
                 self.assertTrue(
                     torch.allclose(
                         indices,
-                        base_indices.unsqueeze(0).expand(num_models, 2),
+                        base_indices.unsqueeze(0).expand(num_models, indices.shape[1]),
                     )
                 )
 

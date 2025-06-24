@@ -191,7 +191,7 @@ class FrontierEvaluatorTest(TestCase):
                 torch.tensor([[3.5]]),
             ),
         )
-        pred = self.Y[2, :]
+        pred = self.Y[[2], :]
         self.assertTrue(
             torch.allclose(Y, pred), f"actual {Y} does not match pred {pred}"
         )

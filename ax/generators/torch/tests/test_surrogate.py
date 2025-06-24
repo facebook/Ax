@@ -463,24 +463,24 @@ class SurrogateTest(TestCase):
         self.assertTrue(
             torch.allclose(
                 models[0].input_transform.offset,
-                torch.tensor([0, 1, 2], **self.tkwargs),
+                torch.tensor([[0, 1, 2]], **self.tkwargs),
             )
         )
         self.assertTrue(
             torch.allclose(
                 models[1].input_transform.offset,
-                torch.tensor([0, 1, 2], **self.tkwargs),
+                torch.tensor([[0, 1, 2]], **self.tkwargs),
             )
         )
         # Check outcome transform
         self.assertTrue(
             torch.allclose(
-                models[0].outcome_transform.means, torch.tensor([3.5], **self.tkwargs)
+                models[0].outcome_transform.means, torch.tensor([[3.5]], **self.tkwargs)
             )
         )
         self.assertTrue(
             torch.allclose(
-                models[1].outcome_transform.means, torch.tensor([7], **self.tkwargs)
+                models[1].outcome_transform.means, torch.tensor([[7]], **self.tkwargs)
             )
         )
 

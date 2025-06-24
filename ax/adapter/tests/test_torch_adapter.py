@@ -342,7 +342,7 @@ class TorchAdapterTest(TestCase):
             )
         self.assertEqual(acqf_vals, [mock_acq_val])
         mock_acqf.assert_called_once()
-        expected_tensor = torch.tensor([expected_X], dtype=torch.double)
+        expected_tensor = torch.tensor([[expected_X]], dtype=torch.double)
         self.assertTrue(
             torch.allclose(mock_acqf.call_args.kwargs["X"], expected_tensor)
         )
