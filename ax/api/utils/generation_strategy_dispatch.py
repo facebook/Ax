@@ -53,7 +53,6 @@ def _get_sobol_node(
     initialization_budget = initialization_budget
     if initialization_budget is None:
         initialization_budget = 5
-    min_observed_initialization_trials = min_observed_initialization_trials
     if min_observed_initialization_trials is None:
         min_observed_initialization_trials = max(1, initialization_budget // 2)
     if initialize_with_center and not use_existing_trials_for_initialization:
