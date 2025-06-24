@@ -171,7 +171,7 @@ def constraints_feasibility(
     ][0]
 
     arm_dict = get_predictions_by_arm(
-        model=adapter,
+        adapter=adapter,
         metric_name=constraint_metric_name,
         outcome_constraints=derel_optimization_config.outcome_constraints,
     )

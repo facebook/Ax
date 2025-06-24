@@ -810,7 +810,8 @@ def get_branin_experiment_with_multi_objective(
         exp.status_quo = status_quo
     else:
         status_quo = None
-
+    num_constraint_outcomes = with_relative_constraint + with_absolute_constraint
+    num_outcomes = num_objectives + num_constraint_outcomes
     if with_batch or with_completed_batch:
         sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
         sobol_run = sobol_generator.gen(n=5)
@@ -824,6 +825,7 @@ def get_branin_experiment_with_multi_objective(
                 get_branin_data_multi_objective(
                     trial_indices=[trial.index],
                     arm_names=[arm.name for arm in trial.arms],
+                    num_outcomes=num_outcomes,
                 )
             )  # Add data for one trial
             trial.mark_completed()
@@ -837,7 +839,10 @@ def get_branin_experiment_with_multi_objective(
             if with_completed_trial:
                 trial.mark_running(no_runner_required=True)
                 exp.attach_data(
-                    get_branin_data_multi_objective(trial_indices=[trial.index])
+                    get_branin_data_multi_objective(
+                        trial_indices=[trial.index],
+                        num_outcomes=num_outcomes,
+                    )
                 )  # Add data for one trial
                 trial.mark_completed()
 
@@ -1252,7 +1257,7 @@ def _configure_online_experiments(experiments: list[Experiment]) -> None:
 
         # Add a custom arm to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial()
+        trial = experiment.new_batch_trial(add_status_quo_arm=True)
         # Detatch the arms from the GeneratorRun so they appear as custom arms
         trial.add_arms_and_weights(arms=sobol_run.arms)
 
@@ -2153,7 +2158,6 @@ def get_branin_objective(name: str = "branin", minimize: bool = False) -> Object
 
 
 def get_branin_multi_objective(num_objectives: int = 2) -> MultiObjective:
-    _validate_num_objectives(num_objectives=num_objectives)
     objectives = [
         Objective(metric=get_branin_metric(name="branin_a"), minimize=True),
         Objective(metric=get_branin_metric(name="branin_b"), minimize=True),
@@ -2239,9 +2243,9 @@ def get_branin_optimization_config(
     )
 
 
-def _validate_num_objectives(num_objectives: int) -> None:
-    if num_objectives not in (2, 3):
-        raise NotImplementedError("Only 2 and 3 objectives are supported.")
+def _validate_num_outcomes(num_outcomes: int) -> None:
+    if 2 > num_outcomes or num_outcomes > 5:
+        raise NotImplementedError("Only 2-5 outcomes are supported.")
 
 
 def get_branin_multi_objective_optimization_config(
@@ -2250,7 +2254,8 @@ def get_branin_multi_objective_optimization_config(
     with_relative_constraint: bool = False,
     with_absolute_constraint: bool = False,
 ) -> MultiObjectiveOptimizationConfig:
-    _validate_num_objectives(num_objectives=num_objectives)
+    num_constraint_outcomes = with_relative_constraint + with_absolute_constraint
+    _validate_num_outcomes(num_outcomes=num_objectives + num_constraint_outcomes)
     # minimum Branin value is 0.397887
     if has_objective_thresholds:
         objective_thresholds = [
@@ -2612,23 +2617,22 @@ def get_branin_data_batch(
 def get_branin_data_multi_objective(
     trial_indices: Iterable[int] | None = None,
     arm_names: Iterable[str] | None = None,
-    num_objectives: int = 2,
+    num_outcomes: int = 2,
 ) -> Data:
-    _validate_num_objectives(num_objectives=num_objectives)
-    suffixes = ["a", "b"]
-    if num_objectives == 3:
-        suffixes.append("c")
+    _validate_num_outcomes(num_outcomes=num_outcomes)
+    suffixes = ["a", "b", "c", "d", "e"]
+
     df_dicts = [
         {
             "trial_index": trial_index,
-            "metric_name": f"branin_{suffix}",
+            "metric_name": f"branin_{suffixes[i]}",
             "arm_name": arm_name,
             "mean": 5.0,
             "sem": 0.0,
         }
         for trial_index in (trial_indices or [0])
         for arm_name in arm_names or [f"{trial_index}_0"]
-        for suffix in suffixes
+        for i in range(num_outcomes)
     ]
     return Data(df=pd.DataFrame.from_records(df_dicts))
 

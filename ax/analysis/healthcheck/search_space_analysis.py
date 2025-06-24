@@ -123,6 +123,11 @@ def search_space_boundary_proportions(
     proportions = []
     bounds = []
 
+    parametrizations = [
+        parameterization
+        for parameterization in parametrizations
+        if search_space.check_membership(parameterization)
+    ]
     num_parametrizations = len(parametrizations)
 
     for parameter_name, parameter in search_space.parameters.items():
