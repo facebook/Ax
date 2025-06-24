@@ -13,6 +13,7 @@ from ax.core.metric import Metric, MetricFetchE
 from ax.utils.common.result import Result
 
 MapMetricFetchResult = Result[MapData, MetricFetchE]
+DEFAULT_MAP_KEY = "step"
 
 
 class MapMetric(Metric):
@@ -30,4 +31,4 @@ class MapMetric(Metric):
     """
 
     data_constructor: type[MapData] = MapData
-    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="step", default_value=0.0)
+    map_key_info: MapKeyInfo[float] = MapKeyInfo(key=DEFAULT_MAP_KEY, default_value=0.0)
