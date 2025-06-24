@@ -198,7 +198,12 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         trial_last_prog = df_trial.index.max()
         data_at_last_progression = df.loc[trial_last_prog].dropna()
 
-        # check for enough number of trials with data
+        # Check that enough trials have data at the last progression. Note that
+        # `is_eligible_any` is called in `should_stop_trials_early`, checks that
+        # at least `min_curves` trials have completed, and uses `align_partial_results`
+        # to fill in results for each metric and progression. Therefore, the following
+        # condition should only be triggered when `align_partial_results` encounters an
+        # exception or `should_stop_trial_early` is called without the aligned data.
         if (
             self.min_curves is not None
             and len(data_at_last_progression) < self.min_curves  # pyre-ignore[58]

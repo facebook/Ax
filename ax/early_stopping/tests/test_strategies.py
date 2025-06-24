@@ -7,7 +7,7 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import cast
+from typing import cast, Dict, List, Optional, Tuple
 from unittest.mock import Mock
 
 import numpy as np
@@ -26,6 +26,9 @@ from ax.early_stopping.strategies.logical import (
     AndEarlyStoppingStrategy,
     OrEarlyStoppingStrategy,
 )
+from ax.early_stopping.strategies.multi_objective import (
+    ScaledParetoEarlyStoppingStrategy,
+)
 from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
@@ -33,8 +36,10 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_arms,
     get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
     get_experiment_with_multi_objective,
+    get_multi_objective_branin_experiment_with_timestamp_map_metric,
     get_test_map_data_experiment,
 )
 from pyre_extensions import assert_is_instance, none_throws
@@ -222,6 +227,18 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 map_key=map_data.map_keys[0],
             )[0]
         )
+
+        # testing batch trial error
+        experiment.new_batch_trial()
+        with self.assertRaisesRegex(
+            ValueError, "is a BatchTrial, which is not yet supported"
+        ):
+            es_strategy.is_eligible_any(
+                trial_indices={0},
+                experiment=experiment,
+                df=map_data.map_df,
+                map_key=map_data.map_keys[0],
+            )
 
     def test_early_stopping_savings(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric()
@@ -722,6 +739,303 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
             else:
                 self.assertNotIn(idc, or_should_stop.keys())
                 self.assertNotIn(idc, or_from_collection_should_stop.keys())
+
+
+class TestScaledParetoEarlyStoppingStrategy(TestCase):
+    def test_scaled_pareto_early_stopping_strategy_validation(self) -> None:
+        for factor in (-1.0, 2.0):
+            with self.assertRaisesRegex(ValueError, "must be between"):
+                ScaledParetoEarlyStoppingStrategy(pareto_scaling_factor=factor)
+
+        exp = get_branin_experiment()
+
+        for i in range(5):
+            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
+            trial.run()
+            trial.mark_as(status=TrialStatus.COMPLETED)
+
+        early_stopping_strategy = ScaledParetoEarlyStoppingStrategy()
+        idcs = set(exp.trials.keys())
+        exp.attach_data(data=exp.fetch_data())
+
+        # Not a multi-objective problem
+        with self.assertRaisesRegex(ValueError, "requires a MultiObjective."):
+            should_stop = early_stopping_strategy.should_stop_trials_early(
+                trial_indices=idcs, experiment=exp
+            )
+
+        exp = get_branin_experiment_with_multi_objective(has_objective_thresholds=False)
+        for i in range(5):
+            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
+            trial.run()
+            trial.mark_as(status=TrialStatus.COMPLETED)
+
+        early_stopping_strategy = ScaledParetoEarlyStoppingStrategy()
+        idcs = set(exp.trials.keys())
+        exp.attach_data(data=exp.fetch_data())
+
+        # Non-MapData attached
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
+
+        exp = get_multi_objective_branin_experiment_with_timestamp_map_metric(
+            rate=0.5, has_objective_thresholds=True
+        )
+        for i in range(5):
+            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
+            trial.run()
+
+        # No data attached
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
+
+        exp.attach_data(data=exp.fetch_data())
+
+        # Not enough learning curves
+        early_stopping_strategy = ScaledParetoEarlyStoppingStrategy(
+            min_curves=6,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
+
+        # Most recent progression below minimum
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            min_progression=3,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
+
+    def test_scaled_pareto_early_stopping_strategy(self) -> None:
+        self._test_scaled_pareto_early_stopping_strategy(non_objective_metric=False)
+
+    def test_percentile_early_stopping_strategy_non_objective_metric(self) -> None:
+        self._test_scaled_pareto_early_stopping_strategy(non_objective_metric=True)
+
+    def _test_scaled_pareto_early_stopping_strategy(
+        self, non_objective_metric: bool
+    ) -> None:
+        metric_names: Optional[List[str]] = (
+            ["tracking_branin_map_0", "tracking_branin_map_1"]
+            if non_objective_metric
+            else None
+        )
+
+        def get_map_experiment(
+            num_trials: int, num_fetches: int, num_complete: int, bounds: List[float]
+        ) -> Tuple[Experiment, Optional[Dict[str, float]]]:
+            exp = get_test_map_data_experiment(
+                num_trials=num_trials,
+                num_fetches=num_fetches,
+                num_complete=num_complete,
+                multi_objective=True,
+                bounds=bounds,
+                map_tracking_metric=non_objective_metric,
+            )
+            """
+            Data looks like this for each objective:
+            arm_name metric_name        mean  sem  trial_index  timestamp
+            0       0_0      branin  146.138620  0.0            0          0
+            1       0_0      branin  117.388086  0.0            0          1
+            2       0_0      branin   99.950007  0.0            0          2
+            3       1_0      branin  113.057480  0.0            1          0
+            4       1_0      branin   90.815154  0.0            1          1
+            5       1_0      branin   77.324501  0.0            1          2
+            6       2_0      branin   44.627226  0.0            2          0
+            7       2_0      branin   35.847504  0.0            2          1
+            8       2_0      branin   30.522333  0.0            2          2
+            9       3_0      branin  143.375669  0.0            3          0
+            10      3_0      branin  115.168704  0.0            3          1
+            11      3_0      branin   98.060315  0.0            3          2
+            12      4_0      branin   65.033535  0.0            4          0
+            13      4_0      branin   52.239184  0.0            4          1
+            14      4_0      branin   44.479018  0.0            4          2
+
+            Looking at the most recent fidelity only (timestamp==2), we have
+            the following metric values for each trial:
+            0: 99.950007 <-- worst
+            3: 98.060315
+            1: 77.324501
+            4: 44.479018
+            2: 30.522333 <-- best
+            """
+            if not non_objective_metric:
+                # removing non-map tracking metrics
+                tracking_metrics = ["branin"]
+                for name in tracking_metrics:
+                    exp.remove_tracking_metric(metric_name=name)
+                ref_point = None  # ref point can be inferred from objective thresholds
+            else:
+                ref_point = dict(zip(cast(List[str], metric_names), bounds))
+            return exp, ref_point
+
+        exp, ref_point = get_map_experiment(
+            num_trials=5,
+            num_fetches=3,
+            num_complete=4,
+            bounds=[99.0, 99.0],
+        )
+
+        idcs = set(exp.trials.keys())
+        early_stopping_strategy = ScaledParetoEarlyStoppingStrategy(
+            metric_names=metric_names,
+            pareto_scaling_factor=1 / 2,
+            min_curves=4,
+            min_progression=0.1,
+            ref_point=ref_point,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        # With a scaling factor of 1/2, and thresholds of 99.0 for each metric, we
+        # expect to stop any trials that are above 99 + (30.522333 - 99) / 2 ~ 64.7611.
+        self.assertEqual(set(should_stop), {0, 1, 3})
+
+        # With thresholds of 99 for each metric, but a more aggressive scaling factor,
+        # of 4 / 5, we expect to stop any trial above 99 + (30.52 - 99) * 4 / 5 ~ 44.21,
+        # which includes trial 4.
+        early_stopping_strategy = ScaledParetoEarlyStoppingStrategy(
+            metric_names=metric_names,
+            pareto_scaling_factor=4 / 5,
+            min_curves=4,
+            min_progression=0.1,
+            ref_point=ref_point,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(set(should_stop), {0, 1, 3, 4})
+
+        # Trial 4 is the only trial that is still running and all other trials completed
+        # at timestamp 2.0. If we attach more data for trial 4 beyond timestamp 2.0, we
+        # will not make an early stopping decision for it, because there is no data for
+        # comparison at timestamp 3.0.
+        exp.attach_data(data=exp.fetch_data())
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(set(should_stop), {0, 1, 3})  # excludes trial 4
+
+        # If we reverse a direction, none of the trials will be in the volume of the
+        # space bounded by the reference point, so no trial will be stopped.
+        reverse_metric = ("tracking_" if non_objective_metric else "") + "branin_map_0"
+        # need to set both Metric.lower_is_better and Objective.minimize since both are
+        # used (in _default_objective_and_direction / _all_objectives_and_directions)
+        exp.metrics[reverse_metric].lower_is_better = False
+        exp.optimization_config.objective.objectives[0].minimize = False
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(set(should_stop), set())
+
+        # In contrast, if we complete all trials, trial four has enough comparison data
+        # at timestampe 2.0 and will be stopped with the more aggressive scaling factor.
+        exp, ref_point = get_map_experiment(
+            num_trials=5,
+            num_fetches=3,
+            num_complete=5,
+            bounds=[99.0, 99.0],
+        )
+        early_stopping_strategy = ScaledParetoEarlyStoppingStrategy(
+            metric_names=metric_names,
+            pareto_scaling_factor=4 / 5,
+            min_curves=4,
+            min_progression=0.1,
+            ref_point=ref_point,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(set(should_stop), {0, 1, 3, 4})
+
+        # If we use a less aggressive scaling factor of 0.25, only trials with
+        # worse metrics than 99 + (30.52 - 99) / 4 ~ 81.88 will be stopped.
+        early_stopping_strategy = ScaledParetoEarlyStoppingStrategy(
+            metric_names=metric_names,
+            pareto_scaling_factor=1 / 4,
+            min_curves=4,
+            min_progression=0.1,
+            ref_point=ref_point,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(set(should_stop), {0, 3})
+
+        # With thresholds of 50 for each metric, we don't have enough data that improves
+        # over the reference point to be considered for stopping.
+        exp, ref_point = get_map_experiment(
+            num_trials=5,
+            num_fetches=3,
+            num_complete=4,
+            bounds=[50.0, 50.0],
+        )
+        early_stopping_strategy = ScaledParetoEarlyStoppingStrategy(
+            metric_names=metric_names,
+            pareto_scaling_factor=1 / 2,
+            min_curves=4,
+            min_progression=0.1,
+            ref_point=ref_point,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
+
+        # test ignore trial indices
+        exp, ref_point = get_map_experiment(
+            num_trials=5,
+            num_fetches=3,
+            num_complete=4,
+            bounds=[99.0, 99.0],
+        )
+        for trial_indices_to_ignore in [[0], [0, 1], [0, 1, 2], [0, 3]]:
+            early_stopping_strategy = ScaledParetoEarlyStoppingStrategy(
+                metric_names=metric_names,
+                pareto_scaling_factor=1 / 2,
+                min_curves=4,
+                min_progression=0.1,
+                trial_indices_to_ignore=trial_indices_to_ignore,
+                ref_point=ref_point,
+            )
+            should_stop = early_stopping_strategy.should_stop_trials_early(
+                trial_indices=idcs, experiment=exp
+            )
+            self.assertEqual(set(should_stop), {0, 1, 3} - set(trial_indices_to_ignore))
+
+        # not enough completed trials
+        early_stopping_strategy = ScaledParetoEarlyStoppingStrategy(
+            metric_names=metric_names,
+            min_curves=5,
+            min_progression=0.1,
+            ref_point=ref_point,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
+
+        if non_objective_metric:
+            early_stopping_strategy = ScaledParetoEarlyStoppingStrategy(
+                metric_names=metric_names,
+                min_curves=4,
+                min_progression=0.1,
+                # "forgetting" to pass the reference point for the tracking metrics
+            )
+            with self.assertRaisesRegex(
+                ValueError,
+                "Metric names do not match those in the optimization config.",
+            ):
+                should_stop = early_stopping_strategy.should_stop_trials_early(
+                    trial_indices=idcs, experiment=exp
+                )
 
 
 def _evaluate_early_stopping_with_df(

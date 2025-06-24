@@ -24,6 +24,7 @@ from ax.adapter.registry import Cont_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -276,6 +277,14 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         then we can skip costly steps, such as model fitting, that occur before
         individual trials are considered for stopping.
         """
+        # check for batch trials
+        for idx, trial in experiment.trials.items():
+            if isinstance(trial, BatchTrial):
+                raise ValueError(
+                    f"Trial {idx} is a BatchTrial, which is not yet supported by "
+                    "early stopping strategies."
+                )
+
         # check that there are sufficient completed trials
         num_completed = len(experiment.trial_indices_by_status[TrialStatus.COMPLETED])
         if self.min_curves is not None and num_completed < self.min_curves:
@@ -367,21 +376,42 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     def _default_objective_and_direction(
         self, experiment: Experiment
     ) -> tuple[str, bool]:
+        metric_names, directions = self._all_objectives_and_directions(
+            experiment=experiment
+        )
+        # if it is  a multi-objective optimization problem, infer as first objective
+        # although it is recommended to specify metric names explicitly.
+        return metric_names[0], directions[metric_names[0]]
+
+    def _all_objectives_and_directions(
+        self, experiment: Experiment
+    ) -> tuple[list[str], dict[str, bool]]:
+        """Returns a dict containing the metric names and corresponding directions for
+        each objective in the experiment or in `self.metric_names`, if specified.
+        """
         if self.metric_names is None:
             optimization_config = none_throws(experiment.optimization_config)
             objective = optimization_config.objective
+            objectives = (
+                objective.objectives
+                if isinstance(objective, MultiObjective)
+                else [objective]
+            )
+            metric_names = []
+            directions = {}
+            for objective in objectives:
+                metric_name = objective.metric.name
+                metric_names.append(metric_name)
+                directions[metric_name] = objective.minimize
 
-            # if multi-objective optimization, infer as first objective
-            # although it is recommended to specify a metric name(s) explicitly.
-            if isinstance(objective, MultiObjective):
-                objective = objective.objectives[0]
-
-            metric_name = objective.metric.name
-            minimize = objective.minimize
         else:
-            metric_name = list(self.metric_names)[0]
-            minimize = experiment.metrics[metric_name].lower_is_better or False
-        return metric_name, minimize
+            metric_names = list(self.metric_names)
+            directions = {}
+            for metric_name in metric_names:
+                minimize = experiment.metrics[metric_name].lower_is_better or False
+                directions[metric_name] = minimize
+
+        return metric_names, directions
 
 
 class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
