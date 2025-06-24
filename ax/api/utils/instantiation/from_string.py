@@ -23,6 +23,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.exceptions.core import UserInputError
+from pyre_extensions import assert_is_instance, none_throws
 from sympy.core.add import Add
 from sympy.core.expr import Expr
 from sympy.core.mul import Mul
@@ -142,7 +143,7 @@ def parse_objective(objective_str: str) -> Objective:
             ]
         )
 
-    return _create_single_objective(expression=expression)
+    return _create_single_objective(expression=assert_is_instance(expression, Expr))
 
 
 def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
@@ -228,7 +229,9 @@ def _create_single_objective(expression: Expr) -> Objective:
 
         # Since the objectives 1 * loss and 2 * loss are equivalent, we can just use
         # the sign from the coefficient rather than its value
-        minimize = bool(expression.as_coefficient(symbol) < 0)
+        minimize = bool(
+            none_throws(expression.as_coefficient(assert_is_instance(symbol, Expr))) < 0
+        )
 
         return Objective(
             metric=MapMetric(
