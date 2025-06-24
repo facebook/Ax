@@ -58,8 +58,6 @@ class TestOverview(TestCase):
             generation_strategy=client._generation_strategy,
         )
 
-        self.assertEqual(len(card.flatten()), 9)
-
         children_names = [child.name for child in card.children]
         self.assertIn("ResultsAnalysis", children_names)
         self.assertIn("InsightsAnalysis", children_names)

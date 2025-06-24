@@ -12,7 +12,6 @@ from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
-from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.analysis.plotly.scatter import ScatterPlot
 from ax.analysis.summary import Summary
 from ax.analysis.utils import extract_relevant_adapter
@@ -120,23 +119,24 @@ class ResultsAnalysis(Analysis):
         )
 
         # Produce a parallel coordinates plot for each objective.
-        objective_parallel_coordinates_group = (
-            AnalysisCardGroup(
-                name="Objective Parallel Coordinates Plots",
-                children=[
-                    ParallelCoordinatesPlot(
-                        metric_name=metric_name
-                    ).compute_or_error_card(
-                        experiment=experiment,
-                        generation_strategy=generation_strategy,
-                        adapter=adapter,
-                    )
-                    for metric_name in objective_names
-                ],
-            )
-            if len(objective_names) > 0
-            else None
-        )
+        # TODO: mpolson mgarrard bring back parallel coordinates after fixing
+        # objective_parallel_coordinates_group = (
+        #     AnalysisCardGroup(
+        #         name="Objective Parallel Coordinates Plots",
+        #         children=[
+        #             ParallelCoordinatesPlot(
+        #                 metric_name=metric_name
+        #             ).compute_or_error_card(
+        #                 experiment=experiment,
+        #                 generation_strategy=generation_strategy,
+        #                 adapter=adapter,
+        #             )
+        #             for metric_name in objective_names
+        #         ],
+        #     )
+        #     if len(objective_names) > 0
+        #     else None
+        # )
 
         summary = Summary().compute_or_error_card(
             experiment=experiment,
@@ -151,7 +151,6 @@ class ResultsAnalysis(Analysis):
                     arm_effect_pair_group,
                     objective_scatter_group,
                     constraint_scatter_group,
-                    objective_parallel_coordinates_group,
                     summary,
                 )
                 if group is not None
