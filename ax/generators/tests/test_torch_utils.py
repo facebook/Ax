@@ -231,19 +231,17 @@ class TorchUtilsTest(TestCase):
                 torch.tensor([-3.0]),
             )
         )
-        # Test MO risk measure.
-        risk_measure, _ = get_botorch_objective_and_transform(
-            botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
-            model=self.mock_botorch_model,
-            objective_weights=torch.tensor([-1.0, 2.0, 0.0]),
-            risk_measure=MultiOutputExpectation(n_w=2),
-        )
-        self.assertTrue(
-            torch.allclose(
-                none_throws(risk_measure)(Y),
-                torch.tensor([-1.5, -3.0]),
+
+        with self.subTest("MO risk measure"):
+            risk_measure, _ = get_botorch_objective_and_transform(
+                botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
+                model=self.mock_botorch_model,
+                objective_weights=torch.tensor([-1.0, 2.0, 0.0]),
+                risk_measure=MultiOutputExpectation(n_w=2),
             )
-        )
+            expected = torch.tensor([[-1.5, -3.0]])
+            self.assertTrue(torch.allclose(none_throws(risk_measure)(Y), expected))
+
         # Test MARS.
         risk_measure, _ = get_botorch_objective_and_transform(
             botorch_acqf_class=qNoisyExpectedImprovement,
