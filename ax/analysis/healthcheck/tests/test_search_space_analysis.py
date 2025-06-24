@@ -109,7 +109,7 @@ class TestSearchSpaceAnalysis(TestCase):
             ],
         )
 
-        parametrizations: list[dict[str, None | bool | float | int | str]] = [
+        parameterizations: list[dict[str, None | bool | float | int | str]] = [
             {
                 "float_range_1": 1.0,
                 "float_range_2": 1.0,
@@ -124,7 +124,7 @@ class TestSearchSpaceAnalysis(TestCase):
         ]
 
         df = search_space_boundary_proportions(
-            search_space=ss, parametrizations=parametrizations
+            search_space=ss, parameterizations=parameterizations
         )
 
         dff = pd.DataFrame(

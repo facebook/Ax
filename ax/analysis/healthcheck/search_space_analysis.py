@@ -73,7 +73,7 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
         parametrizations = [arm.parameters for arm in arms]
         boundary_proportions_df = search_space_boundary_proportions(
             search_space=experiment.search_space,
-            parametrizations=parametrizations,
+            parameterizations=parametrizations,
         )
         if np.any(
             boundary_proportions_df["proportion"] > self.boundary_proportion_threshold
@@ -98,7 +98,7 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
 
 def search_space_boundary_proportions(
     search_space: SearchSpace,
-    parametrizations: list[TParameterization],
+    parameterizations: list[TParameterization],
     tol: float = 1e-6,
 ) -> pd.DataFrame:
     r"""
@@ -123,12 +123,12 @@ def search_space_boundary_proportions(
     proportions = []
     bounds = []
 
-    parametrizations = [
+    parameterizations = [
         parameterization
-        for parameterization in parametrizations
+        for parameterization in parameterizations
         if search_space.check_membership(parameterization)
     ]
-    num_parametrizations = len(parametrizations)
+    num_parametrizations = len(parameterizations)
 
     for parameter_name, parameter in search_space.parameters.items():
         if isinstance(parameter, RangeParameter):
@@ -144,10 +144,8 @@ def search_space_boundary_proportions(
             continue
         num_lb = 0  # counts how many parameters are equal to the boundary's lower bound
         num_ub = 0  # counts how many parameters are equal to the boundary's upper bound
-        for parametrization in parametrizations:
-            value = parametrization[parameter_name]
-            if value is None:
-                continue
+        for parameterization in parameterizations:
+            value = parameterization[parameter_name]
             value = float(value)
             # for choice parameters, we check if the value is equal to the lower
             # or upper bound
@@ -168,15 +166,14 @@ def search_space_boundary_proportions(
         )
         proportions.extend([prop_lower, prop_upper])
         bounds.extend(["lower", "upper"])
-
     for pc in search_space.parameter_constraints:
         weighted_sums = [
             sum(
-                float(assert_is_instance(parametrization[param], Union[int, float]))
+                float(assert_is_instance(parameterization[param], Union[int, float]))
                 * weight
                 for param, weight in pc.constraint_dict.items()
             )
-            for parametrization in parametrizations
+            for parameterization in parameterizations
         ]
         prop = (
             np.sum(
