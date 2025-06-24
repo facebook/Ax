@@ -149,7 +149,8 @@ class ArmEffectsPlot(PlotlyAnalysis):
         cards = [
             self._create_plotly_analysis_card(
                 title=(
-                    f"{'Modeled' if self.use_model_predictions else 'Observed'} Arm "
+                    f"{'Modeled' if self.use_model_predictions else 'Observed'} "
+                    f"{'Relativized ' if self.relativize else ''}Arm "
                     f"Effects on {metric_labels[metric_name]}"
                     + (
                         f" for trial {self.trial_index}"

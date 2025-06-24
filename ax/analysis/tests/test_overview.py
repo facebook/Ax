@@ -5,7 +5,11 @@
 
 # pyre-strict
 
+
+from ax.analysis.analysis_card import ErrorAnalysisCard
 from ax.analysis.overview import OverviewAnalysis
+from ax.analysis.plotly.arm_effects import ArmEffectsPlot
+from ax.analysis.plotly.scatter import ScatterPlot
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.utils.common.testutils import TestCase
@@ -72,10 +76,14 @@ class TestOverview(TestCase):
             generation_strategy = get_default_generation_strategy_at_MBM_node(
                 experiment=experiment
             )
-
-            _ = analysis.compute(
+            card_group = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
+            for card in card_group.flatten():
+                self.assertNotIsInstance(card, ErrorAnalysisCard)
+                # TODO: add more AnalysisCard types when they support relativization
+                if isinstance(card, (ArmEffectsPlot, ScatterPlot)):
+                    self.assertIn("Relativized", card.title)
 
     @mock_botorch_optimize
     def test_offline(self) -> None:

@@ -588,20 +588,24 @@ def _get_trial_index_for_predictions(model: Adapter) -> int | None:
 
 
 def get_predictions_by_arm(
-    model: Adapter,
+    adapter: Adapter,
     metric_name: str,
     outcome_constraints: list[OutcomeConstraint],
     gr: GeneratorRun | None = None,
     abandoned_arms: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    trial_index = _get_trial_index_for_predictions(model)
+    trial_index = _get_trial_index_for_predictions(adapter)
     if gr is None:
         if abandoned_arms:
             raise UserInputError(
                 "`abandoned_arms` should only be specified if a generator run is "
                 "provided."
             )
-        observations = model.get_training_data()
+        observations = [
+            obs
+            for i, obs in enumerate(adapter.get_training_data())
+            if adapter.training_in_design[i]
+        ]
         features = [o.features for o in observations]
         arm_names = [o.arm_name for o in observations]
         for feature in features:
@@ -617,7 +621,7 @@ def get_predictions_by_arm(
     try:
         predictions = [
             predict_at_point(
-                model=model,
+                model=adapter,
                 obsf=obsf,
                 metric_names={metric_name}.union(
                     {constraint.metric.name for constraint in outcome_constraints}
@@ -629,7 +633,7 @@ def get_predictions_by_arm(
         raise UserInputError(
             "This plot requires a GenerationStrategy which is "
             "in a state where the current model supports prediction.  The current "
-            f"model is {model._model_key} and does not support prediction."
+            f"model is {adapter._model_key} and does not support prediction."
         )
     constraints_violated_by_constraint = get_constraint_violated_probabilities(
         predictions=predictions,
@@ -648,9 +652,9 @@ def get_predictions_by_arm(
 
     for i in range(len(features)):
         if (
-            model.status_quo is not None
+            adapter.status_quo is not None
             and features[i].parameters
-            == none_throws(model.status_quo).features.parameters
+            == none_throws(adapter.status_quo).features.parameters
         ):
             probabilities_not_feasible[i] = 0
             constraints_violated[i] = {}
