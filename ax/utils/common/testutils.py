@@ -27,6 +27,7 @@ from types import FrameType
 from typing import Any, TypeVar, Union
 
 import numpy as np
+import torch
 from ax.exceptions.core import AxParameterWarning
 from ax.utils.common.base import Base
 from ax.utils.common.constants import TESTENV_ENV_KEY, TESTENV_ENV_VAL
@@ -537,3 +538,42 @@ class TestCase(fake_filesystem_unittest.TestCase):
     assertRegexpMatches = _deprecate(unittest.TestCase.assertRegex)
     # pyre-fixme[4]: Attribute must be annotated.
     assertNotRegexpMatches = _deprecate(unittest.TestCase.assertNotRegex)
+
+    # Copied from BoTorch assertAllClose
+    def assertAllClose(
+        self,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
+        input: Any,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
+        other: Any,
+        rtol: float = 1e-05,
+        atol: float = 1e-08,
+        equal_nan: bool = False,
+    ) -> None:
+        r"""Assert that two tensors are close.
+
+        Calls torch.testing.assert_close, using the signature and default behavior
+        of torch.allclose.
+
+        The formula asserted is abs(input - other) <= atol + rtol * abs(other).
+
+        Args:
+            input: First tensor or tensor-or-scalar-like to compare
+            other: Second tensor or tensor-or-scalar-like to compare
+            rtol: Relative tolerance
+            atol: Absolute tolerance
+            equal_nan: If True, consider NaN values as equal
+
+        Example output:
+            AssertionError: Scalars are not close!
+
+            Absolute difference: 1.0000034868717194 (up to 0.0001 allowed)
+            Relative difference: 0.8348668001940709 (up to 1e-05 allowed)
+        """
+        torch.testing.assert_close(
+            input,
+            other,
+            rtol=rtol,
+            atol=atol,
+            equal_nan=equal_nan,
+        )
