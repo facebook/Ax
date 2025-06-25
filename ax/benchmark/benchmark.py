@@ -389,8 +389,6 @@ def _update_benchmark_tracking_vars_in_place(
     newly_completed_trials = currently_completed_trial_idcs - completed_trial_idcs
     completed_trial_idcs |= newly_completed_trials
 
-    is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
-
     if len(newly_completed_trials) > 0:
         previous_cost = cost_trace[-1] if len(cost_trace) > 0 else 0.0
         cost = _get_cumulative_cost(
@@ -408,10 +406,10 @@ def _update_benchmark_tracking_vars_in_place(
         evaluated_arms_list.append(params)
 
         # Inference trace: Not supported for MOO.
-        # It's also not supported for multi-fidelity or multi-task
-        # problems, because Ax's best-point functionality doesn't know
-        # to predict at the target task or fidelity.
-        if problem.is_moo or is_mf_or_mt:
+        # Note: Ax's best-point functionality doesn't know to predict at the
+        # target task or fidelity, so this won't produce good recommendations in
+        # MF/MT settings.
+        if problem.is_moo:
             best_params = None
         else:
             best_params = get_best_parameters(
