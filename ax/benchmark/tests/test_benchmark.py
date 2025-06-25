@@ -816,6 +816,15 @@ class TestBenchmark(TestCase):
                 ),
                 "MBM::SingleTaskGP_qKnowledgeGradient",
             ),
+            (
+                get_sobol_botorch_modular_acquisition(
+                    model_cls=SingleTaskGP,
+                    acquisition_cls=qLogNoisyExpectedImprovement,
+                    distribute_replications=False,
+                ),
+                get_augmented_branin_problem(fidelity_or_task="fidelity"),
+                "MBM::SingleTaskGP_qLogNEI",
+            ),
         ]:
             with self.subTest(method=method, problem=problem):
                 res = self.benchmark_replication(problem=problem, method=method, seed=0)
