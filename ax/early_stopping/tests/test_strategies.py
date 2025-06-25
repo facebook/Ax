@@ -223,6 +223,18 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )[0]
         )
 
+        # testing batch trial error
+        experiment.new_batch_trial()
+        with self.assertRaisesRegex(
+            ValueError, "is a BatchTrial, which is not yet supported"
+        ):
+            es_strategy.is_eligible_any(
+                trial_indices={0},
+                experiment=experiment,
+                df=map_data.map_df,
+                map_key=map_data.map_keys[0],
+            )
+
     def test_early_stopping_savings(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric()
         es_strategy = ModelBasedFakeStrategy(min_progression=3, max_progression=5)
@@ -541,6 +553,36 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             metric_name="branin_map",
         )
         self.assertEqual(set(should_stop), {0, 1})
+
+        # test error throwing in align partial results, with non-unique trial / arm name
+        exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=2)
+
+        # manually "unalign" timestamps to simulate real-world scenario
+        # where each curve reports results at different steps
+        data = assert_is_instance(exp.fetch_data(), MapData)
+        df_with_single_arm_name = data.map_df.copy()
+        df_with_single_arm_name["arm_name"] = "0_0"
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Arm 0_0 has multiple tiral indices",
+        ):
+            align_partial_results(
+                df=df_with_single_arm_name,
+                progr_key="timestamp",
+                metrics=["branin_map"],
+            )
+
+        df_with_single_trial_index = data.map_df.copy()
+        df_with_single_trial_index["trial_index"] = 0
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Trial 0 has multiple arm names",
+        ):
+            align_partial_results(
+                df=df_with_single_trial_index,
+                progr_key="timestamp",
+                metrics=["branin_map"],
+            )
 
 
 class TestThresholdEarlyStoppingStrategy(TestCase):
