@@ -12,6 +12,7 @@ from itertools import product
 from logging import WARNING
 from math import pi
 from time import monotonic
+from typing import Literal
 from unittest.mock import patch
 
 import numpy as np
@@ -51,11 +52,10 @@ from ax.benchmark.methods.sobol import (
     get_sobol_generation_strategy,
 )
 from ax.benchmark.problems.registry import get_benchmark_problem
+from ax.benchmark.problems.synthetic.from_botorch import get_augmented_branin_problem
 
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
-from ax.core.search_space import SearchSpace
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import (
@@ -91,7 +91,6 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import optimize_acqf
 
-from botorch.test_functions.multi_fidelity import AugmentedBranin
 from botorch.test_functions.synthetic import Branin
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -1008,36 +1007,14 @@ class TestBenchmark(TestCase):
                 problem=problem, dict_of_dict_of_params={0: {}}
             )
 
-    def _test_multi_fidelity_or_multi_task(self, fidelity_or_task: str) -> None:
+    def _test_multi_fidelity_or_multi_task(
+        self, fidelity_or_task: Literal["fidelity", "task"]
+    ) -> None:
         """
         Args:
             fidelity_or_task: "fidelity" or "task"
         """
-        parameters = [
-            RangeParameter(
-                name=f"x{i}",
-                parameter_type=ParameterType.FLOAT,
-                lower=0.0,
-                upper=1.0,
-            )
-            for i in range(2)
-        ] + [
-            ChoiceParameter(
-                name="x2",
-                parameter_type=ParameterType.FLOAT,
-                values=[0, 1],
-                is_fidelity=fidelity_or_task == "fidelity",
-                is_task=fidelity_or_task == "task",
-                target_value=1,
-            )
-        ]
-        problem = create_problem_from_botorch(
-            test_problem_class=AugmentedBranin,
-            test_problem_kwargs={},
-            search_space=SearchSpace(parameters),
-            num_trials=3,
-            baseline_value=3.0,
-        )
+        problem = get_augmented_branin_problem(fidelity_or_task=fidelity_or_task)
         params = {"x0": 1.0, "x1": 0.0, "x2": 0.0}
         at_target = assert_is_instance(
             Branin()
