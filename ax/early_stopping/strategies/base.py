@@ -79,7 +79,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         Args:
             metric_names: The names of the metrics the strategy will interact with.
-                If no metric names are provided the objective metric is assumed.
+                If no metric names are provided, considers the objective metric(s).
             min_progression: Only stop trials if the latest progression value
                 (e.g. timestamp, epochs, training data used) is greater than this
                 threshold. Prevents stopping prematurely before enough data is gathered
@@ -379,21 +379,42 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     def _default_objective_and_direction(
         self, experiment: Experiment
     ) -> tuple[str, bool]:
+        objectives_to_directions = self._all_objectives_and_directions(
+            experiment=experiment
+        )
+        # if it is a multi-objective optimization problem, infer as first objective
+        # although it is recommended to specify metric names explicitly.
+        return next(iter(objectives_to_directions.items()))
+
+    def _all_objectives_and_directions(self, experiment: Experiment) -> dict[str, bool]:
+        """Returns a dict containing the metric names and corresponding directions for
+        each objective in the experiment or in `self.metric_names`, if specified.
+        """
         if self.metric_names is None:
+            logger.warning(
+                "No metric names specified. Defaulting to the objective metric(s).",
+                stacklevel=2,
+            )
             optimization_config = none_throws(experiment.optimization_config)
             objective = optimization_config.objective
+            objectives = (
+                objective.objectives
+                if isinstance(objective, MultiObjective)
+                else [objective]
+            )
+            directions = {}
+            for objective in objectives:
+                metric_name = objective.metric.name
+                directions[metric_name] = objective.minimize
 
-            # if multi-objective optimization, infer as first objective
-            # although it is recommended to specify a metric name(s) explicitly.
-            if isinstance(objective, MultiObjective):
-                objective = objective.objectives[0]
-
-            metric_name = objective.metric.name
-            minimize = objective.minimize
         else:
-            metric_name = list(self.metric_names)[0]
-            minimize = experiment.metrics[metric_name].lower_is_better or False
-        return metric_name, minimize
+            metric_names = list(self.metric_names)
+            directions = {}
+            for metric_name in metric_names:
+                minimize = experiment.metrics[metric_name].lower_is_better or False
+                directions[metric_name] = minimize
+
+        return directions
 
 
 class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):

@@ -8,7 +8,7 @@
 
 from copy import deepcopy
 from typing import cast
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 from ax.core import OptimizationConfig
@@ -22,6 +22,8 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
+from ax.early_stopping.strategies.base import logger
+
 from ax.early_stopping.strategies.logical import (
     AndEarlyStoppingStrategy,
     OrEarlyStoppingStrategy,
@@ -80,7 +82,8 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             #  `BaseEarlyStoppingStrategy`.
             BaseEarlyStoppingStrategy()
 
-    def test_default_objective_and_direction(self) -> None:
+    @patch.object(logger, "warning")
+    def test_default_objective_and_direction(self, _: MagicMock) -> None:
         test_experiment = get_test_map_data_experiment(
             num_trials=3, num_fetches=5, num_complete=3
         )
@@ -159,12 +162,13 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 test_multi_objective.objectives[1].minimize,
             )
 
-    def test_is_eligible(self) -> None:
+    @patch.object(logger, "warning")
+    def test_is_eligible(self, _: MagicMock) -> None:
         experiment = get_test_map_data_experiment(
             num_trials=3, num_fetches=5, num_complete=3
         )
         es_strategy = FakeStrategy(min_progression=3, max_progression=5)
-        metric_name, _ = es_strategy._default_objective_and_direction(
+        metric_name, __ = es_strategy._default_objective_and_direction(
             experiment=experiment
         )
 
@@ -262,7 +266,8 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
 
 class TestModelBasedEarlyStoppingStrategy(TestCase):
-    def test_get_training_data(self) -> None:
+    @patch.object(logger, "warning")
+    def test_get_training_data(self, _: MagicMock) -> None:
         experiment = get_test_map_data_experiment(
             num_trials=3, num_fetches=4, num_complete=3
         )
@@ -281,7 +286,8 @@ class TestModelBasedEarlyStoppingStrategy(TestCase):
 
 
 class TestPercentileEarlyStoppingStrategy(TestCase):
-    def test_percentile_early_stopping_strategy_validation(self) -> None:
+    @patch.object(logger, "warning")
+    def test_percentile_early_stopping_strategy_validation(self, _: MagicMock) -> None:
         exp = get_branin_experiment()
 
         for i in range(5):
@@ -331,10 +337,22 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(should_stop, {})
 
     def test_percentile_early_stopping_strategy(self) -> None:
-        self._test_percentile_early_stopping_strategy(non_objective_metric=False)
+        with patch.object(
+            logger,
+            "warning",
+        ) as logger_mock:
+            self._test_percentile_early_stopping_strategy(
+                logger_mock=logger_mock, non_objective_metric=False
+            )
 
     def test_percentile_early_stopping_strategy_non_objective_metric(self) -> None:
-        self._test_percentile_early_stopping_strategy(non_objective_metric=True)
+        with patch.object(
+            logger,
+            "warning",
+        ) as logger_mock:
+            self._test_percentile_early_stopping_strategy(
+                logger_mock=logger_mock, non_objective_metric=True
+            )
 
         with self.assertRaisesRegex(
             UnsupportedError,
@@ -348,7 +366,9 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             )
 
     def _test_percentile_early_stopping_strategy(
-        self, non_objective_metric: bool
+        self,
+        logger_mock: MagicMock,
+        non_objective_metric: bool,
     ) -> None:
         exp = get_test_map_data_experiment(
             num_trials=5,
@@ -404,6 +424,14 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
+        if metric_names is None:
+            logger_mock.assert_called_once_with(
+                "No metric names specified. Defaulting to the objective metric(s).",
+                stacklevel=2,
+            )
+        else:
+            logger_mock.assert_not_called()
+
         self.assertEqual(set(should_stop), {0})
 
         # test ignore trial indices
@@ -489,6 +517,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         # We consider trial 3 for early stopping at progression 2, and
         #    choose to stop it.
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            metric_names=["branin_map"],
             percentile_threshold=50,
             min_curves=3,
             min_progression=0.1,
@@ -543,6 +572,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         # We consider trial 3 for early stopping at progression 0, and
         #    choose not to stop it.
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            metric_names=["branin_map"],
             percentile_threshold=50,
             min_curves=3,
             min_progression=0.1,
@@ -586,7 +616,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
 
 class TestThresholdEarlyStoppingStrategy(TestCase):
-    def test_threshold_early_stopping_strategy(self) -> None:
+    # to avoid log spam in tests, we test the logger output explicitly in the percentile
+    # early stopping strategy test
+    @patch.object(logger, "warning")
+    def test_threshold_early_stopping_strategy(self, _: MagicMock) -> None:
         exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
         """
         Data looks like this:
@@ -645,7 +678,8 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
 
 
 class TestLogicalEarlyStoppingStrategy(TestCase):
-    def test_and_early_stopping_strategy(self) -> None:
+    @patch.object(logger, "warning")
+    def test_and_early_stopping_strategy(self, _: MagicMock) -> None:
         exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
         """
         Data looks like this:
@@ -700,7 +734,8 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
             else:
                 self.assertNotIn(idc, and_should_stop.keys())
 
-    def test_or_early_stopping_strategy(self) -> None:
+    @patch.object(logger, "warning")
+    def test_or_early_stopping_strategy(self, _: MagicMock) -> None:
         exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
         """
         Data looks like this:
