@@ -445,7 +445,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
                 mock_optimize_acqf.call_args.kwargs["options"]["init_batch_limit"], 32
             )
             self.assertEqual(
-                mock_optimize_acqf.call_args.kwargs["options"]["batch_limit"], 5
+                mock_optimize_acqf.call_args.kwargs["options"]["batch_limit"], 20
             )
 
             # Repeat without mocking optimize_acqf to make sure it runs

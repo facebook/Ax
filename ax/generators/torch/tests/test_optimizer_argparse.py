@@ -14,6 +14,7 @@ from ax.exceptions.core import UnsupportedError
 from ax.generators.torch.botorch_modular.optimizer_argparse import (
     BATCH_LIMIT,
     INIT_BATCH_LIMIT,
+    MAX_OPT_AGG_SIZE,
     NUM_RESTARTS,
     optimizer_argparse,
     RAW_SAMPLES,
@@ -47,6 +48,7 @@ class OptimizerArgparseTest(TestCase):
                 "options": {
                     "init_batch_limit": INIT_BATCH_LIMIT,
                     "batch_limit": BATCH_LIMIT,
+                    "max_optimization_problem_aggregation_size": MAX_OPT_AGG_SIZE,
                 },
                 "sequential": True,
             },
