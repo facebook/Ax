@@ -498,8 +498,13 @@ def scipy_optimizer(
 
     sequential = not joint_optimization
     optimize_acqf_options: dict[str, bool | float | int | str] = {
-        "batch_limit": 5,
+        "batch_limit": 20,  # these are overwritten by the defaults
+        # in `botorch_modular.optimizer_argparse`
         "init_batch_limit": 32,
+        "max_optimization_problem_aggregation_size": 5,  # this is to make sure we
+        # don't throw too many opt. problems together into one, as that degrades
+        # performance. This is ignored if, we use the parallel l-bfgs-b
+        # implementation or the torch optimizer.
     }
     if options is not None:
         optimize_acqf_options.update(options)

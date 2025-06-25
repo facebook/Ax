@@ -18,7 +18,8 @@ from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 NUM_RESTARTS = 20
 RAW_SAMPLES = 1024
 INIT_BATCH_LIMIT = 32
-BATCH_LIMIT = 5
+BATCH_LIMIT = 20
+MAX_OPT_AGG_SIZE = 5
 
 
 def optimizer_argparse(
@@ -98,6 +99,11 @@ def optimizer_argparse(
             "batch_limit": BATCH_LIMIT,
             **provided_options.get("options", {}),
         }
+
+        if optimizer == "optimize_acqf":
+            options["options"]["max_optimization_problem_aggregation_size"] = (
+                MAX_OPT_AGG_SIZE
+            )
     # Error out if options are specified for an optimizer that does not support the arg.
     elif "options" in provided_options:
         raise UnsupportedError(
