@@ -297,11 +297,9 @@ class TestBenchmarkProblem(TestCase):
         self.assertTrue(test_problem.use_shifted_function)
         self.assertEqual(none_throws(test_problem._offset).shape, torch.Size([dim]))
         # Check that the offset is applied.
-        self.assertTrue(
-            torch.allclose(
-                test_problem.tensorize_params({f"x{i}": 0 for i in range(dim)}),
-                -none_throws(test_problem._offset),
-            )
+        self.assertAllClose(
+            test_problem.tensorize_params({f"x{i}": 0 for i in range(dim)}),
+            -none_throws(test_problem._offset),
         )
 
     def test_maximization_problem(self) -> None:

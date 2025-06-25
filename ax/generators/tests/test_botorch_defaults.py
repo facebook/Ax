@@ -422,7 +422,7 @@ class BotorchDefaultsTest(TestCase):
             # pyre-fixme[6]: For 1st argument expected `Iterable[_T1]` but got
             #  `Union[Tensor, Module]`.
             for acqf_con, exp_con in zip(acqf_constraints, expected_constraints):
-                self.assertTrue(torch.allclose(acqf_con(samples), exp_con(samples)))
+                self.assertAllClose(acqf_con(samples), exp_con(samples))
 
             with self.assertRaisesRegex(ValueError, NO_OBSERVED_POINTS_MESSAGE):
                 _get_acquisition_func(

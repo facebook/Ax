@@ -107,9 +107,9 @@ class FrontierEvaluatorTest(TestCase):
             Yvar=Yvar,
         )
         pred = self.Y[2:4]
-        self.assertTrue(torch.allclose(Y, pred), f"{Y} does not match {pred}")
+        self.assertAllClose(Y, pred)
         expected_cov = Yvar[2:4]
-        self.assertTrue(torch.allclose(expected_cov, cov))
+        self.assertAllClose(expected_cov, cov)
         self.assertTrue(torch.equal(torch.arange(2, 4), indx))
 
         # Omit objective_thresholds
@@ -120,9 +120,9 @@ class FrontierEvaluatorTest(TestCase):
             Yvar=Yvar,
         )
         pred = self.Y[2:]
-        self.assertTrue(torch.allclose(Y, pred), f"{Y} does not match {pred}")
+        self.assertAllClose(Y, pred)
         expected_cov = Yvar[2:]
-        self.assertTrue(torch.allclose(expected_cov, cov))
+        self.assertAllClose(expected_cov, cov)
         self.assertTrue(torch.equal(torch.arange(2, 5), indx))
 
         # Change objective_weights so goal is to minimize b
@@ -134,11 +134,9 @@ class FrontierEvaluatorTest(TestCase):
             Yvar=Yvar,
         )
         pred = self.Y[[0, 4]]
-        self.assertTrue(
-            torch.allclose(Y, pred), f"actual {Y} does not match pred {pred}"
-        )
+        self.assertAllClose(Y, pred)
         expected_cov = Yvar[[0, 4]]
-        self.assertTrue(torch.allclose(expected_cov, cov))
+        self.assertAllClose(expected_cov, cov)
 
         # test no points better than reference point
         Y, cov, indx = pareto_frontier_evaluator(
@@ -173,9 +171,7 @@ class FrontierEvaluatorTest(TestCase):
             X=self.X,
         )
         pred = self.Y[2:4]
-        self.assertTrue(
-            torch.allclose(Y, pred), f"actual {Y} does not match pred {pred}"
-        )
+        self.assertAllClose(Y, pred)
         self.assertTrue(torch.equal(torch.arange(2, 4), indx))
 
     def test_pareto_frontier_evaluator_with_outcome_constraints(self) -> None:
@@ -192,9 +188,7 @@ class FrontierEvaluatorTest(TestCase):
             ),
         )
         pred = self.Y[[2], :]
-        self.assertTrue(
-            torch.allclose(Y, pred), f"actual {Y} does not match pred {pred}"
-        )
+        self.assertAllClose(Y, pred)
         self.assertTrue(torch.equal(torch.tensor([2], dtype=torch.long), indx))
 
     def test_pareto_frontier_evaluator_with_nan(self) -> None:

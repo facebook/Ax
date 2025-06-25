@@ -443,11 +443,9 @@ class SurrogateTest(TestCase):
         )
         # Change the lengthscales of one model and make sure the other isn't changed
         models[0].covar_module.base_kernel.lengthscale += 1
-        self.assertTrue(
-            torch.allclose(
-                model1_old_lengtscale,
-                models[1].covar_module.base_kernel.lengthscale,
-            )
+        self.assertAllClose(
+            model1_old_lengtscale,
+            models[1].covar_module.base_kernel.lengthscale,
         )
         # Test the same thing with the likelihood noise constraint
         models[0].likelihood.noise_covar.raw_noise_constraint.lower_bound.fill_(1e-4)
@@ -460,28 +458,20 @@ class SurrogateTest(TestCase):
         # Check input transform
 
         # bounds will be taken from the search space digest
-        self.assertTrue(
-            torch.allclose(
-                models[0].input_transform.offset,
-                torch.tensor([[0, 1, 2]], **self.tkwargs),
-            )
+        self.assertAllClose(
+            models[0].input_transform.offset,
+            torch.tensor([[0, 1, 2]], **self.tkwargs),
         )
-        self.assertTrue(
-            torch.allclose(
-                models[1].input_transform.offset,
-                torch.tensor([[0, 1, 2]], **self.tkwargs),
-            )
+        self.assertAllClose(
+            models[1].input_transform.offset,
+            torch.tensor([[0, 1, 2]], **self.tkwargs),
         )
         # Check outcome transform
-        self.assertTrue(
-            torch.allclose(
-                models[0].outcome_transform.means, torch.tensor([[3.5]], **self.tkwargs)
-            )
+        self.assertAllClose(
+            models[0].outcome_transform.means, torch.tensor([[3.5]], **self.tkwargs)
         )
-        self.assertTrue(
-            torch.allclose(
-                models[1].outcome_transform.means, torch.tensor([[7]], **self.tkwargs)
-            )
+        self.assertAllClose(
+            models[1].outcome_transform.means, torch.tensor([[7]], **self.tkwargs)
         )
 
     def test_botorch_transforms(self) -> None:

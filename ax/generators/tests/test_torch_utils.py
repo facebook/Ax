@@ -211,11 +211,9 @@ class TorchUtilsTest(TestCase):
             objective_weights=torch.tensor([-1.0]),
             risk_measure=Expectation(n_w=2),
         )
-        self.assertTrue(
-            torch.allclose(
-                none_throws(risk_measure)(torch.tensor([[1.0], [2.0]])),
-                torch.tensor([-1.5]),
-            )
+        self.assertAllClose(
+            none_throws(risk_measure)(torch.tensor([[1.0], [2.0]])),
+            torch.tensor([-1.5]),
         )
         # Test scalarized objective with single objective risk measure.
         risk_measure, _ = get_botorch_objective_and_transform(
@@ -262,12 +260,7 @@ class TorchUtilsTest(TestCase):
         )
         ch_weights = risk_measure.chebyshev_weights
         self.assertEqual(ch_weights.shape, torch.Size([2]))
-        self.assertTrue(torch.allclose(ch_weights.sum(), torch.tensor(1.0)))
+        self.assertAllClose(ch_weights.sum(), torch.tensor(1.0))
         # Overwrite ch weights to simplify the test.
         risk_measure.chebyshev_weights = [0.0, 1.0]
-        self.assertTrue(
-            torch.allclose(
-                none_throws(risk_measure)(Y),
-                torch.tensor([-4.0]),
-            )
-        )
+        self.assertAllClose(none_throws(risk_measure)(Y), torch.tensor([-4.0]))
