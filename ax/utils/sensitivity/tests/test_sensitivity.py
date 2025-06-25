@@ -18,7 +18,6 @@ from ax.adapter.torch import TorchAdapter
 from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.testutils_torch import AxTorchTestCaseMixin
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
 from ax.utils.sensitivity.derivative_measures import (
     compute_derivatives_from_model_list,
@@ -62,7 +61,7 @@ def get_adapter(modular: bool = False, saasbo: bool = False) -> Adapter:
         return Generators.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
 
 
-class SensitivityAnalysisTest(TestCase, AxTorchTestCaseMixin):
+class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         torch.manual_seed(0)
