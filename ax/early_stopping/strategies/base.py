@@ -24,6 +24,7 @@ from ax.adapter.registry import Cont_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -276,6 +277,17 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         then we can skip costly steps, such as model fitting, that occur before
         individual trials are considered for stopping.
         """
+        # check for batch trials
+        for idx, trial in experiment.trials.items():
+            if isinstance(trial, BatchTrial):
+                # In particular, align_partial_results requires a 1-1 mapping between
+                # trial indices and arm names, which is not the case for batch trials.
+                # See align_partial_results for more details.
+                raise ValueError(
+                    f"Trial {idx} is a BatchTrial, which is not yet supported by "
+                    "early stopping strategies."
+                )
+
         # check that there are sufficient completed trials
         num_completed = len(experiment.trial_indices_by_status[TrialStatus.COMPLETED])
         if self.min_curves is not None and num_completed < self.min_curves:
