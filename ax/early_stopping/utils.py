@@ -47,7 +47,18 @@ def align_partial_results(
 
     Returns:
         A two-tuple containing a dict mapping the provided metric names to the
-        index-normalized and interpolated mean (sem).
+        index-normalized and interpolated dataframes containing the mean (sem).
+        The dataframes are indexed by timestamp ("map_key") and have columns
+        corresponding to the trial index, e.g.:
+        mean = {
+            "metric_name": pd.DataFrame(
+                timestamp         0           1          2           3          4
+                0.0        146.138620  113.057480  44.627226  143.375669  65.033535
+                1.0        117.388086   90.815154  35.847504  115.168704  52.239184
+                2.0         99.950007   77.324501  30.522333   98.060315  44.479018
+                3.0               NaN         NaN        NaN         NaN  39.772239
+            )
+        }
     """
     missing_metrics = set(metrics) - set(df["metric_name"])
     if missing_metrics:
