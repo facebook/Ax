@@ -13,6 +13,7 @@ import itertools
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping, MutableMapping
 from datetime import datetime, timedelta
+from functools import partial
 from logging import Logger
 from math import prod
 from pathlib import Path
@@ -445,32 +446,91 @@ def get_branin_experiment_with_timestamp_map_metric(
     map_tracking_metric: bool = False,
     decay_function_name: str = "exp_decay",
     with_trials_and_data: bool = False,
+    multi_objective: bool = False,
+    has_objective_thresholds: bool = False,
+    bounds: list[float] | None = None,
 ) -> Experiment:
-    tracking_metric = (
-        get_map_metric(
-            name="tracking_branin_map",
-            noise_sd=noise_sd,
-            rate=rate,
-            decay_function_name=decay_function_name,
-        )
-        if map_tracking_metric
-        else BraninMetric(name="branin", param_names=["x1", "x2"], lower_is_better=True)
+    """Returns an experiment with the search space including parameters
+
+    Args:
+        with_status_quo: Whether to include a status quo arm.
+        noise_sd: Standard deviation of noise to add to the metric.
+        rate: Rate of decay for the map metric.
+        map_tracking_metric: Whether to include a tracking map metric.
+        decay_function_name: Name of the decay function to use.
+        with_trials_and_data: Whether to include trials and data.
+        multi_objective: Whether to include multiple objectives and tracking metrics.
+        has_objective_thresholds: For multi-objective experiments, toggles adding
+            objective thresholds.
+        bounds: For multi-objective experiments where has_objective_thresholds is True,
+            bounds determines the precise objective thresholds.
+
+    Returns:
+        A Branin single or multi-objective experiment with map metrics.
+    """
+    local_get_map_metric = partial(
+        get_map_metric,
+        noise_sd=noise_sd,
+        rate=rate,
+        decay_function_name=decay_function_name,
     )
-    exp = Experiment(
-        name="branin_with_timestamp_map_metric",
-        search_space=get_branin_search_space(),
-        optimization_config=OptimizationConfig(
+    experiment_name = "branin_with_timestamp_map_metric"
+    if multi_objective:
+        experiment_name = "multi_objective_" + experiment_name
+        num_objectives = 2
+        bounds = bounds or [99.0 for _ in range(num_objectives)]
+        if has_objective_thresholds:
+            objective_thresholds = [
+                ObjectiveThreshold(
+                    metric=local_get_map_metric(name=f"branin_map_{m}"),
+                    bound=bound,
+                    op=ComparisonOp.LEQ,
+                    relative=False,
+                )
+                for m, bound in zip(range(num_objectives), bounds)
+            ]
+        else:
+            objective_thresholds = None
+
+        if map_tracking_metric:
+            tracking_metrics = [
+                local_get_map_metric(f"tracking_branin_map_{m}")
+                for m in range(num_objectives)
+            ]
+        else:
+            tracking_metrics = [BraninMetric(name="branin", param_names=["x1", "x2"])]
+
+        objectives = [
+            Objective(metric=local_get_map_metric(f"branin_map_{m}"))
+            for m in range(num_objectives)
+        ]
+        optimization_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(objectives=objectives),
+            objective_thresholds=objective_thresholds,
+        )
+
+    else:  # single objective case
+        optimization_config = OptimizationConfig(
             objective=Objective(
-                metric=get_map_metric(
-                    name="branin_map",
-                    noise_sd=noise_sd,
-                    rate=rate,
-                    decay_function_name=decay_function_name,
-                ),
+                metric=local_get_map_metric(name="branin_map"),
                 minimize=True,
             )
-        ),
-        tracking_metrics=[tracking_metric],
+        )
+
+        if map_tracking_metric:
+            tracking_metric = local_get_map_metric(name="tracking_branin_map")
+        else:
+            tracking_metric = BraninMetric(
+                name="branin", param_names=["x1", "x2"], lower_is_better=True
+            )
+
+        tracking_metrics = [tracking_metric]
+
+    exp = Experiment(
+        name=experiment_name,
+        search_space=get_branin_search_space(),
+        optimization_config=optimization_config,
+        tracking_metrics=cast(list[Metric], tracking_metrics),
         runner=SyntheticRunner(),
         default_data_type=DataType.MAP_DATA,
     )
@@ -519,11 +579,17 @@ def get_test_map_data_experiment(
     num_fetches: int,
     num_complete: int,
     map_tracking_metric: bool = False,
+    multi_objective: bool = False,
+    bounds: list[float] | None = None,
+    has_objective_thresholds: bool = False,
 ) -> Experiment:
     experiment = get_branin_experiment_with_timestamp_map_metric(
-        rate=0.5, map_tracking_metric=map_tracking_metric
+        rate=0.5,
+        map_tracking_metric=map_tracking_metric,
+        multi_objective=multi_objective,
+        bounds=bounds,
+        has_objective_thresholds=has_objective_thresholds,
     )
-    experiment._properties = {"owners": [DEFAULT_USER]}
     for i in range(num_trials):
         trial = experiment.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
         trial.run()

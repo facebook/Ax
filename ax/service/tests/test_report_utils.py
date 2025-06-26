@@ -151,7 +151,7 @@ class ReportUtilsTest(TestCase):
         )
 
     def test_exp_to_df_max_map_value(self) -> None:
-        exp = get_test_map_data_experiment(num_trials=3, num_fetches=5, num_complete=0)
+        exp = get_test_map_data_experiment(num_trials=3, num_fetches=5, num_complete=1)
 
         def compute_maximum_map_values_timestamp(
             experiment: Experiment,
