@@ -192,8 +192,7 @@ class Client(WithDBSettingsBase):
 
         Saves to database on completion if ``storage_config`` is present.
         """
-
-        generation_strategy_dispatch_struct = GenerationStrategyDispatchStruct(
+        generation_strategy = self._choose_generation_strategy(
             method=method,
             initialization_budget=initialization_budget,
             initialization_random_seed=initialization_random_seed,
@@ -203,19 +202,7 @@ class Client(WithDBSettingsBase):
             allow_exceeding_initialization_budget=allow_exceeding_initialization_budget,
             torch_device=torch_device,
         )
-
-        generation_strategy = choose_generation_strategy(
-            struct=generation_strategy_dispatch_struct
-        )
-
-        # Necessary for storage implications, may be removed in the future
-        generation_strategy._experiment = self._experiment
-
-        self._maybe_generation_strategy = generation_strategy
-
-        self._save_generation_strategy_to_db_if_possible(
-            generation_strategy=self._generation_strategy
-        )
+        self.set_generation_strategy(generation_strategy=generation_strategy)
 
     # -------------------- Section 1.1: Configure Automation ------------------------
     def configure_runner(self, runner: IRunner) -> None:
@@ -1045,6 +1032,64 @@ class Client(WithDBSettingsBase):
             )
 
             return self._early_stopping_strategy
+
+    def _choose_generation_strategy(
+        self,
+        method: Literal["fast", "random_search"] = "fast",
+        # Initialization options
+        initialization_budget: int | None = None,
+        initialization_random_seed: int | None = None,
+        initialize_with_center: bool = True,
+        use_existing_trials_for_initialization: bool = True,
+        min_observed_initialization_trials: int | None = None,
+        allow_exceeding_initialization_budget: bool = False,
+        # Misc options
+        torch_device: str | None = None,
+        _is_quickBO: bool = False,
+    ) -> GenerationStrategy:
+        """
+        Choose a generation strategy based on the provided method and options.
+
+        Args:
+            method: The method to use for generating candidates. Options are:
+                - "fast": Uses Bayesian optimization, configured specifically for
+                  the current experiment.
+                - "random_search": Uses random search.
+            initialization_budget: Number of initialization trials. If None, will be
+                automatically determined based on the search space.
+            initialization_random_seed: Random seed for initialization. If None, no
+                seed will be set.
+            initialize_with_center: Whether to include the center of the search space
+                in the initialization trials.
+            use_existing_trials_for_initialization: Whether to use existing trials
+                for initialization.
+            min_observed_initialization_trials: Minimum number of observed
+                init trials required before moving to the next generation step.
+            allow_exceeding_initialization_budget: Whether to allow exceeding the
+                initialization budget if more trials are needed.
+            torch_device: The torch device to use for model fitting. If None, will
+                use the default device.
+            _is_quickbo: Internal parameter for QuickBO mode.
+
+        Returns:
+            A GenerationStrategy instance configured according to the specified options.
+        """
+        return choose_generation_strategy(
+            struct=GenerationStrategyDispatchStruct(
+                method=method,
+                initialization_budget=initialization_budget,
+                initialization_random_seed=initialization_random_seed,
+                initialize_with_center=initialize_with_center,
+                use_existing_trials_for_initialization=(
+                    use_existing_trials_for_initialization
+                ),
+                min_observed_initialization_trials=min_observed_initialization_trials,
+                allow_exceeding_initialization_budget=(
+                    allow_exceeding_initialization_budget
+                ),
+                torch_device=torch_device,
+            )
+        )
 
     # -------------------- Section 5.2: Metric configuration --------------------------
     def _overwrite_metric(self, metric: Metric) -> None:
