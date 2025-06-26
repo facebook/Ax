@@ -16,7 +16,8 @@ import numpy as np
 import pandas as pd
 from ax.core.map_data import MapData
 from ax.core.metric import MetricFetchE
-from ax.metrics.tensorboard import TensorboardMetric
+from ax.metrics.tensorboard import logger, TensorboardMetric
+from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_trial
 from pyre_extensions import assert_is_instance
@@ -121,13 +122,23 @@ class TensorboardMetricTest(TestCase):
             TensorboardMetric,
             "_get_event_multiplexer_for_trial",
             return_value=nan_multiplexer,
-        ):
+        ), mock.patch.object(logger, "warning") as mock_warning:
             result = metric.fetch_trial_data(trial=trial)
+        mock_warning.assert_called_once_with(
+            "1 / 4 data points are NaNs or Infs. Filtering out non-finite values."
+        )
 
-        err = assert_is_instance(result.unwrap_err(), MetricFetchE)
-        self.assertEqual(err.message, "Failed to fetch data for loss")
-        self.assertEqual(str(err.exception), "Found NaNs or Infs in data")
+        assert_is_instance(result, Ok)
+        map_data = assert_is_instance(result.unwrap(), MapData)
+        nan_array = np.array(nan_data)
+        nan_array = nan_array[np.isfinite(nan_array)]
+        self.assertTrue(
+            np.array_equal(
+                map_data.map_df["mean"].to_numpy(), nan_array, equal_nan=False
+            )
+        )
 
+        # testing some inf data
         inf_data = [1, 2, np.inf, 4]
         inf_multiplexer = _get_fake_multiplexer(fake_data=inf_data)
 
@@ -139,11 +150,35 @@ class TensorboardMetricTest(TestCase):
             "_get_event_multiplexer_for_trial",
             return_value=inf_multiplexer,
         ):
-            result = metric.fetch_trial_data(trial=trial)
+            with mock.patch.object(logger, "warning") as mock_warning:
+                result = metric.fetch_trial_data(trial=trial)
+            mock_warning.assert_called_once_with(
+                "1 / 4 data points are NaNs or Infs. Filtering out non-finite values."
+            )
 
-        err = assert_is_instance(result.unwrap_err(), MetricFetchE)
-        self.assertEqual(err.message, "Failed to fetch data for loss")
-        self.assertEqual(str(err.exception), "Found NaNs or Infs in data")
+        assert_is_instance(result, Ok)
+        map_data = assert_is_instance(result.unwrap(), MapData)
+        inf_array = np.array(inf_data)
+        inf_array = inf_array[np.isfinite(inf_array)]
+        self.assertTrue(np.array_equal(map_data.map_df["mean"].to_numpy(), inf_array))
+
+        # testing all non-finite data
+        for non_finite_val in [np.nan, np.inf]:
+            nf_data = [non_finite_val for _ in range(4)]
+            nf_multiplexer = _get_fake_multiplexer(fake_data=nf_data)
+            metric = TensorboardMetric(name="loss", tag="loss")
+
+            trial = get_trial()
+            with mock.patch.object(
+                TensorboardMetric,
+                "_get_event_multiplexer_for_trial",
+                return_value=nf_multiplexer,
+            ):
+                result = metric.fetch_trial_data(trial=trial)
+
+            err = assert_is_instance(result.unwrap_err(), MetricFetchE)
+            self.assertEqual(err.message, "Failed to fetch data for loss")
+            self.assertEqual(str(err.exception), "All values are NaNs or Infs.")
 
     def test_smoothing(self) -> None:
         fake_data = [8.0, 4.0, 2.0, 1.0]

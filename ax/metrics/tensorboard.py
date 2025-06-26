@@ -232,9 +232,20 @@ try:
                 .reset_index()
             )
 
-            # If there are any NaNs or Infs in the data, raise an Exception
-            if np.any(~np.isfinite(df["mean"])):
-                raise ValueError("Found NaNs or Infs in data")
+            # If all values are NaNs or Infs, we raise an error
+            # If some values are NaNs or Infs, we log a warning and filter out the
+            # non-finite values
+            is_finite = np.isfinite(df["mean"])
+            is_not_finite = ~is_finite
+            if np.all(is_not_finite):
+                raise ValueError("All values are NaNs or Infs.")
+
+            if np.any(is_not_finite):
+                logger.warning(
+                    f"{sum(is_not_finite)} / {len(is_not_finite)} data points are NaNs "
+                    "or Infs. Filtering out non-finite values."
+                )
+                df = df[is_finite]
 
             # Apply per-metric post-processing
             # Apply cumulative "best" (min if lower_is_better)
