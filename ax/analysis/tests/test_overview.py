@@ -94,7 +94,9 @@ class TestOverview(TestCase):
             generation_strategy = get_default_generation_strategy_at_MBM_node(
                 experiment=experiment
             )
-
-            _ = analysis.compute(
+            card_group = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
+            for card in card_group.flatten():
+                self.assertNotIsInstance(card, ErrorAnalysisCard)
+                self.assertNotIn("Relativized", card.title)
