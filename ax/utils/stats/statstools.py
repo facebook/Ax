@@ -344,7 +344,9 @@ def agresti_coull_sem(
     return sem
 
 
-def marginal_effects(df: pd.DataFrame) -> pd.DataFrame:
+def marginal_effects(
+    df: pd.DataFrame, covariates: list[str] | None = None
+) -> pd.DataFrame:
     """
     This method calculates the relative (in %) change in the outcome achieved
     by using any individual factor level versus randomizing across all factor
@@ -356,13 +358,15 @@ def marginal_effects(df: pd.DataFrame) -> pd.DataFrame:
     Args:
         df: Dataframe containing columns named mean and sem. All other columns
             are assumed to be factors for which to calculate marginal effects.
+        covariates: List of columns to be used as covariates. If None, then use
+            all columns in df that are not named "mean" or "sem".
 
     Returns:
         A dataframe containing columns "Name", "Level", "Beta" and "SE"
             corresponding to the factor, level, effect and standard error.
             Results are relativized as percentage changes.
     """
-    covariates = [col for col in df.columns if col not in ["mean", "sem"]]
+    covariates = covariates or [col for col in df.columns if col not in ["mean", "sem"]]
     formatted_vals = []
     overall_mean, overall_sem = inverse_variance_weight(
         df["mean"],
