@@ -29,7 +29,6 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -69,7 +68,7 @@ class ClientTest(TestCase):
             model_kwargs={
                 "surrogate_spec": surrogate_spec,
                 "botorch_acqf_class": qLogExpectedImprovement,
-                "transforms": [MapKeyToFloat] + MBM_X_trans + Y_trans,
+                "transforms": MBM_X_trans + Y_trans,
                 "data_loader_config": DataLoaderConfig(
                     fit_only_completed_map_metrics=False,
                     latest_rows_per_group=1,
@@ -270,7 +269,7 @@ class MapKeyToFloatTransformTest(TestCase):
 
     def test_Init(self) -> None:
         # Check for error if adapter & parameters are not provided.
-        with self.assertRaisesRegex(UserInputError, "optimization config"):
+        with self.assertWarnsRegex(Warning, "optimization config"):
             MapKeyToFloat(observations=self.observations)
 
         experiment_data = extract_experiment_data(
