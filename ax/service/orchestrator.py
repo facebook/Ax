@@ -219,9 +219,9 @@ class Orchestrator(AnalysisBase, BestPointMixin):
         self.generation_strategy = generation_strategy
 
         if not isinstance(experiment, Experiment):
-            raise TypeError("{experiment} is not an Ax experiment.")
+            raise TypeError(f"{experiment} is not an Ax experiment.")
         if not isinstance(generation_strategy, GenerationStrategy):
-            raise TypeError("{generation_strategy} is not a generation strategy.")
+            raise TypeError(f"{generation_strategy} is not a generation strategy.")
 
         # Initialize storage layer for the orchestrator.
         super().__init__(
