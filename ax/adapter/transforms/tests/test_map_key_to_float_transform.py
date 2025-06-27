@@ -130,7 +130,8 @@ class ClientTest(TestCase):
     def _simulate(
         self,
         with_early_stopping: bool = True,
-        with_progression: bool = True,
+        attach_with_progression: bool = True,
+        complete_with_progression: bool = True,
     ) -> None:
         """Simulate typical usage of Client API."""
         for _ in range(self.initialization_budget):
@@ -146,7 +147,7 @@ class ClientTest(TestCase):
                     self.client.attach_data(
                         trial_index=trial_index,
                         raw_data={self.metric_name: result},
-                        progression=step if with_progression else None,
+                        progression=step if attach_with_progression else None,
                     )
                     if stopped := self.client.should_stop_trial_early(
                         trial_index=trial_index
@@ -159,13 +160,14 @@ class ClientTest(TestCase):
                 self.client.complete_trial(
                     trial_index=trial_index,
                     raw_data={self.metric_name: result},
-                    progression=self.max_steps if with_progression else None,
+                    progression=self.max_steps if complete_with_progression else None,
                 )
 
     def _test_no_early_stopping(self, with_progression: bool) -> None:
         self._simulate(
             with_early_stopping=False,
-            with_progression=with_progression,
+            attach_with_progression=with_progression,
+            complete_with_progression=with_progression,
         )
 
         # ensure there are no early-stopped trials for the purposes of this test
@@ -195,14 +197,12 @@ class ClientTest(TestCase):
         # progression information is omitted from data propagated to the model
         self.assertListEqual(dataset.feature_names, ["width", "height"])
 
-    def test_no_early_stopping_with_progression(self) -> None:
-        self._test_no_early_stopping(with_progression=True)
-
-    def test_no_early_stopping_no_progression(self) -> None:
-        self._test_no_early_stopping(with_progression=False)
-
-    def test_with_early_stopping_with_progression(self) -> None:
-        self._simulate(with_early_stopping=True, with_progression=True)
+    def _test_early_stopping(self, complete_with_progression: bool) -> None:
+        self._simulate(
+            with_early_stopping=True,
+            attach_with_progression=True,
+            complete_with_progression=complete_with_progression,
+        )
 
         # ensure there are early-stopped trials for the purposes of this test
         self.assertGreater(
@@ -240,6 +240,15 @@ class ClientTest(TestCase):
 
         # check that candidate is generated at the target progression
         self.assertEqual(int(candidate_metadata["step"]), self.max_steps)
+
+    def test_no_early_stopping_with_progression(self) -> None:
+        self._test_no_early_stopping(with_progression=True)
+
+    def test_no_early_stopping_no_progression(self) -> None:
+        self._test_no_early_stopping(with_progression=False)
+
+    def test_early_stopping_with_final_progression(self) -> None:
+        self._test_early_stopping(complete_with_progression=True)
 
 
 class MapKeyToFloatTransformTest(TestCase):
