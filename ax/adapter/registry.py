@@ -20,7 +20,7 @@ from inspect import isfunction, signature
 from logging import Logger
 from typing import Any, NamedTuple
 
-from ax.adapter.base import Adapter
+from ax.adapter.base import Adapter, DataLoaderConfig
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.random import RandomAdapter
 from ax.adapter.torch import TorchAdapter
@@ -35,6 +35,7 @@ from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
 from ax.adapter.transforms.int_to_float import IntToFloat, LogIntToFloat
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.logit import Logit
+from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.adapter.transforms.merge_repeated_measurements import MergeRepeatedMeasurements
 from ax.adapter.transforms.one_hot import OneHot
 from ax.adapter.transforms.relativize import Relativize
@@ -98,7 +99,7 @@ Cont_X_trans: list[type[Transform]] = [
 # will be added to replace the UnitX transform. This setup facilitates the use of
 # optimize_acqf_mixed_alternating, which is a more efficient acquisition function
 # optimizer for mixed discrete/continuous problems.
-MBM_X_trans: list[type[Transform]] = [
+MBM_X_trans_base: list[type[Transform]] = [
     RemoveFixed,
     OrderedChoiceToIntegerRange,
     OneHot,
@@ -106,6 +107,7 @@ MBM_X_trans: list[type[Transform]] = [
     Log,
     Logit,
 ]
+MBM_X_trans: list[type[Transform]] = [MapKeyToFloat, *MBM_X_trans_base]
 
 
 Discrete_X_trans: list[type[Transform]] = [IntRangeToChoice]
@@ -187,6 +189,11 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     ),
     "Legacy_GPEI": ModelSetup(
         adapter_class=TorchAdapter,
+        standard_bridge_kwargs={
+            "data_loader_config": DataLoaderConfig(
+                fit_only_completed_map_metrics=True,
+            ),
+        },
         model_class=LegacyBoTorchGenerator,
         transforms=Cont_X_trans + Y_trans,
     ),
