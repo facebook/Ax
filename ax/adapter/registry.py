@@ -20,7 +20,7 @@ from inspect import isfunction, signature
 from logging import Logger
 from typing import Any, NamedTuple
 
-from ax.adapter.base import Adapter
+from ax.adapter.base import Adapter, DataLoaderConfig
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.random import RandomAdapter
 from ax.adapter.torch import TorchAdapter
@@ -189,6 +189,11 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     ),
     "Legacy_GPEI": ModelSetup(
         adapter_class=TorchAdapter,
+        standard_bridge_kwargs={
+            "data_loader_config": DataLoaderConfig(
+                fit_only_completed_map_metrics=True,
+            ),
+        },
         model_class=LegacyBoTorchGenerator,
         transforms=Cont_X_trans + Y_trans,
     ),

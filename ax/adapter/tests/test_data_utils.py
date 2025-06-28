@@ -33,12 +33,12 @@ class TestDataUtils(TestCase):
         config = DataLoaderConfig()
         self.assertFalse(config.fit_out_of_design)
         self.assertFalse(config.fit_abandoned)
-        self.assertTrue(config.fit_only_completed_map_metrics)
+        self.assertFalse(config.fit_only_completed_map_metrics)
         self.assertEqual(config.latest_rows_per_group, 1)
         self.assertIsNone(config.limit_rows_per_group)
         self.assertIsNone(config.limit_rows_per_metric)
         self.assertEqual(config.statuses_to_fit, NON_ABANDONED_STATUSES)
-        self.assertEqual(config.statuses_to_fit_map_metric, {TrialStatus.COMPLETED})
+        self.assertEqual(config.statuses_to_fit_map_metric, NON_ABANDONED_STATUSES)
         # Validation for latest / limit rows.
         with self.assertRaisesRegex(UnsupportedError, "must be None if either of"):
             DataLoaderConfig(latest_rows_per_group=1, limit_rows_per_metric=5)
@@ -208,7 +208,8 @@ class TestDataUtils(TestCase):
         t_1_metric = 27.702905548512433
         # Test with default config.
         experiment_data = extract_experiment_data(
-            experiment=exp, data_loader_config=DataLoaderConfig()
+            experiment=exp,
+            data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=True),
         )
         # Arm data: First two trials should be included, since they have data.
         expected_arm_df = DataFrame(
@@ -228,7 +229,8 @@ class TestDataUtils(TestCase):
         # Complete a trial to include map metrics.
         exp.trials[0].complete()
         experiment_data = extract_experiment_data(
-            experiment=exp, data_loader_config=DataLoaderConfig()
+            experiment=exp,
+            data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=True),
         )
         # Arm data is not changed.
         assert_frame_equal(
