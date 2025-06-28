@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 from ax.core.arm import Arm
@@ -249,6 +249,7 @@ class MultiTypeExperiment(Experiment):
     @copy_doc(Experiment.fetch_data)
     def fetch_data(
         self,
+        trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,

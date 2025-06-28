@@ -2627,9 +2627,7 @@ class TestAxClient(TestCase):
         # Check that the data in the frontier matches the observed data
         # (it should be in the original, un-transformed space)
         input_data = (
-            ax_client.experiment.fetch_trials_data([idx_of_frontier_point])
-            .df["mean"]
-            .values
+            ax_client.experiment.fetch_data([idx_of_frontier_point]).df["mean"].values
         )
         pareto_y = observed_pareto[idx_of_frontier_point][1][0]
         pareto_y_list = [pareto_y["branin"], pareto_y["currin"]]
