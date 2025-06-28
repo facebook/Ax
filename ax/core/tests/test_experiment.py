@@ -660,45 +660,6 @@ class ExperimentTest(TestCase):
         # Update candidate trial runners.
         self.assertEqual(self.experiment.trials[1].runner, new_runner)
 
-    def test_FetchTrialsData(self) -> None:
-        exp = self._setupBraninExperiment(n=5)
-        batch_0 = exp.trials[0]
-        batch_1 = exp.trials[1]
-        batch_0.mark_completed()
-        batch_1.mark_completed()
-        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
-        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
-        self.assertEqual(
-            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
-        )
-        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
-        self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
-        self.assertEqual(
-            set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
-        )
-        self.assertEqual(
-            exp.fetch_trials_data(trial_indices=[0, 1]),
-            Data.from_multiple_data([batch_0_data, batch_1_data]),
-        )
-
-        self.assertEqual(len(exp.data_by_trial[0]), 2)
-
-        with self.assertRaisesRegex(ValueError, ".* not associated .*"):
-            exp.fetch_trials_data(trial_indices=[2])
-        # Try to fetch data when there are only metrics and no attached data.
-        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
-        exp.add_tracking_metric(Metric(name="b"))  # Add unimplemented metric.
-        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).df), 5)
-        # Try fetching attached data.
-        exp.attach_data(batch_0_data)
-        exp.attach_data(batch_1_data)
-        self.assertEqual(exp.fetch_trials_data(trial_indices=[0]), batch_0_data)
-        self.assertEqual(exp.fetch_trials_data(trial_indices=[1]), batch_1_data)
-        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
-        self.assertEqual(
-            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
-        )
-
     def test_attach_and_sort_data(self) -> None:
         n = 4
         exp = self._setupBraninExperiment(n)
@@ -1466,50 +1427,6 @@ class ExperimentWithMapDataTest(TestCase):
 
             self.assertEqual(len(full_data.true_df), len(map_data.true_df) + 20)
 
-    def test_FetchTrialsData(self) -> None:
-        exp = self._setupBraninExperiment(n=5)
-        batch_0 = exp.trials[0]
-        batch_1 = exp.trials[1]
-        batch_0.mark_completed()
-        batch_1.mark_completed()
-        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
-        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
-        self.assertEqual(
-            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
-        )
-        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
-        self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
-        self.assertEqual(
-            set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
-        )
-        self.assertEqual(
-            exp.fetch_trials_data(trial_indices=[0, 1]).df.shape[0],
-            len(exp.arms_by_name) * 2,
-        )
-
-        with self.assertRaisesRegex(ValueError, ".* not associated .*"):
-            exp.fetch_trials_data(trial_indices=[2])
-        # Try to fetch data when there are only metrics and no attached data.
-        exp.remove_tracking_metric(metric_name="branin")  # Remove implemented metric.
-        exp.add_tracking_metric(
-            BraninMetric(name="branin", param_names=["x1", "x2"])
-        )  # Add unimplemented metric.
-        # pyre-fixme[16]: `Data` has no attribute `map_df`.
-        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).map_df), 10)
-        # Try fetching attached data.
-        exp.attach_data(batch_0_data)
-        exp.attach_data(batch_1_data)
-        pd.testing.assert_frame_equal(
-            exp.fetch_trials_data(trial_indices=[0]).df, batch_0_data.df
-        )
-        pd.testing.assert_frame_equal(
-            exp.fetch_trials_data(trial_indices=[1]).df, batch_1_data.df
-        )
-        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
-        self.assertEqual(
-            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
-        )
-
     def test_is_moo_problem(self) -> None:
         exp = get_branin_experiment()
         self.assertFalse(exp.is_moo_problem)
@@ -1729,6 +1646,39 @@ class ExperimentWithMapDataTest(TestCase):
                     ][1],
                     B_auxiliary_experiment_1,
                 )
+
+    def test_get_metrics(self) -> None:
+        # Create an experiment with multiple metrics
+        experiment = Experiment(
+            name="test_get_metrics",
+            search_space=get_search_space(),
+            optimization_config=get_optimization_config(),
+            tracking_metrics=[
+                Metric(name="tracking_metric_1"),
+                Metric(name="tracking_metric_2"),
+            ],
+        )
+
+        # Test getting all metrics (when metric_names is None)
+        all_metrics = experiment.get_metrics(metric_names=None)
+        self.assertEqual(len(all_metrics), 4)  # 2 from opt_config + 2 tracking metrics
+        metric_names = {metric.name for metric in all_metrics}
+        self.assertEqual(
+            metric_names, {"m1", "m2", "tracking_metric_1", "tracking_metric_2"}
+        )
+
+        # Test getting specific metrics by name
+        specific_metrics = experiment.get_metrics(
+            metric_names=["m1", "tracking_metric_1"]
+        )
+
+        self.assertEqual(len(specific_metrics), 2)
+        specific_metric_names = {metric.name for metric in specific_metrics}
+        self.assertEqual(specific_metric_names, {"m1", "tracking_metric_1"})
+
+        # Test error case when a metric name is not found
+        with self.assertRaises(AxError):
+            experiment.get_metrics(metric_names=["nonexistent_metric"])
 
     def test_auxiliary_experiment_operations(self) -> None:
         """Test the add_auxiliary_experiment method."""

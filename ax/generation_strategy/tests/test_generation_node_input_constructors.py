@@ -513,7 +513,7 @@ class TestGenerationNodeInputConstructors(TestCase):
                 complete=True,
                 num_arms=1,
             )
-        self.experiment.fetch_trials_data(trial_indices=[0])
+        self.experiment.fetch_data(trial_indices=[0])
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,

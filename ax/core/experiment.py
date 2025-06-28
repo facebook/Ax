@@ -518,6 +518,31 @@ class Experiment(Base):
             metrics_by_class[metric.fetch_multi_group_by_metric].append(metric)
         return metrics_by_class
 
+    def get_metrics(self, metric_names: list[str] | None) -> list[Metric]:
+        """Get a list of metrics from the experiment by name.
+
+        Args:
+            metric_names: List of metric names to retrieve. If None, returns all metrics
+                defined on the experiment.
+
+        Returns:
+            List of Metric objects corresponding to the requested metric names,
+            deduplicated so the same `Metric` does not occur twice.
+
+        Raises:
+            UserInputError: If any of the requested metric names are not found in the
+                experiment.
+        """
+        if metric_names is None:
+            return list(self.metrics.values())
+        try:
+            return [self.metrics[name] for name in metric_names]
+        except KeyError as e:
+            raise AxError(
+                "One of the requested metrics was not present on the "
+                f"experiment; original error: {e}."
+            )
+
     def fetch_data_results(
         self,
         metrics: list[Metric] | None = None,
@@ -593,6 +618,7 @@ class Experiment(Base):
 
     def fetch_data(
         self,
+        trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
@@ -619,9 +645,10 @@ class Experiment(Base):
         Returns:
             Data for the experiment.
         """
-
         results = self._lookup_or_fetch_trials_results(
-            trials=list(self.trials.values()),
+            trials=list(self.trials.values())
+            if trial_indices is None
+            else self.get_trials_by_indices(trial_indices=trial_indices),
             metrics=metrics,
             combine_with_last_data=combine_with_last_data,
             overwrite_existing_data=overwrite_existing_data,
@@ -632,50 +659,6 @@ class Experiment(Base):
             MapMetric if self.default_data_constructor == MapData else Metric
         )
 
-        return base_metric_cls._unwrap_experiment_data_multi(
-            results=results,
-        )
-
-    def fetch_trials_data(
-        self,
-        trial_indices: Iterable[int],
-        metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
-        **kwargs: Any,
-    ) -> Data:
-        """Fetches data for specific trials on the experiment.
-
-        NOTE: For metrics that are not available while trial is running, the data
-        may be retrieved from cache on the experiment. Data is cached on the experiment
-        via calls to `experiment.attach_data` and whetner a given metric class is
-        available while trial is running is determined by the boolean returned from its
-        `is_available_while_running` class method.
-
-        NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        lose rows) if Experiment.default_data_type is misconfigured!
-
-        Args:
-            trial_indices: Indices of trials, for which to fetch data.
-            metrics: If provided, fetch data for these metrics instead of the ones
-                defined on the experiment.
-            kwargs: Keyword args to pass to underlying metrics' fetch data functions.
-
-        Returns:
-            Data for the specific trials on the experiment.
-        """
-
-        results = self._lookup_or_fetch_trials_results(
-            trials=self.get_trials_by_indices(trial_indices=trial_indices),
-            metrics=metrics,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
-            **kwargs,
-        )
-
-        base_metric_cls = (
-            MapMetric if self.default_data_constructor == MapData else Metric
-        )
         return base_metric_cls._unwrap_experiment_data_multi(
             results=results,
         )
