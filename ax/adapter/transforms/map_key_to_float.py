@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import warnings
 from math import isnan
 from typing import Any, Optional, TYPE_CHECKING
 
@@ -14,7 +15,6 @@ from ax.adapter.transforms.metadata_to_float import MetadataToFloat
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.core.utils import extract_map_keys_from_opt_config
-from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
 from pyre_extensions import none_throws
 
@@ -63,10 +63,15 @@ class MapKeyToFloat(MetadataToFloat):
                     )
                 }
             else:
-                raise UserInputError(
-                    f"{self.__class__.__name__} requires either `parameters` to be "
-                    "specified in the transform config or an adapter with an "
-                    "optimization config, from which the map keys can be extracted."
+                warnings.warn(
+                    (
+                        f"{self.__class__.__name__} is unable to identify `parameters` "
+                        "in the transform config or an adapter with an "
+                        "optimization config from which the map keys can be inferred; "
+                        "this transform will not perform any operations and behave as "
+                        "a no-op."
+                    ),
+                    stacklevel=2,
                 )
         super().__init__(
             search_space=search_space,
