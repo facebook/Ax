@@ -59,7 +59,7 @@ class DataLoaderConfig:
 
     fit_out_of_design: bool = False
     fit_abandoned: bool = False
-    fit_only_completed_map_metrics: bool = True
+    fit_only_completed_map_metrics: bool = False
     latest_rows_per_group: int | None = 1
     limit_rows_per_metric: int | None = None
     limit_rows_per_group: int | None = None

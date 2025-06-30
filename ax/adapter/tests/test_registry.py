@@ -176,7 +176,9 @@ class ModelRegistryTest(TestCase):
                 "fit_tracking_metrics": True,
                 "fit_on_init": True,
                 "default_model_gen_options": None,
-                "data_loader_config": None,
+                "data_loader_config": DataLoaderConfig(
+                    fit_only_completed_map_metrics=True,
+                ),
                 # now passed through the data loader config
                 "fit_only_completed_map_metrics": None,
                 "fit_out_of_design": None,
