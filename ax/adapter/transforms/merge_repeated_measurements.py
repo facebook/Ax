@@ -15,10 +15,10 @@ import numpy as np
 from ax.adapter.base import Adapter
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.arm import Arm
-from ax.core.observation import Observation, ObservationData, separate_observations
+from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
+from pyre_extensions import none_throws
 
 
 class MergeRepeatedMeasurements(Transform):
@@ -54,12 +54,14 @@ class MergeRepeatedMeasurements(Transform):
         arm_to_multi_obs: defaultdict[
             str, defaultdict[str, defaultdict[str, list[float]]]
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-        observation_features, observation_data = separate_observations(observations)
-        for j, obsd in enumerate(observation_data):
-            # This intentionally ignores the trial index
-            key = Arm.md5hash(observation_features[j].parameters)
+        for obs in observations:
+            if (arm_name := obs.arm_name) is None:
+                # Since the transform will be initialized with Adapter training data,
+                # all observations will have arm names.
+                raise NotImplementedError("All observations must have arm names.")
             # TODO: support inverse variance weighting for multivariate distributions
             # (full covariance)
+            obsd = obs.data
             diag = np.diag(np.diag(obsd.covariance))
             if np.any(np.isnan(obsd.covariance)):
                 raise NotImplementedError("All metrics must have noise observations.")
@@ -68,8 +70,8 @@ class MergeRepeatedMeasurements(Transform):
                     "Only independent metrics are currently supported."
                 )
             for i, m in enumerate(obsd.metric_names):
-                arm_to_multi_obs[key][m]["means"].append(obsd.means[i])
-                arm_to_multi_obs[key][m]["vars"].append(obsd.covariance[i, i])
+                arm_to_multi_obs[arm_name][m]["means"].append(obsd.means[i])
+                arm_to_multi_obs[arm_name][m]["vars"].append(obsd.covariance[i, i])
 
         self.arm_to_merged: defaultdict[str, dict[str, dict[str, float]]] = defaultdict(
             dict
@@ -106,17 +108,15 @@ class MergeRepeatedMeasurements(Transform):
         self,
         observations: list[Observation],
     ) -> list[Observation]:
-        # Transform observations
         new_observations = []
-        observation_features, observation_data = separate_observations(observations)
         arm_to_merged = deepcopy(self.arm_to_merged)
-        for j, obsd in enumerate(observation_data):
-            key = Arm.md5hash(observation_features[j].parameters)
-            # pop to ensure that the resulting observations list has one
-            # observation per unique arm
-            metric_dict = arm_to_merged.pop(key, None)
-            if metric_dict is None:
+        for obs in observations:
+            arm_name = obs.arm_name
+            if arm_name not in arm_to_merged:
                 continue
+            arm_name = none_throws(arm_name)
+            metric_dict = arm_to_merged.pop(arm_name)
+            obsd = obs.data
             merged_means = np.zeros(len(obsd.metric_names))
             merged_covariance = np.zeros(
                 (len(obsd.metric_names), len(obsd.metric_names))
@@ -131,9 +131,9 @@ class MergeRepeatedMeasurements(Transform):
                 covariance=merged_covariance,
             )
             new_obs = Observation(
-                features=observation_features[j],
+                features=obs.features,
                 data=new_obsd,
-                arm_name=observations[j].arm_name,
+                arm_name=arm_name,
             )
             new_observations.append(new_obs)
         return new_observations
