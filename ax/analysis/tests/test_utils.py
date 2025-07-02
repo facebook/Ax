@@ -8,7 +8,7 @@
 import numpy as np
 import pandas as pd
 from ax.analysis.plotly.utils import truncate_label
-from ax.analysis.utils import _relativize_data, prepare_arm_data
+from ax.analysis.utils import _relativize_df_with_sq, prepare_arm_data
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
@@ -441,7 +441,7 @@ class TestUtils(TestCase):
         # Check that all SEMs are not NaN
         self.assertFalse(only_completed_trials_df["foo_sem"].isna().any())
 
-    def test_relativize_data(self) -> None:
+    def test_relativize_df_with_sq(self) -> None:
         df = pd.DataFrame(
             {
                 "trial_index": [0, 0, 0],
@@ -453,7 +453,7 @@ class TestUtils(TestCase):
             }
         )
 
-        rel_df = _relativize_data(
+        rel_df = _relativize_df_with_sq(
             df=df, status_quo_df=df[df["arm_name"] == "status_quo"]
         )
 
@@ -467,7 +467,7 @@ class TestUtils(TestCase):
         np.testing.assert_almost_equal(rel_df.loc[1, "bar_mean"], 0.1, decimal=1)
         np.testing.assert_almost_equal(rel_df.loc[1, "bar_sem"], 0.2, decimal=1)
 
-    def test_relativize_data_multiple_trials(self) -> None:
+    def test_relativize_df_with_sq_multiple_trials(self) -> None:
         df = pd.DataFrame(
             {
                 "trial_index": [0, 0, 1, 1],
@@ -479,7 +479,7 @@ class TestUtils(TestCase):
             }
         )
 
-        rel_df = _relativize_data(
+        rel_df = _relativize_df_with_sq(
             df=df, status_quo_df=df[df["arm_name"] == "status_quo"]
         )
 
