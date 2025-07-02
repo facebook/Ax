@@ -42,6 +42,11 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
             features=obs_feats1,
         )
         with self.assertRaisesRegex(
+            NotImplementedError, "All observations must have arm names."
+        ):
+            MergeRepeatedMeasurements(observations=[observation])
+        observation.arm_name = "0_0"
+        with self.assertRaisesRegex(
             NotImplementedError, "All metrics must have noise observations."
         ):
             MergeRepeatedMeasurements(observations=[observation])
@@ -53,6 +58,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                 covariance=np.ones((2, 2)),
             ),
             features=obs_feats1,
+            arm_name="0_0",
         )
         with self.assertRaisesRegex(
             NotImplementedError, "Only independent metrics are currently supported."
@@ -69,6 +75,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                     covariance=zero_covar,
                 ),
                 features=obs_feats1,
+                arm_name="0_0",
             ),
             Observation(
                 data=ObservationData(
@@ -77,6 +84,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                     covariance=zero_covar,
                 ),
                 features=obs_feats1,
+                arm_name="0_0",
             ),
         ]
         with self.assertRaisesRegex(
@@ -94,6 +102,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                     covariance=zero_covar,
                 ),
                 features=obs_feats1,
+                arm_name="0_0",
             ),
             Observation(
                 data=ObservationData(
@@ -102,6 +111,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                     covariance=zero_covar,
                 ),
                 features=obs_feats1,
+                arm_name="0_0",
             ),
             Observation(
                 data=ObservationData(
@@ -110,6 +120,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                     covariance=zero_covar,
                 ),
                 features=ObservationFeatures(parameters={"a": 2.0}),
+                arm_name="0_1",
             ),
         ]
         t = MergeRepeatedMeasurements(observations=observations)
