@@ -39,6 +39,7 @@ def _get_name(
     test_problem: BaseTestProblem,
     observe_noise_sd: bool,
     dim: int | None = None,
+    n_dummy_dimensions: int = 0,
 ) -> str:
     """
     Get a string name describing the problem, in a format such as
@@ -47,7 +48,11 @@ def _get_name(
     """
     base_name = f"{test_problem.__class__.__name__}"
     observed_noise = "_observed_noise" if observe_noise_sd else ""
-    dim_str = "" if dim is None else f"_{dim}d"
+    if dim is None and n_dummy_dimensions == 0:
+        dim_str = ""
+    else:
+        total_dim = (test_problem.dim if dim is None else dim) + n_dummy_dimensions
+        dim_str = f"_{total_dim}d"
     return f"{base_name}{observed_noise}{dim_str}"
 
 
@@ -339,18 +344,38 @@ def get_moo_opt_config(
     return optimization_config
 
 
-def get_continuous_search_space(bounds: list[tuple[float, float]]) -> SearchSpace:
-    return SearchSpace(
-        parameters=[
-            RangeParameter(
-                name=f"x{i}",
-                parameter_type=ParameterType.FLOAT,
-                lower=lower,
-                upper=upper,
-            )
-            for i, (lower, upper) in enumerate(bounds)
-        ]
-    )
+def get_continuous_search_space(
+    bounds: list[tuple[float, float]], n_dummy_dimensions: int = 0
+) -> SearchSpace:
+    """
+    Create a continuous ``SearchSpace``.
+
+    Args:
+        bounds: A list of tuples of lower and upper bounds for each dimension.
+            These apply only to the original problem dimensions. Any extra
+            dimensions will have bounds [0, 1].
+        n_dummy_dimensions: Number of extra dimensions to add to the search
+            space.
+    """
+    original_problem_parameters = [
+        RangeParameter(
+            name=f"x{i}",
+            parameter_type=ParameterType.FLOAT,
+            lower=lower,
+            upper=upper,
+        )
+        for i, (lower, upper) in enumerate(bounds)
+    ]
+    dummy_parameters = [
+        RangeParameter(
+            name=f"embedding_dummy_{i}",
+            parameter_type=ParameterType.FLOAT,
+            lower=0,
+            upper=1,
+        )
+        for i in range(n_dummy_dimensions)
+    ]
+    return SearchSpace(parameters=original_problem_parameters + dummy_parameters)
 
 
 # A mapping from (BoTorch problem class name, dim | None) to baseline value
@@ -398,6 +423,7 @@ def create_problem_from_botorch(
     auxiliary_experiments_by_purpose: (
         dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None
     ) = None,
+    n_dummy_dimensions: int = 0,
 ) -> BenchmarkProblem:
     """
     Create a ``BenchmarkProblem`` from a BoTorch ``BaseTestProblem``.
@@ -451,6 +477,9 @@ def create_problem_from_botorch(
             data is not time-series, the whole trial consists of one step.)
         auxiliary_experiments_by_purpose: A mapping from experiment purpose to
             a list of auxiliary experiments.
+        n_dummy_dimensions: If >0, the search space will be augmented
+            with extra dimensions. The corresponding parameters will have no
+            effect on function values.
 
     Example:
         >>> from ax.benchmark.benchmark_problem import create_problem_from_botorch
@@ -471,10 +500,13 @@ def create_problem_from_botorch(
     if search_space is None:
         if use_shifted_function:
             search_space = get_continuous_search_space(
-                bounds=[(2 * b[0], 2 * b[1]) for b in test_problem._bounds]
+                bounds=[(2 * b[0], 2 * b[1]) for b in test_problem._bounds],
+                n_dummy_dimensions=n_dummy_dimensions,
             )
         else:
-            search_space = get_continuous_search_space(test_problem._bounds)
+            search_space = get_continuous_search_space(
+                bounds=test_problem._bounds, n_dummy_dimensions=n_dummy_dimensions
+            )
 
     dim = test_problem_kwargs.get("dim", None)
 
@@ -484,6 +516,7 @@ def create_problem_from_botorch(
             test_problem=test_problem,
             observe_noise_sd=observe_noise_sd,
             dim=dim,
+            n_dummy_dimensions=n_dummy_dimensions,
         )
 
     num_constraints = test_problem.num_constraints if is_constrained else 0
@@ -503,6 +536,9 @@ def create_problem_from_botorch(
         botorch_problem=test_problem,
         outcome_names=outcome_names,
         use_shifted_function=use_shifted_function,
+        dummy_param_names={
+            n for n in search_space.parameters if "embedding_dummy_" in n
+        },
     )
 
     if isinstance(test_problem, MultiObjectiveTestProblem):
