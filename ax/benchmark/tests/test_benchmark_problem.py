@@ -11,6 +11,7 @@ import torch
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import (
+    _get_name,
     BenchmarkProblem,
     create_problem_from_botorch,
     get_continuous_search_space,
@@ -36,6 +37,7 @@ from botorch.test_functions.synthetic import (
     ConstrainedGramacy,
     ConstrainedHartmann,
     Cosine8,
+    Hartmann,
 )
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -374,3 +376,72 @@ class TestBenchmarkProblem(TestCase):
         self.assertEqual(constraint_metrics[0].name, "baz")
         self.assertEqual(constraint_metrics[0].observe_noise_sd, True)
         self.assertEqual(constraint_metrics[0].lower_is_better, False)
+
+    def test_get_embedded_from_botorch(self) -> None:
+        problem = create_problem_from_botorch(
+            test_problem_class=Hartmann,
+            test_problem_kwargs={"dim": 6},
+            n_dummy_dimensions=24,
+            num_trials=1,
+        )
+        self.assertEqual(problem.name, "Hartmann_30d")
+        self.assertEqual(len(problem.search_space.parameters), 30)
+
+    def test_get_continuous_search_space(self) -> None:
+        bounds = [(0.0, 1.0), (2.0, 3.0)]
+        with self.subTest("Dummy parameters not specified"):
+            search_space = get_continuous_search_space(bounds=bounds)
+            self.assertEqual(len(search_space.parameters), 2)
+            self.assertEqual(
+                len(search_space.parameters), len(search_space.range_parameters)
+            )
+            self.assertEqual({"x0", "x1"}, search_space.parameters.keys())
+
+        with self.subTest("Dummy parameters specified"):
+            search_space = get_continuous_search_space(
+                bounds=bounds, n_dummy_dimensions=2
+            )
+            self.assertEqual(len(search_space.parameters), 4)
+            self.assertEqual(
+                len(search_space.parameters), len(search_space.range_parameters)
+            )
+            self.assertEqual(
+                {"x0", "x1", "embedding_dummy_0", "embedding_dummy_1"},
+                set(search_space.parameters.keys()),
+            )
+
+    def test_get_name(self) -> None:
+        with self.subTest("Basic case"):
+            name = _get_name(test_problem=Branin(), observe_noise_sd=False)
+            self.assertEqual(name, "Branin")
+
+        with self.subTest("Observe noise sd"):
+            name = _get_name(test_problem=Branin(), observe_noise_sd=True)
+            self.assertEqual(name, "Branin_observed_noise")
+
+        with self.subTest("dim specified"):
+            name = _get_name(
+                test_problem=Hartmann(dim=6), dim=6, observe_noise_sd=False
+            )
+            self.assertEqual(name, "Hartmann_6d")
+
+        with self.subTest("dim specified and embedded dims"):
+            name = _get_name(
+                test_problem=Hartmann(dim=6),
+                dim=6,
+                n_dummy_dimensions=24,
+                observe_noise_sd=False,
+            )
+            self.assertEqual(name, "Hartmann_30d")
+
+        with self.subTest("dim not specified and embedded dims"):
+            name = _get_name(
+                test_problem=Branin(), n_dummy_dimensions=24, observe_noise_sd=False
+            )
+            self.assertEqual(name, "Branin_26d")
+
+        with self.subTest("embedded dims and observed noise"):
+            name = _get_name(
+                test_problem=Branin(), n_dummy_dimensions=24, observe_noise_sd=True
+            )
+            self.assertEqual(name, "Branin_observed_noise_26d")
