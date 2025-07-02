@@ -1649,32 +1649,18 @@ class ExperimentWithMapDataTest(TestCase):
 
     def test_get_metrics(self) -> None:
         # Create an experiment with multiple metrics
-        experiment = Experiment(
-            name="test_get_metrics",
-            search_space=get_search_space(),
-            optimization_config=get_optimization_config(),
-            tracking_metrics=[
-                Metric(name="tracking_metric_1"),
-                Metric(name="tracking_metric_2"),
-            ],
-        )
-
-        # Test getting all metrics (when metric_names is None)
+        experiment = get_experiment()
         all_metrics = experiment.get_metrics(metric_names=None)
-        self.assertEqual(len(all_metrics), 4)  # 2 from opt_config + 2 tracking metrics
+        self.assertEqual(len(all_metrics), 3)
         metric_names = {metric.name for metric in all_metrics}
-        self.assertEqual(
-            metric_names, {"m1", "m2", "tracking_metric_1", "tracking_metric_2"}
-        )
+        self.assertEqual(metric_names, {"tracking", "m1", "m2"})
 
         # Test getting specific metrics by name
-        specific_metrics = experiment.get_metrics(
-            metric_names=["m1", "tracking_metric_1"]
-        )
+        specific_metrics = experiment.get_metrics(metric_names=["m1", "m2"])
 
         self.assertEqual(len(specific_metrics), 2)
         specific_metric_names = {metric.name for metric in specific_metrics}
-        self.assertEqual(specific_metric_names, {"m1", "tracking_metric_1"})
+        self.assertEqual(specific_metric_names, {"m1", "m2"})
 
         # Test error case when a metric name is not found
         with self.assertRaises(AxError):
