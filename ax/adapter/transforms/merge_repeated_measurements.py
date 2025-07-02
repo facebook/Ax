@@ -18,7 +18,7 @@ from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class MergeRepeatedMeasurements(Transform):
@@ -33,6 +33,8 @@ class MergeRepeatedMeasurements(Transform):
     Note: this is not reversible.
     """
 
+    requires_data_for_initialization: bool = True
+
     def __init__(
         self,
         search_space: SearchSpace | None = None,
@@ -41,8 +43,6 @@ class MergeRepeatedMeasurements(Transform):
         adapter: Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
-        if observations is None:
-            raise RuntimeError("MergeRepeatedMeasurements requires observations")
         super().__init__(
             search_space=search_space,
             observations=observations,
@@ -54,24 +54,47 @@ class MergeRepeatedMeasurements(Transform):
         arm_to_multi_obs: defaultdict[
             str, defaultdict[str, defaultdict[str, list[float]]]
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-        for obs in observations:
-            if (arm_name := obs.arm_name) is None:
-                # Since the transform will be initialized with Adapter training data,
-                # all observations will have arm names.
-                raise NotImplementedError("All observations must have arm names.")
-            # TODO: support inverse variance weighting for multivariate distributions
-            # (full covariance)
-            obsd = obs.data
-            diag = np.diag(np.diag(obsd.covariance))
-            if np.any(np.isnan(obsd.covariance)):
-                raise NotImplementedError("All metrics must have noise observations.")
-            elif ~np.all(obsd.covariance == diag):
-                raise NotImplementedError(
-                    "Only independent metrics are currently supported."
-                )
-            for i, m in enumerate(obsd.metric_names):
-                arm_to_multi_obs[arm_name][m]["means"].append(obsd.means[i])
-                arm_to_multi_obs[arm_name][m]["vars"].append(obsd.covariance[i, i])
+        if experiment_data is not None:
+            metrics = list(experiment_data.observation_data["mean"])
+            for arm_name, df in experiment_data.observation_data.groupby(
+                level="arm_name"
+            ):
+                for m in metrics:
+                    # Get the subset of the df for the metric.
+                    df_m = df[[("mean", m), ("sem", m)]].dropna(
+                        axis=0, subset=[("mean", m)]
+                    )
+                    if any(df_m[("sem", m)].isna()):
+                        raise NotImplementedError(
+                            "All metrics must have noise observations."
+                        )
+                    arm_to_multi_obs[arm_name][m]["means"].extend(
+                        df_m[("mean", m)].tolist()
+                    )
+                    arm_to_multi_obs[arm_name][m]["vars"].extend(
+                        (df_m[("sem", m)] ** 2).tolist()
+                    )
+        else:
+            for obs in none_throws(observations):
+                if (arm_name := obs.arm_name) is None:
+                    # Since the transform will be initialized with Adapter training
+                    # data, all observations will have arm names.
+                    raise NotImplementedError("All observations must have arm names.")
+                # TODO: support inverse variance weighting for multivariate
+                # distributions (full covariance).
+                obsd = obs.data
+                diag = np.diag(np.diag(obsd.covariance))
+                if np.any(np.isnan(obsd.covariance)):
+                    raise NotImplementedError(
+                        "All metrics must have noise observations."
+                    )
+                elif ~np.all(obsd.covariance == diag):
+                    raise NotImplementedError(
+                        "Only independent metrics are currently supported."
+                    )
+                for i, m in enumerate(obsd.metric_names):
+                    arm_to_multi_obs[arm_name][m]["means"].append(obsd.means[i])
+                    arm_to_multi_obs[arm_name][m]["vars"].append(obsd.covariance[i, i])
 
         self.arm_to_merged: defaultdict[str, dict[str, dict[str, float]]] = defaultdict(
             dict
@@ -137,3 +160,39 @@ class MergeRepeatedMeasurements(Transform):
             )
             new_observations.append(new_obs)
         return new_observations
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        # Transformed arm data will retain the first occurance for each arm
+        # in self.arm_to_merged.
+        arm_data = experiment_data.arm_data
+        arm_data = arm_data.loc[
+            arm_data.index.get_level_values("arm_name").isin(self.arm_to_merged.keys())
+        ]
+        arm_data = arm_data[
+            ~arm_data.index.get_level_values("arm_name").duplicated(keep="first")
+        ]
+        # Observation data should also retain only the first occurance, but the actual
+        # data will be overwritten.
+        observation_data = experiment_data.observation_data
+        observation_data = observation_data.loc[
+            observation_data.index.get_level_values("arm_name").isin(
+                self.arm_to_merged.keys()
+            )
+        ]
+        observation_data = observation_data[
+            ~observation_data.index.get_level_values("arm_name").duplicated(
+                keep="first"
+            )
+        ]
+        for index in observation_data.index:
+            arm_name = assert_is_instance(index, tuple)[1]
+            metric_dict = self.arm_to_merged[arm_name]
+            for m in metric_dict:
+                observation_data.loc[index, ("mean", m)] = metric_dict[m]["mean"]
+                observation_data.loc[index, ("sem", m)] = metric_dict[m]["var"] ** 0.5
+        return ExperimentData(
+            arm_data=arm_data,
+            observation_data=observation_data,
+        )
