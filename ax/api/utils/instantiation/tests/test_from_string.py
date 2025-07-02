@@ -240,6 +240,10 @@ class TestFromString(TestCase):
 
     def test_sanitize_name(self) -> None:
         self.assertEqual(_sanitize_name("foo.bar.baz"), "foo__dot__bar__dot__baz")
+        self.assertEqual(_sanitize_name("foo.bar/1"), "foo__dot__bar__slash__1")
+        self.assertEqual(
+            _sanitize_name("foo.bar + 0.1 * baz"), "foo__dot__bar + 0.1 * baz"
+        )
 
         constraint = parse_parameter_constraint(constraint_str="foo.bar + foo.baz <= 1")
         self.assertEqual(
