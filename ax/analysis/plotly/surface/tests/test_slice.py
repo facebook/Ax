@@ -74,7 +74,7 @@ class TestSlicePlot(TestCase):
         )
         self.assertEqual(
             {*card.df.columns},
-            {"x", "bar_mean", "bar_sem", "sampled"},
+            {"x", "bar_mean", "bar_sem", "sampled", "trial_index", "arm_name"},
         )
         self.assertIsNotNone(card.blob)
 
@@ -117,7 +117,7 @@ class TestSlicePlot(TestCase):
         )
         self.assertEqual(
             {*card.df.columns},
-            {"x", "bar_mean", "bar_sem", "sampled"},
+            {"x", "bar_mean", "bar_sem", "sampled", "arm_name", "trial_index"},
         )
         self.assertIsNotNone(card.blob)
 

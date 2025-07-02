@@ -24,9 +24,10 @@ from ax.analysis.plotly.utils import (
     truncate_label,
     Z_SCORE_95_CI,
 )
-from ax.analysis.utils import extract_relevant_adapter
+from ax.analysis.utils import extract_relevant_adapter, relativize_data
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
+from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
@@ -51,6 +52,7 @@ class SlicePlot(PlotlyAnalysis):
         parameter_name: str,
         metric_name: str | None = None,
         display_sampled: bool = True,
+        relativize: bool = False,
     ) -> None:
         """
         Args:
@@ -59,10 +61,12 @@ class SlicePlot(PlotlyAnalysis):
                 specified the objective will be used.
             display_sampled: If True, plot "x"s at x coordinates which have been
                 sampled in at least one trial.
+            relativize: If True, relativize the metric values to the status quo.
         """
         self.parameter_name = parameter_name
         self.metric_name = metric_name
         self._display_sampled = display_sampled
+        self.relativize = relativize
 
     @override
     def compute(
@@ -87,6 +91,7 @@ class SlicePlot(PlotlyAnalysis):
             model=relevant_adapter,
             parameter_name=self.parameter_name,
             metric_name=metric_name,
+            relativize=self.relativize,
         )
 
         fig = _prepare_plot(
@@ -97,6 +102,7 @@ class SlicePlot(PlotlyAnalysis):
                 parameter=experiment.search_space.parameters[self.parameter_name]
             ),
             display_sampled=self._display_sampled,
+            is_relative=self.relativize,
         )
 
         return self._create_plotly_analysis_card(
@@ -122,6 +128,7 @@ def compute_slice_adhoc(
     adapter: Adapter | None = None,
     metric_name: str | None = None,
     display_sampled: bool = True,
+    relativize: bool = False,
 ) -> AnalysisCardBase:
     """
     Helper method to expose adhoc slice plotting. Only for advanced users in
@@ -137,12 +144,14 @@ def compute_slice_adhoc(
             the objective will be used.
         display_sampled: If True, plot "x"s at x coordinates which have been sampled
             in at least one trial.
+        relativize: If True, relativize the metric values to the status quo.
     """
 
     analysis = SlicePlot(
         parameter_name=parameter_name,
         metric_name=metric_name,
         display_sampled=display_sampled,
+        relativize=relativize,
     )
 
     return analysis.compute(
@@ -157,9 +166,14 @@ def _prepare_data(
     model: Adapter,
     parameter_name: str,
     metric_name: str,
+    relativize: bool,
 ) -> pd.DataFrame:
     sampled_xs = [
-        arm.parameters[parameter_name]
+        {
+            "parameter_value": arm.parameters[parameter_name],
+            "arm_name": arm.name,
+            "trial_index": trial.index,
+        }
         for trial in experiment.trials.values()
         for arm in trial.arms
         # Exclude parameter values which are not valid (ex. None when the parameter is
@@ -172,7 +186,7 @@ def _prepare_data(
     unsampled_xs = get_parameter_values(
         parameter=experiment.search_space.parameters[parameter_name]
     )
-    xs = [*sampled_xs, *unsampled_xs]
+    xs = [*[sample["parameter_value"] for sample in sampled_xs], *unsampled_xs]
 
     # Construct observation features for each parameter value previously chosen by
     # fixing all other parameters to their status-quo value or mean.
@@ -192,7 +206,7 @@ def _prepare_data(
 
     predictions = model.predict(observation_features=features)
 
-    return none_throws(
+    df = none_throws(
         pd.DataFrame.from_records(
             [
                 {
@@ -200,12 +214,33 @@ def _prepare_data(
                     f"{metric_name}_mean": predictions[0][metric_name][i],
                     f"{metric_name}_sem": predictions[1][metric_name][metric_name][i]
                     ** 0.5,  # Convert the variance to the SEM
-                    "sampled": xs[i] in sampled_xs,
+                    "sampled": xs[i]
+                    in [sample["parameter_value"] for sample in sampled_xs],
+                    "arm_name": sampled_xs[i]["arm_name"]
+                    if i < len(sampled_xs)
+                    else "unsampled",
+                    "trial_index": sampled_xs[i]["trial_index"]
+                    if i < len(sampled_xs)
+                    else -1,
                 }
                 for i in range(len(xs))
             ]
         ).drop_duplicates()
     ).sort_values(by=parameter_name)
+
+    if relativize:
+        target_trial_index = none_throws(get_target_trial_index(experiment=experiment))
+        df = relativize_data(
+            experiment=experiment,
+            df=df,
+            metric_names=[metric_name],
+            is_raw_data=False,
+            trial_index=None,
+            trial_statuses=None,
+            target_trial_index=target_trial_index,
+        )
+
+    return df
 
 
 def _prepare_plot(
@@ -214,6 +249,7 @@ def _prepare_plot(
     metric_name: str,
     log_x: bool,
     display_sampled: bool,
+    is_relative: bool = False,
 ) -> go.Figure:
     x = df[parameter_name].tolist()
     y = df[f"{metric_name}_mean"].tolist()
@@ -252,6 +288,7 @@ def _prepare_plot(
         layout=go.Layout(
             xaxis_title=truncate_label(label=parameter_name),
             yaxis_title=truncate_label(label=metric_name),
+            yaxis={"tickformat": ".2%"} if is_relative else None,
         ),
     )
 
