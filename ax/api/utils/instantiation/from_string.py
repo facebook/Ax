@@ -287,10 +287,24 @@ def _sanitize_name(s: str) -> str:
     slashes. This is temporarily necessary because SymPy symbol names must be valid
     Python identifiers, but some legacy Ax users may include dots or slashes in their
     parameter names.
+
+    Note that we need to be careful here not to sanitize the string too much, as some
+    dots are meaningful (ex. the objective "foo.bar + 0.1 * baz" should be parsed as
+    "foo__dot__bar + 0.1 * baz" not "foo__dot__bar + 0__dot__1 * baz").
     """
 
-    sans_dots = re.sub(r"([a-zA-Z])\.([a-zA-Z])", r"\1__dot__\2", s)
-    sans_slash = re.sub(r"([a-zA-Z])\/([a-zA-Z])", r"\1__slash__\2", sans_dots)
+    # Replace occurances of "." and "/" when they appear after a valid Python variable
+    # name and before any alphanumeric character.
+    sans_dots = re.sub(
+        r"([a-zA-Z_][a-zA-Z0-9_])\.([a-zA-Z0-9_])",
+        rf"\1{DOT_PLACEHOLDER}\2",
+        s,
+    )
+    sans_slash = re.sub(
+        r"([a-zA-Z_][a-zA-Z0-9_])\/([a-zA-Z0-9_])",
+        rf"\1{SLASH_PLACEHOLDER}\2",
+        sans_dots,
+    )
 
     return sans_slash
 
