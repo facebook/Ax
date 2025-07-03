@@ -1224,8 +1224,8 @@ class TestBenchmark(TestCase):
                 experiment=none_throws(result.experiment)
             )
             self.assertEqual(list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0])
-        return
 
+        method = get_sobol_benchmark_method(distribute_replications=False)
         with self.subTest("MOO"):
             problem = get_multi_objective_benchmark_problem()
             result = self.benchmark_replication(problem=problem, method=method, seed=0)
