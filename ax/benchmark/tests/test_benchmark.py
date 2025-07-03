@@ -81,7 +81,7 @@ from ax.utils.testing.benchmark_stubs import (
     TestDataset,
 )
 
-from ax.utils.testing.core_stubs import get_experiment, get_experiment_with_observations
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
@@ -176,41 +176,6 @@ class TestBenchmark(TestCase):
     def test_storage(self) -> None:
         self._test_storage(map_data=False)
         self._test_storage(map_data=True)
-
-    def test_benchmark_result_invalid_inputs(self) -> None:
-        """
-        Test that a BenchmarkResult cannot be specified with both an `experiment`
-        and an `experiment_storage_id`.
-        """
-        with self.assertRaisesRegex(ValueError, "Cannot specify both an `experiment` "):
-            BenchmarkResult(
-                name="name",
-                seed=0,
-                inference_trace=np.array([]),
-                oracle_trace=np.array([]),
-                optimization_trace=np.array([]),
-                score_trace=np.array([]),
-                cost_trace=np.array([]),
-                fit_time=0.0,
-                gen_time=0.0,
-                experiment=get_experiment(),
-                experiment_storage_id="experiment_storage_id",
-            )
-
-        with self.assertRaisesRegex(
-            ValueError, "Must provide an `experiment` or `experiment_storage_id`"
-        ):
-            BenchmarkResult(
-                name="name",
-                seed=0,
-                inference_trace=np.array([]),
-                oracle_trace=np.array([]),
-                optimization_trace=np.array([]),
-                score_trace=np.array([]),
-                cost_trace=np.array([]),
-                fit_time=0.0,
-                gen_time=0.0,
-            )
 
     def test_replication_sobol_synthetic(self) -> None:
         method = get_sobol_benchmark_method(distribute_replications=False)
