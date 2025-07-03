@@ -539,7 +539,7 @@ def _transform_progression_to_walltime(
         )
         return transformed_times
     except Exception as e:
-        logger.debug(f"Failed to transform progression to walltime: {e}")
+        logger.error(f"Failed to transform progression to walltime: {e}")
         return None
 
 
@@ -648,7 +648,6 @@ def _get_curve_plot_dropdown(
 
 def _merge_trials_dict_with_df(
     df: pd.DataFrame,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     trials_dict: dict[int, Any],
     column_name: str,
     always_include_field_column: bool = False,
