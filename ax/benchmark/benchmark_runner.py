@@ -312,7 +312,6 @@ class BenchmarkRunner(Runner):
         return self.simulated_backend_runner.poll_trial_status(trials=trials)
 
     @classmethod
-    # pyre-fixme [2]: Parameter `obj` must have a type other than `Any``
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         """
         It is tricky to use SerializationMixin with instances that have Ax
