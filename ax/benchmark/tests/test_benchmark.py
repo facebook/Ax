@@ -20,17 +20,19 @@ import torch
 from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
 from ax.benchmark.benchmark import (
-    _get_inference_trace_from_params,
+    _get_oracle_value_of_params,
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
     compute_baseline_value_from_sobol,
     compute_score_trace,
     get_benchmark_orchestrator_options,
+    get_benchmark_result_from_experiment_and_gs,
     get_benchmark_result_with_cumulative_steps,
     get_best_parameters,
     get_opt_trace_by_steps,
     get_oracle_experiment_from_params,
+    run_optimization_with_orchestrator,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
@@ -80,7 +82,7 @@ from ax.utils.testing.benchmark_stubs import (
     TestDataset,
 )
 
-from ax.utils.testing.core_stubs import get_experiment, get_experiment_with_observations
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
@@ -106,13 +108,31 @@ class TestBenchmark(TestCase):
         """
         Run benchmark_replication with logs set to WARNING.
 
-        Suppresses voluminous INFO logs from the scheduler.
+        Suppresses voluminous INFO logs from the orchestrator.
         """
         return benchmark_replication(
             problem=problem,
             method=method,
             seed=seed,
             strip_runner_before_saving=strip_runner_before_saving,
+            orchestrator_logging_level=WARNING,
+        )
+
+    def run_optimization_with_orchestrator(
+        self,
+        problem: BenchmarkProblem,
+        method: BenchmarkMethod,
+        seed: int,
+    ) -> Experiment:
+        """
+        Run run_optimization_with_orchestrator with logs set to WARNING.
+
+        Suppresses voluminous INFO logs from the orchestrator.
+        """
+        return run_optimization_with_orchestrator(
+            problem=problem,
+            method=method,
+            seed=seed,
             orchestrator_logging_level=WARNING,
         )
 
@@ -139,11 +159,8 @@ class TestBenchmark(TestCase):
                     "ax.generators.torch.botorch_modular.acquisition.optimize_acqf",
                     wraps=optimize_acqf,
                 ) as mock_optimize_acqf:
-                    benchmark_one_method_problem(
-                        problem=problem,
-                        method=batch_method_joint,
-                        seeds=[0],
-                        orchestrator_logging_level=WARNING,
+                    self.run_optimization_with_orchestrator(
+                        problem=problem, method=batch_method_joint, seed=0
                     )
                 mock_optimize_acqf.assert_called_once()
                 self.assertEqual(
@@ -175,41 +192,6 @@ class TestBenchmark(TestCase):
     def test_storage(self) -> None:
         self._test_storage(map_data=False)
         self._test_storage(map_data=True)
-
-    def test_benchmark_result_invalid_inputs(self) -> None:
-        """
-        Test that a BenchmarkResult cannot be specified with both an `experiment`
-        and an `experiment_storage_id`.
-        """
-        with self.assertRaisesRegex(ValueError, "Cannot specify both an `experiment` "):
-            BenchmarkResult(
-                name="name",
-                seed=0,
-                inference_trace=np.array([]),
-                oracle_trace=np.array([]),
-                optimization_trace=np.array([]),
-                score_trace=np.array([]),
-                cost_trace=np.array([]),
-                fit_time=0.0,
-                gen_time=0.0,
-                experiment=get_experiment(),
-                experiment_storage_id="experiment_storage_id",
-            )
-
-        with self.assertRaisesRegex(
-            ValueError, "Must provide an `experiment` or `experiment_storage_id`"
-        ):
-            BenchmarkResult(
-                name="name",
-                seed=0,
-                inference_trace=np.array([]),
-                oracle_trace=np.array([]),
-                optimization_trace=np.array([]),
-                score_trace=np.array([]),
-                cost_trace=np.array([]),
-                fit_time=0.0,
-                gen_time=0.0,
-            )
 
     def test_replication_sobol_synthetic(self) -> None:
         method = get_sobol_benchmark_method(distribute_replications=False)
@@ -350,8 +332,8 @@ class TestBenchmark(TestCase):
             "Complete out of order": [1, 1, 3, 3],
         }
         expected_costs = {
-            "All complete at different times": [1, 3, 7, 12],
-            "Trials complete immediately": [1, 2],
+            "All complete at different times": [0, 3, 7, 12],
+            "Trials complete immediately": [0, 1],
             "Trials complete at same time": [1, 2],
             "Complete out of order": [1, 2, 3, 4],
         }
@@ -486,23 +468,23 @@ class TestBenchmark(TestCase):
         self._test_replication_async(map_data=False)
         self._test_replication_async(map_data=True)
 
-    def test_logging(self) -> None:
+    def test_run_optimization_with_orchestrator(self) -> None:
         method = get_async_benchmark_method()
         problem = get_async_benchmark_problem(
             map_data=True,
         )
+
+        # Test logging
         logger = get_logger("utils.testing.backend_simulator")
 
         with self.subTest("Logs produced if level is DEBUG"):
             with self.assertLogs(level=logging.DEBUG, logger=logger):
-                result = benchmark_replication(
+                experiment = run_optimization_with_orchestrator(
                     problem=problem,
                     method=method,
                     seed=0,
-                    strip_runner_before_saving=False,
                     orchestrator_logging_level=logging.DEBUG,
                 )
-            experiment = none_throws(result.experiment)
             runner = assert_is_instance(experiment.runner, BenchmarkRunner)
             self.assertFalse(
                 none_throws(runner.simulated_backend_runner).simulator._verbose_logging
@@ -511,7 +493,7 @@ class TestBenchmark(TestCase):
         with self.subTest("Logs not produced by default"), self.assertNoLogs(
             level=logging.INFO, logger=logger
         ), self.assertNoLogs(logger=logger):
-            benchmark_replication(
+            run_optimization_with_orchestrator(
                 problem=problem,
                 method=method,
                 seed=0,
@@ -553,13 +535,10 @@ class TestBenchmark(TestCase):
             n_steps=progression_length_if_not_stopped,
             lower_is_better=True,
         )
-        result = self.benchmark_replication(
-            problem=problem,
-            method=method,
-            seed=0,
-            strip_runner_before_saving=False,
+        experiment = self.run_optimization_with_orchestrator(
+            problem=problem, method=method, seed=0
         )
-        data = assert_is_instance(none_throws(result.experiment).lookup_data(), MapData)
+        data = assert_is_instance(experiment.lookup_data(), MapData)
         expected_n_steps = {
             0: progression_length_if_not_stopped,
             # stopping after step=2, so 3 steps (0, 1, 2) have passed
@@ -586,7 +565,7 @@ class TestBenchmark(TestCase):
         )
         simulator = none_throws(
             assert_is_instance(
-                none_throws(result.experiment).runner, BenchmarkRunner
+                experiment.runner, BenchmarkRunner
             ).simulated_backend_runner
         ).simulator
         trials = {
@@ -610,13 +589,9 @@ class TestBenchmark(TestCase):
                 early_stopping_strategy=early_stopping_strategy,
                 max_pending_trials=1,
             )
-            result = self.benchmark_replication(
-                problem=problem,
-                method=method,
-                seed=0,
-                strip_runner_before_saving=False,
+            experiment = self.run_optimization_with_orchestrator(
+                problem=problem, method=method, seed=0
             )
-            experiment = none_throws(result.experiment)
             simulated_backend_runner = assert_is_instance(
                 experiment.runner, BenchmarkRunner
             ).simulated_backend_runner
@@ -649,14 +624,11 @@ class TestBenchmark(TestCase):
                     map_data=map_data,
                     step_runtime_fn=lambda params: params["x0"] + 1,
                 )
-                result = self.benchmark_replication(
-                    problem=problem,
-                    method=method,
-                    seed=0,
-                    strip_runner_before_saving=False,
+                experiment = self.run_optimization_with_orchestrator(
+                    problem=problem, method=method, seed=0
                 )
                 simulated_backend_runner = assert_is_instance(
-                    none_throws(result.experiment).runner, BenchmarkRunner
+                    experiment.runner, BenchmarkRunner
                 ).simulated_backend_runner
                 self.assertIsNotNone(simulated_backend_runner)
                 expected_start_times = {
@@ -680,9 +652,7 @@ class TestBenchmark(TestCase):
 
     @mock_botorch_optimize
     def _test_replication_with_inference_value(
-        self,
-        batch_size: int,
-        report_inference_value_as_trace: bool,
+        self, batch_size: int, report_inference_value_as_trace: bool
     ) -> None:
         seed = 1
         method = get_sobol_botorch_modular_acquisition(
@@ -929,7 +899,7 @@ class TestBenchmark(TestCase):
         # Each replication will have a different number of trials
 
         start = monotonic()
-        with self.assertLogs("ax.benchmark.benchmark", level="WARNING") as cm:
+        with self.assertLogs("ax.service.orchestrator", level="ERROR") as cm:
             result = benchmark_one_method_problem(
                 problem=problem,
                 method=method,
@@ -938,9 +908,7 @@ class TestBenchmark(TestCase):
             )
         elapsed = monotonic() - start
         self.assertGreater(elapsed, timeout_seconds)
-        self.assertIn(
-            "WARNING:ax.benchmark.benchmark:The optimization loop timed out.", cm.output
-        )
+        self.assertTrue(any("Optimization timed out" in output for output in cm.output))
 
         # Test the traces get composited correctly. The AggregatedResult's traces
         # should be the length of the shortest trace in the BenchmarkResults
@@ -1093,10 +1061,12 @@ class TestBenchmark(TestCase):
         problem = get_single_objective_benchmark_problem(
             status_quo_params={"x0": 0.0, "x1": 0.0}
         )
-        res = self.benchmark_replication(problem=problem, method=method, seed=0)
+        experiment = self.run_optimization_with_orchestrator(
+            problem=problem, method=method, seed=0
+        )
 
-        self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
-        for t in none_throws(res.experiment).trials.values():
+        self.assertEqual(problem.num_trials, len(experiment.trials))
+        for t in experiment.trials.values():
             self.assertEqual(len(t.arms), 2, msg=f"Trial index: {t.index}")
             self.assertEqual(
                 sum(a.name == "status_quo" for a in t.arms),
@@ -1161,26 +1131,16 @@ class TestBenchmark(TestCase):
             # (5-0) * (5-0)
             self.assertEqual(result, 25)
 
-    def test_get_inference_trace_from_params(self) -> None:
-        problem = get_single_objective_benchmark_problem()
-        with self.subTest("No params"):
-            result = _get_inference_trace_from_params(
-                best_params_list=[], problem=problem
-            )
-            self.assertEqual(len(result), 0)
-
-        with self.subTest("Normal case"):
-            best_params_list = [{"x0": 0.0, "x1": 0.0}, {"x0": 1.0, "x1": 1.0}]
-            result = _get_inference_trace_from_params(
-                best_params_list=best_params_list,
-                problem=problem,
-            )
-            self.assertFalse(np.isnan(result).any())
-            expected_trace = [
-                problem.test_function.evaluate_true(params=params).item()
-                for params in best_params_list
-            ]
-            self.assertEqual(result.tolist(), expected_trace)
+    def test_get_oracle_value_of_params(self) -> None:
+        problem = get_augmented_branin_problem(fidelity_or_task="fidelity")
+        # params are not at target value
+        params = {"x0": 1.0, "x1": 0.0, "x2": 0.0}
+        inference_value = _get_oracle_value_of_params(params=params, problem=problem)
+        oracle_params = {"x0": 1.0, "x1": 0.0, "x2": 1.0}
+        self.assertEqual(
+            inference_value,
+            problem.test_function.evaluate_true(params=oracle_params).item(),
+        )
 
     def test_get_opt_trace_by_cumulative_epochs(self) -> None:
         # Time  | trial 0 | trial 1 | trial 2 | trial 3 | new steps
@@ -1202,10 +1162,10 @@ class TestBenchmark(TestCase):
         method = get_async_benchmark_method()
 
         with self.subTest("Without early stopping"):
-            result = self.benchmark_replication(problem=problem, method=method, seed=0)
-            new_opt_trace = get_opt_trace_by_steps(
-                experiment=none_throws(result.experiment)
+            experiment = self.run_optimization_with_orchestrator(
+                problem=problem, method=method, seed=0
             )
+            new_opt_trace = get_opt_trace_by_steps(experiment=experiment)
 
             self.assertEqual(
                 list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0]
@@ -1217,31 +1177,34 @@ class TestBenchmark(TestCase):
                     metric_threshold=10.0, min_progression=0, min_curves=2
                 )
             )
-            result = self.benchmark_replication(
+            experiment = self.run_optimization_with_orchestrator(
                 problem=problem, method=es_method, seed=0
             )
-            new_opt_trace = get_opt_trace_by_steps(
-                experiment=none_throws(result.experiment)
-            )
+            new_opt_trace = get_opt_trace_by_steps(experiment=experiment)
             self.assertEqual(list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0])
-        return
 
+        method = get_sobol_benchmark_method(distribute_replications=False)
         with self.subTest("MOO"):
             problem = get_multi_objective_benchmark_problem()
-            result = self.benchmark_replication(problem=problem, method=method, seed=0)
+
+            experiment = self.run_optimization_with_orchestrator(
+                problem=problem, method=method, seed=0
+            )
             with self.assertRaisesRegex(
                 NotImplementedError, "only supported for single objective"
             ):
-                get_opt_trace_by_steps(experiment=none_throws(result.experiment))
+                get_opt_trace_by_steps(experiment=experiment)
 
         with self.subTest("Constrained"):
             problem = get_benchmark_problem("constrained_gramacy_observed_noise")
-            result = self.benchmark_replication(problem=problem, method=method, seed=0)
+            experiment = self.run_optimization_with_orchestrator(
+                problem=problem, method=method, seed=0
+            )
             with self.assertRaisesRegex(
                 NotImplementedError,
                 "not supported for problems with outcome constraints",
             ):
-                get_opt_trace_by_steps(experiment=none_throws(result.experiment))
+                get_opt_trace_by_steps(experiment=experiment)
 
     def test_get_benchmark_result_with_cumulative_steps(self) -> None:
         """See test_get_opt_trace_by_cumulative_epochs for more info."""
@@ -1324,3 +1287,50 @@ class TestBenchmark(TestCase):
                 experiment=experiment, generation_strategy=gs
             )
             self.assertIsNone(best_point)
+
+        experiment = get_experiment_with_observations(
+            observations=[[1], [2]], constrained=False
+        )
+        with self.subTest("Working case"):
+            best_point = get_best_parameters(
+                experiment=experiment, generation_strategy=gs
+            )
+            self.assertEqual(best_point, experiment.trials[1].arms[0].parameters)
+
+        with self.subTest("Trial indices"):
+            best_point = get_best_parameters(
+                experiment=experiment, generation_strategy=gs, trial_indices=[0]
+            )
+            self.assertEqual(best_point, experiment.trials[0].arms[0].parameters)
+
+    def test_get_benchmark_result_from_experiment_and_gs(self) -> None:
+        problem = get_single_objective_benchmark_problem()
+        method = BenchmarkMethod(
+            name="Sobol", generation_strategy=get_sobol_generation_strategy()
+        )
+        seed = 0
+        result = self.benchmark_replication(
+            problem=problem, method=method, seed=seed, strip_runner_before_saving=False
+        )
+
+        result2 = get_benchmark_result_from_experiment_and_gs(
+            experiment=none_throws(result.experiment),
+            generation_strategy=method.generation_strategy,
+            problem=problem,
+            seed=seed,
+            strip_runner_before_saving=False,
+        )
+        # Idempotency
+        self.assertEqual(result, result2)
+        # Runner not stripped
+        self.assertIsNotNone(none_throws(result2.experiment).runner)
+        self.assertEqual(result2.seed, seed)
+
+        with self.subTest("runner stripped"):
+            result = get_benchmark_result_from_experiment_and_gs(
+                experiment=none_throws(result.experiment),
+                generation_strategy=method.generation_strategy,
+                problem=problem,
+                seed=3,
+            )
+            self.assertIsNone(none_throws(result.experiment).runner)
