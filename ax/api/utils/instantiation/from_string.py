@@ -33,6 +33,7 @@ from sympy.core.sympify import sympify
 
 DOT_PLACEHOLDER = "__dot__"
 SLASH_PLACEHOLDER = "__slash__"
+COLON_PLACEHOLDER = "__colon__"
 
 
 def optimization_config_from_string(
@@ -305,19 +306,26 @@ def _sanitize_name(s: str) -> str:
         rf"\1{SLASH_PLACEHOLDER}\2",
         sans_dots,
     )
+    sans_colon = re.sub(
+        r"([a-zA-Z_][a-zA-Z0-9_]):([a-zA-Z0-9_])",
+        rf"\1{COLON_PLACEHOLDER}\2",
+        sans_slash,
+    )
 
-    return sans_slash
+    return sans_colon
 
 
 def _unsanitize_name(s: str) -> str:
     """
     Converts a string with sanitized dots and slashes back to a string with normal dots
     and slashes. This is temporarily necessary because SymPy symbol names must be valid
-    Python identifiers, but some legacy Ax users may include dots or slashesin their
+    Python identifiers, but some legacy Ax users may include dots or slashes in their
     parameter names.
     """
 
-    with_dots = re.sub(r"__dot__", ".", s)
-    with_slash = re.sub(r"__slash__", "/", with_dots)
+    # Unsanitize in the reverse order of sanitization
+    with_colon = re.sub(rf"{COLON_PLACEHOLDER}", ":", s)
+    with_slash = re.sub(rf"{SLASH_PLACEHOLDER}", "/", with_colon)
+    with_dot = re.sub(rf"{DOT_PLACEHOLDER}", ".", with_slash)
 
-    return with_slash
+    return with_dot
