@@ -96,7 +96,7 @@ class Client(WithDBSettingsBase):
         self._storage_config = storage_config
         self._random_seed = random_seed
 
-    # -------------------- Section 1: Configure --------------------------------------
+    # -------------------- Section 1: Configure -------------------------------------
     def configure_experiment(
         self,
         parameters: Sequence[RangeParameterConfig | ChoiceParameterConfig],
