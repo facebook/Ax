@@ -18,9 +18,10 @@ from ax.analysis.plotly.surface.utils import (
     select_fixed_value,
 )
 from ax.analysis.plotly.utils import select_metric, truncate_label
-from ax.analysis.utils import extract_relevant_adapter
+from ax.analysis.utils import extract_relevant_adapter, relativize_data
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
+from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
@@ -46,6 +47,7 @@ class ContourPlot(PlotlyAnalysis):
         y_parameter_name: str,
         metric_name: str | None = None,
         display_sampled: bool = True,
+        relativize: bool = False,
     ) -> None:
         """
         Args:
@@ -54,11 +56,13 @@ class ContourPlot(PlotlyAnalysis):
             metric_name: The name of the metric to plot
             display_sampled: If True, plot "x"s at x coordinates which have been
                 sampled in at least one trial.
+            relativize: If True, relativize the metric values to the status quo.
         """
         self.x_parameter_name = x_parameter_name
         self.y_parameter_name = y_parameter_name
         self.metric_name = metric_name
         self._display_sampled = display_sampled
+        self.relativize = relativize
 
     @override
     def compute(
@@ -84,6 +88,7 @@ class ContourPlot(PlotlyAnalysis):
             x_parameter_name=self.x_parameter_name,
             y_parameter_name=self.y_parameter_name,
             metric_name=metric_name,
+            relativize=self.relativize,
         )
 
         fig = _prepare_plot(
@@ -98,6 +103,7 @@ class ContourPlot(PlotlyAnalysis):
                 parameter=experiment.search_space.parameters[self.y_parameter_name]
             ),
             display_sampled=self._display_sampled,
+            is_relative=self.relativize,
         )
 
         return self._create_plotly_analysis_card(
@@ -129,6 +135,7 @@ def compute_contour_adhoc(
     adapter: Adapter | None = None,
     metric_name: str | None = None,
     display_sampled: bool = True,
+    relativize: bool = False,
 ) -> PlotlyAnalysisCard:
     """
     Helper method to expose adhoc contour plotting. Only for advanced users in
@@ -144,12 +151,14 @@ def compute_contour_adhoc(
             the objective will be used.
         display_sampled: If True, plot "x"s at x coordinates which have been sampled
             in at least one trial.
+        relativize: If True, relativize the metric values to the status quo.
     """
     analysis = ContourPlot(
         x_parameter_name=x_parameter_name,
         y_parameter_name=y_parameter_name,
         metric_name=metric_name,
         display_sampled=display_sampled,
+        relativize=relativize,
     )
     return analysis.compute(
         experiment=experiment,
@@ -164,9 +173,15 @@ def _prepare_data(
     x_parameter_name: str,
     y_parameter_name: str,
     metric_name: str,
+    relativize: bool,
 ) -> pd.DataFrame:
     sampled = [
-        (arm.parameters[x_parameter_name], arm.parameters[y_parameter_name])
+        {
+            "x_parameter_name": arm.parameters[x_parameter_name],
+            "y_parameter_name": arm.parameters[y_parameter_name],
+            "arm_name": arm.name,
+            "trial_index": trial.index,
+        }
         for trial in experiment.trials.values()
         for arm in trial.arms
     ]
@@ -179,8 +194,8 @@ def _prepare_data(
         parameter=experiment.search_space.parameters[y_parameter_name], density=10
     )
 
-    xs = [*[sample[0] for sample in sampled], *unsampled_xs]
-    ys = [*[sample[1] for sample in sampled], *unsampled_ys]
+    xs = [*[sample["x_parameter_name"] for sample in sampled], *unsampled_xs]
+    ys = [*[sample["y_parameter_name"] for sample in sampled], *unsampled_ys]
 
     # Construct observation features for each parameter value previously chosen by
     # fixing all other parameters to their status-quo value or mean.
@@ -214,23 +229,47 @@ def _prepare_data(
 
     predictions = model.predict(observation_features=features)
 
-    return none_throws(
+    df = none_throws(
         pd.DataFrame.from_records(
             [
                 {
                     x_parameter_name: features[i].parameters[x_parameter_name],
                     y_parameter_name: features[i].parameters[y_parameter_name],
                     f"{metric_name}_mean": predictions[0][metric_name][i],
+                    f"{metric_name}_sem": predictions[1][metric_name][metric_name][i]
+                    ** 0.5,
                     "sampled": (
                         features[i].parameters[x_parameter_name],
                         features[i].parameters[y_parameter_name],
                     )
-                    in sampled,
+                    in [
+                        (s["x_parameter_name"], s["y_parameter_name"]) for s in sampled
+                    ],
+                    "arm_name": sampled[i]["arm_name"]
+                    if i < len(sampled)
+                    else "unsampled",
+                    "trial_index": sampled[i]["trial_index"]
+                    if i < len(sampled)
+                    else -1,
                 }
                 for i in range(len(features))
             ]
         ).drop_duplicates()
     )
+
+    if relativize:
+        target_trial_index = none_throws(get_target_trial_index(experiment=experiment))
+        df = relativize_data(
+            experiment=experiment,
+            df=df,
+            metric_names=[metric_name],
+            is_raw_data=False,
+            trial_index=None,
+            trial_statuses=None,
+            target_trial_index=target_trial_index,
+        )
+
+    return df
 
 
 def _prepare_plot(
@@ -241,6 +280,7 @@ def _prepare_plot(
     log_x: bool,
     log_y: bool,
     display_sampled: bool,
+    is_relative: bool,
 ) -> go.Figure:
     z_grid = df.pivot_table(
         index=y_parameter_name,
@@ -250,14 +290,25 @@ def _prepare_plot(
         aggfunc="mean",
     )
 
+    if is_relative:
+        z_values = z_grid.values * 100
+        hovertemplate = "%{z:.2f}%"
+    else:
+        z_values = z_grid.values
+        hovertemplate = "%{z:.2f}"
+
     fig = go.Figure(
         data=go.Contour(
-            z=z_grid.values,
+            z=z_values,
             x=z_grid.columns.values,
             y=z_grid.index.values,
             colorscale=METRIC_CONTINUOUS_COLOR_SCALE,
             showscale=True,
-            hoverinfo="skip",
+            colorbar={
+                "title": None,
+                "ticksuffix": "%" if is_relative else "",
+            },
+            hovertemplate=hovertemplate,
         ),
         layout=go.Layout(
             xaxis_title=truncate_label(label=x_parameter_name),
