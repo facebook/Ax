@@ -162,34 +162,33 @@ class LegacyBoTorchGeneratorTest(TestCase):
         # Check ranks
         model_list = cast(ModelListGP, model.model).models
         for i in range(1):
+            data_covar_module, task_covar_module = model_list[i].covar_module.kernels
             self.assertEqual(
-                model_list[i].covar_module.base_kernel.lengthscale_prior.concentration,
+                data_covar_module.base_kernel.lengthscale_prior.concentration,
                 6.0,
             )
             self.assertEqual(
-                model_list[i].covar_module.base_kernel.lengthscale_prior.rate,
+                data_covar_module.base_kernel.lengthscale_prior.rate,
                 3.0,
             )
             self.assertEqual(
-                model_list[i].covar_module.outputscale_prior.concentration,
+                data_covar_module.outputscale_prior.concentration,
                 3.0,
             )
             self.assertEqual(
-                model_list[i].covar_module.outputscale_prior.rate,
+                data_covar_module.outputscale_prior.rate,
                 12.0,
             )
             self.assertIsInstance(
-                model_list[i].task_covar_module.IndexKernelPrior, LKJCovariancePrior
+                task_covar_module.IndexKernelPrior, LKJCovariancePrior
             )
             self.assertEqual(
-                model_list[i].task_covar_module.IndexKernelPrior.sd_prior.concentration,
+                task_covar_module.IndexKernelPrior.sd_prior.concentration,
                 2.0,
             )
+            self.assertEqual(task_covar_module.IndexKernelPrior.sd_prior.rate, 0.44)
             self.assertEqual(
-                model_list[i].task_covar_module.IndexKernelPrior.sd_prior.rate, 0.44
-            )
-            self.assertEqual(
-                model_list[i].task_covar_module.IndexKernelPrior.correlation_prior.eta,
+                task_covar_module.IndexKernelPrior.correlation_prior.eta,
                 0.6,
             )
 

@@ -381,18 +381,19 @@ class ModelRegistryTest(TestCase):
                         model,
                         SaasFullyBayesianMultiTaskGP if use_saas else MultiTaskGP,
                     )
+                    data_covar_module, task_covar_module = model.covar_module.kernels
                     if use_saas is False and default_model is False:
-                        self.assertIsInstance(model.covar_module, ScaleKernel)
-                        base_kernel = model.covar_module.base_kernel
+                        self.assertIsInstance(data_covar_module, ScaleKernel)
+                        base_kernel = data_covar_module.base_kernel
                         self.assertIsInstance(base_kernel, MaternKernel)
                         self.assertEqual(
                             base_kernel.lengthscale_prior.concentration, 6.0
                         )
                         self.assertEqual(base_kernel.lengthscale_prior.rate, 3.0)
                     elif use_saas is False:
-                        self.assertIsInstance(model.covar_module, RBFKernel)
+                        self.assertIsInstance(data_covar_module, RBFKernel)
                         self.assertIsInstance(
-                            model.covar_module.lengthscale_prior, LogNormalPrior
+                            data_covar_module.lengthscale_prior, LogNormalPrior
                         )
 
                 gr = mtgp.gen(
