@@ -5,7 +5,7 @@
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
 PAPER         =
-BUILDDIR      = ../website/build
+BUILDDIR      = build
 
 # User-friendly check for sphinx-build
 ifeq ($(shell which $(SPHINXBUILD) >/dev/null 2>&1; echo $$?), 1)
@@ -49,17 +49,19 @@ help:
 	@echo "  coverage   to run coverage check of the documentation (if enabled)"
 
 clean:
-	rm -rf $(BUILDDIR)/api/*
+	rm -rf $(BUILDDIR)
+	@echo
+	@echo "Finished cleaning. $(BUILDDIR) has been deleted."
 
 html:
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/api
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
-	@echo "Build finished. The HTML pages are in $(BUILDDIR)/api."
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
 dirhtml:
-	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/api
+	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
 	@echo
-	@echo "Build finished. The HTML pages are in $(BUILDDIR)/api."
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/dirhtml."
 
 singlehtml:
 	$(SPHINXBUILD) -b singlehtml $(ALLSPHINXOPTS) $(BUILDDIR)/singlehtml
