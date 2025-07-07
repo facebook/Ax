@@ -63,7 +63,10 @@ class TestContourPlot(TestCase):
             "x",
             "y",
             "bar_mean",
+            "bar_sem",
             "sampled",
+            "trial_index",
+            "arm_name",
         }
 
     def test_compute(self) -> None:
