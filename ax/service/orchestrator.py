@@ -1039,19 +1039,6 @@ class Orchestrator(AnalysisBase, BestPointMixin):
             self._failure_rate_has_been_exceeded = True
             return True
 
-        if failure_rate_exceeded:
-            if self._num_trials_bad_due_to_err > num_bad_in_orchestrator / 2:
-                self.logger.warning(
-                    "MetricFetchE INFO: Sweep aborted due to an exceeded error rate, "
-                    "which was primarily caused by failure to fetch metrics. Please "
-                    "check if anything could cause your metrics to be flaky or "
-                    "broken."
-                )
-
-            raise self._get_failure_rate_exceeded_error(
-                num_bad_in_orchestrator=num_bad_in_orchestrator,
-                num_ran_in_orchestrator=num_ran_in_orchestrator,
-            )
         return False
 
     def error_if_failure_rate_exceeded(self, force_check: bool = False) -> None:
