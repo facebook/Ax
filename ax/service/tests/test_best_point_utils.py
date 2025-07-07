@@ -625,14 +625,22 @@ class TestBestPointUtils(TestCase):
 
     def test_is_row_feasible(self) -> None:
         exp = get_experiment_with_observations(
-            observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 0, 1]],
+            observations=[
+                [-1, 1, 1],
+                [1, 2, 1],
+                [3, 3, -1],
+                [2, 4, 1],
+                [2, 0, 1],
+                # adding this to an otherwise feasible observation to test nan handling
+                [2, 0, np.nan],
+            ],
             constrained=True,
         )
         feasible_series = _is_row_feasible(
             df=exp.lookup_data().df,
             optimization_config=none_throws(exp.optimization_config),
         )
-        expected_per_arm = [False, True, False, True, True]
+        expected_per_arm = [False, True, False, True, True, False]
         expected_series = _repeat_elements(
             list_to_replicate=expected_per_arm, n_repeats=3
         )
@@ -656,7 +664,9 @@ class TestBestPointUtils(TestCase):
                 any(relative_constraint_warning in warning for warning in lg.output),
                 msg=lg.output,
             )
-        expected_per_arm = [False, True, True, True, True]
+        # When the outcome constraints haven't been derelativized, they are ignored,
+        # which leads even the arm with the nan observation to be marked feasible.
+        expected_per_arm = [False, True, True, True, True, True]
         expected_series = _repeat_elements(
             list_to_replicate=expected_per_arm, n_repeats=3
         )
@@ -681,7 +691,7 @@ class TestBestPointUtils(TestCase):
                 any(relative_constraint_warning in warning for warning in lg.output),
                 msg=lg.output,
             )
-        expected_per_arm = [True, True, False, True, False]
+        expected_per_arm = [True, True, False, True, False, False]
         expected_series = _repeat_elements(
             list_to_replicate=expected_per_arm, n_repeats=3
         )
