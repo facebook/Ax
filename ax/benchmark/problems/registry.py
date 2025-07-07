@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
-from ax.benchmark.problems.hd_embedding import embed_higher_dimension
 from ax.benchmark.problems.hpo.torchvision import (
     get_pytorch_cnn_torchvision_benchmark_problem,
 )
@@ -84,17 +83,15 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "branin_currin30": BenchmarkProblemRegistryEntry(
-        factory_fn=lambda n, num_trials: embed_higher_dimension(
-            problem=create_problem_from_botorch(
-                test_problem_class=BraninCurrin,
-                test_problem_kwargs={},
-                num_trials=num_trials,
-                observe_noise_sd=False,
-                baseline_value=3.0187520516793587,
-            ),
-            total_dimensionality=n,
-        ),
-        factory_kwargs={"n": 30, "num_trials": 30},
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": BraninCurrin,
+            "test_problem_kwargs": {},
+            "num_trials": 30,
+            "observe_noise_sd": False,
+            "baseline_value": 3.0187520516793587,
+            "n_dummy_dimensions": 28,
+        },
     ),
     "griewank4": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
@@ -124,16 +121,14 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "hartmann30": BenchmarkProblemRegistryEntry(
-        factory_fn=lambda n, num_trials: embed_higher_dimension(
-            problem=create_problem_from_botorch(
-                test_problem_class=synthetic.Hartmann,
-                test_problem_kwargs={"dim": 6},
-                num_trials=num_trials,
-                observe_noise_sd=False,
-            ),
-            total_dimensionality=n,
-        ),
-        factory_kwargs={"n": 30, "num_trials": 25},
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.Hartmann,
+            "test_problem_kwargs": {"dim": 6},
+            "num_trials": 25,
+            "observe_noise_sd": False,
+            "n_dummy_dimensions": 24,
+        },
     ),
     "hpo_pytorch_cnn_MNIST": BenchmarkProblemRegistryEntry(
         factory_fn=get_pytorch_cnn_torchvision_benchmark_problem,
@@ -241,16 +236,14 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "branin_currin30_observed_noise": BenchmarkProblemRegistryEntry(
-        factory_fn=lambda n, num_trials: embed_higher_dimension(
-            problem=create_problem_from_botorch(
-                test_problem_class=BraninCurrin,
-                test_problem_kwargs={},
-                num_trials=num_trials,
-                observe_noise_sd=True,
-            ),
-            total_dimensionality=n,
-        ),
-        factory_kwargs={"n": 30, "num_trials": 30},
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": BraninCurrin,
+            "test_problem_kwargs": {},
+            "num_trials": 30,
+            "observe_noise_sd": True,
+            "n_dummy_dimensions": 28,
+        },
     ),
     "hartmann6_observed_noise": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
@@ -262,16 +255,14 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "hartmann30_observed_noise": BenchmarkProblemRegistryEntry(
-        factory_fn=lambda n, num_trials: embed_higher_dimension(
-            problem=create_problem_from_botorch(
-                test_problem_class=synthetic.Hartmann,
-                test_problem_kwargs={"dim": 6},
-                num_trials=num_trials,
-                observe_noise_sd=True,
-            ),
-            total_dimensionality=n,
-        ),
-        factory_kwargs={"n": 30, "num_trials": 25},
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.Hartmann,
+            "test_problem_kwargs": {"dim": 6},
+            "observe_noise_sd": True,
+            "num_trials": 25,
+            "n_dummy_dimensions": 24,
+        },
     ),
     "jenatton_observed_noise": BenchmarkProblemRegistryEntry(
         factory_fn=get_jenatton_benchmark_problem,
