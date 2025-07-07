@@ -838,7 +838,6 @@ class MinimumTrialsInStatus(TransitionCriterion):
     def block_continued_generation_error(
         self,
         node_name: str | None,
-        model_name: str | None,
         experiment: Experiment | None,
         trials_from_node: set[int],
     ) -> None:
