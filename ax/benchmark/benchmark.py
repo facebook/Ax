@@ -20,12 +20,13 @@ Key terms used:
 """
 
 import warnings
+from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime
 from itertools import product
 from logging import Logger, WARNING
-from time import monotonic, time
+from time import time
 
 import numpy as np
 import numpy.typing as npt
@@ -33,17 +34,19 @@ import pandas as pd
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
-from ax.benchmark.benchmark_runner import BenchmarkRunner, get_total_runtime
+from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.methods.sobol import get_sobol_generation_strategy
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
-from ax.core.trial_status import TrialStatus
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -249,35 +252,6 @@ def get_benchmark_orchestrator_options(
     )
 
 
-def _get_cumulative_cost(
-    previous_cost: float,
-    new_trials: set[int],
-    experiment: Experiment,
-) -> float:
-    """
-    Get the total cost of running a benchmark where `new_trials` have just
-    completed, and the cost up to that point was `previous_cost`.
-
-    If a backend simulator is used to track runtime the cost is just the
-    simulated time. If there is no backend simulator, it is still possible that
-    trials have varying runtimes without that being simulated, so in that case,
-    runtimes are computed.
-    """
-    runner = assert_is_instance(experiment.runner, BenchmarkRunner)
-    if runner.simulated_backend_runner is not None:
-        return runner.simulated_backend_runner.simulator.time
-
-    per_trial_times = (
-        get_total_runtime(
-            trial=experiment.trials[i],
-            step_runtime_function=runner.step_runtime_function,
-            n_steps=runner.test_function.n_steps,
-        )
-        for i in new_trials
-    )
-    return previous_cost + sum(per_trial_times)
-
-
 def _get_oracle_value_of_params(
     params: Mapping[str, TParamValue], problem: BenchmarkProblem
 ) -> float:
@@ -297,50 +271,59 @@ def _get_oracle_value_of_params(
     return inference_value
 
 
-def _get_oracle_trace_from_arms(
-    evaluated_arms_list: Iterable[set[Arm]], problem: BenchmarkProblem
-) -> npt.NDArray:
-    """
-    Get the oracle trace from a list of arms.
-
-    1. Construct a dummy experiment where trial ``i`` contains the arms in
-        ``evaluated_arms_list[i]``; if there are multiple arms, it will be a
-        ``BatchTrial``. Its data will be at oracle values.
-    2. Get the optimization trace of that experiment.
-    """
-    dummy_experiment = get_oracle_experiment_from_params(
-        problem=problem,
-        dict_of_dict_of_params={
-            i: {arm.name: arm.parameters for arm in arms}
-            for i, arms in enumerate(evaluated_arms_list)
-        },
-    )
-    oracle_trace = get_trace(
-        experiment=dummy_experiment,
-        optimization_config=problem.optimization_config,
-    )
-    return np.array(oracle_trace)
-
-
-def _get_inference_trace_from_params(
-    best_params_list: Sequence[Mapping[str, TParamValue] | None],
+def get_inference_trace(
+    trial_completion_order: Sequence[set[int]],
+    experiment: Experiment,
+    generation_strategy: GenerationStrategy,
     problem: BenchmarkProblem,
 ) -> npt.NDArray:
     """
-    Get the inference value of each parameterization in ``best_params_list``.
+    Get the inference trace from a completed experiment.
+
+    The inference trace is the value of the parameterization that would have
+    been predicted to be best at each time when a trial completes, using only
+    information that would have been available at the time.
+
+    Args:
+        trial_completion_order: A list of sets of trial indices, where the first
+            element includes the trials that finished first (all at the same
+            time), the second element is trials that finished next after that,
+            etc.
+        experiment: Passed to ``get_trace``.
+        generation_strategy: Passed to ``get_trace``.
+        problem: Used to get the oracle value of each parameterization.
+
     """
-    return np.array(
-        [
-            float("NaN")
-            if params is None
-            else _get_oracle_value_of_params(params=params, problem=problem)
-            for params in best_params_list
-        ]
+    completed_trial_idcs: set[int] = set()
+    inference_trace = np.full(
+        shape=(len(trial_completion_order),), fill_value=float("NaN")
     )
+
+    # Inference trace is not supported for MOO.
+    if isinstance(experiment.optimization_config, MultiObjectiveOptimizationConfig):
+        return inference_trace
+
+    for i, newly_completed_trials in enumerate(trial_completion_order):
+        completed_trial_idcs |= newly_completed_trials
+        # Note: Ax's best-point functionality doesn't know to predict at the
+        # target task or fidelity, so this won't produce good recommendations in
+        # MF/MT settings.
+        best_params = get_best_parameters(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            trial_indices=completed_trial_idcs,
+        )
+        if best_params is not None:
+            inference_trace[i] = _get_oracle_value_of_params(
+                params=best_params, problem=problem
+            )
+    return inference_trace
 
 
 def get_best_parameters(
-    experiment: Experiment, generation_strategy: GenerationStrategy
+    experiment: Experiment,
+    generation_strategy: GenerationStrategy,
+    trial_indices: Iterable[int] | None = None,
 ) -> TParameterization | None:
     """
     Get the most promising point.
@@ -351,10 +334,14 @@ def get_best_parameters(
         experiment: The experiment to get the data from. This should contain
             values that would be observed in a realistic setting and not
             contain oracle values.
+        generation_strategy: The ``GenerationStrategy`` to use to predict the
+            best point.
+        trial_indices: Use data from only these trials. If None, use all data.
     """
     result = BestPointMixin._get_best_trial(
         experiment=experiment,
         generation_strategy=generation_strategy,
+        trial_indices=trial_indices,
     )
     if result is None:
         # This can happen if no points are predicted to satisfy all outcome
@@ -364,58 +351,112 @@ def get_best_parameters(
     return params
 
 
-def _update_benchmark_tracking_vars_in_place(
+def get_benchmark_result_from_experiment_and_gs(
     experiment: Experiment,
-    method: BenchmarkMethod,
+    generation_strategy: GenerationStrategy,
     problem: BenchmarkProblem,
-    cost_trace: list[float],
-    evaluated_arms_list: list[set[Arm]],
-    best_params_list: list[Mapping[str, TParamValue] | None],
-    completed_trial_idcs: set[int],
-) -> None:
+    seed: int,
+    strip_runner_before_saving: bool = True,
+) -> BenchmarkResult:
     """
-    Update cost_trace, evaluated_arms_list, best_params_list, and
-    completed_trial_idcs in place.
+    Parse the ``Experiment`` and ``GenerationStrategy`` into a ``BenchmarkResult``.
+
+    All results are ordered according to ``trial_completion_order``.
+    After all trials have been run, the
+    After all trials have been run, the `problem` gets the oracle values of each
+    "best" parameter; this yields the ``inference trace``. The cumulative
+    maximum of the oracle value of each parameterization tested is the
+    ``oracle_trace``.
+
+    Args:
+        experiment: The completed ``Experiment`` to extract results from.
+        generation_strategy: The ``GenerationStrategy`` used to generate
+            ``experiment``; it will be ultimately passed to best-point utilities
+            in order to generate the ``inference_trace`` on ``BenchmarkResult``.
+        problem: The ``BenchmarkProblem`` used to generate ``experiment``. It
+            will be used to extract the oracle values of parameterizations, and
+            its ``OptimizationConfig`` is used for identifying best points.
+        seed: The seed used to generate ``experiment``.
+        strip_runner_before_saving: Whether to write the experiment's runner to
+            the returned ``BenchmarkResult``.
     """
-    currently_completed_trial_idcs = {
-        t.index
-        for t in experiment.trials.values()
-        if t.status
-        in (
-            TrialStatus.COMPLETED,
-            TrialStatus.EARLY_STOPPED,
-        )
-    }
-    newly_completed_trials = currently_completed_trial_idcs - completed_trial_idcs
-    completed_trial_idcs |= newly_completed_trials
 
-    if len(newly_completed_trials) > 0:
-        previous_cost = cost_trace[-1] if len(cost_trace) > 0 else 0.0
-        cost = _get_cumulative_cost(
-            new_trials=newly_completed_trials,
-            experiment=experiment,
-            previous_cost=previous_cost,
-        )
-        cost_trace.append(cost)
-
-        # Track what params are newly evaluated from those trials, for
-        # the oracle trace
-        params = {
-            arm for i in newly_completed_trials for arm in experiment.trials[i].arms
-        }
-        evaluated_arms_list.append(params)
-
-        # Inference trace: Not supported for MOO.
-        # Note: Ax's best-point functionality doesn't know to predict at the
-        # target task or fidelity, so this won't produce good recommendations in
-        # MF/MT settings.
-        if problem.is_moo:
-            best_params = None
-        else:
-            best_params = get_best_parameters(
-                experiment=experiment, generation_strategy=method.generation_strategy
+    runner = assert_is_instance(experiment.runner, BenchmarkRunner)
+    sim_runner = runner.simulated_backend_runner
+    if sim_runner is not None:
+        trial_indices_by_completion_time: dict[datetime, set[int]] = defaultdict(set)
+        for trial_index, trial in experiment.trials.items():
+            trial_indices_by_completion_time[none_throws(trial._time_completed)].add(
+                trial_index
             )
-        best_params_list.append(best_params)
+        trial_completion_order = [
+            trial_indices_by_completion_time[k]
+            for k in sorted(trial_indices_by_completion_time.keys())
+        ]
+        cost_trace = np.array(
+            [
+                (completion_time - datetime.fromtimestamp(0)).total_seconds()
+                for completion_time in sorted(trial_indices_by_completion_time.keys())
+            ]
+        )
+    else:
+        trial_completion_order = [{i} for i in range(len(experiment.trials))]
+        cost_trace = np.arange(1, len(experiment.trials) + 1, dtype=float)
+
+    # {trial_index: {arm_name: params}}
+    dict_of_dict_of_params = {
+        new_trial_index: {
+            arm.name: arm.parameters
+            for old_trial_index in trials
+            for arm in experiment.trials[old_trial_index].arms
+        }
+        for new_trial_index, trials in enumerate(trial_completion_order)
+    }
+
+    actual_params_oracle_dummy_experiment = get_oracle_experiment_from_params(
+        problem=problem, dict_of_dict_of_params=dict_of_dict_of_params
+    )
+    oracle_trace = np.array(
+        get_trace(
+            experiment=actual_params_oracle_dummy_experiment,
+            optimization_config=problem.optimization_config,
+        )
+    )
+    inference_trace = get_inference_trace(
+        trial_completion_order=trial_completion_order,
+        experiment=experiment,
+        problem=problem,
+        generation_strategy=generation_strategy,
+    )
+
+    optimization_trace = (
+        inference_trace if problem.report_inference_value_as_trace else oracle_trace
+    )
+
+    score_trace = compute_score_trace(
+        optimization_trace=optimization_trace,
+        optimal_value=problem.optimal_value,
+        baseline_value=problem.baseline_value,
+    )
+
+    fit_time, gen_time = get_model_times(experiment=experiment)
+    if strip_runner_before_saving:
+        # Strip runner from experiment before returning, so that the experiment can
+        # be serialized (the runner can't be)
+        experiment.runner = None
+
+    return BenchmarkResult(
+        name=experiment.name,
+        seed=seed,
+        experiment=experiment,
+        oracle_trace=oracle_trace,
+        inference_trace=inference_trace,
+        optimization_trace=optimization_trace,
+        score_trace=score_trace,
+        cost_trace=cost_trace,
+        fit_time=fit_time,
+        gen_time=gen_time,
+    )
 
 
 def benchmark_replication(
@@ -428,11 +469,10 @@ def benchmark_replication(
     """
     Run one benchmarking replication (equivalent to one optimization loop).
 
-    After each trial, the `method` gets the best parameter(s) found so far, as
-    evaluated based on empirical data. After all trials are run, the `problem`
-    gets the oracle values of each "best" parameter; this yields the ``inference
-    trace``. The cumulative maximum of the oracle value of each parameterization
-    tested is the ``oracle_trace``.
+    Optimize the ``problem`` using the ``method`` and ``Orchestrator``, seeding
+    the optimization with ``seed``. This produces an ``Experiment``. Then parse
+    the ``Experiment`` into a ``BenchmarkResult``, extracting traces.
+
 
     Args:
         problem: The BenchmarkProblem to test against (can be synthetic or real)
@@ -479,18 +519,6 @@ def benchmark_replication(
         options=orchestrator_options,
     )
 
-    # Each of these lists is added to when a trial completes or stops early.
-    # Since multiple trials can complete at once, there may be fewer elements in
-    # these traces than the number of trials run.
-    cost_trace: list[float] = []
-    best_params_list: list[Mapping[str, TParamValue] | None] = []  # For inference trace
-    evaluated_arms_list: list[set[Arm]] = []  # For oracle trace
-    completed_trial_idcs: set[int] = set()
-
-    # Run the optimization loop.
-    timeout_hours = method.timeout_hours
-    remaining_hours = timeout_hours
-
     with with_rng_seed(seed=seed), warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
@@ -498,34 +526,9 @@ def benchmark_replication(
             category=UserWarning,
             module="ax.adapter.cross_validation",
         )
-        start = monotonic()
-        # These next several lines do the same thing as
-        # `orchestrator.run_n_trials`, but
-        # decrement the timeout with each step, so that the timeout refers to
-        # the total time spent in the optimization loop, not time per trial.
-        orchestrator.poll_and_process_results()
-        for _ in orchestrator.run_trials_and_yield_results(
-            max_trials=problem.num_trials,
-            timeout_hours=remaining_hours,
-        ):
-            _update_benchmark_tracking_vars_in_place(
-                experiment=experiment,
-                method=method,
-                problem=problem,
-                cost_trace=cost_trace,
-                evaluated_arms_list=evaluated_arms_list,
-                best_params_list=best_params_list,
-                completed_trial_idcs=completed_trial_idcs,
-            )
-
-            if timeout_hours is not None:
-                elapsed_hours = (monotonic() - start) / 3600
-                remaining_hours = timeout_hours - elapsed_hours
-                if remaining_hours <= 0.0:
-                    logger.warning("The optimization loop timed out.")
-                    break
-
-        orchestrator.summarize_final_result()
+        orchestrator.run_n_trials(
+            max_trials=problem.num_trials, timeout_hours=method.timeout_hours
+        )
 
     sim_runner = runner.simulated_backend_runner
     if sim_runner is not None:
@@ -533,42 +536,14 @@ def benchmark_replication(
         update_trials_to_use_sim_time_in_place(
             trials=experiment.trials, simulator=simulator
         )
-
-    inference_trace = _get_inference_trace_from_params(
-        best_params_list=best_params_list, problem=problem
-    )
-    oracle_trace = _get_oracle_trace_from_arms(
-        evaluated_arms_list=evaluated_arms_list, problem=problem
-    )
-
-    optimization_trace = (
-        inference_trace if problem.report_inference_value_as_trace else oracle_trace
-    )
-
-    score_trace = compute_score_trace(
-        optimization_trace=optimization_trace,
-        optimal_value=problem.optimal_value,
-        baseline_value=problem.baseline_value,
-    )
-
-    fit_time, gen_time = get_model_times(experiment=experiment)
-    if strip_runner_before_saving:
-        # Strip runner from experiment before returning, so that the experiment can
-        # be serialized (the runner can't be)
-        experiment.runner = None
-
-    return BenchmarkResult(
-        name=orchestrator.experiment.name,
+    benchmark_result = get_benchmark_result_from_experiment_and_gs(
         seed=seed,
-        experiment=orchestrator.experiment,
-        oracle_trace=oracle_trace,
-        inference_trace=inference_trace,
-        optimization_trace=optimization_trace,
-        score_trace=score_trace,
-        cost_trace=np.array(cost_trace),
-        fit_time=fit_time,
-        gen_time=gen_time,
+        experiment=experiment,
+        generation_strategy=method.generation_strategy,
+        strip_runner_before_saving=strip_runner_before_saving,
+        problem=problem,
     )
+    return benchmark_result
 
 
 def compute_baseline_value_from_sobol(
