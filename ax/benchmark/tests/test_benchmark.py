@@ -20,13 +20,14 @@ import torch
 from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
 from ax.benchmark.benchmark import (
-    _get_inference_trace_from_params,
+    _get_oracle_value_of_params,
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
     compute_baseline_value_from_sobol,
     compute_score_trace,
     get_benchmark_orchestrator_options,
+    get_benchmark_result_from_experiment_and_gs,
     get_benchmark_result_with_cumulative_steps,
     get_best_parameters,
     get_opt_trace_by_steps,
@@ -350,8 +351,8 @@ class TestBenchmark(TestCase):
             "Complete out of order": [1, 1, 3, 3],
         }
         expected_costs = {
-            "All complete at different times": [1, 3, 7, 12],
-            "Trials complete immediately": [1, 2],
+            "All complete at different times": [0, 3, 7, 12],
+            "Trials complete immediately": [0, 1],
             "Trials complete at same time": [1, 2],
             "Complete out of order": [1, 2, 3, 4],
         }
@@ -929,7 +930,7 @@ class TestBenchmark(TestCase):
         # Each replication will have a different number of trials
 
         start = monotonic()
-        with self.assertLogs("ax.benchmark.benchmark", level="WARNING") as cm:
+        with self.assertLogs("ax.service.orchestrator", level="ERROR") as cm:
             result = benchmark_one_method_problem(
                 problem=problem,
                 method=method,
@@ -938,9 +939,7 @@ class TestBenchmark(TestCase):
             )
         elapsed = monotonic() - start
         self.assertGreater(elapsed, timeout_seconds)
-        self.assertIn(
-            "WARNING:ax.benchmark.benchmark:The optimization loop timed out.", cm.output
-        )
+        self.assertTrue(any("Optimization timed out" in output for output in cm.output))
 
         # Test the traces get composited correctly. The AggregatedResult's traces
         # should be the length of the shortest trace in the BenchmarkResults
@@ -1161,26 +1160,16 @@ class TestBenchmark(TestCase):
             # (5-0) * (5-0)
             self.assertEqual(result, 25)
 
-    def test_get_inference_trace_from_params(self) -> None:
-        problem = get_single_objective_benchmark_problem()
-        with self.subTest("No params"):
-            result = _get_inference_trace_from_params(
-                best_params_list=[], problem=problem
-            )
-            self.assertEqual(len(result), 0)
-
-        with self.subTest("Normal case"):
-            best_params_list = [{"x0": 0.0, "x1": 0.0}, {"x0": 1.0, "x1": 1.0}]
-            result = _get_inference_trace_from_params(
-                best_params_list=best_params_list,
-                problem=problem,
-            )
-            self.assertFalse(np.isnan(result).any())
-            expected_trace = [
-                problem.test_function.evaluate_true(params=params).item()
-                for params in best_params_list
-            ]
-            self.assertEqual(result.tolist(), expected_trace)
+    def test_get_oracle_value_of_params(self) -> None:
+        problem = get_augmented_branin_problem(fidelity_or_task="fidelity")
+        # params are not at target value
+        params = {"x0": 1.0, "x1": 0.0, "x2": 0.0}
+        inference_value = _get_oracle_value_of_params(params=params, problem=problem)
+        oracle_params = {"x0": 1.0, "x1": 0.0, "x2": 1.0}
+        self.assertEqual(
+            inference_value,
+            problem.test_function.evaluate_true(params=oracle_params).item(),
+        )
 
     def test_get_opt_trace_by_cumulative_epochs(self) -> None:
         # Time  | trial 0 | trial 1 | trial 2 | trial 3 | new steps
@@ -1324,3 +1313,50 @@ class TestBenchmark(TestCase):
                 experiment=experiment, generation_strategy=gs
             )
             self.assertIsNone(best_point)
+
+        experiment = get_experiment_with_observations(
+            observations=[[1], [2]], constrained=False
+        )
+        with self.subTest("Working case"):
+            best_point = get_best_parameters(
+                experiment=experiment, generation_strategy=gs
+            )
+            self.assertEqual(best_point, experiment.trials[1].arms[0].parameters)
+
+        with self.subTest("Trial indices"):
+            best_point = get_best_parameters(
+                experiment=experiment, generation_strategy=gs, trial_indices=[0]
+            )
+            self.assertEqual(best_point, experiment.trials[0].arms[0].parameters)
+
+    def test_get_benchmark_result_from_experiment_and_gs(self) -> None:
+        problem = get_single_objective_benchmark_problem()
+        method = BenchmarkMethod(
+            name="Sobol", generation_strategy=get_sobol_generation_strategy()
+        )
+        seed = 0
+        result = self.benchmark_replication(
+            problem=problem, method=method, seed=seed, strip_runner_before_saving=False
+        )
+
+        result2 = get_benchmark_result_from_experiment_and_gs(
+            experiment=none_throws(result.experiment),
+            generation_strategy=method.generation_strategy,
+            problem=problem,
+            seed=seed,
+            strip_runner_before_saving=False,
+        )
+        # Idempotency
+        self.assertEqual(result, result2)
+        # Runner not stripped
+        self.assertIsNotNone(none_throws(result2.experiment).runner)
+        self.assertEqual(result2.seed, seed)
+
+        with self.subTest("runner stripped"):
+            result = get_benchmark_result_from_experiment_and_gs(
+                experiment=none_throws(result.experiment),
+                generation_strategy=method.generation_strategy,
+                problem=problem,
+                seed=3,
+            )
+            self.assertIsNone(none_throws(result.experiment).runner)
