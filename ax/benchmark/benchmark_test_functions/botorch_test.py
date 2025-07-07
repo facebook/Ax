@@ -6,8 +6,7 @@
 # pyre-strict
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from itertools import islice
+from dataclasses import dataclass, field
 
 import torch
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
@@ -40,6 +39,11 @@ class BoTorchTestFunction(BenchmarkTestFunction):
             5 will correspond to 0.5 while evaluating the test problem.
             If modified bounds are not provided, the test problem will be
             evaluated using the raw parameter values.
+        dummy_param_names: Names of parameters that do not affect the value of
+            the test function because they are not passed to
+            ``self.botorch_problem``.
+            self.botorch_problem.dim + len(dummy_param_names) should equal the
+            number of parameters in the ``params`` passed to ``evaluate_true``.
     """
 
     outcome_names: Sequence[str]
@@ -48,6 +52,7 @@ class BoTorchTestFunction(BenchmarkTestFunction):
     modified_bounds: Sequence[tuple[float, float]] | None = None
     _offset: torch.Tensor | None = None
     _original_bounds: torch.Tensor | None = None
+    dummy_param_names: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         if (
@@ -86,7 +91,7 @@ class BoTorchTestFunction(BenchmarkTestFunction):
         before returning it.
         """
         X = torch.tensor(
-            list(islice(params.values(), self.botorch_problem.dim)),
+            [v for k, v in params.items() if k not in self.dummy_param_names],
             dtype=torch.double,
         )
 
@@ -103,6 +108,11 @@ class BoTorchTestFunction(BenchmarkTestFunction):
 
     # pyre-fixme [14]: inconsistent override
     def evaluate_true(self, params: Mapping[str, float | int]) -> torch.Tensor:
+        expected_n_dims = self.botorch_problem.dim + len(self.dummy_param_names)
+        if len(params) != expected_n_dims:
+            raise ValueError(
+                f"Expected {expected_n_dims} parameters, got {len(params)}."
+            )
         x = self.tensorize_params(params=params)
         objectives = self.botorch_problem(x).view(-1)
         if isinstance(self.botorch_problem, ConstrainedBaseTestProblem):
