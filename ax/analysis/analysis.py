@@ -23,6 +23,7 @@ from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
+from IPython.display import display
 
 logger: Logger = get_logger(__name__)
 
@@ -161,6 +162,17 @@ class AnalysisE(ExceptionE):
     ) -> None:
         super().__init__(message, exception)
         self.analysis = analysis
+
+
+def display_cards(
+    cards: Sequence[AnalysisCardBase],
+) -> None:
+    """
+    Helper method for displaying a sequence of AnalysisCards (as is returned by adhoc
+    compute_ methods and by Client.compute_analyses).
+    """
+    for card in cards:
+        display(card)
 
 
 def error_card_from_analysis_e(
