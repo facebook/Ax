@@ -18,6 +18,7 @@ from functools import partial, reduce
 from typing import Any, cast, Union
 
 import ax.core.observation as observation
+import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -790,6 +791,9 @@ class Experiment(Base):
         data_init_args = data.deserialize_init_args(data.serialize_init_args(data))
         if data.true_df.empty:
             raise ValueError("Data to attach is empty.")
+        if not np.isfinite(data.true_df["mean"]).all():
+            # Error out if there are any NaNs or infs in the data.
+            raise UserInputError("Data to attach contains null or inf values.")
         metrics_not_on_exp = set(data.true_df["metric_name"].values) - set(
             self.metrics.keys()
         )

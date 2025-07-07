@@ -35,7 +35,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -487,6 +487,14 @@ class TestClient(TestCase):
                 )
             ),
         )
+
+        # With NaN / Inf values.
+        for value in [float("nan"), float("inf"), float("-inf")]:
+            with self.assertRaisesRegex(UserInputError, "null or inf values"):
+                client.attach_data(
+                    trial_index=trial_index,
+                    raw_data={"foo": (value, 0.0), "bar": (0.5, 0.0)},
+                )
 
     def test_complete_trial(self) -> None:
         client = Client()

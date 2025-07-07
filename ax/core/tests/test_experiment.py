@@ -34,7 +34,12 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import AxError, RunnerNotFoundError, UnsupportedError
+from ax.exceptions.core import (
+    AxError,
+    RunnerNotFoundError,
+    UnsupportedError,
+    UserInputError,
+)
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
@@ -734,6 +739,38 @@ class ExperimentTest(TestCase):
                 list(exp.data_by_trial[trial_index].values())[0].df,
                 sorted_dfs[trial_index],
             )
+
+    def test_attach_invalid_data(self) -> None:
+        experiment = self._setupBraninExperiment(n=1)
+        # Empty data.
+        empty_data = Data()
+        with self.assertRaisesRegex(ValueError, "is empty"):
+            experiment.attach_data(empty_data)
+
+        # Data with NaN / Inf.
+        for value in [None, float("nan"), float("inf")]:
+            data = Data(
+                df=pd.DataFrame(
+                    [
+                        {
+                            "arm_name": "0_0",
+                            "metric_name": "branin",
+                            "mean": value,
+                            "sem": 0.1,
+                            "trial_index": 0,
+                        },
+                        {
+                            "arm_name": "1_0",
+                            "metric_name": "branin",
+                            "mean": 5.0,
+                            "sem": 0.1,
+                            "trial_index": 1,
+                        },
+                    ]
+                )
+            )
+            with self.assertRaisesRegex(UserInputError, "contains null or inf values"):
+                experiment.attach_data(data)
 
     def test_immutable_search_space_and_opt_config(self) -> None:
         mutable_exp = self._setupBraninExperiment(n=5)
