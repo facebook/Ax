@@ -214,7 +214,6 @@ class TestDataset(Dataset):
         root: str = "",
         train: bool = True,
         download: bool = True,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         transform: Any = None,
     ) -> None:
         torch.manual_seed(0)
