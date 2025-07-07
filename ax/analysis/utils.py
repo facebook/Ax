@@ -203,93 +203,14 @@ def prepare_arm_data(
         )
 
     if relativize:
-        if experiment.status_quo is None:
-            raise UserInputError(
-                "Cannot relativize data without a status quo arm on the experiment."
-            )
-
-        if experiment.status_quo.name is None:
-            raise UserInputError(
-                "Cannot relativize data without a named status quo arm on the "
-                "experiment."
-            )
-
-        status_quo_name = experiment.status_quo.name
-
-        if use_model_predictions:
-            # Use the status quo arm from the target trial, prefer model predictions
-            # over raw observations.
-            mask = (df["arm_name"] == status_quo_name) & (
-                df["trial_index"] == target_trial_index
-            )
-
-            # Use the raw status quo effects if no model predictions are available
-            # (ex. if the status quo had None in its parameters).
-            if not mask.any() or df[mask].isna().any().any():
-                raw_df = _prepare_raw_arm_data(
-                    metric_names=metric_names,
-                    experiment=experiment,
-                    trial_index=trial_index,
-                    trial_statuses=trial_statuses,
-                    target_trial_index=target_trial_index,
-                )
-
-                # Fallback on the raw observations from the status quo arm on the
-                # target trial.
-                raw_mask = (raw_df["arm_name"] == status_quo_name) & (
-                    raw_df["trial_index"] == target_trial_index
-                )
-
-                if not raw_mask.any():
-                    raise UserInputError(
-                        "Could not find a status quo arm on Trial "
-                        f"{target_trial_index} to relativize against."
-                    )
-
-                status_quo_row = raw_df[raw_mask]
-            else:
-                status_quo_row = df[mask]
-
-            status_quo_df = pd.concat(
-                [status_quo_row] * len(df["trial_index"].unique())
-            )
-            status_quo_df["trial_index"] = df["trial_index"].unique()
-
-        else:
-            # If not using model predictions search for an appropriate status quo arm
-            # using the following logic:
-            # 1. Use the status quo arm from the same trial as the arm being
-            #    relativized.
-            # 2. Use the only status quo arm on the experiment.
-            # 3. Raise an exception
-            status_quo_mask = df["arm_name"] == status_quo_name
-            status_quo_rows = []
-            for trial_idx in df["trial_index"].unique():
-                trial_mask = (df["trial_index"] == trial_idx) & status_quo_mask
-                if trial_mask.any():
-                    row = df[trial_mask].iloc[0]
-                elif status_quo_mask.sum() == 1:
-                    row = df[status_quo_mask].iloc[0]
-                else:
-                    raise UserInputError(
-                        "Failed to relativize, no status quo arm found in the "
-                        "experiment."
-                    )
-
-                row["trial_index"] = trial_idx
-                status_quo_rows.append(row)
-
-            status_quo_df = pd.DataFrame(status_quo_rows)[
-                [
-                    "trial_index",
-                    *[f"{name}_mean" for name in metric_names],
-                    *[f"{name}_sem" for name in metric_names],
-                ]
-            ]
-
-        df = _relativize_data(
+        df = relativize_data(
+            experiment=experiment,
             df=df,
-            status_quo_df=status_quo_df,
+            metric_names=metric_names,
+            is_raw_data=not use_model_predictions,
+            trial_index=trial_index,
+            trial_statuses=trial_statuses,
+            target_trial_index=target_trial_index,
         )
 
     # Add additional columns which do not require predicting or extracting data.
@@ -603,7 +524,7 @@ def _prepare_p_feasible(
     return pd.Series(log_prob_feas.exp())
 
 
-def _relativize_data(
+def _relativize_df_with_sq(
     df: pd.DataFrame,
     status_quo_df: pd.DataFrame,
 ) -> pd.DataFrame:
@@ -644,3 +565,148 @@ def _relativize_data(
             rel_df.loc[rel_df["trial_index"] == trial_idx, sem_col] = y_se_rel
 
     return rel_df
+
+
+def _get_sq_arm_name(experiment: Experiment) -> str:
+    """
+    Retrieve the name of the status quo arm from the given experiment.
+
+    Args:
+        experiment: An Ax experiment.
+    Returns:
+        The name of the status quo arm.
+    Raises:
+        UserInputError: If the experiment does not have a status quo arm or if the
+        status quo arm is not named.
+
+    """
+    if experiment.status_quo is None:
+        raise UserInputError(
+            "Cannot relativize data without a status quo arm on the experiment."
+        )
+
+    if experiment.status_quo.name is None:
+        raise UserInputError(
+            "Cannot relativize data without a named status quo arm on the "
+            "experiment."
+        )
+
+    return experiment.status_quo.name
+
+
+def relativize_data(
+    experiment: Experiment,
+    df: pd.DataFrame,
+    metric_names: Sequence[str],
+    is_raw_data: bool,
+    trial_index: int | None,
+    trial_statuses: Sequence[TrialStatus] | None,
+    target_trial_index: int | None,
+) -> pd.DataFrame:
+    """
+    Relativize the data in the given DataFrame with respect to the status quo arm.
+    This method includes logic to select the appropriate status quo arm to use
+    for relativization. If relativizing raw data, the status quo is taken from
+    the inputted trial and falls back to the only status quo arm on the experiment
+    if the former is not avaialble. If relativizing modeled data, the status quo is
+    taken from the target trial and falls back to the raw status quo arm on the
+    target trial if the former is not available.
+
+    Args:
+        experiment: An Ax experiment.
+        df: The DataFrame containing the data to be relativized. Must include columns
+            'METRIC_NAME_mean', 'METRIC_NAME_sem', trial_index, and arm_name.
+        metric_names: The names of the metrics to relativize.
+        is_raw_data: Whether the data is raw or modeled.
+        trial_index: If present, only relativize data from the trial with the given
+            index.
+        trial_statuses: If present, only relativize data from trials with statuses in
+            this collection.
+        target_trial_index: The index of the target trial.
+    Returns:
+        A new DataFrame with the same structure as the input, but with
+            'METRIC_NAME_mean'
+        and 'METRIC_NAME_sem' columns relativized to the status quo arm for
+            each metric
+        within each trial.
+    Raises:
+        UserInputError: If the experiment does not have a status quo arm, if the status
+            quo arm is not named, or if no status quo arm is found in the experiment.
+    """
+    status_quo_name = _get_sq_arm_name(experiment=experiment)
+
+    if not is_raw_data:
+        # Use the status quo arm from the target trial, prefer model predictions
+        # over raw observations.
+        mask = (df["arm_name"] == status_quo_name) & (
+            df["trial_index"] == target_trial_index
+        )
+
+        # Use the raw status quo effects if no model predictions are available
+        # (ex. if the status quo had None in its parameters).
+        if not mask.any() or df[mask].isna().any().any():
+            raw_df = _prepare_raw_arm_data(
+                metric_names=metric_names,
+                experiment=experiment,
+                trial_index=trial_index,
+                trial_statuses=trial_statuses,
+                target_trial_index=target_trial_index,
+            )
+
+            # Fallback on the raw observations from the status quo arm on the
+            # target trial.
+            raw_mask = (raw_df["arm_name"] == status_quo_name) & (
+                raw_df["trial_index"] == target_trial_index
+            )
+
+            if not raw_mask.any():
+                raise UserInputError(
+                    "Could not find a status quo arm on Trial "
+                    f"{target_trial_index} to relativize against."
+                )
+
+            status_quo_row = raw_df[raw_mask]
+        else:
+            status_quo_row = df[mask]
+
+        status_quo_df = pd.concat([status_quo_row] * len(df["trial_index"].unique()))
+        status_quo_df["trial_index"] = df["trial_index"].unique()
+
+    else:
+        # If not using model predictions search for an appropriate status quo arm
+        # using the following logic:
+        # 1. Use the status quo arm from the same trial as the arm being
+        #    relativized.
+        # 2. Use the only status quo arm on the experiment.
+        # 3. Raise an exception
+        status_quo_mask = df["arm_name"] == status_quo_name
+        status_quo_rows = []
+        for trial_idx in df["trial_index"].unique():
+            trial_mask = (df["trial_index"] == trial_idx) & status_quo_mask
+            if trial_mask.any():
+                row = df[trial_mask].iloc[0]
+            elif status_quo_mask.sum() == 1:
+                row = df[status_quo_mask].iloc[0]
+            else:
+                raise UserInputError(
+                    "Failed to relativize, no status quo arm found in the "
+                    "experiment."
+                )
+
+            row["trial_index"] = trial_idx
+            status_quo_rows.append(row)
+
+        status_quo_df = pd.DataFrame(status_quo_rows)[
+            [
+                "trial_index",
+                *[f"{name}_mean" for name in metric_names],
+                *[f"{name}_sem" for name in metric_names],
+            ]
+        ]
+
+    df = _relativize_df_with_sq(
+        df=df,
+        status_quo_df=status_quo_df,
+    )
+
+    return df
