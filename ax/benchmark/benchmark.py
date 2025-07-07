@@ -459,27 +459,20 @@ def get_benchmark_result_from_experiment_and_gs(
     )
 
 
-def benchmark_replication(
+def run_optimization_with_orchestrator(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seed: int,
-    strip_runner_before_saving: bool = True,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
-) -> BenchmarkResult:
+) -> Experiment:
     """
-    Run one benchmarking replication (equivalent to one optimization loop).
-
     Optimize the ``problem`` using the ``method`` and ``Orchestrator``, seeding
-    the optimization with ``seed``. This produces an ``Experiment``. Then parse
-    the ``Experiment`` into a ``BenchmarkResult``, extracting traces.
-
+    the optimization with ``seed``.
 
     Args:
         problem: The BenchmarkProblem to test against (can be synthetic or real)
         method: The BenchmarkMethod to test
         seed: The seed to use for this replication.
-        strip_runner_before_saving: Whether to strip the runner from the
-            experiment before saving it. This enables serialization.
         orchestrator_logging_level: If >INFO, logs will only appear when unexpected
             things happen. If INFO, logs will update when a trial is completed
             and when an early stopping strategy, if present, decides whether or
@@ -487,7 +480,7 @@ def benchmark_replication(
             information from a `BackendSimulator`, if present.
 
     Return:
-        ``BenchmarkResult`` object.
+        ``Experiment`` object.
     """
     sq_arm = (
         None
@@ -536,6 +529,47 @@ def benchmark_replication(
         update_trials_to_use_sim_time_in_place(
             trials=experiment.trials, simulator=simulator
         )
+
+    return experiment
+
+
+def benchmark_replication(
+    problem: BenchmarkProblem,
+    method: BenchmarkMethod,
+    seed: int,
+    strip_runner_before_saving: bool = True,
+    orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
+) -> BenchmarkResult:
+    """
+    Run one benchmarking replication (equivalent to one optimization loop).
+
+    Optimize the ``problem`` using the ``method`` and ``Orchestrator``, seeding
+    the optimization with ``seed``. This produces an ``Experiment``. Then parse
+    the ``Experiment`` into a ``BenchmarkResult``, extracting traces.
+
+
+    Args:
+        problem: The BenchmarkProblem to test against (can be synthetic or real)
+        method: The BenchmarkMethod to test
+        seed: The seed to use for this replication.
+        strip_runner_before_saving: Whether to strip the runner from the
+            experiment before saving it. This enables serialization.
+        orchestrator_logging_level: If >INFO, logs will only appear when unexpected
+            things happen. If INFO, logs will update when a trial is completed
+            and when an early stopping strategy, if present, decides whether or
+            not to continue a trial. If DEBUG, logs additionally include
+            information from a ``BackendSimulator``, if present.
+
+    Return:
+        ``BenchmarkResult`` object.
+    """
+    experiment = run_optimization_with_orchestrator(
+        problem=problem,
+        method=method,
+        seed=seed,
+        orchestrator_logging_level=orchestrator_logging_level,
+    )
+
     benchmark_result = get_benchmark_result_from_experiment_and_gs(
         seed=seed,
         experiment=experiment,
