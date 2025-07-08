@@ -416,17 +416,6 @@ class Data(Base, SerializationMixin):
         return Data(df=deepcopy(self.df), description=self.description)
 
 
-def set_single_trial(data: Data) -> Data:
-    """Returns a new Data object where we set all rows to have the same
-    trial index (i.e. 0). This is meant to be used with our IVW transform,
-    which will combine multiple observations of the same outcome.
-    """
-    df = data._df.copy()
-    if "trial_index" in df:
-        df["trial_index"] = 0
-    return Data(df=df)
-
-
 def clone_without_metrics(data: Data, excluded_metric_names: Iterable[str]) -> Data:
     """Returns a new data object where rows containing the outcomes specified by
     `metric_names` are filtered out. Used to sanitize data before using it as
