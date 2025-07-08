@@ -77,33 +77,8 @@ We use [Pyre](https://pyre-check.org/) for static type checking and require code
 
 ## Website
 
-The Ax website was created with [Docusaurus](https://docusaurus.io/), with heavy customization to support tutorials, complete API documentation via Sphinx, and versioning.
+The Ax website was created with [Docusaurus](https://docusaurus.io/), with some customization to support tutorials, and supplemented with Sphinx for API documentation. See the [website/README.md](website/README.md) for more details.
 
-FontAwesome icons were used under the [Creative Commons Attribution 4.0 International](https://fontawesome.com/license).
-
-### Local Building
-
-You will need [Node](https://nodejs.org/en/) >= 8.x and [Yarn](https://yarnpkg.com/en/) >= 1.5
-to build the Sphinx docs and Docusaurus site (which embeds the Sphinx docs inside). The
-following command will both build the docs and serve the (unversioned) site locally:
-```
-./scripts/make_docs.sh
-```
-
-Open http://localhost:3000 (if doesn't automatically open). Anytime you change the contents of the page, the page should auto-update.
-
-To build a static version, add the `-b` flag.
-
-Additional details:
-
-* This is the unversioned site built off of the current repository. Versioning is much more complex, and is generally not necessary for testing the site. Versioning is automatically handled when publishing the site to `gh-pages`.
-* Skipping Sphinx API & tutorials: to build the site without running Sphinx or compiling the tutorials, pass the `-o` flag to the `make_docs.sh` script. This is especially useful when you want to iterate quickly on making changes to the Docusaurus config and you've already run Sphinx and tutorial generation (the outputs are still in `website` subdirectory and will be picked up).
-* Tutorials: we embed tutorials written in Jupyter notebooks into the site. By default, these tutorials are converted to HTML without execution. However, you can execute all tutorials via `./scripts/make_docs.sh -t`. If you do execute the tutorials, please keep in mind that the version of Ax you have installed should match the version of Ax you're trying to build tutorials for.
-
-### Publishing
-The site is hosted as a GitHub page (on the `gh-pages` branch). We build the [latest version](https://ax.dev/versions/latest/index.html) of the site with every commit to the `main` branch via GitHub Actions. The latest version of the site can be manually updated using `./scripts/publish_site.sh` (assuming proper credentials).
-
-When new version of Ax rolls out, we add a new version to the site via `./scripts/publish_site.sh -v [version]`.
 
 ## License
 By contributing to Ax, you agree that your contributions will be licensed
