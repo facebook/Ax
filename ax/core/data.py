@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import json
-from abc import abstractmethod
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from hashlib import md5
@@ -29,12 +28,12 @@ from ax.utils.common.serialization import (
 )
 from pyre_extensions import assert_is_instance, none_throws
 
-TBaseData = TypeVar("TBaseData", bound="BaseData")
+TData = TypeVar("TData", bound="Data")
 DF_REPR_MAX_LENGTH = 1000
 
 
-class BaseData(Base, SerializationMixin):
-    """Class storing data for an experiment.
+class Data(Base, SerializationMixin):
+    """Class storing numerical data for an experiment.
 
     The dataframe is retrieved via the `df` property. The data can be stored
     to an external store for future use by attaching it to an experiment using
@@ -42,13 +41,17 @@ class BaseData(Base, SerializationMixin):
 
 
     Attributes:
-        df: DataFrame with underlying data, and required columns. For BaseData, the
-            one required column is "arm_name".
+        df: DataFrame with underlying data, and required columns. For Data, the
+            required columns are "arm_name", "metric_name", "mean", and "sem", the
+            latter two of which must be numeric.
         description: Human-readable description of data.
 
     """
 
-    REQUIRED_COLUMNS = {"trial_index", "arm_name"}
+    # Note: Although the SEM (standard error of the mean) is a required column,
+    # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
+    # either in your Metric class or in Data explicitly.
+    REQUIRED_COLUMNS = {"trial_index", "arm_name", "metric_name", "mean", "sem"}
 
     # Note on text data: https://pandas.pydata.org/docs/user_guide/text.html
     # Its type can either be `numpy.dtypes.ObjectDType` or StringDtype extension
@@ -74,7 +77,7 @@ class BaseData(Base, SerializationMixin):
     _df: pd.DataFrame
 
     def __init__(
-        self: TBaseData,
+        self: TData,
         df: pd.DataFrame | None = None,
         description: str | None = None,
         _skip_ordering_and_validation: bool = False,
@@ -115,7 +118,7 @@ class BaseData(Base, SerializationMixin):
 
     @classmethod
     def _safecast_df(
-        cls: type[TBaseData],
+        cls: type[TData],
         df: pd.DataFrame,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
@@ -186,7 +189,6 @@ class BaseData(Base, SerializationMixin):
         return columns
 
     @classmethod
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         """Serialize the class-dependent properties needed to initialize this Data.
         Used for storage and to help construct new similar Data.
@@ -242,9 +244,7 @@ class BaseData(Base, SerializationMixin):
         """
         return md5(none_throws(self.df.to_json()).encode("utf-8")).hexdigest()
 
-    def get_filtered_results(
-        self: TBaseData, **filters: dict[str, Any]
-    ) -> pd.DataFrame:
+    def get_filtered_results(self: TData, **filters: dict[str, Any]) -> pd.DataFrame:
         """Return filtered subset of data.
 
         Args:
@@ -268,9 +268,7 @@ class BaseData(Base, SerializationMixin):
         return df
 
     @staticmethod
-    def from_multiple(
-        data: Iterable[TBaseData],
-    ) -> TBaseData:
+    def from_multiple(data: Iterable[TData]) -> TData:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
 
@@ -292,7 +290,7 @@ class BaseData(Base, SerializationMixin):
             if len(datum.df) > 0:
                 dfs.append(datum.df)
 
-        cls = cls or cast(type[TBaseData], Data)
+        cls = cls or cast(type[TData], Data)
 
         if len(dfs) == 0:
             return cls()
@@ -301,13 +299,13 @@ class BaseData(Base, SerializationMixin):
 
     @classmethod
     def from_evaluations(
-        cls: type[TBaseData],
+        cls: type[TData],
         evaluations: Mapping[str, TTrialEvaluation],
         trial_index: int,
         sample_sizes: Mapping[str, int] | None = None,
         start_time: int | str | None = None,
         end_time: int | str | None = None,
-    ) -> TBaseData:
+    ) -> TData:
         """
         Convert dict of evaluations to Ax data object.
 
@@ -338,22 +336,15 @@ class BaseData(Base, SerializationMixin):
         )
         return cls(df=pd.DataFrame(records))
 
-    @staticmethod
-    @abstractmethod
-    def _get_records(
-        evaluations: Mapping[str, TTrialEvaluation], trial_index: int
-    ) -> list[dict[str, Any]]:
-        pass
-
     @classmethod
     def from_fidelity_evaluations(
-        cls: type[TBaseData],
+        cls: type[TData],
         evaluations: Mapping[str, TFidelityTrialEvaluation],
         trial_index: int,
         sample_sizes: Mapping[str, int] | None = None,
         start_time: int | None = None,
         end_time: int | None = None,
-    ) -> TBaseData:
+    ) -> TData:
         """
         Convert dict of fidelity evaluations to Ax data object.
 
@@ -384,13 +375,6 @@ class BaseData(Base, SerializationMixin):
         return cls(df=pd.DataFrame(records))
 
     @staticmethod
-    @abstractmethod
-    def _get_fidelity_records(
-        evaluations: Mapping[str, TFidelityTrialEvaluation], trial_index: int
-    ) -> list[dict[str, Any]]:
-        pass
-
-    @staticmethod
     def _add_cols_to_records(
         records: list[dict[str, Any]],
         sample_sizes: Mapping[str, int] | None = None,
@@ -398,7 +382,7 @@ class BaseData(Base, SerializationMixin):
         end_time: int | str | None = None,
     ) -> list[dict[str, Any]]:
         """Adds to records metadata columns that are available for all
-        BaseData subclasses.
+        Data subclasses.
         """
         if start_time is not None or end_time is not None:
             if isinstance(start_time, int):
@@ -414,7 +398,7 @@ class BaseData(Base, SerializationMixin):
 
         return records
 
-    def copy_structure_with_df(self: TBaseData, df: pd.DataFrame) -> TBaseData:
+    def copy_structure_with_df(self: TData, df: pd.DataFrame) -> TData:
         """Serialize the structural properties needed to initialize this class.
         Used for storage and to help construct new similar objects. All kwargs
         other than ``df`` and ``description`` are considered structural.
@@ -428,30 +412,6 @@ class BaseData(Base, SerializationMixin):
         if len(df_markdown) > DF_REPR_MAX_LENGTH:
             df_markdown = df_markdown[:DF_REPR_MAX_LENGTH] + "..."
         return f"{self.__class__.__name__}(df=\n{df_markdown})"
-
-
-class Data(BaseData):
-    """Class storing numerical data for an experiment.
-
-    The dataframe is retrieved via the `df` property. The data can be stored
-    to an external store for future use by attaching it to an experiment using
-    `experiment.attach_data()` (this requires a description to be set.)
-
-
-    Attributes:
-        df: DataFrame with underlying data, and required columns. For BaseData, the
-            required columns are "arm_name", "metric_name", "mean", and "sem", the
-            latter two of which must be numeric.
-        description: Human-readable description of data.
-
-    """
-
-    # Note: Although the SEM (standard error of the mean) is a required column in data,
-    # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
-    # either in your Metric class or in Data explicitly.
-    REQUIRED_COLUMNS: set[str] = BaseData.REQUIRED_COLUMNS.union(
-        {"metric_name", "mean", "sem"}
-    )
 
     @staticmethod
     def _get_records(
@@ -495,10 +455,10 @@ class Data(BaseData):
         return set() if self.df.empty else set(self.df["metric_name"].values)
 
     def filter(
-        self,
+        self: TData,
         trial_indices: Iterable[int] | None = None,
         metric_names: Iterable[str] | None = None,
-    ) -> Data:
+    ) -> TData:
         """Construct a new object with the subset of rows corresponding to the
         provided trial indices AND metric names. If either trial_indices or
         metric_names are not provided, that dimension will not be filtered.
