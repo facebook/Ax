@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
-from hashlib import md5
 from io import StringIO
 from typing import Any, cast, TypeVar
 
@@ -26,7 +25,7 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import assert_is_instance
 
 TData = TypeVar("TData", bound="Data")
 DF_REPR_MAX_LENGTH = 1000
@@ -226,23 +225,6 @@ class Data(Base, SerializationMixin):
     @property
     def df(self) -> pd.DataFrame:
         return self._df
-
-    @property
-    def df_hash(self) -> str:
-        """Compute hash of pandas DataFrame.
-
-        This first serializes the DataFrame and computes the md5 hash on the
-        resulting string. Note that this may cause performance issue for very large
-        DataFrames.
-
-        Args:
-            df: The DataFrame for which to compute the hash.
-
-        Returns
-            str: The hash of the DataFrame.
-
-        """
-        return md5(none_throws(self.df.to_json()).encode("utf-8")).hexdigest()
 
     def get_filtered_results(self: TData, **filters: dict[str, Any]) -> pd.DataFrame:
         """Return filtered subset of data.

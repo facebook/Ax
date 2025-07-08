@@ -128,7 +128,6 @@ class MapData(Data):
         if map_key_infos is None and df is not None:
             raise ValueError("map_key_infos may be `None` iff `df` is None.")
 
-        # pyre-fixme[4]: Attribute must be annotated.
         self._map_key_infos = list(map_key_infos) if map_key_infos is not None else []
 
         if df is None:  # If df is None create an empty dataframe with appropriate cols
@@ -356,7 +355,6 @@ class MapData(Data):
         )
 
     @classmethod
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         map_data = assert_is_instance(obj, MapData)
         properties = serialize_init_args(

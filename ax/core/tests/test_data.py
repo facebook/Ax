@@ -118,7 +118,6 @@ class DataTest(TestCase):
         self.assertEqual(Data(), Data())
         data = Data(df=self.df)
         self.assertEqual(data, data)
-        self.assertEqual(data.df_hash, self.df_hash)
 
         df = data.df
         self.assertEqual(
@@ -136,10 +135,7 @@ class DataTest(TestCase):
             REPR_1000,
         )
         with patch(f"{Data.__module__}.DF_REPR_MAX_LENGTH", 500):
-            self.assertEqual(
-                str(Data(df=self.df)),
-                REPR_500,
-            )
+            self.assertEqual(str(Data(df=self.df)), REPR_500)
 
     def test_clone(self) -> None:
         data = Data(df=self.df, description="test")
