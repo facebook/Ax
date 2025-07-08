@@ -265,18 +265,6 @@ def get_client_with_simple_discrete_moo_problem(
             metrics = [-m for m in metrics]
         y0, y1, y2 = metrics
         raw_data = {"y0": (y0, 0.0), "y1": (y1, 0.0), "y2": (y2, 0.0)}
-        # pyre-fixme[6]: In call `AxClient.complete_trial`, for 2nd parameter
-        #  `raw_data`
-        #  expected `Union[Dict[str, Union[Tuple[Union[float, floating, integer],
-        #  Union[None, float, floating, integer]], float, floating, integer]],
-        #  List[Tuple[Dict[str, Union[None, bool, float, int, str]], Dict[str,
-        #  Union[Tuple[Union[float, floating, integer], Union[None, float, floating,
-        #  integer]], float, floating, integer]]]], List[Tuple[Dict[str, Hashable],
-        #  Dict[str, Union[Tuple[Union[float, floating, integer], Union[None, float,
-        #  floating, integer]], float, floating, integer]]]], Tuple[Union[float,
-        #  floating,
-        #  integer], Union[None, float, floating, integer]], float, floating, integer]`
-        #  but got `Dict[str, Tuple[float, float]]`.
         ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
     return ax_client
 
@@ -1644,7 +1632,6 @@ class TestAxClient(TestCase):
         with self.assertRaises(ValueError):
             no_intermediate_data_ax_client.update_running_trial_with_intermediate_data(
                 0,
-                # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
                 raw_data=[
                     # pyre-fixme[61]: `t` is undefined, or not always defined.
                     ({"t": p_t}, {"branin": (branin(x, y) + t, 0.0)})
