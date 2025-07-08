@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from io import StringIO
@@ -16,7 +15,7 @@ from typing import Any, cast, TypeVar
 
 import numpy as np
 import pandas as pd
-from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
+from ax.core.types import TTrialEvaluation
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import (
     extract_init_args,
@@ -318,44 +317,6 @@ class Data(Base, SerializationMixin):
         )
         return cls(df=pd.DataFrame(records))
 
-    @classmethod
-    def from_fidelity_evaluations(
-        cls: type[TData],
-        evaluations: Mapping[str, TFidelityTrialEvaluation],
-        trial_index: int,
-        sample_sizes: Mapping[str, int] | None = None,
-        start_time: int | None = None,
-        end_time: int | None = None,
-    ) -> TData:
-        """
-        Convert dict of fidelity evaluations to Ax data object.
-
-        Args:
-            evaluations: Map from arm name to list of (fidelity, outcomes)
-                where outcomes is itself a mapping of outcome names to values, means,
-                or tuples of mean and SEM. If SEM is not specified, it will be set
-                to None and inferred from data.
-            trial_index: Trial index to which this data belongs.
-            sample_sizes: Number of samples collected for each arm.
-            start_time: Optional start time of run of the trial that produced this
-                data, in milliseconds.
-            end_time: Optional end time of run of the trial that produced this
-                data, in milliseconds.
-
-        Returns:
-            Ax object of type ``cls``.
-        """
-        records = cls._get_fidelity_records(
-            evaluations=evaluations, trial_index=trial_index
-        )
-        records = cls._add_cols_to_records(
-            records=records,
-            sample_sizes=sample_sizes,
-            start_time=start_time,
-            end_time=end_time,
-        )
-        return cls(df=pd.DataFrame(records))
-
     @staticmethod
     def _add_cols_to_records(
         records: list[dict[str, Any]],
@@ -380,14 +341,6 @@ class Data(Base, SerializationMixin):
 
         return records
 
-    def copy_structure_with_df(self: TData, df: pd.DataFrame) -> TData:
-        """Serialize the structural properties needed to initialize this class.
-        Used for storage and to help construct new similar objects. All kwargs
-        other than ``df`` and ``description`` are considered structural.
-        """
-        cls = type(self)
-        return cls(df=df, **cls.serialize_init_args(self))
-
     def __repr__(self) -> str:
         """String representation of the subclass, inheriting from this base."""
         df_markdown = self.df.to_markdown()
@@ -408,24 +361,6 @@ class Data(Base, SerializationMixin):
                 "trial_index": trial_index,
             }
             for name, evaluation in evaluations.items()
-            for metric_name, value in evaluation.items()
-        ]
-
-    @staticmethod
-    def _get_fidelity_records(
-        evaluations: Mapping[str, TFidelityTrialEvaluation], trial_index: int
-    ) -> list[dict[str, Any]]:
-        return [
-            {
-                "arm_name": name,
-                "metric_name": metric_name,
-                "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else None,
-                "trial_index": trial_index,
-                "fidelities": json.dumps(fidelity),
-            }
-            for name, fidelity_and_metrics_list in evaluations.items()
-            for fidelity, evaluation in fidelity_and_metrics_list
             for metric_name, value in evaluation.items()
         ]
 
