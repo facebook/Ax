@@ -56,33 +56,42 @@ class TypesTest(TestCase):
     def test_Validate(self) -> None:
         trial_evaluation = {"foo": 0.0}
         trial_evaluation_with_noise = {"foo": (0.0, 0.0)}
-        fidelity_trial_evaluation = [({"a": 0.0}, trial_evaluation)]
         map_trial_evaluation = [({"a": 0.0}, trial_evaluation)]
 
-        validate_evaluation_outcome(outcome=trial_evaluation)  # pyre-ignore[6]
-        validate_evaluation_outcome(
-            outcome=trial_evaluation_with_noise  # pyre-ignore[6]
-        )
-        validate_evaluation_outcome(outcome=fidelity_trial_evaluation)  # pyre-ignore[6]
-        validate_evaluation_outcome(outcome=map_trial_evaluation)  # pyre-ignore[6]
+        validate_evaluation_outcome(outcome=trial_evaluation)
+        validate_evaluation_outcome(outcome=trial_evaluation_with_noise)
+        validate_evaluation_outcome(outcome=map_trial_evaluation)
 
-        with self.assertRaises(TypeError):
-            validate_floatlike(floatlike="foo")  # pyre-ignore[6]
+        with self.assertRaisesRegex(TypeError, "Expected FloatLike, found foo"):
+            validate_floatlike(floatlike="foo")
 
-        with self.assertRaises(TypeError):
-            validate_single_metric_data(data=(0, 1, 2))  # pyre-ignore[6]
+        with self.assertRaisesRegex(
+            TypeError,
+            "Tuple-valued SingleMetricData must have len",
+        ):
+            validate_single_metric_data(data=(0, 1, 2))
 
-        with self.assertRaises(TypeError):
-            validate_trial_evaluation(evaluation={0: 0})  # pyre-ignore[6]
+        with self.assertRaisesRegex(
+            TypeError, "Keys must be strings in TTrialEvaluation, found 0."
+        ):
+            validate_trial_evaluation(evaluation={0: 0})
 
-        with self.assertRaises(TypeError):
-            validate_param_value(param_value=[])  # pyre-ignore[6]
+        with self.assertRaisesRegex(
+            TypeError, "Expected None, bool, float, int, or str, found"
+        ):
+            validate_param_value(param_value=[])
 
-        with self.assertRaises(TypeError):
-            validate_parameterization(parameterization={0: 0})  # pyre-ignore[6]
+        with self.assertRaisesRegex(
+            TypeError, "Keys must be strings in TParameterization, found 0."
+        ):
+            validate_parameterization(parameterization={0: 0})
 
-        with self.assertRaises(TypeError):
-            validate_map_dict(map_dict={0: 0})  # pyre-ignore[6]
+        with self.assertRaisesRegex(
+            TypeError, "Keys must be strings in TMapDict, found 0."
+        ):
+            validate_map_dict(map_dict={0: 0})
 
-        with self.assertRaises(TypeError):
-            validate_map_dict(map_dict={"foo": []})  # pyre-ignore[6]
+        with self.assertRaisesRegex(
+            TypeError, "Values must be Hashable in TMapDict, found"
+        ):
+            validate_map_dict(map_dict={"foo": []})

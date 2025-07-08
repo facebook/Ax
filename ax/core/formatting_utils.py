@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+from collections.abc import Mapping, Sequence
 from enum import Enum
 from typing import cast
 
@@ -37,8 +38,7 @@ DATA_TYPE_LOOKUP: dict[DataType, type[Data]] = {
 
 
 def raw_data_to_evaluation(
-    raw_data: TEvaluationOutcome,
-    metric_names: list[str],
+    raw_data: TEvaluationOutcome, metric_names: Sequence[str]
 ) -> TEvaluationOutcome:
     """Format the trial evaluation data to a standard `TTrialEvaluation`
     (mapping from metric names to a tuple of mean and SEM) representation, or
@@ -47,6 +47,7 @@ def raw_data_to_evaluation(
     Note: this function expects raw_data to be data for a `Trial`, not a
     `BatchedTrial`.
     """
+    # TTrialEvaluation case
     if isinstance(raw_data, dict):
         if any(isinstance(x, dict) for x in raw_data.values()):
             raise UserInputError("Raw data is expected to be just for one arm.")
@@ -67,12 +68,12 @@ def raw_data_to_evaluation(
             "Raw data does not conform to the expected structure. For simple "
             "evaluations of one or more metrics, `raw_data` is expected to be "
             "a dictionary of the form `{metric_name -> mean}` or `{metric_name "
-            "-> (mean, SEM)}`. For fidelity or mapping (e.g., early stopping) "
-            "evaluation, the expected format is `[(fidelities, {metric_name -> "
-            "(mean, SEM)})]` or `[({mapping_key, mapping_value}, {metric_name -> "
-            "(mean, SEM)})]`."
+            "-> (mean, SEM)}`. For mapping (e.g., early stopping) evaluation, "
+            "the expected format is `[({mapping_key, mapping_value}, "
+            "{metric_name  -> (mean, SEM)})]`."
             f"Received {raw_data=}. Original validation error: {e}."
         )
+    # TMapTrialEvaluation case
     if isinstance(raw_data, list):
         validate_evaluation_outcome(raw_data)
         return raw_data
@@ -82,10 +83,13 @@ def raw_data_to_evaluation(
             "for experiments with multiple metrics attached. "
             f"Got {raw_data=} for {metric_names=}."
         )
+    # SingleMetricData tuple case
     elif isinstance(raw_data, tuple):
         return {metric_names[0]: raw_data}
+    # SingleMetricData Python scalar case
     elif isinstance(raw_data, (float, int)):
         return {metric_names[0]: (raw_data, None)}
+    # SingleMetricData Numpy scalar case
     elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
         return {metric_names[0]: (numpy_type_to_python_type(raw_data), None)}
     else:
@@ -97,10 +101,10 @@ def raw_data_to_evaluation(
 
 
 def data_and_evaluations_from_raw_data(
-    raw_data: dict[str, TEvaluationOutcome],
-    metric_names: list[str],
+    raw_data: Mapping[str, TEvaluationOutcome],
+    metric_names: Sequence[str],
     trial_index: int,
-    sample_sizes: dict[str, int],
+    sample_sizes: Mapping[str, int],
     data_type: DataType,
     start_time: int | str | None = None,
     end_time: int | str | None = None,

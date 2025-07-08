@@ -60,11 +60,7 @@ class TestRawDataToEvaluation(TestCase):
 
     def test_it_accepts_a_list_for_single_objectives(self) -> None:
         raw_data = [({"arm__0": (0, 1)}, {"objective_a": (1.4, None)})]
-        result = raw_data_to_evaluation(
-            # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[Unio...
-            raw_data=raw_data,
-            metric_names=["objective_a"],
-        )
+        result = raw_data_to_evaluation(raw_data=raw_data, metric_names=["objective_a"])
         self.assertEqual(raw_data, result)
 
     def test_it_turns_a_tuple_into_a_dict(self) -> None:

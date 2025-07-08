@@ -1388,7 +1388,6 @@ class ExperimentWithMapDataTest(TestCase):
         self.experiment.new_trial()
         self.experiment.trials[0].mark_running(no_runner_required=True)
         first_epoch = MapData.from_map_evaluations(
-            # pyre-fixme[6]: For 1st param expected `Dict[str, List[Tuple[Dict[str, H...
             evaluations={
                 arm_name: partial_results[0:1]
                 for arm_name, partial_results in evaluations.items()
@@ -1397,7 +1396,6 @@ class ExperimentWithMapDataTest(TestCase):
         )
         self.experiment.attach_data(first_epoch)
         remaining_epochs = MapData.from_map_evaluations(
-            # pyre-fixme[6]: For 1st param expected `Dict[str, List[Tuple[Dict[str, H...
             evaluations={
                 arm_name: partial_results[1:4]
                 for arm_name, partial_results in evaluations.items()
