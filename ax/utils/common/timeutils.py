@@ -31,12 +31,6 @@ def _ts_to_pandas(ts: int) -> pd.Timestamp:
     return pd.Timestamp(datetime.fromtimestamp(ts))
 
 
-def _pandas_ts_to_int(ts: pd.Timestamp) -> int:
-    """Convert int timestamp into pandas timestamp."""
-    # pyre-fixme[7]: Expected `int` but got `float`.
-    return ts.to_pydatetime().timestamp()
-
-
 def current_timestamp_in_millis() -> int:
     """Grab current timestamp in milliseconds as an int."""
     return int(round(time() * 1000))
