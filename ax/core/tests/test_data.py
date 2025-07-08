@@ -10,12 +10,7 @@ import random
 from unittest.mock import patch
 
 import pandas as pd
-from ax.core.data import (
-    clone_without_metrics,
-    custom_data_class,
-    Data,
-    set_single_trial,
-)
+from ax.core.data import clone_without_metrics, custom_data_class, Data
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 
@@ -159,11 +154,6 @@ class DataTest(TestCase):
         self.assertTrue(df.empty)
         self.assertTrue(set(df.columns == Data.REQUIRED_COLUMNS))
         self.assertTrue(Data.from_multiple_data([]).df.empty)
-
-    def test_SetSingleBatch(self) -> None:
-        data = Data(df=self.df)
-        merged_data = set_single_trial(data)
-        self.assertTrue((merged_data.df["trial_index"] == 0).all())
 
     def test_CustomData(self) -> None:
         CustomData = custom_data_class(
