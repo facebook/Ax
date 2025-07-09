@@ -140,7 +140,6 @@ class Ok(Generic[T, E], Result[T, E]):
     def __repr__(self) -> str:
         return f"Ok({self._value})"
 
-    # pyre-ignore[2]: Parameter `other` must have a type other than `Any`.
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Ok) and self._value == other._value
 
@@ -201,7 +200,6 @@ class Err(Generic[T, E], Result[T, E]):
     def __repr__(self) -> str:
         return f"Err({self._value})"
 
-    # pyre-ignore[2]: Parameter `other` must have a type other than `Any`.
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Err) and self._value == other._value
 
