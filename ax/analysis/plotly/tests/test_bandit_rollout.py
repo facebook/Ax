@@ -8,7 +8,6 @@
 from ax.analysis.plotly.bandit_rollout import BanditRollout
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
-from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_discrete_search_space,
@@ -20,7 +19,6 @@ from ax.utils.testing.core_stubs import (
 class TestBanditRollout(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        init_test_engine_and_session_factory(force_init=True)
 
         self.experiment = Experiment(
             search_space=get_discrete_search_space(), name="test_experiment"
