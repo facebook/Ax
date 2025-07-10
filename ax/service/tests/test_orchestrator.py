@@ -18,6 +18,7 @@ from unittest.mock import call, Mock, patch
 import pandas as pd
 from ax.adapter.cross_validation import compute_model_fit_metrics_from_adapter
 from ax.adapter.registry import Generators, MBM_MTGP_trans
+from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -2557,7 +2558,7 @@ class TestAxOrchestrator(TestCase):
                 cards[0].subtitle,
                 "ValueError encountered while computing ParallelCoordinatesPlot.",
             )
-            self.assertIn("Traceback", cards[0].blob)
+            self.assertIn("Traceback", assert_is_instance(cards[0], AnalysisCard).blob)
             self.assertTrue(any("No data found for metric" in msg for msg in lg.output))
         sobol_generator = get_sobol(search_space=self.branin_experiment.search_space)
         sobol_run = sobol_generator.gen(n=1)

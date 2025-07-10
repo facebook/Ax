@@ -8,7 +8,7 @@
 from collections.abc import Iterable
 
 from ax.analysis.analysis import Analysis, display_cards
-from ax.analysis.analysis_card import AnalysisCard
+from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.overview import OverviewAnalysis
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -32,7 +32,7 @@ class AnalysisBase(WithDBSettingsBase):
         self,
         analyses: Iterable[Analysis] | None = None,
         display: bool = True,
-    ) -> list[AnalysisCard]:
+    ) -> list[AnalysisCardBase]:
         """
         Compute AnalysisCards (data about the optimization for end-user consumption)
         using the Experiment and GenerationStrategy. If no analyses are provided use
@@ -71,4 +71,4 @@ class AnalysisBase(WithDBSettingsBase):
         if display:
             display_cards(cards=cards)
 
-        return [leaf for card in cards for leaf in card.flatten()]
+        return cards
