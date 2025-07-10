@@ -9,9 +9,14 @@ import math
 
 import pandas as pd
 from ax.adapter.base import Adapter
+
+from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.color_constants import METRIC_CONTINUOUS_COLOR_SCALE
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import (
+    create_plotly_analysis_card,
+    PlotlyAnalysisCard,
+)
 from ax.analysis.plotly.surface.utils import (
     get_parameter_values,
     is_axis_log_scale,
@@ -28,7 +33,7 @@ from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
 
-class ContourPlot(PlotlyAnalysis):
+class ContourPlot(Analysis):
     """
     Plot a 2D surface of the surrogate model's predicted outcomes for a given pair of
     parameters, where all other parameters are held fixed at their status-quo value or
@@ -106,7 +111,8 @@ class ContourPlot(PlotlyAnalysis):
             is_relative=self.relativize,
         )
 
-        return self._create_plotly_analysis_card(
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
             title=(
                 f"{self.x_parameter_name}, {self.y_parameter_name} vs. "
                 f"{metric_name}"

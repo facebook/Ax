@@ -11,10 +11,12 @@ from typing import Mapping, Sequence
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate, CVResult
+from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import AX_BLUE
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
+from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
+
 from ax.analysis.plotly.utils import get_scatter_point_color, Z_SCORE_95_CI
 
 from ax.analysis.utils import extract_relevant_adapter
@@ -32,7 +34,7 @@ FILLED_AX_BLUE: str = get_scatter_point_color(
 )
 
 
-class CrossValidationPlot(PlotlyAnalysis):
+class CrossValidationPlot(Analysis):
     """
     Plotly Scatter plot for cross validation for model predictions using the current
     model on the GenerationStrategy. This plot is useful for understanding how well
@@ -135,7 +137,8 @@ class CrossValidationPlot(PlotlyAnalysis):
                 )
             )
 
-            card = self._create_plotly_analysis_card(
+            card = create_plotly_analysis_card(
+                name=self.__class__.__name__,
                 title=f"Cross Validation for {metric_title}",
                 subtitle=(
                     "The cross-validation plot displays the model fit for each "

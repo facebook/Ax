@@ -10,8 +10,12 @@ from typing import List
 import pandas as pd
 import plotly.express as px
 from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.color_constants import DISCRETE_ARM_SCALE
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import (
+    create_plotly_analysis_card,
+    PlotlyAnalysisCard,
+)
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
@@ -21,7 +25,7 @@ from plotly import graph_objects as go
 from pyre_extensions import override
 
 
-class BanditRollout(PlotlyAnalysis):
+class BanditRollout(Analysis):
     """
     BanditRollout visualizes the distribution of weights across different trials
     and arms in an experiment using a bar plot.
@@ -145,7 +149,8 @@ class BanditRollout(PlotlyAnalysis):
         )
         fig = self._prepare_plot(df=df, experiment_name=experiment.name)
 
-        return self._create_plotly_analysis_card(
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
             title=f"Bandit Rollout Weights by Trial for {experiment.name}",
             subtitle=(
                 "The Bandit Rollout visualization provides a comprehensive "

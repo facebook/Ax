@@ -8,10 +8,9 @@
 
 from ax.adapter.base import Adapter
 
-from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
-    HealthcheckAnalysisCard,
-)
+from ax.analysis.analysis import Analysis
+
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.testutils import TestCase
@@ -20,7 +19,7 @@ ERROR_MESSAGE = "Dummy analysis failed!"
 
 
 class TestHealtheckException(TestCase):
-    class DummyAnalysis(HealthcheckAnalysis):
+    class DummyAnalysis(Analysis):
         def compute(
             self,
             experiment: Experiment | None = None,
