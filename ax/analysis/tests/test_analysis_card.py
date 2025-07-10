@@ -48,10 +48,16 @@ class TestAnalysisCard(TestCase):
 
         # Create two groups which hold the leaf cards
         small_group = AnalysisCardGroup(
-            name="small_group", children=[base_analysis_card, markdown_analysis_card]
+            name="small_group",
+            title="Small Group",
+            subtitle="This is a small group with just a few cards",
+            children=[base_analysis_card, markdown_analysis_card],
         )
         big_group = AnalysisCardGroup(
-            name="big_group", children=[plotly_analysis_card, small_group]
+            name="big_group",
+            title="Big Group",
+            subtitle="This is a big group with a lot of cards",
+            children=[plotly_analysis_card, small_group],
         )
 
         expected = """big_group

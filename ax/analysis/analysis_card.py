@@ -69,13 +69,28 @@ class AnalysisCardBase(SortableBase, ABC):
         "ArmEffects", etc.).
     """
 
+    # The name of the Analysis that produced this card.
     name: str
+
+    # Human-readable title which describes the card's contents.
+    title: str
+    # Human-readable subtitle which elaborates on the card's title if necessary.
+    subtitle: str
+
     # Timestamp is especially useful when querying the database for the most recently
     # produced artifacts.
     _timestamp: datetime
 
-    def __init__(self, name: str, timestamp: datetime | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        title: str,
+        subtitle: str,
+        timestamp: datetime | None = None,
+    ) -> None:
         self.name = name
+        self.title = title
+        self.subtitle = subtitle
         self._timestamp = timestamp if timestamp is not None else datetime.now()
 
     @abstractmethod
@@ -117,6 +132,9 @@ class AnalysisCardGroup(AnalysisCardBase):
 
     Args:
         name: The name of the Analysis that produced this card.
+        title: A human-readable title which describes the card's contents.
+        subtitle: A human-readable subtitle which elaborates on the card's title if
+            necessary.
     """
 
     children: list[AnalysisCardBase]
@@ -124,10 +142,18 @@ class AnalysisCardGroup(AnalysisCardBase):
     def __init__(
         self,
         name: str,
+        title: str,
+        subtitle: str,
         children: Sequence[AnalysisCardBase],
         timestamp: datetime | None = None,
     ) -> None:
-        super().__init__(name=name, timestamp=timestamp)
+        super().__init__(
+            name=name,
+            title=title,
+            subtitle=subtitle,
+            timestamp=timestamp,
+        )
+
         self.children = [
             child
             for child in children
@@ -183,9 +209,6 @@ class AnalysisCard(AnalysisCardBase):
     This is analogous to a "leaf node" in a tree structure.
     """
 
-    title: str
-    subtitle: str
-
     df: pd.DataFrame  # Raw data produced by the Analysis
 
     # Blob is the data processed for end-user consumption, encoded as a string,
@@ -203,10 +226,23 @@ class AnalysisCard(AnalysisCardBase):
         blob: str,
         timestamp: datetime | None = None,
     ) -> None:
-        super().__init__(name=name, timestamp=timestamp)
+        """
+        Args:
+            name: The name of the Analysis that produced this card.
+            title: A human-readable title which describes the card's contents.
+            subtitle: A human-readable subtitle which elaborates on the card's title if
+                necessary.
+            df: The raw data produced by the Analysis.
+            blob: The data processed for end-user consumption, encoded as a string,
+                typically JSON.
+        """
+        super().__init__(
+            name=name,
+            title=title,
+            subtitle=subtitle,
+            timestamp=timestamp,
+        )
 
-        self.title = title
-        self.subtitle = subtitle
         self.df = df
         self.blob = blob
 

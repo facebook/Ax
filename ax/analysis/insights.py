@@ -85,17 +85,34 @@ class InsightsAnalysis(Analysis):
             contour_plots.extend(top_surfaces_group.children[2:3])
 
         groups = [
-            AnalysisCardGroup(name="Sensitivity Plots", children=sensitivity_plots)
+            AnalysisCardGroup(
+                name="Sensitivity Plots",
+                title="T230247379",
+                subtitle="T230247379",
+                children=sensitivity_plots,
+            )
             if len(sensitivity_plots) > 0
             else None,
-            AnalysisCardGroup(name="Slice Plots", children=slice_plots)
+            AnalysisCardGroup(
+                name="Slice Plots",
+                title="T230247379",
+                subtitle="T230247379",
+                children=slice_plots,
+            )
             if len(slice_plots) > 0
             else None,
-            AnalysisCardGroup(name="Contour Plots", children=contour_plots)
+            AnalysisCardGroup(
+                name="Contour Plots",
+                title="T230247379",
+                subtitle="T230247379",
+                children=contour_plots,
+            )
             if len(contour_plots) > 0
             else None,
         ]
 
         return self._create_analysis_card_group(
-            children=[group for group in groups if group is not None]
+            title="T230247379",
+            subtitle="T230247379",
+            children=[group for group in groups if group is not None],
         )
