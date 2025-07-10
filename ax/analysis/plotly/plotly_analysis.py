@@ -37,7 +37,7 @@ class PlotlyAnalysisCard(AnalysisCard):
     def get_figure(self) -> go.Figure:
         return pio.from_json(self.blob)
 
-    def _body_html(self) -> str:
+    def _body_html(self, depth: int) -> str:
         """
         Return the standalone HTML of the Plotly figure that can be rendered in an
         IPython environment (ex. Jupyter).
