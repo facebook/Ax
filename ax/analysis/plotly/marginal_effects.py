@@ -8,10 +8,7 @@
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis_card import AnalysisCardBase
-from ax.analysis.plotly.color_constants import (
-    NEGATIVE_CHANGE_COLOR,
-    POSITIVE_CHANGE_COLOR,
-)
+from ax.analysis.plotly.color_constants import COLOR_FOR_DECREASES, COLOR_FOR_INCREASES
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
 
@@ -197,8 +194,7 @@ def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
     """Create a bar plot of the marginal effects for a single parameter."""
     param = df["Name"].iloc[0]
     colors = [
-        POSITIVE_CHANGE_COLOR if beta > 0 else NEGATIVE_CHANGE_COLOR
-        for beta in df["Beta"]
+        COLOR_FOR_INCREASES if beta > 0 else COLOR_FOR_DECREASES for beta in df["Beta"]
     ]
 
     bar_plot = go.Bar(
