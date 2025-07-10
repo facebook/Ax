@@ -10,15 +10,9 @@ import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis_card import AnalysisCardBase
-
+from ax.analysis.plotly.color_constants import COLOR_FOR_DECREASES, COLOR_FOR_INCREASES
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
-from ax.analysis.plotly.utils import (
-    COLOR_FOR_DECREASES,
-    COLOR_FOR_INCREASES,
-    LEGEND_POSITION,
-    MARGIN_REDUCUTION,
-    truncate_label,
-)
+from ax.analysis.plotly.utils import LEGEND_POSITION, MARGIN_REDUCUTION, truncate_label
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError

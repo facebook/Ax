@@ -10,6 +10,7 @@ import re
 from typing import Sequence, Union
 
 import pandas as pd
+from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE, LIGHT_AX_BLUE
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.trial_status import TrialStatus
@@ -25,38 +26,6 @@ MINIMUM_CONTRAINT_VIOLATION_THRESHOLD = 0.01
 
 # Z-score for 95% confidence interval
 Z_SCORE_95_CI = 1.96
-
-# Plotting style constants
-CANDIDATE_RED = "rgba(220, 20, 60, 0.3)"
-CANDIDATE_CI_RED = "rgba(220, 20, 60, 0.2)"
-CONSTRAINT_VIOLATION_RED = "red"
-
-# Colors sampled from Botorch flame logo
-BOTORCH_COLOR_SCALE = [
-    "#f7931e",  # Botorch orange
-    "#eb882d",
-    "#df7d3c",
-    "#d3724b",
-    "#c7685a",
-    "#bb5d69",
-    "#af5278",
-    "#a34887",
-    "#973d96",
-    "#8b32a5",
-    "#7f28b5",  # Botorch purple
-    "#792fbb",
-    "#7436c1",
-    "#6f3dc7",
-    "#6a44cd",
-    "#654bd4",
-    "#6052da",
-    "#5b59e0",
-    "#5660e6",
-    "#5167ec",
-    "#4c6ef3",  # Botorch blue
-]
-AX_BLUE = "#5078f9"  # rgb code: rgb(80, 120, 249)
-LIGHT_AX_BLUE = "#adc0fd"  # rgb(173, 192, 253)
 
 
 # Splat this into a go.Scatter initializer when drawing a line that represents the
@@ -74,11 +43,6 @@ BEST_LINE_SETTINGS: dict[str, str | dict[str, str] | bool] = {
     "hoverinfo": "skip",
 }
 
-# Use the same continuous sequential color scale for all plots. PRGn uses purples for
-# low values and transitions to greens for high values.
-METRIC_CONTINUOUS_COLOR_SCALE: list[str] = px.colors.colorbrewer.PRGn
-COLOR_FOR_INCREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[8]  # lighter green
-COLOR_FOR_DECREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[2]  # lighter purple
 
 # Move the legened to the bottom, and make horizontal
 LEGEND_POSITION: dict[str, Union[float, str]] = {

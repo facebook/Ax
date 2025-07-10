@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis_card import AnalysisCardBase
-from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_COLOR
+from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_RED
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
@@ -324,7 +324,7 @@ def _prepare_figure(
                     else 0,
                     axis=1,
                 ),
-                "color": CONSTRAINT_VIOLATION_COLOR,
+                "color": CONSTRAINT_VIOLATION_RED,
             },
         }
         text = trial_df.apply(
