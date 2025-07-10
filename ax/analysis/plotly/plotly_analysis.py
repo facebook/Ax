@@ -15,8 +15,6 @@ from plotly import graph_objects as go, io as pio
 # negativesigns to render correctly
 # 2. Need to define a fixed height for the content so that the plotly figure doesn't
 # get squished.
-# 3. require.js is not compatible with ES6 import used by plotly.js so we null out
-# define
 body_html_template = """
 <meta charset="utf-8" />
 <style>
@@ -26,7 +24,6 @@ body_html_template = """
     height: 500px;
 }}
 </style>
-<script>define = null;</script>
 <div class="content">
     {figure_html}
 </div>
@@ -45,7 +42,7 @@ class PlotlyAnalysisCard(AnalysisCard):
 
         return body_html_template.format(
             figure_html=self.get_figure().to_html(
-                full_html=False, include_plotlyjs=True
+                full_html=False, include_plotlyjs=False
             )
         )
 

@@ -16,6 +16,8 @@ from ax.utils.common.base import SortableBase
 from ax.utils.tutorials.environment import is_running_in_papermill
 from IPython.display import display, HTML, Markdown
 
+from plotly.offline import get_plotlyjs
+
 # Simple HTML template for rendering a card with a title, subtitle, and body with
 # scrollable overflow.
 html_card_template = """
@@ -164,8 +166,11 @@ class AnalysisCardBase(SortableBase, ABC):
         implemented by subclasses of Analysis to display the AnalysisCard in a useful
         way.
         """
+        # require.js is not compatible with ES6 import used by plotly.js so we must
+        # null out `define` here. This does not affect rendering.
+        plotlyjs_script = f"<script>define = null;{get_plotlyjs()}</script>"
 
-        return self._to_html(depth=0)
+        return plotlyjs_script + self._to_html(depth=0)
 
     def _to_html(self, depth: int) -> str:
         return html_card_template.format(
