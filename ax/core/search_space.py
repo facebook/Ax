@@ -537,7 +537,7 @@ class HierarchicalSearchSpace(SearchSpace):
             ]
             obs_feats.parameters = {**full_parameterization, **obs_feats.parameters}
 
-        if len(obs_feats.parameters) < len(self.parameters):
+        elif len(obs_feats.parameters) < len(self.parameters):
             if inject_dummy_values_to_complete_flat_parameterization:
                 # Inject dummy values for parameters missing from the parameterization.
                 dummy_values_to_inject = (

@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 from unittest.mock import patch
 
 import numpy as np
@@ -25,7 +27,11 @@ from botorch.models.transforms.input import (
     Normalize,
     Warp,
 )
-from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
+from botorch.utils.datasets import (
+    MultiTaskDataset,
+    SupervisedDataset,
+    TASK_FEATURE_NAME,
+)
 
 
 class DummyInputTransform(InputTransform):  # pyre-ignore [13]
@@ -156,12 +162,19 @@ class InputTransformArgparseTest(TestCase):
             outcome_names=["y1"],
         )
         mtds = MultiTaskDataset(datasets=[dataset1, dataset2], target_outcome_name="y0")
+        mt_ssd = dataclasses.replace(
+            self.search_space_digest,
+            feature_names=self.search_space_digest.feature_names + [TASK_FEATURE_NAME],
+            task_features=self.search_space_digest.task_features + [-1],
+            bounds=self.search_space_digest.bounds + [(0.0, 1.0)],
+        )
         input_transform_kwargs = input_transform_argparse(
             Normalize,
             dataset=mtds,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=mt_ssd,
         )
-        self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertEqual(input_transform_kwargs["d"], 5)
+        # both task features should be omitted
         self.assertEqual(input_transform_kwargs["indices"], [0, 1, 3])
 
         input_transform_kwargs = input_transform_argparse(

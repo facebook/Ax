@@ -268,9 +268,14 @@ def _get_default_ard_num_dims_and_batch_shape(
                     logger.debug(
                         "Excluding task feature from covar_module.", stacklevel=6
                     )
+                    task_feature_index = (
+                        -1
+                        if dataset.task_feature_index is None
+                        else dataset.task_feature_index
+                    )
                     normalized_task_idx = none_throws(
                         normalize_indices(
-                            indices=[none_throws(dataset.task_feature_index)],
+                            indices=[task_feature_index],
                             d=dataset.X.shape[-1],
                         )
                     )[0]
