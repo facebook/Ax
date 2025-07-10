@@ -9,9 +9,11 @@ from typing import Literal, Mapping, Sequence
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
-from ax.analysis.analysis_card import AnalysisCardBase
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCardBase
+from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
+
 from ax.analysis.plotly.utils import (
     COLOR_FOR_DECREASES,
     COLOR_FOR_INCREASES,
@@ -30,8 +32,23 @@ from pyre_extensions import override
 # SensitivityAnalysisPlot uses a plotly bar chart which needs especially short labels
 MAX_LABEL_LEN: int = 20
 
+SENSITIVITY_CARDGROUP_TITLE = (
+    "Sensitivity Analysis: Understand how each parameter affects metrics"
+)
 
-class SensitivityAnalysisPlot(PlotlyAnalysis):
+SENSITIVITY_CARDGROUP_SUBTITLE = (
+    "These plots display the sensitivity of each metric to the "
+    "most important parameters in the experiment. Sensitivity is measured by the "
+    "Sobol indices, which are computed using the model fit to the data. The plots "
+    "show the sensitivity of the metric to the top most important parameters in "
+    "descending order of importance. The plots are computed using the model fit to "
+    "the data. The plots show the sensitivity of the metric to the top most "
+    "important parameters in descending order of importance and are colored by "
+    "whether the parameter increases (green) or decreases (purple) the metric."
+)
+
+
+class SensitivityAnalysisPlot(Analysis):
     """
     Compute sensitivity for all metrics on a TorchAdapter.
 
@@ -104,7 +121,8 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
                 metric_label=metric_label,
             )
 
-            card = self._create_plotly_analysis_card(
+            card = create_plotly_analysis_card(
+                name=self.__class__.__name__,
                 title=f"Sensitivity Analysis for {metric_label}",
                 subtitle=(
                     f"Understand how each parameter affects {metric_label} according "
@@ -117,6 +135,8 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
             cards.append(card)
 
         return self._create_analysis_card_group_or_card(
+            title=SENSITIVITY_CARDGROUP_TITLE,
+            subtitle=SENSITIVITY_CARDGROUP_SUBTITLE,
             children=cards,
         )
 

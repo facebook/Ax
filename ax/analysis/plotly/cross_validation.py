@@ -11,10 +11,12 @@ from typing import Mapping, Sequence
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate, CVResult
+from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import AX_BLUE
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
+from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
+
 from ax.analysis.plotly.utils import get_scatter_point_color, Z_SCORE_95_CI
 
 from ax.analysis.utils import extract_relevant_adapter
@@ -31,8 +33,24 @@ FILLED_AX_BLUE: str = get_scatter_point_color(
     ci_transparency=False,
 )
 
+CV_CARDGROUP_TITLE = "Cross Validation: Assessing model fit"
 
-class CrossValidationPlot(PlotlyAnalysis):
+CV_CARDGROUP_SUBTITLE = (
+    "Cross-validation plots display the model fit for each metric in the "
+    "experiment. The model is trained on a subset of the data and then predicts the "
+    "outcome for the remaining subset. The plots show the predicted outcome for the "
+    "validation set on the y-axis against its actual value on the x-axis. Points "
+    "that align closely with the dotted diagonal line indicate a strong model fit, "
+    "signifying accurate predictions. Additionally, the plots include "
+    "confidence intervals that provide insight into the noise in observations and "
+    "the uncertainty in model predictions. <br><br>"
+    "NOTE: A horizontal, flat line of predictions "
+    "indicates that the model has not picked up on sufficient signal in the data, "
+    "and instead is just predicting the mean."
+)
+
+
+class CrossValidationPlot(Analysis):
     """
     Plotly Scatter plot for cross validation for model predictions using the current
     model on the GenerationStrategy. This plot is useful for understanding how well
@@ -135,7 +153,8 @@ class CrossValidationPlot(PlotlyAnalysis):
                 )
             )
 
-            card = self._create_plotly_analysis_card(
+            card = create_plotly_analysis_card(
+                name=self.__class__.__name__,
                 title=f"Cross Validation for {metric_title}",
                 subtitle=(
                     "The cross-validation plot displays the model fit for each "
@@ -158,6 +177,8 @@ class CrossValidationPlot(PlotlyAnalysis):
             cards.append(card)
 
         return self._create_analysis_card_group_or_card(
+            title=CV_CARDGROUP_TITLE,
+            subtitle=CV_CARDGROUP_SUBTITLE,
             children=cards,
         )
 

@@ -5,14 +5,10 @@
 
 # pyre-strict
 
+
 import pandas as pd
-from ax.adapter.base import Adapter
-from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard, AnalysisCardBase
-from ax.core.experiment import Experiment
-from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.analysis.analysis_card import AnalysisCard
 from plotly import graph_objects as go, io as pio
-from pyre_extensions import override
 
 # Body HTML template for Plotly figures with a couple tricks for rendering in Jupyter.
 # 1. It is necessary to use the UTF-8 encoding with plotly graphics to get e.g.
@@ -41,7 +37,7 @@ class PlotlyAnalysisCard(AnalysisCard):
     def get_figure(self) -> go.Figure:
         return pio.from_json(self.blob)
 
-    def _body_html(self) -> str:
+    def _body_html(self, depth: int) -> str:
         """
         Return the standalone HTML of the Plotly figure that can be rendered in an
         IPython environment (ex. Jupyter).
@@ -49,7 +45,7 @@ class PlotlyAnalysisCard(AnalysisCard):
 
         return body_html_template.format(
             figure_html=self.get_figure().to_html(
-                full_html=False, include_plotlyjs=True
+                full_html=False, include_plotlyjs=False
             )
         )
 
@@ -60,34 +56,17 @@ class PlotlyAnalysisCard(AnalysisCard):
         return self.get_figure()
 
 
-class PlotlyAnalysis(Analysis):
-    """
-    An Analysis that computes a Plotly figure.
-    """
-
-    @override
-    def compute(
-        self,
-        experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategy | None = None,
-        adapter: Adapter | None = None,
-    ) -> AnalysisCardBase: ...
-
-    def _create_plotly_analysis_card(
-        self,
-        title: str,
-        subtitle: str,
-        df: pd.DataFrame,
-        fig: go.Figure,
-    ) -> PlotlyAnalysisCard:
-        """
-        Make a PlotlyAnalysisCard from this Analysis using provided fields and
-        details about the Analysis class.
-        """
-        return PlotlyAnalysisCard(
-            name=self.__class__.__name__,
-            title=title,
-            subtitle=subtitle,
-            df=df,
-            blob=pio.to_json(fig),
-        )
+def create_plotly_analysis_card(
+    name: str,
+    title: str,
+    subtitle: str,
+    df: pd.DataFrame,
+    fig: go.Figure,
+) -> PlotlyAnalysisCard:
+    return PlotlyAnalysisCard(
+        name=name,
+        title=title,
+        subtitle=subtitle,
+        df=df,
+        blob=pio.to_json(fig),
+    )

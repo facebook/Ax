@@ -11,9 +11,11 @@ import numpy as np
 
 import pandas as pd
 from ax.adapter.base import Adapter
+
+from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_COLOR
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
+from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
@@ -39,8 +41,33 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import override
 
+CARDGROUP_TITLE = "Metric Effects: Values of key metrics for all arms in the experiment"
 
-class ArmEffectsPlot(PlotlyAnalysis):
+PREDICTED_EFFECTS_CARDGROUP_SUBTITLE = (
+    "These plots visualize predictions of the 'true' metric changes for each arm, "
+    "based on Ax's model. Since Ax applies Empirical Bayes shrinkage to adjust for "
+    "noise and also accounts for non-stationarity in the data, predicted metric "
+    "effects will not match raw observed data perfectly, but will be more "
+    "representative of the reproducible effects that will manifest in a long-term "
+    "validation experiment. <br><br>"
+    "NOTE: Flat predictions across arms indicate that the model predicts that "
+    "none of the arms had a sufficient effect on the metric, meaning that if you "
+    "re-ran the experiment, the delta you would see would be small and fall "
+    "within the confidence interval indicated in the plot. In other words, this "
+    "indicates that according to the model, the raw observed effects on this metric "
+    "are primarily noise."
+)
+
+RAW_EFFECTS_CARDGROUP_SUBTITLE = (
+    "These plots visualize the raw data on the effects we observed from "
+    "previously-run arms on a specific metric, providing insights into "
+    "their performance. These plots allow one to compare and contrast the "
+    "effectiveness of different arms, highlighting which configurations have yielded "
+    "the most favorable outcomes."
+)
+
+
+class ArmEffectsPlot(Analysis):
     """
     Plot the effects of each arm in an experiment on a given metric. Effects may be
     either the raw observed effects, or the predicted effects using a model. The
@@ -147,7 +174,8 @@ class ArmEffectsPlot(PlotlyAnalysis):
         }
 
         cards = [
-            self._create_plotly_analysis_card(
+            create_plotly_analysis_card(
+                name=self.__class__.__name__,
                 title=(
                     f"{'Modeled' if self.use_model_predictions else 'Observed'} "
                     f"{'Relativized ' if self.relativize else ''}Arm "
@@ -191,6 +219,10 @@ class ArmEffectsPlot(PlotlyAnalysis):
         ]
 
         return self._create_analysis_card_group_or_card(
+            title=CARDGROUP_TITLE,
+            subtitle=PREDICTED_EFFECTS_CARDGROUP_SUBTITLE
+            if self.use_model_predictions
+            else RAW_EFFECTS_CARDGROUP_SUBTITLE,
             children=cards,
         )
 

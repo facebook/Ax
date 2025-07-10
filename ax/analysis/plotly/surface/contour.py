@@ -9,9 +9,14 @@ import math
 
 import pandas as pd
 from ax.adapter.base import Adapter
+
+from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.color_constants import METRIC_CONTINUOUS_COLOR_SCALE
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import (
+    create_plotly_analysis_card,
+    PlotlyAnalysisCard,
+)
 from ax.analysis.plotly.surface.utils import (
     get_parameter_values,
     is_axis_log_scale,
@@ -27,8 +32,17 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
+CONTOUR_CARDGROUP_TITLE = "Contour Plots: Metric effects by parameter values"
 
-class ContourPlot(PlotlyAnalysis):
+CONTOUR_CARDGROUP_SUBTITLE = (
+    "These plots show the relationship between a metric and two parameters. They "
+    "show the predicted values of the metric (indicated by color) as a function of "
+    "the two parameters on the x- and y-axes while keeping all other parameters "
+    "fixed at their status_quo value (or mean value if status_quo is unavailable). "
+)
+
+
+class ContourPlot(Analysis):
     """
     Plot a 2D surface of the surrogate model's predicted outcomes for a given pair of
     parameters, where all other parameters are held fixed at their status-quo value or
@@ -106,7 +120,8 @@ class ContourPlot(PlotlyAnalysis):
             is_relative=self.relativize,
         )
 
-        return self._create_plotly_analysis_card(
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
             title=(
                 f"{self.x_parameter_name}, {self.y_parameter_name} vs. "
                 f"{metric_name}"

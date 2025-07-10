@@ -9,10 +9,14 @@ import math
 
 import pandas as pd
 from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import AX_BLUE
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import (
+    create_plotly_analysis_card,
+    PlotlyAnalysisCard,
+)
 from ax.analysis.plotly.surface.utils import (
     get_parameter_values,
     is_axis_log_scale,
@@ -33,8 +37,17 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
+SLICE_CARDGROUP_TITLE = "Slice Plots: Metric effects by parameter value"
 
-class SlicePlot(PlotlyAnalysis):
+SLICE_CARDGROUP_SUBTITLE = (
+    "These plots show the relationship between a metric and a parameter. They "
+    "show the predicted values of the metric on the y-axis as a function of the "
+    "parameter on the x-axis while keeping all other parameters fixed at their "
+    "status_quo value (or mean value if status_quo is unavailable). "
+)
+
+
+class SlicePlot(Analysis):
     """
     Plot a 1D "slice" of the surrogate model's predicted outcomes for a given
     parameter, where all other parameters are held fixed at their status-quo value or
@@ -105,7 +118,8 @@ class SlicePlot(PlotlyAnalysis):
             is_relative=self.relativize,
         )
 
-        return self._create_plotly_analysis_card(
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
             title=f"{self.parameter_name} vs. {metric_name}",
             subtitle=(
                 "The slice plot provides a one-dimensional view of predicted "

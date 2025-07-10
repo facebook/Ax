@@ -27,12 +27,31 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws, override
 
 
+HEALTH_CHECK_CARDGROUP_TITLE = "Health Checks"
+HEALTH_CHECK_CARDGROUP_SUBTITLE = (
+    "Comprehensive health checks designed to identify potential issues in the Ax "
+    "experiment. These checks cover areas such as metric fetching, search space "
+    "configuration, and candidate generation, with the aim of flagging areas where "
+    "user intervention may be necessary to ensure the experiment's robustness "
+    "and success."
+)
+
+OVERVIEW_CARDGROUP_TITLE = "Overview of the Entire Optimization Process "
+OVERVIEW_CARDGROUP_SUBTITLE = (
+    "This analysis provides an overview of the entire optimization process. "
+    "It includes visualizations of the results obtained so far, insights into "
+    "the parameter and metric relationships learned by the Ax model, diagnostics "
+    "such as model fit, and health checks to assess the overall health of the "
+    "experiment."
+)
+
+
 class OverviewAnalysis(Analysis):
     """
     Top-level Analysis that provides an overview of the entire optimization process,
     including results, insights, and diagnostics. OverviewAnalysis examines the
     Experiment and GenerationStrategy's configuration and their respective current
-    states to heuristicly determine which Analyses to compute under the hood.
+    states to heuristically determine which Analyses to compute under the hood.
 
     AnalysisCards will be returned in the following groups:
         * Overview
@@ -154,6 +173,8 @@ class OverviewAnalysis(Analysis):
         health_checks_group = (
             AnalysisCardGroup(
                 name="HealthchecksAnalysis",
+                title=HEALTH_CHECK_CARDGROUP_TITLE,
+                subtitle=HEALTH_CHECK_CARDGROUP_SUBTITLE,
                 children=non_passing_health_checks,
             )
             if len(non_passing_health_checks) > 0
@@ -161,6 +182,8 @@ class OverviewAnalysis(Analysis):
         )
 
         return self._create_analysis_card_group(
+            title=OVERVIEW_CARDGROUP_TITLE,
+            subtitle=OVERVIEW_CARDGROUP_SUBTITLE,
             children=[
                 group
                 for group in [
@@ -170,5 +193,5 @@ class OverviewAnalysis(Analysis):
                     health_checks_group,
                 ]
                 if group is not None
-            ]
+            ],
         )

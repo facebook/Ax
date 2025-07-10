@@ -5,11 +5,11 @@
 
 # pyre-strict
 
-
 import pandas as pd
 from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
 from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
+    create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
@@ -22,7 +22,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws, override
 
 
-class RegressionAnalysis(HealthcheckAnalysis):
+class RegressionAnalysis(Analysis):
     r"""
     Analysis for detecting the regressing arm, metric pairs across all trials with data.
     For each metric, the regressions are defined as the arms that have a probability of
@@ -106,7 +106,8 @@ class RegressionAnalysis(HealthcheckAnalysis):
             subtitle = subtitle_base + "No metric regessions detected."
             title_status = "Success"
 
-        return self._create_healthcheck_analysis_card(
+        return create_healthcheck_analysis_card(
+            name=self.__class__.__name__,
             title=f"Ax Regression Analysis {title_status}",
             subtitle=subtitle,
             df=regressions_by_trial_df,

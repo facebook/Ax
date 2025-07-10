@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Sequence
 
 import pandas as pd
+import plotly
 from ax.utils.common.base import SortableBase
 from ax.utils.tutorials.environment import is_running_in_papermill
 from IPython.display import display, HTML, Markdown
@@ -69,13 +70,28 @@ class AnalysisCardBase(SortableBase, ABC):
         "ArmEffects", etc.).
     """
 
+    # The name of the Analysis that produced this card.
     name: str
+
+    # Human-readable title which describes the card's contents.
+    title: str
+    # Human-readable subtitle which elaborates on the card's title if necessary.
+    subtitle: str
+
     # Timestamp is especially useful when querying the database for the most recently
     # produced artifacts.
     _timestamp: datetime
 
-    def __init__(self, name: str, timestamp: datetime | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        title: str,
+        subtitle: str,
+        timestamp: datetime | None = None,
+    ) -> None:
         self.name = name
+        self.title = title
+        self.subtitle = subtitle
         self._timestamp = timestamp if timestamp is not None else datetime.now()
 
     @abstractmethod
@@ -107,6 +123,58 @@ class AnalysisCardBase(SortableBase, ABC):
     def _unique_id(self) -> str:
         return str(hash(str(self.__dict__)))
 
+    def _ipython_display_(self) -> None:
+        """
+        IPython display hook. This is called when the AnalysisCard is rendered in an
+        IPython environment (ex. Jupyter). This method should not be implemented by
+        subclasses; instead they should implement the representation-specific helpers
+        such as _body_html_ and _body_papermill_.
+        """
+
+        if is_running_in_papermill():
+            for card in self.flatten():
+                display(Markdown(f"**{card.title}**\n\n{card.subtitle}"))
+                display(card._body_papermill())
+                return
+
+        display(HTML(self._repr_html_()))
+
+    @abstractmethod
+    def _body_html(self, depth: int) -> str:
+        """
+        Return the HTML body of the card (the dataframe, plot, grid, etc.). This is
+        used by the AnalysisCardBase._repr_html_ method to render the card in an
+        IPython environment (ex. Jupyter).
+
+        This, not _repr_html_ or _to_html, should be implemented by subclasses of
+        AnalysisCardBase in most cases in order to keep treatment of titles and
+        subtitles consistent.
+
+        Since this method can sometimes be called recursively a "depth" parameter can
+        be passed in as well.
+        """
+        pass
+
+    def _repr_html_(self) -> str:
+        """
+        IPython HTML representation hook. This is called when the AnalysisCard is
+        rendered in an IPython environment (ex. Jupyter). This method should be
+        implemented by subclasses of Analysis to display the AnalysisCard in a useful
+        way.
+        """
+
+        return (
+            f"<script>define = null;{plotly.offline.get_plotlyjs()}</script>"
+            + self._to_html(depth=0)
+        )
+
+    def _to_html(self, depth: int) -> str:
+        return html_card_template.format(
+            title_str=self.title,
+            subtitle_str=self.subtitle if depth < 2 else "",
+            body_html=self._body_html(depth=depth),
+        )
+
 
 class AnalysisCardGroup(AnalysisCardBase):
     """
@@ -117,6 +185,9 @@ class AnalysisCardGroup(AnalysisCardBase):
 
     Args:
         name: The name of the Analysis that produced this card.
+        title: A human-readable title which describes the card's contents.
+        subtitle: A human-readable subtitle which elaborates on the card's title if
+            necessary.
     """
 
     children: list[AnalysisCardBase]
@@ -124,10 +195,18 @@ class AnalysisCardGroup(AnalysisCardBase):
     def __init__(
         self,
         name: str,
+        title: str,
+        subtitle: str,
         children: Sequence[AnalysisCardBase],
         timestamp: datetime | None = None,
     ) -> None:
-        super().__init__(name=name, timestamp=timestamp)
+        super().__init__(
+            name=name,
+            title=title,
+            subtitle=subtitle,
+            timestamp=timestamp,
+        )
+
         self.children = [
             child
             for child in children
@@ -147,27 +226,51 @@ class AnalysisCardGroup(AnalysisCardBase):
             child.hierarchy_str(level=level + 1) for child in self.children
         )
 
-    def _ipython_display_(self) -> None:
+    def _body_html(self, depth: int) -> str:
         """
-        IPython display hook. This is called when the AnalysisCard is rendered in an
-        IPython environment (ex. Jupyter). This method should not be implemented by
-        subclasses; instead they should implement the representation-specific helpers
-        such as _body_html_ and _body_papermill_.
+        When rendering an AnalysisCardGroup as HTML use the following rules when
+        constructing the card's body:
+
+        * Render children in order
+        * Render AnalysisCards (leaves) in a 2xN grid when adjacent to each other
+        * Do not render AnalysisCardGroups in a grid
+        * Do not render subtitles below depth == 2 (this is handled in
+            AnalysisCardBase._to_html, not this method).
         """
 
-        if is_running_in_papermill():
-            for card in self.flatten():
-                display(Markdown(f"**{card.title}**\n\n{card.subtitle}"))
-                display(card._body_papermill())
-                return
+        res = []
+        leaf_cards = []
+        for child in self.children:
+            # Accumulate adjacent AnalysisCard leaves so they can be inserted into an
+            # HTML grid later.
+            if isinstance(child, AnalysisCard):
+                leaf_cards.append(child)
+                continue
 
-        display(
-            HTML(
-                html_grid_template.format(
-                    card_divs="".join([card._repr_html_() for card in self.flatten()])
+            # If there are leaves accumulated, collect them into a grid and empty
+            # the accumulator before appending the current child AnalysisCardGroup
+            # underneath.
+            if len(leaf_cards) > 0:
+                leaves_grid = html_grid_template.format(
+                    card_divs="".join(
+                        [card._to_html(depth=depth + 1) for card in leaf_cards]
+                    )
+                )
+                res.append(leaves_grid)
+                leaf_cards = []
+
+            res.append(child._to_html(depth=depth + 1))
+
+        # Collect the accumulated leaves a final time to append to the result.
+        if len(leaf_cards) > 0:
+            leaves_grid = html_grid_template.format(
+                card_divs="".join(
+                    [card._to_html(depth=depth + 1) for card in leaf_cards]
                 )
             )
-        )
+            res.append(leaves_grid)
+
+        return "\n".join(res)
 
 
 class AnalysisCard(AnalysisCardBase):
@@ -182,9 +285,6 @@ class AnalysisCard(AnalysisCardBase):
 
     This is analogous to a "leaf node" in a tree structure.
     """
-
-    title: str
-    subtitle: str
 
     df: pd.DataFrame  # Raw data produced by the Analysis
 
@@ -203,10 +303,23 @@ class AnalysisCard(AnalysisCardBase):
         blob: str,
         timestamp: datetime | None = None,
     ) -> None:
-        super().__init__(name=name, timestamp=timestamp)
+        """
+        Args:
+            name: The name of the Analysis that produced this card.
+            title: A human-readable title which describes the card's contents.
+            subtitle: A human-readable subtitle which elaborates on the card's title if
+                necessary.
+            df: The raw data produced by the Analysis.
+            blob: The data processed for end-user consumption, encoded as a string,
+                typically JSON.
+        """
+        super().__init__(
+            name=name,
+            title=title,
+            subtitle=subtitle,
+            timestamp=timestamp,
+        )
 
-        self.title = title
-        self.subtitle = subtitle
         self.df = df
         self.blob = blob
 
@@ -220,50 +333,14 @@ class AnalysisCard(AnalysisCardBase):
     def hierarchy_str(self, level: int = 0) -> str:
         return f"{'    ' * level}{self.title}"
 
-    def _ipython_display_(self) -> None:
+    def _body_html(self, depth: int) -> str:
         """
-        IPython display hook. This is called when the AnalysisCard is rendered in an
-        IPython environment (ex. Jupyter). This method should not be implemented by
-        subclasses; instead they should implement the representation-specific helpers
-        such as _body_html_ and _body_papermill_.
-        """
-
-        if is_running_in_papermill():
-            display(Markdown(f"**{self.title}**\n\n{self.subtitle}"))
-            display(self._body_papermill())
-            return
-
-        display(HTML(self._repr_html_()))
-
-    def _repr_html_(self) -> str:
-        """
-        IPython HTML representation hook. This is called when the AnalysisCard is
-        rendered in an IPython environment (ex. Jupyter). This method should be
-        implemented by subclasses of Analysis to display the AnalysisCard in a useful
-        way.
-        """
-
-        return html_card_template.format(
-            title_str=self.title,
-            subtitle_str=self.subtitle,
-            body_html=self._body_html(),
-        )
-
-    def _body_html(self) -> str:
-        """
-        Return the HTML body of the AnalysisCard (the dataframe, plot, etc.). This is
-        used by the AnalysisCard._repr_html_ method to render the AnalysisCard in an
-        IPython environment (ex. Jupyter).
-
-        This, not _repr_html_, should be implemented by subclasses of AnalysisCard in
-        most cases.
-
         By default, this method displays the raw data in a pandas DataFrame.
         """
 
         return f"<div class='content'>{self.df.to_html()}</div>"
 
-    def _body_papermill(self) -> Any:  # pyre-ignore[3]
+    def _body_papermill(self) -> Any:
         """
         Return the body of the AnalysisCard in a simplified format for when html is
         undesirable (ex. when rendering the Ax website).
