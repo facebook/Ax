@@ -36,6 +36,8 @@ class DiagnosticAnalysis(Analysis):
         metric_names = [*none_throws(experiment.optimization_config).metrics.keys()]
 
         return self._create_analysis_card_group(
+            title="T230247379",
+            subtitle="T230247379",
             children=[
                 *CrossValidationPlot(metric_names=metric_names)
                 .compute_or_error_card(
@@ -44,5 +46,5 @@ class DiagnosticAnalysis(Analysis):
                     adapter=adapter,
                 )
                 .flatten()
-            ]
+            ],
         )

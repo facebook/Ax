@@ -77,6 +77,8 @@ class ResultsAnalysis(Analysis):
         objective_scatter_group = (
             AnalysisCardGroup(
                 name="Objective Scatter Plots",
+                title="T230247379",
+                subtitle="T230247379",
                 children=[
                     ScatterPlot(
                         x_metric_name=x,
@@ -100,6 +102,8 @@ class ResultsAnalysis(Analysis):
         constraint_scatter_group = (
             AnalysisCardGroup(
                 name="Constraint Scatter Plots",
+                title="T230247379",
+                subtitle="T230247379",
                 children=[
                     ScatterPlot(
                         x_metric_name=objective_name,
@@ -145,6 +149,8 @@ class ResultsAnalysis(Analysis):
         )
 
         return self._create_analysis_card_group(
+            title="T230247379",
+            subtitle="T230247379",
             children=[
                 group
                 for group in (
@@ -154,7 +160,7 @@ class ResultsAnalysis(Analysis):
                     summary,
                 )
                 if group is not None
-            ]
+            ],
         )
 
 
@@ -242,6 +248,8 @@ class ArmEffectsPair(Analysis):
 
             pair = AnalysisCardGroup(
                 name=f"ArmEffects Pair {metric_name}",
+                title="T230247379",
+                subtitle="T230247379",
                 children=[
                     predicted_analysis.compute_or_error_card(
                         experiment=experiment,
@@ -255,5 +263,7 @@ class ArmEffectsPair(Analysis):
             pairs.append(pair)
 
         return self._create_analysis_card_group(
+            title="T230247379",
+            subtitle="T230247379",
             children=pairs,
         )
