@@ -85,9 +85,26 @@ class RangeParameterTest(TestCase):
         self.assertTrue(self.param1.validate(1))
         self.assertTrue(self.param1.validate(1.3))
         self.assertFalse(self.param1.validate(3.5))
+
         # Check with tolerances
         self.assertTrue(self.param1.validate(1 - 0.5 * EPS))
         self.assertTrue(self.param1.validate(3 + 0.5 * EPS))
+
+        # Check with raises
+        with self.assertRaisesRegex(UserInputError, "is `None` but the parameter"):
+            self.param1.validate(None, raises=True)
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            r"parameter x has type \(<class 'str'>\), which is not valid",
+        ):
+            self.assertFalse(self.param1.validate("foo", raises=True))
+
+        self.assertTrue(self.param1.validate(1, raises=True))
+        self.assertTrue(self.param1.validate(1.3, raises=True))
+
+        with self.assertRaisesRegex(UserInputError, "is not within the range of"):
+            self.assertFalse(self.param1.validate(3.5, raises=True))
 
     def test_Repr(self) -> None:
         self.assertEqual(str(self.param1), self.param1_repr)
@@ -330,6 +347,13 @@ class ChoiceParameterTest(TestCase):
         self.assertFalse(self.param1.validate(3))
         for value in ["foo", "bar", "baz"]:
             self.assertTrue(self.param1.validate(value))
+
+        # Check with raises
+        for value in (None, 3):
+            with self.assertRaisesRegex(
+                UserInputError, "not in the list of allowed values"
+            ):
+                self.assertFalse(self.param1.validate(value, raises=True))
 
     def test_Setter(self) -> None:
         self.param1.add_values(["bin"])
@@ -601,6 +625,15 @@ class FixedParameterTest(TestCase):
         self.assertFalse(self.param1.validate("foo"))
         self.assertFalse(self.param1.validate(False))
         self.assertTrue(self.param1.validate(True))
+
+        # Check with raises
+        for value in (None, "foo", False):
+            with self.assertRaisesRegex(
+                UserInputError, "is not equal to the fixed value"
+            ):
+                self.assertFalse(self.param1.validate(value, raises=True))
+
+        self.assertTrue(self.param1.validate(True, raises=True))
 
     def test_Setter(self) -> None:
         self.param1.set_value(False)
