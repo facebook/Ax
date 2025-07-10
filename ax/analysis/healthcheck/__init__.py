@@ -13,7 +13,7 @@ from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )
 from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
+    create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
@@ -23,9 +23,9 @@ from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 
 __all__ = [
+    "create_healthcheck_analysis_card",
     "ConstraintsFeasibilityAnalysis",
     "CanGenerateCandidatesAnalysis",
-    "HealthcheckAnalysis",
     "HealthcheckAnalysisCard",
     "HealthcheckStatus",
     "ShouldGenerateCandidates",

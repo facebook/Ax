@@ -11,8 +11,9 @@ from typing import Any, Union
 
 import pandas as pd
 from ax.adapter import Adapter
+from ax.analysis.analysis import Analysis
 from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
+    create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
@@ -25,7 +26,7 @@ from pyre_extensions import override
 logger: Logger = get_logger(__name__)
 
 
-class MetricFetchingErrorsAnalysis(HealthcheckAnalysis):
+class MetricFetchingErrorsAnalysis(Analysis):
     """
     Analysis to check if any metric fetch errors occurred.
     If any metric fetch errors have occurred, the analysis will display the
@@ -64,7 +65,8 @@ class MetricFetchingErrorsAnalysis(HealthcheckAnalysis):
         metric_fetch_errors = experiment._metric_fetching_errors
 
         if len(metric_fetch_errors) == 0:
-            return self._create_healthcheck_analysis_card(
+            return create_healthcheck_analysis_card(
+                name=self.__class__.__name__,
                 title="Metric Fetch Errors",
                 subtitle="No metric fetch errors found.",
                 df=df,
@@ -118,7 +120,8 @@ class MetricFetchingErrorsAnalysis(HealthcheckAnalysis):
         }
         subtitle = df.rename(columns=subtitle_df_columns)
 
-        return self._create_healthcheck_analysis_card(
+        return create_healthcheck_analysis_card(
+            name=self.__class__.__name__,
             title="Metric Fetch Errors",
             subtitle=subtitle.to_markdown(index=False),
             df=df,

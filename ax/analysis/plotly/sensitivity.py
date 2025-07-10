@@ -9,9 +9,11 @@ from typing import Literal, Mapping, Sequence
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
-from ax.analysis.analysis_card import AnalysisCardBase
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCardBase
+from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
+
 from ax.analysis.plotly.utils import (
     COLOR_FOR_DECREASES,
     COLOR_FOR_INCREASES,
@@ -31,7 +33,7 @@ from pyre_extensions import override
 MAX_LABEL_LEN: int = 20
 
 
-class SensitivityAnalysisPlot(PlotlyAnalysis):
+class SensitivityAnalysisPlot(Analysis):
     """
     Compute sensitivity for all metrics on a TorchAdapter.
 
@@ -104,7 +106,8 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
                 metric_label=metric_label,
             )
 
-            card = self._create_plotly_analysis_card(
+            card = create_plotly_analysis_card(
+                name=self.__class__.__name__,
                 title=f"Sensitivity Analysis for {metric_label}",
                 subtitle=(
                     f"Understand how each parameter affects {metric_label} according "
