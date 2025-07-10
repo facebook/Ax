@@ -12,7 +12,6 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-
 from ax.analysis.analysis import Analysis, display_cards
 from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.dispatch import choose_analyses
@@ -55,6 +54,7 @@ from ax.storage.json_store.registry import (
     CORE_DECODER_REGISTRY,
     CORE_ENCODER_REGISTRY,
 )
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
 
@@ -221,6 +221,10 @@ class Client(WithDBSettingsBase):
         that metric was not already present.
         """
         self._set_metrics(metrics=metrics)
+
+    @copy_doc(Experiment.remove_tracking_metric)
+    def remove_tracking_metric(self, metric_name: str) -> None:
+        self._experiment.remove_tracking_metric(metric_name=metric_name)
 
     # -------------------- Section 1.2: Set (not API) -------------------------------
     def set_experiment(self, experiment: Experiment) -> None:
