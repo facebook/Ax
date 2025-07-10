@@ -45,6 +45,13 @@ from pyre_extensions import override
 
 logger: Logger = get_logger(__name__)
 
+SCATTER_CARDGROUP_TITLE = "Scatter Plot"
+SCATTER_CARDGROUP_SUBTITLE = (
+    "These plots display the effects of each arm on two metrics "
+    "displayed on the x- and y-axes. They are useful for understanding the "
+    "trade-off between the two metrics and for visualizing the Pareto frontier."
+)
+
 
 class ScatterPlot(Analysis):
     """

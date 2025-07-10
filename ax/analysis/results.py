@@ -12,7 +12,11 @@ from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
-from ax.analysis.plotly.scatter import ScatterPlot
+from ax.analysis.plotly.scatter import (
+    SCATTER_CARDGROUP_SUBTITLE,
+    SCATTER_CARDGROUP_TITLE,
+    ScatterPlot,
+)
 from ax.analysis.summary import Summary
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.arm import Arm
@@ -22,6 +26,26 @@ from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
+
+RESULTS_CARDGROUP_TITLE = "Results Analysis"
+
+RESULTS_CARDGROUP_SUBTITLE = (
+    "This analysis provides a high-level overview of the results of the optimization "
+    "process so far. It contains views on the metric effects on all arms, a "
+    "scatterplot of the objectives (if there are multiple), and a scatterplot of "
+    "the objective(s) versus each constraint (if there are any)."
+)
+
+ARM_EFFECTS_PAIR_CARDGROUP_TITLE = (
+    "Metric Effects: Predicted and observed effects for all arms in the experiment"
+)
+ARM_EFFECTS_PAIR_CARDGROUP_SUBTITLE = (
+    "These pair of plots visualize the metric effects for each arm, with the Ax "
+    "model predictions on the left and the raw observed data on the right. The "
+    "predicted effects apply shrinkage for noise and adjust for non-stationarity "
+    "in the data, so they are more representative of the reproducible effects that "
+    "will manifest in a long-term validation experiment. "
+)
 
 
 class ResultsAnalysis(Analysis):
@@ -77,8 +101,8 @@ class ResultsAnalysis(Analysis):
         objective_scatter_group = (
             AnalysisCardGroup(
                 name="Objective Scatter Plots",
-                title="T230247379",
-                subtitle="T230247379",
+                title=SCATTER_CARDGROUP_TITLE,
+                subtitle=SCATTER_CARDGROUP_SUBTITLE,
                 children=[
                     ScatterPlot(
                         x_metric_name=x,
@@ -102,8 +126,8 @@ class ResultsAnalysis(Analysis):
         constraint_scatter_group = (
             AnalysisCardGroup(
                 name="Constraint Scatter Plots",
-                title="T230247379",
-                subtitle="T230247379",
+                title=SCATTER_CARDGROUP_TITLE,
+                subtitle=SCATTER_CARDGROUP_SUBTITLE,
                 children=[
                     ScatterPlot(
                         x_metric_name=objective_name,
@@ -149,8 +173,8 @@ class ResultsAnalysis(Analysis):
         )
 
         return self._create_analysis_card_group(
-            title="T230247379",
-            subtitle="T230247379",
+            title=RESULTS_CARDGROUP_TITLE,
+            subtitle=RESULTS_CARDGROUP_SUBTITLE,
             children=[
                 group
                 for group in (
@@ -248,8 +272,8 @@ class ArmEffectsPair(Analysis):
 
             pair = AnalysisCardGroup(
                 name=f"ArmEffects Pair {metric_name}",
-                title="T230247379",
-                subtitle="T230247379",
+                title=ARM_EFFECTS_PAIR_CARDGROUP_TITLE,
+                subtitle=ARM_EFFECTS_PAIR_CARDGROUP_SUBTITLE,
                 children=[
                     predicted_analysis.compute_or_error_card(
                         experiment=experiment,
@@ -263,7 +287,7 @@ class ArmEffectsPair(Analysis):
             pairs.append(pair)
 
         return self._create_analysis_card_group(
-            title="T230247379",
-            subtitle="T230247379",
+            title=RESULTS_CARDGROUP_TITLE,
+            subtitle=RESULTS_CARDGROUP_SUBTITLE,
             children=pairs,
         )

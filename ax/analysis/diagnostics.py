@@ -14,6 +14,13 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws, override
 
+DIAGNOSTICS_CARDGROUP_TITLE = "Diagnostic Analysis"
+
+DIAGNOSTICS_CARDGROUP_SUBTITLE = (
+    "This analysis provides information about the the optimization process and "
+    "includes cross validation plots to show the quality of the model fit."
+)
+
 
 class DiagnosticAnalysis(Analysis):
     """
@@ -36,8 +43,8 @@ class DiagnosticAnalysis(Analysis):
         metric_names = [*none_throws(experiment.optimization_config).metrics.keys()]
 
         return self._create_analysis_card_group(
-            title="T230247379",
-            subtitle="T230247379",
+            title=DIAGNOSTICS_CARDGROUP_TITLE,
+            subtitle=DIAGNOSTICS_CARDGROUP_SUBTITLE,
             children=[
                 *CrossValidationPlot(metric_names=metric_names)
                 .compute_or_error_card(

@@ -41,6 +41,31 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import override
 
+CARDGROUP_TITLE = "Metric Effects: Values of key metrics for all arms in the experiment"
+
+PREDICTED_EFFECTS_CARDGROUP_SUBTITLE = (
+    "These plots visualize predictions of the 'true' metric changes for each arm, "
+    "based on Ax's model. Since Ax applies Empirical Bayes shrinkage to adjust for "
+    "noise and also accounts for non-stationarity in the data, predicted metric "
+    "effects will not match raw observed data perfectly, but will be more "
+    "representative of the reproducible effects that will manifest in a long-term "
+    "validation experiment. <br><br>"
+    "NOTE: Flat predictions across arms indicate that the model predicts that "
+    "none of the arms had a sufficient effect on the metric, meaning that if you "
+    "re-ran the experiment, the delta you would see would be small and fall "
+    "within the confidence interval indicated in the plot. In other words, this "
+    "indicates that according to the model, the raw observed effects on this metric "
+    "are primarily noise."
+)
+
+RAW_EFFECTS_CARDGROUP_SUBTITLE = (
+    "These plots visualize the raw data on the effects we observed from "
+    "previously-run arms on a specific metric, providing insights into "
+    "their performance. These plots allow one to compare and contrast the "
+    "effectiveness of different arms, highlighting which configurations have yielded "
+    "the most favorable outcomes."
+)
+
 
 class ArmEffectsPlot(Analysis):
     """
@@ -194,8 +219,10 @@ class ArmEffectsPlot(Analysis):
         ]
 
         return self._create_analysis_card_group_or_card(
-            title="T230247379",
-            subtitle="T230247379",
+            title=CARDGROUP_TITLE,
+            subtitle=PREDICTED_EFFECTS_CARDGROUP_SUBTITLE
+            if self.use_model_predictions
+            else RAW_EFFECTS_CARDGROUP_SUBTITLE,
             children=cards,
         )
 

@@ -32,6 +32,21 @@ from pyre_extensions import override
 # SensitivityAnalysisPlot uses a plotly bar chart which needs especially short labels
 MAX_LABEL_LEN: int = 20
 
+SENSITIVITY_CARDGROUP_TITLE = (
+    "Sensitivity Analysis: Understand how each parameter affects metrics"
+)
+
+SENSITIVITY_CARDGROUP_SUBTITLE = (
+    "These plots display the sensitivity of each metric to the "
+    "most important parameters in the experiment. Sensitivity is measured by the "
+    "Sobol indices, which are computed using the model fit to the data. The plots "
+    "show the sensitivity of the metric to the top most important parameters in "
+    "descending order of importance. The plots are computed using the model fit to "
+    "the data. The plots show the sensitivity of the metric to the top most "
+    "important parameters in descending order of importance and are colored by "
+    "whether the parameter increases (green) or decreases (purple) the metric."
+)
+
 
 class SensitivityAnalysisPlot(Analysis):
     """
@@ -120,8 +135,8 @@ class SensitivityAnalysisPlot(Analysis):
             cards.append(card)
 
         return self._create_analysis_card_group_or_card(
-            title="T230247379",
-            subtitle="T230247379",
+            title=SENSITIVITY_CARDGROUP_TITLE,
+            subtitle=SENSITIVITY_CARDGROUP_SUBTITLE,
             children=cards,
         )
 
