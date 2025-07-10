@@ -17,7 +17,7 @@ class MarkdownAnalysisCard(AnalysisCard):
     def get_markdown(self) -> str:
         return self.blob
 
-    def _body_html(self) -> str:
+    def _body_html(self, depth: int) -> str:
         return f"<div class='content'>{markdown.markdown(self.get_markdown())}<div>"
 
     def _body_papermill(self) -> Markdown:
