@@ -7,15 +7,17 @@
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.adapter.transforms.derelativize import Derelativize
 
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
-from ax.analysis.plotly.utils import get_predictions_by_arm
-from ax.analysis.utils import extract_relevant_adapter
+from ax.analysis.utils import (
+    extract_relevant_adapter,
+    POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
+    prepare_arm_data,
+)
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
@@ -106,11 +108,17 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         optimization_config = assert_is_instance(
             experiment.optimization_config, OptimizationConfig
         )
-        constraints_feasible, df = constraints_feasibility(
-            optimization_config=optimization_config,
+
+        arm_data = prepare_arm_data(
+            experiment=experiment,
+            metric_names=[*optimization_config.metrics.keys()],
+            use_model_predictions=True,
             adapter=relevant_adapter,
-            prob_threshold=self.prob_threshold,
         )
+
+        constraints_feasible = (
+            arm_data["p_feasible"] > POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
+        ).all()
 
         if not constraints_feasible:
             status = HealthcheckStatus.WARNING
@@ -131,58 +139,3 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             df=df,
             status=status,
         )
-
-
-def constraints_feasibility(
-    optimization_config: OptimizationConfig,
-    adapter: Adapter,
-    prob_threshold: float = 0.99,
-) -> tuple[bool, pd.DataFrame]:
-    r"""
-    Check the feasibility of the constraints for the experiment.
-
-    Args:
-        optimization_config: Ax optimization config.
-        adapter: Ax adapter to use for predictions.
-        prob_threshold: Threshold for the probability of constraint violation.
-
-    Returns:
-        A tuple of a boolean indicating whether the constraints are feasible and a
-        dataframe with information on the probabilities of constraints violation for
-        each arm.
-    """
-    if (optimization_config.outcome_constraints is None) or (
-        len(optimization_config.outcome_constraints) == 0
-    ):
-        raise UserInputError("No constraints are specified.")
-
-    derel_optimization_config = optimization_config
-    outcome_constraints = optimization_config.outcome_constraints
-
-    if any(constraint.relative for constraint in outcome_constraints):
-        derel_optimization_config = Derelativize().transform_optimization_config(
-            optimization_config=optimization_config,
-            adapter=adapter,
-        )
-
-    constraint_metric_name = [
-        constraint.metric.name
-        for constraint in derel_optimization_config.outcome_constraints
-    ][0]
-
-    arm_dict = get_predictions_by_arm(
-        adapter=adapter,
-        metric_name=constraint_metric_name,
-        outcome_constraints=derel_optimization_config.outcome_constraints,
-    )
-
-    df = pd.DataFrame(arm_dict)
-    constraints_feasible = True
-    if all(
-        arm_info["overall_probability_constraints_violated"] > prob_threshold
-        for arm_info in arm_dict
-        if arm_info["arm_name"] != adapter.status_quo_name
-    ):
-        constraints_feasible = False
-
-    return constraints_feasible, df
