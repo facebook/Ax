@@ -1119,10 +1119,23 @@ class Decoder:
             # Sort children by index
             children = [card for _order, card in sorted(index_to_child_card.items())]
 
+            # Title and subtitle may sometimes be None due to legacy format, safely
+            # load them regardless.
+            title = (
+                analysis_card_sqa.title if analysis_card_sqa.title is not None else ""
+            )
+            subtitle = (
+                analysis_card_sqa.subtitle
+                if analysis_card_sqa.subtitle is not None
+                else ""
+            )
+
             return AnalysisCardGroup(
                 name=analysis_card_sqa.name,
-                timestamp=analysis_card_sqa.timestamp,
+                title=title,
+                subtitle=subtitle,
                 children=children,
+                timestamp=analysis_card_sqa.timestamp,
             )
 
         title = none_throws(analysis_card_sqa.title)

@@ -154,6 +154,8 @@ class OverviewAnalysis(Analysis):
         health_checks_group = (
             AnalysisCardGroup(
                 name="HealthchecksAnalysis",
+                title="T230247379",
+                subtitle="T230247379",
                 children=non_passing_health_checks,
             )
             if len(non_passing_health_checks) > 0
@@ -161,6 +163,8 @@ class OverviewAnalysis(Analysis):
         )
 
         return self._create_analysis_card_group(
+            title="T230247379",
+            subtitle="T230247379",
             children=[
                 group
                 for group in [
@@ -170,5 +174,5 @@ class OverviewAnalysis(Analysis):
                     health_checks_group,
                 ]
                 if group is not None
-            ]
+            ],
         )

@@ -2398,10 +2398,14 @@ class SQAStoreTest(TestCase):
         # Add the same analysis card multiple times to test _unique_id logic
         small_group = AnalysisCardGroup(
             name="small_group",
+            title="Small Group",
+            subtitle="This is a small group with just a few cards",
             children=[base_analysis_card, markdown_analysis_card, plotly_analysis_card],
         )
         big_group = AnalysisCardGroup(
             name="big_group",
+            title="Big Group",
+            subtitle="This is a big group with a lot of cards",
             children=[plotly_analysis_card, small_group],
         )
 
@@ -2424,6 +2428,8 @@ class SQAStoreTest(TestCase):
                 loaded_analysis_cards[0], AnalysisCardGroup
             )
             self.assertEqual(loaded_big_group.name, big_group.name)
+            self.assertEqual(loaded_big_group.title, big_group.title)
+            self.assertEqual(loaded_big_group.subtitle, big_group.subtitle)
 
             loaded_big_group_plotly = assert_is_instance(
                 loaded_big_group.children[0], PlotlyAnalysisCard
@@ -2435,6 +2441,8 @@ class SQAStoreTest(TestCase):
                 loaded_big_group.children[1], AnalysisCardGroup
             )
             self.assertEqual(loaded_small_group.name, small_group.name)
+            self.assertEqual(loaded_small_group.title, small_group.title)
+            self.assertEqual(loaded_small_group.subtitle, small_group.subtitle)
 
             loaded_base = assert_is_instance(
                 loaded_small_group.children[0], AnalysisCard
