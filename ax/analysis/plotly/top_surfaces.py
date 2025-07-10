@@ -8,9 +8,9 @@
 from typing import Literal
 
 from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
-
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
 from ax.analysis.plotly.surface.contour import ContourPlot
 from ax.analysis.plotly.surface.slice import SlicePlot
@@ -21,7 +21,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
 
 
-class TopSurfacesAnalysis(PlotlyAnalysis):
+class TopSurfacesAnalysis(Analysis):
     def __init__(
         self,
         metric_name: str | None = None,

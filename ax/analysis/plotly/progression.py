@@ -8,8 +8,11 @@
 import numpy as np
 import plotly.express as px
 from ax.adapter.base import Adapter
-
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.analysis import Analysis
+from ax.analysis.plotly.plotly_analysis import (
+    create_plotly_analysis_card,
+    PlotlyAnalysisCard,
+)
 from ax.analysis.plotly.utils import select_metric
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
@@ -21,7 +24,7 @@ from plotly import graph_objects as go
 from pyre_extensions import assert_is_instance, override
 
 
-class ProgressionPlot(PlotlyAnalysis):
+class ProgressionPlot(Analysis):
     """
     Plotly Scatter showing a timerseries-like metric's progression, with one line for
     each arm. The plot also includes a marker on the terminal step of any trial that
@@ -132,7 +135,8 @@ class ProgressionPlot(PlotlyAnalysis):
                 )
             )
 
-        return self._create_plotly_analysis_card(
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
             title=f"{metric_name} by {x_axis_name.replace('_', ' ')}",
             subtitle=(
                 "The progression plot tracks the evolution of each metric "

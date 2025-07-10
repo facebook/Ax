@@ -8,9 +8,9 @@
 
 import pandas as pd
 from ax.adapter.base import Adapter
-
+from ax.analysis.analysis import Analysis
 from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
+    create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
@@ -19,7 +19,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
 
 
-class ShouldGenerateCandidates(HealthcheckAnalysis):
+class ShouldGenerateCandidates(Analysis):
     def __init__(
         self,
         should_generate: bool,
@@ -42,7 +42,8 @@ class ShouldGenerateCandidates(HealthcheckAnalysis):
             if self.should_generate
             else HealthcheckStatus.WARNING
         )
-        return self._create_healthcheck_analysis_card(
+        return create_healthcheck_analysis_card(
+            name=self.__class__.__name__,
             title=f"Ready to Generate Candidates for Trial {self.trial_index}",
             subtitle=self.reason,
             df=pd.DataFrame(),
