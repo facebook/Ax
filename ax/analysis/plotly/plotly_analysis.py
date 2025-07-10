@@ -45,7 +45,7 @@ class PlotlyAnalysisCard(AnalysisCard):
 
         return body_html_template.format(
             figure_html=self.get_figure().to_html(
-                full_html=False, include_plotlyjs=True
+                full_html=False, include_plotlyjs=False
             )
         )
 

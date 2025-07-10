@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Sequence
 
 import pandas as pd
+import plotly
 from ax.utils.common.base import SortableBase
 from ax.utils.tutorials.environment import is_running_in_papermill
 from IPython.display import display, HTML, Markdown
@@ -162,7 +163,10 @@ class AnalysisCardBase(SortableBase, ABC):
         way.
         """
 
-        return self._to_html(depth=0)
+        return (
+            f"<script>define = null;{plotly.offline.get_plotlyjs()}</script>"
+            + self._to_html(depth=0)
+        )
 
     def _to_html(self, depth: int) -> str:
         return html_card_template.format(
