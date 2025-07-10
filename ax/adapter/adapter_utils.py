@@ -75,7 +75,12 @@ from botorch.acquisition.risk_measures import (
 )
 from botorch.models.utils.assorted import consolidate_duplicates
 from botorch.utils.containers import SliceContainer
-from botorch.utils.datasets import ContextualDataset, RankingDataset, SupervisedDataset
+from botorch.utils.datasets import (
+    ContextualDataset,
+    RankingDataset,
+    SupervisedDataset,
+    TASK_FEATURE_NAME,
+)
 from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
@@ -531,7 +536,7 @@ def get_fixed_features(
     if fixed_features is None or not fixed_features.parameters:
         return None
     params = fixed_features.parameters
-    params_set = set(params)
+    params_set = set(params) - {TASK_FEATURE_NAME}
     param_names_set = set(param_names)
     if params_set > param_names_set:
         raise ValueError(

@@ -59,7 +59,11 @@ from botorch.models.transforms.input import (
     Normalize,
 )
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
-from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
+from botorch.utils.datasets import (
+    MultiTaskDataset,
+    SupervisedDataset,
+    TASK_FEATURE_NAME,
+)
 from botorch.utils.evaluation import compute_in_sample_model_fit_metric
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import standardize
@@ -985,6 +989,9 @@ class SurrogateTest(TestCase):
                     )
                     search_space_digest = dataclasses.replace(
                         self.search_space_digest,
+                        feature_names=self.search_space_digest.feature_names
+                        + [TASK_FEATURE_NAME],
+                        bounds=self.search_space_digest.bounds + [(0.0, 1.0)],
                         target_values={-1: 0.0},
                         task_features=[-1],
                     )

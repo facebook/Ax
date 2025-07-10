@@ -338,6 +338,7 @@ class TorchAdapter(Adapter):
     ) -> SupervisedDataset:
         if outcome not in Xs:
             raise ValueError(f"Outcome `{outcome}` was not observed.")
+        parameters = parameters.copy()  # make a copy to avoid modifying within Dataset
         X = torch.stack(Xs[outcome], dim=0)
         if outcome == Keys.PAIRWISE_PREFERENCE_QUERY.value:
             Y = torch.tensor(
