@@ -22,7 +22,7 @@ from ax.exceptions.core import (
     UnsupportedError,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.storage.sqa_store.save import save_analysis_card
+
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from pyre_extensions import none_throws
@@ -60,11 +60,13 @@ try:  # We don't require SQLAlchemy by default.
         _load_generation_strategy_by_experiment_name,
         get_generation_strategy_id,
     )
+
     from ax.storage.sqa_store.save import (
         _save_experiment,
         _save_generation_strategy,
         _save_or_update_trials,
         _update_generation_strategy,
+        save_analysis_card,
         update_properties_on_experiment,
         update_runner_on_experiment,
     )
