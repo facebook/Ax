@@ -38,18 +38,14 @@ class MetadataToFloat(Transform):
 
     It allows the user to specify the `config` with `parameters` as the key, where
     each entry maps a metadata key to a dictionary of keyword arguments for the
-    corresponding RangeParameter constructor. The `config` can also be used to
-    override `default_log_scale` for all parameters. Note that any parameter
-    with a lower bound <= 0 will not be set to log scale regardless of the
-    specified log scale setting.
+    corresponding RangeParameter constructor. NOTE: log and logit-scale options
+    are not supported.
 
     Transform is done in-place.
     """
 
     requires_data_for_initialization: bool = True
 
-    DEFAULT_LOG_SCALE: bool = False
-    DEFAULT_LOGIT_SCALE: bool = False
     DEFAULT_IS_FIDELITY: bool = False
     ENFORCE_BOUNDS: bool = False
 
@@ -72,7 +68,6 @@ class MetadataToFloat(Transform):
         self.parameters: dict[str, dict[str, Any]] = assert_is_instance(
             config.get("parameters", {}), dict
         )
-        default_log_scale = config.get("default_log_scale", self.DEFAULT_LOG_SCALE)
 
         self._parameter_list: list[RangeParameter] = []
         for name in self.parameters:
@@ -97,10 +92,6 @@ class MetadataToFloat(Transform):
             lower: float = self.parameters[name].get("lower", min(values))
             upper: float = self.parameters[name].get("upper", max(values))
 
-            log_scale = self.parameters[name].get("log_scale", default_log_scale)
-            logit_scale = self.parameters[name].get(
-                "logit_scale", self.DEFAULT_LOGIT_SCALE
-            )
             digits = self.parameters[name].get("digits")
             is_fidelity = self.parameters[name].get(
                 "is_fidelity", self.DEFAULT_IS_FIDELITY
@@ -113,8 +104,6 @@ class MetadataToFloat(Transform):
                 parameter_type=ParameterType.FLOAT,
                 lower=lower,
                 upper=upper,
-                log_scale=log_scale and lower > 0.0,
-                logit_scale=logit_scale,
                 digits=digits,
                 is_fidelity=is_fidelity,
                 target_value=target_value,

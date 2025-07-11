@@ -285,7 +285,7 @@ class MapKeyToFloatTransformTest(TestCase):
             self.assertEqual(p.parameter_type, ParameterType.FLOAT)
             self.assertEqual(p.lower, 0.0)
             self.assertEqual(p.upper, 4.0)
-            self.assertFalse(p.log_scale)  # False since lower is 0.0.
+            self.assertFalse(p.log_scale)
 
         # specifying a parameter name that is not in the observation features' metadata
         with self.assertRaisesRegex(KeyError, "'baz'"):
@@ -298,13 +298,9 @@ class MapKeyToFloatTransformTest(TestCase):
         with self.subTest(msg="override default config"):
             t = MapKeyToFloat(
                 observations=self.observations,
-                config={
-                    "parameters": {self.map_key: {"lower": 0.1, "log_scale": True}}
-                },
+                config={"parameters": {self.map_key: {"lower": 0.1}}},
             )
-            self.assertDictEqual(
-                t.parameters, {self.map_key: {"lower": 0.1, "log_scale": True}}
-            )
+            self.assertDictEqual(t.parameters, {self.map_key: {"lower": 0.1}})
             self.assertEqual(len(t._parameter_list), 1)
 
             p = t._parameter_list[0]
@@ -313,7 +309,7 @@ class MapKeyToFloatTransformTest(TestCase):
             self.assertEqual(p.parameter_type, ParameterType.FLOAT)
             self.assertEqual(p.lower, 0.1)
             self.assertEqual(p.upper, 4.0)
-            self.assertTrue(p.log_scale)
+            self.assertFalse(p.log_scale)
 
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
