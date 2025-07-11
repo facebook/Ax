@@ -226,6 +226,9 @@ def _get_experiment_sqa(
             .options(
                 # Delay loading trials to a separate call to `_get_trials_sqa` below
                 noload("trials"),
+                # Also prevent loading AnalysisCards, which can be expensive and is not
+                # necessary to reconstruct the Experiment
+                noload("analysis_cards"),
                 # Eagerly load target experiment for auxiliary experiment relationships
                 joinedload(exp_sqa_class.auxiliary_experiments).joinedload(
                     auxiliary_experiment_sqa_class.source_experiment,
