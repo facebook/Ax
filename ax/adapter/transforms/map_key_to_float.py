@@ -6,9 +6,11 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 import warnings
 from math import isnan
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.metadata_to_float import MetadataToFloat
@@ -30,25 +32,21 @@ class MapKeyToFloat(MetadataToFloat):
     and inserts it into the parameter field. If no parameters are specified in the
     config, the transform will extract all map key names from the optimization config.
 
-    Inheriting from the `MetadataToFloat` transform, this transform
-    also adds a range (float) parameter to the search space.
-    Similarly, users can override the default behavior by specifying
-    the `config` with `parameters` as the key, where each entry maps
-    a metadata key to a dictionary of keyword arguments for the
-    corresponding RangeParameter constructor.
+    Inheriting from the `MetadataToFloat` transform, this transform also adds a range
+    (float) parameter to the search space. Similarly, users can override the default
+    behavior by specifying the `config` with `parameters` as the key, where each entry
+    maps a metadata key to a dictionary of keyword arguments for the corresponding
+    RangeParameter constructor. NOTE: log and logit-scale options are not supported.
 
     Transform is done in-place.
     """
-
-    # NOTE: This will be ignored if the lower bound is <= 0.
-    DEFAULT_LOG_SCALE: bool = True
 
     def __init__(
         self,
         search_space: SearchSpace | None = None,
         observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         config = config or {}
