@@ -99,6 +99,8 @@ class TopSurfacesAnalysis(Analysis):
         slices = (
             AnalysisCardGroup(
                 name=f"{metric_name} SlicePlots",
+                title="T230247379",
+                subtitle="T230247379",
                 children=slice_cards,
             )
             if len(slice_cards) > 0
@@ -107,6 +109,8 @@ class TopSurfacesAnalysis(Analysis):
         contours = (
             AnalysisCardGroup(
                 name=f"{metric_name} ContourPlots",
+                title="T230247379",
+                subtitle="T230247379",
                 children=contour_cards,
             )
             if len(contour_cards) > 0
@@ -114,6 +118,8 @@ class TopSurfacesAnalysis(Analysis):
         )
 
         return self._create_analysis_card_group(
+            title="T230247379",
+            subtitle="T230247379",
             children=[
                 group
                 for group in [sensitivity_analysis_card, slices, contours]

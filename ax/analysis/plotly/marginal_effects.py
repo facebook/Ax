@@ -119,6 +119,8 @@ class MarginalEffectsPlot(Analysis):
                 )
             )
         return self._create_analysis_card_group_or_card(
+            title="T230247379",
+            subtitle="T230247379",
             children=cards,
         )
 

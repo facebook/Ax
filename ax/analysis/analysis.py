@@ -125,6 +125,8 @@ class Analysis(Protocol):
 
     def _create_analysis_card_group(
         self,
+        title: str,
+        subtitle: str,
         children: Sequence[AnalysisCardBase],
     ) -> AnalysisCardGroup:
         """
@@ -133,11 +135,15 @@ class Analysis(Protocol):
         """
         return AnalysisCardGroup(
             name=self.__class__.__name__,
+            title=title,
+            subtitle=subtitle,
             children=children,
         )
 
     def _create_analysis_card_group_or_card(
         self,
+        title: str,
+        subtitle: str,
         children: Sequence[AnalysisCardBase],
     ) -> AnalysisCardBase:
         """
@@ -148,7 +154,11 @@ class Analysis(Protocol):
         if len(children) == 1:
             return children[0]
 
-        return self._create_analysis_card_group(children=children)
+        return self._create_analysis_card_group(
+            title=title,
+            subtitle=subtitle,
+            children=children,
+        )
 
 
 class AnalysisE(ExceptionE):
