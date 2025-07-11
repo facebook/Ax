@@ -7,9 +7,10 @@
 
 
 from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
 
 from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
+    create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
@@ -21,7 +22,7 @@ from ax.utils.stats.no_effects import check_experiment_effects_per_metric
 from pyre_extensions import override
 
 
-class TestOfNoEffectAnalysis(HealthcheckAnalysis):
+class TestOfNoEffectAnalysis(Analysis):
     """
     Analysis for checking whether a randomization test can show that there are any
     effects whatsoever. This test is performed independently on each metric
@@ -116,7 +117,8 @@ class TestOfNoEffectAnalysis(HealthcheckAnalysis):
             )
             title_status = "Warning"
 
-        return self._create_healthcheck_analysis_card(
+        return create_healthcheck_analysis_card(
+            name=self.__class__.__name__,
             title=f"Ax Test of No Effect {title_status}",
             subtitle=subtitle,
             df=df_tone,

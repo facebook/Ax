@@ -11,9 +11,11 @@ import numpy as np
 
 import pandas as pd
 from ax.adapter.base import Adapter
+
+from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_RED
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
+from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
@@ -40,7 +42,7 @@ from plotly import graph_objects as go
 from pyre_extensions import override
 
 
-class ArmEffectsPlot(PlotlyAnalysis):
+class ArmEffectsPlot(Analysis):
     """
     Plot the effects of each arm in an experiment on a given metric. Effects may be
     either the raw observed effects, or the predicted effects using a model. The
@@ -147,7 +149,8 @@ class ArmEffectsPlot(PlotlyAnalysis):
         }
 
         cards = [
-            self._create_plotly_analysis_card(
+            create_plotly_analysis_card(
+                name=self.__class__.__name__,
                 title=(
                     f"{'Modeled' if self.use_model_predictions else 'Observed'} "
                     f"{'Relativized ' if self.relativize else ''}Arm "

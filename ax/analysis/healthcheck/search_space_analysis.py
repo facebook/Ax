@@ -10,9 +10,10 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
 
 from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
+    create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
@@ -27,7 +28,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import assert_is_instance, override
 
 
-class SearchSpaceAnalysis(HealthcheckAnalysis):
+class SearchSpaceAnalysis(Analysis):
     r"""
     Analysis for checking wehther the search space of the experiment should be expanded.
     It checks whether the suggested parameters land at the boundary of the search space
@@ -88,7 +89,8 @@ class SearchSpaceAnalysis(HealthcheckAnalysis):
         else:
             additional_subtitle = "Search space does not need to be updated."
 
-        return self._create_healthcheck_analysis_card(
+        return create_healthcheck_analysis_card(
+            name=self.__class__.__name__,
             title=f"Ax Search Space Analysis {title_status}",
             subtitle=subtitle_base + additional_subtitle,
             df=boundary_proportions_df[["boundary", "proportion", "bound"]],

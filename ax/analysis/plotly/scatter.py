@@ -13,9 +13,13 @@ import numpy as np
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
+from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_RED
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import (
+    create_plotly_analysis_card,
+    PlotlyAnalysisCard,
+)
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
@@ -42,7 +46,7 @@ from pyre_extensions import override
 logger: Logger = get_logger(__name__)
 
 
-class ScatterPlot(PlotlyAnalysis):
+class ScatterPlot(Analysis):
     """
     Plotly Scatter plot for any two metrics. Each arm is represented by a single point
     with 95% confidence intervals if the data is available. Effects may be either the
@@ -179,7 +183,8 @@ class ScatterPlot(PlotlyAnalysis):
             else False,
         )
 
-        return self._create_plotly_analysis_card(
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
             title=(
                 f"{'Modeled' if self.use_model_predictions else 'Observed'} "
                 f"{'Relativized ' if self.relativize else ''}Effects:"

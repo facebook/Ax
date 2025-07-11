@@ -10,9 +10,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.color_constants import METRIC_CONTINUOUS_COLOR_SCALE
-
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import (
+    create_plotly_analysis_card,
+    PlotlyAnalysisCard,
+)
 from ax.analysis.plotly.utils import select_metric, truncate_label
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
@@ -21,7 +24,7 @@ from plotly import graph_objects as go
 from pyre_extensions import override
 
 
-class ParallelCoordinatesPlot(PlotlyAnalysis):
+class ParallelCoordinatesPlot(Analysis):
     """
     Plotly Parcoords plot for a single metric, with one line per arm and dimensions for
     each parameter in the search space. This plot is useful for understanding how
@@ -60,7 +63,8 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
         df = _prepare_data(experiment=experiment, metric=metric_name)
         fig = _prepare_plot(df=df, metric_name=metric_name)
 
-        return self._create_plotly_analysis_card(
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
             title=f"Parallel Coordinates for {metric_name}",
             subtitle=(
                 "The parallel coordinates plot displays multi-dimensional "

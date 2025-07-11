@@ -9,13 +9,7 @@ import json
 from enum import IntEnum
 
 import pandas as pd
-from ax.adapter.base import Adapter
-
-from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard, AnalysisCardBase
-from ax.core.experiment import Experiment
-from ax.generation_strategy.generation_strategy import GenerationStrategy
-from pyre_extensions import override
+from ax.analysis.analysis_card import AnalysisCard
 
 
 class HealthcheckStatus(IntEnum):
@@ -35,36 +29,23 @@ class HealthcheckAnalysisCard(AnalysisCard):
         return json.loads(self.blob)
 
 
-class HealthcheckAnalysis(Analysis):
-    """
-    An analysis that performs a health check.
-    """
-
-    @override
-    def compute(
-        self,
-        experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategy | None = None,
-        adapter: Adapter | None = None,
-    ) -> AnalysisCardBase: ...
-
-    def _create_healthcheck_analysis_card(
-        self,
-        title: str,
-        subtitle: str,
-        df: pd.DataFrame,
-        status: HealthcheckStatus,
-        **additional_attrs: str | int | float | bool,
-    ) -> HealthcheckAnalysisCard:
-        return HealthcheckAnalysisCard(
-            name=self.__class__.__name__,
-            title=title,
-            subtitle=subtitle,
-            df=df,
-            blob=json.dumps(
-                {
-                    "status": status,
-                    **additional_attrs,
-                }
-            ),
-        )
+def create_healthcheck_analysis_card(
+    name: str,
+    title: str,
+    subtitle: str,
+    df: pd.DataFrame,
+    status: HealthcheckStatus,
+    **additional_attrs: str | int | float | bool,
+) -> HealthcheckAnalysisCard:
+    return HealthcheckAnalysisCard(
+        name=name,
+        title=title,
+        subtitle=subtitle,
+        df=df,
+        blob=json.dumps(
+            {
+                "status": status,
+                **additional_attrs,
+            }
+        ),
+    )

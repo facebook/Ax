@@ -7,10 +7,10 @@
 
 import pandas as pd
 from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import COLOR_FOR_DECREASES, COLOR_FOR_INCREASES
-
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis
+from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
@@ -23,7 +23,7 @@ from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
 
-class MarginalEffectsPlot(PlotlyAnalysis):
+class MarginalEffectsPlot(Analysis):
     """
     Plotly bar charts showing the marginal effect of each factor level of
     selected `ChoiceParameters` on the given metric. This plot is useful
@@ -101,7 +101,8 @@ class MarginalEffectsPlot(PlotlyAnalysis):
             param_df = df[df["Name"] == param]
             fig = _prepare_plot(param_df, self.metric_name)
             cards.append(
-                self._create_plotly_analysis_card(
+                create_plotly_analysis_card(
+                    name=self.__class__.__name__,
                     title=f"Marginal Effects for {param}",
                     subtitle=(
                         "This plot visualizes the predicted relative changes in "

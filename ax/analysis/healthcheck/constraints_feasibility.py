@@ -7,9 +7,9 @@
 
 import pandas as pd
 from ax.adapter.base import Adapter
-
+from ax.analysis.analysis import Analysis
 from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
+    create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
@@ -25,7 +25,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import assert_is_instance, override
 
 
-class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
+class ConstraintsFeasibilityAnalysis(Analysis):
     """
     Analysis for checking the feasibility of the constraints for the experiment.
     A constraint is considered feasible if the probability of constraints violation
@@ -72,7 +72,8 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
 
         if experiment.optimization_config is None:
             subtitle = "No optimization config is specified."
-            return self._create_healthcheck_analysis_card(
+            return create_healthcheck_analysis_card(
+                name=self.__class__.__name__,
                 title=f"Ax Constraints Feasibility {title_status}",
                 subtitle=subtitle,
                 df=df,
@@ -84,7 +85,8 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             or len(experiment.optimization_config.outcome_constraints) == 0
         ):
             subtitle = "No constraints are specified."
-            return self._create_healthcheck_analysis_card(
+            return create_healthcheck_analysis_card(
+                name=self.__class__.__name__,
                 title=f"Ax Constraints Feasibility {title_status}",
                 subtitle=subtitle,
                 df=df,
@@ -133,7 +135,8 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             )
             title_status = "Warning"
 
-        return self._create_healthcheck_analysis_card(
+        return create_healthcheck_analysis_card(
+            name=self.__class__.__name__,
             title=f"Ax Constraints Feasibility {title_status}",
             subtitle=subtitle,
             df=df,
