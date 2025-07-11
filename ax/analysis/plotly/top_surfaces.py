@@ -27,10 +27,12 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
         metric_name: str | None = None,
         order: Literal["first", "second", "total"] = "second",
         top_k: int = 5,
+        relativize: bool = False,
     ) -> None:
         self.metric_name = metric_name
         self.order = order
         self.top_k = top_k
+        self.relativize = relativize
 
     @override
     def compute(
@@ -86,6 +88,7 @@ class TopSurfacesAnalysis(PlotlyAnalysis):
                 experiment=experiment,
                 generation_strategy=generation_strategy,
                 adapter=adapter,
+                relativize=self.relativize,
             )
             for surface_name in top_surfaces
         ]
@@ -125,6 +128,7 @@ def _compute_surface_plot(
     experiment: Experiment | None,
     generation_strategy: GenerationStrategy | None,
     adapter: Adapter | None,
+    relativize: bool = False,
 ) -> PlotlyAnalysisCard:
     """Computes either a Slice or Contour plot for a given surface.
     Args:
@@ -145,10 +149,13 @@ def _compute_surface_plot(
             x_parameter_name=x_parameter_name,
             y_parameter_name=y_parameter_name,
             metric_name=metric_name,
+            relativize=relativize,
         )
 
     else:
-        analysis = SlicePlot(parameter_name=surface_name, metric_name=metric_name)
+        analysis = SlicePlot(
+            parameter_name=surface_name, metric_name=metric_name, relativize=relativize
+        )
 
     return analysis.compute(
         experiment=experiment,

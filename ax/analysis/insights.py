@@ -13,6 +13,7 @@ from ax.analysis.analysis_card import (
     ErrorAnalysisCard,
 )
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -44,6 +45,12 @@ class InsightsAnalysis(Analysis):
                 "Cannot compute InsightsAnalysis, Experiment has no data."
             )
 
+        # Relativize the effects if the status quo is set and there are BatchTrials
+        # present.
+        relativize = experiment.status_quo is not None and any(
+            isinstance(trial, BatchTrial) for trial in experiment.trials.values()
+        )
+
         # If the Experiment has an OptimizationConfig set, extract the objective and
         # constraint names.
         objective_names = []
@@ -66,6 +73,7 @@ class InsightsAnalysis(Analysis):
             maybe_top_surfaces_group = TopSurfacesAnalysis(
                 metric_name=metric_name,
                 top_k=3,
+                relativize=relativize,
             ).compute_or_error_card(
                 experiment=experiment,
                 generation_strategy=generation_strategy,
