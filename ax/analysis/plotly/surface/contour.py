@@ -32,6 +32,15 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
+CONTOUR_CARDGROUP_TITLE = "Contour Plots: Metric effects by parameter values"
+
+CONTOUR_CARDGROUP_SUBTITLE = (
+    "These plots show the relationship between a metric and two parameters. They "
+    "show the predicted values of the metric (indicated by color) as a function of "
+    "the two parameters on the x- and y-axes while keeping all other parameters "
+    "fixed at their status_quo value (or mean value if status_quo is unavailable). "
+)
+
 
 class ContourPlot(Analysis):
     """

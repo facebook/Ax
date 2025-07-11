@@ -33,6 +33,22 @@ FILLED_AX_BLUE: str = get_scatter_point_color(
     ci_transparency=False,
 )
 
+CV_CARDGROUP_TITLE = "Cross Validation: Assessing model fit"
+
+CV_CARDGROUP_SUBTITLE = (
+    "Cross-validation plots display the model fit for each metric in the "
+    "experiment. The model is trained on a subset of the data and then predicts the "
+    "outcome for the remaining subset. The plots show the predicted outcome for the "
+    "validation set on the y-axis against its actual value on the x-axis. Points "
+    "that align closely with the dotted diagonal line indicate a strong model fit, "
+    "signifying accurate predictions. Additionally, the plots include "
+    "confidence intervals that provide insight into the noise in observations and "
+    "the uncertainty in model predictions. <br><br>"
+    "NOTE: A horizontal, flat line of predictions "
+    "indicates that the model has not picked up on sufficient signal in the data, "
+    "and instead is just predicting the mean."
+)
+
 
 class CrossValidationPlot(Analysis):
     """
@@ -161,8 +177,8 @@ class CrossValidationPlot(Analysis):
             cards.append(card)
 
         return self._create_analysis_card_group_or_card(
-            title="T230247379",
-            subtitle="T230247379",
+            title=CV_CARDGROUP_TITLE,
+            subtitle=CV_CARDGROUP_SUBTITLE,
             children=cards,
         )
 

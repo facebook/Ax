@@ -12,13 +12,34 @@ from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
-from ax.analysis.plotly.surface.contour import ContourPlot
-from ax.analysis.plotly.surface.slice import SlicePlot
+from ax.analysis.plotly.surface.contour import (
+    CONTOUR_CARDGROUP_SUBTITLE,
+    CONTOUR_CARDGROUP_TITLE,
+    ContourPlot,
+)
+from ax.analysis.plotly.surface.slice import (
+    SLICE_CARDGROUP_SUBTITLE,
+    SLICE_CARDGROUP_TITLE,
+    SlicePlot,
+)
 from ax.analysis.plotly.utils import select_metric
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
+
+TS_CARDGROUP_TITLE = (
+    "Top Surfaces Analysis: Parameter sensitivity, slice, and contour plots"
+)
+
+TS_CARDGROUP_SUBTITLE = (
+    "The top surfaces analysis displays three analyses in one. First, it shows "
+    "parameter sensitivities, which shows the sensitivity of the metrics in the "
+    "experiment to the most important parameters. Subsetting to only the most "
+    "important parameters, it then shows slice plots and contour plots for each "
+    "metric in the experiment, displaying the relationship between the metric and "
+    "the most important parameters. "
+)
 
 
 class TopSurfacesAnalysis(Analysis):
@@ -99,8 +120,8 @@ class TopSurfacesAnalysis(Analysis):
         slices = (
             AnalysisCardGroup(
                 name=f"{metric_name} SlicePlots",
-                title="T230247379",
-                subtitle="T230247379",
+                title=SLICE_CARDGROUP_TITLE,
+                subtitle=SLICE_CARDGROUP_SUBTITLE,
                 children=slice_cards,
             )
             if len(slice_cards) > 0
@@ -109,8 +130,8 @@ class TopSurfacesAnalysis(Analysis):
         contours = (
             AnalysisCardGroup(
                 name=f"{metric_name} ContourPlots",
-                title="T230247379",
-                subtitle="T230247379",
+                title=CONTOUR_CARDGROUP_TITLE,
+                subtitle=CONTOUR_CARDGROUP_SUBTITLE,
                 children=contour_cards,
             )
             if len(contour_cards) > 0
@@ -118,8 +139,8 @@ class TopSurfacesAnalysis(Analysis):
         )
 
         return self._create_analysis_card_group(
-            title="T230247379",
-            subtitle="T230247379",
+            title=TS_CARDGROUP_TITLE,
+            subtitle=TS_CARDGROUP_SUBTITLE,
             children=[
                 group
                 for group in [sensitivity_analysis_card, slices, contours]

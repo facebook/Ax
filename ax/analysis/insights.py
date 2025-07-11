@@ -12,6 +12,18 @@ from ax.analysis.analysis_card import (
     AnalysisCardGroup,
     ErrorAnalysisCard,
 )
+from ax.analysis.plotly.sensitivity import (
+    SENSITIVITY_CARDGROUP_SUBTITLE,
+    SENSITIVITY_CARDGROUP_TITLE,
+)
+from ax.analysis.plotly.surface.contour import (
+    CONTOUR_CARDGROUP_SUBTITLE,
+    CONTOUR_CARDGROUP_TITLE,
+)
+from ax.analysis.plotly.surface.slice import (
+    SLICE_CARDGROUP_SUBTITLE,
+    SLICE_CARDGROUP_TITLE,
+)
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -20,11 +32,19 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import assert_is_instance, override
 
 
+INSIGHTS_CARDGROUP_TITLE = "Insights Analysis"
+
+INSIGHTS_CARDGROUP_SUBTITLE = (
+    "This analysis group displays information to help understand the underlying "
+    "experiment i.e parameter and metric relationships learned by the Ax model."
+)
+
+
 class InsightsAnalysis(Analysis):
     """
     An Analysis that provides insights into the optimization process.
 
-    For continuous and mixed seach spaces, this includes sensitivity plots,
+    For continuous and mixed search spaces, this includes sensitivity plots,
     slice plots, and contour plots.
 
     For bandit experiments, this includes a bandit rollout plot.
@@ -95,24 +115,24 @@ class InsightsAnalysis(Analysis):
         groups = [
             AnalysisCardGroup(
                 name="Sensitivity Plots",
-                title="T230247379",
-                subtitle="T230247379",
+                title=SENSITIVITY_CARDGROUP_TITLE,
+                subtitle=SENSITIVITY_CARDGROUP_SUBTITLE,
                 children=sensitivity_plots,
             )
             if len(sensitivity_plots) > 0
             else None,
             AnalysisCardGroup(
                 name="Slice Plots",
-                title="T230247379",
-                subtitle="T230247379",
+                title=SLICE_CARDGROUP_TITLE,
+                subtitle=SLICE_CARDGROUP_SUBTITLE,
                 children=slice_plots,
             )
             if len(slice_plots) > 0
             else None,
             AnalysisCardGroup(
                 name="Contour Plots",
-                title="T230247379",
-                subtitle="T230247379",
+                title=CONTOUR_CARDGROUP_TITLE,
+                subtitle=CONTOUR_CARDGROUP_SUBTITLE,
                 children=contour_plots,
             )
             if len(contour_plots) > 0
@@ -120,7 +140,7 @@ class InsightsAnalysis(Analysis):
         ]
 
         return self._create_analysis_card_group(
-            title="T230247379",
-            subtitle="T230247379",
+            title=INSIGHTS_CARDGROUP_TITLE,
+            subtitle=INSIGHTS_CARDGROUP_SUBTITLE,
             children=[group for group in groups if group is not None],
         )
