@@ -13,7 +13,12 @@ from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import COLOR_FOR_DECREASES, COLOR_FOR_INCREASES
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
-from ax.analysis.plotly.utils import LEGEND_POSITION, MARGIN_REDUCUTION, truncate_label
+from ax.analysis.plotly.utils import (
+    LEGEND_POSITION,
+    MARGIN_REDUCUTION,
+    MAX_HOVER_LABEL_LEN,
+    truncate_label,
+)
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
@@ -57,7 +62,7 @@ class SensitivityAnalysisPlot(Analysis):
         self,
         metric_names: Sequence[str] | None = None,
         order: Literal["first", "second", "total"] = "total",
-        top_k: int | None = None,
+        top_k: int | None = 6,
         labels: Mapping[str, str] | None = None,
     ) -> None:
         """
@@ -206,20 +211,36 @@ def _prepare_card_components(
     # If the parameter name is too long, truncate it.
     # If the parameter name is a second order interaction, truncate each parameter name
     # separately then re-combine.
-    plotting_df["truncated_parameter_name"] = plotting_df["parameter_name"].apply(
-        lambda label: " & ".join(
-            truncate_label(label=sub_label, n=MAX_LABEL_LEN // 2)
-            for sub_label in label.split(" & ")
+    # If the truncated parameter name already exists, append count at end to prevent
+    # collisions.
+    # TODO: @paschali @mgarrard clean up after implementing parameter canonical names
+    param_names = plotting_df["parameter_name"].unique()
+    param_to_shortened_name = {}
+    shortened_name_count = {}
+    for name in param_names:
+        shortened_name = (
+            " & ".join(
+                truncate_label(label=sub_name, n=MAX_LABEL_LEN // 2)
+                for sub_name in name.split(" & ")
+            )
+            if "&" in name
+            else truncate_label(label=name, n=MAX_LABEL_LEN)
         )
-        if "&" in label
-        else truncate_label(label=label, n=MAX_LABEL_LEN)
+        # track number of times each shortened name is seen
+        if shortened_name not in shortened_name_count:
+            shortened_name_count[shortened_name] = 0
+        else:
+            shortened_name_count[shortened_name] += 1
+            shortened_name = shortened_name + f"_{shortened_name_count[shortened_name]}"
+        param_to_shortened_name[name] = shortened_name
+    plotting_df["truncated_parameter_name"] = plotting_df["parameter_name"].map(
+        param_to_shortened_name
     )
 
     plotting_df["importance"] = plotting_df["sensitivity"].abs()
     plotting_df["direction"] = plotting_df["sensitivity"].apply(
         lambda x: f"Increases {metric_label}" if x >= 0 else f"Decreases {metric_label}"
     )
-
     figure = px.bar(
         plotting_df.sort_values(by="importance", ascending=False)
         .reset_index()
@@ -232,8 +253,8 @@ def _prepare_card_components(
             f"Increases {metric_label}": COLOR_FOR_INCREASES,
             f"Decreases {metric_label}": COLOR_FOR_DECREASES,
         },
-        # Show full parameter name on hover, not truncated name
-        hover_data=["parameter_name"],
+        # Show longer version of parameter name on hover without overflowing hover
+        hover_data=["parameter_name"][:MAX_HOVER_LABEL_LEN],
     )
 
     figure.update_layout(
