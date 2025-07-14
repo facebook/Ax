@@ -68,6 +68,9 @@ MARGIN_REDUCUTION: dict[str, int] = {"t": 50}
 # scatter points are plotted on the same plot.
 CI_ALPHA: float = 0.5
 
+# The max length of a hover label to prevent overflow making the hover unreadable
+MAX_HOVER_LABEL_LEN: int = 300
+
 
 def get_scatter_point_color(
     hex_color: str,
