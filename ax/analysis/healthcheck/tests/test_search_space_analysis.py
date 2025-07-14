@@ -12,6 +12,7 @@ from ax.analysis.healthcheck.search_space_analysis import (
     boundary_proportions_message,
     search_space_boundary_proportions,
     SearchSpaceAnalysis,
+    SUBTITLE_BASE,
 )
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
@@ -35,15 +36,14 @@ class TestSearchSpaceAnalysis(TestCase):
         card = ssa.compute(experiment=experiment)
 
         self.assertEqual(card.name, "SearchSpaceAnalysis")
-        self.assertEqual(card.title, "Ax Search Space Analysis Warning")
-        subtitle = (
-            "The search space analysis health check is designed "
-            "to notify users that would likely see from a search space expansion "
-            "in the form of increased optimization performance.\n\n"
-            "\n - Parameter x1 values are at their lower bound in 66.67% of all "
-            "suggested parameters, which exceeds the threshold of 50.00%. "
-            "Consider decreasing this lower bound of the search space and "
-            "re-generating the candidates inside the expanded search space. "
+        self.assertEqual(card.title, "Ax search-space boundary check [Warning]")
+        subtitle = SUBTITLE_BASE + (
+            "\n - **Relax lower bound of `'x1'`:** Ax is frequently suggesting values "
+            "at the lower bound of `'x1'`. This may indicate that the optimal value of "
+            "this parameter is outside this bound, in which case decreasing this lower "
+            "bound would improve optimization performance. Details: 66.67% of "
+            "suggested arms are on the parameter's lower bound (threshold for "
+            "this alert is 50.00%)."
         )
         self.assertEqual(card.subtitle, subtitle)
 
@@ -56,15 +56,9 @@ class TestSearchSpaceAnalysis(TestCase):
         ssa = SearchSpaceAnalysis(trial_index=1)
         card = ssa.compute(experiment=experiment)
         self.assertEqual(card.name, "SearchSpaceAnalysis")
-        self.assertEqual(card.title, "Ax Search Space Analysis Success")
+        self.assertEqual(card.title, "Ax search-space boundary check [Success]")
         self.assertEqual(
-            card.subtitle,
-            (
-                "The search space analysis health check is designed "
-                "to notify users that would likely see from a search space expansion "
-                "in the form of increased optimization performance.\n\n"
-                "Search space does not need to be updated."
-            ),
+            card.subtitle, SUBTITLE_BASE + "Search space does not need to be updated."
         )
 
         arms = [
@@ -76,7 +70,7 @@ class TestSearchSpaceAnalysis(TestCase):
         ssa = SearchSpaceAnalysis(trial_index=2)
         card = ssa.compute(experiment=experiment)
         self.assertEqual(card.name, "SearchSpaceAnalysis")
-        self.assertEqual(card.title, "Ax Search Space Analysis Warning")
+        self.assertEqual(card.title, "Ax search-space boundary check [Warning]")
         self.assertTrue("x1" in card.subtitle)
 
     def test_search_space_boundary_proportions(self) -> None:

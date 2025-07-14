@@ -27,6 +27,11 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import assert_is_instance, override
 
+SUBTITLE_BASE = (
+    "This optimization may benefit from widened search-space bounds. Consider the "
+    "expansions recommended below.\n"
+)
+
 
 class SearchSpaceAnalysis(Analysis):
     r"""
@@ -62,11 +67,6 @@ class SearchSpaceAnalysis(Analysis):
             raise UserInputError("SearchSpaceAnalysis requires an Experiment.")
 
         status = HealthcheckStatus.PASS
-        subtitle_base = (
-            "The search space analysis health check is designed "
-            "to notify users that would likely see from a search space expansion "
-            "in the form of increased optimization performance.\n\n"
-        )
         title_status = "Success"
 
         trial = experiment.trials[self.trial_index]
@@ -91,8 +91,8 @@ class SearchSpaceAnalysis(Analysis):
 
         return create_healthcheck_analysis_card(
             name=self.__class__.__name__,
-            title=f"Ax Search Space Analysis {title_status}",
-            subtitle=subtitle_base + additional_subtitle,
+            title=f"Ax search-space boundary check [{title_status}]",
+            subtitle=SUBTITLE_BASE + additional_subtitle,
             df=boundary_proportions_df[["boundary", "proportion", "bound"]],
             status=status,
         )
@@ -240,33 +240,31 @@ def boundary_proportions_message(
             parameter = row["parameter_or_constraint"]
             bound = row["bound"]
             prop = row["proportion"]
-            if bound == "lower" and prop >= boundary_proportion_threshold:
+            if prop >= boundary_proportion_threshold:
+                change_dir = "decreasing" if bound == "lower" else "increasing"
                 msg += (
-                    f"\n - Parameter {parameter.name} values are at their lower bound "
-                    f"in {prop * 100:.2f}% of all suggested parameters, which exceeds "
-                    f"the threshold of {boundary_proportion_threshold * 100:.2f}%. "
-                    "Consider decreasing this lower bound of the search space and "
-                    "re-generating the candidates inside the expanded search space. "
-                )
-
-            if bound == "upper" and prop >= boundary_proportion_threshold:
-                msg += (
-                    f"\n - Parameter {parameter.name} values are at its upper bound "
-                    f"in {prop * 100:.2f}% of all suggested parameters, which exceeds "
-                    f"the threshold of {boundary_proportion_threshold * 100:.2f}%. "
-                    "Consider increasing this upper bound of the search space and "
-                    "re-generating the candidates inside the expanded search space. "
+                    f"\n - **Relax {bound} bound of `{parameter.name!r}`:** Ax is "
+                    f"frequently suggesting values at the {bound} bound of "
+                    f"`{parameter.name!r}`. This may indicate that the optimal value "
+                    f"of this parameter is outside this bound, in which case "
+                    f"{change_dir} this {bound} bound would improve optimization "
+                    f"performance. Details: {prop * 100:.2f}% of "
+                    f"suggested arms are on the parameter's "
+                    f"{bound} bound (threshold for this alert is "
+                    f"{boundary_proportion_threshold * 100:.2f}%)."
                 )
         elif isinstance(row["parameter_or_constraint"], ParameterConstraint):
             pc = row["parameter_or_constraint"]
             prop = row["proportion"]
             if prop >= boundary_proportion_threshold:
                 msg += (
-                    f"\n - Parameter constraint {pc} is binding for {prop * 100:.2f}% "
-                    " of all suggested parameters, which exceeds the threshold of "
-                    f"{boundary_proportion_threshold * 100:.2f}%. "
-                    "Consider increasing this constraint bound and re-generating the "
-                    "candidates inside the expanded search space. "
+                    f"\n - **Relax parameter constraint `{pc!r}`:** Ax is frequently "
+                    "suggesting parameterizations along the boundary of parameter"
+                    f"constraint `{pc!r}`. Consider relaxing this constraint bound "
+                    "somewhat and re-generating the candidates. "
+                    f"Details: {prop * 100:.2f}% of all suggested arms lie along the "
+                    "boundary, which exceeds the threshold of "
+                    f"{boundary_proportion_threshold * 100:.2f}%."
                 )
 
     return msg
