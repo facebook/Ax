@@ -53,8 +53,6 @@ from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models.model import Model
 from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
-from botorch.posteriors.gpytorch import GPyTorchPosterior
-from botorch.posteriors.posterior_list import PosteriorList
 from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
@@ -509,9 +507,10 @@ def predict_from_model(
 ) -> tuple[Tensor, Tensor]:
     r"""Predicts outcomes given a model and input tensor.
 
-    For a `GaussianMixturePosterior` we currently use a Gaussian approximation where we
-    compute the mean and variance of the Gaussian mixture. This should ideally be
-    changed to compute quantiles instead when Ax supports non-Gaussian distributions.
+    For a `GaussianMixturePosterior` and a `BoundedRiemannPosterior` we currently use
+    a Gaussian approximation where we compute the mean and variance of the Gaussian
+    mixture. This should ideally be changed to compute quantiles instead when Ax
+    supports non-Gaussian distributions.
 
     Args:
         model: A BoTorch Model.
@@ -534,13 +533,15 @@ def predict_from_model(
             if isinstance(posterior, GaussianMixturePosterior):
                 mean = posterior.mixture_mean.cpu().detach()
                 var = posterior.mixture_variance.cpu().detach().clamp_min(0)
-            elif isinstance(posterior, (GPyTorchPosterior, PosteriorList)):
-                mean = posterior.mean.cpu().detach()
-                var = posterior.variance.cpu().detach().clamp_min(0)
             else:
-                raise UnsupportedError(
-                    "Non-Gaussian posteriors are currently not supported."
-                )
+                try:
+                    mean = posterior.mean.cpu().detach()  # type: ignore
+                    var = posterior.variance.cpu().detach().clamp_min(0)  # type: ignore
+                except AttributeError as e:
+                    raise UnsupportedError(
+                        "Predicting from a model requires the posterior to implement"
+                        f"`mean` and `variance` properties. Original error message: {e}"
+                    )
             means.append(mean)
             variances.append(var)
         mean = torch.cat(means, dim=0)
