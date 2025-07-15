@@ -84,6 +84,7 @@ class Keys(str, Enum):
     SUBCLASS = "subclass"
     SUBSET_MODEL = "subset_model"
     TASK_FEATURES = "task_features"
+    TASK_FEATURE_NAME = "task_feature"
     TRIAL_COMPLETION_TIMESTAMP = "trial_completion_timestamp"
     UNKNOWN_GENERATION_NODE = "unknown_gen_node"
     UNNAMED_ARM = "unnamed_arm"

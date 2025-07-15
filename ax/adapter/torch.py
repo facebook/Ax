@@ -710,6 +710,16 @@ class TorchAdapter(Adapter):
         self._last_observations = observations
         if update_outcomes_and_parameters:
             self.parameters = list(search_space.parameters.keys())
+            # Make sure that task feature is the last parameter. This is important
+            # for heterogeneous search spaces
+            if Keys.TASK_FEATURE_NAME.value in self.parameters:
+                idx = self.parameters.index(Keys.TASK_FEATURE_NAME.value)
+                if idx != len(self.parameters) - 1:
+                    self.parameters = (
+                        self.parameters[:idx]
+                        + self.parameters[idx + 1 :]
+                        + [Keys.TASK_FEATURE_NAME.value]
+                    )
         if parameters is None:
             parameters = self.parameters
         all_metric_names: set[str] = set()

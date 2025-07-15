@@ -39,6 +39,7 @@ from ax.generators.torch.botorch_modular.utils import (
 )
 from ax.generators.torch.utils import predict_from_model
 from ax.generators.torch_base import TorchOptConfig
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import DIAGNOSTIC_FNS
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -146,7 +147,7 @@ class SurrogateInputConstructorsTest(TestCase):
                 botorch_model_class=SingleTaskGP,
             )
             self.assertSetEqual(set(model_kwargs.keys()), {"task_feature"})
-            self.assertEqual(model_kwargs["task_feature"], 1)
+            self.assertEqual(model_kwargs["task_feature"], -1)
 
         with self.subTest("No feature info provided"):
             search_space_digest = SearchSpaceDigest(
@@ -959,6 +960,7 @@ class SurrogateTest(TestCase):
             with self.subTest(
                 eval_criterion=eval_criterion,
                 use_per_metric_model_overrides=use_per_metric_overrides,
+                multitask=multitask,
             ):
                 # this will do model selection over the two model configs
                 # that are either specified via model_configs or
@@ -979,13 +981,54 @@ class SurrogateTest(TestCase):
                     )
                 )
                 if multitask:
+                    mt_feature_names = self.feature_names + [
+                        Keys.TASK_FEATURE_NAME.value
+                    ]
                     dataset = MultiTaskDataset(
-                        datasets=[self.training_data_standardized[0], self.ds2],
+                        datasets=[
+                            SupervisedDataset(
+                                X=torch.cat(
+                                    [
+                                        self.Xs,
+                                        torch.zeros(
+                                            *self.Xs.shape[:-1],
+                                            1,
+                                            dtype=self.Xs.dtype,
+                                            device=self.Xs.device,
+                                        ),
+                                    ],
+                                    dim=-1,
+                                ),
+                                Y=standardize(self.Ys),
+                                feature_names=mt_feature_names,
+                                outcome_names=self.metric_names,
+                            ),
+                            SupervisedDataset(
+                                X=torch.cat(
+                                    [
+                                        assert_is_instance(self.Xs * 2, Tensor),
+                                        torch.ones(
+                                            *self.Xs.shape[:-1],
+                                            1,
+                                            dtype=self.Xs.dtype,
+                                            device=self.Xs.device,
+                                        ),
+                                    ],
+                                    dim=-1,
+                                ),
+                                Y=assert_is_instance(self.Ys * 2, Tensor),
+                                feature_names=mt_feature_names,
+                                outcome_names=["m2"],
+                            ),
+                        ],
                         target_outcome_name="metric",
+                        task_feature_index=-1,
                     )
                     search_space_digest = dataclasses.replace(
                         self.search_space_digest,
-                        target_values={-1: 0.0},
+                        feature_names=mt_feature_names,
+                        bounds=self.search_space_digest.bounds + [(0.0, 1.0)],
+                        target_values={3: 0.0},
                         task_features=[-1],
                     )
                 else:

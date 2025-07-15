@@ -1059,7 +1059,6 @@ class Adapter:
             f"{self.__class__.__name__} does not implement `feature_importances`."
         )
 
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def transform_observations(self, observations: list[Observation]) -> Any:
         """Applies transforms to given observation features and returns them in the
         model space.
@@ -1077,14 +1076,12 @@ class Adapter:
         # Apply terminal transform and return
         return self._transform_observations(observations)
 
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def _transform_observations(self, observations: list[Observation]) -> Any:
         """Apply terminal transform to given observations and return result."""
         raise AdapterMethodNotImplementedError(
             f"{self.__class__.__name__} does not implement `_transform_observations`."
         )
 
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
     ) -> Any:
@@ -1104,7 +1101,6 @@ class Adapter:
         # Apply terminal transform and return
         return self._transform_observation_features(obsf)
 
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def _transform_observation_features(
         self, observation_features: list[ObservationFeatures]
     ) -> Any:

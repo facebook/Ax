@@ -135,7 +135,11 @@ def _extract_model_kwargs(
     if len(fidelity_features) > 0:
         kwargs["fidelity_features"] = fidelity_features
     if len(task_features) == 1:
-        kwargs["task_feature"] = task_features[0]
+        task_feature = task_features[0]
+        if task_feature == len(search_space_digest.bounds) - 1:
+            # to support heterogeneous search spaces
+            task_feature = -1
+        kwargs["task_feature"] = task_feature
     return kwargs
 
 
@@ -235,28 +239,23 @@ def _construct_default_input_transforms(
             )
         )
     # Processing for Normalize.
-    if isinstance(dataset, RankingDataset):
-        # infer bounds and do not subset
-        transforms.append(Normalize(d=len(dataset.feature_names)))
-    else:
-        bounds = torch.tensor(
-            search_space_digest.bounds, dtype=torch.get_default_dtype()
-        ).T
-        indices = list(range(bounds.shape[-1]))
-        # Remove task features.
-        for task_feature in none_throws(
-            normalize_indices(search_space_digest.task_features, d=bounds.shape[-1])
-        ):
-            indices.remove(task_feature)
-        # Skip the Normalize transform if the bounds are [0, 1].
-        if not (
-            torch.allclose(bounds[0, indices], torch.zeros(len(indices)))
-            and torch.allclose(bounds[1, indices], torch.ones(len(indices)))
-        ):
-            transforms.append(
-                Normalize(d=bounds.shape[-1], indices=indices, bounds=bounds)
-            )
-
+    input_transform_options = input_transform_argparse(
+        Normalize,
+        dataset=dataset,
+        search_space_digest=search_space_digest,
+    )
+    bounds = input_transform_options.get("bounds")
+    indices = input_transform_options.get("indices")
+    # Skip the Normalize transform if the bounds are [0, 1].
+    if bounds is not None:
+        if indices is not None:
+            bounds = bounds[:, indices]
+        lower_bounds, upper_bounds = bounds
+        if torch.allclose(
+            lower_bounds, torch.zeros_like(lower_bounds)
+        ) and torch.allclose(upper_bounds, torch.ones_like(upper_bounds)):
+            return transforms
+    transforms.append(Normalize(**input_transform_options))
     return transforms
 
 
@@ -1182,6 +1181,10 @@ def _submodel_input_constructor_mtgp(
     # specify output tasks so that model.num_outputs = 1
     # since the model only models a single outcome
     if formatted_model_inputs.get("output_tasks") is None:
+        # SSD doesn't use -1, so we need to normalize here
+        task_feature = none_throws(
+            normalize_indices(indices=[task_feature], d=len(dataset.feature_names))
+        )[0]
         if (search_space_digest.target_values is not None) and (
             target_value := search_space_digest.target_values.get(task_feature)
         ) is not None:

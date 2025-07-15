@@ -20,6 +20,7 @@ TConfig = dict[
         float,
         str,
         AcquisitionFunction,
+        list[int],
         list[str],
         dict[int, Any],
         dict[str, Any],

@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from itertools import chain
+
 from typing import Any
 
 import torch
@@ -19,7 +21,7 @@ from botorch.models.transforms.input import (
     Normalize,
     Warp,
 )
-from botorch.utils.datasets import RankingDataset, SupervisedDataset
+from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.transforms import normalize_indices
 from pyre_extensions import none_throws
@@ -167,19 +169,20 @@ def _input_transform_argparse_normalize(
         A dictionary with input transform kwargs.
     """
     input_transform_options = input_transform_options or {}
-
-    d = input_transform_options.get("d", len(dataset.feature_names))
+    if isinstance(dataset, MultiTaskDataset) and dataset.has_heterogeneous_features:
+        # set d to number of features in the full feature space
+        d = len(set(chain(*(ds.feature_names for ds in dataset.datasets.values()))))
+    else:
+        d = input_transform_options.get("d", len(dataset.feature_names))
     input_transform_options["d"] = d
 
     if isinstance(dataset, RankingDataset):
         input_transform_options["indices"] = None
-    else:
+    elif input_transform_options.get("indices") is None:
         indices = list(range(d))
-        # having indices set to None means that we don't remove task features
-        if ("indices" in input_transform_options) and (
-            input_transform_options["indices"] is None
-        ):
-            input_transform_options["indices"] = indices
+        if isinstance(dataset, MultiTaskDataset) and dataset.has_heterogeneous_features:
+            # task feature is last feature
+            del indices[none_throws(dataset.task_feature_index)]
         else:
             task_features = none_throws(
                 normalize_indices(search_space_digest.task_features, d=d)
@@ -187,8 +190,8 @@ def _input_transform_argparse_normalize(
             for task_feature in sorted(task_features, reverse=True):
                 del indices[task_feature]
 
-        if ("indices" in input_transform_options) or (len(indices) < d):
-            input_transform_options.setdefault("indices", indices)
+        if len(indices) < d:
+            input_transform_options["indices"] = indices
 
     # if ranking dataset, infer the bounds instead as it may be unbounded
     if not isinstance(dataset, RankingDataset):
