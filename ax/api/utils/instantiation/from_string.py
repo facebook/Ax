@@ -297,17 +297,17 @@ def _sanitize_name(s: str) -> str:
     # Replace occurances of "." and "/" when they appear after a valid Python variable
     # name and before any alphanumeric character.
     sans_dots = re.sub(
-        r"([a-zA-Z_][a-zA-Z0-9_])\.([a-zA-Z0-9_])",
+        r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z0-9_])",
         rf"\1{DOT_PLACEHOLDER}\2",
         s,
     )
     sans_slash = re.sub(
-        r"([a-zA-Z_][a-zA-Z0-9_])\/([a-zA-Z0-9_])",
+        r"([a-zA-Z_][a-zA-Z0-9_]*)\/([a-zA-Z0-9_])",
         rf"\1{SLASH_PLACEHOLDER}\2",
         sans_dots,
     )
     sans_colon = re.sub(
-        r"([a-zA-Z_][a-zA-Z0-9_]):([a-zA-Z0-9_])",
+        r"([a-zA-Z_][a-zA-Z0-9_]*):([a-zA-Z0-9_])",
         rf"\1{COLON_PLACEHOLDER}\2",
         sans_slash,
     )
