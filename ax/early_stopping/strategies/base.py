@@ -9,21 +9,9 @@
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
 from logging import Logger
 
-import numpy.typing as npt
 import pandas as pd
-from ax.adapter.adapter_utils import (
-    _unpack_observations,
-    observation_data_to_array,
-    observation_features_to_array,
-)
-from ax.adapter.base import DataLoaderConfig
-from ax.adapter.registry import Cont_X_trans, Y_trans
-from ax.adapter.torch import TorchAdapter
-from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
@@ -32,34 +20,11 @@ from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.generation_strategy.generation_node import GenerationNode
-from ax.generators.torch_base import TorchGenerator
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
-
-
-@dataclass
-class EarlyStoppingTrainingData:
-    """Dataclass for keeping data arrays related to model training and
-    arm names together.
-
-    Args:
-        X: An `n x d'` array of training features. `d' = d + m`, where `d`
-            is the dimension of the design space and `m` are the number of map
-            keys. For the case of learning curves, `m = 1` since we have only
-            the number of steps as the map key.
-        Y: An `n x 1` array of training observations.
-        Yvar: An `n x 1` observed measurement noise.
-        arm_names: A list of length `n` of arm names. Useful for understanding
-            which data come from the same arm.
-    """
-
-    X: npt.NDArray
-    Y: npt.NDArray
-    Yvar: npt.NDArray
-    arm_names: list[str | None]
 
 
 class BaseEarlyStoppingStrategy(ABC, Base):
@@ -497,83 +462,10 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         max_training_size: int | None = None,
         outcomes: Sequence[str] | None = None,
         parameters: list[str] | None = None,
-    ) -> EarlyStoppingTrainingData:
-        """Processes the raw (untransformed) training data into arrays for
-        use in modeling. The trailing dimensions of `X` are the map keys, in
-        their originally specified order from `map_data`.
-
-        Args:
-            experiment: Experiment that contains the data.
-            map_data: The MapData from the experiment, as can be obtained by
-                via `_check_validity_and_get_data`.
-            max_training_size: Subsample the learning curve to keep the total
-                number of data points less than this threshold. Passed to
-                MapData's `subsample` method as `limit_rows_per_metric`.
-
-        Returns:
-            An `EarlyStoppingTrainingData` that contains training data arrays X, Y,
-                and Yvar + a list of arm names.
-        """
-        if max_training_size is not None:
-            map_data = map_data.subsample(
-                map_key=map_data.map_keys[0],
-                limit_rows_per_metric=max_training_size,
-            )
-        if outcomes is None:
-            # default to the default objective
-            metric_name, _ = self._default_objective_and_direction(
-                experiment=experiment
-            )
-            outcomes = [metric_name]
-
-        if parameters is None:
-            parameters = list(experiment.search_space.parameters.keys())
-            parameters = parameters + list(map_data.map_keys)
-
-        # helper Ax model to make use of its transform functionality
-        transform_model = get_transform_helper_model(
-            experiment=experiment, data=map_data
+    ) -> None:
+        raise DeprecationWarning(
+            "`ModelBasedEarlyStoppingStrategy.get_training_data` is deprecated. "
+            "Subclasses should either extract the training data manually, "
+            "or rely on the fitted surrogates available in the current generation "
+            "node that is passed into `should_stop_trials_early`."
         )
-        observations, _ = transform_model._process_and_transform_data(
-            experiment=experiment, data=map_data
-        )
-        obs_features, obs_data, arm_names = _unpack_observations(observations)
-        X = observation_features_to_array(parameters=parameters, obsf=obs_features)
-        Y, Yvar = observation_data_to_array(
-            outcomes=list(outcomes), observation_data=obs_data
-        )
-        return EarlyStoppingTrainingData(X=X, Y=Y, Yvar=Yvar, arm_names=arm_names)
-
-
-def get_transform_helper_model(
-    experiment: Experiment,
-    data: MapData,
-    transforms: Sequence[type[Transform]] | None = None,
-) -> TorchAdapter:
-    """
-    Constructs a TorchAdapter, to be used as a helper for transforming parameters.
-    We perform the default `Cont_X_trans` for parameters but do not perform any
-    transforms on the observations.
-
-    Args:
-        experiment: Experiment.
-        data: Data for fitting the model.
-
-    Returns: A torch adapter.
-    """
-    if transforms is None:
-        transforms = [MapKeyToFloat] + Cont_X_trans + Y_trans
-    return TorchAdapter(
-        experiment=experiment,
-        search_space=experiment.search_space,
-        data=data,
-        generator=TorchGenerator(),
-        transforms=transforms,
-        transform_configs={"MapKeyToFloat": {"default_log_scale": False}},
-        data_loader_config=DataLoaderConfig(
-            fit_out_of_design=True,
-            latest_rows_per_group=None,
-            fit_only_completed_map_metrics=False,
-        ),
-        fit_on_init=False,  # Since we're only using it to extract data.
-    )

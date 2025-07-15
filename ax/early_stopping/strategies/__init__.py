@@ -8,7 +8,6 @@
 
 from ax.early_stopping.strategies.base import (
     BaseEarlyStoppingStrategy,
-    EarlyStoppingTrainingData,
     ModelBasedEarlyStoppingStrategy,
 )
 from ax.early_stopping.strategies.logical import (
@@ -22,7 +21,6 @@ from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrateg
 
 __all__ = [
     "BaseEarlyStoppingStrategy",
-    "EarlyStoppingTrainingData",
     "ModelBasedEarlyStoppingStrategy",
     "PercentileEarlyStoppingStrategy",
     "ThresholdEarlyStoppingStrategy",
