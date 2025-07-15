@@ -26,6 +26,7 @@ from ax.analysis.plotly.utils import select_metric, truncate_label
 from ax.analysis.utils import extract_relevant_adapter, relativize_data
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
+from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -198,6 +199,7 @@ def _prepare_data(
             "trial_index": trial.index,
         }
         for trial in experiment.trials.values()
+        if trial.status in STATUSES_EXPECTING_DATA  # running, completed, early stopped
         for arm in trial.arms
     ]
 

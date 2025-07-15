@@ -161,3 +161,19 @@ class TestContourPlot(TestCase):
 
         # Less-than-or-equal to because we may have removed some duplicates
         self.assertTrue(card.df["sampled"].sum() <= len(self.client.experiment.trials))
+
+    def test_trial_status_filtering(self) -> None:
+        trial_index = self.client.experiment.new_trial().index
+        self.client.experiment.trials[trial_index].mark_abandoned()
+
+        analysis = ContourPlot(
+            x_parameter_name="x", y_parameter_name="y", metric_name="bar"
+        )
+        card = analysis.compute(
+            experiment=self.client.experiment,
+            generation_strategy=self.client.generation_strategy,
+        )
+        self.assertNotIn(
+            trial_index,
+            card.df["trial_index"].values,
+        )

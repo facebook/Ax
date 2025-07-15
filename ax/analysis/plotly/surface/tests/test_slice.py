@@ -133,3 +133,18 @@ class TestSlicePlot(TestCase):
                 axis=1,
             ).all()
         )
+
+    def test_trial_status_filtering(self) -> None:
+        trial_index = self.client.experiment.new_trial().index
+        self.client.experiment.trials[trial_index].mark_abandoned()
+
+        analysis = SlicePlot(parameter_name="x", metric_name="bar")
+
+        card = analysis.compute(
+            experiment=self.client.experiment,
+            generation_strategy=self.client.generation_strategy,
+        )
+        self.assertNotIn(
+            trial_index,
+            card.df["trial_index"].values,
+        )
