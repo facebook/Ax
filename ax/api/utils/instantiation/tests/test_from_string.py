@@ -241,7 +241,7 @@ class TestFromString(TestCase):
     def test_sanitize_name(self) -> None:
         self.assertEqual(_sanitize_name("foo.bar.baz"), "foo__dot__bar__dot__baz")
         self.assertEqual(
-            _sanitize_name("foo.bar/1:Baz"), "foo__dot__bar__slash__1__colon__Baz"
+            _sanitize_name("foo.bar/11:Baz"), "foo__dot__bar__slash__11__colon__Baz"
         )
         self.assertEqual(
             _sanitize_name("foo.bar + 0.1 * baz"), "foo__dot__bar + 0.1 * baz"
