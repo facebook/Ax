@@ -24,18 +24,54 @@ html_card_template = """
 <style>
 .card {{
     overflow: auto;
+    border-width: thin;
+    border-color: lightgray;
+    border-style: solid;
+    border-radius: 0.5em;
+    padding: 10px;
+}}
+.card-header:hover {{
+    cursor: pointer;
 }}
 </style>
 <div class="card">
     <div class="card-header">
-        <b>
+        <details>
+            <summary><b>{title_str}</b></summary>
+            <p>{subtitle_str}</p>
+        </details>
+    </div>
+    <div class="card-body">
+        {body_html}
+    </div>
+</div>
+"""
+
+# Simple HTML template for rendering a *group* card with a title, subtitle, and
+# body with scrollable overflow.
+html_group_card_template = """
+<style>
+.group-card {{
+    overflow: auto;
+    margin-top: 25px;
+}}
+.group-header {{
+    font-size: 1.5em;
+}}
+.group-subtitle {{
+    font-size: 1em;
+}}
+</style>
+<div class="group-card">
+    <div>
+        <b class="group-header">
         {title_str}
         </b>
-        <p>
+        <p class="group-subtitle">
         {subtitle_str}
         </p>
     </div>
-    <div class="card-body">
+    <div class="group-body">
         {body_html}
     </div>
 </div>
@@ -175,7 +211,7 @@ class AnalysisCardBase(SortableBase, ABC):
     def _to_html(self, depth: int) -> str:
         return html_card_template.format(
             title_str=self.title,
-            subtitle_str=self.subtitle if depth < 2 else "",
+            subtitle_str=self.subtitle,
             body_html=self._body_html(depth=depth),
         )
 
@@ -281,6 +317,13 @@ class AnalysisCardGroup(AnalysisCardBase):
             res.append(leaves_grid)
 
         return "\n".join(res)
+
+    def _to_html(self, depth: int) -> str:
+        return html_group_card_template.format(
+            title_str=self.title,
+            subtitle_str=self.subtitle,
+            body_html=self._body_html(depth=depth),
+        )
 
 
 class AnalysisCard(AnalysisCardBase):
