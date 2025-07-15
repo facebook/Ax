@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 from unittest.mock import patch
 
 import numpy as np
@@ -17,6 +19,7 @@ from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
 from ax.generators.torch.botorch_modular.input_constructors.input_transforms import (
     input_transform_argparse,
 )
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.models.transforms.input import (
     InputPerturbation,
@@ -143,26 +146,38 @@ class InputTransformArgparseTest(TestCase):
 
         # Test with MultiTaskDataset.
         dataset1 = SupervisedDataset(
-            X=torch.rand(5, 4),
+            X=torch.cat([torch.rand(5, 4), torch.zeros(5, 1)], dim=-1),
             Y=torch.randn(5, 1),
-            feature_names=[f"x{i}" for i in range(4)],
+            feature_names=[f"x{i}" for i in range(4)] + [Keys.TASK_FEATURE_NAME.value],
             outcome_names=["y0"],
         )
 
         dataset2 = SupervisedDataset(
-            X=torch.rand(5, 2),
+            X=torch.cat([torch.rand(5, 2), torch.zeros(5, 1)], dim=-1),
             Y=torch.randn(5, 1),
-            feature_names=[f"x{i}" for i in range(2)],
+            feature_names=[f"x{i}" for i in range(2)] + [Keys.TASK_FEATURE_NAME.value],
             outcome_names=["y1"],
         )
-        mtds = MultiTaskDataset(datasets=[dataset1, dataset2], target_outcome_name="y0")
+        mtds = MultiTaskDataset(
+            datasets=[dataset1, dataset2],
+            target_outcome_name="y0",
+            task_feature_index=-1,
+        )
+        mt_ssd = dataclasses.replace(
+            self.search_space_digest,
+            feature_names=self.search_space_digest.feature_names
+            + [Keys.TASK_FEATURE_NAME.value],
+            task_features=[-1],
+            bounds=self.search_space_digest.bounds + [(0.0, 1.0)],
+        )
         input_transform_kwargs = input_transform_argparse(
             Normalize,
             dataset=mtds,
-            search_space_digest=self.search_space_digest,
+            search_space_digest=mt_ssd,
         )
-        self.assertEqual(input_transform_kwargs["d"], 4)
-        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 3])
+        self.assertEqual(input_transform_kwargs["d"], 5)
+        # task feature should be omitted
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 2, 3])
 
         input_transform_kwargs = input_transform_argparse(
             Normalize,

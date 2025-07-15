@@ -8,15 +8,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from logging import Logger
 from math import isnan
 from typing import Any, SupportsFloat, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.metadata_to_parameter import MetadataToParameterMixin
 from ax.core import ParameterType
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import Observation
 from ax.core.parameter import RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 logger: Logger = get_logger(__name__)
 
 
-class MetadataToFloat(Transform):
+class MetadataToFloat(MetadataToParameterMixin, Transform):
     """
     This transform converts metadata from observation features into range (float)
     parameters for a search space.
@@ -57,7 +57,8 @@ class MetadataToFloat(Transform):
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
-        super().__init__(
+        Transform.__init__(
+            self,
             search_space=search_space,
             observations=observations,
             experiment_data=experiment_data,
@@ -127,56 +128,3 @@ class MetadataToFloat(Transform):
             if not isnan(value):
                 values.add(value)
         return values
-
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        for parameter in self._parameter_list:
-            search_space.add_parameter(parameter.clone())
-        return search_space
-
-    def transform_observation_features(
-        self, observation_features: list[ObservationFeatures]
-    ) -> list[ObservationFeatures]:
-        for obsf in observation_features:
-            self._transform_observation_feature(obsf)
-        return observation_features
-
-    def untransform_observation_features(
-        self, observation_features: list[ObservationFeatures]
-    ) -> list[ObservationFeatures]:
-        for obsf in observation_features:
-            obsf.metadata = obsf.metadata or {}
-            _transfer(
-                src=obsf.parameters,
-                dst=obsf.metadata,
-                keys=[p.name for p in self._parameter_list],
-            )
-        return observation_features
-
-    def _transform_observation_feature(self, obsf: ObservationFeatures) -> None:
-        _transfer(
-            src=none_throws(obsf.metadata),
-            dst=obsf.parameters,
-            keys=[p.name for p in self._parameter_list],
-        )
-
-    def transform_experiment_data(
-        self, experiment_data: ExperimentData
-    ) -> ExperimentData:
-        arm_data = experiment_data.arm_data
-        metadata = arm_data["metadata"]
-        for name in self.parameters:
-            arm_data[name] = metadata.apply(lambda x: x.pop(name))  # noqa B023
-        return ExperimentData(
-            arm_data=arm_data,
-            observation_data=experiment_data.observation_data,
-        )
-
-
-def _transfer(
-    src: dict[str, Any],
-    dst: dict[str, Any],
-    keys: Iterable[str],
-) -> None:
-    """Transfer items in-place from one dictionary to another."""
-    for key in keys:
-        dst[key] = src.pop(key)

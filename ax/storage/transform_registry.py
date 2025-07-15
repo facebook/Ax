@@ -26,6 +26,8 @@ from ax.adapter.transforms.log_y import LogY
 from ax.adapter.transforms.logit import Logit
 from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.adapter.transforms.merge_repeated_measurements import MergeRepeatedMeasurements
+from ax.adapter.transforms.metadata_to_float import MetadataToFloat
+from ax.adapter.transforms.metadata_to_task import MetadataToTask
 from ax.adapter.transforms.metrics_as_task import MetricsAsTask
 from ax.adapter.transforms.one_hot import OneHot
 from ax.adapter.transforms.power_transform_y import PowerTransformY
@@ -83,6 +85,8 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     ChoiceToNumericChoice,
     Logit,
     # MapUnitX, DEPRECATED
+    MetadataToFloat,
+    MetadataToTask,
     MetricsAsTask,
     LogY,
     Relativize,
