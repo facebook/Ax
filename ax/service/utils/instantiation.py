@@ -7,7 +7,7 @@
 # pyre-strict
 
 import enum
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 
@@ -86,6 +86,20 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
     "digits",
     "dependents",
 }
+
+
+INVALID_CONSTRAINT_ERROR_MSG = (
+    "Received invalid parameter constraint format: `{}`. "
+    "Please use one of the following forms:\n"
+    "* Ordered constraints: `<p1> >= <p2>` or `<p1> <= <p2>`, where `<p1>` and `<p2>` "
+    "are parameter names.\n"
+    "* Unweighted linear constraints: `<p1> >= <b>` or `<p1> + <p2> <= <b>`, where you "
+    "can add one or more parameters on the left side, and `<b>` is a numeric value.\n"
+    "* Weighted linear constraints: `<w1>*<p1> >= <b>` or "
+    "`<w1>*<p1> + <w2>*<p2> <= <b>`, where you can add one or more weighted terms on "
+    "the left side, and there should be no spaces between weights and parameter "
+    'names.\nAcceptable comparison operators are ">=" and "<=".'
+)
 
 
 class MetricObjective(enum.Enum):
@@ -389,106 +403,49 @@ class InstantiationBase:
     def constraint_from_str(
         representation: str, parameters: dict[str, Parameter]
     ) -> ParameterConstraint:
-        """Parse string representation of a parameter constraint."""
+        """Parse string representation of a parameter constraint.
+
+        Args:
+            representation: String representation of the parameter constraint.
+            parameters: Dictionary of parameter names to parameter objects or configs.
+
+        Returns:
+            An instantiated ParameterConstraint, either an OrderConstraint or a
+            ParameterConstraint, representing a linear constraint.
+        """
         tokens = representation.split()
-        parameter_names = parameters.keys()
         try:
             float(tokens[-1])
             last_token_is_numeric = True
         except ValueError:
             last_token_is_numeric = False
-        order_const = len(tokens) == 3 and tokens[1] in COMPARISON_OPS
-        sum_const = (
-            len(tokens) >= 5 and len(tokens) % 2 == 1 and tokens[-2] in COMPARISON_OPS
+        is_order_constraint = (
+            len(tokens) == 3
+            and tokens[1] in COMPARISON_OPS
+            and not last_token_is_numeric
         )
-        if not (order_const or sum_const):
-            raise ValueError(
-                "Parameter constraint should be of form <parameter_name> >= "
-                "<other_parameter_name> for order constraints or `<parameter_name> "
-                "+ <other_parameter_name> >= x, where any number of terms can be "
-                "added and `x` is a float bound. Acceptable comparison operators "
-                'are ">=" and "<=".'
+        is_linear_constraint = (
+            # if len == 3, then this is a single parameter bound constraint, otherwise
+            # it corresponds to a numerical bound on a sum of parameters
+            len(tokens) >= 3
+            and len(tokens) % 2 == 1
+            and tokens[-2] in COMPARISON_OPS
+            and last_token_is_numeric
+        )
+
+        if is_order_constraint:  # e.g. "x1 >= x2"
+            return _process_order_constraint(
+                tokens=tokens,
+                parameters=parameters,
             )
 
-        # Case "x1 >= x2" => order constraint.
-        if len(tokens) == 3 and not last_token_is_numeric:
-            left, right = tokens[0], tokens[2]
-            assert (
-                left in parameter_names
-            ), f"Parameter {left} not in {parameter_names}."
-            assert (
-                right in parameter_names
-            ), f"Parameter {right} not in {parameter_names}."
-            validate_constraint_parameters(
-                parameters=[parameters[left], parameters[right]]
+        if is_linear_constraint:  # e.g. "x1 + x2 >= 3"
+            return _process_linear_constraint(
+                tokens=tokens,
+                parameters=parameters,
             )
-            return (
-                OrderConstraint(
-                    lower_parameter=parameters[left], upper_parameter=parameters[right]
-                )
-                if COMPARISON_OPS[tokens[1]] is ComparisonOp.LEQ
-                else OrderConstraint(
-                    lower_parameter=parameters[right], upper_parameter=parameters[left]
-                )
-            )
-        if not last_token_is_numeric:
-            raise ValueError(
-                f"Bound for the constraint must be a number; got {tokens[-1]}"
-            )
-        bound = float(tokens[-1])
-        if any(token[0] == "*" or token[-1] == "*" for token in tokens):
-            raise ValueError(
-                "A linear constraint should be the form a*x + b*y - c*z <= d"
-                ", where a,b,c,d are float constants and x,y,z are parameters. "
-                "There should be no space in each term around the operator * while "
-                "there should be a single space around each operator +, -, <= and >=."
-            )
-        parameter_weight = {}
-        comparison_multiplier = (
-            1.0 if COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ else -1.0
-        )
-        operator_sign = 1.0  # Determines whether the operator is + or -
-        # tokens are alternating monomials and operators
-        for idx, token in enumerate(tokens[:-2]):
-            # for monomials
-            if idx % 2 == 0:
-                split_token = token.split("*")
-                parameter = ""  # Initializing the parameter
-                multiplier = 1.0  # Initializing the multiplier
-                if len(split_token) == 2:  # There is a non-unit multiplier
-                    try:
-                        multiplier = float(split_token[0])
-                    except ValueError:
-                        raise ValueError(
-                            f"Multiplier should be float; got {split_token[0]}"
-                        )
-                    parameter = split_token[1]
-                elif len(split_token) == 1:  # The multiplier is either -1 or 1
-                    parameter = split_token[0]
-                    if parameter[0] == "-":  # The multiplier is -1
-                        parameter = parameter[1:]
-                        multiplier = -1.0
-                    else:
-                        multiplier = 1.0
 
-                assert (
-                    parameter in parameter_names
-                ), f"Parameter {parameter} not in {parameter_names}."
-                validate_constraint_parameters(parameters=[parameters[parameter]])
-
-                parameter_weight[parameter] = operator_sign * multiplier
-            # for operators
-            else:
-                assert (
-                    token == "+" or token == "-"
-                ), f"Expected a mixed constraint, found operator {token}."
-                operator_sign = 1.0 if token == "+" else -1.0
-        return ParameterConstraint(
-            constraint_dict={
-                p: comparison_multiplier * parameter_weight[p] for p in parameter_weight
-            },
-            bound=comparison_multiplier * bound,
-        )
+        raise ValueError(INVALID_CONSTRAINT_ERROR_MSG.format(representation))
 
     @classmethod
     def outcome_constraint_from_str(
@@ -1009,3 +966,137 @@ class InstantiationBase:
                 else fixed_features.trial_index
             ),
         )
+
+
+# Helpers for parsing parameter constraints
+def _process_order_constraint(
+    tokens: Sequence[str],
+    parameters: Mapping[str, Parameter],
+) -> OrderConstraint:
+    """Processes an order constraint, e.g. "x1 <= x2".
+
+    Args:
+        tokens: A list of tokens in the constraint string.
+        parameters: A mapping from parameter names to their definitions.
+
+    Returns:
+        An OrderConstraint object representing the order constraint.
+    """
+    left, right = tokens[0], tokens[2]
+    parameter_names = parameters.keys()
+    if missing_tokens := ({left, right} - set(parameter_names)):
+        missing_tokens = list(missing_tokens)
+        missing_tokens.sort()  # making error message deterministic
+        raise ValueError(
+            f"OrderConstraint token(s) {missing_tokens} are not present in "
+            f"parameters list {list(parameter_names)}."
+        )
+
+    validate_constraint_parameters(parameters=[parameters[left], parameters[right]])
+    # tokens[1] is checked to be either LEQ or GEQ above if order_const is True
+    if COMPARISON_OPS[tokens[1]] is ComparisonOp.LEQ:
+        lower_parameter = parameters[left]
+        upper_parameter = parameters[right]
+    else:
+        lower_parameter = parameters[right]
+        upper_parameter = parameters[left]
+    return OrderConstraint(
+        lower_parameter=lower_parameter, upper_parameter=upper_parameter
+    )
+
+
+def _process_linear_constraint(
+    tokens: Sequence[str],
+    parameters: Mapping[str, Parameter],
+) -> ParameterConstraint:
+    """Processes a linear constraint, e.g. "x1 + x2 <= 3". The last token is expected
+    to be a numeric constant, and the other tokens are expected to be parameters, their
+    multiplicative coefficients (e.g."2.5*x1") and "+" or "-" operators (e.g. "+").
+
+    Args:
+        tokens: A list of tokens in the constraint string.
+        parameters: A mapping from parameter names to their definitions.
+
+    Returns:
+        A ParameterConstraint object representing the linear constraint.
+    """
+    parameter_names = parameters.keys()
+
+    bound = float(tokens[-1])
+    if any(token[0] == "*" or token[-1] == "*" for token in tokens):
+        raise ValueError(
+            "A linear constraint should be the form a*x + b*y - c*z <= d"
+            ", where a,b,c,d are float constants and x,y,z are parameters. "
+            "There should be no space in each term around the operator `*`, and "
+            "there should be a single space around each operator +, -, <= and >=."
+        )
+    parameter_weights = {}
+    current_sign = 1.0  # Determines whether the operator is + or -
+    # tokens are alternating monomials and operators
+    for idx, token in enumerate(tokens[:-2]):
+        # for monomials
+        if idx % 2 == 0:
+            multiplier, parameter_name = _process_monomial(monomial_str=token)
+            if parameter_name not in parameter_names:
+                raise ValueError(
+                    f"Constraint parameter '{parameter_name}' is not present in this "
+                    f"experiment's search space parameters: {list(parameter_names)}."
+                )
+            validate_constraint_parameters(parameters=[parameters[parameter_name]])
+            parameter_weights[parameter_name] = current_sign * multiplier
+        # for operators
+        else:
+            if token == "+":
+                current_sign = 1.0
+            elif token == "-":
+                current_sign = -1.0
+            else:
+                raise ValueError(
+                    f"Expected a mixed constraint, found operator `{token}`."
+                )
+    # tokens[-2] is checked to be either LEQ or GEQ if sum_const is True
+    comparison_multiplier = (
+        1.0 if COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ else -1.0
+    )
+    return ParameterConstraint(
+        constraint_dict={
+            p: comparison_multiplier * parameter_weights[p] for p in parameter_weights
+        },
+        bound=comparison_multiplier * bound,
+    )
+
+
+def _process_monomial(monomial_str: str) -> tuple[float, str]:
+    """Process a monomial in a linear constraint.
+
+    Args:
+        monomial_str: A string representation of a monomial in a linear constraint.
+
+    Returns:
+        A tuple of the multiplier and the parameter name.
+    """
+    split_token = monomial_str.split("*")
+    parameter = ""  # Initializing the parameter
+    multiplier = 1.0  # Initializing the multiplier
+    if len(split_token) == 2:  # There is a non-unit multiplier
+        try:
+            multiplier = float(split_token[0])
+        except ValueError:
+            raise ValueError(
+                f"Multiplier should be float; got {split_token[0]} for "
+                f"parameter {split_token[1]}."
+            )
+        parameter = split_token[1]
+    elif len(split_token) == 1:  # The multiplier is either -1 or 1
+        parameter = split_token[0]
+        if parameter[0] == "-":  # The multiplier is -1
+            parameter = parameter[1:]
+            multiplier = -1.0
+        else:
+            multiplier = 1.0
+    else:
+        raise ValueError(
+            "Monomial format does not match `multiplier*parameter_name`."
+            f"Got `{monomial_str}`."
+        )
+    return multiplier, parameter
