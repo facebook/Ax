@@ -356,8 +356,6 @@ class TorchAdapter(Adapter):
             ).unsqueeze(-1)
             if Yvar.isnan().all():
                 Yvar = None
-            else:
-                Yvar = Yvar.clamp_min(1e-6)
             Y = torch.tensor(
                 Ys[outcome], dtype=torch.double, device=self.device
             ).unsqueeze(-1)
