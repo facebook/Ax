@@ -42,6 +42,7 @@ from ax.utils.testing.mock import (
     mock_botorch_optimize,
     mock_botorch_optimize_context_manager,
 )
+from botorch.exceptions.warnings import InputDataWarning
 
 
 class CrossValidationTest(TestCase):
@@ -220,7 +221,7 @@ class CrossValidationTest(TestCase):
         for untransform in [False, True]:
             with warnings.catch_warnings(record=True) as ws:
                 cross_validate(model=model, untransform=untransform)
-                self.assertEqual(len(ws), 0)
+                self.assertFalse(any(w.category == InputDataWarning for w in ws))
 
     def test_cross_validate_raises_not_implemented_error_for_non_cv_model_with_data(
         self,

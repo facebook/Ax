@@ -125,7 +125,7 @@ class TorchAdapterTest(TestCase):
             "y2": SupervisedDataset(
                 X=X,
                 Y=torch.tensor([[2.0], [0.0]], **tkwargs),
-                Yvar=torch.tensor([[2.0], [1.0]], **tkwargs),
+                Yvar=torch.tensor([[1e-8], [1e-9]], **tkwargs),
                 feature_names=feature_names,
                 outcome_names=["y2"],
             ),
@@ -154,7 +154,6 @@ class TorchAdapterTest(TestCase):
             adapter._fit(search_space=search_space, observations=observations)
         generator_fit_args = mock_fit.call_args.kwargs
         self.assertEqual(generator_fit_args["datasets"], list(datasets.values()))
-
         expected_ssd = SearchSpaceDigest(
             feature_names=feature_names, bounds=[(0, 5)] * 3
         )
