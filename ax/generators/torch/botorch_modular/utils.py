@@ -16,7 +16,7 @@ from typing import Any, cast, Mapping
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning, UnsupportedError
+from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch_base import TorchOptConfig
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
@@ -474,15 +474,29 @@ def _get_shared_rows(Xs: list[Tensor]) -> tuple[Tensor, list[Tensor]]:
         index tensors that indicate the location of these rows
         in the respective elements of `Xs`.
     """
+    if any(X.ndim != 2 for X in Xs):
+        raise UserInputError("All inputs must be two-dimensional.")
     idcs_shared = []
     Xs_sorted = sorted(Xs, key=len)
-    X_shared = Xs_sorted[0].clone()
+    X_shared = Xs_sorted[0].clone().unique(dim=0)
     for X in Xs_sorted[1:]:
         X_shared = X_shared[(X_shared == X.unsqueeze(-2)).all(dim=-1).any(dim=-2)]
     # get indices
     for X in Xs:
+        _, inverse_indices = X.unique(dim=0, return_inverse=True)
+        # set of unique original indices
+        unique_indices = set(
+            {v: i for i, v in enumerate(inverse_indices.tolist())}.values()
+        )
         same = (X_shared == X.unsqueeze(-2)).all(dim=-1).any(dim=-1)
-        idcs_shared.append(torch.arange(same.shape[-1], device=X_shared.device)[same])
+        shared_idcs_list = []
+        for i, is_shared in enumerate(same):
+            if is_shared and i in unique_indices:
+                shared_idcs_list.append(i)
+        shared_idcs = torch.tensor(
+            shared_idcs_list, dtype=torch.long, device=X_shared.device
+        )
+        idcs_shared.append(shared_idcs)
     return X_shared, idcs_shared
 
 

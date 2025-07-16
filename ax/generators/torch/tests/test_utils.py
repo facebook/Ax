@@ -12,7 +12,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning, UnsupportedError
+from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch.botorch_modular.utils import (
     _get_shared_rows,
     choose_botorch_acqf_class,
@@ -370,19 +370,25 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
 
     def test_get_shared_rows(self) -> None:
+        # test bad input
+        with self.assertRaisesRegex(
+            UserInputError, "All inputs must be two-dimensional."
+        ):
+            _get_shared_rows(Xs=[torch.rand(3, 4, 2), torch.rand(2, 4, 2)])
+
         X1 = torch.rand(4, 2)
 
         # X1 is subset of X2
         X2 = torch.cat((X1[:2], torch.rand(1, 2), X1[2:]))
         X_shared, shared_idcs = _get_shared_rows([X1, X2])
-        self.assertTrue(torch.equal(X1, X_shared))
+        # unique() here just makes sure the order is consistent
+        self.assertTrue(torch.equal(X1.unique(dim=0), X_shared))
         self.assertTrue(torch.equal(shared_idcs[0], torch.arange(4)))
         self.assertTrue(torch.equal(shared_idcs[1], torch.tensor([0, 1, 3, 4])))
-
         # X2 is subset of X1
         X2 = X1[:3]
         X_shared, shared_idcs = _get_shared_rows([X1, X2])
-        self.assertTrue(torch.equal(X2, X_shared))
+        self.assertTrue(torch.equal(X2.unique(dim=0), X_shared))
         self.assertTrue(torch.equal(shared_idcs[0], torch.arange(3)))
         self.assertTrue(torch.equal(shared_idcs[1], torch.arange(3)))
 
@@ -399,8 +405,16 @@ class BoTorchGeneratorUtilsTest(TestCase):
         X_shared, shared_idcs = _get_shared_rows([X1, X2, X3])
         self.assertTrue(torch.equal(shared_idcs[0], torch.tensor([0, 1, 3])))
         self.assertTrue(torch.equal(shared_idcs[1], torch.tensor([0, 1, 4])))
-        self.assertTrue(torch.equal(shared_idcs[2], torch.tensor([1, 2, 4])))
-        self.assertTrue(torch.equal(X_shared, X1[torch.tensor([0, 1, 3])]))
+        self.assertTrue(
+            torch.equal(X_shared, X1[torch.tensor([0, 1, 3])].unique(dim=0))
+        )
+
+        # test tensors with duplicate rows
+        X4 = torch.cat((X1[:2], X1[:2]))
+        X_shared, shared_idcs = _get_shared_rows(Xs=[X1, X4])
+        self.assertTrue(torch.equal(X_shared, X1[:2].unique(dim=0)))
+        self.assertTrue(torch.equal(shared_idcs[0], torch.tensor([0, 1])))
+        self.assertTrue(torch.equal(shared_idcs[1], torch.tensor([2, 3])))
 
     def test_convert_to_block_design(self) -> None:
         # simple case: block design, supervised
@@ -472,7 +486,8 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
         self.assertEqual(len(new_datasets), 1)
         self.assertIsNone(new_datasets[0].Yvar)
-        self.assertTrue(torch.equal(new_datasets[0].X, X[:3]))
+        # unique() here makes sure the order is consistent
+        self.assertTrue(torch.equal(new_datasets[0].X, X[:3].unique(dim=0)))
         self.assertTrue(
             torch.equal(new_datasets[0].Y, torch.cat([Y[:3] for Y in Ys], dim=-1))
         )
@@ -497,7 +512,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
         self.assertEqual(len(new_datasets), 1)
         self.assertIsNotNone(new_datasets[0].Yvar)
-        self.assertTrue(torch.equal(new_datasets[0].X, X[:3]))
+        self.assertTrue(torch.equal(new_datasets[0].X, X[:3].unique(dim=0)))
         self.assertTrue(
             torch.equal(new_datasets[0].Y, torch.cat([Y[:3] for Y in Ys], dim=-1))
         )
