@@ -25,6 +25,7 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.utils import run_trials_with_gs
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -142,6 +143,45 @@ class TestDispatchUtils(TestCase):
                 self.assertEqual(model_key, "Sobol")
             else:
                 self.assertEqual(model_key, "BoTorch")
+
+    def test_choose_gs_quality_with_options(self) -> None:
+        struct = GenerationStrategyDispatchStruct(
+            method="quality",
+            initialization_budget=3,
+            initialization_random_seed=0,
+            use_existing_trials_for_initialization=False,
+            min_observed_initialization_trials=4,
+            allow_exceeding_initialization_budget=True,
+            torch_device="cpu",
+            initialize_with_center=True,
+        )
+        gs = choose_generation_strategy(struct=struct)
+        self.assertEqual(len(gs._nodes), 3)
+        self.assertEqual(gs.name, "Center+Sobol+MBM:quality")
+
+        # Check the MBM node.
+        mbm_node = gs._nodes[2]
+        self.assertTrue(mbm_node.should_deduplicate)
+        self.assertEqual(len(mbm_node.generator_specs), 1)
+        mbm_spec = mbm_node.generator_specs[0]
+        self.assertEqual(mbm_spec.generator_enum, Generators.BOTORCH_MODULAR)
+        expected_ss = SurrogateSpec(
+            model_configs=[
+                ModelConfig(
+                    botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                    model_options={"use_input_warping": True},
+                    mll_options={
+                        "disable_progbar": True,
+                    },
+                    name="WarpedSAAS",
+                )
+            ]
+        )
+        self.assertEqual(
+            mbm_spec.model_kwargs,
+            {"surrogate_spec": expected_ss, "torch_device": torch.device("cpu")},
+        )
+        self.assertEqual(mbm_node._transition_criteria, [])
 
     def test_choose_gs_no_initialization(self) -> None:
         struct = GenerationStrategyDispatchStruct(
