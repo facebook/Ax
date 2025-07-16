@@ -75,7 +75,7 @@ class GenerationStrategyDispatchStruct:
             input corresponds to a valid device.
     """
 
-    method: Literal["fast", "random_search"] = "fast"
+    method: Literal["quality", "fast", "random_search"] = "fast"
     # Initialization options
     initialization_budget: int | None = None
     initialization_random_seed: int | None = None

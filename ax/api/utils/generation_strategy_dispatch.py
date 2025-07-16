@@ -20,6 +20,7 @@ from ax.generation_strategy.generation_strategy import (
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MinTrials
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 
 
 def _get_sobol_node(
@@ -103,7 +104,18 @@ def _get_mbm_node(
     - FAST: An empty model config that utilizes MBM defaults.
     """
     # Construct the surrogate spec.
-    if method == "fast":
+    if method == "quality":
+        model_configs = [
+            ModelConfig(
+                botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                model_options={"use_input_warping": True},
+                mll_options={
+                    "disable_progbar": True,
+                },
+                name="WarpedSAAS",
+            )
+        ]
+    elif method == "fast":
         model_configs = [ModelConfig(name="MBM defaults")]
     else:
         raise UnsupportedError(f"Unsupported generation method: {method}.")

@@ -173,7 +173,7 @@ class Client(WithDBSettingsBase):
 
     def configure_generation_strategy(
         self,
-        method: Literal["fast", "random_search"] = "fast",
+        method: Literal["quality", "fast", "random_search"] = "fast",
         # Initialization options
         initialization_budget: int | None = None,
         initialization_random_seed: int | None = None,
@@ -1030,7 +1030,7 @@ class Client(WithDBSettingsBase):
 
     def _choose_generation_strategy(
         self,
-        method: Literal["fast", "random_search"] = "fast",
+        method: Literal["quality", "fast", "random_search"] = "fast",
         # Initialization options
         initialization_budget: int | None = None,
         initialization_random_seed: int | None = None,
