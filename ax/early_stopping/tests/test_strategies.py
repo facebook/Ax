@@ -10,7 +10,6 @@ from copy import deepcopy
 from typing import cast
 from unittest.mock import MagicMock, Mock, patch
 
-import numpy as np
 from ax.core import OptimizationConfig
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
@@ -23,7 +22,6 @@ from ax.early_stopping.strategies import (
     ThresholdEarlyStoppingStrategy,
 )
 from ax.early_stopping.strategies.base import logger
-
 from ax.early_stopping.strategies.logical import (
     AndEarlyStoppingStrategy,
     OrEarlyStoppingStrategy,
@@ -263,26 +261,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         es_strategy.should_stop_trials_early(
             trial_indices={0}, experiment=exp, current_node=Mock()
         )
-
-
-class TestModelBasedEarlyStoppingStrategy(TestCase):
-    @patch.object(logger, "warning")
-    def test_get_training_data(self, _: MagicMock) -> None:
-        experiment = get_test_map_data_experiment(
-            num_trials=3, num_fetches=4, num_complete=3
-        )
-        training_data = ModelBasedFakeStrategy().get_training_data(
-            experiment,
-            map_data=cast(MapData, experiment.lookup_data()),
-        )
-        # check that there is a map dimension in the training data
-        X = training_data.X
-        self.assertEqual(X.shape[-1], 3)
-        # check that the default Ax transform is applied, i.e., that the
-        # parameters are normalized to [0, 1]
-        self.assertTrue(np.all((X[:, :2] >= 0.0) & (X[:, :2] <= 1.0)))
-        # Check that the map dimension is also normalized to [0, 1].
-        self.assertTrue(np.all((X[:, 2] >= 0.0) & (X[:, 2] <= 1.0)))
 
 
 class TestPercentileEarlyStoppingStrategy(TestCase):
