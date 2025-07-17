@@ -101,7 +101,7 @@ class ResultsAnalysis(Analysis):
         objective_scatter_group = (
             AnalysisCardGroup(
                 name="Objective Scatter Plots",
-                title=SCATTER_CARDGROUP_TITLE,
+                title=SCATTER_CARDGROUP_TITLE + " (Objectives)",
                 subtitle=SCATTER_CARDGROUP_SUBTITLE,
                 children=[
                     ScatterPlot(
@@ -126,7 +126,7 @@ class ResultsAnalysis(Analysis):
         constraint_scatter_group = (
             AnalysisCardGroup(
                 name="Constraint Scatter Plots",
-                title=SCATTER_CARDGROUP_TITLE,
+                title=SCATTER_CARDGROUP_TITLE + " (Constraints)",
                 subtitle=SCATTER_CARDGROUP_SUBTITLE,
                 children=[
                     ScatterPlot(
@@ -272,8 +272,8 @@ class ArmEffectsPair(Analysis):
 
             pair = AnalysisCardGroup(
                 name=f"ArmEffects Pair {metric_name}",
-                title=ARM_EFFECTS_PAIR_CARDGROUP_TITLE,
-                subtitle=ARM_EFFECTS_PAIR_CARDGROUP_SUBTITLE,
+                title=f"Metric Effects Pair for {metric_name}",
+                subtitle="",
                 children=[
                     predicted_analysis.compute_or_error_card(
                         experiment=experiment,
@@ -287,7 +287,7 @@ class ArmEffectsPair(Analysis):
             pairs.append(pair)
 
         return self._create_analysis_card_group(
-            title=RESULTS_CARDGROUP_TITLE,
-            subtitle=RESULTS_CARDGROUP_SUBTITLE,
+            title=ARM_EFFECTS_PAIR_CARDGROUP_TITLE,
+            subtitle=ARM_EFFECTS_PAIR_CARDGROUP_SUBTITLE,
             children=pairs,
         )
