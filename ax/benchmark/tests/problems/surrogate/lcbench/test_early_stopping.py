@@ -8,8 +8,8 @@
 from unittest.mock import patch
 
 import numpy as np
-
 from ax.benchmark.problems.surrogate.lcbench.early_stopping import (
+    _get_lcbench_early_stopping_benchmark_problem,
     get_lcbench_early_stopping_benchmark_problem,
     LearningCurveBenchmarkTestFunction,
     OPTIMAL_VALUES,
@@ -28,7 +28,7 @@ class TestEarlyStoppingProblem(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.early_stopping_path = (
-            get_lcbench_early_stopping_benchmark_problem.__module__
+            _get_lcbench_early_stopping_benchmark_problem.__module__
         )
 
     def test_get_lcbench_early_stopping_problem(self) -> None:
@@ -36,26 +36,23 @@ class TestEarlyStoppingProblem(TestCase):
         # anyway, so there is nothing to distinguish these problems from each
         # other
 
-        observe_noise_sd = True
         num_trials = 4
-        noise_std = 1.0
-        seed = 27
         dataset_name = "credit-g"
 
-        with patch(
-            f"{self.early_stopping_path}.load_lcbench_data",
-            return_value=get_mock_lcbench_data(),
-        ) as mock_load_lcbench_data, patch(
-            # Fitting a surrogate won't work with this small synthetic data
-            f"{self.early_stopping_path}._create_surrogate_regressor"
-        ) as mock_create_surrogate_regressor:
+        with (
+            patch(
+                f"{self.early_stopping_path}.load_lcbench_data",
+                return_value=get_mock_lcbench_data(),
+            ) as mock_load_lcbench_data,
+            patch(
+                # Fitting a surrogate won't work with this small synthetic data
+                f"{self.early_stopping_path}._create_surrogate_regressor"
+            ) as mock_create_surrogate_regressor,
+        ):
             problem = get_lcbench_early_stopping_benchmark_problem(
                 dataset_name=dataset_name,
-                observe_noise_sd=observe_noise_sd,
                 num_trials=num_trials,
                 constant_step_runtime=True,
-                noise_std=noise_std,
-                seed=seed,
             )
 
         mock_load_lcbench_data.assert_called_once()
@@ -65,8 +62,6 @@ class TestEarlyStoppingProblem(TestCase):
             mock_create_surrogate_regressor.call_args_list
         )
         self.assertEqual(len(create_surrogate_regressor_call_args), 2)
-        self.assertEqual(create_surrogate_regressor_call_args[0].kwargs["seed"], seed)
-        self.assertEqual(problem.noise_std, noise_std)
         self.assertEqual(
             problem.optimization_config.objective.metric.name, DEFAULT_METRIC_NAME
         )
