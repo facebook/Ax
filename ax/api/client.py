@@ -55,13 +55,14 @@ from ax.storage.json_store.registry import (
     CORE_ENCODER_REGISTRY,
 )
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.random import with_rng_seed
 
 from pyre_extensions import assert_is_instance, none_throws
 from typing_extensions import Self
 
 logger: Logger = get_logger(__name__)
+ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
 
 class Client(WithDBSettingsBase):
@@ -358,7 +359,6 @@ class Client(WithDBSettingsBase):
         with with_rng_seed(seed=self._random_seed):
             gs = self._generation_strategy_or_choose()
 
-            # This will be changed to use gen directly post gen-unfication cc @mgarrard
             generator_runs = gs.gen(
                 experiment=self._experiment,
                 pending_observations=(
@@ -385,6 +385,17 @@ class Client(WithDBSettingsBase):
                 Trial,
             )
             trial.mark_running(no_runner_required=True)
+
+            logger.info(
+                f"Generated new trial {trial.index} with parameters "
+                + str(
+                    _round_floats_for_logging(
+                        item=none_throws(trial.arm).parameters,
+                        decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
+                    )
+                )
+                + f"using model {none_throws(trial.generator_run)._model_key}."
+            )
 
             trials.append(trial)
 
@@ -442,6 +453,7 @@ class Client(WithDBSettingsBase):
             # If all necessary metrics are present mark the trial as COMPLETED
             if len(missing_metrics) == 0:
                 self._experiment.trials[trial_index].mark_completed()
+                logger.info(f"Trial {trial_index} marked completed.")
 
             # If any metrics are missing mark the trial as FAILED
             else:
@@ -451,8 +463,9 @@ class Client(WithDBSettingsBase):
                 )
                 self.mark_trial_failed(
                     trial_index=trial_index,
-                    failed_reason=f"{missing_metrics} are missing, marking trial\
-                    FAILED.",
+                    failed_reason=(
+                        f"{missing_metrics} are missing, marking trial FAILED."
+                    ),
                 )
 
         self._save_or_update_trial_in_db_if_possible(
@@ -482,9 +495,11 @@ class Client(WithDBSettingsBase):
         ]
 
         trial = assert_is_instance(self._experiment.trials[trial_index], Trial)
-        trial.update_trial_data(
+        data_update_repr = trial.update_trial_data(
             raw_data=data_with_progression, combine_with_last_data=True
         )
+
+        logger.info(f"Updated trial {trial_index} with data: {data_update_repr}.")
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=trial
@@ -564,8 +579,13 @@ class Client(WithDBSettingsBase):
             current_node=self._generation_strategy_or_choose()._curr,
         )
 
-        # TODO[mpolson64]: log the returned reason for stopping the trial
-        return trial_index in es_response
+        if trial_index in es_response:
+            logger.info(
+                f"Trial {trial_index} should be stopped early: {es_response[trial_index]}"
+            )
+            return True
+
+        return False
 
     # -------------------- Section 2.3 Marking trial status manually ----------------
     def mark_trial_failed(
@@ -578,6 +598,8 @@ class Client(WithDBSettingsBase):
         Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_failed(reason=failed_reason)
+
+        logger.info(f"Trial {trial_index} marked failed.")
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -592,6 +614,8 @@ class Client(WithDBSettingsBase):
         Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_abandoned()
+
+        logger.info(f"Trial {trial_index} marked abandoned.")
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -608,6 +632,8 @@ class Client(WithDBSettingsBase):
         Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_early_stopped()
+
+        logger.info(f"Trial {trial_index} marked early stopped.")
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
