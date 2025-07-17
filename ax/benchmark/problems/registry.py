@@ -39,7 +39,7 @@ class BenchmarkProblemRegistryEntry:
 
 
 # Baseline values were obtained with `compute_baseline_value_from_sobol`
-BENCHMARK_PROBLEM_REGISTRY = {
+BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
     "ackley4": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
         factory_kwargs={
@@ -150,26 +150,6 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "LCBench:v1 Fashion-MNIST": BenchmarkProblemRegistryEntry(
         get_lcbench_benchmark_problem, factory_kwargs={"dataset_name": "Fashion-MNIST"}
-    ),
-    "LCBench Early Stopping airlines": BenchmarkProblemRegistryEntry(
-        get_lcbench_early_stopping_benchmark_problem,
-        factory_kwargs={"dataset_name": "airlines"},
-    ),
-    "LCBench Early Stopping albert": BenchmarkProblemRegistryEntry(
-        get_lcbench_early_stopping_benchmark_problem,
-        factory_kwargs={"dataset_name": "albert"},
-    ),
-    "LCBench Early Stopping covertype": BenchmarkProblemRegistryEntry(
-        get_lcbench_early_stopping_benchmark_problem,
-        factory_kwargs={"dataset_name": "covertype"},
-    ),
-    "LCBench Early Stopping christine": BenchmarkProblemRegistryEntry(
-        get_lcbench_early_stopping_benchmark_problem,
-        factory_kwargs={"dataset_name": "christine"},
-    ),
-    "LCBench Early Stopping Fashion-MNIST": BenchmarkProblemRegistryEntry(
-        get_lcbench_early_stopping_benchmark_problem,
-        factory_kwargs={"dataset_name": "Fashion-MNIST"},
     ),
     "levy4": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
@@ -335,6 +315,19 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "num_trials": 50,
         },
     ),
+    **{
+        f"LCBench:ES {dataset_name}": BenchmarkProblemRegistryEntry(
+            get_lcbench_early_stopping_benchmark_problem,
+            factory_kwargs={"dataset_name": dataset_name},
+        )
+        for dataset_name in (
+            "airlines",
+            "albert",
+            "covertype",
+            "christine",
+            "Fashion-MNIST",
+        )
+    },
 }
 
 
