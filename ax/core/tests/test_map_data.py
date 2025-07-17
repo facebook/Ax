@@ -122,6 +122,27 @@ class MapDataTest(TestCase):
         self.assertEqual(self.mmd.map_keys, ["epoch"])
         self.assertEqual(self.mmd.map_key_to_type, {"epoch": int})
 
+    def test_bad_data(self) -> None:
+        # Invalid mean values.
+        for value in [None, float("nan"), float("inf"), float("-inf")]:
+            df = pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": "arm",
+                        "metric_name": "metric",
+                        "mean": value,
+                        "sem": 0.0,
+                        "epoch": 0,
+                    }
+                ]
+            )
+            with self.assertRaisesRegex(ValueError, "null or inf values"):
+                MapData(
+                    df=df,
+                    map_key_infos=[MapKeyInfo(key="epoch", default_value=0.0)],
+                )
+
     def test_clone(self) -> None:
         self.mmd._db_id = 1234
         clone = self.mmd.clone()

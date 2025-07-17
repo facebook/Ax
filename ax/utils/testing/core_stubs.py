@@ -15,7 +15,7 @@ from collections.abc import Iterable, Mapping, MutableMapping
 from datetime import datetime, timedelta
 from functools import partial
 from logging import Logger
-from math import prod
+from math import isfinite, prod
 from pathlib import Path
 from typing import Any, cast, Sequence
 
@@ -1113,6 +1113,7 @@ def get_experiment_with_observations(
                         "trial_index": trial.index,
                     }
                     for m, o, s in zip(metrics, obs_i, sems_i, strict=True)
+                    if isfinite(o)
                 ]
             )
         )

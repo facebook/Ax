@@ -107,7 +107,7 @@ class Data(Base, SerializationMixin):
                 raise ValueError(f"Columns {list(extra_columns)} are not supported.")
             df = df.dropna(axis=0, how="all", ignore_index=True)
             df = self._safecast_df(df=df)
-
+            self._check_for_nan_inf(df=df)
             # Reorder the columns for easier viewing
             col_order = [c for c in self.column_data_types() if c in df.columns]
             self._df = df.reindex(columns=col_order, copy=False)
@@ -148,6 +148,14 @@ class Data(Base, SerializationMixin):
                 ):
                     df[col] = df[col].astype(dtype)
         return df
+
+    def _check_for_nan_inf(self, df: pd.DataFrame) -> None:
+        """Check for NaNs or infs in the "mean" column of the dataframe."""
+        if not (mask := np.isfinite(df["mean"])).all():
+            raise ValueError(
+                "Data contains null or inf values for the mean. "
+                f"Invalid rows: {df[~mask]}"
+            )
 
     def required_columns(self) -> set[str]:
         """Names of columns that must be present in the underlying ``DataFrame``."""

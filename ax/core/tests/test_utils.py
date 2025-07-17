@@ -116,15 +116,6 @@ class UtilsTest(TestCase):
                 },
                 {
                     "arm_name": "0_1",
-                    "mean": float("nan"),
-                    "sem": float("nan"),
-                    "trial_index": 1,
-                    "metric_name": "a",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                },
-                {
-                    "arm_name": "0_1",
                     "mean": 3.7,
                     "sem": 0.5,
                     "trial_index": 1,
@@ -143,17 +134,8 @@ class UtilsTest(TestCase):
                 },
                 {
                     "arm_name": "0_2",
-                    "mean": float("nan"),
-                    "sem": float("nan"),
-                    "trial_index": 1,
-                    "metric_name": "b",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                },
-                {
-                    "arm_name": "0_2",
-                    "mean": float("nan"),
-                    "sem": float("nan"),
+                    "mean": 0.2,
+                    "sem": None,
                     "trial_index": 1,
                     "metric_name": "c",
                     "start_time": "2018-01-01",
@@ -185,7 +167,7 @@ class UtilsTest(TestCase):
         expected = MissingMetrics(
             {"a": {("0_1", 1)}},
             {"b": {("0_2", 1)}},
-            {"c": {("0_0", 1), ("0_1", 1), ("0_2", 1)}},
+            {"c": {("0_0", 1), ("0_1", 1)}},
         )
         actual = get_missing_metrics(self.data, self.optimization_config)
         self.assertEqual(actual, expected)

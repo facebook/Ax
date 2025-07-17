@@ -631,7 +631,7 @@ class TestBestPointUtils(TestCase):
                 [3, 3, -1],
                 [2, 4, 1],
                 [2, 0, 1],
-                # adding this to an otherwise feasible observation to test nan handling
+                # An otherwise feasible observation with missing metric.
                 [2, 0, np.nan],
             ],
             constrained=True,
@@ -640,10 +640,10 @@ class TestBestPointUtils(TestCase):
             df=exp.lookup_data().df,
             optimization_config=none_throws(exp.optimization_config),
         )
-        expected_per_arm = [False, True, False, True, True, False]
+        expected_per_arm = [False, True, False, True, True, True]
         expected_series = _repeat_elements(
             list_to_replicate=expected_per_arm, n_repeats=3
-        )
+        )[:-1]  # Remove the last missing entry.
         pd.testing.assert_series_equal(
             feasible_series, expected_series, check_names=False
         )
@@ -669,7 +669,7 @@ class TestBestPointUtils(TestCase):
         expected_per_arm = [False, True, True, True, True, True]
         expected_series = _repeat_elements(
             list_to_replicate=expected_per_arm, n_repeats=3
-        )
+        )[:-1]
         pd.testing.assert_series_equal(
             feasible_series, expected_series, check_names=False
         )
@@ -694,7 +694,7 @@ class TestBestPointUtils(TestCase):
         expected_per_arm = [True, True, False, True, False, False]
         expected_series = _repeat_elements(
             list_to_replicate=expected_per_arm, n_repeats=3
-        )
+        )[:-1]
         pd.testing.assert_series_equal(
             feasible_series, expected_series, check_names=False
         )
