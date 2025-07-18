@@ -23,6 +23,16 @@ from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
 
+MARGINAL_EFFECTS_CARDGROUP_TITLE = "Margianl Effects For Each Parameter Factor Level"
+
+MARGINAL_EFFECTS_CARDGROUP_SUBTITLE = (
+    "This analysis has a bar chart for each parameter, showing the predicted "
+    "relative change in the metric for each factor level of the parameter. "
+    "The bars are colored based on whether the effect is positive or negative, "
+    "and the error bars represent the standard error of the effect."
+)
+
+
 class MarginalEffectsPlot(Analysis):
     """
     Plotly bar charts showing the marginal effect of each factor level of
@@ -119,8 +129,8 @@ class MarginalEffectsPlot(Analysis):
                 )
             )
         return self._create_analysis_card_group_or_card(
-            title="T230247379",
-            subtitle="T230247379",
+            title=MARGINAL_EFFECTS_CARDGROUP_TITLE,
+            subtitle=MARGINAL_EFFECTS_CARDGROUP_SUBTITLE,
             children=cards,
         )
 
