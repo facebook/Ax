@@ -163,11 +163,10 @@ class TestUtils(TestCase):
         self.assertTrue(np.isnan(df.loc[1]["foo_mean"]))
         self.assertTrue(np.isnan(df.loc[1]["foo_sem"]))
 
-        # Check that all SEMs are NaN
-
-        idcs = [i for i in range(df.shape[0]) if i != 1]
-        self.assertTrue((df.loc[idcs]["foo_sem"] == 0.1).all())
-        self.assertTrue((df.loc[idcs]["bar_sem"] == 0.1).all())
+        # Check that all SEMs have the correct value
+        success_idcs = [i for i in range(df.shape[0]) if i != 1]
+        self.assertTrue((df.loc[success_idcs]["foo_sem"] == 0.1).all())
+        self.assertTrue((df.loc[success_idcs]["bar_sem"] == 0.1).all())
 
         # Check that p_feasible is NaN for the arm without data and not NaN for the
         # other arms.
@@ -198,8 +197,8 @@ class TestUtils(TestCase):
         for arm_name in self.client._experiment.arms_by_name:
             self.assertEqual((only_foo_df["arm_name"] == arm_name).sum(), 1)
 
-        # Check that all SEMs are NaN
-        self.assertTrue((only_foo_df.loc[idcs]["foo_sem"] == 0.1).all())
+        # Check that all SEMs have the correct value
+        self.assertTrue((only_foo_df.loc[success_idcs]["foo_sem"] == 0.1).all())
 
         only_trial_0_df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -231,7 +230,7 @@ class TestUtils(TestCase):
         # Check that all means are not NaN
         self.assertFalse(only_trial_0_df["foo_mean"].isna().any())
 
-        # Check that all SEMs are NaN
+        # Check that all SEMs have the correct value
         self.assertTrue((only_trial_0_df["foo_sem"] == 0.1).all())
 
         only_completed_trials_df = prepare_arm_data(
@@ -249,7 +248,7 @@ class TestUtils(TestCase):
         # Check that all means are not NaN
         self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
 
-        # Check that all SEMs are NaN
+        # Check that all SEMs have the correct value
         self.assertTrue((only_completed_trials_df["foo_sem"] == 0.1).all())
 
     def test_prepare_arm_data_use_model_predictions(self) -> None:
