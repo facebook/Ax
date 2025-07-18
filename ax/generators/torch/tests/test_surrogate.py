@@ -1066,8 +1066,14 @@ class SurrogateTest(TestCase):
                 )
                 # check the selected model
                 model = none_throws(surrogate._model)
+                covar_module = (
+                    model.covar_module
+                    if not isinstance(model, MultiTaskGP)
+                    else model.covar_module.kernels[0]
+                )
+
                 self.assertIsInstance(
-                    model.covar_module,
+                    covar_module,
                     LinearKernel if eval_criterion in ("MSE", "BIC") else RBFKernel,
                 )
                 if eval_criterion == "BIC":

@@ -100,25 +100,20 @@ class BotorchDefaultsTest(TestCase):
         model = _get_model(
             X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, prior=prior
         )
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+        #  `kernels`.
+        task_covar_module = model.covar_module.kernels[1]
         self.assertIsInstance(
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `IndexKernelPrior`.
-            model.task_covar_module.IndexKernelPrior,
+            task_covar_module.IndexKernelPrior,
             LKJCovariancePrior,
         )
         self.assertEqual(
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `IndexKernelPrior`.
-            model.task_covar_module.IndexKernelPrior.sd_prior.concentration,
+            task_covar_module.IndexKernelPrior.sd_prior.concentration,
             2.0,
         )
-        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-        #  `IndexKernelPrior`.
-        self.assertEqual(model.task_covar_module.IndexKernelPrior.sd_prior.rate, 0.44)
+        self.assertEqual(task_covar_module.IndexKernelPrior.sd_prior.rate, 0.44)
         self.assertEqual(
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `IndexKernelPrior`.
-            model.task_covar_module.IndexKernelPrior.correlation_prior.eta,
+            task_covar_module.IndexKernelPrior.correlation_prior.eta,
             0.6,
         )
 
@@ -129,25 +124,20 @@ class BotorchDefaultsTest(TestCase):
             task_feature=1,
             prior={"type": LKJCovariancePrior},
         )
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+        #  `kernels`.
+        task_covar_module = model.covar_module.kernels[1]
         self.assertIsInstance(
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `IndexKernelPrior`.
-            model.task_covar_module.IndexKernelPrior,
+            task_covar_module.IndexKernelPrior,
             LKJCovariancePrior,
         )
         self.assertEqual(
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `IndexKernelPrior`.
-            model.task_covar_module.IndexKernelPrior.sd_prior.concentration,
+            task_covar_module.IndexKernelPrior.sd_prior.concentration,
             1.0,
         )
-        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-        #  `IndexKernelPrior`.
-        self.assertEqual(model.task_covar_module.IndexKernelPrior.sd_prior.rate, 0.15)
+        self.assertEqual(task_covar_module.IndexKernelPrior.sd_prior.rate, 0.15)
         self.assertEqual(
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `IndexKernelPrior`.
-            model.task_covar_module.IndexKernelPrior.correlation_prior.eta,
+            task_covar_module.IndexKernelPrior.correlation_prior.eta,
             0.5,
         )
         prior = {
@@ -186,19 +176,16 @@ class BotorchDefaultsTest(TestCase):
         )
         self.assertIs(type(model), MultiTaskGP)
         self.assertIsInstance(model.likelihood, GaussianLikelihood)
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+        #  `kernels`.
+        data_covar_module, task_covar_module = model.covar_module.kernels
         self.assertEqual(
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `base_kernel`.
-            model.covar_module.base_kernel.lengthscale_prior.concentration,
+            data_covar_module.base_kernel.lengthscale_prior.concentration,
             12.0,
         )
-        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-        #  `base_kernel`.
-        self.assertEqual(model.covar_module.base_kernel.lengthscale_prior.rate, 2.0)
+        self.assertEqual(data_covar_module.base_kernel.lengthscale_prior.rate, 2.0)
         self.assertIsInstance(
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `IndexKernelPrior`.
-            model.task_covar_module.IndexKernelPrior,
+            task_covar_module.IndexKernelPrior,
             LKJCovariancePrior,
         )
         model = _get_model(
@@ -211,18 +198,12 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(model, MultiTaskGP)
         self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
         self.assertEqual(
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `base_kernel`.
-            model.covar_module.base_kernel.lengthscale_prior.concentration,
+            data_covar_module.base_kernel.lengthscale_prior.concentration,
             12.0,
         )
-        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-        #  `base_kernel`.
-        self.assertEqual(model.covar_module.base_kernel.lengthscale_prior.rate, 2.0)
+        self.assertEqual(data_covar_module.base_kernel.lengthscale_prior.rate, 2.0)
         self.assertIsInstance(
-            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-            #  `IndexKernelPrior`.
-            model.task_covar_module.IndexKernelPrior,
+            task_covar_module.IndexKernelPrior,
             LKJCovariancePrior,
         )
         # test passing customized prior
@@ -368,14 +349,15 @@ class BotorchDefaultsTest(TestCase):
         #  function.
         for m in model.models:
             self.assertIs(type(m), MultiTaskGP)
+            data_covar_module, task_covar_module = m.covar_module.kernels
             self.assertIsInstance(m.likelihood, FixedNoiseGaussianLikelihood)
             self.assertEqual(
-                m.covar_module.base_kernel.lengthscale_prior.concentration,
+                data_covar_module.base_kernel.lengthscale_prior.concentration,
                 12.0,
             )
-            self.assertEqual(m.covar_module.base_kernel.lengthscale_prior.rate, 2.0)
-            self.assertEqual(m.covar_module.outputscale_prior.concentration, 2.0)
-            self.assertEqual(m.covar_module.outputscale_prior.rate, 12.0)
+            self.assertEqual(data_covar_module.base_kernel.lengthscale_prior.rate, 2.0)
+            self.assertEqual(data_covar_module.outputscale_prior.concentration, 2.0)
+            self.assertEqual(data_covar_module.outputscale_prior.rate, 12.0)
 
     def test_get_acquisition_func(self) -> None:
         d, m = 3, 2
