@@ -489,6 +489,14 @@ class TestClient(TestCase):
             ),
         )
 
+        # With NaN / Inf values.
+        for value in [float("nan"), float("inf"), float("-inf")]:
+            with self.assertRaisesRegex(ValueError, "null or inf values"):
+                client.attach_data(
+                    trial_index=trial_index,
+                    raw_data={"foo": (value, 0.0), "bar": (0.5, 0.0)},
+                )
+
     def test_complete_trial(self) -> None:
         client = Client()
 

@@ -144,10 +144,26 @@ class DataTest(TestCase):
         self.assertIsNot(data.df, data_clone.df)
         self.assertIsNone(data_clone._db_id)
 
-    def test_BadData(self) -> None:
+    def test_bad_data(self) -> None:
         df = pd.DataFrame([{"bad_field": "0_0", "bad_field_2": {"x": 0, "y": "a"}}])
         with self.assertRaises(ValueError):
             Data(df=df)
+
+        # Invalid mean values.
+        for value in [None, float("nan"), float("inf"), float("-inf")]:
+            df = pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": "arm",
+                        "metric_name": "metric",
+                        "mean": value,
+                        "sem": 0.0,
+                    }
+                ]
+            )
+            with self.assertRaisesRegex(ValueError, "null or inf values"):
+                Data(df=df)
 
     def test_EmptyData(self) -> None:
         df = Data().df

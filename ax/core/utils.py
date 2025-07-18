@@ -652,16 +652,14 @@ def extract_map_keys_from_opt_config(
 # -------------------- Context manager and decorator utils. ---------------------
 
 
-# pyre-ignore[3]: Allowing `Any` in this case
 def batch_trial_only(msg: str | None = None) -> Callable[..., Any]:
     """A decorator to verify that the value passed to the `trial`
     argument to `func` is a `BatchTrial`.
     """
 
-    # pyre-ignore[2,3]: Allowing `Any` in this case
     def batch_trial_only_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        def _batch_trial_only(*args: Any, **kwargs: Any) -> Any:  # pyre-ignore[3]
+        def _batch_trial_only(*args: Any, **kwargs: Any) -> Any:
             if "trial" not in kwargs:
                 raise AxError(
                     f"Expected a keyword argument `trial` to `{func.__name__}`."

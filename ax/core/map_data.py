@@ -165,7 +165,7 @@ class MapData(Data):
             self._map_df = self._safecast_df(
                 df=df, extra_column_types=self.map_key_to_type
             )
-
+            self._check_for_nan_inf(df=self._map_df)
             col_order = [
                 c
                 for c in self.column_data_types(extra_column_types=self.map_key_to_type)
