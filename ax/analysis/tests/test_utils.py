@@ -49,8 +49,15 @@ class TestUtils(TestCase):
 
         # Get two trials and fail one, giving us a ragged structure
         self.client.get_next_trials(max_trials=2)
+        sem = 0.1
         self.client.complete_trial(
-            trial_index=0, raw_data={"foo": 1.0, "bar": 2.0, "baz": 3.0, "qux": 4.0}
+            trial_index=0,
+            raw_data={
+                "foo": (1.0, sem),
+                "bar": (2.0, sem),
+                "baz": (3.0, sem),
+                "qux": (4.0, sem),
+            },
         )
         self.client.mark_trial_failed(trial_index=1)
 
@@ -62,11 +69,14 @@ class TestUtils(TestCase):
                 self.client.complete_trial(
                     trial_index=trial_index,
                     raw_data={
-                        "foo": assert_is_instance(parameterization["x1"], float),
-                        "bar": assert_is_instance(parameterization["x1"], float)
-                        - 2 * assert_is_instance(parameterization["x2"], float),
-                        "baz": 3.0,
-                        "qux": 4.0,
+                        "foo": (assert_is_instance(parameterization["x1"], float), sem),
+                        "bar": (
+                            assert_is_instance(parameterization["x1"], float)
+                            - 2 * assert_is_instance(parameterization["x2"], float),
+                            sem,
+                        ),
+                        "baz": (3.0, sem),
+                        "qux": (4.0, sem),
                     },
                 )
 
@@ -154,8 +164,10 @@ class TestUtils(TestCase):
         self.assertTrue(np.isnan(df.loc[1]["foo_sem"]))
 
         # Check that all SEMs are NaN
-        self.assertTrue(df["foo_sem"].isna().all())
-        self.assertTrue(df["bar_sem"].isna().all())
+
+        idcs = [i for i in range(df.shape[0]) if i != 1]
+        self.assertTrue((df.loc[idcs]["foo_sem"] == 0.1).all())
+        self.assertTrue((df.loc[idcs]["bar_sem"] == 0.1).all())
 
         # Check that p_feasible is NaN for the arm without data and not NaN for the
         # other arms.
@@ -187,7 +199,7 @@ class TestUtils(TestCase):
             self.assertEqual((only_foo_df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are NaN
-        self.assertTrue(only_foo_df["foo_sem"].isna().all())
+        self.assertTrue((only_foo_df.loc[idcs]["foo_sem"] == 0.1).all())
 
         only_trial_0_df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -220,7 +232,7 @@ class TestUtils(TestCase):
         self.assertFalse(only_trial_0_df["foo_mean"].isna().any())
 
         # Check that all SEMs are NaN
-        self.assertTrue(only_trial_0_df["foo_sem"].isna().all())
+        self.assertTrue((only_trial_0_df["foo_sem"] == 0.1).all())
 
         only_completed_trials_df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -238,7 +250,7 @@ class TestUtils(TestCase):
         self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
 
         # Check that all SEMs are NaN
-        self.assertTrue(only_completed_trials_df["foo_sem"].isna().all())
+        self.assertTrue((only_completed_trials_df["foo_sem"] == 0.1).all())
 
     def test_prepare_arm_data_use_model_predictions(self) -> None:
         df = prepare_arm_data(

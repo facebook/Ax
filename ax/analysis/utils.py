@@ -481,7 +481,7 @@ def _prepare_p_feasible(
 
     # If an arm is missing data for a metric treat the sd as 0.
     sigmas = [
-        (df[f"{constraint.metric.name}_sem"].fillna(0) ** 2).tolist()
+        (df[f"{constraint.metric.name}_sem"].fillna(0)).tolist()
         if f"{constraint.metric.name}_sem" in df.columns
         else [0] * len(df)
         for constraint in outcome_constraints
