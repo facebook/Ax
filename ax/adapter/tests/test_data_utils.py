@@ -223,7 +223,7 @@ class TestDataUtils(TestCase):
         )
         # Observation data: By default only includes completed map metrics.
         # There is none, so map metrics are not included.
-        metrics = set(experiment_data.observation_data["mean"])
+        metrics = set(experiment_data.metric_names)
         self.assertEqual(metrics, {"branin"})
         self.assertEqual(len(experiment_data.observation_data), 2)
         # Complete a trial to include map metrics.
@@ -238,7 +238,7 @@ class TestDataUtils(TestCase):
         )
         # Observation data: Map metrics should be included but only with latest
         # timestamp for trial 0.
-        metrics = set(experiment_data.observation_data["mean"])
+        metrics = set(experiment_data.metric_names)
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
             [(0, "0_0", 0.0), (0, "0_0", 3.0), (1, "1_0", 0.0)],
@@ -278,7 +278,7 @@ class TestDataUtils(TestCase):
             experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
         )
         # Observation data: Map metrics should be included for all timestamps.
-        metrics = set(experiment_data.observation_data["mean"])
+        metrics = set(experiment_data.metric_names)
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
             [
@@ -404,3 +404,19 @@ class TestDataUtils(TestCase):
             ),
         ]
         self.assertEqual(observations, expected)
+
+    def test_experiment_data_metric_names(self) -> None:
+        for experiment, expected in [
+            (get_branin_experiment(), []),
+            (get_branin_experiment(with_completed_trial=True), ["branin"]),
+            (
+                get_branin_experiment(
+                    with_completed_trial=True, with_absolute_constraint=True
+                ),
+                ["branin", "branin_e"],
+            ),
+        ]:
+            experiment_data = extract_experiment_data(
+                experiment=experiment, data_loader_config=DataLoaderConfig()
+            )
+            self.assertEqual(experiment_data.metric_names, expected)

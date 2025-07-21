@@ -261,6 +261,15 @@ class ExperimentData:
             )
         return observations
 
+    @property
+    def metric_names(self) -> list[str]:
+        """The list of metric names that are available on ``observation_data``."""
+        try:
+            return list(self.observation_data["mean"].columns)
+        except KeyError:
+            # No data is available, return empty list.
+            return []
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ExperimentData):
             return False
