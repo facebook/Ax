@@ -10,7 +10,7 @@ from ax.adapter.torch import TorchAdapter
 
 
 class PairwiseAdapter(TorchAdapter):
-    # pyre-ignore[2]: Missing parameter annotationa
+    # pyre-ignore[2]: Missing parameter annotations.
     def __init__(self, **kwargs) -> None:
         raise DeprecationWarning(
             "PairwiseAdapter is deprecated. Use TorchAdapter instead."
