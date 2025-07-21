@@ -770,7 +770,7 @@ class TestClient(TestCase):
                         "metric_name": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
                         "mean": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan, 3: np.nan},
-                        "progression": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
+                        "step": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
                     }
                 )
             ),
