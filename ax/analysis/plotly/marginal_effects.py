@@ -23,7 +23,7 @@ from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
 
-MARGINAL_EFFECTS_CARDGROUP_TITLE = "Margianl Effects For Each Parameter Factor Level"
+MARGINAL_EFFECTS_CARDGROUP_TITLE = "Marginal Effects For Each Parameter Factor Level"
 
 MARGINAL_EFFECTS_CARDGROUP_SUBTITLE = (
     "This analysis has a bar chart for each parameter, showing the predicted "
