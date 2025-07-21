@@ -6,6 +6,8 @@
 # pyre-strict
 
 
+from datetime import datetime
+
 from ax.analysis.analysis_card import ErrorAnalysisCard
 from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
@@ -53,6 +55,20 @@ class TestOverview(TestCase):
                     },
                 )
 
+        # Add a CANDIDATE batch trial to produce some trial analysis cards
+        client._experiment.new_batch_trial()
+
+        # Add metric fetching errors to produce some healthcheck analyses
+        client._experiment._metric_fetching_errors = {
+            (0, "booth"): {
+                "trial_index": 0,
+                "metric_name": "booth",
+                "reason": "This is a test",
+                "timestamp": datetime.now().isoformat(),
+                "traceback": "Test traceback",
+            }
+        }
+
         card = OverviewAnalysis().compute(
             experiment=client._experiment,
             generation_strategy=client._generation_strategy,
@@ -62,6 +78,8 @@ class TestOverview(TestCase):
         self.assertIn("ResultsAnalysis", children_names)
         self.assertIn("InsightsAnalysis", children_names)
         self.assertIn("DiagnosticAnalysis", children_names)
+        self.assertIn("AllTrialsAnalysis", children_names)
+        self.assertIn("HealthchecksAnalysis", children_names)
 
     @mock_botorch_optimize
     def test_online(self) -> None:
