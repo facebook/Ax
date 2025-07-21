@@ -156,7 +156,10 @@ class RandomGenerator(Generator):
         try:
             # Always rejection sample, but this only rejects if there are
             # constraints or actual duplicates and deduplicate is specified.
-            # If rejection sampling fails, fall back to polytope sampling
+            # If rejection sampling fails, fall back to polytope sampling.
+            # NOTE: The rejection sampling logic in `rejection_sample` only
+            # rejects points that do not satisfy the linear constraints;
+            # it does not consider the rounding function.
             points, attempted_draws = rejection_sample(
                 gen_unconstrained=self._gen_unconstrained,
                 n=n,
@@ -204,7 +207,10 @@ class RandomGenerator(Generator):
                     seed=self.seed + num_generated,
                 )
                 points = polytope_sampler.draw(n=n).numpy()
-                # TODO: Should this round & deduplicate?
+                if rounding_func is not None:
+                    points = rounding_func(points)
+                # TODO: Deduplicate points (should refactor deduplication logic
+                # to cover both the rejection sampling and polytope sampling cases.
             else:
                 raise e
 
