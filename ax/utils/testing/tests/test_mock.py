@@ -70,7 +70,7 @@ class TestMock(TestCase):
             opt_inputs.options,
             {
                 "init_batch_limit": 32,
-                "batch_limit": 20,
+                "batch_limit": 5,
                 "maxiter_alternating": 1,
                 "maxiter_continuous": 1,
                 "maxiter_init": 1,

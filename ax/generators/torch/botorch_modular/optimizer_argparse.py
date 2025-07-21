@@ -18,7 +18,7 @@ from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 NUM_RESTARTS = 20
 RAW_SAMPLES = 1024
 INIT_BATCH_LIMIT = 32
-BATCH_LIMIT = 20
+BATCH_LIMIT = 5
 MAX_OPT_AGG_SIZE = 5
 
 
