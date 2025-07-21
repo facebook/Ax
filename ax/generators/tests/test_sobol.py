@@ -13,6 +13,7 @@ from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
 from botorch.utils.sampling import sample_polytope
+from numpy import typing as npt
 
 
 class SobolGeneratorTest(TestCase):
@@ -184,6 +185,12 @@ class SobolGeneratorTest(TestCase):
         bounds = self._create_bounds(n_tunable=10, n_fixed=0)
         A = np.ones((1, 10))
         b = np.array([1]).reshape((1, 1))
+
+        def rounding_function(x: npt.NDArray) -> npt.NDArray:
+            return x
+
+        rounding_func = mock.Mock(wraps=rounding_function)
+
         with mock.patch(
             "ax.generators.random.base.logger.warning"
         ) as mock_logger, mock.patch(
@@ -194,16 +201,18 @@ class SobolGeneratorTest(TestCase):
                 n=3,
                 bounds=bounds,
                 linear_constraints=(A, b),
-                rounding_func=lambda x: x,
+                rounding_func=rounding_func,
             )
         # First call uses the original seed since no candidates are generated.
         self.assertEqual(wrapped_sampler.call_args.kwargs["seed"], 0)
         self.assertTrue(
-            "exceeded specified maximum draws" in mock_logger.call_args[0][0]
+            "exceeded specified maximum draws" in mock_logger.call_args.args[0]
         )
         self.assertTrue(np.shape(generated_points) == (3, 10))
         self.assertTrue(np.all(generated_points @ A.transpose() <= b))
+        rounding_func.assert_called()
 
+        rounding_func.reset_mock()
         with mock.patch(
             "botorch.utils.sampling.sample_polytope",
             wraps=sample_polytope,
@@ -212,11 +221,12 @@ class SobolGeneratorTest(TestCase):
                 n=3,
                 bounds=bounds,
                 linear_constraints=(A, b),
-                rounding_func=lambda x: x,
+                rounding_func=rounding_func,
                 generated_points=generated_points,
             )
         # Second call uses seed 3 since 3 candidates are already generated.
         self.assertEqual(wrapped_sampler.call_args.kwargs["seed"], 3)
+        rounding_func.assert_called()
 
     def test_SobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self) -> None:
         # Ten parameters with sum less than 1. In this example, the rejection

@@ -99,6 +99,10 @@ def rejection_sample(
         existing_points: A set of previously generated points to use
             for deduplication. These should be provided in the parameter
             space model operates in.
+
+    Returns:
+        2-element tuple containing the generated points and the number of
+        attempted draws.
     """
     # We need to perform the round trip transformation on our generated point
     # in order to deduplicate in the original search space.
@@ -162,8 +166,8 @@ def rejection_sample(
             f", without finding sufficiently many ({n}) candidates). This likely means "
             "that there are no new points left in the search space."
         )
-    else:
-        return (points, attempted_draws)
+
+    return (points, attempted_draws)
 
 
 def check_duplicate(point: npt.NDArray, points: npt.NDArray) -> bool:
