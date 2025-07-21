@@ -45,10 +45,6 @@ from ax.core.search_space import (
     SearchSpaceDigest,
 )
 from ax.core.types import TBounds, TCandidateMetadata
-from ax.core.utils import (  # noqa F402: Temporary import for backward compatibility.
-    get_pending_observation_features,  # noqa F401
-    get_pending_observation_features_based_on_trial_status,  # noqa F401
-)
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.torch.botorch_moo_defaults import (
     get_weighted_mc_objective_and_objective_thresholds,
@@ -79,7 +75,6 @@ from botorch.utils.datasets import ContextualDataset, RankingDataset, Supervised
 from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
-
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
