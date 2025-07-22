@@ -1722,7 +1722,7 @@ class Experiment(Base):
         status_quo: Arm | None = None,
         description: str | None = None,
         is_test: bool | None = None,
-        properties: dict[str, Any] | None = None,
+        properties_to_keep: list[str] | None = None,
         trial_indices: list[int] | None = None,
         data: Data | None = None,
         clear_trial_type: bool = False,
@@ -1748,8 +1748,8 @@ class Experiment(Base):
             description: New description. If None, it uses the same description.
             is_test: Whether the cloned experiment should be considered a test. If None,
                 it uses the same value.
-            properties: New properties dictionary. If None, it uses a copy of the
-                same properties.
+            properties_to_keep: List of property keys to retain in the cloned
+                experiment. Defaults to ["owners"].
             trial_indices: If specified, only clones the specified trials. If None,
                 clones all trials.
             data: If specified, attach this data to the cloned experiment. If None,
@@ -1758,6 +1758,8 @@ class Experiment(Base):
             clear_trial_type: If True, all cloned trials on the cloned experiment have
                 `trial_type` set to `None`.
         """
+        if properties_to_keep is None:
+            properties_to_keep = ["owners"]
         search_space = (
             self.search_space.clone() if (search_space is None) else search_space
         )
@@ -1789,7 +1791,16 @@ class Experiment(Base):
         )
         description = self.description if description is None else description
         is_test = self.is_test if is_test is None else is_test
-        properties = self._properties.copy() if properties is None else properties
+
+        properties = {
+            k: v for k, v in self._properties.items() if k in properties_to_keep
+        }
+        dropped_keys = set(self._properties.keys()) - set(properties.keys())
+        if dropped_keys:
+            logger.warning(
+                f"When cloning the experiment, the following fields were dropped from "
+                f"properties: {', '.join(dropped_keys)}.",
+            )
 
         cloned_experiment = Experiment(
             search_space=search_space,
