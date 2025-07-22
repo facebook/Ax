@@ -1160,6 +1160,27 @@ class ExperimentTest(TestCase):
         cloned_experiment = experiment.clone_with(clear_trial_type=True)
         self.assertIsNone(cloned_experiment.trials[0].trial_type)
 
+        # Test cloning with specific properties to keep
+        experiment_w_props = get_branin_experiment()
+        experiment_w_props._properties = {
+            "owners": "foo-user",
+            "extra_field_keep": "keep this field",
+            "extra_field_drop": "drop this field",
+        }
+
+        cloned_experiment_extra_properties = experiment_w_props.clone_with(
+            search_space=larger_search_space,
+            status_quo=new_status_quo,
+            properties_to_keep=["owners", "extra_field_keep"],
+        )
+        self.assertEqual(
+            cloned_experiment_extra_properties._properties,
+            {
+                "owners": "foo-user",
+                "extra_field_keep": "keep this field",
+            },
+        )
+
     def test_metric_summary_df(self) -> None:
         experiment = Experiment(
             name="test_experiment",
