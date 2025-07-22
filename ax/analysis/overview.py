@@ -21,6 +21,7 @@ from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 from ax.analysis.insights import InsightsAnalysis
 from ax.analysis.results import ResultsAnalysis
+from ax.analysis.trials import AllTrialsAnalysis
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -68,14 +69,16 @@ class OverviewAnalysis(Analysis):
                 * Contour Plots
             * Diagnostic
                 * CrossValidationPlots
-            * Healthchecks
+            * Health Checks
                 * MetricFetchingErrorsAnalysis
                 * CanGenerateCandidatesAnalysis
                 * ConstraintsFeasibilityAnalysis
                 * SearchSpaceAnalysis
                 * ShouldGenerateCandidates
-            * Trial-level information
-                * TODO
+            * Trial-Level Analyses
+                * Trial 0
+                    * ArmEffectsPlot
+                ...
     """
 
     def __init__(
@@ -181,6 +184,12 @@ class OverviewAnalysis(Analysis):
             else None
         )
 
+        trials_group = AllTrialsAnalysis().compute_or_error_card(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
+
         return self._create_analysis_card_group(
             title=OVERVIEW_CARDGROUP_TITLE,
             subtitle=OVERVIEW_CARDGROUP_SUBTITLE,
@@ -191,6 +200,7 @@ class OverviewAnalysis(Analysis):
                     insights_group,
                     diagnostics_group,
                     health_checks_group,
+                    trials_group,
                 ]
                 if group is not None
             ],
