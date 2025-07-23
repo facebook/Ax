@@ -376,7 +376,15 @@ class MapData(Data):
         Used for storage.
         """
         args["map_key_infos"] = [
-            MapKeyInfo(d["key"], d["default_value"]) for d in args["map_key_infos"]
+            MapKeyInfo(d["key"], d["default_value"])
+            # Using .get() with a default empty list to handle cases where
+            # map_key_infos might not exist. This is important when decoding experiments
+            # that were originally not using MapData but were encoded as if they were
+            # using MapData due to some underlying method call's side effects.
+            # example: when when configure_optimization is called, it overrights metric
+            # to mapmetric even if no mapkeyinfo is provided. This would inturn change
+            # Experiment.default_data_type to MapData when this opt_config is being set.
+            for d in args.get("map_key_infos", [])
         ]
         return super().deserialize_init_args(args=args)
 
