@@ -7,6 +7,8 @@
 # pyre-strict
 
 import copy
+from itertools import product
+from typing import Any
 from unittest import mock
 from unittest.mock import patch, PropertyMock
 
@@ -457,8 +459,7 @@ class TestBestPointUtils(TestCase):
         trial.mark_completed()
         exp.fetch_data()
 
-        # pyre-fixme[16]: Optional type has no attribute `clone`.
-        opt_conf = exp.optimization_config.clone()
+        opt_conf = none_throws(exp.optimization_config).clone()
         opt_conf.outcome_constraints.append(
             OutcomeConstraint(
                 metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0, relative=False
@@ -469,6 +470,41 @@ class TestBestPointUtils(TestCase):
             get_best_raw_objective_point_with_trial_index(
                 experiment=exp, optimization_config=opt_conf
             )
+
+        # adding a new metric that is not present in the data should raise an error,
+        # even if the other metrics are satisfied
+        opt_conf.outcome_constraints.pop()
+        unobserved_metric = get_branin_metric(name="unobserved")
+        opt_conf.outcome_constraints.append(
+            OutcomeConstraint(
+                metric=unobserved_metric, op=ComparisonOp.LEQ, bound=0, relative=False
+            )
+        )
+        # also add a constraint that is always satisfied, as the Branin metric is
+        # non-negative, and check that only the "unobserved" metric shows up in the
+        # error message
+        opt_conf.outcome_constraints.append(
+            OutcomeConstraint(
+                metric=get_branin_metric(), op=ComparisonOp.GEQ, bound=0, relative=False
+            )
+        )
+
+        with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
+            with self.assertRaisesRegex(
+                ValueError,
+                r"No points satisfied all outcome constraints within 95 percent "
+                r"confidence interval\. The feasibility of 1 arm\(s\) could not be "
+                r"determined: \['0_0'\]\.",
+            ):
+                get_best_raw_objective_point_with_trial_index(
+                    experiment=exp, optimization_config=opt_conf
+                )
+        self.assertEqual(len(lg.output), 1)
+        self.assertRegex(
+            lg.output[0],
+            r"Arm 0_0 is missing data for one or more constrained metrics: "
+            r"\{'unobserved'\}\.",
+        )
 
     def test_best_raw_objective_point_unsatisfiable_relative(self) -> None:
         exp = get_experiment_with_observations(
@@ -624,6 +660,26 @@ class TestBestPointUtils(TestCase):
             )
 
     def test_is_row_feasible(self) -> None:
+        drop_na_rows = False
+        for undetermined_value, drop_na_rows in product([None, False], [True, False]):
+            with self.subTest(
+                undetermined_value=undetermined_value, drop_na_rows=drop_na_rows
+            ):
+                self._test_is_row_feasible(
+                    undetermined_value=undetermined_value, drop_na_rows=drop_na_rows
+                )
+
+    def _test_is_row_feasible(
+        self, undetermined_value: bool | None, drop_na_rows: bool
+    ) -> None:
+        """Tests _is_row_feasible.
+
+        Args:
+            undetermined_value: The `undetermined_value` to pass to _is_row_feasible.
+            drop_na_rows: Whether to drop the rows corresponding with `NaN` values in
+                the dataframe before passing it to `_is_row_feasible`, which tests
+                different types of "missing" data (explicit `NaNs` and missing rows).
+        """
         exp = get_experiment_with_observations(
             observations=[
                 [-1, 1, 1],
@@ -631,34 +687,50 @@ class TestBestPointUtils(TestCase):
                 [3, 3, -1],
                 [2, 4, 1],
                 [2, 0, 1],
-                # adding this to an otherwise feasible observation to test nan handling
-                [2, 0, np.nan],
+                # an otherwise feasible observation with a nan observation
+                # using 2, 4 because it is feasible for relative constraints too
+                [2, 4, np.nan],
+                # an otherwise infeasible observation with a nan observation
+                [-3, -3, np.nan],
             ],
             constrained=True,
         )
+
+        df = exp.lookup_data().df
+        is_na_mask = df["mean"].isna()
+        if drop_na_rows:
+            df = df[~is_na_mask]
+
         feasible_series = _is_row_feasible(
-            df=exp.lookup_data().df,
+            df=df,
             optimization_config=none_throws(exp.optimization_config),
+            undetermined_value=undetermined_value,
         )
-        expected_per_arm = [False, True, False, True, True, False]
+        # If another metric is already infeasible, the function determines infeasibility
+        # even when some other constrained metrics haven't been observed yet.
+        expected_per_arm = [False, True, False, True, True, undetermined_value, False]
         expected_series = _repeat_elements(
             list_to_replicate=expected_per_arm, n_repeats=3
         )
+        if drop_na_rows:
+            expected_series = expected_series[~is_na_mask]
+
         pd.testing.assert_series_equal(
             feasible_series, expected_series, check_names=False
         )
 
         exp.optimization_config.outcome_constraints[0].relative = True
         relative_constraint_warning = (
-            "WARNING:ax.service.utils.best_point:Ignoring relative constraint "
-            "OutcomeConstraint(m3 >= 0.0%). Derelativize OptimizationConfig "
-            "before passing to `_is_row_feasible`."
+            "WARNING:ax.service.utils.best_point:Determining trial feasibility only "
+            "supported with a derelativized OptimizationConfig, but found the "
+            "following relative constraints: [OutcomeConstraint(m3 >= 0.0%)]. "
+            f"Returning {undetermined_value} as the feasibility."
         )
         with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
-            # with lookout for warnings(" OutcomeConstraint(m3 >= 0.0%) ignored."):
             feasible_series = _is_row_feasible(
-                df=exp.lookup_data().df,
+                df=df,
                 optimization_config=none_throws(exp.optimization_config),
+                undetermined_value=undetermined_value,
             )
             self.assertTrue(
                 any(relative_constraint_warning in warning for warning in lg.output),
@@ -666,10 +738,12 @@ class TestBestPointUtils(TestCase):
             )
         # When the outcome constraints haven't been derelativized, they are ignored,
         # which leads even the arm with the nan observation to be marked feasible.
-        expected_per_arm = [False, True, True, True, True, True]
+        expected_per_arm = [undetermined_value] * len(exp.arms_by_name)
         expected_series = _repeat_elements(
             list_to_replicate=expected_per_arm, n_repeats=3
         )
+        if drop_na_rows:
+            expected_series = expected_series[~is_na_mask]
         pd.testing.assert_series_equal(
             feasible_series, expected_series, check_names=False
         )
@@ -685,16 +759,20 @@ class TestBestPointUtils(TestCase):
             # continue.
             best_point_logger.warning("Dummy warning")
             feasible_series = _is_row_feasible(
-                df=exp.lookup_data().df, optimization_config=optimization_config
+                df=df,
+                optimization_config=optimization_config,
+                undetermined_value=undetermined_value,
             )
             self.assertFalse(
                 any(relative_constraint_warning in warning for warning in lg.output),
                 msg=lg.output,
             )
-        expected_per_arm = [True, True, False, True, False, False]
+        expected_per_arm = [True, True, False, True, False, undetermined_value, False]
         expected_series = _repeat_elements(
             list_to_replicate=expected_per_arm, n_repeats=3
         )
+        if drop_na_rows:
+            expected_series = expected_series[~is_na_mask]
         pd.testing.assert_series_equal(
             feasible_series, expected_series, check_names=False
         )
@@ -709,7 +787,9 @@ class TestBestPointUtils(TestCase):
         # Artificially redact some data.
         df = df[df["mean"] > 1]
         feasible_series = _is_row_feasible(
-            df=df, optimization_config=optimization_config
+            df=df,
+            optimization_config=optimization_config,
+            undetermined_value=undetermined_value,
         )
         pd.testing.assert_index_equal(
             df.index, feasible_series.index, check_names=False
@@ -840,5 +920,5 @@ class TestBestPointUtils(TestCase):
         self.assertEqual(predictions, ({"y": mock.ANY}, {"y": {"y": mock.ANY}}))
 
 
-def _repeat_elements(list_to_replicate: list[bool], n_repeats: int) -> pd.Series:
+def _repeat_elements(list_to_replicate: list[Any], n_repeats: int) -> pd.Series:
     return pd.Series([item for item in list_to_replicate for _ in range(n_repeats)])
