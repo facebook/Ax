@@ -22,7 +22,8 @@ from typing import Any, cast, Sequence
 import numpy as np
 import pandas as pd
 import torch
-from ax.adapter.factory import Cont_X_trans, Generators, get_factorial, get_sobol
+from ax.adapter.factory import get_factorial, get_sobol
+from ax.adapter.registry import Cont_X_trans, Generators
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.base_trial import BaseTrial, TrialStatus

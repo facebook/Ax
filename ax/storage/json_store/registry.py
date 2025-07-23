@@ -12,8 +12,7 @@ from typing import Any
 
 import torch
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.factory import Generators
-from ax.adapter.registry import GeneratorRegistryBase
+from ax.adapter.registry import GeneratorRegistryBase, Generators
 from ax.adapter.transforms.base import Transform
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
@@ -189,7 +188,6 @@ from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 
 
-# pyre-fixme[5]: Global annotation cannot contain `Any`.
 # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
 #  avoid runtime subscripting errors.
 CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
@@ -281,7 +279,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
 # NOTE: Avoid putting a class along with its subclass in `CLASS_ENCODER_REGISTRY`.
 # The encoder iterates through this dictionary and uses the first superclass that
 # it finds, which might not be the intended superclass.
-# pyre-fixme[5]: Global annotation cannot contain `Any`.
 # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
 #  avoid runtime subscripting errors.
 CORE_CLASS_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
@@ -425,7 +422,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
 
 
 # Registry for class types, not instances.
-# pyre-fixme[5]: Global annotation cannot contain `Any`.
 CORE_CLASS_DECODER_REGISTRY: dict[str, Callable[[dict[str, Any]], Any]] = {
     "Type[Acquisition]": class_from_json,
     "Type[AcquisitionFunction]": class_from_json,
