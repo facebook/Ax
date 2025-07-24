@@ -883,9 +883,11 @@ def exp_to_df(
                     optimization_config=optimization_config,
                     experiment=exp,
                 )
+            # Will return None for those rows whose feasibility cannot be determined.
             results[FEASIBLE_COL_NAME] = _is_row_feasible(
                 df=results,
                 optimization_config=optimization_config,
+                undetermined_value=None,
             )
         except (KeyError, ValueError, DataRequiredError) as e:
             logger.warning(f"Feasibility calculation failed with error: {e}")
