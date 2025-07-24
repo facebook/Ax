@@ -6,6 +6,9 @@
 # pyre-strict
 
 
+import json
+
+from ax.adapter.registry import Generators
 from ax.analysis.plotly.scatter import compute_scatter_adhoc, ScatterPlot
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
@@ -190,22 +193,15 @@ class TestScatterPlot(TestCase):
             # Skip experiments with fewer than 2 metrics
             if len(experiment.metrics) < 2:
                 continue
+            arm = Generators.SOBOL(experiment=experiment).gen(n=1).arms[0]
+            arm.name = "additional_arm"
 
             for use_model_predictions in [True, False]:
                 for trial_index in [None, 0]:
                     for with_additional_arms in [True, False]:
                         for show_pareto_frontier in [True, False]:
                             if use_model_predictions and with_additional_arms:
-                                additional_arms = [
-                                    Arm(
-                                        parameters={
-                                            parameter_name: 0
-                                            for parameter_name in (
-                                                experiment.search_space.parameters.keys()  # noqa E501
-                                            )
-                                        }
-                                    )
-                                ]
+                                additional_arms = [arm]
                             else:
                                 additional_arms = None
 
@@ -228,10 +224,21 @@ class TestScatterPlot(TestCase):
                                 show_pareto_frontier=show_pareto_frontier,
                             )
 
-                            _ = analysis.compute(
+                            cards = analysis.compute(
                                 experiment=experiment,
                                 adapter=adapter,
                             )
+                            if with_additional_arms and use_model_predictions:
+                                # validate that we plotted the additional arm
+                                self.assertTrue(
+                                    all(
+                                        any(
+                                            arm.name in dat["text"][0]
+                                            for dat in json.loads(card.blob)["data"]
+                                        )
+                                        for card in cards.flatten()
+                                    )
+                                )
 
     @TestCase.ax_long_test(
         reason=(
