@@ -499,7 +499,11 @@ class Acquisition(Base):
             candidates, acqf_values = optimize_acqf_mixed_alternating(
                 acq_function=self.acqf,
                 bounds=bounds,
-                discrete_dims=search_space_digest.ordinal_features,
+                discrete_dims={
+                    k: list(v)
+                    for k, v in discrete_choices.items()
+                    if k in search_space_digest.ordinal_features
+                },
                 cat_dims=search_space_digest.categorical_features,
                 q=n,
                 post_processing_func=rounding_func,

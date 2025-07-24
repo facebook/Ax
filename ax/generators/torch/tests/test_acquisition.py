@@ -717,7 +717,7 @@ class AcquisitionTest(TestCase):
         mock_alternating.assert_called_with(
             acq_function=acquisition.acqf,
             bounds=mock.ANY,
-            discrete_dims=[1],
+            discrete_dims={1: list(range(16))},
             cat_dims=[],
             q=3,
             options={
@@ -755,7 +755,7 @@ class AcquisitionTest(TestCase):
         mock_alternating.assert_called_with(
             acq_function=acquisition.acqf,
             bounds=mock.ANY,
-            discrete_dims=[],
+            discrete_dims={},
             cat_dims=[1],
             q=3,
             options={
