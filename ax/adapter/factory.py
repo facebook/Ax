@@ -6,32 +6,14 @@
 
 # pyre-strict
 
-from collections.abc import Mapping, Sequence
-
 import torch
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.random import RandomAdapter
-from ax.adapter.registry import Cont_X_trans, Generators, Y_trans
-from ax.adapter.torch import TorchAdapter
-from ax.adapter.transforms.base import Transform
+from ax.adapter.registry import Generators
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.generators.torch.botorch import (
-    TAcqfConstructor,
-    TModelConstructor,
-    TModelPredictor,
-    TOptimizer,
-)
-from ax.generators.torch.botorch_defaults import (
-    get_and_fit_model,
-    get_qLogNEI,
-    scipy_optimizer,
-)
-from ax.generators.torch.utils import predict_from_model
-from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance
 
 
@@ -78,64 +60,6 @@ def get_sobol(
             fallback_to_sample_polytope=fallback_to_sample_polytope,
         ),
         RandomAdapter,
-    )
-
-
-def get_uniform(
-    search_space: SearchSpace, deduplicate: bool = False, seed: int | None = None
-) -> RandomAdapter:
-    """Instantiate uniform generator.
-
-    Args:
-        search_space: Uniform generator search space.
-        kwargs: Custom args for uniform generator.
-
-    Returns:
-        RandomAdapter, with UniformGenerator as model.
-    """
-    return assert_is_instance(
-        Generators.UNIFORM(
-            experiment=Experiment(search_space=search_space),
-            seed=seed,
-            deduplicate=deduplicate,
-        ),
-        RandomAdapter,
-    )
-
-
-def get_botorch(
-    experiment: Experiment,
-    data: Data,
-    search_space: SearchSpace | None = None,
-    device: torch.device = DEFAULT_TORCH_DEVICE,
-    transforms: Sequence[type[Transform]] = Cont_X_trans + Y_trans,
-    transform_configs: Mapping[str, TConfig] | None = None,
-    model_constructor: TModelConstructor = get_and_fit_model,
-    model_predictor: TModelPredictor = predict_from_model,
-    acqf_constructor: TAcqfConstructor = get_qLogNEI,
-    acqf_optimizer: TOptimizer = scipy_optimizer,  # pyre-ignore[9]
-    refit_on_cv: bool = False,
-    optimization_config: OptimizationConfig | None = None,
-) -> TorchAdapter:
-    """Instantiates a LegacyBoTorchGenerator."""
-    if data.df.empty:
-        raise ValueError("`LegacyBoTorchGenerator` requires non-empty data.")
-    return assert_is_instance(
-        Generators.LEGACY_BOTORCH(
-            experiment=experiment,
-            data=data,
-            search_space=search_space or experiment.search_space,
-            torch_device=device,
-            transforms=transforms,
-            transform_configs=transform_configs,
-            model_constructor=model_constructor,
-            model_predictor=model_predictor,
-            acqf_constructor=acqf_constructor,
-            acqf_optimizer=acqf_optimizer,
-            refit_on_cv=refit_on_cv,
-            optimization_config=optimization_config,
-        ),
-        TorchAdapter,
     )
 
 

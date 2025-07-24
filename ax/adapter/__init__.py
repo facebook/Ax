@@ -9,13 +9,8 @@
 # flake8: noqa F401
 from ax.adapter import transforms
 from ax.adapter.base import Adapter
-from ax.adapter.factory import (
-    Generators,
-    get_factorial,
-    get_sobol,
-    get_thompson,
-    get_uniform,
-)
+from ax.adapter.factory import get_factorial, get_sobol, get_thompson
+from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
 
 __all__ = [
@@ -25,6 +20,5 @@ __all__ = [
     "get_factorial",
     "get_sobol",
     "get_thompson",
-    "get_uniform",
     "transforms",
 ]

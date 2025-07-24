@@ -12,7 +12,6 @@ from ax.adapter.factory import (
     get_factorial,
     get_sobol,
     get_thompson,
-    get_uniform,
 )
 from ax.adapter.random import RandomAdapter
 from ax.core.experiment import Experiment
@@ -98,10 +97,3 @@ class TestAdapterFactorySingleObjective(TestCase):
         data = exp.fetch_data()
         thompson = get_thompson(experiment=exp, data=data)
         self.assertIsInstance(thompson.generator, ThompsonSampler)
-
-    def test_uniform(self) -> None:
-        exp = get_branin_experiment()
-        uniform = get_uniform(exp.search_space)
-        self.assertIsInstance(uniform, RandomAdapter)
-        uniform_run = uniform.gen(n=5)
-        self.assertEqual(len(uniform_run.arms), 5)

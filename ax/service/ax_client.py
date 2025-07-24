@@ -11,7 +11,6 @@ import logging
 import warnings
 from collections.abc import Callable, Sequence
 from functools import partial
-
 from logging import Logger
 from typing import Any, TypeVar
 
@@ -33,7 +32,6 @@ from ax.core.observation import ObservationFeatures
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
-
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
@@ -1393,11 +1391,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def to_json_snapshot(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         encoder_registry: dict[type, Callable[[Any], dict[str, Any]]] | None = None,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         class_encoder_registry: None
@@ -1435,7 +1431,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         cls: type[AxClientSubclass],
         serialized: dict[str, Any],
         decoder_registry: TDecoderRegistry | None = None,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         class_decoder_registry: None
         | (dict[str, Callable[[dict[str, Any]], Any]]) = None,
         # pyre-fixme[2]: Parameter must be annotated.
