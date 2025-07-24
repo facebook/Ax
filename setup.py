@@ -72,6 +72,7 @@ UNITTEST_MINIMAL_REQUIRES = [
     # Required for building RayTune tutorial notebook and
     # deserializing data for benchmark suites.
     "pyarrow",
+    "xgboost>=3.0.2",  # For XGBoost surrogate models.
 ]
 
 UNITTEST_REQUIRES = (
