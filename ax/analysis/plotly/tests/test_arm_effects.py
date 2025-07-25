@@ -6,14 +6,15 @@
 # pyre-unsafe
 
 import json
+from itertools import product
 
 from ax.adapter.registry import Generators
-
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot, compute_arm_effects_adhoc
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
-from ax.exceptions.core import UserInputError
+from ax.core.metric import Metric
+from ax.exceptions.core import AxError, UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -49,7 +50,9 @@ class TestArmEffectsPlot(TestCase):
                 ),
             ],
         )
-        self.client.configure_optimization(objective="foo, bar")
+        self.client.configure_optimization(
+            objective="foo", outcome_constraints=["bar >= -0.5"]
+        )
 
         # Get two trials and fail one, giving us a ragged structure
         self.client.get_next_trials(max_trials=2)
@@ -105,9 +108,10 @@ class TestArmEffectsPlot(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
-                "foo_mean",
-                "foo_sem",
+                "p_feasible_mean",
+                "p_feasible_sem",
+                "bar_mean",
+                "bar_sem",
             },
         )
 
@@ -118,9 +122,10 @@ class TestArmEffectsPlot(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
-                "bar_mean",
-                "bar_sem",
+                "p_feasible_mean",
+                "p_feasible_sem",
+                "foo_mean",
+                "foo_sem",
             },
         )
 
@@ -131,8 +136,8 @@ class TestArmEffectsPlot(TestCase):
                 self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are NaN
-        self.assertTrue(cards[0].df["foo_sem"].isna().all())
-        self.assertTrue(cards[1].df["bar_sem"].isna().all())
+        self.assertTrue(cards[0].df["bar_sem"].isna().all())
+        self.assertTrue(cards[1].df["foo_sem"].isna().all())
 
     def test_compute_with_modeled(self) -> None:
         default_analysis = ArmEffectsPlot(use_model_predictions=True)
@@ -152,9 +157,10 @@ class TestArmEffectsPlot(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
-                "foo_mean",
-                "foo_sem",
+                "p_feasible_mean",
+                "p_feasible_sem",
+                "bar_mean",
+                "bar_sem",
             },
         )
 
@@ -165,9 +171,10 @@ class TestArmEffectsPlot(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
-                "bar_mean",
-                "bar_sem",
+                "p_feasible_mean",
+                "p_feasible_sem",
+                "foo_mean",
+                "foo_sem",
             },
         )
 
@@ -178,8 +185,69 @@ class TestArmEffectsPlot(TestCase):
                 self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are not NaN
-        self.assertFalse(cards[0].df["foo_sem"].isna().any())
-        self.assertFalse(cards[1].df["bar_sem"].isna().any())
+        self.assertFalse(cards[0].df["bar_sem"].isna().any())
+        self.assertFalse(cards[1].df["foo_sem"].isna().any())
+
+    def test_plot_p_feasible(self) -> None:
+        default_analysis = ArmEffectsPlot(
+            metric_names=["p_feasible", "foo"], use_model_predictions=True
+        )
+
+        cards = default_analysis.compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        ).flatten()
+
+        # Check that we have cards for both metrics
+        self.assertEqual(len(cards), 2)
+
+        self.assertEqual(
+            set(cards[0].df.columns),
+            {
+                "trial_index",
+                "arm_name",
+                "trial_status",
+                "generation_node",
+                "p_feasible_mean",
+                "p_feasible_sem",
+            },
+        )
+        self.assertEqual(
+            set(cards[1].df.columns),
+            {
+                "trial_index",
+                "arm_name",
+                "trial_status",
+                "generation_node",
+                "p_feasible_mean",
+                "p_feasible_sem",
+                "foo_mean",
+                "foo_sem",
+            },
+        )
+
+        for card in cards:
+            # Check that we have one row per arm and that each arm appears only once
+            self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
+            for arm_name in self.client._experiment.arms_by_name:
+                self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
+
+        # Check that all SEMs are not NaN
+        self.assertTrue(cards[0].df["p_feasible_sem"].isna().all())
+        self.assertFalse(cards[1].df["foo_sem"].isna().any())
+        self.assertEqual(
+            json.loads(cards[0].blob)["layout"]["yaxis"]["title"]["text"], "p_feasible"
+        )
+
+        # test that plot errors if p_feasible is a metric on the experiment
+        self.client._experiment.add_tracking_metric(Metric(name="p_feasible"))
+        with self.assertRaisesRegex(
+            AxError, "p_feasible is reserved for plotting the probability"
+        ):
+            default_analysis.compute(
+                experiment=self.client._experiment,
+                generation_strategy=self.client._generation_strategy,
+            )
 
     def test_compute_adhoc(self) -> None:
         # Use the same kwargs for typical and adhoc
@@ -219,45 +287,44 @@ class TestArmEffectsPlot(TestCase):
         for experiment in get_online_experiments():
             arm = Generators.SOBOL(experiment=experiment).gen(n=1).arms[0]
             arm.name = "additional_arm"
-            for use_model_predictions in [True, False]:
-                for trial_index in [None, 0]:
-                    for with_additional_arms in [True, False]:
-                        for show_cumulative_best in [True, False]:
-                            if use_model_predictions and with_additional_arms:
-                                additional_arms = [arm]
-                            else:
-                                additional_arms = None
-                            generation_strategy = (
-                                get_default_generation_strategy_at_MBM_node(
-                                    experiment=experiment
-                                )
-                            )
-                            generation_strategy.current_node._fit(experiment=experiment)
-                            adapter = none_throws(generation_strategy.adapter)
+            for (
+                use_model_predictions,
+                trial_index,
+                with_additional_arms,
+                show_cumulative_best,
+            ) in product([True, False], [None, 0], [True, False], [True, False]):
+                if use_model_predictions and with_additional_arms:
+                    additional_arms = [arm]
+                else:
+                    additional_arms = None
+                generation_strategy = get_default_generation_strategy_at_MBM_node(
+                    experiment=experiment
+                )
+                generation_strategy.current_node._fit(experiment=experiment)
+                adapter = none_throws(generation_strategy.adapter)
 
-                            analysis = ArmEffectsPlot(
-                                metric_names=[*adapter.metric_names],
-                                use_model_predictions=use_model_predictions,
-                                trial_index=trial_index,
-                                additional_arms=additional_arms,
-                                show_cumulative_best=show_cumulative_best,
-                            )
+                analysis = ArmEffectsPlot(
+                    metric_names=[*adapter.metric_names, "p_feasible"],
+                    use_model_predictions=use_model_predictions,
+                    trial_index=trial_index,
+                    additional_arms=additional_arms,
+                    show_cumulative_best=show_cumulative_best,
+                )
 
-                            cards = analysis.compute(
-                                experiment=experiment,
-                                adapter=adapter,
-                            )
-                            if with_additional_arms and use_model_predictions:
-                                # validate that we plotted the additional arm
-                                self.assertTrue(
-                                    all(
-                                        arm.name
-                                        in json.loads(card.blob)["layout"]["xaxis"][
-                                            "ticktext"
-                                        ]
-                                        for card in cards.flatten()
-                                    )
-                                )
+                cards = analysis.compute(
+                    experiment=experiment,
+                    adapter=adapter,
+                )
+                self.assertEqual(len(cards.flatten()), len(adapter.metric_names) + 1)
+                if with_additional_arms and use_model_predictions:
+                    # validate that we plotted the additional arm
+                    self.assertTrue(
+                        all(
+                            arm.name
+                            in json.loads(card.blob)["layout"]["xaxis"]["ticktext"]
+                            for card in cards.flatten()
+                        )
+                    )
 
     @TestCase.ax_long_test(
         reason=(
@@ -348,7 +415,8 @@ class TestArmEffectsPlotRel(TestCase):
                         "arm_name",
                         "trial_status",
                         "generation_node",
-                        "p_feasible",
+                        "p_feasible_mean",
+                        "p_feasible_sem",
                         "branin_mean",
                         "branin_sem",
                     },

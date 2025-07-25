@@ -119,7 +119,7 @@ class ConstraintsFeasibilityAnalysis(Analysis):
         )
 
         constraints_feasible = (
-            arm_data["p_feasible"] > POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
+            arm_data["p_feasible_mean"] > POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
         ).all()
 
         if not constraints_feasible:

@@ -31,8 +31,10 @@ from ax.analysis.plotly.utils import (
 )
 from ax.analysis.utils import (
     extract_relevant_adapter,
+    get_lower_is_better,
     POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
     prepare_arm_data,
+    update_metric_names_if_using_p_feasible,
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
@@ -151,9 +153,14 @@ class ScatterPlot(Analysis):
         else:
             relevant_adapter = None
 
+        # if using p_feasible, we need to get the data for the metrics involved
+        # in constraints even though we don't plot them
+        metric_names = update_metric_names_if_using_p_feasible(
+            metric_names=[self.x_metric_name, self.y_metric_name], experiment=experiment
+        )
         df = prepare_arm_data(
             experiment=experiment,
-            metric_names=[self.x_metric_name, self.y_metric_name],
+            metric_names=metric_names,
             use_model_predictions=self.use_model_predictions,
             adapter=relevant_adapter,
             trial_index=self.trial_index,
@@ -170,9 +177,12 @@ class ScatterPlot(Analysis):
         y_metric_label = self.labels.get(
             self.y_metric_name, truncate_label(label=self.y_metric_name)
         )
-
-        x_lower_is_better = experiment.metrics[self.x_metric_name].lower_is_better
-        y_lower_is_better = experiment.metrics[self.y_metric_name].lower_is_better
+        x_lower_is_better = get_lower_is_better(
+            experiment=experiment, metric_name=self.x_metric_name
+        )
+        y_lower_is_better = get_lower_is_better(
+            experiment=experiment, metric_name=self.y_metric_name
+        )
 
         figure = _prepare_figure(
             df=df,
@@ -289,6 +299,8 @@ def get_xy_trial_data(
                 transparent=True,
             ),
         }
+    else:
+        error = None
     return xy_df[mean_name], error
 
 
@@ -343,7 +355,7 @@ def _prepare_figure(
             "line": {
                 "width": trial_df.apply(
                     lambda row: 2
-                    if row["p_feasible"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
+                    if row["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
                     else 0,
                     axis=1,
                 ),
@@ -383,7 +395,7 @@ def _prepare_figure(
     )
 
     # Add a red circle with no fill if any arms are marked as possibly infeasible.
-    if (df["p_feasible"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
+    if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
         legend_trace = go.Scatter(
             # None here allows us to place a legend item without corresponding points
             x=[None],
@@ -425,7 +437,9 @@ def _prepare_figure(
 
     if show_pareto_frontier:
         # Infeasible arms are not included in the Pareto frontier
-        eligable_arms = df[df["p_feasible"] >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD]
+        eligable_arms = df[
+            df["p_feasible_mean"] >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
+        ]
 
         # If there are no arms which are not likely to violate constraints, return the
         # figure as is, without adding a Pareto frontier line.
