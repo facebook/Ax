@@ -6,7 +6,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 
@@ -36,7 +36,7 @@ from ax.analysis.utils import (
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
+from ax.core.trial_status import FAILED_ABANDONED_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.logger import get_logger
@@ -267,6 +267,31 @@ def compute_scatter_adhoc(
     )
 
 
+def get_xy_trial_data(
+    trial_df: pd.DataFrame,
+    metric_name: str,
+    trials_list: list[int],
+    trial_index: int,
+) -> tuple[pd.Series, dict[str, Any] | None]:
+    """Get the mean and SEM for a particular metric and trial_index."""
+    error = None
+    mean_name = f"{metric_name}_mean"
+    sem_name = f"{metric_name}_sem"
+    xy_df = trial_df[~trial_df[mean_name].isna()]
+    if not xy_df[sem_name].isna().all():
+        error = {
+            "type": "data",
+            "array": xy_df[sem_name] * Z_SCORE_95_CI,
+            "color": trial_index_to_color(
+                trial_df=trial_df,
+                trials_list=trials_list,
+                trial_index=trial_index,
+                transparent=True,
+            ),
+        }
+    return xy_df[mean_name], error
+
+
 def _prepare_figure(
     df: pd.DataFrame,
     x_metric_name: str,
@@ -284,9 +309,9 @@ def _prepare_figure(
         "trial_index"
     ].max()
     # Filter out undesired trials like FAILED and ABANDONED trials from plot.
-    trials = df[df["trial_status"].isin([ts.name for ts in STATUSES_EXPECTING_DATA])][
-        "trial_index"
-    ].unique()
+    trials = df[
+        ~df["trial_status"].isin([ts.name for ts in FAILED_ABANDONED_STATUSES])
+    ]["trial_index"].unique()
 
     trials_list = trials.tolist()
     trial_indices = trials_list.copy()
@@ -295,31 +320,19 @@ def _prepare_figure(
     scatters = []
 
     for trial_index in trial_indices:
-        error_x, error_y = None, None
         trial_df = df[df["trial_index"] == trial_index]
-        xy_df = trial_df[~trial_df[f"{x_metric_name}_mean"].isna()]
-        if not xy_df[f"{x_metric_name}_sem"].isna().all():
-            error_x = {
-                "type": "data",
-                "array": xy_df[f"{x_metric_name}_sem"] * Z_SCORE_95_CI,
-                "color": trial_index_to_color(
-                    trial_df=trial_df,
-                    trials_list=trials_list,
-                    trial_index=trial_index,
-                    transparent=True,
-                ),
-            }
-        if not xy_df[f"{y_metric_name}_sem"].isna().all():
-            error_y = {
-                "type": "data",
-                "array": xy_df[f"{y_metric_name}_sem"] * Z_SCORE_95_CI,
-                "color": trial_index_to_color(
-                    trial_df=trial_df,
-                    trials_list=trials_list,
-                    trial_index=trial_index,
-                    transparent=True,
-                ),
-            }
+        mean_x, error_x = get_xy_trial_data(
+            trial_df=trial_df,
+            metric_name=x_metric_name,
+            trials_list=trials_list,
+            trial_index=trial_index,
+        )
+        mean_y, error_y = get_xy_trial_data(
+            trial_df=trial_df,
+            metric_name=y_metric_name,
+            trials_list=trials_list,
+            trial_index=trial_index,
+        )
         marker = {
             "color": trial_index_to_color(
                 trial_df=trial_df,
@@ -347,8 +360,8 @@ def _prepare_figure(
 
         scatters.append(
             go.Scatter(
-                x=xy_df[f"{x_metric_name}_mean"],
-                y=xy_df[f"{y_metric_name}_mean"],
+                x=mean_x,
+                y=mean_y,
                 error_x=error_x,
                 error_y=error_y,
                 mode="markers",
