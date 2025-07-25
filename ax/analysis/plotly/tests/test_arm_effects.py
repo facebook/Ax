@@ -5,6 +5,10 @@
 
 # pyre-unsafe
 
+import json
+
+from ax.adapter.registry import Generators
+
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot, compute_arm_effects_adhoc
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
@@ -213,24 +217,16 @@ class TestArmEffectsPlot(TestCase):
         # resemble those we see in an online setting.
 
         for experiment in get_online_experiments():
+            arm = Generators.SOBOL(experiment=experiment).gen(n=1).arms[0]
+            arm.name = "additional_arm"
             for use_model_predictions in [True, False]:
                 for trial_index in [None, 0]:
                     for with_additional_arms in [True, False]:
                         for show_cumulative_best in [True, False]:
                             if use_model_predictions and with_additional_arms:
-                                additional_arms = [
-                                    Arm(
-                                        parameters={
-                                            parameter_name: 0
-                                            for parameter_name in (
-                                                experiment.search_space.parameters.keys()  # noqa E501
-                                            )
-                                        }
-                                    )
-                                ]
+                                additional_arms = [arm]
                             else:
                                 additional_arms = None
-
                             generation_strategy = (
                                 get_default_generation_strategy_at_MBM_node(
                                     experiment=experiment
@@ -247,10 +243,21 @@ class TestArmEffectsPlot(TestCase):
                                 show_cumulative_best=show_cumulative_best,
                             )
 
-                            _ = analysis.compute(
+                            cards = analysis.compute(
                                 experiment=experiment,
                                 adapter=adapter,
                             )
+                            if with_additional_arms and use_model_predictions:
+                                # validate that we plotted the additional arm
+                                self.assertTrue(
+                                    all(
+                                        arm.name
+                                        in json.loads(card.blob)["layout"]["xaxis"][
+                                            "ticktext"
+                                        ]
+                                        for card in cards.flatten()
+                                    )
+                                )
 
     @TestCase.ax_long_test(
         reason=(
