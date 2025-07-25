@@ -37,6 +37,9 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
+from ax.service.utils.with_db_settings_base import (
+    _save_generation_strategy_to_db_if_possible,
+)
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -355,9 +358,16 @@ class TestClient(TestCase):
         self.assertEqual(len(trials), 2)
 
         # Test respects fixed features
-        trials = client.get_next_trials(max_trials=1, fixed_parameters={"x1": 0.5})
+        with mock.patch(
+            "ax.service.utils.with_db_settings_base"
+            "._save_generation_strategy_to_db_if_possible"
+        ) as mock_save:
+            trials = client.get_next_trials(max_trials=1, fixed_parameters={"x1": 0.5})
         value = assert_is_instance(trials[3]["x1"], float)
         self.assertEqual(value, 0.5)
+
+        # Check that GS is not saved to the DB.
+        mock_save.assert_not_called()
 
     def test_get_next_trials_with_db(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
@@ -385,16 +395,27 @@ class TestClient(TestCase):
         client.complete_trial(
             trial_index=trial.index, raw_data={"foo": (random.random(), 1.0)}
         )
+        # Generate one more trial, so that GS transitions to BO.
+        with mock.patch(
+            "ax.service.utils.with_db_settings_base"
+            "._save_generation_strategy_to_db_if_possible",
+            wraps=_save_generation_strategy_to_db_if_possible,
+        ) as mock_save:
+            trials = client.get_next_trials(max_trials=1)
+        # Check that GS was saved after generating the trials.
+        self.assertEqual(client._generation_strategy.current_node_name, "MBM")
+        mock_save.assert_called_once()
 
         # Check that loading the GS from the DB results in using BO.
         # This will only happen if the GS is saved in get_next_trials
         client2 = Client.load_from_database(
             client._experiment.name, storage_config=StorageConfig()
         )
+        self.assertEqual(client2._generation_strategy.current_node_name, "MBM")
         trials = client2.get_next_trials(max_trials=1)
         self.assertEqual(len(trials), 1)
-        self.assertIn(1, trials)
-        trial = client2._experiment.trials[1]
+        self.assertIn(2, trials)
+        trial = client2._experiment.trials[2]
         self.assertEqual(trial.generator_runs[0]._model_key, "BoTorch")
 
     def test_attach_data(self) -> None:

@@ -540,7 +540,6 @@ def get_generation_strategy_id(experiment_name: str, decoder: Decoder) -> int | 
 def get_generation_strategy_sqa(
     gs_id: int,
     decoder: Decoder,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     query_options: list[Any] | None = None,
 ) -> SQAGenerationStrategy:
     """Obtains the SQLAlchemy generation strategy object from DB."""
