@@ -143,7 +143,7 @@ def get_arm_tooltip(
         for metric_name in metric_names
     ]
 
-    if row["p_feasible"] < MINIMUM_CONTRAINT_VIOLATION_THRESHOLD:
+    if row["p_feasible_mean"] < MINIMUM_CONTRAINT_VIOLATION_THRESHOLD:
         constraints_warning_str = "[Warning] This arm is likely infeasible"
     else:
         constraints_warning_str = ""

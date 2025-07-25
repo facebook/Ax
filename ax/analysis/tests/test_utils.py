@@ -142,7 +142,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -168,10 +169,11 @@ class TestUtils(TestCase):
         self.assertTrue((df.loc[success_idcs]["foo_sem"] == 0.1).all())
         self.assertTrue((df.loc[success_idcs]["bar_sem"] == 0.1).all())
 
-        # Check that p_feasible is NaN for the arm without data and not NaN for the
+        # Check that p_feasible_mean is NaN for the arm without data and not NaN for the
         # other arms.
-        self.assertTrue(np.isnan(df.loc[1]["p_feasible"]))
-        self.assertFalse(df[df["arm_name"] != "1_0"]["p_feasible"].isna().any())
+        self.assertTrue(np.isnan(df.loc[1]["p_feasible_mean"]))
+        self.assertFalse(df[df["arm_name"] != "1_0"]["p_feasible_mean"].isna().any())
+        self.assertTrue(df["p_feasible_sem"].isna().all())
 
         only_foo_df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -186,7 +188,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
             },
@@ -215,7 +218,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -267,7 +271,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -290,8 +295,10 @@ class TestUtils(TestCase):
         self.assertFalse(df["bar_mean"].isna().any())
         self.assertFalse(df["bar_sem"].isna().any())
 
-        # Check that all p_feasible are not NaN
-        self.assertFalse(df["p_feasible"].isna().any())
+        # Check that all p_feasible_mean are not NaN
+        self.assertFalse(df["p_feasible_mean"].isna().any())
+        # Check that all p_feasible_sem are not NaN
+        self.assertTrue(df["p_feasible_sem"].isna().all())
 
         only_foo_df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -307,7 +314,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
             },
@@ -338,7 +346,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -375,7 +384,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -416,7 +426,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",

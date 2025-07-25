@@ -29,8 +29,10 @@ from ax.analysis.plotly.utils import (
 )
 from ax.analysis.utils import (
     extract_relevant_adapter,
+    get_lower_is_better,
     POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
     prepare_arm_data,
+    update_metric_names_if_using_p_feasible,
 )
 from ax.core.arm import Arm
 from ax.core.base_trial import sort_by_trial_index_and_arm_name
@@ -154,7 +156,12 @@ class ArmEffectsPlot(Analysis):
             )
         else:
             relevant_adapter = None
-
+        metric_names_to_plot = metric_names
+        # if using p_feasible, we need to get the data for the metrics involved
+        # in constraints even though we don't plot them
+        metric_names = update_metric_names_if_using_p_feasible(
+            metric_names=metric_names_to_plot, experiment=experiment
+        )
         df = prepare_arm_data(
             experiment=experiment,
             metric_names=metric_names,
@@ -197,10 +204,17 @@ class ArmEffectsPlot(Analysis):
                         "trial_status",
                         "arm_name",
                         "generation_node",
-                        "p_feasible",
-                        f"{metric_name}_mean",
-                        f"{metric_name}_sem",
+                        "p_feasible_mean",
+                        "p_feasible_sem",
                     ]
+                    + (
+                        [
+                            f"{metric_name}_mean",
+                            f"{metric_name}_sem",
+                        ]
+                        if metric_name != "p_feasible"
+                        else []
+                    )
                 ].copy(),
                 fig=_prepare_figure(
                     df=df,
@@ -211,11 +225,13 @@ class ArmEffectsPlot(Analysis):
                     else None,
                     metric_label=metric_labels[metric_name],
                     show_cumulative_best=self.show_cumulative_best,
-                    lower_is_better=experiment.metrics[metric_name].lower_is_better
+                    lower_is_better=get_lower_is_better(
+                        experiment=experiment, metric_name=metric_name
+                    )
                     or False,
                 ),
             )
-            for metric_name in metric_names
+            for metric_name in metric_names_to_plot
         ]
 
         return self._create_analysis_card_group_or_card(
@@ -352,7 +368,7 @@ def _prepare_figure(
             "line": {
                 "width": trial_df.apply(
                     lambda row: 2
-                    if row["p_feasible"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
+                    if row["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
                     else 0,
                     axis=1,
                 ),
@@ -414,7 +430,7 @@ def _prepare_figure(
         )
 
     # Add a red circle with no fill if any arms are marked as possibly infeasible.
-    if (df["p_feasible"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
+    if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
         legend_trace = go.Scatter(
             # None here allows us to place a legend item without corresponding points
             x=[None],
@@ -440,7 +456,7 @@ def _prepare_figure(
                         df[df["arm_name"] == arm_name][f"{metric_name}_mean"].iloc[0],
                     )
                     for arm_name in arm_label
-                    if df[df["arm_name"] == arm_name]["p_feasible"].iloc[0]
+                    if df[df["arm_name"] == arm_name]["p_feasible_mean"].iloc[0]
                     >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
                 ]
             )

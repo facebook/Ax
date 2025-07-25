@@ -62,7 +62,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             {
                 "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3", "0_4"],
                 "metric_name": ["branin_d"] * 6,
-                "mean": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+                "mean": [1.0, 1.0, 2.0, 3.0, 4.0, 5.0],
                 "sem": [0.1] * 6,
                 "trial_index": [0] * 6,
             }
@@ -118,7 +118,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             {
                 "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3", "0_4"],
                 "metric_name": ["branin_d"] * 6,
-                "mean": [0.0, -1.0, -2.0, -3.0, -4.0, -5.0],
+                "mean": [1.0, -1.0, -2.0, -3.0, -4.0, -5.0],
                 "sem": [0.1] * 6,
                 "trial_index": [0] * 6,
             }
