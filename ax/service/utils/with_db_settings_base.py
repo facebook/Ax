@@ -22,7 +22,6 @@ from ax.exceptions.core import (
     UnsupportedError,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from pyre_extensions import none_throws
@@ -380,7 +379,7 @@ class WithDBSettingsBase:
 
     def _save_generation_strategy_to_db_if_possible(
         self,
-        generation_strategy: GenerationStrategy | None = None,
+        generation_strategy: GenerationStrategy | None,
     ) -> bool:
         """Saves given generation strategy if DB settings are set on this
         `WithDBSettingsBase` instance and the generation strategy is an
@@ -388,8 +387,7 @@ class WithDBSettingsBase:
 
         Args:
             generation_strategy: GenerationStrategy to update in DB.
-                For now, only instances of  GenerationStrategy will be updated.
-                Otherwise, this function is a no-op.
+                If no GenerationStrategy is provided, this function is a no-op.
 
         Returns:
             bool: Whether the generation strategy was saved.
