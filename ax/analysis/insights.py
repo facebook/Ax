@@ -35,8 +35,9 @@ from pyre_extensions import assert_is_instance, override
 INSIGHTS_CARDGROUP_TITLE = "Insights Analysis"
 
 INSIGHTS_CARDGROUP_SUBTITLE = (
-    "This analysis group displays information to help understand the underlying "
+    "Insight Analyses display information to help understand the underlying "
     "experiment i.e parameter and metric relationships learned by the Ax model."
+    "Use this information to better understand your experiment space and users."
 )
 
 

@@ -30,10 +30,8 @@ from pyre_extensions import override
 RESULTS_CARDGROUP_TITLE = "Results Analysis"
 
 RESULTS_CARDGROUP_SUBTITLE = (
-    "This analysis provides a high-level overview of the results of the optimization "
-    "process so far. It contains views on the metric effects on all arms, a "
-    "scatterplot of the objectives (if there are multiple), and a scatterplot of "
-    "the objective(s) versus each constraint (if there are any)."
+    "Result Analyses provide a high-level overview of the results of the optimization "
+    "process so far with respect to the metrics specified in experiment design."
 )
 
 ARM_EFFECTS_PAIR_CARDGROUP_TITLE = (
