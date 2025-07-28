@@ -17,8 +17,9 @@ from pyre_extensions import none_throws, override
 DIAGNOSTICS_CARDGROUP_TITLE = "Diagnostic Analysis"
 
 DIAGNOSTICS_CARDGROUP_SUBTITLE = (
-    "This analysis provides information about the the optimization process and "
-    "includes cross validation plots to show the quality of the model fit."
+    "Diagnostic Analyses provide information about the optimization process and "
+    "the quality of the model fit. You can use this information to understand "
+    "if the experimental design should be adjusted to improve optimization quality."
 )
 
 
