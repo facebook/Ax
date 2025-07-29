@@ -689,9 +689,10 @@ class AcquisitionTest(TestCase):
 
     @mock_botorch_optimize
     def test_optimize_acqf_mixed_alternating(self) -> None:
+        b_upper_bound = 15
         ssd = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
-            bounds=[(0, 1), (0, 15), (0, 5)],
+            bounds=[(0, 1), (0, b_upper_bound), (0, 5)],
             ordinal_features=[1],
             discrete_choices={1: list(range(16))},
         )
@@ -718,7 +719,7 @@ class AcquisitionTest(TestCase):
             acq_function=acquisition.acqf,
             bounds=mock.ANY,
             discrete_dims={1: list(range(16))},
-            cat_dims=[],
+            cat_dims={},
             q=3,
             options={
                 "init_batch_limit": 32,
@@ -736,27 +737,28 @@ class AcquisitionTest(TestCase):
         ssd_categorical = dataclasses.replace(
             ssd, ordinal_features=[], categorical_features=[1]
         )
+        optimizer_options = {
+            "options": {"maxiter_alternating": 2},
+            "num_restarts": 2,
+            "raw_samples": 4,
+        }
         with mock.patch(
             f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
             wraps=optimize_acqf_mixed_alternating,
         ) as mock_alternating:
-            acquisition.optimize(
+            candidates, acqf_values, arm_weights = acquisition.optimize(
                 n=3,
                 search_space_digest=ssd_categorical,
                 inequality_constraints=self.inequality_constraints,
                 fixed_features={0: 0.5},
                 rounding_func=self.rounding_func,
-                optimizer_options={
-                    "options": {"maxiter_alternating": 2},
-                    "num_restarts": 2,
-                    "raw_samples": 4,
-                },
+                optimizer_options=optimizer_options,
             )
         mock_alternating.assert_called_with(
             acq_function=acquisition.acqf,
             bounds=mock.ANY,
             discrete_dims={},
-            cat_dims=[1],
+            cat_dims={1: list(range(b_upper_bound + 1))},
             q=3,
             options={
                 "init_batch_limit": 32,
@@ -769,6 +771,13 @@ class AcquisitionTest(TestCase):
             num_restarts=2,
             raw_samples=4,
         )
+        # Check fixed feature
+        self.assertTrue((candidates[:, 0] == 0.5).all())
+        # Check that one of the params that should be an int is an int
+        cat_cand = candidates[1, 1].item()
+        self.assertEqual(cat_cand, int(cat_cand))
+        self.assertTrue((acqf_values >= 0).all())
+        self.assertTrue((arm_weights == 1).all())
 
         # Check that it is not used if there are non-integer discrete dimensions.
         ssd_nonint = dataclasses.replace(

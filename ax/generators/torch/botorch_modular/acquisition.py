@@ -504,7 +504,11 @@ class Acquisition(Base):
                     for k, v in discrete_choices.items()
                     if k in search_space_digest.ordinal_features
                 },
-                cat_dims=search_space_digest.categorical_features,
+                cat_dims={
+                    k: list(v)
+                    for k, v in discrete_choices.items()
+                    if k in search_space_digest.categorical_features
+                },
                 q=n,
                 post_processing_func=rounding_func,
                 fixed_features=fixed_features,
