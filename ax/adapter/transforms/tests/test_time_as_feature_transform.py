@@ -10,6 +10,8 @@ from copy import deepcopy
 from unittest import mock
 
 import numpy as np
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.time_as_feature import TimeAsFeature
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
@@ -17,7 +19,11 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import unixtime_to_pandas_ts
-from ax.utils.testing.core_stubs import get_robust_search_space
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_robust_search_space,
+)
+from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
 
@@ -135,5 +141,60 @@ class TimeAsFeatureTransformTest(TestCase):
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             TimeAsFeature(
                 search_space=rss,
-                observations=[],
+                observations=self.training_obs,
             )
+
+    def test_with_experiment_data(self) -> None:
+        experiment = get_experiment_with_observations(
+            parameterizations=[{"x": 1.0}, {"x": 2.0}, {"x": 3.0}],
+            observations=[[1.0], [2.0], [3.0]],
+            additional_data_columns=[
+                {
+                    "start_time": unixtime_to_pandas_ts(0.0),
+                    "end_time": unixtime_to_pandas_ts(1.0),
+                },
+                {
+                    "start_time": unixtime_to_pandas_ts(1.0),
+                    "end_time": unixtime_to_pandas_ts(3.0),
+                },
+                {"start_time": unixtime_to_pandas_ts(2.0)},
+            ],
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        # Check transform initialization.
+        t = TimeAsFeature(
+            search_space=experiment.search_space,
+            experiment_data=experiment_data,
+        )
+        self.assertEqual(t.current_time, 5.0)  # from time() mock
+        self.assertEqual(t.min_duration, 1.0)
+        self.assertEqual(t.max_duration, 3.0)
+        self.assertEqual(t.duration_range, 2.0)
+        self.assertEqual(t.min_start_time, 0.0)
+        self.assertEqual(t.max_start_time, 2.0)
+        # Transform experiment data.
+        transformed_data = t.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+        # Observation data is unmodified.
+        assert_frame_equal(
+            transformed_data.observation_data, experiment_data.observation_data
+        )
+        # Arm data has start_time and duration columns.
+        self.assertEqual(
+            set(transformed_data.arm_data.columns),
+            {"x", "metadata", "start_time", "duration"},
+        )
+        assert_frame_equal(
+            transformed_data.arm_data[["x", "metadata"]],
+            experiment_data.arm_data[["x", "metadata"]],
+        )
+        # Check that start_time and duration are correct.
+        self.assertEqual(
+            transformed_data.arm_data["start_time"].tolist(), [0.0, 1.0, 2.0]
+        )
+        self.assertEqual(
+            transformed_data.arm_data["duration"].tolist(), [0.0, 0.5, 1.0]
+        )

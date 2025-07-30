@@ -39,6 +39,8 @@ class TimeAsFeature(Transform):
     TODO: revise this when better support for non-tunable features is added.
     """
 
+    requires_data_for_initialization: bool = True
+
     def __init__(
         self,
         search_space: SearchSpace | None = None,
@@ -54,7 +56,6 @@ class TimeAsFeature(Transform):
             adapter=adapter,
             config=config,
         )
-        assert observations is not None, "TimeAsFeature requires observations"
         if isinstance(search_space, RobustSearchSpace):
             raise UnsupportedError(
                 "TimeAsFeature transform is not supported for RobustSearchSpace."
@@ -64,23 +65,50 @@ class TimeAsFeature(Transform):
         self.min_duration: float = float("inf")
         self.max_duration: float = float("-inf")
         self.current_time: float = time()
-        for obs in observations:
-            obsf = obs.features
-            if obsf.start_time is None:
+        if observations is not None:
+            for obs in observations:
+                obsf = obs.features
+                if obsf.start_time is None:
+                    raise ValueError(
+                        "Unable to use TimeAsFeature since not all observations have "
+                        "start time specified."
+                    )
+                start_time = none_throws(obsf.start_time).timestamp()
+                self.min_start_time = min(self.min_start_time, start_time)
+                self.max_start_time = max(self.max_start_time, start_time)
+                duration = self._get_duration(
+                    start_time=start_time, end_time=obsf.end_time
+                )
+                self.min_duration = min(self.min_duration, duration)
+                self.max_duration = max(self.max_duration, duration)
+        else:
+            obs_data = none_throws(experiment_data).observation_data
+            if len(obs_data.index.names) > 2:
+                raise UnsupportedError(
+                    "TimeAsFeature transform is not supported with map data."
+                )
+            start_times = obs_data[("metadata", "start_time")].astype("int64") / 1e9
+            if start_times.isna().any():
                 raise ValueError(
                     "Unable to use TimeAsFeature since not all observations have "
                     "start time specified."
                 )
-            start_time = none_throws(obsf.start_time).timestamp()
-            self.min_start_time = min(self.min_start_time, start_time)
-            self.max_start_time = max(self.max_start_time, start_time)
-            duration = self._get_duration(start_time=start_time, end_time=obsf.end_time)
-            self.min_duration = min(self.min_duration, duration)
-            self.max_duration = max(self.max_duration, duration)
-            self.duration_range: float = self.max_duration - self.min_duration
-            if self.duration_range == 0:
-                # no need to case-distinguish during normalization
-                self.duration_range = 1.0
+            current_time_ts = unixtime_to_pandas_ts(self.current_time)
+            end_times = (
+                obs_data[("metadata", "end_time")]
+                .fillna(current_time_ts)
+                .astype("int64")
+                / 1e9
+            )
+            durations = end_times - start_times
+            self.min_start_time = start_times.min()
+            self.max_start_time = start_times.max()
+            self.min_duration = durations.min()
+            self.max_duration = durations.max()
+        self.duration_range: float = self.max_duration - self.min_duration
+        if self.duration_range == 0:
+            # no need to case-distinguish during normalization
+            self.duration_range = 1.0
 
     def _get_duration(self, start_time: float, end_time: pd.Timestamp | None) -> float:
         return (
@@ -152,3 +180,19 @@ class TimeAsFeature(Transform):
                         duration * self.duration_range + self.min_duration + start_time
                     )
         return observation_features
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        obs_data = experiment_data.observation_data
+        start_times = obs_data[("metadata", "start_time")].astype("int64") / 1e9
+        current_time_ts = unixtime_to_pandas_ts(self.current_time)
+        end_times = (
+            obs_data[("metadata", "end_time")].fillna(current_time_ts).astype("int64")
+            / 1e9
+        )
+        experiment_data.arm_data["start_time"] = start_times
+        duration = end_times - start_times
+        duration = (duration - self.min_duration) / self.duration_range
+        experiment_data.arm_data["duration"] = duration
+        return experiment_data
