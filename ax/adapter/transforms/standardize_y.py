@@ -64,7 +64,6 @@ class StandardizeY(Transform):
             observation_data = [obs.data for obs in none_throws(observations)]
             Ys = get_data(observation_data=observation_data)
         # Compute means and SDs
-        # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
         # pyre-fixme[4]: Attribute must be annotated.
         self.Ymean, self.Ystd = compute_standardization_parameters(Ys=Ys)
 
