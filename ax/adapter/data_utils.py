@@ -121,6 +121,10 @@ class ExperimentData:
             metric. The columns of the dataframe are multi-indexed, with the first level
             being "mean" or "sem" and the second level being the metric name.
             This is typically constructed by pivoting `(Map)Data.true_df`.
+            If the `Data` object contains additional metadata columns like `start_time`
+            and `end_time`, these will be carried onto `observation_data`. The metadata
+            columns will be indexed with the first level being "metadata" and the second
+            level keeping the original column name.
 
     Example with non-map data:
         >>> experiment = Experiment(...)  # An experiment with non-map Data.
@@ -352,6 +356,13 @@ def _extract_observation_data(
         A dataframe filtered to only include observations from the given statuses
         to include, and pivoted to be indexed by (trial_index, arm_name, *map_keys)
         and to have columns "mean" & "sem" for each metric.
+        If `data` contains additional metadata columns like `start_time` and `end_time`
+        they will be added to the pivoted dataframe as additional columns. The columns
+        are labeled hierarchically (with a ``pd.MultiIndex`` structure) where the top
+        level is "metadata" and the lower level keeps the original column name.
+        For example, if the original DataFrame from ``Data`` includes a column
+        ``start_time``, then ``observation_data`` will have a column that can be
+        retrived with ``("metadata", "start_time")``.
     """
     data = data if data is not None else experiment.lookup_data()
     if isinstance(data, MapData):
@@ -396,6 +407,18 @@ def _extract_observation_data(
     # If df is empty, add mean & sem columns to facilitate pivoting.
     if df.empty:
         df = df.assign(mean=None, sem=None)
+
+    # Identify potential metadata columns.
+    standard_columns = {
+        "trial_index",
+        "arm_name",
+        "metric_name",
+        "mean",
+        "sem",
+        *map_keys,
+    }
+    metadata_columns = [col for col in df.columns if col not in standard_columns]
+
     # Pivot the df to be indexed by (trial_index, arm_name, *map_keys)
     # and to have columns "mean" & "sem" for each metric.
     observation_data = df.pivot(
@@ -407,4 +430,19 @@ def _extract_observation_data(
         ],
         values=["mean", "sem"],
     )
+
+    # If metadata columns exist, add them to the pivoted dataframe.
+    if metadata_columns:
+        # Create a dataframe with just the index columns and metadata columns.
+        metadata_df = df[["trial_index", "arm_name", *map_keys, *metadata_columns]]
+        # Set the index to match the observation_data index.
+        metadata_df = metadata_df.set_index(["trial_index", "arm_name", *map_keys])
+        # Drop duplicates to ensure we have only one row per unique index.
+        # This is necessary when there are multiple metrics.
+        metadata_df = metadata_df.loc[~metadata_df.index.duplicated(keep="first")]
+        # Create a multi-index for the columns to facilitate the merge.
+        metadata_df.columns = MultiIndex.from_product([["metadata"], metadata_columns])
+        # Join to the main dataframe.
+        observation_data = observation_data.join(metadata_df)
+
     return observation_data
