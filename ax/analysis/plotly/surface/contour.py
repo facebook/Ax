@@ -309,10 +309,8 @@ def _prepare_plot(
 
     if is_relative:
         z_values = z_grid.values * 100
-        hovertemplate = "%{z:.2f}%"
     else:
         z_values = z_grid.values
-        hovertemplate = "%{z:.2f}"
 
     fig = go.Figure(
         data=go.Contour(
@@ -325,7 +323,7 @@ def _prepare_plot(
                 "title": None,
                 "ticksuffix": "%" if is_relative else "",
             },
-            hovertemplate=hovertemplate,
+            hoverinfo="skip",
         ),
         layout=go.Layout(
             xaxis_title=truncate_label(label=x_parameter_name),
@@ -346,6 +344,7 @@ def _prepare_plot(
             },
             name="Sampled",
             showlegend=False,
+            hovertemplate="(%{x}, %{y})<extra>Sampled</extra>",
         )
 
         fig.add_trace(samples)
