@@ -35,9 +35,15 @@ from ax.generators.torch_base import TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.analytic import (
+    LogExpectedImprovement,
+    PosteriorMean,
+    UpperConfidenceBound,
+)
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogProbabilityOfFeasibility
+from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.exceptions.errors import InputDataError
@@ -53,6 +59,11 @@ from botorch.utils.constraints import get_outcome_constraint_transforms
 from pyre_extensions import none_throws
 from torch import Tensor
 
+try:
+    from botorch.utils.multi_objective.optimize import optimize_with_nsgaii
+except ImportError:
+    optimize_with_nsgaii = None
+
 
 # For fully discrete search spaces.
 MAX_CHOICES_ENUMERATE = 100_000
@@ -63,6 +74,7 @@ ALTERNATING_OPTIMIZER_THRESHOLD = 10
 
 def determine_optimizer(
     search_space_digest: SearchSpaceDigest,
+    acqf: AcquisitionFunction | None = None,
     discrete_choices: Mapping[int, Sequence[float]] | None = None,
 ) -> str:
     """Determine the optimizer to use for a given search space.
@@ -70,13 +82,15 @@ def determine_optimizer(
     Args:
         search_space_digest: A SearchSpaceDigest object containing search space
             properties, e.g. ``bounds`` for optimization.
-       discrete_choices: A dictionary mapping indices of discrete (ordinal
+        acqf: The acquisition function to be used.
+        discrete_choices: A dictionary mapping indices of discrete (ordinal
             or categorical) parameters to their respective sets of values
             provided as a list. This excludes fixed features.
-
     Returns:
         The name of the optimizer to use for the given search space.
     """
+    if acqf is not None and isinstance(acqf, MultiOutputAcquisitionFunction):
+        return "optimize_with_nsgaii"
     ssd = search_space_digest
     discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
     if discrete_choices is None:
@@ -149,24 +163,42 @@ class Acquisition(Base):
             arguments (e.g., objective weights, constraints).
         botorch_acqf_class: Type of BoTorch `AcquisitionFunction` that
             should be used.
+        botorch_acqf_options: Optional mapping of kwargs to the underlying
+            `AcquisitionFunction` in BoTorch.
+        botorch_acqf_classes_with_options: A list of tuples of botorch
+            `AcquisitionFunction` classes and dicts of kwargs, passed to
+            the botorch `AcquisitionFunction`. This is used to specify
+            multiple acquisition functions to be used with MultiAcquisition.
         options: Optional mapping of kwargs to the underlying `Acquisition
             Function` in BoTorch.
     """
 
     surrogate: Surrogate
     acqf: AcquisitionFunction
-    options: dict[str, Any]
+    _model: Model
+    _objective_weights: Tensor
+    _objective_thresholds: Tensor | None
+    _outcome_constraints: tuple[Tensor, Tensor] | None
+    _risk_measure: RiskMeasureMCObjective | None
+    _learned_objective_preference_model: Model | None
 
     def __init__(
         self,
         surrogate: Surrogate,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        botorch_acqf_class: type[AcquisitionFunction],
+        botorch_acqf_class: type[AcquisitionFunction] | None,
+        botorch_acqf_options: dict[str, Any] | None = None,
+        botorch_acqf_classes_with_options: list[
+            tuple[type[AcquisitionFunction], dict[str, Any]]
+        ]
+        | None = None,
         options: dict[str, Any] | None = None,
     ) -> None:
         self.surrogate = surrogate
-        self.options = options or {}
+        options = options or {}
+        botorch_acqf_options = botorch_acqf_options or {}
+        self.search_space_digest = search_space_digest
 
         # Extract pending and observed points.
         X_pending, X_observed = _get_X_pending_and_observed(
@@ -178,33 +210,36 @@ class Acquisition(Base):
             linear_constraints=torch_opt_config.linear_constraints,
             fixed_features=torch_opt_config.fixed_features,
         )
+        self.X_pending: Tensor | None = X_pending
+        self.X_observed: Tensor | None = X_observed
 
         # Store objective thresholds for all outcomes (including non-objectives).
-        self._objective_thresholds: Tensor | None = (
+        self._full_objective_thresholds: Tensor | None = (
             torch_opt_config.objective_thresholds
         )
         self._full_objective_weights: Tensor = torch_opt_config.objective_weights
         full_outcome_constraints = torch_opt_config.outcome_constraints
 
         # Subset model only to the outcomes we need for the optimization.
-        if self.options.pop(Keys.SUBSET_MODEL, True):
+        if options.get(Keys.SUBSET_MODEL, True):
             subset_model_results = subset_model(
                 model=surrogate.model,
                 objective_weights=torch_opt_config.objective_weights,
                 outcome_constraints=torch_opt_config.outcome_constraints,
                 objective_thresholds=torch_opt_config.objective_thresholds,
             )
-            model = subset_model_results.model
-            objective_weights = subset_model_results.objective_weights
-            outcome_constraints = subset_model_results.outcome_constraints
-            objective_thresholds = subset_model_results.objective_thresholds
+            self._model = subset_model_results.model
+            self._objective_weights = subset_model_results.objective_weights
+            self._outcome_constraints = subset_model_results.outcome_constraints
+            self._objective_thresholds = subset_model_results.objective_thresholds
             subset_idcs = subset_model_results.indices
         else:
-            model = surrogate.model
-            objective_weights = torch_opt_config.objective_weights
-            outcome_constraints = torch_opt_config.outcome_constraints
-            objective_thresholds = torch_opt_config.objective_thresholds
+            self._model = surrogate.model
+            self._objective_weights = torch_opt_config.objective_weights
+            self._outcome_constraints = torch_opt_config.outcome_constraints
+            self._objective_thresholds = torch_opt_config.objective_thresholds
             subset_idcs = None
+        self._risk_measure = torch_opt_config.risk_measure
 
         # If MOO and some objective thresholds are not specified, infer them using
         # the model that has already been subset to avoid re-subsetting it within
@@ -212,32 +247,32 @@ class Acquisition(Base):
         if (
             torch_opt_config.is_moo
             and (
-                self._objective_thresholds is None
-                or self._objective_thresholds[torch_opt_config.objective_weights != 0]
+                self._full_objective_thresholds is None
+                or self._full_objective_thresholds[self._full_objective_weights != 0]
                 .isnan()
                 .any()
             )
             and X_observed is not None
         ):
-            if torch_opt_config.risk_measure is not None:
+            if self._risk_measure is not None:
                 raise NotImplementedError(
                     "Objective thresholds must be provided when using risk measures."
                 )
-            self._objective_thresholds = infer_objective_thresholds(
-                model=model,
+            self._full_objective_thresholds = infer_objective_thresholds(
+                model=self._model,
                 objective_weights=self._full_objective_weights,
                 outcome_constraints=full_outcome_constraints,
                 X_observed=X_observed,
                 subset_idcs=subset_idcs,
-                objective_thresholds=self._objective_thresholds,
+                objective_thresholds=self._full_objective_thresholds,
             )
-            objective_thresholds = (
-                none_throws(self._objective_thresholds)[subset_idcs]
+            self._objective_thresholds = (
+                none_throws(self._full_objective_thresholds)[subset_idcs]
                 if subset_idcs is not None
-                else self._objective_thresholds
+                else self._full_objective_thresholds
             )
 
-        learned_objective_preference_model = None
+        self._learned_objective_preference_model = None
         if torch_opt_config.use_learned_objective:
             if (Keys.PAIRWISE_PREFERENCE_QUERY.value,) not in surrogate._submodels:
                 raise DataRequiredError(
@@ -245,63 +280,104 @@ class Acquisition(Base):
                     "preference objective model. Double check if the preference "
                     "exploration auxiliary experiment has data."
                 )
-            learned_objective_preference_model = surrogate._submodels[
+            self._learned_objective_preference_model = surrogate._submodels[
                 (Keys.PAIRWISE_PREFERENCE_QUERY.value,)
             ]
-        objective, posterior_transform = self.get_botorch_objective_and_transform(
-            botorch_acqf_class=botorch_acqf_class,
-            model=model,
-            objective_weights=objective_weights,
-            objective_thresholds=objective_thresholds,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
-            risk_measure=torch_opt_config.risk_measure,
-            learned_objective_preference_model=learned_objective_preference_model,
+        if botorch_acqf_classes_with_options is None:
+            if botorch_acqf_class is None:
+                raise AxError(
+                    "One of botorch_acqf_class or botorch_acqf_classes_with_options"
+                    " is required."
+                )
+            botorch_acqf_classes_with_options = [
+                (botorch_acqf_class, botorch_acqf_options)
+            ]
+        self._instantiate_acquisition(
+            botorch_acqf_classes_with_options=botorch_acqf_classes_with_options
         )
 
-        target_fidelities = {
-            k: v
-            for k, v in search_space_digest.target_values.items()
-            if k in search_space_digest.fidelity_features
-        }
+    def _instantiate_acquisition(
+        self,
+        botorch_acqf_classes_with_options: list[
+            tuple[type[AcquisitionFunction], dict[str, Any]]
+        ],
+    ) -> None:
+        """Constructs the acquisition function based on the provided
+        botorch_acqf_classes_with_options.
+
+        Args:
+            botorch_acqf_classes: A list of BoTorch acquisition function classes.
+        """
+        if len(botorch_acqf_classes_with_options) != 1:
+            raise ValueError("Only one botorch_acqf_class is supported.")
+        botorch_acqf_class, botorch_acqf_options = botorch_acqf_classes_with_options[0]
+        self.acqf = self._construct_botorch_acquisition(
+            botorch_acqf_class=botorch_acqf_class,
+            botorch_acqf_options=botorch_acqf_options,
+        )
+
+    def _construct_botorch_acquisition(
+        self,
+        botorch_acqf_class: type[AcquisitionFunction],
+        botorch_acqf_options: dict[str, Any],
+    ) -> AcquisitionFunction:
+        objective, posterior_transform = self.get_botorch_objective_and_transform(
+            botorch_acqf_class=botorch_acqf_class,
+            model=self._model,
+            objective_weights=self._objective_weights,
+            objective_thresholds=self._objective_thresholds,
+            outcome_constraints=self._outcome_constraints,
+            X_observed=self.X_observed,
+            risk_measure=self._risk_measure,
+            learned_objective_preference_model=self._learned_objective_preference_model,
+        )
         input_constructor_kwargs = {
-            "model": model,
-            "X_baseline": X_observed,
-            "X_pending": X_pending,
-            "objective_thresholds": objective_thresholds,
+            "model": self._model,
+            "X_baseline": self.X_observed,
+            "X_pending": self.X_pending,
+            "objective_thresholds": self._objective_thresholds,
             "constraints": get_outcome_constraint_transforms(
-                outcome_constraints=outcome_constraints
+                outcome_constraints=self._outcome_constraints
             ),
             "objective": objective,
             "posterior_transform": posterior_transform,
-            **self.options,
+            **botorch_acqf_options,
         }
-
+        target_fidelities = {
+            k: v
+            for k, v in self.search_space_digest.target_values.items()
+            if k in self.search_space_digest.fidelity_features
+        }
         if len(target_fidelities) > 0:
             input_constructor_kwargs["target_fidelities"] = target_fidelities
-
         input_constructor = get_acqf_input_constructor(botorch_acqf_class)
 
         # Extract the training data from the surrogate.
         # If there is a single dataset, this will be the dataset itself.
         # If there are multiple datasets, this will be a dict mapping the outcome names
         # to the corresponding datasets.
-        training_data = surrogate.training_data
+        training_data = self.surrogate.training_data
         if len(training_data) == 1:
             training_data = training_data[0]
         else:
-            training_data = dict(zip(none_throws(surrogate._outcomes), training_data))
+            training_data = dict(
+                zip(none_throws(self.surrogate._outcomes), training_data)
+            )
 
         if botorch_acqf_class == qLogProbabilityOfFeasibility:
             input_constructor_kwargs.pop("objective")
+        elif botorch_acqf_class in (
+            PosteriorMean,
+            LogExpectedImprovement,
+            UpperConfidenceBound,
+        ):
+            input_constructor_kwargs.pop("constraints")
         acqf_inputs = input_constructor(
             training_data=training_data,
-            bounds=search_space_digest.bounds,
+            bounds=self.search_space_digest.bounds,
             **{k: v for k, v in input_constructor_kwargs.items() if v is not None},
         )
-        self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
-        self.X_pending: Tensor | None = X_pending
-        self.X_observed: Tensor | None = X_observed
+        return botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
 
     @property
     def botorch_acqf_class(self) -> type[AcquisitionFunction]:
@@ -328,7 +404,7 @@ class Acquisition(Base):
 
         For non-objective outcomes, the objective thresholds are nans.
         """
-        return self._objective_thresholds
+        return self._full_objective_thresholds
 
     @property
     def objective_weights(self) -> Tensor | None:
@@ -400,12 +476,18 @@ class Acquisition(Base):
         ssd = search_space_digest
         bounds = _tensorize(ssd.bounds).t()
         discrete_choices = mk_discrete_choices(ssd=ssd, fixed_features=fixed_features)
+
         optimizer = determine_optimizer(
-            search_space_digest=ssd, discrete_choices=discrete_choices
+            search_space_digest=ssd,
+            discrete_choices=discrete_choices,
+            acqf=self.acqf,
         )
         # `raw_samples` and `num_restarts` are not supported by
         # `optimize_acqf_discrete`.
-        if optimizer == "optimize_acqf_discrete" and optimizer_options is not None:
+        if (
+            optimizer in ("optimize_acqf_discrete", "optimize_with_nsgaii")
+            and optimizer_options is not None
+        ):
             optimizer_options.pop("raw_samples", None)
             optimizer_options.pop("num_restarts", None)
 
@@ -515,6 +597,34 @@ class Acquisition(Base):
                 inequality_constraints=inequality_constraints,
                 **optimizer_options_with_defaults,
             )
+        elif optimizer == "optimize_with_nsgaii":
+            if optimize_with_nsgaii is not None:
+                # TODO: support post_processing_func
+                candidates, acqf_values = optimize_with_nsgaii(
+                    # We use pyre-ignore here to avoid a circular import.
+                    # pyre-ignore [6]: Incompatible parameter type [6]: In call
+                    # `optimize_with_nsgaii`, for argument `acq_function`, expected
+                    # `MultiOutputAcquisitionFunction` but got `AcquisitionFunction`.
+                    acq_function=self.acqf,
+                    bounds=bounds,
+                    q=n,
+                    fixed_features=fixed_features,
+                    # We use pyre-ignore here to avoid a circular import.
+                    # pyre-ignore [6]: Incompatible parameter type [6]: In call `len`,
+                    # for 1st positional argument, expected
+                    # `pyre_extensions.PyreReadOnly[Sized]` but got `Union[Tensor,
+                    # Module]`.
+                    num_objectives=len(self.acqf.acqfs),
+                    **optimizer_options_with_defaults,
+                )
+                # It is possible that NSGA-II will return less than the requested
+                # number of arms
+                arm_weights = torch.ones(candidates.shape[0], dtype=self.dtype)
+            else:
+                raise AxError(
+                    "optimize_with_nsgaii requires botorch to be installed with "
+                    "the pymoo."
+                )
         else:
             raise AxError(  # pragma: no cover
                 f"Unknown optimizer: {optimizer}. This code should be unreachable."

@@ -71,7 +71,7 @@ class ModelRegistryTest(TestCase):
             # Model kwargs
             acquisition_class=Acquisition,
             botorch_acqf_class=qExpectedImprovement,
-            acquisition_options={"best_f": 0.0},
+            botorch_acqf_options={"best_f": 0.0},
             # Adapter kwargs
             experiment=exp,
             data=exp.fetch_data(),
@@ -80,7 +80,7 @@ class ModelRegistryTest(TestCase):
         generator = assert_is_instance(gpei.generator, BoTorchGenerator)
         self.assertEqual(generator.botorch_acqf_class, qExpectedImprovement)
         self.assertEqual(generator.acquisition_class, Acquisition)
-        self.assertEqual(generator.acquisition_options, {"best_f": 0.0})
+        self.assertEqual(generator._botorch_acqf_options, {"best_f": 0.0})
         self.assertIsInstance(generator.surrogate, Surrogate)
         # SingleTaskGP should be picked.
         self.assertIsInstance(generator.surrogate.model, SingleTaskGP)

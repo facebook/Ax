@@ -1034,16 +1034,18 @@ class Surrogate(Base):
             raise NotImplementedError("Fixed features not yet supported.")
 
         options = options or {}
-        acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
-            outcome_constraints=torch_opt_config.outcome_constraints,
-            seed_inner=assert_is_instance_optional(
-                options.get(Keys.SEED_INNER, None), int
-            ),
-            qmc=assert_is_instance(
-                options.get(Keys.QMC, True),
-                bool,
-            ),
-            risk_measure=torch_opt_config.risk_measure,
+        botorch_acqf_class, botorch_acqf_options = (
+            pick_best_out_of_sample_point_acqf_class(
+                outcome_constraints=torch_opt_config.outcome_constraints,
+                seed_inner=assert_is_instance_optional(
+                    options.get(Keys.SEED_INNER, None), int
+                ),
+                qmc=assert_is_instance(
+                    options.get(Keys.QMC, True),
+                    bool,
+                ),
+                risk_measure=torch_opt_config.risk_measure,
+            )
         )
 
         # Avoiding circular import between `Surrogate` and `Acquisition`.
@@ -1051,10 +1053,10 @@ class Surrogate(Base):
 
         acqf = Acquisition(
             surrogate=self,
-            botorch_acqf_class=acqf_class,
+            botorch_acqf_class=botorch_acqf_class,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
-            options=acqf_options,
+            botorch_acqf_options=botorch_acqf_options,
         )
         candidates, acqf_value, _ = acqf.optimize(
             n=1,

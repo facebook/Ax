@@ -22,6 +22,7 @@ from ax.generators.torch.botorch import (
     get_rounding_func,
 )
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
@@ -56,10 +57,16 @@ class BoTorchGenerator(TorchGenerator, Base):
             this model, auto-selected based on experiment and data
             if not specified.
         acquisition_options: Optional dict of kwargs, passed to
-            the constructor of BoTorch ``AcquisitionFunction``.
+            the the Ax ``Acquisition`` class.
         botorch_acqf_class: Type of ``AcquisitionFunction`` to be
             used in this model, auto-selected based on experiment
             and data if not specified.
+        botorch_acqf_options: Optional dict of kwargs, passed to the botorch
+            ``AcquisitionFunction``.
+        botorch_acqf_classes_with_options: List of tuples of
+            ``AcquisitionFunction`` classes and dicts of kwargs, passed to
+            the botorch ``AcquisitionFunction``. This is used to specify
+            multiple acquisition functions to be used with MultiAcquisition.
         surrogate_spec: An optional ``SurrogateSpec`` object specifying how to
             construct the ``Surrogate`` and the underlying BoTorch ``Model``.
         surrogate_specs: DEPRECATED. Please use ``surrogate_spec`` instead.
@@ -85,6 +92,7 @@ class BoTorchGenerator(TorchGenerator, Base):
 
     _user_specified_botorch_acqf_class: type[AcquisitionFunction] | None
     _botorch_acqf_class: type[AcquisitionFunction] | None
+    _botorch_acqf_options: dict[str, Any]
     _supports_robust_optimization: bool = True
     _acquisition: Acquisition | None = None
 
@@ -95,6 +103,11 @@ class BoTorchGenerator(TorchGenerator, Base):
         acquisition_class: type[Acquisition] | None = None,
         acquisition_options: dict[str, Any] | None = None,
         botorch_acqf_class: type[AcquisitionFunction] | None = None,
+        botorch_acqf_options: dict[str, Any] | None = None,
+        botorch_acqf_classes_with_options: list[
+            tuple[type[AcquisitionFunction], dict[str, Any]]
+        ]
+        | None = None,
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
         use_p_feasible: bool = True,
@@ -108,10 +121,34 @@ class BoTorchGenerator(TorchGenerator, Base):
         self.surrogate_spec = surrogate_spec
         self._surrogate = surrogate
 
+        if botorch_acqf_class is not None:
+            if botorch_acqf_classes_with_options is not None:
+                raise UserInputError(
+                    "Only one of `botorch_acqf_class` or "
+                    "`botorch_acqf_classes_with_options` can be specified."
+                )
+
+        if (
+            botorch_acqf_classes_with_options is not None
+            and len(botorch_acqf_classes_with_options) >= 2
+        ):
+            if (
+                acquisition_class is not None
+                and acquisition_class is not MultiAcquisition
+            ):
+                raise UserInputError(
+                    "Multiple classes in `botorch_acqf_classes_with_options`"
+                    "must be used with MultiAcquisition."
+                )
+            acquisition_class = MultiAcquisition
+
         self.acquisition_class = acquisition_class or Acquisition
+
         self.acquisition_options = acquisition_options or {}
         self._user_specified_botorch_acqf_class = botorch_acqf_class
         self._botorch_acqf_class = botorch_acqf_class
+        self._botorch_acqf_classes_with_options = botorch_acqf_classes_with_options
+        self._botorch_acqf_options = botorch_acqf_options or {}
 
         self.refit_on_cv = refit_on_cv
         self.warm_start_refit = warm_start_refit
@@ -393,7 +430,10 @@ class BoTorchGenerator(TorchGenerator, Base):
         Returns:
             A BoTorch ``AcquisitionFunction`` instance.
         """
-        if self._user_specified_botorch_acqf_class is None:
+        if (
+            self._user_specified_botorch_acqf_class is None
+            and self._botorch_acqf_classes_with_options is None
+        ):
             if torch_opt_config.risk_measure is not None:
                 raise UnsupportedError(
                     "Automated selection of `botorch_acqf_class` is not supported "
@@ -405,10 +445,11 @@ class BoTorchGenerator(TorchGenerator, Base):
                 datasets=self.surrogate.training_data,
                 use_p_feasible=self.use_p_feasible,
             )
-
         return self.acquisition_class(
             surrogate=self.surrogate,
-            botorch_acqf_class=self.botorch_acqf_class,
+            botorch_acqf_class=self._botorch_acqf_class,
+            botorch_acqf_options=self._botorch_acqf_options,
+            botorch_acqf_classes_with_options=self._botorch_acqf_classes_with_options,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
             options=acq_options,

@@ -13,6 +13,7 @@ from typing import Any
 from ax.exceptions.core import UnsupportedError
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
+from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
 
 # Acquisition defaults
 NUM_RESTARTS = 20
@@ -61,6 +62,7 @@ def optimizer_argparse(
         "optimize_acqf_homotopy",
         "optimize_acqf_mixed",
         "optimize_acqf_mixed_alternating",
+        "optimize_with_nsgaii",
     ]
     if optimizer not in supported_optimizers:
         raise ValueError(
@@ -76,10 +78,19 @@ def optimizer_argparse(
             "continuous using the transform "
             "`ax.adapter.registry.Cont_X_trans`."
         )
+    elif optimizer == "optimize_with_nsgaii" and not isinstance(
+        acqf, MultiOutputAcquisitionFunction
+    ):
+        raise RuntimeError(
+            "Ax is attempting to use a NSGA-II optimizer, "
+            f"`{optimizer}`, but this is not compatible with "
+            "single-objective acquisition functions. To address this, please "
+            "use MultiAcquisitionFunction or use a different optimizer."
+        )
     provided_options = optimizer_options if optimizer_options is not None else {}
 
     # Construct arguments from options that are not `provided_options`.
-    if optimizer == "optimize_acqf_discrete":
+    if optimizer in ("optimize_acqf_discrete", "optimize_with_nsgaii"):
         # `optimize_acqf_discrete` only accepts 'choices', 'max_batch_size', 'unique'.
         options = {}
     else:
