@@ -1011,6 +1011,7 @@ def get_experiment_with_observations(
     sems: list[list[float]] | None = None,
     optimization_config: OptimizationConfig | None = None,
     candidate_metadata: Sequence[TCandidateMetadata] | None = None,
+    additional_data_columns: Sequence[Mapping[str, Any]] | None = None,
 ) -> Experiment:
     if observations:
         multi_objective = (len(observations[0]) - constrained) > 1
@@ -1097,6 +1098,10 @@ def get_experiment_with_observations(
             metadata = {arm.signature: candidate_metadata[i]}
         else:
             metadata = None
+        if additional_data_columns is not None:
+            additional_cols = additional_data_columns[i]
+        else:
+            additional_cols = {}
         trial = exp.new_trial(
             generator_run=GeneratorRun(
                 arms=[arm], candidate_metadata_by_arm_signature=metadata
@@ -1112,6 +1117,7 @@ def get_experiment_with_observations(
                         "mean": o,
                         "sem": s,
                         "trial_index": trial.index,
+                        **additional_cols,
                     }
                     for m, o, s in zip(metrics, obs_i, sems_i, strict=True)
                 ]
