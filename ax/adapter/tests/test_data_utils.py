@@ -20,10 +20,11 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
     get_experiment_with_observations,
 )
-from pandas import DataFrame, MultiIndex
+from pandas import DataFrame, MultiIndex, Timestamp
 from pandas.testing import assert_frame_equal
 
 
@@ -307,6 +308,68 @@ class TestDataUtils(TestCase):
         )
         # Check equality with self.
         self.assertEqual(experiment_data, experiment_data)
+
+    def test_extract_experiment_data_with_metadata_columns(self) -> None:
+        # Tests the case where the Data.df includes additional columns,
+        # such as start_time and end_time, besides the usual required columns.
+        # In this case, observation_data will include additional columns like
+        # (metadata, start_time) and (metadata, end_time).
+        exp = get_branin_experiment_with_multi_objective(with_trial=True, num_trial=3)
+        # Add data with start_time and end_time only for one of the metrics.
+        data = Data(
+            df=DataFrame.from_records(
+                [
+                    {
+                        "arm_name": t.arms[0].name,
+                        "metric_name": "branin_a",
+                        "mean": 0.4 * t.index,
+                        "sem": 0.2 + 0.1 * t.index,
+                        "trial_index": t.index,
+                        "start_time": float(t.index),
+                        "end_time": t.index + 5.0,
+                    }
+                    for t in exp.trials.values()
+                ]
+                + [
+                    {
+                        "arm_name": t.arms[0].name,
+                        "metric_name": "branin_b",
+                        "mean": 0.4 * t.index,
+                        "sem": 0.2 + 0.1 * t.index,
+                        "trial_index": t.index,
+                    }
+                    for t in exp.trials.values()
+                ]
+            )
+        )
+        exp.attach_data(data)
+        # Extract experiment data.
+        experiment_data = extract_experiment_data(
+            experiment=exp, data_loader_config=DataLoaderConfig()
+        )
+        # Arm data has been tested above, just checking observation data here.
+        expected_obs_data = DataFrame(
+            data=[
+                [0.0, 0.0, 0.2, 0.2, Timestamp(0.0), Timestamp(5.0)],
+                [0.4, 0.4, 0.3, 0.3, Timestamp(1.0), Timestamp(6.0)],
+                [0.8, 0.8, 0.4, 0.4, Timestamp(2.0), Timestamp(7.0)],
+            ],
+            index=MultiIndex.from_tuples(
+                [(0, "0_0"), (1, "1_0"), (2, "2_0")],
+                names=["trial_index", "arm_name"],
+            ),
+            columns=MultiIndex.from_tuples(
+                tuples=[
+                    ("mean", "branin_a"),
+                    ("mean", "branin_b"),
+                    ("sem", "branin_a"),
+                    ("sem", "branin_b"),
+                    ("metadata", "start_time"),
+                    ("metadata", "end_time"),
+                ]
+            ),
+        )
+        assert_frame_equal(expected_obs_data, experiment_data.observation_data)
 
     def test_filter_by_arm_name(self) -> None:
         # This is a 2 objective experiment with 5 trials, 1 arm each.
