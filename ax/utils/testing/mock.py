@@ -16,6 +16,20 @@ from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
 from botorch.test_utils.mock import mock_optimize_context_manager
 from torch import Tensor
 
+try:
+    from botorch.utils.multi_objective.optimize import optimize_with_nsgaii
+
+    def minimal_optimize_with_nsgaii(
+        *args: Any, **kwargs: Any
+    ) -> tuple[Tensor, Tensor]:
+        kwargs["population_size"] = 10
+        kwargs["max_gen"] = 1
+        return optimize_with_nsgaii(*args, **kwargs)
+except ImportError:
+
+    def minimal_optimize_with_nsgaii(*args: Any, **kwargs: Any) -> None:
+        pass
+
 
 @contextmanager
 def mock_botorch_optimize_context_manager(
@@ -69,6 +83,14 @@ def mock_botorch_optimize_context_manager(
             )
         )
 
+        mock_nsgaii = es.enter_context(
+            mock.patch(
+                "ax.generators.torch.botorch_modular.acquisition."
+                "optimize_with_nsgaii",
+                wraps=minimal_optimize_with_nsgaii,
+            )
+        )
+
         es.enter_context(mock_optimize_context_manager())
 
         yield
@@ -91,10 +113,7 @@ def mock_botorch_optimize_context_manager(
         not force
         and all(
             mock_.call_count < 1
-            for mock_ in [
-                mock_mcmc_mbm,
-                mock_mixed_optimizer,
-            ]
+            for mock_ in [mock_mcmc_mbm, mock_mixed_optimizer, mock_nsgaii]
         )
         and botorch_mocks_called is False
     ):

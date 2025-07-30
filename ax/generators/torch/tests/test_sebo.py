@@ -105,7 +105,7 @@ class TestSebo(TestCase):
         )
         self.linear_constraints = None
         self.fixed_features = {1: 1.0}
-        self.options = {"best_f": 0.0, "target_point": self.target_point}
+        self.options = {"target_point": self.target_point}
         self.inequality_constraints = [
             (torch.tensor([0, 1], **tkwargs), torch.tensor([1.0, -1.0], **tkwargs), 0)
         ]
@@ -135,6 +135,7 @@ class TestSebo(TestCase):
         fixed_features: dict[int, float] | None = None,
         options: dict[str, str | float] | None = None,
         torch_opt_config: TorchOptConfig | None = None,
+        botorch_acqf_options: dict[str, Any] | None = None,
     ) -> SEBOAcquisition:
         return SEBOAcquisition(
             botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
@@ -145,6 +146,7 @@ class TestSebo(TestCase):
                 fixed_features=fixed_features or {},
             ),
             options=options or self.options,
+            botorch_acqf_options=botorch_acqf_options or {},
         )
 
     def test_init(self) -> None:
@@ -213,7 +215,8 @@ class TestSebo(TestCase):
         with warnings.catch_warnings(record=True) as ws:
             self.get_acquisition_function(
                 fixed_features=self.fixed_features,
-                options={"cache_root": True, "target_point": self.target_point},
+                options={"target_point": self.target_point},
+                botorch_acqf_options={"cache_root": True},
             )
             self.assertEqual(len(ws), 1)
             self.assertEqual(

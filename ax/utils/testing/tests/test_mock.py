@@ -14,9 +14,10 @@ from ax.adapter.transforms.choice_encode import OrderedChoiceToIntegerRange
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize_context_manager
+from botorch.acquisition.analytic import ExpectedImprovement, PosteriorMean
 from botorch.generation.gen import gen_candidates_scipy
 from botorch.optim.optimize_mixed import generate_starting_points
-from botorch.utils.testing import MockAcquisitionFunction
+from botorch.utils.testing import MockAcquisitionFunction, skip_if_import_error
 from pyro.infer import MCMC
 
 
@@ -77,3 +78,30 @@ class TestMock(TestCase):
                 "maxiter_discrete": 1,
             },
         )
+
+    @skip_if_import_error
+    def test_optimize_with_nsgaii_mocks(self) -> None:
+        from pymoo.algorithms.moo.nsga2 import NSGA2
+        from pymoo.optimize import minimize
+
+        experiment = get_branin_experiment(with_completed_batch=True)
+        with patch(
+            "botorch.utils.multi_objective.optimize.minimize",
+            wraps=minimize,
+        ) as mock_minimize, patch(
+            "botorch.utils.multi_objective.optimize.NSGA2",
+            wraps=NSGA2,
+        ) as mock_nsgaii:
+            with mock_botorch_optimize_context_manager():
+                Generators.BOTORCH_MODULAR(
+                    experiment=experiment,
+                    data=experiment.lookup_data(),
+                    botorch_acqf_classes_with_options=[
+                        (PosteriorMean, {}),
+                        (ExpectedImprovement, {}),
+                    ],
+                ).gen(n=1)
+        mock_minimize.assert_called_once()
+        mock_nsgaii.assert_called_once()
+        self.assertEqual(mock_nsgaii.call_args.kwargs["pop_size"], 10)
+        self.assertEqual(mock_minimize.call_args.kwargs["termination"].n_max_gen, 1)

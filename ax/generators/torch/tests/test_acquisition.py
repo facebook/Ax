@@ -18,8 +18,9 @@ from unittest.mock import Mock
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import SearchSpaceExhausted
+from ax.exceptions.core import AxError, SearchSpaceExhausted
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 from ax.generators.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.torch.utils import (
@@ -57,7 +58,7 @@ from botorch.optim.optimize import (
 from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
-from botorch.utils.testing import MockPosterior
+from botorch.utils.testing import MockPosterior, skip_if_import_error
 from torch import Tensor
 
 
@@ -69,16 +70,14 @@ SURROGATE_PATH: str = Surrogate.__module__
 # Used to avoid going through BoTorch `Acquisition.__init__` which
 # requires valid kwargs (correct sizes and lengths of tensors, etc).
 class DummyAcquisitionFunction(AcquisitionFunction):
-    # pyre-fixme[4]: Attribute must be annotated.
-    X_pending = None
+    X_pending: Tensor | None = None
 
-    def __init__(self, **kwargs: Any) -> None:
-        # pyre-fixme[6]: For 1st param expected `Model` but got `None`.
+    def __init__(self, eta: float = 1e-3, **kwargs: Any) -> None:
+        # pyre-ignore [6]
         AcquisitionFunction.__init__(self, model=None)
+        self.eta = eta
 
-    # pyre-fixme[15]: `forward` overrides method defined in `AcquisitionFunction`
-    #  inconsistently.
-    def forward(self, X: torch.Tensor) -> None:
+    def forward(self, X: Tensor) -> Tensor:
         # take the norm and sum over the q-batch dim
         if len(X.shape) > 2:
             res = torch.linalg.norm(X, dim=-1).sum(-1)
@@ -94,6 +93,8 @@ class DummyOneShotAcquisitionFunction(DummyAcquisitionFunction, qKnowledgeGradie
 
 
 class AcquisitionTest(TestCase):
+    acquisition_class = Acquisition
+
     def setUp(self) -> None:
         super().setUp()
         qNEI_input_constructor = get_acqf_input_constructor(qNoisyExpectedImprovement)
@@ -153,7 +154,8 @@ class AcquisitionTest(TestCase):
         )
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
-        self.options = {"cache_root": False, "prune_baseline": False}
+        self.botorch_acqf_options = {"cache_root": False, "prune_baseline": False}
+        self.options = {}
         self.inequality_constraints = [
             (
                 torch.tensor([0, 1], dtype=torch.int),
@@ -171,11 +173,16 @@ class AcquisitionTest(TestCase):
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
         )
+        self.botorch_acqf_classes_with_options = None
+
+    def tearDown(self) -> None:
+        # Avoid polluting the registry for other tests.
+        ACQF_INPUT_CONSTRUCTOR_REGISTRY.pop(DummyAcquisitionFunction)
 
     def get_acquisition_function(
         self, fixed_features: dict[int, float] | None = None, one_shot: bool = False
     ) -> Acquisition:
-        return Acquisition(
+        return self.acquisition_class(
             botorch_acqf_class=(
                 DummyOneShotAcquisitionFunction if one_shot else self.botorch_acqf_class
             ),
@@ -185,19 +192,22 @@ class AcquisitionTest(TestCase):
                 self.torch_opt_config, fixed_features=fixed_features or {}
             ),
             options=self.options,
+            botorch_acqf_options=self.botorch_acqf_options,
+            botorch_acqf_classes_with_options=self.botorch_acqf_classes_with_options,
         )
 
-    def tearDown(self) -> None:
-        # Avoid polluting the registry for other tests.
-        ACQF_INPUT_CONSTRUCTOR_REGISTRY.pop(DummyAcquisitionFunction)
-
-    def test_init_raises_when_missing_acqf_cls(self) -> None:
-        with self.assertRaisesRegex(TypeError, ".* missing .* 'botorch_acqf_class'"):
-            # pyre-ignore[20]: Argument `botorch_acqf_class` expected.
+    def test_init_raises(self) -> None:
+        with self.assertRaisesRegex(
+            AxError,
+            "One of botorch_acqf_class or botorch_acqf_classes"
+            "_with_options is required.",
+        ):
             Acquisition(
                 surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=self.torch_opt_config,
+                botorch_acqf_class=None,
+                botorch_acqf_options={},
             )
 
     @mock.patch(
@@ -210,12 +220,14 @@ class AcquisitionTest(TestCase):
         mock_subset_model: Mock,
         mock_get_X: Mock,
     ) -> None:
-        acquisition = Acquisition(
+        acquisition = self.acquisition_class(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
             botorch_acqf_class=self.botorch_acqf_class,
             options=self.options,
+            botorch_acqf_options=self.botorch_acqf_options,
+            botorch_acqf_classes_with_options=self.botorch_acqf_classes_with_options,
         )
 
         # Check `_get_X_pending_and_observed` kwargs
@@ -273,6 +285,7 @@ class AcquisitionTest(TestCase):
                 torch_opt_config=self.torch_opt_config,
                 botorch_acqf_class=self.botorch_acqf_class,
                 options=self.options,
+                botorch_acqf_options=self.botorch_acqf_options,
             )
         mock_subset_model.assert_not_called()
         # Check `get_botorch_objective_and_transform` kwargs
@@ -288,7 +301,7 @@ class AcquisitionTest(TestCase):
         self.assertIs(ckwargs["model"], acquisition.surrogate.model)
         self.assertIs(ckwargs["objective"], botorch_objective)
         self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))
-        for k, v in self.options.items():
+        for k, v in self.botorch_acqf_options.items():
             self.assertEqual(ckwargs[k], v)
         self.assertIs(
             ckwargs["constraints"],
@@ -871,6 +884,7 @@ class AcquisitionTest(TestCase):
             search_space_digest=self.search_space_digest,
             torch_opt_config=torch_opt_config,
             options=self.options,
+            botorch_acqf_options=self.botorch_acqf_options,
         )
         self.assertTrue(
             torch.equal(
@@ -908,6 +922,7 @@ class AcquisitionTest(TestCase):
                     objective_thresholds=None,
                 ),
                 options=self.options,
+                botorch_acqf_options=self.botorch_acqf_options,
             )
             if with_no_X_observed:
                 self.assertIsNone(acquisition.objective_thresholds)
@@ -931,6 +946,7 @@ class AcquisitionTest(TestCase):
                     ),
                 ),
                 options=self.options,
+                botorch_acqf_options=self.botorch_acqf_options,
             )
             if with_no_X_observed:
                 # Thresholds are not updated.
@@ -948,3 +964,175 @@ class AcquisitionTest(TestCase):
 
     def test_init_no_X_observed(self) -> None:
         self.test_init_moo(with_no_X_observed=True, with_outcome_constraints=False)
+
+
+class MultiAcquisitionTest(AcquisitionTest):
+    acquisition_class = MultiAcquisition
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.botorch_acqf_classes_with_options = [
+            (DummyAcquisitionFunction, {}),
+            (DummyAcquisitionFunction, {"eta": 3.0}),
+        ]
+
+    def test_init_raises(self) -> None:
+        with self.assertRaisesRegex(
+            AxError,
+            "botorch_acqf_classes_with_options must be specified for "
+            "MultiAcquisition.",
+        ):
+            MultiAcquisition(
+                surrogate=self.surrogate,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=self.torch_opt_config,
+                botorch_acqf_class=None,
+                botorch_acqf_options={},
+            )
+        with self.assertRaisesRegex(
+            AxError,
+            "botorch_acqf_classes_with_options have at least two elements.",
+        ):
+            MultiAcquisition(
+                surrogate=self.surrogate,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=self.torch_opt_config,
+                botorch_acqf_class=None,
+                botorch_acqf_options={},
+                botorch_acqf_classes_with_options=[],
+            )
+
+    def test_optimize_discrete(self) -> None:
+        pass
+
+    def test_optimize_acqf_discrete_local_search(self) -> None:
+        pass
+
+    def test_optimize_acqf_discrete_too_many_choices(self) -> None:
+        pass
+
+    def test_optimize_mixed(self) -> None:
+        pass
+
+    def test_optimize_acqf_mixed_alternating(self) -> None:
+        pass
+
+    # Mock so that we can check that arguments are passed correctly.
+    @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
+    @mock.patch(
+        f"{ACQUISITION_PATH}.subset_model",
+        # pyre-fixme[6]: For 1st param expected `Model` but got `None`.
+        # pyre-fixme[6]: For 5th param expected `Tensor` but got `None`.
+        return_value=SubsetModelData(None, torch.ones(1), None, None, None),
+    )
+    @mock.patch(
+        f"{ACQUISITION_PATH}.get_botorch_objective_and_transform",
+        wraps=get_botorch_objective_and_transform,
+    )
+    def test_init_with_subset_model_false(
+        self,
+        mock_get_objective_and_transform: Mock,
+        mock_subset_model: Mock,
+        mock_get_X: Mock,
+    ) -> None:
+        botorch_objective = LinearMCObjective(weights=torch.tensor([1.0]))
+        mock_get_objective_and_transform.return_value = (botorch_objective, None)
+        mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
+        self.options[Keys.SUBSET_MODEL] = False
+        with mock.patch(
+            f"{ACQUISITION_PATH}.get_outcome_constraint_transforms",
+            return_value=self.constraints,
+        ) as mock_get_outcome_constraint_transforms:
+            acquisition = MultiAcquisition(
+                surrogate=self.surrogate,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=self.torch_opt_config,
+                botorch_acqf_class=self.botorch_acqf_class,
+                options=self.options,
+                botorch_acqf_options=self.botorch_acqf_options,
+                botorch_acqf_classes_with_options=(
+                    self.botorch_acqf_classes_with_options
+                ),
+            )
+        mock_subset_model.assert_not_called()
+        # Check `get_botorch_objective_and_transform` kwargs
+        self.assertEqual(mock_get_objective_and_transform.call_count, 2)
+        _, ckwargs = mock_get_objective_and_transform.call_args
+        self.assertIs(ckwargs["model"], acquisition.surrogate.model)
+        self.assertIs(ckwargs["objective_weights"], self.objective_weights)
+        self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
+        self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
+        # Check final `acqf` creation
+        self.assertEqual(self.mock_input_constructor.call_count, 2)
+        for call, (_, botorch_acqf_options) in zip(
+            self.mock_input_constructor.call_args_list,
+            self.botorch_acqf_classes_with_options,
+        ):
+            ckwargs = call.kwargs
+            self.assertIs(ckwargs["model"], acquisition.surrogate.model)
+            self.assertIs(ckwargs["objective"], botorch_objective)
+            self.assertTrue(
+                torch.equal(ckwargs["X_pending"], self.pending_observations[0])
+            )
+            for k, v in botorch_acqf_options.items():
+                self.assertEqual(ckwargs[k], v)
+            self.assertIs(
+                ckwargs["constraints"],
+                self.constraints,
+            )
+        self.assertEqual(mock_get_outcome_constraint_transforms.call_count, 2)
+        for call in mock_get_outcome_constraint_transforms.call_args_list:
+            self.assertEqual(
+                call.kwargs["outcome_constraints"], self.outcome_constraints
+            )
+
+    @skip_if_import_error
+    def test_optimize(self) -> None:
+        from botorch.utils.multi_objective.optimize import optimize_with_nsgaii
+
+        acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
+        n = 5
+        optimizer_options = {"max_gen": 3, "population_size": 10}
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+        ) as mock_optimizer_argparse, mock.patch(
+            f"{ACQUISITION_PATH}.optimize_with_nsgaii", wraps=optimize_with_nsgaii
+        ) as mock_optimize_with_nsgaii:
+            acquisition.optimize(
+                n=n,
+                search_space_digest=self.search_space_digest,
+                inequality_constraints=self.inequality_constraints,
+                fixed_features=self.fixed_features,
+                rounding_func=self.rounding_func,
+                optimizer_options=optimizer_options,
+            )
+        mock_optimizer_argparse.assert_called_once_with(
+            acquisition.acqf,
+            optimizer_options=optimizer_options,
+            optimizer="optimize_with_nsgaii",
+        )
+        mock_optimize_with_nsgaii.assert_called_with(
+            acq_function=acquisition.acqf,
+            bounds=mock.ANY,
+            q=n,
+            num_objectives=2,
+            fixed_features=self.fixed_features,
+            **optimizer_options,
+        )
+        # can't use assert_called_with on bounds due to ambiguous bool comparison
+        expected_bounds = torch.tensor(
+            self.search_space_digest.bounds,
+            dtype=acquisition.dtype,
+            device=acquisition.device,
+        ).transpose(0, 1)
+        self.assertTrue(
+            torch.equal(
+                mock_optimize_with_nsgaii.call_args[1]["bounds"], expected_bounds
+            )
+        )
+
+    def test_evaluate(self) -> None:
+        acquisition = self.get_acquisition_function()
+        with mock.patch.object(acquisition.acqf, "forward") as mock_forward:
+            acquisition.evaluate(X=self.X)
+            mock_forward.assert_called_once_with(X=self.X)

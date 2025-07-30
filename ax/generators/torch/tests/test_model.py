@@ -22,6 +22,7 @@ from ax.exceptions.model import ModelError
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
@@ -37,6 +38,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition import qLogNoisyExpectedImprovement
+from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.input_constructors import (
     _register_acqf_input_constructor,
     get_acqf_input_constructor,
@@ -47,7 +49,10 @@ from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
-from botorch.acquisition.objective import GenericMCObjective
+from botorch.acquisition.objective import (
+    GenericMCObjective,
+    ScalarizedPosteriorTransform,
+)
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
@@ -55,6 +60,7 @@ from botorch.models.model import Model, ModelList
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.testing import skip_if_import_error
 from botorch.utils.types import DEFAULT
 from gpytorch.likelihoods.gaussian_likelihood import FixedNoiseGaussianLikelihood
 from pyre_extensions import assert_is_instance, none_throws
@@ -77,12 +83,12 @@ class BoTorchGeneratorTest(TestCase):
         self.surrogate = Surrogate()
         self.acquisition_class = Acquisition
         self.botorch_acqf_class = qExpectedImprovement
-        self.acquisition_options = ACQ_OPTIONS
+        self.botorch_acqf_options = ACQ_OPTIONS
         self.model = BoTorchGenerator(
             surrogate=self.surrogate,
             acquisition_class=self.acquisition_class,
             botorch_acqf_class=self.botorch_acqf_class,
-            acquisition_options=self.acquisition_options,
+            botorch_acqf_options=self.botorch_acqf_options,
         )
 
         self.dtype = torch.float
@@ -211,7 +217,7 @@ class BoTorchGeneratorTest(TestCase):
         mdl2 = BoTorchGenerator(
             surrogate=self.surrogate,
             acquisition_class=self.acquisition_class,
-            acquisition_options=self.acquisition_options,
+            botorch_acqf_options=self.botorch_acqf_options,
             refit_on_cv=True,
             warm_start_refit=False,
         )
@@ -464,7 +470,7 @@ class BoTorchGeneratorTest(TestCase):
                     ),
                     acquisition_class=self.acquisition_class,
                     botorch_acqf_class=self.botorch_acqf_class,
-                    acquisition_options=self.acquisition_options,
+                    botorch_acqf_options=self.botorch_acqf_options,
                     refit_on_cv=refit_on_cv,
                 )
                 self.model.fit(
@@ -524,7 +530,7 @@ class BoTorchGeneratorTest(TestCase):
         model = BoTorchGenerator(
             surrogate=surrogate,
             acquisition_class=Acquisition,
-            acquisition_options=self.acquisition_options,
+            botorch_acqf_options=self.botorch_acqf_options,
         )
         # Assert that error is raised if we haven't fit the model
         with self.assertRaisesRegex(ModelError, "fit the model first"):
@@ -561,7 +567,7 @@ class BoTorchGeneratorTest(TestCase):
         mock_init_acqf.assert_called_once_with(
             search_space_digest=search_space_digest,
             torch_opt_config=self.torch_opt_config,
-            acq_options=self.acquisition_options,
+            acq_options={},
         )
 
         mock_input_constructor.assert_called_once()
@@ -609,7 +615,7 @@ class BoTorchGeneratorTest(TestCase):
         )
 
         mock_construct_options.assert_called_with(
-            acqf_options=self.acquisition_options,
+            acqf_options={},
             model_gen_options=self.model_gen_options,
         )
         # Assert `choose_botorch_acqf_class` is called
@@ -663,7 +669,7 @@ class BoTorchGeneratorTest(TestCase):
             model = BoTorchGenerator(
                 surrogate=surrogate,
                 acquisition_class=Acquisition,
-                acquisition_options=self.acquisition_options,
+                botorch_acqf_options=self.botorch_acqf_options,
             )
             model.surrogate.fit(
                 datasets=self.block_design_training_data,
@@ -762,7 +768,7 @@ class BoTorchGeneratorTest(TestCase):
         model = BoTorchGenerator(
             surrogate=self.surrogate,
             acquisition_class=Acquisition,
-            acquisition_options=self.acquisition_options,
+            botorch_acqf_options=self.botorch_acqf_options,
         )
         model.surrogate.fit(
             datasets=self.block_design_training_data,
@@ -772,7 +778,7 @@ class BoTorchGeneratorTest(TestCase):
             X=self.X_test,
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
-            acq_options=self.acquisition_options,
+            acq_options={},
         )
         self.assertEqual(points.shape, torch.Size([1]))
         # testing that the new setup chooses qLogNEI by default
@@ -819,7 +825,7 @@ class BoTorchGeneratorTest(TestCase):
             model = BoTorchGenerator(
                 surrogate=self.surrogate,
                 acquisition_class=Acquisition,
-                acquisition_options=self.acquisition_options,
+                botorch_acqf_options=self.botorch_acqf_options,
             )
             model.surrogate.fit(
                 datasets=datasets,
@@ -846,7 +852,7 @@ class BoTorchGeneratorTest(TestCase):
                 X=self.X_test,
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=torch_opt_config,
-                acq_options=self.acquisition_options,
+                acq_options={},
             )
             mock_choose_botorch_acqf_class.assert_called()
             mock_choose_botorch_acqf_class.reset_mock()
@@ -855,7 +861,7 @@ class BoTorchGeneratorTest(TestCase):
             model = BoTorchGenerator(
                 surrogate=self.surrogate,
                 acquisition_class=Acquisition,
-                acquisition_options=self.acquisition_options,
+                botorch_acqf_options=self.botorch_acqf_options,
                 use_p_feasible=False,
             )
             model.surrogate.fit(
@@ -1090,4 +1096,158 @@ class BoTorchGeneratorTest(TestCase):
         _register_acqf_input_constructor(
             acqf_cls=qLogNoisyExpectedHypervolumeImprovement,
             input_constructor=qLogNEHVI_input_constructor,
+        )
+
+    @skip_if_import_error
+    @mock_botorch_optimize
+    def test_gen_multi_acquisition(self) -> None:
+        # import pymoo here to raise an import error if pymoo is not installed.
+        # The import error is already handled in
+        # ax/generators/torch/botorch_modular/acquisition.py so we need to
+        # reimport it here
+        import pymoo  # noqa: F401
+
+        surrogate = Surrogate()
+        model = BoTorchGenerator(
+            surrogate=surrogate,
+            acquisition_class=MultiAcquisition,
+            botorch_acqf_classes_with_options=[
+                (PosteriorMean, {}),
+                (qLogNoisyExpectedImprovement, self.botorch_acqf_options),
+            ],
+        )
+
+        qLogNEI_input_constructor = get_acqf_input_constructor(
+            qLogNoisyExpectedImprovement
+        )
+        mock_input_constructor = mock.MagicMock(
+            qLogNEI_input_constructor, side_effect=qLogNEI_input_constructor
+        )
+        _register_acqf_input_constructor(
+            acqf_cls=qLogNoisyExpectedImprovement,
+            input_constructor=mock_input_constructor,
+        )
+
+        pm_input_constructor = get_acqf_input_constructor(PosteriorMean)
+        mock_pm_input_constructor = mock.MagicMock(
+            pm_input_constructor, side_effect=pm_input_constructor
+        )
+        _register_acqf_input_constructor(
+            acqf_cls=PosteriorMean,
+            input_constructor=mock_pm_input_constructor,
+        )
+        # Assert that error is raised if we haven't fit the model
+        with self.assertRaisesRegex(ModelError, "fit the model first"):
+            model.gen(
+                n=1,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=self.torch_opt_config,
+            )
+        model.fit(
+            datasets=self.block_design_training_data,
+            search_space_digest=self.search_space_digest,
+        )
+        with ExitStack() as es:
+            mock_init_acqf = es.enter_context(
+                mock.patch.object(
+                    BoTorchGenerator,
+                    "_instantiate_acquisition",
+                    wraps=model._instantiate_acquisition,
+                )
+            )
+
+            gen_results = model.gen(
+                n=1,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=self.torch_opt_config,
+            )
+            self.assertTrue(len(gen_results.points), 1)
+            # check that we return both AF values for each point
+            self.assertTrue(
+                len(gen_results.gen_metadata["expected_acquisition_value"]), 1
+            )
+            self.assertTrue(
+                len(gen_results.gen_metadata["expected_acquisition_value"][0]), 2
+            )
+        # Assert qLogNEI is initialized with expected arguments
+        mock_init_acqf.assert_called_once_with(
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=self.torch_opt_config,
+            acq_options={},
+        )
+
+        mock_input_constructor.assert_called_once()
+        ckwargs = mock_input_constructor.call_args[1]
+
+        # We particularly want to make sure that args that will not be used are
+        # not passed
+        expected_kwargs = {
+            "bounds",
+            "constraints",
+            "X_baseline",
+            "sampler",
+            "objective",
+            "training_data",
+            "model",
+        }
+        self.assertSetEqual(set(ckwargs.keys()), expected_kwargs)
+        for k in expected_kwargs:
+            self.assertIsNotNone(ckwargs[k], f"{k} is None")
+
+        m = ckwargs["model"]
+        self.assertIsInstance(m, SingleTaskGP)
+        self.assertEqual(m.num_outputs, 1)
+        training_data = ckwargs["training_data"]
+        self.assertIsInstance(training_data, SupervisedDataset)
+        self.assertTrue(torch.equal(training_data.X, self.Xs))
+        self.assertTrue(
+            torch.equal(
+                training_data.Y,
+                torch.cat([ds.Y for ds in self.block_design_training_data], dim=-1),
+            )
+        )
+
+        self.assertIsInstance(ckwargs["objective"], GenericMCObjective)
+        expected_X_baseline = _filter_X_observed(
+            Xs=[dataset.X for dataset in self.block_design_training_data],
+            objective_weights=self.objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            bounds=self.search_space_digest.bounds,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+        )
+        self.assertTrue(
+            torch.equal(ckwargs["X_baseline"], none_throws(expected_X_baseline))
+        )
+        # Assert PosteriorMean is initialized with expected arguments
+        mock_pm_input_constructor.assert_called_once()
+        ckwargs = mock_pm_input_constructor.call_args[1]
+        # We particularly want to make sure that args that will not be used are
+        # not passed
+        expected_kwargs = {
+            "bounds",
+            "X_baseline",
+            "training_data",
+            "model",
+            "posterior_transform",
+        }
+        self.assertSetEqual(set(ckwargs.keys()), expected_kwargs)
+        for k in expected_kwargs:
+            self.assertIsNotNone(ckwargs[k], f"{k} is None")
+
+        m = ckwargs["model"]
+        self.assertIsInstance(m, SingleTaskGP)
+        self.assertEqual(m.num_outputs, 1)
+        training_data = ckwargs["training_data"]
+        self.assertIsInstance(training_data, SupervisedDataset)
+        self.assertTrue(torch.equal(training_data.X, self.Xs))
+        self.assertTrue(
+            torch.equal(
+                training_data.Y,
+                torch.cat([ds.Y for ds in self.block_design_training_data], dim=-1),
+            )
+        )
+
+        self.assertIsInstance(
+            ckwargs["posterior_transform"], ScalarizedPosteriorTransform
         )

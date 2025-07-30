@@ -24,6 +24,7 @@ from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.monte_carlo import (
+    MCAcquisitionFunction,
     qSimpleRegret,
     SampleReducingMCAcquisitionFunction,
 )
@@ -450,7 +451,7 @@ def get_botorch_objective_and_transform(
     ):
         # We are doing multi-objective optimization.
         return _get_weighted_mo_objective(objective_weights=objective_weights), None
-    if outcome_constraints:
+    if outcome_constraints and issubclass(botorch_acqf_class, MCAcquisitionFunction):
         # If there are outcome constraints, we use MC Acquisition functions.
         obj_tf: Callable[[Tensor, Tensor | None], Tensor] = (
             get_objective_weights_transform(objective_weights)
