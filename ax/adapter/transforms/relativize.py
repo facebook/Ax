@@ -188,7 +188,7 @@ class BaseRelativize(Transform, ABC):
             )
 
         trial_indices = observation_data.index.get_level_values("trial_index")
-        for metric in observation_data["mean"].columns:
+        for metric in experiment_data.metric_names:
             # Create arrays of control values for each row based on trial_index.
             mean_c, sem_c = [], []
             for idx in trial_indices:
@@ -208,6 +208,14 @@ class BaseRelativize(Transform, ABC):
                     control_as_constant=self.control_as_constant,
                 )
             )
+
+        # Set the SQ values to 0.
+        mask = (
+            observation_data.index.get_level_values("arm_name")
+            == self.adapter.status_quo_name
+        )
+        observation_data.loc[mask, "mean"] = 0
+        observation_data.loc[mask, "sem"] = 0
 
         return ExperimentData(
             arm_data=experiment_data.arm_data,

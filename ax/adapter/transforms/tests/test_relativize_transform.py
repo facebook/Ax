@@ -434,18 +434,24 @@ class RelativizeDataTest(TestCase):
             assert_frame_equal(relativized_data.arm_data, experiment_data.arm_data)
             # Check that observation data was relativized correctly.
             expected_mean, expected_sem = [], []
-            for index, row in experiment_data.observation_data.iterrows():
+            for (  # pyre-ignore [23]: Pyre doesn't know about the index structure.
+                trial_index,
+                arm_name,
+            ), row in experiment_data.observation_data.iterrows():
                 sq_row = experiment_data.observation_data.loc[
-                    (assert_is_instance(index, tuple)[0], "status_quo")
+                    (trial_index, "status_quo")
                 ]
-                mean, sem = relativize(
-                    means_t=row["mean", "branin"],
-                    sems_t=row["sem", "branin"],
-                    mean_c=sq_row["mean", "branin"],
-                    sem_c=sq_row["sem", "branin"],
-                    as_percent=True,
-                    control_as_constant=t.control_as_constant,
-                )
+                if arm_name == "status_quo":
+                    mean, sem = 0, 0
+                else:
+                    mean, sem = relativize(
+                        means_t=row["mean", "branin"],
+                        sems_t=row["sem", "branin"],
+                        mean_c=sq_row["mean", "branin"],
+                        sem_c=sq_row["sem", "branin"],
+                        as_percent=True,
+                        control_as_constant=t.control_as_constant,
+                    )
                 expected_mean.append(mean)
                 expected_sem.append(sem)
             self.assertEqual(
