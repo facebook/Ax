@@ -44,6 +44,7 @@ class Keys(str, Enum):
     classes or functions and/or are used in multiple places.
     """
 
+    AX_ACQUISITION_KWARGS = "ax_acquisition_kwargs"
     ACQF_KWARGS = "acquisition_function_kwargs"
     BATCH_INIT_CONDITIONS = "batch_initial_conditions"
     CANDIDATE_SET = "candidate_set"

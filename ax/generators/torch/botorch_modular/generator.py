@@ -9,6 +9,7 @@
 import dataclasses
 from collections import OrderedDict
 from collections.abc import Sequence
+from logging import Logger
 from typing import Any
 
 import numpy.typing as npt
@@ -34,12 +35,15 @@ from ax.generators.torch_base import TorchGenerator, TorchGenResults, TorchOptCo
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.deterministic import FixedSingleSampleModel
 from botorch.settings import validate_input_scaling
 from botorch.utils.datasets import SupervisedDataset
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
+
+logger: Logger = get_logger(__name__)
 
 
 class BoTorchGenerator(TorchGenerator, Base):
@@ -258,14 +262,23 @@ class BoTorchGenerator(TorchGenerator, Base):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
-        acq_options, opt_options = construct_acquisition_and_optimizer_options(
+        (
+            acq_options,
+            botorch_acqf_options,
+            opt_options,
+            botorch_acqf_classes_with_options,
+        ) = construct_acquisition_and_optimizer_options(
             acqf_options=self.acquisition_options,
+            botorch_acqf_options=self._botorch_acqf_options,
             model_gen_options=torch_opt_config.model_gen_options,
+            botorch_acqf_classes_with_options=self._botorch_acqf_classes_with_options,
         )
         self._acquisition = self._instantiate_acquisition(
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
+            botorch_acqf_options=botorch_acqf_options,
             acq_options=acq_options,
+            botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
         )
         acqf = none_throws(self._acquisition)
 
@@ -345,10 +358,12 @@ class BoTorchGenerator(TorchGenerator, Base):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         acq_options: dict[str, Any] | None = None,
+        botorch_acqf_options: dict[str, Any] | None = None,
     ) -> Tensor:
         acqf = self._instantiate_acquisition(
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
+            botorch_acqf_options=botorch_acqf_options or self._botorch_acqf_options,
             acq_options=acq_options,
         )
         return acqf.evaluate(X=X)
@@ -422,7 +437,12 @@ class BoTorchGenerator(TorchGenerator, Base):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
+        botorch_acqf_options: dict[str, Any],
         acq_options: dict[str, Any] | None = None,
+        botorch_acqf_classes_with_options: list[
+            tuple[type[AcquisitionFunction], dict[str, Any]]
+        ]
+        | None = None,
     ) -> Acquisition:
         """Set a BoTorch acquisition function class for this model if needed and
         instantiate it.
@@ -448,8 +468,8 @@ class BoTorchGenerator(TorchGenerator, Base):
         return self.acquisition_class(
             surrogate=self.surrogate,
             botorch_acqf_class=self._botorch_acqf_class,
-            botorch_acqf_options=self._botorch_acqf_options,
-            botorch_acqf_classes_with_options=self._botorch_acqf_classes_with_options,
+            botorch_acqf_options=botorch_acqf_options,
+            botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
             options=acq_options,

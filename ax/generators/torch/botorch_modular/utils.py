@@ -342,10 +342,17 @@ def choose_botorch_acqf_class(
 
 
 def construct_acquisition_and_optimizer_options(
-    acqf_options: TConfig, model_gen_options: TConfig | None = None
-) -> tuple[TConfig, TConfig]:
+    acqf_options: TConfig,
+    botorch_acqf_options: TConfig,
+    model_gen_options: TConfig | None = None,
+    botorch_acqf_classes_with_options: list[tuple[type[AcquisitionFunction], TConfig]]
+    | None = None,
+) -> tuple[
+    TConfig, TConfig, TConfig, list[tuple[type[AcquisitionFunction], TConfig]] | None
+]:
     """Extract acquisition and optimizer options from `model_gen_options`."""
     acq_options = acqf_options.copy()
+    botorch_acqf_options = botorch_acqf_options.copy()
     opt_options = {}
 
     if model_gen_options:
@@ -354,7 +361,11 @@ def construct_acquisition_and_optimizer_options(
         if (
             len(
                 extra_keys_in_model_gen_options := set(model_gen_options.keys())
-                - {Keys.OPTIMIZER_KWARGS.value, Keys.ACQF_KWARGS.value}
+                - {
+                    Keys.OPTIMIZER_KWARGS.value,
+                    Keys.ACQF_KWARGS.value,
+                    Keys.AX_ACQUISITION_KWARGS.value,
+                }
             )
             > 0
         ):
@@ -362,10 +373,36 @@ def construct_acquisition_and_optimizer_options(
                 "Found forbidden keys in `model_gen_options`: "
                 f"{extra_keys_in_model_gen_options}."
             )
+        new_botorch_acqf_options = assert_is_instance(
+            model_gen_options.get(Keys.ACQF_KWARGS, {}),
+            dict,
+        )
+        if (
+            # pyre-fixme [6]: Incompatible parameter type [6]: In call `len`,
+            # for 1st positional argument, expected
+            # `pyre_extensions.PyreReadOnly[Sized]` but got `dict`.
+            len(new_botorch_acqf_options) > 0
+            and botorch_acqf_classes_with_options is not None
+        ):
+            if len(botorch_acqf_classes_with_options) > 1:
+                warnings.warn(
+                    message="botorch_acqf_options are being ignored, due to using "
+                    "MultiAcquisition. Specify options for each acquistion function"
+                    "via botorch_acqf_classes_with_options.",
+                    category=AxWarning,
+                    stacklevel=4,
+                )
+            else:
+                botorch_acqf_classes_with_options = deepcopy(
+                    botorch_acqf_classes_with_options
+                )
+                botorch_acqf_classes_with_options[0][1].update(new_botorch_acqf_options)
+        else:
+            botorch_acqf_options.update(new_botorch_acqf_options)
 
         acq_options.update(
             assert_is_instance(
-                model_gen_options.get(Keys.ACQF_KWARGS, {}),
+                model_gen_options.get(Keys.AX_ACQUISITION_KWARGS, {}),
                 dict,
             )
         )
@@ -377,7 +414,12 @@ def construct_acquisition_and_optimizer_options(
             model_gen_options.get(Keys.OPTIMIZER_KWARGS, {}),
             dict,
         ).copy()
-    return acq_options, opt_options
+    return (
+        acq_options,
+        botorch_acqf_options,
+        opt_options,
+        botorch_acqf_classes_with_options,
+    )
 
 
 def convert_to_block_design(

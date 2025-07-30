@@ -26,10 +26,12 @@ from ax.generators.torch.botorch_modular.utils import (
 )
 from ax.generators.torch.utils import _to_inequality_constraints
 from ax.generators.torch_base import TorchOptConfig
+from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition import qLogNoisyExpectedImprovement
+from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
@@ -187,53 +189,143 @@ class BoTorchGeneratorUtilsTest(TestCase):
 
     def test_construct_acquisition_and_optimizer_options(self) -> None:
         # Two dicts for `Acquisition` should be concatenated
-        acqf_options = {Keys.NUM_FANTASIES: 64}
+        acqf_options = {}
+        botorch_acqf_options: TConfig = {Keys.NUM_FANTASIES: 64}
 
         acquisition_function_kwargs = {Keys.CURRENT_VALUE: torch.tensor([1.0])}
+        ax_acquisition_kwargs = {Keys.SUBSET_MODEL: False}
         optimizer_kwargs = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
         model_gen_options = {
+            Keys.AX_ACQUISITION_KWARGS: ax_acquisition_kwargs,
             Keys.ACQF_KWARGS: acquisition_function_kwargs,
             Keys.OPTIMIZER_KWARGS: optimizer_kwargs,
         }
 
         (
             final_acq_options,
+            final_botorch_acqf_options,
             final_opt_options,
+            final_botorch_acqf_classes_with_options,
         ) = construct_acquisition_and_optimizer_options(
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, Dict[str,
-            #  typing.Any], OptimizationConfig, AcquisitionFunction, float, int, str]]`
-            #  but got `Dict[Keys, int]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
-            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
-            #  int, str]]]` but got `Dict[Keys, Union[Dict[Keys, int], Dict[Keys,
-            #  Tensor]]]`.
             acqf_options=acqf_options,
-            # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
-            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
-            #  int, str]]]` but got `Dict[Keys, Union[Dict[Keys, int], Dict[Keys,
-            #  Tensor]]]`.
+            botorch_acqf_options=botorch_acqf_options,
+            # pyre-fixme[6]: Incompatible parameter type [6]:
+            # In call `construct_acquisition_and_optimizer_options`, for
+            # argument `model_gen_options`, expected `Optional[Dict[str,
+            # Union[None, Dict[int, typing.Any], Dict[str, typing.Any],
+            # List[int], List[str], OptimizationConfig, WinsorizationConfig,
+            # AcquisitionFunction, float, int, str]]]` but got `Dict[Keys,
+            # Union[Dict[Keys, bool], Dict[Keys, int], Dict[Keys, Tensor]]]`.
             model_gen_options=model_gen_options,
         )
+        self.assertEqual(final_acq_options, {Keys.SUBSET_MODEL: False})
         self.assertEqual(
-            final_acq_options,
+            final_botorch_acqf_options,
             {Keys.NUM_FANTASIES: 64, Keys.CURRENT_VALUE: torch.tensor([1.0])},
         )
         self.assertEqual(final_opt_options, optimizer_kwargs)
+        self.assertIsNone(final_botorch_acqf_classes_with_options)
 
         with self.assertRaisesRegex(
             ValueError, "Found forbidden keys in `model_gen_options`"
         ):
             construct_acquisition_and_optimizer_options(
-                # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, Dict[str,
-                #  typing.Any], OptimizationConfig, AcquisitionFunction, float, int,
-                #  str]]` but got `Dict[Keys, int]`.
-                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
-                #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction,
-                #  float, int, str]]]` but got `Dict[Keys, Union[Dict[Keys, int],
-                #  Dict[Keys, Tensor]]]`.
                 acqf_options=acqf_options,
+                botorch_acqf_options=botorch_acqf_options,
                 model_gen_options={**model_gen_options, "extra": "key"},
             )
+
+        # test with botorch_acqf_classes_with_options
+        botorch_acqf_classes_with_options = [
+            (PosteriorMean, {}),
+            (qLogNoisyExpectedImprovement, {}),
+        ]
+        with warnings.catch_warnings(record=True) as ws:
+            (
+                final_acq_options,
+                final_botorch_acqf_options,
+                final_opt_options,
+                final_botorch_acqf_classes_with_options,
+            ) = construct_acquisition_and_optimizer_options(
+                acqf_options=acqf_options,
+                botorch_acqf_options=botorch_acqf_options,
+                # pyre-fixme[6]: Incompatible parameter type [6]:
+                # In call `construct_acquisition_and_optimizer_options`, for
+                # argument `model_gen_options`, expected `Optional[Dict[str,
+                # Union[None, Dict[int, typing.Any], Dict[str, typing.Any],
+                # List[int], List[str], OptimizationConfig, WinsorizationConfig,
+                # AcquisitionFunction, float, int, str]]]` but got `Dict[Keys,
+                # Union[Dict[Keys, bool], Dict[Keys, int], Dict[Keys, Tensor]]]`.
+                model_gen_options=model_gen_options,
+                # pyre-fixme[6]: Incompatible parameter type [6]: In call
+                # `construct_acquisition_and_optimizer_options`, for argument
+                # `botorch_acqf_classes_with_options`, expected `Optional[
+                # List[Tuple[Type[AcquisitionFunction], Dict[str, Union[None,
+                # Dict[int, typing.Any], Dict[str, typing.Any], List[int], List[str],
+                # OptimizationConfig, WinsorizationConfig, AcquisitionFunction,
+                # float, int, str]]]]]` but got `List[Tuple[Type[
+                # qLogNoisyExpectedImprovement], Dict[typing.Any, typing.Any]]]`.
+                botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
+            )
+            self.assertEqual(
+                botorch_acqf_classes_with_options,
+                final_botorch_acqf_classes_with_options,
+            )
+            self.assertEqual(final_botorch_acqf_options, botorch_acqf_options)
+            self.assertEqual(final_acq_options, {Keys.SUBSET_MODEL: False})
+            self.assertEqual(final_opt_options, optimizer_kwargs)
+            self.assertEqual(len(ws), 1)
+            warning = ws[0]
+            self.assertEqual(warning.category, AxWarning)
+            self.assertEqual(
+                str(warning.message),
+                "botorch_acqf_options are being ignored, due to using "
+                "MultiAcquisition. Specify options for each acquistion function"
+                "via botorch_acqf_classes_with_options.",
+            )
+
+        # test that botorch_acqf_classes_with_options is updated
+        botorch_acqf_classes_with_options = [
+            (qLogNoisyExpectedImprovement, {Keys.NUM_FANTASIES: 64}),
+        ]
+        (
+            final_acq_options,
+            final_botorch_acqf_options,
+            final_opt_options,
+            final_botorch_acqf_classes_with_options,
+        ) = construct_acquisition_and_optimizer_options(
+            acqf_options=acqf_options,
+            botorch_acqf_options=botorch_acqf_options,
+            # pyre-fixme[6]: Incompatible parameter type [6]:
+            # In call `construct_acquisition_and_optimizer_options`, for
+            # argument `model_gen_options`, expected `Optional[Dict[str,
+            # Union[None, Dict[int, typing.Any], Dict[str, typing.Any],
+            # List[int], List[str], OptimizationConfig, WinsorizationConfig,
+            # AcquisitionFunction, float, int, str]]]` but got `Dict[Keys,
+            # Union[Dict[Keys, bool], Dict[Keys, int], Dict[Keys, Tensor]]]`.
+            model_gen_options=model_gen_options,
+            # pyre-fixme[6]: Incompatible parameter type [6]: In call
+            # `construct_acquisition_and_optimizer_options`, for argument
+            # `botorch_acqf_classes_with_options`, expected `Optional[
+            # List[Tuple[Type[AcquisitionFunction], Dict[str, Union[None,
+            # Dict[int, typing.Any], Dict[str, typing.Any], List[int], List[str],
+            # OptimizationConfig, WinsorizationConfig, AcquisitionFunction,
+            # float, int, str]]]]]` but got `List[Tuple[Type[
+            # qLogNoisyExpectedImprovement], Dict[typing.Any, typing.Any]]]`.
+            botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
+        )
+        self.assertEqual(
+            [
+                (
+                    qLogNoisyExpectedImprovement,
+                    {Keys.NUM_FANTASIES: 64, Keys.CURRENT_VALUE: torch.tensor([1.0])},
+                )
+            ],
+            final_botorch_acqf_classes_with_options,
+        )
+        self.assertEqual(final_botorch_acqf_options, botorch_acqf_options)
+        self.assertEqual(final_acq_options, {Keys.SUBSET_MODEL: False})
+        self.assertEqual(final_opt_options, optimizer_kwargs)
 
     def test_use_model_list(self) -> None:
         self.assertFalse(
