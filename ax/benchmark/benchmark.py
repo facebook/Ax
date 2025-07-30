@@ -362,7 +362,6 @@ def get_benchmark_result_from_experiment_and_gs(
     Parse the ``Experiment`` and ``GenerationStrategy`` into a ``BenchmarkResult``.
 
     All results are ordered according to ``trial_completion_order``.
-    After all trials have been run, the
     After all trials have been run, the `problem` gets the oracle values of each
     "best" parameter; this yields the ``inference trace``. The cumulative
     maximum of the oracle value of each parameterization tested is the
@@ -395,13 +394,13 @@ def get_benchmark_result_from_experiment_and_gs(
         ]
         cost_trace = np.array(
             [
-                (completion_time - datetime.fromtimestamp(0)).total_seconds()
+                completion_time.timestamp()
                 for completion_time in sorted(trial_indices_by_completion_time.keys())
             ]
         )
     else:
         trial_completion_order = [{i} for i in range(len(experiment.trials))]
-        cost_trace = np.arange(1, len(experiment.trials) + 1, dtype=float)
+        cost_trace = 1.0 + np.arange(len(experiment.trials), dtype=float)
 
     # {trial_index: {arm_name: params}}
     dict_of_dict_of_params = {
