@@ -57,16 +57,22 @@ class SEBOAcquisition(Acquisition):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         botorch_acqf_class: type[AcquisitionFunction],
+        botorch_acqf_options: dict[str, Any],
+        botorch_acqf_classes_with_options: list[
+            tuple[type[AcquisitionFunction], dict[str, Any]]
+        ]
+        | None = None,
         options: dict[str, Any] | None = None,
     ) -> None:
         tkwargs: dict[str, Any] = {"dtype": surrogate.dtype, "device": surrogate.device}
-        options = {} if options is None else options
-        self.penalty_name: str = options.pop("penalty", "L0_norm")
-        self.target_point: Tensor = options.pop("target_point", None)
+        options = options or {}
+        botorch_acqf_options = botorch_acqf_options or {}
+        self.penalty_name: str = options.get("penalty", "L0_norm")
+        self.target_point: Tensor = options.get("target_point", None)
         if self.target_point is None:
             raise ValueError("please provide target point.")
         self.target_point.to(**tkwargs)
-        self.sparsity_threshold: int = options.pop(
+        self.sparsity_threshold: int = options.get(
             "sparsity_threshold", surrogate.Xs[0].shape[-1]
         )
         # construct deterministic model for penalty term
@@ -98,13 +104,13 @@ class SEBOAcquisition(Acquisition):
         )
 
         # Change some options (note: we do not want to do this in-place)
-        if options.get("cache_root", False):
+        if botorch_acqf_options.get("cache_root", False):
             warnings.warn(
                 "SEBO doesn't support `cache_root=True`. Changing it to `False`.",
                 AxWarning,
                 stacklevel=3,
             )
-            options = {**options, "cache_root": False}
+            botorch_acqf_options = {**botorch_acqf_options, "cache_root": False}
 
         # Instantiate the `botorch_acqf_class`. We need to modify `a` before doing this
         # (as it controls the L0 norm approximation) since the baseline will be pruned
@@ -118,6 +124,7 @@ class SEBOAcquisition(Acquisition):
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config_sebo,
             botorch_acqf_class=qLogNoisyExpectedHypervolumeImprovement,
+            botorch_acqf_options=botorch_acqf_options,
             options=options,
         )
 

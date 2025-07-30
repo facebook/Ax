@@ -17,6 +17,8 @@ from ax.generators.torch.botorch_modular.kernels import (
     DefaultRBFKernel,
     ScaleMaternKernel,
 )
+
+from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 from ax.generators.torch.botorch_modular.sebo import SEBOAcquisition
 
 # BoTorch `AcquisitionFunction` imports
@@ -26,6 +28,7 @@ from botorch.acquisition.analytic import (
     LogExpectedImprovement,
     LogNoisyExpectedImprovement,
     NoisyExpectedImprovement,
+    PosteriorMean,
 )
 from botorch.acquisition.knowledge_gradient import (
     qKnowledgeGradient,
@@ -34,6 +37,7 @@ from botorch.acquisition.knowledge_gradient import (
 from botorch.acquisition.logei import (
     qLogExpectedImprovement,
     qLogNoisyExpectedImprovement,
+    qLogProbabilityOfFeasibility,
 )
 from botorch.acquisition.max_value_entropy_search import (
     qMaxValueEntropy,
@@ -110,6 +114,7 @@ Mapping of modular Ax `Acquisition` classes to class name strings.
 """
 ACQUISITION_REGISTRY: dict[type[Acquisition], str] = {
     Acquisition: "Acquisition",
+    MultiAcquisition: "MultiAcquisition",
 }
 
 
@@ -137,6 +142,7 @@ MODEL_REGISTRY: dict[type[Model], str] = {
 Mapping of Botorch `AcquisitionFunction` classes to class name strings.
 """
 ACQUISITION_FUNCTION_REGISTRY: dict[type[AcquisitionFunction], str] = {
+    PosteriorMean: "PosteriorMean",
     ExpectedImprovement: "ExpectedImprovement",
     AnalyticExpectedUtilityOfBestOption: "AnalyticExpectedUtilityOfBestOption",
     qExpectedUtilityOfBestOption: "qExpectedUtilityOfBestOption",
@@ -154,6 +160,7 @@ ACQUISITION_FUNCTION_REGISTRY: dict[type[AcquisitionFunction], str] = {
     LogNoisyExpectedImprovement: "LogNoisyExpectedImprovement",
     qLogExpectedImprovement: "qLogExpectedImprovement",
     qLogNoisyExpectedImprovement: "qLogNoisyExpectedImprovement",
+    qLogProbabilityOfFeasibility: "qLogProbabilityOfFeasibility",
     qLogExpectedHypervolumeImprovement: "qLogExpectedHypervolumeImprovement",
     qLogNoisyExpectedHypervolumeImprovement: "qLogNoisyExpectedHypervolumeImprovement",
     qLogNParEGO: "qLogNParEGO",
