@@ -35,14 +35,8 @@ from ax.generators.torch_base import TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.analytic import (
-    LogExpectedImprovement,
-    PosteriorMean,
-    UpperConfidenceBound,
-)
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
-from botorch.acquisition.logei import qLogProbabilityOfFeasibility
 from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
@@ -339,6 +333,7 @@ class Acquisition(Base):
             "constraints": get_outcome_constraint_transforms(
                 outcome_constraints=self._outcome_constraints
             ),
+            "constraints_tuple": self._outcome_constraints,
             "objective": objective,
             "posterior_transform": posterior_transform,
             **botorch_acqf_options,
@@ -363,15 +358,6 @@ class Acquisition(Base):
             training_data = dict(
                 zip(none_throws(self.surrogate._outcomes), training_data)
             )
-
-        if botorch_acqf_class == qLogProbabilityOfFeasibility:
-            input_constructor_kwargs.pop("objective")
-        elif botorch_acqf_class in (
-            PosteriorMean,
-            LogExpectedImprovement,
-            UpperConfidenceBound,
-        ):
-            input_constructor_kwargs.pop("constraints")
         acqf_inputs = input_constructor(
             training_data=training_data,
             bounds=self.search_space_digest.bounds,

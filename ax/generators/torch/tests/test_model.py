@@ -595,6 +595,7 @@ class BoTorchGeneratorTest(TestCase):
             "training_data",
             "model",
             "eta",
+            "constraints_tuple",
         }
         self.assertSetEqual(set(ckwargs.keys()), expected_kwargs)
         for k in expected_kwargs:
@@ -999,6 +1000,7 @@ class BoTorchGeneratorTest(TestCase):
             "model",
             "objective_thresholds",
             "eta",
+            "constraints_tuple",
         }
         self.assertSetEqual(set(ckwargs.keys()), expected_kwargs)
         for k in expected_kwargs:
@@ -1212,6 +1214,7 @@ class BoTorchGeneratorTest(TestCase):
             "objective",
             "training_data",
             "model",
+            "constraints_tuple",
         }
         self.assertSetEqual(set(ckwargs.keys()), expected_kwargs)
         for k in expected_kwargs:
@@ -1253,6 +1256,8 @@ class BoTorchGeneratorTest(TestCase):
             "training_data",
             "model",
             "posterior_transform",
+            "constraints",
+            "constraints_tuple",
         }
         self.assertSetEqual(set(ckwargs.keys()), expected_kwargs)
         for k in expected_kwargs:
