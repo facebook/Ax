@@ -136,7 +136,11 @@ class BoTorchGeneratorTest(TestCase):
         )
         self.candidate_metadata = []
         self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
-        self.model_gen_options = {Keys.OPTIMIZER_KWARGS: self.optimizer_options}
+        self.model_gen_options = {
+            Keys.OPTIMIZER_KWARGS: self.optimizer_options,
+            Keys.ACQF_KWARGS: {"eta": 3.0},
+            Keys.AX_ACQUISITION_KWARGS: {Keys.SUBSET_MODEL: False},
+        }
         self.objective_weights = torch.tensor([1.0], **tkwargs)
         self.outcome_constraints = (
             torch.tensor([[1.0]], **tkwargs),
@@ -184,6 +188,11 @@ class BoTorchGeneratorTest(TestCase):
             objective_thresholds=self.moo_objective_thresholds,
             outcome_constraints=self.moo_outcome_constraints,
             is_moo=True,
+            model_gen_options={
+                Keys.OPTIMIZER_KWARGS: self.optimizer_options,
+                Keys.ACQF_KWARGS: {"eta": 3.0},
+                Keys.AX_ACQUISITION_KWARGS: {Keys.SUBSET_MODEL: True},
+            },
         )
         self.torch_opt_config_infeas = dataclasses.replace(
             self.torch_opt_config,
@@ -567,7 +576,9 @@ class BoTorchGeneratorTest(TestCase):
         mock_init_acqf.assert_called_once_with(
             search_space_digest=search_space_digest,
             torch_opt_config=self.torch_opt_config,
-            acq_options={},
+            botorch_acqf_options={**ACQ_OPTIONS, "eta": 3.0},
+            acq_options={Keys.SUBSET_MODEL: False},
+            botorch_acqf_classes_with_options=None,
         )
 
         mock_input_constructor.assert_called_once()
@@ -583,6 +594,7 @@ class BoTorchGeneratorTest(TestCase):
             "objective",
             "training_data",
             "model",
+            "eta",
         }
         self.assertSetEqual(set(ckwargs.keys()), expected_kwargs)
         for k in expected_kwargs:
@@ -616,7 +628,12 @@ class BoTorchGeneratorTest(TestCase):
 
         mock_construct_options.assert_called_with(
             acqf_options={},
-            model_gen_options=self.model_gen_options,
+            botorch_acqf_options=self.botorch_acqf_options,
+            model_gen_options={
+                **self.model_gen_options,
+                Keys.AX_ACQUISITION_KWARGS: {Keys.SUBSET_MODEL: False},
+            },
+            botorch_acqf_classes_with_options=None,
         )
         # Assert `choose_botorch_acqf_class` is called
         mock_choose_botorch_acqf_class.assert_called_once()
@@ -631,6 +648,8 @@ class BoTorchGeneratorTest(TestCase):
             rounding_func=None,
             optimizer_options=self.optimizer_options,
         )
+        # make sure ACQF_KWARGS are passed properly
+        self.assertEqual(none_throws(model._acquisition).acqf._eta, 3.0)
 
         _register_acqf_input_constructor(
             acqf_cls=qLogNoisyExpectedImprovement,
@@ -979,6 +998,7 @@ class BoTorchGeneratorTest(TestCase):
             "X_baseline",
             "model",
             "objective_thresholds",
+            "eta",
         }
         self.assertSetEqual(set(ckwargs.keys()), expected_kwargs)
         for k in expected_kwargs:
@@ -1107,14 +1127,15 @@ class BoTorchGeneratorTest(TestCase):
         # reimport it here
         import pymoo  # noqa: F401
 
+        botorch_acqf_classes_with_options = [
+            (PosteriorMean, {}),
+            (qLogNoisyExpectedImprovement, self.botorch_acqf_options),
+        ]
         surrogate = Surrogate()
         model = BoTorchGenerator(
             surrogate=surrogate,
             acquisition_class=MultiAcquisition,
-            botorch_acqf_classes_with_options=[
-                (PosteriorMean, {}),
-                (qLogNoisyExpectedImprovement, self.botorch_acqf_options),
-            ],
+            botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
         )
 
         qLogNEI_input_constructor = get_acqf_input_constructor(
@@ -1173,7 +1194,9 @@ class BoTorchGeneratorTest(TestCase):
         mock_init_acqf.assert_called_once_with(
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
-            acq_options={},
+            botorch_acqf_options={},
+            acq_options={Keys.SUBSET_MODEL: False},
+            botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
         )
 
         mock_input_constructor.assert_called_once()
