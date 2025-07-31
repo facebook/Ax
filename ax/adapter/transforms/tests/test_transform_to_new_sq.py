@@ -222,19 +222,19 @@ class TransformToNewSQSpecificTest(TestCase):
             experiment_data=deepcopy(experiment_data)
         )
 
-        # Verify that status quo observations are dropped.
-        self.assertFalse(
-            (
-                transformed_data.observation_data.index.get_level_values("arm_name")
+        # Verify that status quo observations are dropped except for the target trial.
+        tf_obs_data = transformed_data.observation_data
+        self.assertEqual(
+            tf_obs_data[
+                tf_obs_data.index.get_level_values("arm_name")
                 == self.adapter.status_quo_name
-            ).any()
+            ]
+            .index.get_level_values("trial_index")
+            .item(),
+            2,  # target trial index from the config.
         )
         # Verify that data from the target trial is not transformed.
         target_trial_data = experiment_data.observation_data.loc[2]
-        target_trial_data = target_trial_data[
-            target_trial_data.index.get_level_values("arm_name")
-            != self.adapter.status_quo_name
-        ]
         transformed_target_trial_data = transformed_data.observation_data.loc[2]
         assert_frame_equal(target_trial_data, transformed_target_trial_data)
 

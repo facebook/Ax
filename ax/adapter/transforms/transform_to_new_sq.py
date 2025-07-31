@@ -43,7 +43,8 @@ class TransformToNewSQ(BaseRelativize):
     experiments run in separate batches.
 
     Note that relativization is done using the delta method, so it will not
-    simply be the ratio of the means."""
+    simply be the ratio of the means.
+    """
 
     def __init__(
         self,
@@ -53,6 +54,14 @@ class TransformToNewSQ(BaseRelativize):
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
+        """Initialize the transform.
+
+        Args:
+            config: Can be used to specify the target trial index. The SQ data from
+                the target trial will be used to relativize the data from all other
+                trials. If not specified, the target trial will be inferred using
+                `get_target_trial_index`.
+        """
         super().__init__(
             search_space=search_space,
             observations=observations,
@@ -169,13 +178,22 @@ class TransformToNewSQ(BaseRelativize):
                 sems_rel * abs_target_mean_c
             )
 
-        # Drop SQ observations from the data
+        # Drop SQ observations from the data -- except for the target trial.
+        # Keep rows where arm_name != SQ or trial_index == target_trial_idx.
         observation_data = observation_data[
-            observation_data.index.get_level_values("arm_name") != self._status_quo_name
+            (
+                observation_data.index.get_level_values("arm_name")
+                != self._status_quo_name
+            )
+            | (
+                observation_data.index.get_level_values("trial_index")
+                == self.default_trial_idx
+            )
         ]
         arm_data = experiment_data.arm_data
         arm_data = arm_data[
-            arm_data.index.get_level_values("arm_name") != self._status_quo_name
+            (arm_data.index.get_level_values("arm_name") != self._status_quo_name)
+            | (arm_data.index.get_level_values("trial_index") == self.default_trial_idx)
         ]
         return ExperimentData(
             arm_data=arm_data,
