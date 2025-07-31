@@ -87,7 +87,12 @@ class FillMissingParameters(Transform):
                 "We cannot distinguish between parameters that are missing "
                 "and those that are None in `ExperimentData`. "
             )
+        arm_data = experiment_data.arm_data.fillna(value=self.fill_values)
+        # If any of the fill columns are missing in arm_data, add it.
+        missing_columns = set(none_throws(self.fill_values)) - set(arm_data.columns)
+        for col in missing_columns:
+            arm_data[col] = none_throws(self.fill_values)[col]
         return ExperimentData(
-            arm_data=experiment_data.arm_data.fillna(value=self.fill_values),
+            arm_data=arm_data,
             observation_data=experiment_data.observation_data,
         )

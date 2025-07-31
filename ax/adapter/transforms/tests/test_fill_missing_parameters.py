@@ -74,13 +74,21 @@ class FillMissingParametersTransformTest(TestCase):
         self.assertEqual(experiment_data.arm_data["x"].isna().sum(), 1)
         self.assertEqual(experiment_data.arm_data["y"].isna().sum(), 2)
 
+        fill_x = 2.0
+        fill_y = 1.0
+        fill_z = 0.0
         # Transform and see that NaNs are filled.
-        t = FillMissingParameters(config={"fill_values": {"x": 2.0, "y": 1.0}})
+        t = FillMissingParameters(
+            config={"fill_values": {"x": fill_x, "y": fill_y, "z": fill_z}}
+        )
         transformed_data = t.transform_experiment_data(
             experiment_data=deepcopy(experiment_data)
         )
-        self.assertEqual(transformed_data.arm_data["x"].tolist(), [0.0, 1.0, 2.0])
-        self.assertEqual(transformed_data.arm_data["y"].tolist(), [1.0, 0.0, 1.0])
+        self.assertEqual(transformed_data.arm_data["x"].tolist(), [0.0, 1.0, fill_x])
+        self.assertEqual(transformed_data.arm_data["y"].tolist(), [fill_y, 0.0, fill_y])
+        self.assertEqual(
+            transformed_data.arm_data["z"].tolist(), [fill_z, fill_z, fill_z]
+        )
         assert_frame_equal(
             transformed_data.observation_data, experiment_data.observation_data
         )
