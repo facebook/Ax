@@ -183,6 +183,49 @@ class TestClient(TestCase):
                 outcome_constraints=["qps >= 0"],
             )
 
+        # Test that metrics not in the objective string are downgraded to tracking
+        # metrics rather than being removed
+        client = Client()
+        client.configure_experiment(
+            name="test_experiment",
+            parameters=[float_parameter],
+        )
+
+        custom_metric1 = DummyMetric(name="metric1")
+        custom_metric2 = DummyMetric(name="metric2")
+        custom_metric3 = DummyMetric(name="metric3")
+        client.configure_metrics(
+            metrics=[custom_metric1, custom_metric2, custom_metric3]
+        )
+
+        # Verify all metrics are added as tracking metrics
+        self.assertEqual(len(client._experiment.tracking_metrics), 3)
+        self.assertIn(custom_metric1, client._experiment.tracking_metrics)
+        self.assertIn(custom_metric2, client._experiment.tracking_metrics)
+        self.assertIn(custom_metric3, client._experiment.tracking_metrics)
+
+        # Configure optimization with only metric1 in the objective
+        client.configure_optimization(
+            objective="metric1",
+        )
+
+        # Verify metric2 and metric3 are still present as a tracking metric
+        self.assertIn(custom_metric2, client._experiment.tracking_metrics)
+        self.assertIn(custom_metric3, client._experiment.tracking_metrics)
+
+        # Verify metric1 is now part of the objective and no longer a tracking metric
+        optimization_config = client._experiment.optimization_config
+        self.assertIsNotNone(optimization_config)
+        objective = assert_is_instance(
+            optimization_config.objective,
+            Objective,
+        )
+        self.assertEqual(objective.metric.name, "metric1")
+
+        # Verify no metrics were removed, just moved from tracking to objective
+        all_metrics = [objective.metric] + list(client._experiment.tracking_metrics)
+        self.assertEqual(len(all_metrics), 3)
+
     def test_configure_runner(self) -> None:
         client = Client()
         runner = DummyRunner()
@@ -252,18 +295,6 @@ class TestClient(TestCase):
             none_throws(client._experiment.optimization_config)
             .outcome_constraints[0]
             .metric,
-        )
-
-        # Test replacing a tracking metric
-        client.configure_optimization(
-            objective="foo",
-        )
-        client._experiment.add_tracking_metric(metric=MapMetric("custom"))
-        client.configure_metrics(metrics=[custom_metric])
-
-        self.assertEqual(
-            custom_metric,
-            client._experiment.tracking_metrics[0],
         )
 
         # Test adding a tracking metric
