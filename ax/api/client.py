@@ -163,12 +163,12 @@ class Client(WithDBSettingsBase):
 
         Saves to database on completion if ``storage_config`` is present.
         """
-
+        old_metrics = self._experiment.metrics
         self._experiment.optimization_config = optimization_config_from_string(
             objective_str=objective,
             outcome_constraint_strs=outcome_constraints,
         )
-
+        self._set_metrics(metrics=list(old_metrics.values()))
         self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
     def configure_generation_strategy(
