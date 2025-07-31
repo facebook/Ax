@@ -74,12 +74,12 @@ const codeExample = `
           RangeParameterConfig(
               name="x1",
               bounds=(-10.0, 10.0),
-              parameter_type=ParameterType.FLOAT,
+              parameter_type="float",
           ),
           RangeParameterConfig(
               name="x2",
               bounds=(-10.0, 10.0),
-              parameter_type=ParameterType.FLOAT,
+              parameter_type="float",
           ),
       ],
 )
