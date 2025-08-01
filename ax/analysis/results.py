@@ -12,6 +12,10 @@ from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
+from ax.analysis.plotly.objective_p_feasible_frontier import (
+    OBJ_PFEAS_CARDGROUP_SUBTITLE,
+    ObjectivePFeasibleFrontierPlot,
+)
 from ax.analysis.plotly.scatter import (
     SCATTER_CARDGROUP_SUBTITLE,
     SCATTER_CARDGROUP_TITLE,
@@ -143,6 +147,27 @@ class ResultsAnalysis(Analysis):
             if len(objective_names) > 0 and len(constraint_names) > 0
             else None
         )
+        objective_p_feasible_group = (
+            AnalysisCardGroup(
+                name="Objective vs P(feasible)",
+                title=(
+                    "Model-Estimated Pareto-Frontier Between the Objective"
+                    " and the Probability of Satisfying the Constraints"
+                ),
+                subtitle=OBJ_PFEAS_CARDGROUP_SUBTITLE,
+                children=[
+                    ObjectivePFeasibleFrontierPlot(
+                        relativize=relativize
+                    ).compute_or_error_card(
+                        experiment=experiment,
+                        generation_strategy=generation_strategy,
+                        adapter=adapter,
+                    )
+                ],
+            )
+            if len(objective_names) == 1 and len(constraint_names) > 0
+            else None
+        )
 
         # Produce a parallel coordinates plot for each objective.
         # TODO: mpolson mgarrard bring back parallel coordinates after fixing
@@ -177,6 +202,7 @@ class ResultsAnalysis(Analysis):
                 group
                 for group in (
                     arm_effect_pair_group,
+                    objective_p_feasible_group,
                     objective_scatter_group,
                     constraint_scatter_group,
                     summary,
