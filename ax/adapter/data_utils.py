@@ -31,6 +31,7 @@ from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.constants import Keys
 from pandas import DataFrame, MultiIndex, Series
+from pyre_extensions import none_throws
 
 
 @dataclass(frozen=True)
@@ -231,38 +232,49 @@ class ExperimentData:
         This is useful for compatibility with some older methods that expect
         the `Adapter` training data to be a list of ``Observation`` objects.
         """
-        if self.observation_data.index.names != ["trial_index", "arm_name"]:
-            raise UnsupportedError(
-                "Converting to list of observations is only supported when the "
-                "index of the observation data is (trial_index, arm_name). "
-                f"Got {self.observation_data.index=}. You can use `ExperimentData."
-                "filter_latest_observations` to filter to the latest observations "
-                "for each (trial_index, arm_name) before calling this method."
-            )
+        has_map_keys = self.observation_data.index.nlevels > 2
         observations = []
         # pyre-ignore [23]: Pyre doesn't know the structure of the index.
         for (trial_index, arm_name), row in self.arm_data.iterrows():
-            obs_ft = ObservationFeatures(
+            obs_ft_base = ObservationFeatures(
                 # NOTE: It is crucial to pop metadata first here.
                 # Otherwise, it'd end up in parameters.
                 metadata=row.pop("metadata"),
                 parameters=row.dropna().to_dict(),
                 trial_index=trial_index,
             )
-            data_row = self.observation_data.loc[(trial_index, arm_name)]
-            metric_names = list(data_row["mean"].dropna().index)
-            if len(metric_names) == 0:
-                continue
-            obs_data = ObservationData(
-                metric_names=metric_names,
-                means=data_row["mean"][metric_names].to_numpy().reshape(-1),
-                covariance=np.diag(
-                    np.square(data_row["sem"][metric_names].to_numpy().reshape(-1))
-                ),
-            )
-            observations.append(
-                Observation(features=obs_ft, data=obs_data, arm_name=arm_name)
-            )
+            # Different indexing in the two cases to ensure we get a dataframe.
+            ind = (trial_index, arm_name)
+            ind = ind if has_map_keys else [ind]
+            data_rows = self.observation_data.loc[ind]
+            has_multiple_rows = len(data_rows) > 1
+            # Looping here to ensure we can capture different progression values
+            # as different `Observation` objects.
+            for idx in data_rows.index:
+                # Keeping it as a df for consistent indexing.
+                row_df = data_rows.loc[[idx]]
+                # Only include metrics that have data.
+                metric_names = list(row_df["mean"].dropna(axis="columns").columns)
+                if len(metric_names) == 0:
+                    continue
+                if has_multiple_rows:
+                    obs_ft = obs_ft_base.clone()
+                else:
+                    # No need to clone if there is only one row.
+                    obs_ft = obs_ft_base
+                if has_map_keys:
+                    # Add map key to metadata as expected in ObservationFeatures.
+                    none_throws(obs_ft.metadata)[data_rows.index.name] = idx
+                obs_data = ObservationData(
+                    metric_names=metric_names,
+                    means=row_df["mean"][metric_names].to_numpy().reshape(-1),
+                    covariance=np.diag(
+                        np.square(row_df["sem"][metric_names].to_numpy().reshape(-1))
+                    ),
+                )
+                observations.append(
+                    Observation(features=obs_ft, data=obs_data, arm_name=arm_name)
+                )
         return observations
 
     @property

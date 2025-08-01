@@ -420,7 +420,7 @@ class TestDataUtils(TestCase):
 
     def test_convert_to_list_of_observations(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(with_trials_and_data=True)
-        # Compelete the first trial, so that it has metadata.
+        # Complete the first trial, so that it has metadata.
         exp.trials[0].mark_completed()
         experiment_data = extract_experiment_data(
             experiment=exp,
@@ -429,8 +429,55 @@ class TestDataUtils(TestCase):
                 latest_rows_per_group=None,
             ),
         )
-        with self.assertRaisesRegex(UnsupportedError, "only supported when the index"):
-            experiment_data.convert_to_list_of_observations()
+        # With map keys.
+        copy_data = deepcopy(experiment_data)
+        observations = experiment_data.convert_to_list_of_observations()
+        # Experiment data shouldn't be modified.
+        self.assertEqual(experiment_data, copy_data)
+        # Check that the observations are correct.
+        expected = [
+            Observation(
+                features=ObservationFeatures(
+                    parameters={"x1": 0.0, "x2": 0.0},
+                    trial_index=0,
+                    metadata={
+                        Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY,
+                        "timestamp": timestamp,
+                    },
+                ),
+                data=ObservationData(
+                    # The indexing removes the non-map metric when timestamp > 0.
+                    metric_names=["branin", "branin_map"][bool(timestamp) :],
+                    # Means are deterministic based on the parameterization.
+                    means=np.array(
+                        [55.602112642270264, 55.602112642270264][bool(timestamp) :]
+                    ),
+                    covariance=np.diag([0.0, 0.0][bool(timestamp) :]),
+                ),
+                arm_name="0_0",
+            )
+            for timestamp in [0.0, 1.0, 2.0, 3.0]
+        ] + [
+            Observation(
+                features=ObservationFeatures(
+                    parameters={"x1": 1.0, "x2": 1.0},
+                    trial_index=1,
+                    metadata={"timestamp": timestamp},
+                ),
+                data=ObservationData(
+                    metric_names=["branin", "branin_map"][bool(timestamp) :],
+                    means=np.array(
+                        [27.702905548512433, 27.702905548512433][bool(timestamp) :]
+                    ),
+                    covariance=np.diag([0.0, 0.0][bool(timestamp) :]),
+                ),
+                arm_name="1_0",
+            )
+            for timestamp in [0.0, 1.0]
+        ]
+        self.assertEqual(observations, expected)
+
+        # After removing the map keys.
         experiment_data = experiment_data.filter_latest_observations()
         copy_data = deepcopy(experiment_data)
         observations = experiment_data.convert_to_list_of_observations()
