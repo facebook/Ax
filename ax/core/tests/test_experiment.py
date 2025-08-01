@@ -258,9 +258,9 @@ class ExperimentTest(TestCase):
         opt_config.outcome_constraints[0].metric = Metric(name="m3")
         self.experiment.optimization_config = opt_config
 
-        # Verify total metrics size is the same.
+        # Verify total metrics has increaed by 1.
         self.assertEqual(
-            len(get_optimization_config().metrics) + 1, len(self.experiment.metrics)
+            len(get_optimization_config().metrics) + 2, len(self.experiment.metrics)
         )
 
         # Add optimization config with 1 scalarized constraint composed of 2 metrics
@@ -271,9 +271,9 @@ class ExperimentTest(TestCase):
         self.experiment.optimization_config = opt_config
 
         # Verify total metrics size is the same.
-        self.assertEqual(len(opt_config.metrics) + 1, len(self.experiment.metrics))
+        self.assertEqual(len(opt_config.metrics) + 2, len(self.experiment.metrics))
         self.assertEqual(
-            len(get_optimization_config().metrics) + 3, len(self.experiment.metrics)
+            len(get_optimization_config().metrics) + 4, len(self.experiment.metrics)
         )
         # set back
         self.experiment.optimization_config = get_optimization_config()
@@ -281,13 +281,13 @@ class ExperimentTest(TestCase):
         # Test adding new tracking metric
         self.experiment.add_tracking_metric(Metric(name="m4"))
         self.assertEqual(
-            len(get_optimization_config().metrics) + 2, len(self.experiment.metrics)
+            len(get_optimization_config().metrics) + 5, len(self.experiment.metrics)
         )
 
         # Test adding new tracking metrics
         self.experiment.add_tracking_metrics([Metric(name="z1")])
         self.assertEqual(
-            len(get_optimization_config().metrics) + 3, len(self.experiment.metrics)
+            len(get_optimization_config().metrics) + 6, len(self.experiment.metrics)
         )
 
         # Verify update_tracking_metric updates the metric definition
