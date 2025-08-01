@@ -136,7 +136,7 @@ class TransformToNewSQ(BaseRelativize):
         # Get the target trial's status quo data
         target_sq_data = self.status_quo_data_by_trial[self.default_trial_idx]
 
-        metrics = observation_data["mean"].columns
+        metrics = experiment_data.metric_names
         if not transform_mask.any():
             # Nothing to transform, set metrics to empty list to skip the loop.
             # We still need to drop SQ after.

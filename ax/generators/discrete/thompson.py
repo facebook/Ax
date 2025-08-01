@@ -231,7 +231,7 @@ class ThompsonSampler(DiscreteGenerator):
         )  # k x num_samples x m
         for i, Y in enumerate(none_throws(self.Ys)):  # (k)
             Yvar = none_throws(self.Yvars)[i]  # (k)
-            cov = np.diag(Yvar)  # (k x k)
+            cov = np.diag(np.array(Yvar).flatten())  # (k x k)
             samples = np.random.multivariate_normal(
                 mean=Y, cov=cov, size=num_samples
             ).T  # (k x num_samples)

@@ -6,22 +6,19 @@
 
 # pyre-strict
 
-from unittest import mock
-
 import numpy as np
-from ax.adapter.base import Adapter
+from ax.adapter import Adapter
 from ax.adapter.transforms.utils import (
     ClosestLookupDict,
     derelativize_optimization_config_with_raw_status_quo,
 )
-from ax.core.arm import Arm
-from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.search_space import SearchSpace
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_multi_objective_optimization_config
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_multi_objective_optimization_config,
+)
 
 OBSERVATION_DATA = [
     Observation(
@@ -55,27 +52,14 @@ class TransformUtilsTest(TestCase):
             # pyre-fixme[6]: For 1st param expected `Number` but got `str`.
             d["str_key"] = 3
 
-    @mock.patch(
-        "ax.adapter.base.observations_from_data",
-        autospec=True,
-        return_value=(OBSERVATION_DATA),
-    )
-    def test_derelativize_optimization_config_with_raw_status_quo(self, _) -> None:
+    def test_derelativize_optimization_config_with_raw_status_quo(self) -> None:
         optimization_config = get_multi_objective_optimization_config()
-        dummy_search_space = SearchSpace(
-            parameters=[
-                RangeParameter("x", ParameterType.FLOAT, 0, 20),
-                RangeParameter("y", ParameterType.FLOAT, 0, 20),
-            ]
+        experiment = get_experiment_with_observations(
+            observations=[[1.0, 2.0, 6.0]], optimization_config=optimization_config
         )
-        adapter = Adapter(
-            experiment=Experiment(
-                search_space=dummy_search_space,
-                status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
-            ),
-            generator=Generator(),
-            optimization_config=optimization_config,
-        )
+        experiment._status_quo = experiment.trials[0].arms[0]
+
+        adapter = Adapter(experiment=experiment, generator=Generator())
         new_opt_config = derelativize_optimization_config_with_raw_status_quo(
             optimization_config=optimization_config, adapter=adapter
         )

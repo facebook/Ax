@@ -269,21 +269,24 @@ class DiscreteAdapterTest(TestCase):
                 cv_training_data=adapter.get_training_data(),
                 cv_test_points=self.observation_features,
             )
-        Xs = [
-            [[0, "foo", True], [1, "foo", True], [1, "bar", True]],
-            [[0, "foo", True], [1, "foo", True]],
+
+        Xs_array = [
+            [[0.0, "foo", True], [1.0, "foo", True], [1.0, "bar", True]],  # m1
+            [[0.0, "foo", True], [1.0, "foo", True]],  # m2
         ]
-        Ys = [[[1.0], [2.0], [3.0]], [[-1.0], [-2.0]]]
-        Yvars = [[[1.0], [2.25], [1.44]], [[4.0], [9.0]]]
+        Ys_array = [
+            [1.0, 2.0, 3.0],  # m1
+            [-1.0, -2.0],  # m2
+        ]
+        Yvars_array = [
+            [1.0, 2.25, 1.44],  # m1
+            [4.0, 9.0],  # m2
+        ]
         Xtest = [[0, "foo", True], [1, "foo", True], [1, "bar", True]]
-        # Transform to arrays:
         model_cv_args = mock_cv.call_args.kwargs
-        for i, x in enumerate(model_cv_args["Xs_train"]):
-            self.assertEqual(x, Xs[i])
-        for i, y in enumerate(model_cv_args["Ys_train"]):
-            self.assertEqual(y, Ys[i])
-        for i, v in enumerate(model_cv_args["Yvars_train"]):
-            self.assertEqual(v, Yvars[i])
+        self.assertEqual(model_cv_args["Xs_train"], Xs_array)
+        self.assertEqual(model_cv_args["Ys_train"], Ys_array)
+        self.assertEqual(model_cv_args["Yvars_train"], Yvars_array)
         self.assertEqual(model_cv_args["X_test"], Xtest)
         # Transform from arrays:
         for i, od in enumerate(observation_data):

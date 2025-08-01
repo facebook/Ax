@@ -450,6 +450,7 @@ def get_branin_experiment_with_timestamp_map_metric(
     multi_objective: bool = False,
     has_objective_thresholds: bool = False,
     bounds: list[float] | None = None,
+    with_choice_parameter: bool = False,
 ) -> Experiment:
     """Returns an experiment with the search space including parameters
 
@@ -465,6 +466,9 @@ def get_branin_experiment_with_timestamp_map_metric(
             objective thresholds.
         bounds: For multi-objective experiments where has_objective_thresholds is True,
             bounds determines the precise objective thresholds.
+        with_choice_parameter: Whether to include a choice parameter.
+            If true, `x2` will be a ChoiceParameter.
+
 
     Returns:
         A Branin single or multi-objective experiment with map metrics.
@@ -529,7 +533,9 @@ def get_branin_experiment_with_timestamp_map_metric(
 
     exp = Experiment(
         name=experiment_name,
-        search_space=get_branin_search_space(),
+        search_space=get_branin_search_space(
+            with_choice_parameter=with_choice_parameter
+        ),
         optimization_config=optimization_config,
         tracking_metrics=cast(list[Metric], tracking_metrics),
         runner=SyntheticRunner(),
@@ -1732,7 +1738,13 @@ def get_robust_search_space(
         RangeParameter("x", ParameterType.FLOAT, lb, ub),
         RangeParameter("y", ParameterType.FLOAT, lb, ub),
         RangeParameter("z", ParameterType.INT, lb, ub),
-        ChoiceParameter("c", ParameterType.STRING, ["red", "blue", "green"]),
+        ChoiceParameter(
+            "c",
+            ParameterType.STRING,
+            ["red", "blue", "green"],
+            is_ordered=False,
+            sort_values=False,
+        ),
     ]
     if multivariate:
         if use_discrete:

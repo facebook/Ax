@@ -10,8 +10,10 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import FISHER_EXACT_TEST_P
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
 from ax.adapter.transforms.base import Transform
@@ -736,6 +738,18 @@ class transform_1(Transform):
             obsd.means -= 1
         return observation_data
 
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        arm_data = experiment_data.arm_data
+        for p_name in arm_data:
+            if pd.api.types.is_numeric_dtype(arm_data[p_name].dtype):
+                arm_data[p_name] = arm_data[p_name] + 1
+        observation_data = experiment_data.observation_data
+        for metric in observation_data["mean"]:
+            observation_data["mean", metric] = observation_data["mean", metric] + 1
+        return ExperimentData(arm_data=arm_data, observation_data=observation_data)
+
 
 class transform_2(Transform):
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
@@ -797,3 +811,15 @@ class transform_2(Transform):
         for obsd in observation_data:
             obsd.means = np.sqrt(obsd.means)
         return observation_data
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        arm_data = experiment_data.arm_data
+        for p_name in arm_data:
+            if pd.api.types.is_numeric_dtype(arm_data[p_name].dtype):
+                arm_data[p_name] = arm_data[p_name] ** 2
+        observation_data = experiment_data.observation_data
+        for metric in observation_data["mean"]:
+            observation_data["mean", metric] = observation_data["mean", metric] ** 2
+        return ExperimentData(arm_data=arm_data, observation_data=observation_data)

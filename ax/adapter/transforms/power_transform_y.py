@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.log_y import match_ci_width
 from ax.adapter.transforms.utils import get_data, match_ci_width_truncated
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -22,7 +23,9 @@ from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
 from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import assert_is_instance, none_throws
+from scipy.stats import norm
 from sklearn.preprocessing import PowerTransformer
+
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -88,7 +91,11 @@ class PowerTransformY(Transform):
         if experiment_data is not None:
             means_df = experiment_data.observation_data["mean"]
             # Dropping NaNs here since the DF will have NaN for missing values.
-            Ys = {name: column.dropna().values for name, column in means_df.items()}
+            Ys = {
+                name: column.dropna().values
+                for name, column in means_df.items()
+                if metric_names is None or name in metric_names
+            }
         else:
             observation_data = [obs.data for obs in none_throws(observations)]
             Ys = get_data(observation_data=observation_data, metric_names=metric_names)
@@ -109,12 +116,10 @@ class PowerTransformY(Transform):
             for i, m in enumerate(obsd.metric_names):
                 if m in self.metric_names:
                     transform = self.power_transforms[m].transform
-                    obsd.means[i], obsd.covariance[i, i] = match_ci_width_truncated(
+                    obsd.means[i], obsd.covariance[i, i] = match_ci_width(
                         mean=obsd.means[i],
                         variance=obsd.covariance[i, i],
-                        transform=lambda y: transform(np.array(y, ndmin=2)),
-                        lower_bound=-np.inf,
-                        upper_bound=np.inf,
+                        transform=lambda y, t=transform: t(np.array(y, ndmin=2)),
                     )
         return observation_data
 
@@ -135,7 +140,7 @@ class PowerTransformY(Transform):
                     obsd.means[i], obsd.covariance[i, i] = match_ci_width_truncated(
                         mean=obsd.means[i],
                         variance=obsd.covariance[i, i],
-                        transform=lambda y: transform(np.array(y, ndmin=2)),
+                        transform=lambda y, t=transform: t(np.array(y, ndmin=2)),
                         lower_bound=l,
                         upper_bound=u,
                         clip_mean=True,
@@ -183,6 +188,31 @@ class PowerTransformY(Transform):
                     transform = self.power_transforms[c.metric.name].inverse_transform
                     c.bound = transform(np.array(c.bound, ndmin=2)).item()
         return outcome_constraints
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        obs_data = experiment_data.observation_data
+        metrics_in_data = experiment_data.metric_names
+        # This method applies the power transform to the mean columns and uses
+        # a vectorized implementation of match_ci_width to update sem.
+        fac = norm.ppf(0.975)
+        for metric in self.metric_names:
+            if metric not in metrics_in_data:
+                continue
+            power_transform = self.power_transforms[metric].transform
+            mean = obs_data[("mean", metric)].to_numpy().reshape(-1, 1)
+            obs_data[("mean", metric)] = power_transform(X=mean).flatten()
+            sem = obs_data[("sem", metric)].to_numpy().reshape(-1, 1)
+            if np.isnan(sem).all():
+                # If SEM is NaN, we don't need to transform it.
+                continue
+            d = fac * sem
+            width_asym = power_transform(X=mean + d) - power_transform(X=mean - d)
+            obs_data[("sem", metric)] = width_asym.flatten() / (2 * fac)
+        return ExperimentData(
+            arm_data=experiment_data.arm_data, observation_data=obs_data
+        )
 
 
 def _compute_power_transforms(

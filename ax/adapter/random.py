@@ -18,10 +18,11 @@ from ax.adapter.adapter_utils import (
     transform_callback,
 )
 from ax.adapter.base import Adapter, DataLoaderConfig, GenResults
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.generators.random.base import RandomGenerator
@@ -73,7 +74,7 @@ class RandomAdapter(Adapter):
     def _fit(
         self,
         search_space: SearchSpace,
-        observations: list[Observation] | None = None,
+        experiment_data: ExperimentData,
     ) -> None:
         """Extracts the list of parameters from the search space."""
         self.parameters = list(search_space.parameters.keys())
@@ -138,25 +139,6 @@ class RandomAdapter(Adapter):
             observation_features=observation_features,
             weights=w.tolist(),
         )
-
-    def _predict(
-        self,
-        observation_features: list[ObservationFeatures],
-        use_posterior_predictive: bool = False,
-    ) -> list[ObservationData]:
-        """Apply terminal transform, predict, and reverse terminal transform on
-        output.
-        """
-        raise NotImplementedError("RandomAdapter does not support prediction.")
-
-    def _cross_validate(
-        self,
-        search_space: SearchSpace,
-        cv_training_data: list[Observation],
-        cv_test_points: list[ObservationFeatures],
-        use_posterior_predictive: bool = False,
-    ) -> list[ObservationData]:
-        raise NotImplementedError
 
     def _set_status_quo(self, experiment: Experiment) -> None:
         pass

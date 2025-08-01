@@ -1717,11 +1717,7 @@ def tile_observations(
         data = experiment.fetch_data()
     if arm_names is not None:
         data = Data(data.df[data.df["arm_name"].isin(arm_names)])
-    m_ts = Generators.THOMPSON(
-        data=data,
-        search_space=experiment.search_space,
-        experiment=experiment,
-    )
+    m_ts = Generators.THOMPSON(experiment=experiment, data=data)
     return tile_fitted(
         model=m_ts,
         rel=rel and (experiment.status_quo is not None),
