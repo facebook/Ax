@@ -112,15 +112,10 @@ class MetadataToTaskTransformTest(TestCase):
             transformed_data.arm_data[Keys.TASK_FEATURE_NAME.value].tolist(),
             expected_task_values,
         )
-        # Metadata has been updated to remove the transform parameter.
-        for m in transformed_data.arm_data["metadata"]:
-            self.assertNotIn(Keys.TASK_FEATURE_NAME.value, m)
         # Remaining columns are unchanged.
         assert_frame_equal(
-            transformed_data.arm_data.drop(
-                columns=[Keys.TASK_FEATURE_NAME.value, "metadata"]
-            ),
-            self.experiment_data.arm_data.drop(columns=["metadata"]),
+            transformed_data.arm_data.drop(columns=[Keys.TASK_FEATURE_NAME.value]),
+            self.experiment_data.arm_data,
         )
         # Observation data is not changed.
         assert_frame_equal(

@@ -173,7 +173,7 @@ def _build_comparison_str(
     from the DB).
     """
 
-    def _unequal_str(first: Any, second: Any) -> str:  # pyre-ignore[2]
+    def _unequal_str(first: Any, second: Any) -> str:
         return f"{first} (type {type(first)}) != {second} (type {type(second)})."
 
     if first == second:
@@ -346,8 +346,8 @@ class TestCase(fake_filesystem_unittest.TestCase):
 
     def assertEqual(
         self,
-        first: Any,  # pyre-ignore[2]
-        second: Any,  # pyre-ignore[2]
+        first: Any,
+        second: Any,
         msg: str | None = None,
     ) -> None:
         if isinstance(first, Base) and isinstance(second, Base):
@@ -542,9 +542,7 @@ class TestCase(fake_filesystem_unittest.TestCase):
     # Copied from BoTorch assertAllClose
     def assertAllClose(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         input: Any,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         other: Any,
         rtol: float = 1e-05,
         atol: float = 1e-08,

@@ -37,7 +37,7 @@ from pyre_extensions import none_throws
 @dataclass(frozen=True)
 class DataLoaderConfig:
     """This dataclass contains parameters that control the behavior
-    of `Adapter._set_training_data`.
+    of `Adapter._set_and_filter_training_data`.
 
     Args:
         fit_out_of_design: If specified, all training data are used.

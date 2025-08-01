@@ -27,7 +27,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, ParameterType
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.trial_status import TrialStatus
 from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status as get_pending,
@@ -909,13 +909,11 @@ class TestGenerationStrategy(TestCase):
                 self.sobol_GS.gen_single_trial(experiment=experiment)
                 # We should only fit once for each model
                 self.assertEqual(mock_model_fit.call_count, 1)
-                observations = mock_model_fit.call_args[1].get("observations")
-                all_parameter_names = assert_is_instance(
-                    experiment.search_space, HierarchicalSearchSpace
-                )._all_parameter_names.copy()
-                for obs in observations:
-                    for p_name in all_parameter_names:
-                        self.assertIn(p_name, obs.features.parameters)
+                experiment_data = mock_model_fit.call_args.kwargs["experiment_data"]
+                all_parameter_names = list(experiment.search_space.parameters)
+                self.assertFalse(
+                    experiment_data.arm_data[all_parameter_names].isnull().any().any()
+                )
 
             trial = (
                 experiment.new_trial(

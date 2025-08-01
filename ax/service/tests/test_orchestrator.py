@@ -476,7 +476,6 @@ class TestAxOrchestrator(TestCase):
 
     def base_run_n_trials(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         idle_callback: Callable[[Orchestrator], Any] | None,
     ) -> None:
         gs = self.two_sobol_steps_GS
@@ -2098,7 +2097,9 @@ class TestAxOrchestrator(TestCase):
                 df=pd.DataFrame(
                     {
                         "arm_name": ["0_0"],
-                        "metric_name": ["branin"],
+                        "metric_name": [
+                            next(iter(self.branin_experiment.metrics.keys()))
+                        ],
                         "mean": [TEST_MEAN],
                         "sem": [0.1],
                         "trial_index": [0],

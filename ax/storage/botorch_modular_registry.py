@@ -218,7 +218,6 @@ OUTCOME_TRANSFORM_REGISTRY: dict[type[OutcomeTransform], str] = {
 """
 Overarching mapping from encoded classes to registry map.
 """
-# pyre-fixme[5]: Global annotation cannot contain `Any`.
 CLASS_TO_REGISTRY: dict[Any, dict[type[Any], str]] = {
     Acquisition: ACQUISITION_REGISTRY,
     AcquisitionFunction: ACQUISITION_FUNCTION_REGISTRY,
@@ -280,7 +279,6 @@ REVERSE_OUTCOME_TRANSFORM_REGISTRY: dict[str, type[OutcomeTransform]] = {
 """
 Overarching mapping from encoded classes to reverse registry map.
 """
-# pyre-fixme[5]: Global annotation cannot contain `Any`.
 CLASS_TO_REVERSE_REGISTRY: dict[Any, dict[str, type[Any]]] = {
     Acquisition: REVERSE_ACQUISITION_REGISTRY,
     AcquisitionFunction: REVERSE_ACQUISITION_FUNCTION_REGISTRY,

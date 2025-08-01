@@ -103,11 +103,9 @@ def compute_regression_probabilities_single_trial(
 
     adapter = DiscreteAdapter(
         experiment=experiment,
-        search_space=experiment.search_space,
         data=target_data,
         generator=EBAshr(),
         transforms=rel_EB_ashr_trans,
-        optimization_config=experiment.optimization_config,
     )
 
     metric_names = adapter.outcomes
@@ -132,9 +130,7 @@ def compute_regression_probabilities_single_trial(
         data=target_data,
     )
 
-    arm_names = [
-        observations[i].arm_name for i in range(regression_probabilities.shape[0])
-    ]
+    arm_names = [obs.arm_name for obs in observations]
 
     return arm_names, metric_names, regression_probabilities
 

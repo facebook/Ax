@@ -81,7 +81,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
-from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
+from ax.utils.testing.modeling_stubs import get_observation1trans
 from botorch.test_functions.multi_objective import BraninCurrin
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -468,28 +468,8 @@ class TestAxClient(TestCase):
             )
         self.assertEqual(original_opt_config, ax_client.experiment.optimization_config)
 
-    @patch(
-        "ax.adapter.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1(first_metric_name="branin")]),
-    )
-    @patch(
-        "ax.adapter.random.RandomAdapter.get_training_data",
-        autospec=True,
-        return_value=([get_observation1(first_metric_name="branin")]),
-    )
-    @patch(
-        "ax.adapter.random.RandomAdapter._predict",
-        autospec=True,
-        return_value=[get_observation1trans(first_metric_name="branin").data],
-    )
-    @patch(
-        "ax.adapter.random.RandomAdapter.feature_importances",
-        autospec=True,
-        return_value={"x": 0.9, "y": 1.1},
-    )
     @mock_botorch_optimize
-    def test_default_generation_strategy_continuous(self, _a, _b, _c, _d) -> None:
+    def test_default_generation_strategy_continuous(self) -> None:
         """
         Test that Sobol+BoTorch is used if no GenerationStrategy is provided.
         """
@@ -525,8 +505,9 @@ class TestAxClient(TestCase):
                 },
                 sample_size=i,
             )
-        # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")
+        self.assertEqual(
+            none_throws(ax_client.generation_strategy.adapter)._model_key, "BoTorch"
+        )
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
         trials_df = ax_client.get_trials_data_frame()
@@ -535,15 +516,8 @@ class TestAxClient(TestCase):
         self.assertIn("branin", trials_df)
         self.assertEqual(len(trials_df), 6)
 
-    @patch(
-        "ax.adapter.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1(first_metric_name="branin")]),
-    )
     @mock_botorch_optimize
-    def test_default_generation_strategy_continuous_gen_trials_in_batches(
-        self, _
-    ) -> None:
+    def test_default_generation_strategy_continuous_gen_trials_in_batches(self) -> None:
         ax_client = get_branin_optimization()
         # All Sobol trials should be able to be generated at once.
         sobol_trials_dict, is_complete = ax_client.get_next_trials(max_trials=10)
@@ -676,30 +650,8 @@ class TestAxClient(TestCase):
                 ],
             )
 
-    @patch(
-        "ax.adapter.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1(first_metric_name="branin")]),
-    )
-    @patch(
-        "ax.adapter.random.RandomAdapter.get_training_data",
-        autospec=True,
-        return_value=([get_observation1(first_metric_name="branin")]),
-    )
-    @patch(
-        "ax.adapter.random.RandomAdapter._predict",
-        autospec=True,
-        return_value=[get_observation1trans(first_metric_name="branin").data],
-    )
-    @patch(
-        "ax.adapter.random.RandomAdapter.feature_importances",
-        autospec=True,
-        return_value={"x": 0.9, "y": 1.1},
-    )
     @mock_botorch_optimize
-    def test_default_generation_strategy_continuous_for_moo(
-        self, _a, _b, _c, _d
-    ) -> None:
+    def test_default_generation_strategy_continuous_for_moo(self) -> None:
         """Test that Sobol+MOO is used if no GenerationStrategy is provided."""
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -1560,8 +1512,11 @@ class TestAxClient(TestCase):
                 trial_index,
                 # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
                 raw_data=[
-                    ({"y": y / 2.0}, {"objective": (branin(x, y / 2.0), 0.0)}),
-                    ({"y": y}, {"objective": (branin(x, y), 0.0)}),
+                    (
+                        {"progression": y / 2.0},
+                        {"objective": (branin(x, y / 2.0), 0.0)},
+                    ),
+                    ({"progression": y}, {"objective": (branin(x, y), 0.0)}),
                 ],
             )
 
@@ -1586,7 +1541,7 @@ class TestAxClient(TestCase):
         )
         self.assertFalse(ax_client.generation_strategy._steps[1].max_parallelism, None)
         for _ in range(10):
-            parameterization, trial_index = ax_client.get_next_trial()
+            ax_client.get_next_trial()
 
     def test_update_running_trial_with_intermediate_data(self) -> None:
         ax_client = AxClient()
@@ -1772,61 +1727,46 @@ class TestAxClient(TestCase):
         )
         self.assertTrue(ax_client.get_trial(idx).status.is_failed)
 
-    def test_trial_completion_with_metadata_with_iso_times(self) -> None:
-        ax_client = get_branin_optimization()
-        params, idx = ax_client.get_next_trial()
-        ax_client.complete_trial(
-            trial_index=idx,
-            raw_data={"branin": (0, 0.0)},
-            metadata={
-                "start_time": "2020-01-01",
-                "end_time": "2020-01-05 00:00:00",
-            },
-        )
-        with patch.object(
-            RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
-        ) as mock_fit:
-            ax_client.get_next_trial()
-            self.assertEqual(mock_fit.call_count, 1)
-            features = mock_fit.call_args_list[0][1]["observations"][0].features
-            # we're asserting it's actually created real Timestamp objects
-            # for the observation features
-            self.assertEqual(features.start_time.day, 1)
-            self.assertEqual(features.end_time.day, 5)
-
-    def test_trial_completion_with_metadata_millisecond_times(self) -> None:
-        ax_client = get_branin_optimization()
-        params, idx = ax_client.get_next_trial()
-        ax_client.complete_trial(
-            trial_index=idx,
-            raw_data={"branin": (0, 0.0)},
-            metadata={
-                "start_time": int(pd.Timestamp("2020-01-01").timestamp() * 1000),
-                "end_time": int(pd.Timestamp("2020-01-05").timestamp() * 1000),
-            },
-        )
-        with patch.object(
-            RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
-        ) as mock_fit:
-            ax_client.get_next_trial()
-            self.assertEqual(mock_fit.call_count, 1)
-            features = mock_fit.call_args_list[0][1]["observations"][0].features
-            # we're asserting it's actually created real Timestamp objects
-            # for the observation features
-            self.assertEqual(features.start_time.day, 1)
-            self.assertEqual(features.end_time.day, 5)
+    def test_trial_completion_with_metadata_times(self) -> None:
+        for milisecond in (True, False):
+            if milisecond:
+                metadata: dict[str, str | int] = {
+                    "start_time": int(pd.Timestamp("2020-01-01").timestamp() * 1000),
+                    "end_time": int(pd.Timestamp("2020-01-05").timestamp() * 1000),
+                }
+            else:
+                metadata: dict[str, str | int] = {
+                    "start_time": "2020-01-01",
+                    "end_time": "2020-01-05 00:00:00",
+                }
+            ax_client = get_branin_optimization()
+            _, idx = ax_client.get_next_trial()
+            ax_client.complete_trial(
+                trial_index=idx, raw_data={"branin": (0, 0.0)}, metadata=metadata
+            )
+            with patch.object(
+                RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
+            ) as mock_fit:
+                ax_client.get_next_trial()
+                self.assertEqual(mock_fit.call_count, 1)
+                obs_data = mock_fit.call_args.kwargs["experiment_data"].observation_data
+                start_time = obs_data[("metadata", "start_time")].item()
+                end_time = obs_data[("metadata", "end_time")].item()
+                # Check that the data is carried on as timestamps.
+                self.assertEqual(start_time.day, 1)
+                self.assertEqual(end_time.day, 5)
 
     def test_abandon_trial(self) -> None:
         ax_client = get_branin_optimization()
 
         # An abandoned trial adds no data.
-        params, idx = ax_client.get_next_trial()
+        _, idx = ax_client.get_next_trial()
         ax_client.abandon_trial(trial_index=idx)
         data = ax_client.experiment.fetch_data()
         self.assertEqual(len(data.df.index), 0)
 
         # Can't update a completed trial.
-        params2, idx2 = ax_client.get_next_trial()
+        _, idx2 = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idx2, raw_data={"branin": (0, 0.0)})
         with self.assertRaisesRegex(ValueError, ".* in a terminal state."):
             ax_client.abandon_trial(trial_index=idx2)

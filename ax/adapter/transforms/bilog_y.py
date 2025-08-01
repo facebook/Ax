@@ -119,9 +119,13 @@ class BilogY(Transform):
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
         obs_data = experiment_data.observation_data
+        metric_names = experiment_data.metric_names
         # This method applies match_ci_width to the corresponding columns.
         fac = norm.ppf(0.975)
         for metric, bound in self.metric_to_bound.items():
+            if metric not in metric_names:
+                # Nothing to transform.
+                continue
             mean = obs_data[("mean", metric)]
             obs_data[("mean", metric)] = bilog_transform(y=mean, bound=bound)
             sem = obs_data[("sem", metric)]

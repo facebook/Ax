@@ -10,7 +10,6 @@ import warnings
 from copy import deepcopy
 from math import sqrt
 from typing import Any, SupportsIndex
-from unittest import mock
 
 import numpy as np
 from ax.adapter.base import Adapter, DataLoaderConfig
@@ -571,12 +570,7 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
         self.assertEqual(transform.cutoffs["m3"], (-3.5, INF))  # 1 - 1.5 * 3
 
-    @mock.patch(
-        "ax.adapter.base.observations_from_data",
-        autospec=True,
-        return_value=(OBSERVATION_DATA),
-    )
-    def test_relative_constraints(self, _: mock.Mock) -> None:
+    def test_relative_constraints(self) -> None:
         # Adapter with in-design status quo
         search_space = SearchSpace(
             parameters=[
@@ -605,13 +599,8 @@ class WinsorizeTransformTest(TestCase):
                 ),
             ],
         )
-        adapter = Adapter(
-            experiment=Experiment(search_space=search_space),
-            generator=Generator(),
-            transforms=[],
-            data=Data(),
-            optimization_config=oc,
-        )
+        experiment = Experiment(search_space=search_space, optimization_config=oc)
+        adapter = Adapter(experiment=experiment, generator=Generator())
         with self.assertRaisesRegex(
             DataRequiredError, "model was not fit with status quo"
         ):
@@ -622,16 +611,31 @@ class WinsorizeTransformTest(TestCase):
                 config={"derelativize_with_raw_status_quo": True},
             )
 
-        adapter = Adapter(
-            experiment=Experiment(
-                search_space=search_space,
-                status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1"),
-            ),
-            generator=Generator(),
-            transforms=[],
-            data=Data(),
-            optimization_config=oc,
+        sq_arm = Arm(parameters={"x": 2.0, "y": 10.0}, name="1_1")
+        experiment.status_quo = sq_arm
+        t = (
+            experiment.new_trial()
+            .add_arm(sq_arm)
+            .mark_running(no_runner_required=True)
+            .mark_completed()
         )
+        data = Data(
+            df=DataFrame.from_records(
+                [
+                    {
+                        "arm_name": sq_arm.name,
+                        "metric_name": metric_name,
+                        "mean": mean,
+                        "sem": sem,
+                        "trial_index": t.index,
+                    }
+                    for metric_name, mean, sem in (("a", 1.0, 2.0), ("b", 2.0, 4.0))
+                ]
+            )
+        )
+        experiment.attach_data(data)
+
+        adapter = Adapter(experiment=experiment, generator=Generator())
         with self.assertRaisesRegex(
             UnsupportedError, "`derelativize_with_raw_status_quo` is not set to `True`"
         ):
