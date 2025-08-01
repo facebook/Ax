@@ -86,6 +86,7 @@ class ScatterPlot(Analysis):
         additional_arms: Sequence[Arm] | None = None,
         labels: Mapping[str, str] | None = None,
         show_pareto_frontier: bool = False,
+        title: str | None = None,
     ) -> None:
         """
         Args:
@@ -107,6 +108,7 @@ class ScatterPlot(Analysis):
                 is not provided for a metric, the metric name will be used.
             show_pareto_frontier: Whether to draw a line representing the Pareto
                 frontier for the two metrics on the plot.
+            title: An optional title for the plot.
         """
 
         self.x_metric_name = x_metric_name
@@ -118,6 +120,7 @@ class ScatterPlot(Analysis):
         self.additional_arms = additional_arms
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
         self.show_pareto_frontier = show_pareto_frontier
+        self.title = title
 
     @override
     def compute(
@@ -199,14 +202,18 @@ class ScatterPlot(Analysis):
             if y_lower_is_better is not None
             else False,
         )
-
-        return create_plotly_analysis_card(
-            name=self.__class__.__name__,
-            title=(
+        if self.title is None:
+            title = (
                 f"{'Modeled' if self.use_model_predictions else 'Observed'} "
                 f"{'Relativized ' if self.relativize else ''}Effects:"
                 f" {x_metric_label} vs. {y_metric_label}"
-            ),
+            )
+        else:
+            title = self.title
+
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
+            title=title,
             subtitle=(
                 "This plot displays the effects of each arm on the two selected "
                 "metrics. It is useful for understanding the trade-off between "
