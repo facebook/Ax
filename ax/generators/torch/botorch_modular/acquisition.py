@@ -587,10 +587,6 @@ class Acquisition(Base):
             if optimize_with_nsgaii is not None:
                 # TODO: support post_processing_func
                 candidates, acqf_values = optimize_with_nsgaii(
-                    # We use pyre-ignore here to avoid a circular import.
-                    # pyre-ignore [6]: Incompatible parameter type [6]: In call
-                    # `optimize_with_nsgaii`, for argument `acq_function`, expected
-                    # `MultiOutputAcquisitionFunction` but got `AcquisitionFunction`.
                     acq_function=self.acqf,
                     bounds=bounds,
                     q=n,
