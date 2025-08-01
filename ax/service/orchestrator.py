@@ -1755,12 +1755,22 @@ class Orchestrator(AnalysisBase, BestPointMixin):
         scheduling.
         """
         if self._latest_trial_start_timestamp is not None:
-            seconds_since_run_trial = (
-                current_timestamp_in_millis()
-                - none_throws(self._latest_trial_start_timestamp)
-            ) * 1000
+            seconds_since_run_trial = round(
+                (
+                    current_timestamp_in_millis()
+                    - none_throws(self._latest_trial_start_timestamp)
+                )
+                / 1000
+            )
+
             if seconds_since_run_trial < self.options.min_seconds_before_poll:
-                sleep(self.options.min_seconds_before_poll - seconds_since_run_trial)
+                sleep_duration_seconds = (
+                    self.options.min_seconds_before_poll - seconds_since_run_trial
+                )
+                self.logger.debug(
+                    f"Too early to poll, sleeping for {sleep_duration_seconds} seconds"
+                )
+                sleep(sleep_duration_seconds)
 
     def _set_logger(self, options: OrchestratorOptions) -> None:
         """Set up the logger with appropriate logging levels."""
