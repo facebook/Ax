@@ -12,6 +12,8 @@ from copy import deepcopy
 from math import isnan
 
 import numpy as np
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.power_transform_y import (
     _compute_inverse_bounds,
     _compute_power_transforms,
@@ -20,12 +22,15 @@ from ax.adapter.transforms.power_transform_y import (
 from ax.adapter.transforms.utils import get_data
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import observations_from_data
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_observations_with_invalid_value
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_observations_with_invalid_value,
+)
 from sklearn.preprocessing import PowerTransformer
 
 
@@ -42,32 +47,18 @@ def get_constraint(
 class PowerTransformYTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.obsd1 = ObservationData(
-            metric_names=["m1", "m2"],
-            means=np.array([0.5, 0.9]),
-            covariance=np.array([[0.03, 0.0], [0.0, 0.001]]),
+        self.experiment = get_experiment_with_observations(
+            observations=[[0.5, 0.9], [0.1, 0.4], [0.9, 0.8], [0.3, 0.2]],
+            sems=[[0.2, 0.1], [0.03, 0.05], [0.14, 0.1], [float("nan"), float("nan")]],
         )
-        self.obsd2 = ObservationData(
-            metric_names=["m1", "m2"],
-            means=np.array([0.1, 0.4]),
-            covariance=np.array([[0.005, 0.0], [0.0, 0.05]]),
+        self.observations = observations_from_data(
+            experiment=self.experiment, data=self.experiment.lookup_data()
         )
-        self.obsd3 = ObservationData(
-            metric_names=["m1", "m2"],
-            means=np.array([0.9, 0.8]),
-            covariance=np.array([[0.02, 0.0], [0.0, 0.01]]),
+        self.obsd1, self.obsd2, self.obsd3, self.obsd_nan = (
+            obs.data for obs in self.observations
         )
-        self.obsd_nan = ObservationData(
-            metric_names=["m1", "m2"],
-            means=np.array([0.3, 0.2]),
-            covariance=np.array([[float("nan"), 0.0], [0.0, float("nan")]]),
-        )
-        self.observations = [
-            Observation(features=ObservationFeatures({}), data=obsd)
-            for obsd in [self.obsd1, self.obsd2, self.obsd3, self.obsd_nan]
-        ]
 
-    def test_Init(self) -> None:
+    def test_init(self) -> None:
         shared_init_args = {
             "search_space": None,
             "observations": self.observations[:2],
@@ -90,10 +81,9 @@ class PowerTransformYTest(TestCase):
             self.assertIsInstance(tf.inv_bounds[m], tuple)
             self.assertTrue(len(tf.inv_bounds[m]) == 2)
 
-    def test_GetData(self) -> None:
+    def test_get_data(self) -> None:
         for m in ["m1", "m2"]:
-            # pyre-fixme[6]: For 2nd param expected `Optional[List[str]]` but got `str`.
-            Ys = get_data([self.obsd1, self.obsd2, self.obsd3], m)
+            Ys = get_data([self.obsd1, self.obsd2, self.obsd3], [m])
             self.assertIsInstance(Ys, dict)
             self.assertEqual([*Ys], [m])
             if m == "m1":
@@ -101,7 +91,7 @@ class PowerTransformYTest(TestCase):
             else:
                 self.assertEqual(Ys[m], [0.9, 0.4, 0.8])
 
-    def test_ComputePowerTransform(self) -> None:
+    def test_compute_power_transform(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pts = _compute_power_transforms(Ys)
         self.assertEqual(pts["m2"].method, "yeo-johnson")
@@ -117,7 +107,7 @@ class PowerTransformYTest(TestCase):
         Y_np2 = pts["m2"].inverse_transform(Y_trans)
         self.assertAlmostEqual(np.max(np.abs(Y_np - Y_np2)), 0.0)
 
-    def test_ComputeInverseBounds(self) -> None:
+    def test_compute_inverse_bounds(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pt = _compute_power_transforms(Ys)["m2"]
         # lambda < 0: im(f) = (-inf, -1/lambda) without standardization
@@ -142,7 +132,7 @@ class PowerTransformYTest(TestCase):
         right = pt.inverse_transform(np.array(bounds[0] + 0.01, ndmin=2))
         self.assertTrue(not isnan(right) and isnan(left))
 
-    def test_TransformAndUntransformOneMetric(self) -> None:
+    def test_transform_and_untransform_one_metric(self) -> None:
         pt = PowerTransformY(
             search_space=None,
             observations=deepcopy(self.observations[:2]),
@@ -178,7 +168,7 @@ class PowerTransformYTest(TestCase):
             )
         )
 
-    def test_TransformAndUntransformAllMetrics(self) -> None:
+    def test_transform_and_untransform_all_metrics(self) -> None:
         pt = PowerTransformY(
             search_space=None,
             observations=deepcopy(self.observations[:2]),
@@ -208,7 +198,7 @@ class PowerTransformYTest(TestCase):
         cov_results = np.array(transformed_obsd_nan.covariance)
         self.assertTrue(np.all(np.isnan(np.diag(cov_results))))
 
-    def test_CompareToSklearn(self) -> None:
+    def test_compare_to_sklearn(self) -> None:
         # Make sure the transformed values agree with Sklearn
         observation_data = [self.obsd1, self.obsd2, self.obsd3]
 
@@ -225,7 +215,7 @@ class PowerTransformYTest(TestCase):
         for y1_, y2_ in zip(y1, y2):
             self.assertAlmostEqual(y1_, y2_)
 
-    def test_TransformOptimizationConfig(self) -> None:
+    def test_transform_optimization_config(self) -> None:
         # basic test
         m1 = Metric(name="m1")
         objective_m1 = Objective(metric=m1, minimize=False)
@@ -311,3 +301,36 @@ class PowerTransformYTest(TestCase):
                 ValueError, f"Non-finite data found for metric m1: {invalid_value}"
             ):
                 PowerTransformY(observations=observations, config={"metrics": ["m1"]})
+
+    def test_with_experiment_data(self) -> None:
+        experiment_data = extract_experiment_data(
+            experiment=self.experiment, data_loader_config=DataLoaderConfig()
+        )
+        for metrics in (["m1"], ["m1", "m2"]):
+            t = PowerTransformY(
+                search_space=self.experiment.search_space,
+                experiment_data=experiment_data,
+                config={"metrics": metrics},
+            )
+            self.assertEqual(t.metric_names, metrics)
+            self.assertEqual(list(t.power_transforms), metrics)
+            # Check that the transform is the same as if we had
+            # initialized it using observations.
+            t_old = PowerTransformY(
+                search_space=self.experiment.search_space,
+                observations=self.observations,
+                config={"metrics": metrics},
+            )
+            transformed_data = t.transform_experiment_data(
+                experiment_data=deepcopy(experiment_data)
+            )
+            transformed_data_old = t_old.transform_experiment_data(
+                experiment_data=deepcopy(experiment_data)
+            )
+            self.assertEqual(transformed_data, transformed_data_old)
+            # Compare the transformed values to transformed Observation.
+            observations = t.transform_observations(
+                observations=deepcopy(self.observations)
+            )
+            converted_obs = transformed_data.convert_to_list_of_observations()
+            self.assertEqual(observations, converted_obs)

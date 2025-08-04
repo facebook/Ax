@@ -24,6 +24,7 @@ from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import assert_is_instance, none_throws
 from sklearn.preprocessing import PowerTransformer
 
+
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
@@ -88,7 +89,11 @@ class PowerTransformY(Transform):
         if experiment_data is not None:
             means_df = experiment_data.observation_data["mean"]
             # Dropping NaNs here since the DF will have NaN for missing values.
-            Ys = {name: column.dropna().values for name, column in means_df.items()}
+            Ys = {
+                name: column.dropna().values
+                for name, column in means_df.items()
+                if metric_names is None or name in metric_names
+            }
         else:
             observation_data = [obs.data for obs in none_throws(observations)]
             Ys = get_data(observation_data=observation_data, metric_names=metric_names)
@@ -182,6 +187,26 @@ class PowerTransformY(Transform):
                     transform = self.power_transforms[c.metric.name].inverse_transform
                     c.bound = transform(np.array(c.bound, ndmin=2)).item()
         return outcome_constraints
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        obs_data = experiment_data.observation_data
+        metrics_in_data = experiment_data.metric_names
+        for metric in self.metric_names:
+            if metric not in metrics_in_data:
+                continue
+            new_mean, new_sem = match_ci_width(
+                mean=obs_data[("mean", metric)].to_numpy().reshape(-1, 1),
+                sem=obs_data[("sem", metric)].to_numpy().reshape(-1, 1),
+                variance=None,
+                transform=self.power_transforms[metric].transform,
+            )
+            obs_data[("mean", metric)] = new_mean.flatten()
+            obs_data[("sem", metric)] = new_sem.flatten()
+        return ExperimentData(
+            arm_data=experiment_data.arm_data, observation_data=obs_data
+        )
 
 
 def _compute_power_transforms(
