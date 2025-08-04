@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.utils import get_data, match_ci_width_truncated
+from ax.adapter.transforms.utils import get_data, match_ci_width
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
@@ -109,12 +109,11 @@ class PowerTransformY(Transform):
             for i, m in enumerate(obsd.metric_names):
                 if m in self.metric_names:
                     transform = self.power_transforms[m].transform
-                    obsd.means[i], obsd.covariance[i, i] = match_ci_width_truncated(
+                    obsd.means[i], obsd.covariance[i, i] = match_ci_width(
                         mean=obsd.means[i],
+                        sem=None,
                         variance=obsd.covariance[i, i],
-                        transform=lambda y: transform(np.array(y, ndmin=2)),
-                        lower_bound=-np.inf,
-                        upper_bound=np.inf,
+                        transform=lambda y, t=transform: t(np.array(y, ndmin=2)),
                     )
         return observation_data
 
@@ -132,13 +131,13 @@ class PowerTransformY(Transform):
                         raise ValueError(
                             "Can't untransform mean outside the bounds without clipping"
                         )
-                    obsd.means[i], obsd.covariance[i, i] = match_ci_width_truncated(
+                    obsd.means[i], obsd.covariance[i, i] = match_ci_width(
                         mean=obsd.means[i],
+                        sem=None,
                         variance=obsd.covariance[i, i],
-                        transform=lambda y: transform(np.array(y, ndmin=2)),
-                        lower_bound=l,
-                        upper_bound=u,
-                        clip_mean=True,
+                        transform=lambda y, t=transform: t(np.array(y, ndmin=2)),
+                        lower_bound=l + 1e-3,
+                        upper_bound=u - 1e-3,
                     )
         return observation_data
 

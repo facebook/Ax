@@ -18,7 +18,6 @@ from ax.adapter.transforms.log_y import match_ci_width
 from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
-from scipy.stats import norm
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -101,8 +100,7 @@ class BilogY(Transform):
     def _reusable_transform(
         self,
         observation_data: list[ObservationData],
-        # pyre-fixme[11]: Annotation `npt.NDarray` is not defined as a type.
-        transform: Callable[[npt.NDArray, npt.NDarray], npt.NDarray],
+        transform: Callable[[npt.NDArray, npt.NDArray], npt.NDArray],
     ) -> list[ObservationData]:
         for obsd in observation_data:
             for i, m in enumerate(obsd.metric_names):
@@ -110,6 +108,7 @@ class BilogY(Transform):
                     bound = self.metric_to_bound[m]
                     obsd.means[i], obsd.covariance[i, i] = match_ci_width(
                         mean=obsd.means[i],
+                        sem=None,
                         variance=obsd.covariance[i, i],
                         transform=lambda y, bound=bound: transform(y, bound=bound),
                     )
@@ -119,20 +118,13 @@ class BilogY(Transform):
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
         obs_data = experiment_data.observation_data
-        # This method applies match_ci_width to the corresponding columns.
-        fac = norm.ppf(0.975)
         for metric, bound in self.metric_to_bound.items():
-            mean = obs_data[("mean", metric)]
-            obs_data[("mean", metric)] = bilog_transform(y=mean, bound=bound)
-            sem = obs_data[("sem", metric)]
-            if sem.isnull().all():
-                # If SEM is NaN, we don't need to transform it.
-                continue
-            d = fac * sem
-            width_asym = bilog_transform(y=mean + d, bound=bound) - bilog_transform(
-                y=mean - d, bound=bound
+            obs_data[("mean", metric)], obs_data[("sem", metric)] = match_ci_width(
+                mean=obs_data[("mean", metric)].to_numpy(),
+                sem=obs_data[("sem", metric)].to_numpy(),
+                variance=None,
+                transform=lambda y, bound=bound: bilog_transform(y, bound=bound),
             )
-            obs_data[("sem", metric)] = width_asym / (2 * fac)
         return ExperimentData(
             arm_data=experiment_data.arm_data, observation_data=obs_data
         )

@@ -194,6 +194,7 @@ class BilogYTest(TestCase):
         # Compare against transforming the old way.
         mean, var = match_ci_width(
             mean=experiment_data.observation_data[("mean", "branin_e")],
+            sem=None,
             variance=experiment_data.observation_data[("sem", "branin_e")] ** 2,
             transform=partial(bilog_transform, bound=self.bound),
         )

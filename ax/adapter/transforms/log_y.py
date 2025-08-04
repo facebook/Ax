@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from logging import Logger
 from typing import TYPE_CHECKING
 
@@ -16,13 +16,14 @@ import numpy as np
 import numpy.typing as npt
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.utils import match_ci_width, T_MATCH_CI_WIDTH
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
-from scipy.stats import norm
+from pyre_extensions import assert_is_instance
 
 
 if TYPE_CHECKING:
@@ -57,12 +58,12 @@ class LogY(Transform):
         adapter: base_adapter.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
-        if config is None:
-            raise ValueError("LogY requires a config.")
-        # pyre-fixme[6]: Expected `Iterable[Variable[_T]]` for 1st param but got
-        #  `Union[List[Variable[_T]],
-        #  botorch.acquisition.acquisition.AcquisitionFunction, float, int, str]`.
-        metric_names = list(config.get("metrics", []))
+        metric_names = [
+            assert_is_instance(m, str)
+            for m in list(
+                assert_is_instance((config or {}).get("metrics", []), Iterable)
+            )
+        ]
         if len(metric_names) == 0:
             raise ValueError("Must specify at least one metric in the config.")
         super().__init__(
@@ -72,15 +73,16 @@ class LogY(Transform):
             adapter=adapter,
             config=config,
         )
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.metric_names = metric_names
+        self.metric_names: list[str] = metric_names
         if config.get("match_ci_width", False):
             # perform moment-matching to compute variance that results in a CI
             # of same width as the when transforming the moments
-            # pyre-fixme[4]: Attribute must be annotated.
-            self._transform = lambda m, v: match_ci_width(m, v, np.log)
-            # pyre-fixme[4]: Attribute must be annotated.
-            self._untransform = lambda m, v: match_ci_width(m, v, np.exp)
+            self._transform: T_MATCH_CI_WIDTH = lambda m, v: match_ci_width(
+                mean=m, sem=None, variance=v, transform=np.log
+            )
+            self._untransform: T_MATCH_CI_WIDTH = lambda m, v: match_ci_width(
+                mean=m, sem=None, variance=v, transform=np.exp
+            )
         else:
             self._transform = lognorm_to_norm
             self._untransform = norm_to_lognorm
@@ -128,16 +130,12 @@ class LogY(Transform):
                     )
                 for i, m in enumerate(obsd.metric_names):
                     if m in self.metric_names:
-                        mu, cov = transform(
+                        obsd.means[i], obsd.covariance[i, i] = transform(
                             np.array(obsd.means[i], ndmin=1),
                             np.array(obsd.covariance[i, i], ndmin=1),
                         )
-                        obsd.means[i] = mu
-                        obsd.covariance[i, i] = cov
             else:
-                mu, cov = transform(obsd.means, obsd.covariance)
-                obsd.means = mu
-                obsd.covariance = cov
+                obsd.means, obsd.covariance = transform(obsd.means, obsd.covariance)
         return observation_data
 
     def _transform_observation_data(
@@ -163,21 +161,6 @@ class LogY(Transform):
                     raise ValueError("Unexpected relative transform.")
                 c.bound = np.exp(c.bound)
         return outcome_constraints
-
-
-def match_ci_width(
-    mean: npt.NDArray,
-    variance: npt.NDArray,
-    transform: Callable[[npt.NDArray], npt.NDArray],
-    level: float = 0.95,
-) -> npt.NDArray:
-    fac = norm.ppf(1 - (1 - level) / 2)
-    d = fac * np.sqrt(variance)
-    width_asym = transform(mean + d) - transform(mean - d)
-    new_mean = transform(mean)
-    new_variance = (width_asym / 2 / fac) ** 2
-    # pyre-fixme[7]: Expected `ndarray` but got `Tuple[ndarray, float]`.
-    return new_mean, new_variance
 
 
 def lognorm_to_norm(
