@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from math import isfinite, isnan
+from math import isnan
 
 import numpy as np
 from ax.adapter.transforms.power_transform_y import (
@@ -17,7 +17,7 @@ from ax.adapter.transforms.power_transform_y import (
     _compute_power_transforms,
     PowerTransformY,
 )
-from ax.adapter.transforms.utils import get_data, match_ci_width_truncated
+from ax.adapter.transforms.utils import get_data
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -141,36 +141,6 @@ class PowerTransformYTest(TestCase):
         left = pt.inverse_transform(np.array(bounds[0] - 0.01, ndmin=2))
         right = pt.inverse_transform(np.array(bounds[0] + 0.01, ndmin=2))
         self.assertTrue(not isnan(right) and isnan(left))
-
-    def test_MatchCIWidth(self) -> None:
-        Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
-        pt = _compute_power_transforms(Ys)
-        # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
-        pt["m2"].lambdas_.fill(-3.0)
-        bounds = _compute_inverse_bounds(pt)["m2"]
-
-        # Both will be NaN since we are far outside the bounds
-        new_mean_1, new_var_1 = match_ci_width_truncated(
-            mean=bounds[1] + 2.0,
-            variance=0.1,
-            transform=lambda y: pt["m2"].inverse_transform(np.array(y, ndmin=2)),
-            lower_bound=bounds[0],
-            upper_bound=bounds[1],
-            margin=0.001,
-            clip_mean=False,
-        )
-        # This will be finite since we clip
-        new_mean_2, new_var_2 = match_ci_width_truncated(
-            mean=bounds[1] + 2.0,
-            variance=0.1,
-            transform=lambda y: pt["m2"].inverse_transform(np.array(y, ndmin=2)),
-            lower_bound=bounds[0],
-            upper_bound=bounds[1],
-            margin=0.001,
-            clip_mean=True,
-        )
-        self.assertTrue(isnan(new_mean_1) and isnan(new_var_1))
-        self.assertTrue(isfinite(new_mean_2) and isfinite(new_var_2))
 
     def test_TransformAndUntransformOneMetric(self) -> None:
         pt = PowerTransformY(

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable
-from math import isnan
 from numbers import Number
 from typing import Any, TYPE_CHECKING
 
@@ -21,7 +20,12 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.exceptions.core import UserInputError
+from numpy import typing as npt
+from pyre_extensions import none_throws
 from scipy.stats import norm
+
+T_MATCH_CI_WIDTH = Callable[[npt.NDArray, npt.NDArray], tuple[npt.NDArray, npt.NDArray]]
 
 
 if TYPE_CHECKING:
@@ -98,33 +102,63 @@ def get_data(
     return Ys
 
 
-def match_ci_width_truncated(
-    mean: float,
-    variance: float,
-    transform: Callable[[float], float],
+def match_ci_width(
+    *,
+    mean: npt.NDArray,
+    sem: npt.NDArray | None,
+    variance: npt.NDArray | None,
+    transform: Callable[[npt.NDArray], npt.NDArray],
     level: float = 0.95,
-    margin: float = 0.001,
-    lower_bound: float = 0.0,
-    upper_bound: float = 1.0,
-    clip_mean: bool = False,
-) -> tuple[float, float]:
-    """Estimate a transformed variance using the match ci width method.
+    lower_bound: float | None = None,
+    upper_bound: float | None = None,
+) -> tuple[npt.NDArray, npt.NDArray]:
+    """Transform the mean and update the sem / variance to match the width of
+    the confidence interval. The size of the transformed confidence interval
+    will be proportional to the size of the original confidence interval. If the
+    mean is doubled after the transform, the size of the confidence interval will
+    also be doubled.
 
-    See log_y transform for the original. Here, bounds are forced to lie
-    within a [lower_bound, upper_bound] interval after transformation."""
-    fac = norm.ppf(1 - (1 - level) / 2)
-    if clip_mean:
-        mean = np.clip(mean, lower_bound + margin, upper_bound - margin)
+    Args:
+        mean: The mean of the posterior.
+        sem: The standard error of the posterior. Only one of
+            `sem` or `variance` should be provided.
+        variance: The variance of the posterior. Only one of
+            `sem` or `variance` should be provided.
+        transform: The transform to apply to the mean.
+        level: The confidence level of the confidence interval used to match the width.
+        lower_bound: If given, the mean and the ci bounds (computed after first clipping
+            the mean) will be clipped to this value before applying the transform.
+        upper_bound: If given, the mean and the ci bounds (computed after first clipping
+            the mean) will be clipped to this value before applying the transform.
+
+    Returns:
+        A tuple of the transformed mean and the new sem or variance, depending on which
+        one of them was provided as the input.
+    """
+    if variance is not None:
+        if sem is not None:
+            raise UserInputError("Only one of `sem` or `variance` should be provided.")
+        sem = np.sqrt(variance)
+    sem = none_throws(sem)
+    if lower_bound is not None or upper_bound is not None:
+        mean = np.clip(a=mean, a_min=lower_bound, a_max=upper_bound)
     new_mean = transform(mean)
-    if isnan(variance):
-        new_variance = variance
+    if np.all(np.isnan(sem)):
+        # If SEM is NaN, we don't need to transform it.
+        new_sem = sem
     else:
-        d = fac * np.sqrt(variance)
-        right = min(mean + d, upper_bound - margin)
-        left = max(mean - d, lower_bound + margin)
+        fac = norm.ppf(1 - (1 - level) / 2)
+        d = fac * sem
+        right = mean + d
+        left = mean - d
+        if lower_bound is not None or upper_bound is not None:
+            left = np.clip(a=left, a_min=lower_bound, a_max=upper_bound)
+            right = np.clip(a=right, a_min=lower_bound, a_max=upper_bound)
         width_asym = transform(right) - transform(left)
-        new_variance = (width_asym / 2 / fac) ** 2
-    return new_mean, new_variance
+        new_sem = width_asym / (2 * fac)
+    if variance is not None:
+        return new_mean, new_sem**2
+    return new_mean, new_sem
 
 
 def construct_new_search_space(
