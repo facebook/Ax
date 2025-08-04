@@ -19,6 +19,7 @@ from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
+    get_trial_trace_name,
     LEGEND_BASE_OFFSET,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
@@ -385,7 +386,7 @@ def _prepare_figure(
                 error_y=error_y,
                 mode="markers",
                 marker=marker,
-                name=f"Trial {trial_index}",
+                name=get_trial_trace_name(trial_index=trial_index),
                 hoverinfo="text",
                 text=text,
             )

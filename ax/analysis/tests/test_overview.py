@@ -85,7 +85,12 @@ class TestOverview(TestCase):
     def test_online(self) -> None:
         # Test MetricSummary can be computed for a variety of experiments which
         # resemble those we see in an online setting.
+        try:
+            import pymoo  # noqa: F401
 
+            expect_error_for_obj_pfeasible = False
+        except ImportError:
+            expect_error_for_obj_pfeasible = True
         analysis = OverviewAnalysis()
 
         for experiment in get_online_experiments():
@@ -95,8 +100,19 @@ class TestOverview(TestCase):
             card_group = analysis.compute(
                 experiment=experiment, generation_strategy=generation_strategy
             )
+            # we expect the objective vs pfeasible plot to error out if it is an
+            # experiment with one objective and constranits and pymoo is not
+            # installed.
+            total_errors = sum(
+                isinstance(card, ErrorAnalysisCard) for card in card_group.flatten()
+            )
+            self.assertEqual(
+                total_errors,
+                1
+                if (expect_error_for_obj_pfeasible and not experiment.is_moo_problem)
+                else 0,
+            )
             for card in card_group.flatten():
-                self.assertNotIsInstance(card, ErrorAnalysisCard)
                 # TODO: add more AnalysisCard types when they support relativization
                 if isinstance(card, (ArmEffectsPlot, ScatterPlot)):
                     self.assertIn("Relativized", card.title)

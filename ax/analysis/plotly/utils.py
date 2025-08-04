@@ -127,37 +127,40 @@ def get_arm_tooltip(
     Given a row from ax.analysis.utils.prepare_arm_data return a tooltip. This should
     be used in every Plotly analysis where we source data from prepare_arm_data.
     """
+    tooltip_strs = []
+    trial_index = row["trial_index"]
+    if trial_index != -1:
+        # omit the trial tooltip for additional arms
+        tooltip_strs.append(f"Trial: {trial_index}")
 
-    trial_str = f"Trial: {row['trial_index']}"
-    arm_str = f"Arm: {row['arm_name']}"
-    status_str = f"Status: {row['trial_status']}"
-    generation_node_str = f"Generation Node: {row['generation_node']}"
+    tooltip_strs.append(f"Arm: {row['arm_name']}")
+    tooltip_strs.append(f"Status: {row['trial_status']}")
+    tooltip_strs.append(f"Generation Node: {row['generation_node']}")
 
-    metric_strs = [
-        (
-            (f"{metric_name}: {row[f'{metric_name}_mean']:.5f}")
-            + f"±{Z_SCORE_95_CI * row[f'{metric_name}_sem']:.5f}"
-            if not math.isnan(row[f"{metric_name}_sem"])
-            else ""
-        )
-        for metric_name in metric_names
-    ]
+    tooltip_strs.extend(
+        [
+            (
+                (f"{metric_name}: {row[f'{metric_name}_mean']:.5f}")
+                + f"±{Z_SCORE_95_CI * row[f'{metric_name}_sem']:.5f}"
+                if not math.isnan(row[f"{metric_name}_sem"])
+                else ""
+            )
+            for metric_name in metric_names
+        ]
+    )
 
     if row["p_feasible_mean"] < MINIMUM_CONTRAINT_VIOLATION_THRESHOLD:
         constraints_warning_str = "[Warning] This arm is likely infeasible"
     else:
         constraints_warning_str = ""
+    tooltip_strs.append(constraints_warning_str)
 
-    return "<br />".join(
-        [
-            trial_str,
-            arm_str,
-            status_str,
-            generation_node_str,
-            *metric_strs,
-            constraints_warning_str,
-        ]
-    )
+    return "<br />".join(tooltip_strs)
+
+
+def get_trial_trace_name(trial_index: int) -> str:
+    """Get a trace name for a trial index."""
+    return "Additional Arms" if trial_index == -1 else f"Trial {trial_index}"
 
 
 def truncate_label(label: str, n: int = MAX_LABEL_LEN) -> str:
