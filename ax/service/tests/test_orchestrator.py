@@ -475,9 +475,7 @@ class TestAxOrchestrator(TestCase):
         self.assertTrue(trials_info["n_completed"] == n_total_trials)
 
     def base_run_n_trials(
-        self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Callable[[Orchestrator], Any] | None,
+        self, idle_callback: Callable[[Orchestrator], Any] | None
     ) -> None:
         gs = self.two_sobol_steps_GS
         # With runners & metrics, `Orchestrator.run_all_trials` should run.
@@ -1261,11 +1259,7 @@ class TestAxOrchestrator(TestCase):
         fetched_data = orchestrator.experiment.fetch_data()
         num_metrics = 2
         expected_num_rows = num_metrics * total_trials
-        # There are 3 trials, and only one metric for "type1".
-        if isinstance(orchestrator.experiment, MultiTypeExperiment):
-            # fetch_data only pulls metrics for trial type
-            # "type1"
-            expected_num_rows = 3
+        # There are 3 trials and two metrics for "type1" for MT experiments
         self.assertEqual(len(looked_up_data.df), expected_num_rows)
         self.assertEqual(len(fetched_data.df), expected_num_rows)
 
@@ -1273,13 +1267,9 @@ class TestAxOrchestrator(TestCase):
         #   num_non_map_metrics * num_trials +
         #   num_map_metrics * num_trials + an extra row, since trial 0 runs
         #   longer and gets results for an extra timestamp.
-        # For MultiTypeExperiment there is only 1 metric
+        # For MultiTypeExperiment there are two metrics
         # for trial type "type1"
         expected_num_rows = 7
-        if isinstance(orchestrator.experiment, MultiTypeExperiment):
-            # fetch_data only pulls metrics for trial type
-            # "type1"
-            expected_num_rows = 4
         self.assertEqual(
             len(assert_is_instance(looked_up_data, MapData).map_df), expected_num_rows
         )

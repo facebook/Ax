@@ -53,7 +53,6 @@ from ax.utils.common.typeutils import (
 )
 from pyre_extensions import assert_is_instance, none_throws
 
-DEFAULT_OBJECTIVE_NAME = "objective"
 
 logger: Logger = get_logger(__name__)
 
@@ -748,7 +747,7 @@ class InstantiationBase:
         The return type is optional since some subclasses may not wish to
         use any optimization config by default.
         """
-        return {DEFAULT_OBJECTIVE_NAME: "maximize"}
+        return {Keys.DEFAULT_OBJECTIVE_NAME.value: "maximize"}
 
     @classmethod
     def make_experiment(
