@@ -390,7 +390,18 @@ class Experiment(Base):
         for metric_name in optimization_config.metrics.keys():
             if metric_name in self._tracking_metrics:
                 self.remove_tracking_metric(metric_name)
+        # add metrics from the previous optimization config that are not in the new
+        # optimization config as tracking metrics
+        prev_optimization_config = self._optimization_config
         self._optimization_config = optimization_config
+        if prev_optimization_config is not None:
+            metrics_to_track = (
+                set(prev_optimization_config.metrics.keys())
+                - set(optimization_config.metrics.keys())
+                - {Keys.DEFAULT_OBJECTIVE_NAME.value}  # remove default objective
+            )
+            for metric_name in metrics_to_track:
+                self.add_tracking_metric(prev_optimization_config.metrics[metric_name])
 
         if any(
             isinstance(metric, MapMetric)

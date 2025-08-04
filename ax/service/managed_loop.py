@@ -37,11 +37,8 @@ from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
     get_best_raw_objective_point_with_trial_index,
 )
-from ax.service.utils.instantiation import (
-    DEFAULT_OBJECTIVE_NAME,
-    InstantiationBase,
-    TParameterRepresentation,
-)
+from ax.service.utils.instantiation import InstantiationBase, TParameterRepresentation
+from ax.utils.common.constants import Keys
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
@@ -106,7 +103,7 @@ class OptimizationLoop:
         """Constructs a synchronous `OptimizationLoop` using an evaluation
         function."""
         if objective_name is None:
-            objective_name = DEFAULT_OBJECTIVE_NAME
+            objective_name = Keys.DEFAULT_OBJECTIVE_NAME.value
         experiment = InstantiationBase.make_experiment(
             name=experiment_name,
             parameters=parameters,
