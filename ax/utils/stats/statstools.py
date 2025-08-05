@@ -236,7 +236,7 @@ def relativize(
         var = (s_t / abs_mean_c) ** 2
     else:
         c = m_t / mean_c
-        if bias_correction:
+        if bias_correction and not np.all(np.isnan(sem_c)):
             r_hat = r_hat - m_t * sem_c**2 / abs_mean_c**3
 
         # If everything's the same, then set r_hat to zero
