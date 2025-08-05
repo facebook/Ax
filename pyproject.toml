@@ -1,3 +1,7 @@
+[project]
+name = "ax-platform"
+dynamic = ["version"]
+
 [build-system]
 requires = ["setuptools>=34.4", "wheel", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
