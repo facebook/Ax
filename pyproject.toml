@@ -1,6 +1,6 @@
 [project]
 name = "ax-platform"
-dynamic = ["version", "dependencies", "optional-dependencies"]
+dynamic = ["version", "dependencies", "optional-dependencies", "classifiers"]
 
 [build-system]
 requires = ["setuptools>=34.4", "wheel", "setuptools_scm"]
