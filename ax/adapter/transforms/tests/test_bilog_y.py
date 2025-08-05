@@ -12,6 +12,8 @@ from copy import deepcopy
 from functools import partial
 from itertools import product
 
+import numpy as np
+
 from ax.adapter.base import Adapter, DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.bilog_y import bilog_transform, BilogY, inv_bilog_transform
@@ -59,23 +61,27 @@ class BilogYTest(TestCase):
 
     def test_Bilog(self) -> None:
         self.assertAlmostEqual(
-            float(bilog_transform(y=7.3, bound=3)), 4.667706820558076
+            float(bilog_transform(y=np.array(7.3), bound=3)), 4.667706820558076
         )
         self.assertAlmostEqual(
-            float(bilog_transform(y=7.3, bound=10)), 8.691667180349821
+            float(bilog_transform(y=np.array(7.3), bound=10)), 8.691667180349821
         )
         self.assertAlmostEqual(
-            float(inv_bilog_transform(y=4.3, bound=3)), 5.669296667619244
+            float(inv_bilog_transform(y=np.array(4.3), bound=3)), 5.669296667619244
         )
         self.assertAlmostEqual(
-            float(inv_bilog_transform(y=2.3, bound=3)), 1.9862472925295231
+            float(inv_bilog_transform(y=np.array(2.3), bound=3)), 1.9862472925295231
         )
         self.assertAlmostEqual(
-            float(inv_bilog_transform(bilog_transform(y=0.3, bound=3), bound=3)),
+            float(
+                inv_bilog_transform(bilog_transform(y=np.array(0.3), bound=3), bound=3)
+            ),
             0.3,
         )
         self.assertAlmostEqual(
-            float(bilog_transform(inv_bilog_transform(y=0.3, bound=3), bound=3)),
+            float(
+                bilog_transform(inv_bilog_transform(y=np.array(0.3), bound=3), bound=3)
+            ),
             0.3,
         )
 
@@ -194,6 +200,7 @@ class BilogYTest(TestCase):
         # Compare against transforming the old way.
         mean, var = match_ci_width(
             mean=experiment_data.observation_data[("mean", "branin_e")],
+            sem=None,
             variance=experiment_data.observation_data[("sem", "branin_e")] ** 2,
             transform=partial(bilog_transform, bound=self.bound),
         )

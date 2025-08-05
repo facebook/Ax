@@ -46,12 +46,18 @@ class LogYTransformTest(TestCase):
         )
         self.assertTrue("<lambda>" in tf._transform.__name__)
         self.assertTrue("<lambda>" in tf._untransform.__name__)
-        # pyre-fixme[6]: For 1st param expected `ndarray` but got `float`.
-        # pyre-fixme[6]: For 2nd param expected `ndarray` but got `float`.
-        self.assertEqual(tf._transform(1.0, 0.1), match_ci_width(1.0, 0.1, np.log))
-        # pyre-fixme[6]: For 1st param expected `ndarray` but got `float`.
-        # pyre-fixme[6]: For 2nd param expected `ndarray` but got `float`.
-        self.assertEqual(tf._untransform(0.0, 0.1), match_ci_width(0.0, 0.1, np.exp))
+        self.assertEqual(
+            tf._transform(np.array(1.0), np.array(0.1)),
+            match_ci_width(
+                mean=np.array(1.0), sem=None, variance=np.array(0.1), transform=np.log
+            ),
+        )
+        self.assertEqual(
+            tf._untransform(np.array(0.0), np.array(0.1)),
+            match_ci_width(
+                mean=np.array(0.0), sem=None, variance=np.array(0.1), transform=np.exp
+            ),
+        )
 
     def test_TransformObservations(self) -> None:
         obsd_with_noise = ObservationData(
@@ -110,8 +116,6 @@ class LogYTransformTest(TestCase):
                 tf_obsd[0].covariance, obsd_without_noise.covariance, equal_nan=True
             )
         )
-
-        # TODO: match_ci_width test
 
     def test_TransformOptimizationConfig(self) -> None:
         # basic test
