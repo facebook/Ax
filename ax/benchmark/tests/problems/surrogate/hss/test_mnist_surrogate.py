@@ -5,11 +5,10 @@
 
 # pyre-strict
 
+
 from ax.benchmark.problems.surrogate.hss.mnist_surrogate import (
     get_mnist_surrogate_benchmark,
-    MNISTSurrogate,
 )
-
 from ax.utils.common.testutils import TestCase
 
 
@@ -50,14 +49,9 @@ class TestMNISTSurrogate(TestCase):
             ),
         ]
 
-        test_function = MNISTSurrogate(outcome_names=["dummy name"])
         benchmark = get_mnist_surrogate_benchmark(num_trials=1)
 
         for params, target_value in cases:
-            self.assertAlmostEqual(
-                test_function.evaluate_true(params).item(),
-                target_value,
-            )
             self.assertAlmostEqual(
                 benchmark.test_function.evaluate_true(params).item(),
                 target_value,
@@ -69,6 +63,6 @@ class TestMNISTSurrogate(TestCase):
         objective = benchmark.optimization_config.objective
         metric = objective.metric
 
-        self.assertEqual(metric.name, "MNISTSurrogate")
+        self.assertEqual(metric.name, "MNIST Test Accuracy")
         self.assertFalse(objective.minimize)
         self.assertFalse(metric.lower_is_better)
