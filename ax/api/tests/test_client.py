@@ -988,6 +988,62 @@ class TestClient(TestCase):
         )
         pd.testing.assert_frame_equal(summary_df_single, expected_single)
 
+        # Test with trial_status parameter
+        summary_df_completed = client.summarize(trial_status=["completed"])
+        expected_completed = pd.DataFrame(
+            {
+                "trial_index": {0: 1},
+                "arm_name": {0: "1_0"},
+                "trial_status": {0: "COMPLETED"},
+                "generation_node": {0: "CenterOfSearchSpace"},
+                "foo": {0: 1.0},
+                "bar": {0: 2.0},
+                "x1": {0: trial_1_parameters["x1"]},
+                "x2": {0: trial_1_parameters["x2"]},
+            }
+        )
+        pd.testing.assert_frame_equal(summary_df_completed, expected_completed)
+
+        # Test with trial_status parameter for running trials
+        summary_df_running = client.summarize(trial_status=["running"])
+        expected_running = pd.DataFrame(
+            {
+                "trial_index": {0: 0},
+                "arm_name": {0: "manual"},
+                "trial_status": {0: "RUNNING"},
+                "foo": {0: 0.0},
+                "bar": {0: 0.5},
+                "x1": {0: trial_0_parameters["x1"]},
+                "x2": {0: trial_0_parameters["x2"]},
+            }
+        )
+
+        assert summary_df_running.equals(expected_running)
+
+        # Test with multiple trial_status values
+        summary_df_multi_status = client.summarize(
+            trial_status=["completed", "running"]
+        )
+        expected_multi_status = pd.DataFrame(
+            {
+                "trial_index": {0: 0, 1: 1},
+                "arm_name": {0: "manual", 1: "1_0"},
+                "trial_status": {0: "RUNNING", 1: "COMPLETED"},
+                "generation_node": {0: None, 1: "CenterOfSearchSpace"},
+                "foo": {0: 0.0, 1: 1.0},
+                "bar": {0: 0.5, 1: 2.0},
+                "x1": {
+                    0: trial_0_parameters["x1"],
+                    1: trial_1_parameters["x1"],
+                },
+                "x2": {
+                    0: trial_0_parameters["x2"],
+                    1: trial_1_parameters["x2"],
+                },
+            }
+        )
+        self.assertTrue(summary_df_multi_status.equals(expected_multi_status))
+
     def test_compute_analyses(self) -> None:
         client = Client()
 

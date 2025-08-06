@@ -6,13 +6,14 @@
 # pyre-strict
 
 
-from typing import Iterable
+from typing import Iterable, Sequence
 
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
@@ -42,10 +43,12 @@ class Summary(Analysis):
     def __init__(
         self,
         trial_indices: Iterable[int] | None = None,
+        trial_status: Sequence[TrialStatus] | None = None,
         omit_empty_columns: bool = True,
     ) -> None:
-        self.omit_empty_columns = omit_empty_columns
         self.trial_indices = trial_indices
+        self.trial_status = trial_status
+        self.omit_empty_columns = omit_empty_columns
 
     @override
     def compute(
@@ -66,5 +69,6 @@ class Summary(Analysis):
             df=experiment.to_df(
                 trial_indices=self.trial_indices,
                 omit_empty_columns=self.omit_empty_columns,
+                trial_status=self.trial_status,
             ),
         )

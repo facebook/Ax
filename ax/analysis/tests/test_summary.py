@@ -10,6 +10,7 @@ import pandas as pd
 from ax.analysis.summary import Summary
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
+from ax.core.base_trial import TrialStatus
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
@@ -170,3 +171,57 @@ class TestSummary(TestCase):
         # Test that changes to the experiment are reflected in the summary
         client.get_next_trials(max_trials=1)
         client.complete_trial(trial_index=1, raw_data={"foo": 2.0})
+
+    def test_trial_status_filter(self) -> None:
+        """Test that Summary correctly filters by trial_status."""
+        client = Client()
+        client.configure_experiment(
+            name="test_experiment",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
+        )
+        client.configure_optimization(objective="foo")
+
+        # Create trials with different statuses
+        client.get_next_trials(max_trials=1)
+        client.complete_trial(trial_index=0, raw_data={"foo": 1.0})
+
+        client.get_next_trials(max_trials=1)
+        client.mark_trial_failed(trial_index=1)
+
+        client.get_next_trials(max_trials=1)
+        # Trial 2 remains in RUNNING state
+
+        # Test filtering by completed status
+        analysis = Summary(trial_status=[TrialStatus.COMPLETED])
+        experiment = client._experiment
+        card = analysis.compute(experiment=experiment)
+        self.assertEqual(len(card.df), 1)
+        self.assertEqual(card.df["trial_index"].iloc[0], 0)
+        self.assertEqual(card.df["trial_status"].iloc[0], "COMPLETED")
+
+        # Test filtering by failed status
+        analysis = Summary(trial_status=[TrialStatus.FAILED])
+        card = analysis.compute(experiment=experiment)
+        self.assertEqual(len(card.df), 1)
+        self.assertEqual(card.df["trial_index"].iloc[0], 1)
+        self.assertEqual(card.df["trial_status"].iloc[0], "FAILED")
+
+        # Test filtering by running status
+        analysis = Summary(trial_status=[TrialStatus.RUNNING])
+        card = analysis.compute(experiment=experiment)
+        self.assertEqual(len(card.df), 1)
+        self.assertEqual(card.df["trial_index"].iloc[0], 2)
+        self.assertEqual(card.df["trial_status"].iloc[0], "RUNNING")
+
+        # Test filtering by multiple statuses
+        analysis = Summary(trial_status=[TrialStatus.COMPLETED, TrialStatus.FAILED])
+        card = analysis.compute(experiment=experiment)
+        self.assertEqual(len(card.df), 2)
+        self.assertIn(0, card.df["trial_index"].values)
+        self.assertIn(1, card.df["trial_index"].values)

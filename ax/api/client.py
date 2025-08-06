@@ -696,6 +696,18 @@ class Client(WithDBSettingsBase):
     def summarize(
         self,
         trial_indices: Iterable[int] | None = None,
+        trial_status: Sequence[
+            Literal[
+                "candidate",
+                "running",
+                "failed",
+                "completed",
+                "abandoned",
+                "early_stopped",
+                "staged",
+            ]
+        ]
+        | None = None,
     ) -> pd.DataFrame:
         """
         Special convenience method for producing the ``DataFrame`` produced by the
@@ -717,8 +729,16 @@ class Client(WithDBSettingsBase):
             - **METRIC_NAME: The observed mean of the metric specified, for each metric
             - **PARAMETER_NAME: The parameter value for the arm, for each parameter
         """
+        # Convert string literals to TrialStatus enum values
+        enum_trial_status = None
+        if trial_status is not None:
+            enum_trial_status = [TrialStatus[status.upper()] for status in trial_status]
 
-        card = Summary(trial_indices=trial_indices, omit_empty_columns=True).compute(
+        card = Summary(
+            trial_indices=trial_indices,
+            trial_status=enum_trial_status,
+            omit_empty_columns=True,
+        ).compute(
             experiment=self._experiment,
             generation_strategy=self._maybe_generation_strategy,
         )
