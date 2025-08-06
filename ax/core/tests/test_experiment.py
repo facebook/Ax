@@ -1376,6 +1376,22 @@ class ExperimentTest(TestCase):
             ],
         )
 
+        # Test the trial_indices parameter
+        df_filtered = experiment.to_df(trial_indices=[0, 1])
+        expected_filtered_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [0, 1],
+                "arm_name": ["0_0", "1_0"],
+                "trial_status": ["COMPLETED", "COMPLETED"],
+                "name": ["0", "1"],  # the metadata
+                "m1": [1.0, 3.0],
+                "m2": [2.0, 4.0],
+                "x": xs[:2],
+                "y": ys[:2],
+            }
+        )
+        self.assertTrue(df_filtered.equals(expected_filtered_df))
+
 
 class ExperimentWithMapDataTest(TestCase):
     def setUp(self) -> None:

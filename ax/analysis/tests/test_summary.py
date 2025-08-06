@@ -138,3 +138,35 @@ class TestSummary(TestCase):
 
             for experiment in get_offline_experiments():
                 _ = analysis.compute(experiment=experiment)
+
+    def test_trial_indices_filter(self) -> None:
+        """Test that Client.summarize correctly uses Summary."""
+        client = Client()
+        client.configure_experiment(
+            name="test_experiment",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+                RangeParameterConfig(
+                    name="x2",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
+        )
+        client.configure_optimization(objective="foo")
+
+        # Get a trial
+        client.get_next_trials(max_trials=1)
+        client.complete_trial(trial_index=0, raw_data={"foo": 1.0})
+
+        # Test summarize with trial_indices
+        df_filtered = client.summarize(trial_indices=[0])
+        self.assertEqual(len(df_filtered), 1)
+
+        # Test that changes to the experiment are reflected in the summary
+        client.get_next_trials(max_trials=1)
+        client.complete_trial(trial_index=1, raw_data={"foo": 2.0})

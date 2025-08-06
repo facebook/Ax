@@ -949,6 +949,45 @@ class TestClient(TestCase):
         )
         pd.testing.assert_frame_equal(summary_df, expected)
 
+        # Test with trial_indices parameter
+        # Only include trials 0 and 1
+        summary_df_filtered = client.summarize(trial_indices=[0, 1])
+        expected_filtered = pd.DataFrame(
+            {
+                "trial_index": {0: 0, 1: 1},
+                "arm_name": {0: "manual", 1: "1_0"},
+                "trial_status": {0: "RUNNING", 1: "COMPLETED"},
+                "generation_node": {0: None, 1: "CenterOfSearchSpace"},
+                "foo": {0: 0.0, 1: 1.0},
+                "bar": {0: 0.5, 1: 2.0},
+                "x1": {
+                    0: trial_0_parameters["x1"],
+                    1: trial_1_parameters["x1"],
+                },
+                "x2": {
+                    0: trial_0_parameters["x2"],
+                    1: trial_1_parameters["x2"],
+                },
+            }
+        )
+        pd.testing.assert_frame_equal(summary_df_filtered, expected_filtered)
+
+        # Test with only one trial index
+        summary_df_single = client.summarize(trial_indices=[1])
+        expected_single = pd.DataFrame(
+            {
+                "trial_index": {0: 1},
+                "arm_name": {0: "1_0"},
+                "trial_status": {0: "COMPLETED"},
+                "generation_node": {0: "CenterOfSearchSpace"},
+                "foo": {0: 1.0},
+                "bar": {0: 2.0},
+                "x1": {0: trial_1_parameters["x1"]},
+                "x2": {0: trial_1_parameters["x2"]},
+            }
+        )
+        pd.testing.assert_frame_equal(summary_df_single, expected_single)
+
     def test_compute_analyses(self) -> None:
         client = Client()
 

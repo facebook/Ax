@@ -6,7 +6,7 @@
 # pyre-strict
 
 import json
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from logging import Logger
 from typing import Any, Literal
 
@@ -693,7 +693,10 @@ class Client(WithDBSettingsBase):
 
         return cards
 
-    def summarize(self) -> pd.DataFrame:
+    def summarize(
+        self,
+        trial_indices: Iterable[int] | None = None,
+    ) -> pd.DataFrame:
         """
         Special convenience method for producing the ``DataFrame`` produced by the
         ``Summary`` ``Analysis``. This method is a convenient way to inspect the state
@@ -715,7 +718,7 @@ class Client(WithDBSettingsBase):
             - **PARAMETER_NAME: The parameter value for the arm, for each parameter
         """
 
-        card = Summary(omit_empty_columns=True).compute(
+        card = Summary(trial_indices=trial_indices, omit_empty_columns=True).compute(
             experiment=self._experiment,
             generation_strategy=self._maybe_generation_strategy,
         )
