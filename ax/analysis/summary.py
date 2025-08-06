@@ -6,6 +6,8 @@
 # pyre-strict
 
 
+from typing import Iterable
+
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
@@ -32,10 +34,18 @@ class Summary(Analysis):
             Experiment's runner.run_metadata_report_keys field
         - **METRIC_NAME: The observed mean of the metric specified, for each metric
         - **PARAMETER_NAME: The parameter value for the arm, for each parameter
+     Args:
+        trial_indices: If specified, only include these trial indices.
+        omit_empty_columns: If True, omit columns where every value is None.
     """
 
-    def __init__(self, omit_empty_columns: bool = True) -> None:
+    def __init__(
+        self,
+        trial_indices: Iterable[int] | None = None,
+        omit_empty_columns: bool = True,
+    ) -> None:
         self.omit_empty_columns = omit_empty_columns
+        self.trial_indices = trial_indices
 
     @override
     def compute(
@@ -53,5 +63,8 @@ class Summary(Analysis):
                 f"{experiment.name if experiment.has_name else 'Experiment'}"
             ),
             subtitle="High-level summary of the `Trial`-s in this `Experiment`",
-            df=experiment.to_df(omit_empty_columns=self.omit_empty_columns),
+            df=experiment.to_df(
+                trial_indices=self.trial_indices,
+                omit_empty_columns=self.omit_empty_columns,
+            ),
         )

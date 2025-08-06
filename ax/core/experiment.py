@@ -1934,7 +1934,11 @@ class Experiment(Base):
         ]
         return df
 
-    def to_df(self, omit_empty_columns: bool = True) -> pd.DataFrame:
+    def to_df(
+        self,
+        trial_indices: Iterable[int] | None = None,
+        omit_empty_columns: bool = True,
+    ) -> pd.DataFrame:
         """
         High-level summary of the Experiment with one row per arm. Any values missing at
         compute time will be represented as None. Columns where every value is None will
@@ -1950,18 +1954,29 @@ class Experiment(Base):
                 Experiment's runner.run_metadata_report_keys field
             - **METRIC_NAME: The observed mean of the metric specified, for each metric
             - **PARAMETER_NAME: The parameter value for the arm, for each parameter
+
+        Args:
+            trial_indices: If specified, only include these trial indices.
+            omit_empty_columns: If True, omit columns where every value is None.
         """
 
         records = []
-        data_df = self.lookup_data().df
-        for index, trial in self.trials.items():
+        data_df = self.lookup_data(trial_indices=trial_indices).df
+        trials = (
+            self.get_trials_by_indices(trial_indices=trial_indices)
+            if trial_indices
+            else self.trials.values()
+        )
+        # Iterate through trials, and for each trial, iterate through its arms
+        # and add a record for each arm.
+        for trial in trials:
             for arm in trial.arms:
                 # Find the observed means for each metric, placing None if not found
                 observed_means = {}
                 for metric in self.metrics.keys():
                     try:
                         observed_means[metric] = data_df[
-                            (data_df["trial_index"] == index)
+                            (data_df["trial_index"] == trial.index)
                             & (data_df["arm_name"] == arm.name)
                             & (data_df["metric_name"] == metric)
                         ]["mean"].item()
@@ -1989,7 +2004,7 @@ class Experiment(Base):
 
                 # Construct the record
                 record = {
-                    "trial_index": index,
+                    "trial_index": trial.index,
                     "arm_name": arm.name,
                     "trial_status": trial.status.name,
                     "fail_reason": trial.run_metadata.get("fail_reason", None),
