@@ -315,19 +315,13 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(should_stop, {})
 
     def test_percentile_early_stopping_strategy(self) -> None:
-        with patch.object(
-            logger,
-            "warning",
-        ) as logger_mock:
+        with patch.object(logger, "debug") as logger_mock:
             self._test_percentile_early_stopping_strategy(
                 logger_mock=logger_mock, non_objective_metric=False
             )
 
     def test_percentile_early_stopping_strategy_non_objective_metric(self) -> None:
-        with patch.object(
-            logger,
-            "warning",
-        ) as logger_mock:
+        with patch.object(logger, "debug") as logger_mock:
             self._test_percentile_early_stopping_strategy(
                 logger_mock=logger_mock, non_objective_metric=True
             )

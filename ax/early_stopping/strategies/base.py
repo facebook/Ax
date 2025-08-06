@@ -356,7 +356,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         each objective in the experiment or in `self.metric_names`, if specified.
         """
         if self.metric_names is None:
-            logger.warning(
+            logger.debug(
                 "No metric names specified. Defaulting to the objective metric(s).",
                 stacklevel=2,
             )
