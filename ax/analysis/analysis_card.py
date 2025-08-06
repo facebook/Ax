@@ -171,11 +171,13 @@ class AnalysisCardBase(SortableBase, ABC):
         such as _body_html_ and _body_papermill_.
         """
 
+        # If in papermill used simplified rendering. This is used for the Ax website.
         if is_running_in_papermill():
             for card in self.flatten():
                 display(Markdown(f"**{card.title}**\n\n{card.subtitle}"))
                 display(card._body_papermill())
-                return
+
+            return
 
         display(HTML(self._repr_html_()))
 
