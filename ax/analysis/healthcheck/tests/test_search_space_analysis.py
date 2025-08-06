@@ -39,11 +39,11 @@ class TestSearchSpaceAnalysis(TestCase):
         self.assertEqual(card.title, "Ax search-space boundary check [Warning]")
         subtitle = SUBTITLE_BASE + (
             "\n - **Relax lower bound of `'x1'`:** Ax is frequently suggesting values "
-            "at the lower bound of `'x1'`. This may indicate that the optimal value of "
-            "this parameter is outside this bound, in which case decreasing this lower "
-            "bound would improve optimization performance. Details: 66.67% of "
-            "suggested arms are on the parameter's lower bound (threshold for "
-            "this alert is 50.00%)."
+            "at the lower bound of `'x1'`, `x1 = -5.0`. This may indicate that the "
+            "optimal value of this parameter is outside this bound, in which case "
+            "decreasing this lower bound would improve optimization performance. "
+            "Details: 66.67% of suggested arms are on the parameter's lower bound "
+            "(threshold for this alert is 50.00%)."
         )
         self.assertEqual(card.subtitle, subtitle)
 
