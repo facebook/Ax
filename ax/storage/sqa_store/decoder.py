@@ -1119,16 +1119,12 @@ class Decoder:
             # Sort children by index
             children = [card for _order, card in sorted(index_to_child_card.items())]
 
-            # Title and subtitle may sometimes be None due to legacy format, safely
-            # load them regardless.
+            # Convert None value of title to empty string to ensure compatibility with
+            # AnalysisCardGroup constructor. Subtitle can be None.
             title = (
                 analysis_card_sqa.title if analysis_card_sqa.title is not None else ""
             )
-            subtitle = (
-                analysis_card_sqa.subtitle
-                if analysis_card_sqa.subtitle is not None
-                else ""
-            )
+            subtitle = analysis_card_sqa.subtitle
 
             return AnalysisCardGroup(
                 name=analysis_card_sqa.name,

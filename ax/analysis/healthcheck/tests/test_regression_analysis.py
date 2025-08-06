@@ -37,7 +37,8 @@ class TestRegressionAnalysis(TestCase):
         self.assertEqual(card.name, "RegressionAnalysis")
         self.assertEqual(card.title, "Ax Regression Analysis Warning")
         self.assertTrue(
-            "0_4" in card.subtitle
+            card.subtitle is not None
+            and "0_4" in card.subtitle
             and "branin_b" in card.subtitle
             and "Trial 0" in card.subtitle
         )

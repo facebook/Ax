@@ -126,7 +126,7 @@ class Analysis(Protocol):
     def _create_analysis_card_group(
         self,
         title: str,
-        subtitle: str,
+        subtitle: str | None,
         children: Sequence[AnalysisCardBase],
     ) -> AnalysisCardGroup:
         """
@@ -136,7 +136,7 @@ class Analysis(Protocol):
         return AnalysisCardGroup(
             name=self.__class__.__name__,
             title=title,
-            subtitle=subtitle,
+            subtitle=subtitle if subtitle is not None else "",
             children=children,
         )
 

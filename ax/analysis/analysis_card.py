@@ -232,7 +232,7 @@ class AnalysisCardGroup(AnalysisCardBase):
         self,
         name: str,
         title: str,
-        subtitle: str,
+        subtitle: str | None,
         children: Sequence[AnalysisCardBase],
         timestamp: datetime | None = None,
     ) -> None:
@@ -251,7 +251,7 @@ class AnalysisCardGroup(AnalysisCardBase):
         super().__init__(
             name=name,
             title=title,
-            subtitle=subtitle,
+            subtitle=subtitle if subtitle is not None else "",
             timestamp=timestamp,
         )
 

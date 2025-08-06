@@ -75,7 +75,7 @@ class TestTestOfNoEffectAnalysis(TestCase):
         self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
         self.assertEqual(card.name, "TestOfNoEffectAnalysis")
         self.assertEqual(card.title, "Ax Test of No Effect Warning")
-        self.assertIn("no effects have been detected", card.subtitle)
+        self.assertIn("no effects have been detected", card.subtitle or "")
 
     def test_raises_error_with_no_experiment(self) -> None:
         # GIVEN no experiment is provided
@@ -119,5 +119,5 @@ class TestTestOfNoEffectAnalysis(TestCase):
         card = self.tone.compute(experiment=self.moo_experiment)
         # THEN it warns about one of the metrics
         self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
-        self.assertIn("branin_a", card.subtitle)
-        self.assertNotIn("branin_b", card.subtitle)
+        self.assertIn("branin_a", card.subtitle or "")
+        self.assertNotIn("branin_b", card.subtitle or "")
