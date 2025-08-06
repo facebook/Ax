@@ -9,16 +9,28 @@ from typing import Literal
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardGroup
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
+from ax.analysis.analysis_card import (
+    AnalysisCard,
+    AnalysisCardBase,
+    AnalysisCardGroup,
+    ErrorAnalysisCard,
+)
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
-from ax.analysis.plotly.surface.contour import ContourPlot
-from ax.analysis.plotly.surface.slice import SlicePlot
+from ax.analysis.plotly.surface.contour import (
+    CONTOUR_CARDGROUP_SUBTITLE,
+    CONTOUR_CARDGROUP_TITLE,
+    ContourPlot,
+)
+from ax.analysis.plotly.surface.slice import (
+    SLICE_CARDGROUP_SUBTITLE,
+    SLICE_CARDGROUP_TITLE,
+    SlicePlot,
+)
 from ax.analysis.plotly.utils import select_metric
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from pyre_extensions import override
+from pyre_extensions import assert_is_instance, override
 
 TS_CARDGROUP_TITLE = (
     "Top Surfaces Analysis: Parameter sensitivity, slice, and contour plots"
@@ -67,19 +79,19 @@ class TopSurfacesAnalysis(Analysis):
         # Process the sensitivity analysis card to find the top K surfaces which
         # consist exclusively of tunable parameters (i.e. no fixed parameters, task
         # parameters, or OneHot parameters).
-        (sensitivity_analysis_card,) = (
+        sensitivity_analysis_card = assert_is_instance(
             SensitivityAnalysisPlot(
                 metric_names=[metric_name],
                 order=self.order,
                 top_k=self.top_k,
-            )
-            .compute(
+            ).compute(
                 experiment=experiment,
                 generation_strategy=generation_strategy,
                 adapter=adapter,
-            )
-            .flatten()
+            ),
+            AnalysisCard,
         )
+        children: list[AnalysisCardBase] = [sensitivity_analysis_card]
 
         sensitivity_df = sensitivity_analysis_card.df.copy()
         filtered_df = sensitivity_df[
@@ -94,7 +106,7 @@ class TopSurfacesAnalysis(Analysis):
         top_k = sorted_df.head(self.top_k)
         top_surfaces = top_k["parameter_name"].to_list()
 
-        surface_cards = [
+        surface_cards_or_error = [
             _compute_surface_plot(
                 surface_name=surface_name,
                 metric_name=metric_name,
@@ -106,12 +118,47 @@ class TopSurfacesAnalysis(Analysis):
             for surface_name in top_surfaces
         ]
 
-        slice_cards = [card for card in surface_cards if card.name == "SlicePlot"]
-        contour_cards = [card for card in surface_cards if card.name == "ContourPlot"]
+        # Filter out any ErrorAnalysisCards (i.e. failed to compute). When these
+        # occur their presence will be logged by compute_or_error_card in
+        # _compute_surface_plot so it's safe to filter them here
+        surface_cards = [
+            card
+            for card in surface_cards_or_error
+            if not isinstance(card, ErrorAnalysisCard)
+        ]
 
-        children = [sensitivity_analysis_card]
-        children.extend(slice_cards)
-        children.extend(contour_cards)
+        slice_cards = [
+            assert_is_instance(card, AnalysisCard)
+            for card in surface_cards
+            if card.name == "SlicePlot"
+        ]
+
+        if len(slice_cards) > 0:
+            children.append(
+                AnalysisCardGroup(
+                    name="TopSurfaceAnalysisSlicePlots",
+                    title=SLICE_CARDGROUP_TITLE,
+                    subtitle=SLICE_CARDGROUP_SUBTITLE,
+                    children=slice_cards,
+                )
+            )
+
+        contour_cards = [
+            assert_is_instance(card, AnalysisCard)
+            for card in surface_cards
+            if card.name == "ContourPlot"
+        ]
+
+        if len(contour_cards) > 0:
+            children.append(
+                AnalysisCardGroup(
+                    name="TopSurfaceAnalysisContourPlots",
+                    title=CONTOUR_CARDGROUP_TITLE,
+                    subtitle=CONTOUR_CARDGROUP_SUBTITLE,
+                    children=contour_cards,
+                )
+            )
+
         return self._create_analysis_card_group(
             title=TS_CARDGROUP_TITLE,
             subtitle=TS_CARDGROUP_SUBTITLE,
@@ -126,7 +173,7 @@ def _compute_surface_plot(
     generation_strategy: GenerationStrategy | None,
     adapter: Adapter | None,
     relativize: bool = False,
-) -> PlotlyAnalysisCard:
+) -> AnalysisCardBase:
     """Computes either a Slice or Contour plot for a given surface.
     Args:
         surface_name: The name of the parameter to plot. Either a single parameter or
@@ -154,7 +201,7 @@ def _compute_surface_plot(
             parameter_name=surface_name, metric_name=metric_name, relativize=relativize
         )
 
-    return analysis.compute(
+    return analysis.compute_or_error_card(
         experiment=experiment,
         generation_strategy=generation_strategy,
         adapter=adapter,

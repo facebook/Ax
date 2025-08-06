@@ -75,20 +75,31 @@ class TestTopSurfacesAnalysis(TestCase):
 
         second = TopSurfacesAnalysis(metric_name="bar", order="second")
 
-        with_contours = second.compute(
+        second_card_group = second.compute(
             experiment=client._experiment,
             generation_strategy=client._generation_strategy,
-        ).flatten()
+        )
 
-        self.assertEqual(len(with_contours), 4)
+        self.assertEqual(
+            {card.name for card in second_card_group.children},
+            {
+                "TopSurfaceAnalysisSlicePlots",
+                "TopSurfaceAnalysisContourPlots",
+                "SensitivityAnalysisPlot",
+            },
+        )
+
+        with_surfaces = second_card_group.flatten()
+
+        self.assertEqual(len(with_surfaces), 4)
 
         # First card should be the sensitivity analysis.
-        self.assertEqual(with_contours[0].title, "Sensitivity Analysis for bar")
+        self.assertEqual(with_surfaces[0].title, "Sensitivity Analysis for bar")
 
         # Other cards should be slices or contours.
-        self.assertIn("vs. bar", with_contours[1].title)
-        self.assertIn("vs. bar", with_contours[2].title)
-        self.assertIn("vs. bar", with_contours[3].title)
+        self.assertIn("vs. bar", with_surfaces[1].title)
+        self.assertIn("vs. bar", with_surfaces[2].title)
+        self.assertIn("vs. bar", with_surfaces[3].title)
 
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
