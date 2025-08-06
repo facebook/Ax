@@ -240,17 +240,17 @@ def boundary_proportions_message(
             parameter = row["parameter_or_constraint"]
             bound = row["bound"]
             prop = row["proportion"]
+            boundary = row["boundary"]
             if prop >= boundary_proportion_threshold:
                 change_dir = "decreasing" if bound == "lower" else "increasing"
                 msg += (
                     f"\n - **Relax {bound} bound of `{parameter.name!r}`:** Ax is "
                     f"frequently suggesting values at the {bound} bound of "
-                    f"`{parameter.name!r}`. This may indicate that the optimal value "
-                    f"of this parameter is outside this bound, in which case "
-                    f"{change_dir} this {bound} bound would improve optimization "
-                    f"performance. Details: {prop * 100:.2f}% of "
-                    f"suggested arms are on the parameter's "
-                    f"{bound} bound (threshold for this alert is "
+                    f"`{parameter.name!r}`, `{boundary}`. This may indicate that the "
+                    f"optimal value of this parameter is outside this bound, in which "
+                    f"case {change_dir} this {bound} bound would improve optimization "
+                    f"performance. Details: {prop * 100:.2f}% of suggested arms are on "
+                    f"the parameter's {bound} bound (threshold for this alert is "
                     f"{boundary_proportion_threshold * 100:.2f}%)."
                 )
         elif isinstance(row["parameter_or_constraint"], ParameterConstraint):
