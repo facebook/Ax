@@ -297,7 +297,7 @@ class ArmEffectsPair(Analysis):
             pair = AnalysisCardGroup(
                 name=f"ArmEffects Pair {metric_name}",
                 title=f"Metric Effects Pair for {metric_name}",
-                subtitle="",
+                subtitle=None,
                 children=[
                     predicted_analysis.compute_or_error_card(
                         experiment=experiment,

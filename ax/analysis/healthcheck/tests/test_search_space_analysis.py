@@ -71,7 +71,7 @@ class TestSearchSpaceAnalysis(TestCase):
         card = ssa.compute(experiment=experiment)
         self.assertEqual(card.name, "SearchSpaceAnalysis")
         self.assertEqual(card.title, "Ax search-space boundary check [Warning]")
-        self.assertTrue("x1" in card.subtitle)
+        self.assertTrue(card.subtitle is not None and "x1" in card.subtitle)
 
     def test_search_space_boundary_proportions(self) -> None:
         ss = SearchSpace(
