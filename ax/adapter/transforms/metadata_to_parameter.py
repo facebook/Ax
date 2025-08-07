@@ -74,9 +74,8 @@ class MetadataToParameterMixin:
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
         arm_data = experiment_data.arm_data
-        metadata = arm_data["metadata"]
         for name in self.parameters:
-            arm_data[name] = metadata.apply(lambda x: x.pop(name))  # noqa B023
+            arm_data[name] = [md.get(name) for md in arm_data["metadata"]]
         return ExperimentData(
             arm_data=arm_data,
             observation_data=experiment_data.observation_data,

@@ -169,13 +169,10 @@ class MetadataToFloatTransformTest(TestCase):
             3.0 * s for steps in STEPS_ENDS for s in range(1, steps + 1)
         ]
         self.assertEqual(transformed_data.arm_data["bar"].tolist(), expected_bar_values)
-        # Metadata has been updated to remove the transform parameter.
-        for m in transformed_data.arm_data["metadata"]:
-            self.assertNotIn("bar", m)
         # Remaining columns are unchanged.
         assert_frame_equal(
-            transformed_data.arm_data.drop(columns=["bar", "metadata"]),
-            self.experiment_data.arm_data.drop(columns=["metadata"]),
+            transformed_data.arm_data.drop(columns=["bar"]),
+            self.experiment_data.arm_data,
         )
         # Observation data is not changed.
         assert_frame_equal(
