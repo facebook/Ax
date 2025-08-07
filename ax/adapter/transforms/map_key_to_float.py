@@ -18,6 +18,7 @@ from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.core.utils import extract_map_keys_from_opt_config
 from ax.generators.types import TConfig
+from pandas import Index, MultiIndex
 from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
@@ -116,11 +117,49 @@ class MapKeyToFloat(MetadataToFloat):
     def transform_experiment_data(
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
-        """No-op transform for experiment data.
+        """Transform experiment data by replacing NaN/null values
+        in the corresponding index of observation_data with the upper bound
+        of the parameter.
 
-        This operates based on the assumption that the relevant map keys already
-        exist on the index of the observation data (verified in __init__),
-        and the downstream code will extract the map keys from there directly.
-        We do not need to duplicate the map keys in the arm data.
+        This reproduces the behavior of `_transform_observation_feature` when
+        the parameter is missing in the observation features.
+
+        In contrast with other transforms that extract features from various
+        metadata, this transform does not add a new column to arm_data. Instead,
+        the parameter values are directly extracted from the index of the
+        observation data, as long as the parameter is added to the search space.
         """
-        return experiment_data
+        if not self._parameter_list:
+            return experiment_data
+
+        observation_data = experiment_data.observation_data
+
+        # Create a mapping of parameter names to their upper bounds for quick lookup
+        param_upper_bounds = {p.name: p.upper for p in self._parameter_list}
+
+        # Build new index arrays, filling NaN values where needed.
+        new_levels: list[Index] = []
+        index_needs_update = False
+
+        for level_name in observation_data.index.names:
+            level_values = observation_data.index.get_level_values(level_name)
+
+            if level_name in param_upper_bounds and level_values.isna().any():
+                # Replace NaN/null values with the parameter's upper bound.
+                filled_values = level_values.fillna(param_upper_bounds[level_name])
+                new_levels.append(filled_values)
+                index_needs_update = True
+            else:
+                # Keep original level values.
+                new_levels.append(level_values)
+
+        # Update the index only if any levels needed updating.
+        if index_needs_update:
+            observation_data.index = MultiIndex.from_arrays(
+                new_levels, names=observation_data.index.names
+            )
+
+        return ExperimentData(
+            arm_data=experiment_data.arm_data,
+            observation_data=observation_data,
+        )
