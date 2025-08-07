@@ -302,13 +302,9 @@ class BoTorchGenerator(TorchGenerator, Base):
             expected_acquisition_value=expected_acquisition_value,
         )
         # log what model was used
-        metric_to_model_config_name = {
-            metric_name: model_config.name or str(model_config)
-            for metric_name, model_config in (
-                self.surrogate.metric_to_best_model_config.items()
-            )
-        }
-        gen_metadata["metric_to_model_config_name"] = metric_to_model_config_name
+        gen_metadata["metric_to_model_config_name"] = (
+            self.surrogate.model_name_by_metric
+        )
         return TorchGenResults(
             points=candidates.detach().cpu(),
             weights=weights,
