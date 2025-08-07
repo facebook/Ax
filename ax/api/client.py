@@ -1045,7 +1045,6 @@ class Client(WithDBSettingsBase):
         allow_exceeding_initialization_budget: bool = False,
         # Misc options
         torch_device: str | None = None,
-        _is_quickBO: bool = False,
     ) -> GenerationStrategy:
         """
         Choose a generation strategy based on the provided method and options.
@@ -1069,7 +1068,6 @@ class Client(WithDBSettingsBase):
                 initialization budget if more trials are needed.
             torch_device: The torch device to use for model fitting. If None, will
                 use the default device.
-            _is_quickbo: Internal parameter for QuickBO mode.
 
         Returns:
             A GenerationStrategy instance configured according to the specified options.
