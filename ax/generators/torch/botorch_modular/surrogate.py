@@ -472,7 +472,8 @@ class Surrogate(Base):
         self.refit_on_cv = refit_on_cv
         self.warm_start_refit = warm_start_refit
         # Updated during model selection
-        self._model_config_to_eval: dict[str, dict[str, float]] = {}
+        self._model_name_to_eval: dict[str, dict[str, float]] = {}
+        self._model_name_to_model: dict[str, dict[str, Model]] = {}
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}" f" surrogate_spec={self.surrogate_spec}>"
@@ -802,7 +803,9 @@ class Surrogate(Base):
         best_eval_metric = float(f"{prefix}inf")
         best_model = None
         best_model_config = None
-        self._model_config_to_eval: dict[str, dict[str, float]] = {}
+        outcome_name = dataset.outcome_names[0]
+        self._model_name_to_eval[outcome_name] = {}
+        self._model_name_to_model[outcome_name] = {}
         for model_config in model_configs:
             # fit model to all data
             try:
@@ -835,9 +838,10 @@ class Surrogate(Base):
                     f"Model {model_config} failed to fit with error {e}. Skipping."
                 )
                 continue
-            self._model_config_to_eval[model_config.identifier] = {
-                self.surrogate_spec.eval_criterion: eval_metric
-            }
+            self._model_name_to_eval[outcome_name][model_config.identifier] = (
+                eval_metric
+            )
+            self._model_name_to_model[outcome_name][model_config.identifier] = model
             if maximize ^ (eval_metric < best_eval_metric):
                 best_eval_metric = eval_metric
                 best_model = model
@@ -1109,6 +1113,68 @@ class Surrogate(Base):
             metric_name: model_config.identifier
             for metric_name, model_config in (self.metric_to_best_model_config.items())
         }
+
+    def models_for_gen(self, n: int) -> tuple[list[dict[str, str]], list[Model]]:
+        """For each metric, draw `n` samples of models to use for generating `n`
+        candidates.
+
+        This method samples which models to use proportional to their model
+        selection eval criterion value. Sampling is made scale-free with
+        respect to the eval criterion by scaling with respect to the minimum
+        value across models. This means the model with worst eval criterion
+        will never be sampled, and other models will be sampled proportional
+        to the amount of the gap to best value they are able to capture. This
+        also means that sampling requires at least 3 models, and if fitting
+        here used less than 3, the default self.model will be returned. In that
+        case, the method will return a list with just the 1 model and not n.
+
+        The output length will thus be either 1 or n, depending on if the method
+        was successful in sampling n models or not.
+
+        Args:
+            n: The number of models to return.
+
+        Returns:
+            model_names: A list of the model_name_by_metric dict used for each
+                candidate.
+            models: A list of the models to be used for each candidate.
+        """
+        if len(self._model_name_to_eval[self.outcomes[0]]) < 3:
+            logger.debug("Less than 3 models, no sampling to do for batch generation.")
+            return [self.model_name_by_metric], [self.model]
+
+        models = []
+        model_names = []
+        maximize = (
+            MODEL_SELECTION_METRIC_DIRECTIONS[self.surrogate_spec.eval_criterion]
+            == ModelFitMetricDirection.MAXIMIZE
+        )
+        for _ in range(n):
+            models_i = []
+            model_names_i = {}
+            for outcome in self.outcomes:
+                w = np.array(list(self._model_name_to_eval[outcome].values()))
+                if not maximize:
+                    w = -w
+                w = w - w.min()
+                if w.max() < 1e-10:
+                    # All eval values are identical within tolerance.
+                    # Uniform sampling.
+                    w = np.ones_like(w)
+                w = w / w.sum()
+                model_name = str(
+                    np.random.choice(
+                        list(self._model_name_to_eval[outcome].keys()), p=w, size=1
+                    )[0]
+                )
+                models_i.append(self._model_name_to_model[outcome][model_name])
+                model_names_i[outcome] = model_name
+            if isinstance(self._model, ModelListGP):
+                models.append(ModelListGP(*models_i))
+            else:
+                models.append(models_i[0])
+            model_names.append(model_names_i)
+        return model_names, models
 
 
 submodel_input_constructor = Dispatcher(
