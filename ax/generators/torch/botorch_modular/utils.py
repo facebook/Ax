@@ -11,6 +11,7 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
+from functools import cached_property
 from logging import Logger
 from typing import Any, cast, Mapping
 
@@ -133,6 +134,11 @@ class ModelConfig:
     likelihood_class: type[Likelihood] | None = None
     likelihood_options: dict[str, Any] = field(default_factory=dict)
     name: str | None = None
+
+    @cached_property
+    def identifier(self) -> str:
+        """Returns a unique identifier for the model config."""
+        return self.name if self.name is not None else str(self)
 
 
 def use_model_list(

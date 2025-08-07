@@ -13,6 +13,7 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
+from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.generators.torch.botorch_modular.utils import (
     _get_shared_rows,
     choose_botorch_acqf_class,
@@ -667,3 +668,30 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertTrue(
             torch.equal(cv_fold.train_dataset.Yvar, Yvar[3:])  # pyre-ignore[6]
         )
+
+    def test_model_config(self) -> None:
+        # Test that model identifier is correctly computed.
+        mc1 = ModelConfig(
+            botorch_model_class=SingleTaskGP,
+            covar_module_class=ScaleMaternKernel,
+            covar_module_options={"ard_num_dims": 1},
+            name="GP",
+        )
+        self.assertEqual(mc1.identifier, "GP")
+        mc2 = ModelConfig(
+            botorch_model_class=SingleTaskGP,
+            covar_module_class=ScaleMaternKernel,
+            covar_module_options={"ard_num_dims": 1},
+        )
+        mc_str = (
+            "ModelConfig("
+            "botorch_model_class=<class 'botorch.models.gp_regression.SingleTaskGP'>, "
+            "model_options={}, mll_class=None, mll_options={}, "
+            "input_transform_classes=<class 'botorch.utils.types.DEFAULT'>, "
+            "input_transform_options={}, outcome_transform_classes=None, "
+            "outcome_transform_options={}, "
+            "covar_module_class=<class 'ax.generators.torch.botorch_modular.kernels."
+            "ScaleMaternKernel'>, covar_module_options={'ard_num_dims': 1}, "
+            "likelihood_class=None, likelihood_options={}, name=None)"
+        )
+        self.assertEqual(mc2.identifier, mc_str)
