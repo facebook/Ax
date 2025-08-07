@@ -62,6 +62,7 @@ class SEBOAcquisition(Acquisition):
             tuple[type[AcquisitionFunction], dict[str, Any]]
         ]
         | None = None,
+        n: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> None:
         tkwargs: dict[str, Any] = {"dtype": surrogate.dtype, "device": surrogate.device}
