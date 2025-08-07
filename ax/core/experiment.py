@@ -12,7 +12,7 @@ import logging
 import re
 import warnings
 from collections import defaultdict, OrderedDict
-from collections.abc import Hashable, Iterable, Mapping
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from datetime import datetime
 from functools import partial, reduce
 from typing import Any, cast, Union
@@ -1937,6 +1937,7 @@ class Experiment(Base):
     def to_df(
         self,
         trial_indices: Iterable[int] | None = None,
+        trial_statuses: Sequence[TrialStatus] | None = None,
         omit_empty_columns: bool = True,
     ) -> pd.DataFrame:
         """
@@ -1958,6 +1959,7 @@ class Experiment(Base):
         Args:
             trial_indices: If specified, only include these trial indices.
             omit_empty_columns: If True, omit columns where every value is None.
+            trial_status: If specified, only include trials with this status.
         """
 
         records = []
@@ -1967,6 +1969,10 @@ class Experiment(Base):
             if trial_indices
             else self.trials.values()
         )
+
+        # Filter trials by status if specified
+        if trial_statuses is not None:
+            trials = [trial for trial in trials if trial.status in trial_statuses]
         # Iterate through trials, and for each trial, iterate through its arms
         # and add a record for each arm.
         for trial in trials:

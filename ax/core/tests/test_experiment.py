@@ -1392,6 +1392,72 @@ class ExperimentTest(TestCase):
         )
         self.assertTrue(df_filtered.equals(expected_filtered_df))
 
+        # Test the trial_status parameter
+        df_status_filtered = experiment.to_df(trial_statuses=[TrialStatus.COMPLETED])
+        expected_status_filtered_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [0, 1],
+                "arm_name": ["0_0", "1_0"],
+                "trial_status": ["COMPLETED", "COMPLETED"],
+                "name": ["0", "1"],  # the metadata
+                "m1": [1.0, 3.0],
+                "m2": [2.0, 4.0],
+                "x": xs[:2],
+                "y": ys[:2],
+            }
+        )
+        self.assertTrue(df_status_filtered.equals(expected_status_filtered_df))
+
+        # Test with both trial_indices and trial_status parameters
+        df_both_filtered = experiment.to_df(
+            trial_indices=[0], trial_statuses=[TrialStatus.COMPLETED]
+        )
+        expected_both_filtered_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [0],
+                "arm_name": ["0_0"],
+                "trial_status": ["COMPLETED"],
+                "name": ["0"],  # the metadata
+                "m1": [1.0],
+                "m2": [2.0],
+                "x": [xs[0]],
+                "y": [ys[0]],
+            }
+        )
+        self.assertTrue(df_both_filtered.equals(expected_both_filtered_df))
+
+        # Test the trial_status parameter
+        # Change the status of trial 2 to RUNNING
+        experiment.trials[2].mark_running(no_runner_required=True)
+
+        # Filter by RUNNING status
+        df_status_filtered = experiment.to_df(trial_statuses=[TrialStatus.RUNNING])
+        expected_status_filtered_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [2],
+                "arm_name": ["0_0"],
+                "trial_status": ["RUNNING"],
+                "x": [xs[2]],
+                "y": [ys[2]],
+            }
+        )
+        self.assertTrue(df_status_filtered.equals(expected_status_filtered_df))
+        # Filter by COMPLETED status
+        df_completed = experiment.to_df(trial_statuses=[TrialStatus.COMPLETED])
+        expected_completed_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [0, 1],
+                "arm_name": ["0_0", "1_0"],
+                "trial_status": ["COMPLETED", "COMPLETED"],
+                "name": ["0", "1"],  # the metadata
+                "m1": [1.0, 3.0],
+                "m2": [2.0, 4.0],
+                "x": xs[:2],
+                "y": ys[:2],
+            }
+        )
+        self.assertTrue(df_completed.equals(expected_completed_df))
+
 
 class ExperimentWithMapDataTest(TestCase):
     def setUp(self) -> None:
