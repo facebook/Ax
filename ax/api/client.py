@@ -728,6 +728,10 @@ class Client(WithDBSettingsBase):
                 Experiment's ``runner.run_metadata_report_keys`` field
             - **METRIC_NAME: The observed mean of the metric specified, for each metric
             - **PARAMETER_NAME: The parameter value for the arm, for each parameter
+
+        Args:
+            trial_indices: If specified, only include these trial indices.
+            trial_status: If specified, only include trials with this status.
         """
         # Convert string literals to TrialStatus enum values
         enum_trial_status = None
