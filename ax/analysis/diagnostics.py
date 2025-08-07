@@ -47,12 +47,10 @@ class DiagnosticAnalysis(Analysis):
             title=DIAGNOSTICS_CARDGROUP_TITLE,
             subtitle=DIAGNOSTICS_CARDGROUP_SUBTITLE,
             children=[
-                *CrossValidationPlot(metric_names=metric_names)
-                .compute_or_error_card(
+                CrossValidationPlot(metric_names=metric_names).compute_or_error_card(
                     experiment=experiment,
                     generation_strategy=generation_strategy,
                     adapter=adapter,
                 )
-                .flatten()
             ],
         )
