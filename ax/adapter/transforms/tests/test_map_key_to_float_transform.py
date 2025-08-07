@@ -40,6 +40,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment_with_timestamp_map_metric
 from botorch.acquisition.logei import qLogExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
+from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -517,10 +518,40 @@ class MapKeyToFloatTransformTest(TestCase):
             experiment=self.experiment,
             data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=False),
         )
-        copy_experiment_data = deepcopy(experiment_data)
         transformed_data = self.t.transform_experiment_data(
-            experiment_data=copy_experiment_data
+            experiment_data=deepcopy(experiment_data)
         )
-        # Check that it is returned unmodified.
-        self.assertIs(copy_experiment_data, transformed_data)
-        self.assertEqual(experiment_data, transformed_data)
+        # Check that arm_data is not modified.
+        assert_frame_equal(experiment_data.arm_data, transformed_data.arm_data)
+        # Since there are no NaNs, observation data is also not modified.
+        assert_frame_equal(
+            experiment_data.observation_data, transformed_data.observation_data
+        )
+        # Test with NaNs.
+        data = self.experiment.lookup_data()
+        data.map_df.loc[0, "timestamp"] = float("nan")
+        experiment_data = extract_experiment_data(
+            experiment=self.experiment,
+            data=data,
+            data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=False),
+        )
+        # Check that the index includes NaN.
+        self.assertTrue(
+            np.array_equal(
+                experiment_data.observation_data.index.get_level_values(
+                    "timestamp"
+                ).to_numpy(),
+                np.array([float("nan"), 0.0, 0.0, 2.0, 0.0]),
+                equal_nan=True,
+            )
+        )
+        # Transform and check that the index is filled with the upper bound.
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+        self.assertEqual(
+            transformed_data.observation_data.index.get_level_values(
+                "timestamp"
+            ).tolist(),
+            [self.t._parameter_list[0].upper, 0.0, 0.0, 2.0, 0.0],
+        )
