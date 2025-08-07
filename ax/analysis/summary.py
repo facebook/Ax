@@ -37,6 +37,7 @@ class Summary(Analysis):
         - **PARAMETER_NAME: The parameter value for the arm, for each parameter
      Args:
         trial_indices: If specified, only include these trial indices.
+        trial_status: If specified, only include trials with this status.
         omit_empty_columns: If True, omit columns where every value is None.
     """
 
