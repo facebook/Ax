@@ -55,13 +55,14 @@ from ax.storage.json_store.registry import (
     CORE_ENCODER_REGISTRY,
 )
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.random import with_rng_seed
 
 from pyre_extensions import assert_is_instance, none_throws
 from typing_extensions import Self
 
 logger: Logger = get_logger(__name__)
+ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
 
 class Client(WithDBSettingsBase):
@@ -358,7 +359,6 @@ class Client(WithDBSettingsBase):
         with with_rng_seed(seed=self._random_seed):
             gs = self._generation_strategy_or_choose()
 
-            # This will be changed to use gen directly post gen-unfication cc @mgarrard
             generator_runs = gs.gen(
                 experiment=self._experiment,
                 pending_observations=(
@@ -384,6 +384,18 @@ class Client(WithDBSettingsBase):
                 ),
                 Trial,
             )
+
+            logger.info(
+                f"Generated new trial {trial.index} with parameters "
+                + str(
+                    _round_floats_for_logging(
+                        item=none_throws(trial.arm).parameters,
+                        decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
+                    )
+                )
+                + f"using GenerationNode {generator_run[0]._generation_node_name}."
+            )
+
             trial.mark_running(no_runner_required=True)
 
             trials.append(trial)
@@ -444,17 +456,20 @@ class Client(WithDBSettingsBase):
             # If all necessary metrics are present mark the trial as COMPLETED
             if len(missing_metrics) == 0:
                 self._experiment.trials[trial_index].mark_completed()
+                logger.info(f"Trial {trial_index} marked COMPLETED.")
 
             # If any metrics are missing mark the trial as FAILED
             else:
-                logger.warning(
-                    f"Trial {trial_index} marked completed but metrics "
-                    f"{missing_metrics} are missing, marking trial FAILED."
-                )
                 self.mark_trial_failed(
                     trial_index=trial_index,
-                    failed_reason=f"{missing_metrics} are missing, marking trial\
-                    FAILED.",
+                    failed_reason=(
+                        f"{missing_metrics} are missing, marking trial FAILED."
+                    ),
+                )
+
+                logger.warning(
+                    f"Trial {trial_index} marked FAILED because the following metrics "
+                    f"are missing: {missing_metrics}"
                 )
 
         self._save_or_update_trial_in_db_if_possible(
@@ -566,20 +581,28 @@ class Client(WithDBSettingsBase):
             current_node=self._generation_strategy_or_choose()._curr,
         )
 
-        # TODO[mpolson64]: log the returned reason for stopping the trial
-        return trial_index in es_response
+        if trial_index in es_response:
+            logger.info(
+                f"Trial {trial_index} should be stopped early: "
+                f"{es_response[trial_index]}"
+            )
+            return True
+
+        return False
 
     # -------------------- Section 2.3 Marking trial status manually ----------------
     def mark_trial_failed(
         self, trial_index: int, failed_reason: str | None = None
     ) -> None:
         """
-        Manually mark a trial as FAILED. FAILED trials typically may be re-suggested by
-        ``get_next_trials``, though this is controlled by the ``GenerationStrategy``.
+        Manually mark a trial as FAILED. FAILED trials may be re-suggested by
+        ``get_next_trials``.
 
         Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_failed(reason=failed_reason)
+
+        logger.info(f"Trial {trial_index} marked FAILED.")
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -587,13 +610,17 @@ class Client(WithDBSettingsBase):
 
     def mark_trial_abandoned(self, trial_index: int) -> None:
         """
-        Manually mark a trial as ABANDONED. ABANDONED trials are typically not able to
-        be re-suggested by ``get_next_trials``, though this is controlled by the
-        ``GenerationStrategy``.
+        Manually mark a trial as ABANDONED. ABANDONED trials are not able to
+        be re-suggested by ``get_next_trials``.
 
         Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_abandoned()
+
+        logger.info(
+            f"Trial {trial_index} marked ABANDONED. ABANDONED trials are not able to "
+            "be re-suggested by ``get_next_trials``."
+        )
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -610,6 +637,8 @@ class Client(WithDBSettingsBase):
         Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_early_stopped()
+
+        logger.info(f"Trial {trial_index} marked EARLY_STOPPED.")
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -1098,7 +1127,7 @@ class Client(WithDBSettingsBase):
         Returns:
             A GenerationStrategy instance configured according to the specified options.
         """
-        return choose_generation_strategy(
+        generation_strategy = choose_generation_strategy(
             struct=GenerationStrategyDispatchStruct(
                 method=method,
                 initialization_budget=initialization_budget,
@@ -1114,6 +1143,12 @@ class Client(WithDBSettingsBase):
                 torch_device=torch_device,
             )
         )
+
+        logger.info(
+            f"{generation_strategy} chosen based on user input and problem structure."
+        )
+
+        return generation_strategy
 
     # -------------------- Section 5.2: Metric configuration --------------------------
     def _overwrite_metric(self, metric: Metric) -> None:
