@@ -38,8 +38,8 @@ CONSTRAINT_VIOLATION_RED = "red"
 
 # Use the same continuous sequential color scale for all plots. PRGn uses purples for
 # low values and transitions to greens for high values.
-METRIC_CONTINUOUS_COLOR_SCALE: list[str] = px.colors.colorbrewer.PRGn
-COLOR_FOR_INCREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[8]  # lighter green
-COLOR_FOR_DECREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[2]  # lighter purple
+METRIC_CONTINUOUS_COLOR_SCALE: list[str] = px.colors.diverging.Earth
+COLOR_FOR_INCREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[5]  # blue
+COLOR_FOR_DECREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[2]  # brown
 
 DISCRETE_ARM_SCALE = px.colors.qualitative.Alphabet
