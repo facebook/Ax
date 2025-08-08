@@ -342,7 +342,7 @@ class AcquisitionTest(TestCase):
             q=n,
             options={
                 "init_batch_limit": 32,
-                "batch_limit": 5,
+                "batch_limit": 20,
                 "max_optimization_problem_aggregation_size": 5,
             },
             inequality_constraints=self.inequality_constraints,
@@ -689,7 +689,7 @@ class AcquisitionTest(TestCase):
             acq_function=acquisition.acqf,
             bounds=mock.ANY,
             q=3,
-            options={"init_batch_limit": 32, "batch_limit": 5},
+            options={"init_batch_limit": 32, "batch_limit": 20},
             fixed_features_list=[{1: 0}, {1: 1}, {1: 2}],
             inequality_constraints=self.inequality_constraints,
             post_processing_func=self.rounding_func,
@@ -739,7 +739,7 @@ class AcquisitionTest(TestCase):
             q=3,
             options={
                 "init_batch_limit": 32,
-                "batch_limit": 5,
+                "batch_limit": 20,
                 "maxiter_alternating": 2,
             },
             inequality_constraints=self.inequality_constraints,
@@ -778,7 +778,7 @@ class AcquisitionTest(TestCase):
             q=3,
             options={
                 "init_batch_limit": 32,
-                "batch_limit": 5,
+                "batch_limit": 20,
                 "maxiter_alternating": 2,
             },
             inequality_constraints=self.inequality_constraints,

@@ -19,7 +19,7 @@ from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFu
 NUM_RESTARTS = 20
 RAW_SAMPLES = 1024
 INIT_BATCH_LIMIT = 32
-BATCH_LIMIT = 5
+BATCH_LIMIT = 20
 MAX_OPT_AGG_SIZE = 5
 
 
