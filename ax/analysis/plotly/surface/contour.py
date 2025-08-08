@@ -201,6 +201,13 @@ def _prepare_data(
         for trial in experiment.trials.values()
         if trial.status in STATUSES_EXPECTING_DATA  # running, completed, early stopped
         for arm in trial.arms
+        # Filter out arms which are not part of the search space (ex. when a parameter
+        # is None).
+        if experiment.search_space.check_membership(
+            parameterization=arm.parameters,
+            raise_error=False,
+            check_all_parameters_present=False,
+        )
     ]
 
     # Choose which parameter values to predict points for.
@@ -233,15 +240,6 @@ def _prepare_data(
         )
         for x in xs
         for y in ys
-        # Do not create features for any out of sample points
-        if experiment.search_space.check_membership(
-            parameterization={
-                x_parameter_name: x,
-                y_parameter_name: y,
-            },
-            raise_error=False,
-            check_all_parameters_present=False,
-        )
     ]
 
     predictions = model.predict(observation_features=features)
