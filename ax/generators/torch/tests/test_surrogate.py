@@ -1140,14 +1140,19 @@ class SurrogateTest(TestCase):
                                 mask[loo_idx] = 1
 
                     self.assertEqual(mock_diag_fn.call_count, 2)
-                # check the eval metrics for each model config
-                expected_model_config_to_eval = {}
+                # check the eval metrics for each model config,
+                expected_model_name_to_eval = {"metric": {}}
                 for idx, mc in enumerate(base_model_configs):
-                    expected_model_config_to_eval[mc.name] = {
-                        eval_criterion: side_effect_dict[eval_criterion][idx]
-                    }
+                    expected_model_name_to_eval["metric"][mc.name] = side_effect_dict[
+                        eval_criterion
+                    ][idx]
                 self.assertEqual(
-                    surrogate._model_config_to_eval, expected_model_config_to_eval
+                    surrogate._model_name_to_eval, expected_model_name_to_eval
+                )
+                # Check a model stored for each
+                self.assertEqual(
+                    surrogate._model_name_to_model.keys(),
+                    expected_model_name_to_eval.keys(),
                 )
 
     def test_fit_multiple_model_configs_cuda(self) -> None:
@@ -1728,6 +1733,62 @@ class SurrogateTest(TestCase):
                 for m in assert_is_instance(surrogate.model, ModelListGP).models
             )
         )
+
+    @mock_botorch_optimize
+    def test_models_for_gen(self) -> None:
+        model_configs = [
+            ModelConfig(name="Default"),
+            ModelConfig(covar_module_class=LinearKernel, name="Linear"),
+            ModelConfig(covar_module_class=MaternKernel, name="Matern"),
+        ]
+        surrogate = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=model_configs,
+                eval_criterion="MSE",
+            )
+        )
+        dataset = self.training_data_standardized[0]
+        search_space_digest = self.search_space_digest
+        surrogate.fit(
+            [dataset],
+            search_space_digest=search_space_digest,
+        )
+        # If less than 3 models in eval, return base model 1 time
+        surrogate._model_name_to_eval = {"metric": {"Linear": 0.2, "Matern": 0.5}}
+        _, models = surrogate.models_for_gen(3)
+        self.assertEqual(len(models), 1)
+        self.assertEqual(id(models[0]), id(surrogate.model))
+        # If only one improves on worst, always chosen
+        surrogate._model_name_to_eval = {
+            "metric": {"Default": 0.5, "Linear": 0.5, "Matern": 0.2}
+        }
+        _, models = surrogate.models_for_gen(10)
+        for model in models:
+            print(model.covar_module)
+            self.assertEqual(
+                id(model), id(surrogate._model_name_to_model["metric"]["Matern"])
+            )
+        # Multiple good models
+        surrogate._model_name_to_eval = {
+            "metric": {"Default": 0.2, "Linear": 0.2, "Matern": 0.5}
+        }
+        models_used, models = surrogate.models_for_gen(10)
+        # Only these two models are chosen
+        name_to_covar = {
+            "Default": RBFKernel,
+            "Linear": LinearKernel,
+        }
+        for i, model in enumerate(models):
+            # Recorded model matches used model
+            mc_name = models_used[i]["metric"]
+            print(mc_name)
+            self.assertTrue(mc_name in name_to_covar)
+            self.assertEqual(type(model.covar_module), name_to_covar[mc_name])
+        # All equal values
+        surrogate._model_name_to_eval = {
+            "metric": {"Default": 0.2, "Linear": 0.2, "Matern": 0.2}
+        }
+        surrogate.models_for_gen(10)
 
 
 class SurrogateWithModelListTest(TestCase):
