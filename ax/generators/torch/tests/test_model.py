@@ -579,6 +579,7 @@ class BoTorchGeneratorTest(TestCase):
             botorch_acqf_options={**ACQ_OPTIONS, "eta": 3.0},
             acq_options={Keys.SUBSET_MODEL: False},
             botorch_acqf_classes_with_options=None,
+            n=1,
         )
 
         mock_input_constructor.assert_called_once()
@@ -1199,6 +1200,7 @@ class BoTorchGeneratorTest(TestCase):
             botorch_acqf_options={},
             acq_options={Keys.SUBSET_MODEL: False},
             botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
+            n=1,
         )
 
         mock_input_constructor.assert_called_once()

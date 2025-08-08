@@ -279,6 +279,7 @@ class BoTorchGenerator(TorchGenerator, Base):
             botorch_acqf_options=botorch_acqf_options,
             acq_options=acq_options,
             botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
+            n=n,
         )
         acqf = none_throws(self._acquisition)
 
@@ -300,10 +301,6 @@ class BoTorchGenerator(TorchGenerator, Base):
             acqf=acqf,
             torch_opt_config=torch_opt_config,
             expected_acquisition_value=expected_acquisition_value,
-        )
-        # log what model was used
-        gen_metadata["metric_to_model_config_name"] = (
-            self.surrogate.model_name_by_metric
         )
         return TorchGenResults(
             points=candidates.detach().cpu(),
@@ -331,6 +328,7 @@ class BoTorchGenerator(TorchGenerator, Base):
                 FixedSingleSampleModel,
             ):
                 gen_metadata["outcome_model_fixed_draw_weights"] = outcome_model.w
+        gen_metadata["models_used"] = acqf.models_used
         return gen_metadata
 
     @copy_doc(TorchGenerator.best_point)
@@ -439,6 +437,7 @@ class BoTorchGenerator(TorchGenerator, Base):
             tuple[type[AcquisitionFunction], dict[str, Any]]
         ]
         | None = None,
+        n: int | None = None,
     ) -> Acquisition:
         """Set a BoTorch acquisition function class for this model if needed and
         instantiate it.
@@ -469,6 +468,7 @@ class BoTorchGenerator(TorchGenerator, Base):
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
             options=acq_options,
+            n=n,
         )
 
     def feature_importances(self) -> npt.NDArray:

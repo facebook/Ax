@@ -11,6 +11,7 @@ from __future__ import annotations
 import dataclasses
 import itertools
 from contextlib import ExitStack
+from copy import deepcopy
 from typing import Any
 from unittest import mock
 from unittest.mock import Mock
@@ -72,10 +73,11 @@ SURROGATE_PATH: str = Surrogate.__module__
 class DummyAcquisitionFunction(AcquisitionFunction):
     X_pending: Tensor | None = None
 
-    def __init__(self, eta: float = 1e-3, **kwargs: Any) -> None:
+    def __init__(self, eta: float = 1e-3, model: Any = None, **kwargs: Any) -> None:
         # pyre-ignore [6]
         AcquisitionFunction.__init__(self, model=None)
         self.eta = eta
+        self.model = model
 
     def forward(self, X: Tensor) -> Tensor:
         # take the norm and sum over the q-batch dim
@@ -346,6 +348,7 @@ class AcquisitionTest(TestCase):
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
             post_processing_func=self.rounding_func,
+            acq_function_sequence=None,
             **self.optimizer_options,
         )
         # can't use assert_called_with on bounds due to ambiguous bool comparison
@@ -976,32 +979,6 @@ class MultiAcquisitionTest(AcquisitionTest):
             (DummyAcquisitionFunction, {"eta": 3.0}),
         ]
 
-    def test_init_raises(self) -> None:
-        with self.assertRaisesRegex(
-            AxError,
-            "botorch_acqf_classes_with_options must be specified for "
-            "MultiAcquisition.",
-        ):
-            MultiAcquisition(
-                surrogate=self.surrogate,
-                search_space_digest=self.search_space_digest,
-                torch_opt_config=self.torch_opt_config,
-                botorch_acqf_class=None,
-                botorch_acqf_options={},
-            )
-        with self.assertRaisesRegex(
-            AxError,
-            "botorch_acqf_classes_with_options have at least two elements.",
-        ):
-            MultiAcquisition(
-                surrogate=self.surrogate,
-                search_space_digest=self.search_space_digest,
-                torch_opt_config=self.torch_opt_config,
-                botorch_acqf_class=None,
-                botorch_acqf_options={},
-                botorch_acqf_classes_with_options=[],
-            )
-
     def test_optimize_discrete(self) -> None:
         pass
 
@@ -1136,3 +1113,52 @@ class MultiAcquisitionTest(AcquisitionTest):
         with mock.patch.object(acquisition.acqf, "forward") as mock_forward:
             acquisition.evaluate(X=self.X)
             mock_forward.assert_called_once_with(X=self.X)
+
+    def test_ensemble_batch_instantiate_acq(self) -> None:
+        surrogate = deepcopy(self.surrogate)
+        model_mocks = [mock.MagicMock() for _ in range(3)]
+        surrogate._model = model_mocks[0]
+        models_for_gen_mock = mock.MagicMock()
+        models_for_gen_mock.return_value = (
+            ["a", "b"],
+            [model_mocks[1], model_mocks[2]],
+        )
+        surrogate.models_for_gen = models_for_gen_mock
+        acq = MultiAcquisition(
+            surrogate=surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=self.torch_opt_config,
+            botorch_acqf_class=DummyAcquisitionFunction,
+            n=1,
+        )
+        self.assertEqual(acq.acqf.model, model_mocks[0])
+        self.assertEqual(acq.acq_function_sequence, None)
+        self.assertEqual(len(acq.models_used), 1)
+        acq = MultiAcquisition(
+            surrogate=surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=self.torch_opt_config,
+            botorch_acqf_class=DummyAcquisitionFunction,
+            n=2,
+        )
+        models_for_gen_mock.assert_called_once_with(n=2)
+        self.assertEqual(acq.acqf.model, model_mocks[0])
+        acqf_sequence_models = [acqf.model for acqf in acq.acq_function_sequence]
+        self.assertEqual(acqf_sequence_models, [model_mocks[1], model_mocks[2]])
+        self.assertEqual(len(acq.models_used), 2)
+        # Test gen_for_models returns only one model
+        models_for_gen_mock = mock.MagicMock()
+        models_for_gen_mock.return_value = (
+            ["a"],
+            [model_mocks[1]],
+        )
+        surrogate.models_for_gen = models_for_gen_mock
+        acq = MultiAcquisition(
+            surrogate=surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=self.torch_opt_config,
+            botorch_acqf_class=DummyAcquisitionFunction,
+            n=3,
+        )
+        self.assertEqual(acq.acqf.model, model_mocks[0])
+        self.assertEqual(acq.acq_function_sequence, None)
