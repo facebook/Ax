@@ -835,10 +835,9 @@ class Surrogate(Base):
                     f"Model {model_config} failed to fit with error {e}. Skipping."
                 )
                 continue
-            if (mc_name := model_config.name) is not None:
-                self._model_config_to_eval[mc_name] = {
-                    self.surrogate_spec.eval_criterion: eval_metric
-                }
+            self._model_config_to_eval[model_config.identifier] = {
+                self.surrogate_spec.eval_criterion: eval_metric
+            }
             if maximize ^ (eval_metric < best_eval_metric):
                 best_eval_metric = eval_metric
                 best_model = model
@@ -1102,6 +1101,14 @@ class Surrogate(Base):
     @outcomes.setter
     def outcomes(self, value: list[str]) -> None:
         raise RuntimeError("Setting outcomes manually is disallowed.")
+
+    @property
+    def model_name_by_metric(self) -> dict[str, str]:
+        """Returns a dictionary mapping metric names to model names."""
+        return {
+            metric_name: model_config.identifier
+            for metric_name, model_config in (self.metric_to_best_model_config.items())
+        }
 
 
 submodel_input_constructor = Dispatcher(
