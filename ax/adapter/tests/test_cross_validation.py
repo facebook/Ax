@@ -31,6 +31,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import UnsupportedError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -74,7 +75,7 @@ class CrossValidationTest(TestCase):
 
     def test_cross_validate_base(self) -> None:
         # Do cross validation
-        with self.assertRaisesRegex(ValueError, "which is less than folds"):
+        with self.assertRaisesRegex(ValueError, "which is less than 4 folds"):
             cross_validate(model=self.adapter, folds=4)
         with self.assertRaisesRegex(ValueError, "Folds must be"):
             cross_validate(model=self.adapter, folds=0)
@@ -206,11 +207,16 @@ class CrossValidationTest(TestCase):
             call_kwargs = mock_cv.call_args.kwargs
             self.assertTrue(call_kwargs["use_posterior_predictive"])
 
-    def test_cross_validate_gives_a_useful_error_for_model_with_no_data(self) -> None:
-        exp = get_branin_experiment()
-        sobol = Generators.SOBOL(experiment=exp, search_space=exp.search_space)
-        with self.assertRaisesRegex(ValueError, "no training data"):
-            cross_validate(model=sobol)
+    def test_cross_validate_gives_a_useful_error_for_insufficient_data(self) -> None:
+        # Sobol with no data and torch with only one point.
+        exp_empty = get_branin_experiment()
+        exp = get_branin_experiment(with_completed_trial=True)
+        for adapter in [
+            Generators.SOBOL(experiment=exp_empty),
+            Generators.BOTORCH_MODULAR(experiment=exp),
+        ]:
+            with self.assertRaisesRegex(UnsupportedError, "at least two in-design"):
+                cross_validate(model=adapter)
 
     @mock_botorch_optimize
     def test_cross_validate_catches_warnings(self) -> None:

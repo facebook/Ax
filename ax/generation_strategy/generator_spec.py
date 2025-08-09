@@ -37,7 +37,6 @@ from pyre_extensions import none_throws
 class GeneratorSpecJSONEncoder(json.JSONEncoder):
     """Generic encoder to avoid JSON errors in GeneratorSpec.__repr__"""
 
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def default(self, o: Any) -> str:
         return repr(o)
 

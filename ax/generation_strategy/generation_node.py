@@ -652,10 +652,20 @@ class GenerationNode(SerializationMixin, SortableBase):
                 "This can be caused by model fitting errors, which should be "
                 "diagnosed by following the exception logs produced earlier."
             )
-        best_model = none_throws(self.best_model_selector).best_model(
-            generator_specs=fitted_specs,
-        )
-        return best_model
+        try:
+            best_model = none_throws(self.best_model_selector).best_model(
+                generator_specs=fitted_specs,
+            )
+            return best_model
+        except Exception as e:
+            logger.warning(
+                "The `BestModelSelector` raised an error when selecting the best "
+                "generator. This can happen if the generator ran into issues during "
+                "computing the relevant diagnostics, such as insufficient training "
+                "data. Returning the first generator that was successfully fit. "
+                f"Original error message: {e}."
+            )
+            return fitted_specs[0]
 
     # ------------------------- Trial logic helpers. -------------------------
     @property

@@ -478,3 +478,19 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         self.assertEqual(
             self.model_selection_node.generator_spec_to_gen_from, self.ms_botorch
         )
+
+    @mock_botorch_optimize
+    def test_best_model_selection_errors(self) -> None:
+        # Testing that the errors raised within best model selector are
+        # gracefully handled. In this case, we'll get an error in CV
+        # due to insufficient training data.
+        exp = get_branin_experiment(with_completed_trial=True)
+        self.model_selection_node._fit(experiment=exp)
+        # Check that it selected the first generator and logged a warning.
+        with self.assertLogs(logger=logger) as logs:
+            self.assertEqual(
+                self.model_selection_node.generator_spec_to_gen_from, self.ms_mixed
+            )
+        self.assertTrue(
+            any("raised an error when selecting" in str(log) for log in logs)
+        )

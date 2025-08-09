@@ -20,6 +20,7 @@ import numpy.typing as npt
 from ax.adapter.base import Adapter, unwrap_observation_data
 from ax.core.observation import Observation, ObservationData
 from ax.core.optimization_config import OptimizationConfig
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.model_fit_stats import (
     coefficient_of_determination,
@@ -108,12 +109,14 @@ def cross_validate(
     ]
     arm_names = {obs.arm_name for obs in training_data}
     n = len(arm_names)
-    if folds > n:
-        raise ValueError(f"Training data only has {n} arms, which is less than folds")
-    elif n == 0:
+    if n < 2:
+        raise UnsupportedError(
+            "Cross validation requires at least two in-design arms in the training "
+            f"data. Only {n} in-design arms were found."
+        )
+    elif folds > n:
         raise ValueError(
-            f"{model.__class__.__name__} has no training data.  Either it has been "
-            "incorrectly initialized or should not be cross validated."
+            f"Training data only has {n} arms, which is less than {folds} folds."
         )
     elif folds < 2 and folds != -1:
         raise ValueError("Folds must be -1 for LOO, or > 1.")
