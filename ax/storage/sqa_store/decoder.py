@@ -972,7 +972,6 @@ class Decoder:
                 experiment=experiment,
                 ttl_seconds=trial_sqa.ttl_seconds,
                 index=trial_sqa.index,
-                lifecycle_stage=trial_sqa.lifecycle_stage,
             )
             generator_run_structs = [
                 GeneratorRunStruct(

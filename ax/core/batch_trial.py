@@ -14,7 +14,6 @@ from collections import defaultdict, OrderedDict
 from collections.abc import MutableMapping
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from logging import Logger
 from typing import TYPE_CHECKING
 
@@ -46,14 +45,6 @@ if TYPE_CHECKING:
 BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
     "Raw data must be a dict for batched trials."
 )
-
-
-class LifecycleStage(int, Enum):
-    EXPLORATION = 0
-    ITERATION = 1
-    BAKEOFF = 2
-    OFFLINE_OPTIMIZED = 3
-    EXPLORATION_CONCURRENT = 4
 
 
 @dataclass
@@ -130,8 +121,6 @@ class BatchTrial(BaseTrial):
             This should generally not be specified, as in the index will be
             automatically determined based on the number of existing trials.
             This is only used for the purpose of loading from storage.
-        lifecycle_stage: The stage of the experiment lifecycle that this
-            trial represents
     """
 
     def __init__(
@@ -143,7 +132,6 @@ class BatchTrial(BaseTrial):
         add_status_quo_arm: bool | None = False,
         ttl_seconds: int | None = None,
         index: int | None = None,
-        lifecycle_stage: LifecycleStage | None = None,
     ) -> None:
         super().__init__(
             experiment=experiment,
@@ -186,7 +174,6 @@ class BatchTrial(BaseTrial):
         # for this object instead of one
         self._status_quo_generator_run_db_id: int | None = None
         self._status_quo_arm_db_id: int | None = None
-        self._lifecycle_stage = lifecycle_stage
 
     @property
     def experiment(self) -> core.experiment.Experiment:
@@ -230,10 +217,6 @@ class BatchTrial(BaseTrial):
             # If no override is specified, status quo does not appear in arm_weights.
             arm_weights[self.status_quo] = self._status_quo_weight_override
         return arm_weights
-
-    @property
-    def lifecycle_stage(self) -> LifecycleStage | None:
-        return self._lifecycle_stage
 
     @arm_weights.setter
     def arm_weights(self, arm_weights: MutableMapping[Arm, float]) -> None:

@@ -980,7 +980,6 @@ class Encoder:
         abandoned_arms = []
         generator_runs = []
         status_quo_name = None
-        lifecycle_stage = None
 
         if isinstance(trial, Trial) and trial.generator_run:
             gr_sqa = self.generator_run_to_sqa(
@@ -1002,7 +1001,6 @@ class Encoder:
 
             trial_status_quo = trial.status_quo
             trial_status_quo_weight_override = trial._status_quo_weight_override
-            lifecycle_stage = trial.lifecycle_stage
 
             if (
                 trial_status_quo is not None
@@ -1055,7 +1053,6 @@ class Encoder:
             runner=runner,
             generation_step_index=trial._generation_step_index,
             properties=trial._properties,
-            lifecycle_stage=lifecycle_stage,
         )
         return trial_sqa
 
