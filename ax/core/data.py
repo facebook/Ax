@@ -170,21 +170,12 @@ class Data(Base, SerializationMixin):
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         extra_column_types: Mapping[str, type] | None = None,
-        excluded_columns: Iterable[str] | None = None,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
     ) -> dict[str, type]:
         """Type specification for all supported columns."""
         extra_column_types = extra_column_types or {}
-        excluded_columns = excluded_columns or []
-
-        columns = {**cls.COLUMN_DATA_TYPES, **extra_column_types}
-
-        for column in excluded_columns:
-            if column in columns:
-                del columns[column]
-
-        return columns
+        return {**cls.COLUMN_DATA_TYPES, **extra_column_types}
 
     @classmethod
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
