@@ -449,6 +449,7 @@ class AcquisitionTest(TestCase):
             acq_function=acquisition.acqf,
             q=n,
             choices=mock.ANY,
+            max_batch_size=2048,
             X_avoid=mock.ANY,
             inequality_constraints=None,
         )
@@ -479,7 +480,9 @@ class AcquisitionTest(TestCase):
             f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
         ) as mock_optimizer_argparse, mock.patch(
             f"{ACQUISITION_PATH}.optimize_acqf_discrete", wraps=optimize_acqf_discrete
-        ) as mock_optimize_acqf_discrete:
+        ) as mock_optimize_acqf_discrete, mock.patch(
+            "botorch.models.gp_regression.SingleTaskGP.batch_shape", torch.Size([16])
+        ):
             X_selected, _, weights = acquisition.optimize(
                 n=3,
                 search_space_digest=ssd2,
@@ -495,6 +498,7 @@ class AcquisitionTest(TestCase):
             acq_function=acquisition.acqf,
             q=3,
             choices=mock.ANY,
+            max_batch_size=128,  # 2048 // 16 (mocked batch_shape).
             X_avoid=mock.ANY,
             inequality_constraints=None,
         )

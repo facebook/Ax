@@ -572,10 +572,21 @@ class Acquisition(Base):
             all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
             all_choices = _tensorize(tuple(product(*all_choices)))
             try:
+                max_batch_size = optimizer_options_with_defaults.pop(
+                    "max_batch_size", 2048
+                )
+                try:
+                    # Adapt max batch size for batched models to reduce peak memory.
+                    max_batch_size = (
+                        max_batch_size // self.surrogate.model.batch_shape.numel()
+                    )
+                except Exception:  # pragma: no cover
+                    pass  # Do not error out if the model does not have a batch shape.
                 candidates, acqf_values = optimize_acqf_discrete(
                     acq_function=self.acqf,
                     q=n,
                     choices=all_choices,
+                    max_batch_size=max_batch_size,
                     X_avoid=X_observed,
                     inequality_constraints=inequality_constraints,
                     **optimizer_options_with_defaults,
