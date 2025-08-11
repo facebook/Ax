@@ -12,6 +12,7 @@ from typing import cast
 import numpy as np
 from ax.adapter import Adapter
 from ax.adapter.base import DataLoaderConfig
+from ax.adapter.cross_validation import cross_validate
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
@@ -197,6 +198,9 @@ class ClientTest(TestCase):
         # progression information is omitted from data propagated to the model
         self.assertListEqual(dataset.feature_names, ["width", "height"])
 
+        # Check that cross validation works.
+        cross_validate(model=adapter)
+
     def _test_early_stopping(self, complete_with_progression: bool) -> None:
         self._simulate(
             with_early_stopping=True,
@@ -240,6 +244,9 @@ class ClientTest(TestCase):
 
         # check that candidate is generated at the target progression
         self.assertEqual(int(candidate_metadata["step"]), self.max_steps)
+
+        # Check that cross validation works.
+        cross_validate(model=adapter)
 
     def test_no_early_stopping_with_progression(self) -> None:
         self._test_no_early_stopping(with_progression=True)

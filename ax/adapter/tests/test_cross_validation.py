@@ -7,7 +7,6 @@
 # pyre-strict
 
 import warnings
-from copy import deepcopy
 from unittest import mock
 
 import numpy as np
@@ -19,9 +18,11 @@ from ax.adapter.cross_validation import (
     CVResult,
     has_good_opt_config_model_fit,
 )
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.unit_x import UnitX
+from ax.core import ObservationFeatures
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData
@@ -30,7 +31,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.types import ComparisonOp
+from ax.core.types import ComparisonOp, TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.common.testutils import TestCase
@@ -49,11 +50,17 @@ from botorch.exceptions.warnings import InputDataWarning
 class CrossValidationTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
+        # pyre-ignore [9] Pyre is too picky with union types.
+        parameterizations: list[TParameterization] = [
+            {"x": x} for x in [2.0, 2.0, 3.0, 4.0]
+        ]
+        means = [[2.0, 4.0], [3.0, 5.0], [7.0, 8.0], [9.0, 10.0]]
+        sems = [[1.0, 2.0], [1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]
         self.experiment = get_experiment_with_observations(
-            observations=[[2.0, 4.0], [3.0, 5.0], [7.0, 8.0], [9.0, 10.0]],
-            sems=[[1.0, 2.0], [1.0, 2.0], [1.0, 2.0], [1.0, 2.0]],
+            observations=means,
+            sems=sems,
             search_space=get_search_space_for_range_value(min=0.0, max=10.0),
-            parameterizations=[{"x": 2.0}, {"x": 2.0}, {"x": 3.0}, {"x": 4.0}],
+            parameterizations=parameterizations,
         )
         with mock_botorch_optimize_context_manager():
             self.adapter = TorchAdapter(
@@ -62,11 +69,16 @@ class CrossValidationTest(TestCase):
                 transforms=[UnitX],
             )
         self.training_data = self.adapter.get_training_data()
+        self.training_obs = self.training_data.convert_to_list_of_observations()
         self.observation_data = ObservationData(
             means=np.array([2.0, 1.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
             metric_names=["m1", "m2"],
         )
+        self.cv_results = [
+            CVResult(observed=obs, predicted=self.observation_data)
+            for obs in self.training_obs
+        ]
         self.diagnostics: list[CVDiagnostics] = [
             {"Fisher exact test p": {"y_m1": 0.0, "y_m2": 0.4}},
             {"Fisher exact test p": {"y_m1": 0.1, "y_m2": 0.1}},
@@ -88,10 +100,7 @@ class CrossValidationTest(TestCase):
         # Check that Adapter.cross_validate was called correctly.
         z = mock_cv.mock_calls
         self.assertEqual(len(z), 2)
-        train = [
-            [obs.features.parameters["x"] for obs in r[2]["cv_training_data"]]
-            for r in z
-        ]
+        train = [r[2]["cv_training_data"].arm_data["x"].tolist() for r in z]
         test = [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
         # Test no overlap between train and test sets, and all points used
         for i in range(2):
@@ -111,10 +120,7 @@ class CrossValidationTest(TestCase):
         self.assertEqual(len(result), 4)
         z = mock_cv.mock_calls
         self.assertEqual(len(z), 3)
-        train = [
-            [obs.features.parameters["x"] for obs in r[2]["cv_training_data"]]
-            for r in z
-        ]
+        train = [r[2]["cv_training_data"].arm_data["x"].tolist() for r in z]
         test = [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
         # Test no overlap between train and test sets, and all points used
         for i in range(3):
@@ -142,10 +148,7 @@ class CrossValidationTest(TestCase):
         # Check that Adapter._transform_inputs_for_cv was called correctly.
         z = mock_transform_cv.mock_calls
         self.assertEqual(len(z), 3)
-        train = [
-            [obs.features.parameters["x"] for obs in r[2]["cv_training_data"]]
-            for r in z
-        ]
+        train = [r[2]["cv_training_data"].arm_data["x"].tolist() for r in z]
         test = [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
         # Test no overlap between train and test sets, and all points used
         for i in range(3):
@@ -162,11 +165,22 @@ class CrossValidationTest(TestCase):
         # Compare against arbitrary call since the call ordering depends on
         # the order of arm names, which is not deterministic.
         expected_call = mock.call(
-            cv_training_data=transform.transform_observations(
-                deepcopy(self.training_data[:-1])
+            cv_training_data=transform.transform_experiment_data(
+                ExperimentData(
+                    arm_data=self.training_data.arm_data.iloc[:-1].copy(),
+                    observation_data=self.training_data.observation_data.iloc[
+                        :-1
+                    ].copy(),
+                )
             ),
             cv_test_points=transform.transform_observation_features(
-                [self.training_data[-1].features.clone()]
+                [
+                    ObservationFeatures(
+                        parameters={"x": 4.0},
+                        trial_index=3,
+                        metadata=self.training_data.arm_data.iloc[-1]["metadata"],
+                    )
+                ]
             ),
             search_space=transform.transform_search_space(
                 self.adapter._search_space.clone()
@@ -241,13 +255,8 @@ class CrossValidationTest(TestCase):
             cross_validate(model=sobol)
 
     def test_compute_diagnostics(self) -> None:
-        # Construct CVResults
-        result = [
-            CVResult(observed=obs, predicted=self.observation_data)
-            for obs in self.training_data
-        ]
         # Compute diagnostics
-        diag = compute_diagnostics(result=result)
+        diag = compute_diagnostics(result=self.cv_results)
         for v in diag.values():
             self.assertEqual(set(v.keys()), {"m1", "m2"})
         # Check for correct computation, relative to manually computed result
@@ -269,11 +278,7 @@ class CrossValidationTest(TestCase):
 
     def test_assess_model_fit(self) -> None:
         # Construct diagnostics
-        result = [
-            CVResult(observed=obs, predicted=self.observation_data)
-            for obs in self.training_data
-        ]
-        diag = compute_diagnostics(result=result)
+        diag = compute_diagnostics(result=self.cv_results)
         for v in diag.values():
             self.assertEqual(set(v.keys()), {"m1", "m2"})
         # Check for correct computation, relative to manually computed result
@@ -305,11 +310,7 @@ class CrossValidationTest(TestCase):
 
     def test_has_good_opt_config_model_fit(self) -> None:
         # Construct diagnostics
-        result = [
-            CVResult(observed=obs, predicted=self.observation_data)
-            for obs in self.training_data
-        ]
-        diag = compute_diagnostics(result=result)
+        diag = compute_diagnostics(result=self.cv_results)
         assess_model_fit_result = assess_model_fit(
             diagnostics=diag,
             significance_level=0.05,

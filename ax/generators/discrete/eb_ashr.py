@@ -255,12 +255,11 @@ class EBAshr(ThompsonSampler):
                 lower = A[:, i] < 0
                 ub = np.min(b[upper] / A[upper, i]) if np.any(upper) else np.inf
                 lb = np.max(b[lower] / A[lower, i]) if np.any(lower) else -np.inf
+                # per i-th metric, across arms; probability a metric strictly
+                # smaller than lb or strictly larger than ub
                 prob_infeasibility[:, i] = 1.0 - none_throws(
                     self.posterior_feasibility
-                )[i](
-                    lb, ub
-                )  # per i-th metric, across arms; probability a metric strictly
-                # smaller than lb or strictly larger than ub
+                )[i](lb, ub)
 
         # for each arm check if it is infeasible with respect to any metric
         regressions = np.apply_along_axis(

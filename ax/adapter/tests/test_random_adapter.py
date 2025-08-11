@@ -61,7 +61,8 @@ class RandomAdapterTest(TestCase):
     def test_cross_validate(self) -> None:
         adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
         with self.assertRaises(NotImplementedError):
-            adapter._cross_validate(self.search_space, [], [])
+            # pyre-ignore[6]: None input for testing.
+            adapter._cross_validate(self.search_space, None, None)
 
     def test_gen_w_constraints(self) -> None:
         adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())

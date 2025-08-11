@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Iterable
-from copy import deepcopy
 from logging import Logger
 from typing import NamedTuple
 from warnings import warn
@@ -18,7 +17,7 @@ from warnings import warn
 import numpy as np
 import numpy.typing as npt
 from ax.adapter.base import Adapter, unwrap_observation_data
-from ax.core.observation import Observation, ObservationData
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
@@ -32,6 +31,7 @@ from ax.utils.stats.model_fit_stats import (
     std_of_the_standardized_error,
 )
 from botorch.settings import validate_input_scaling
+from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
 
@@ -101,13 +101,9 @@ def cross_validate(
     Returns:
         A CVResult for each observation in the training data.
     """
-    # Get in-design training points
-    training_data = [
-        obs
-        for i, obs in enumerate(model.get_training_data())
-        if model.training_in_design[i]
-    ]
-    arm_names = {obs.arm_name for obs in training_data}
+    # Get in-design training data.
+    training_data = model.get_training_data(filter_in_design=True)
+    arm_names = set(training_data.arm_data.index.unique(level="arm_name"))
     n = len(arm_names)
     if n < 2:
         raise UnsupportedError(
@@ -133,17 +129,19 @@ def cross_validate(
         folds=folds, arm_names=arm_names_rnd
     ):
         # Construct train/test data
-        cv_training_data = []
-        cv_test_data = []
-        cv_test_points = []
-        for obs in training_data:
-            if obs.arm_name in train_names:
-                cv_training_data.append(obs)
-            elif obs.arm_name in test_names and (
-                test_selector is None or test_selector(obs)
-            ):
-                cv_test_points.append(obs.features)
-                cv_test_data.append(obs)
+        # cv_training_data is ExperimentData and cv_test_points is a list of
+        # ObservationFeatures. We extract both by filtering adapter.training_data.
+        # The intermediate cv_test_observations is required to continue supporting
+        # test_selector, which expects an Observation input. It is also used when
+        # packaging CVResult later.
+        cv_training_data = training_data.filter_by_arm_names(arm_names=train_names)
+        cv_test_data = training_data.filter_by_arm_names(arm_names=test_names)
+        cv_test_observations = [
+            obs
+            for obs in cv_test_data.convert_to_list_of_observations()
+            if test_selector is None or test_selector(obs)
+        ]
+        cv_test_points = [obs.features for obs in cv_test_observations]
         if len(cv_test_points) == 0:
             continue
 
@@ -173,13 +171,20 @@ def cross_validate(
                     cv_test_points=cv_test_points,
                     use_posterior_predictive=use_posterior_predictive,
                 )
-            # Get test observations in transformed space
-            cv_test_data = deepcopy(cv_test_data)
+            # Get test observations in transformed space.
             for t in model.transforms.values():
-                cv_test_data = t.transform_observations(cv_test_data)
+                cv_test_data = t.transform_experiment_data(experiment_data=cv_test_data)
+            # Re-construct the test observations with the transformed data.
+            cv_test_observations = [
+                obs
+                for obs in cv_test_data.convert_to_list_of_observations()
+                if test_selector is None or test_selector(obs)
+            ]
         # Form CVResult objects
-        for i, obs in enumerate(cv_test_data):
-            result.append(CVResult(observed=obs, predicted=cv_test_predictions[i]))
+        for observed, prediction in zip(
+            cv_test_observations, cv_test_predictions, strict=True
+        ):
+            result.append(CVResult(observed=observed, predicted=prediction))
     return result
 
 
@@ -501,24 +506,28 @@ def _predict_on_training_data(
         A tuple containing three dictionaries for 1) observed metric values, and the
         model's associated 2) predictive means and 3) predictive standard deviations.
     """
-    observations = adapter.get_training_data()  # List[Observation]
-    observation_features = [obs.features for obs in observations]
+    training_data = adapter.get_training_data()
+    observation_features = [
+        ObservationFeatures(
+            # NOTE: It is crucial to pop metadata first here.
+            # Otherwise, it'd end up in parameters.
+            metadata=row.pop("metadata"),
+            parameters=row.to_dict(),
+            trial_index=assert_is_instance(index, tuple)[0],
+        )
+        for index, row in training_data.arm_data.iterrows()
+    ]
     observation_data_pred = adapter._predict_observation_data(
         observation_features=observation_features,
         untransform=untransform,
     )
 
     mean_predicted, cov_predicted = unwrap_observation_data(observation_data_pred)
-    mean_observed = [
-        obs.data.means_dict for obs in observations
-    ]  # List[Dict[str, float]]
-
-    metric_names = observations[0].data.metric_names
-    mean_observed = _list_of_dicts_to_dict_of_lists(
-        list_of_dicts=mean_observed, keys=metric_names
-    )
-    # converting dictionary values to arrays
-    mean_observed = {k: np.array(v) for k, v in mean_observed.items()}
+    mean_observed = {
+        name: col.to_numpy()
+        for name, col in training_data.observation_data["mean"].items()
+    }
+    # Converting dictionary values to arrays.
     mean_predicted = {k: np.array(v) for k, v in mean_predicted.items()}
     std_predicted = {m: np.sqrt(np.array(cov_predicted[m][m])) for m in cov_predicted}
     return mean_observed, mean_predicted, std_predicted
@@ -574,10 +583,3 @@ def _predict_on_cross_validation_data(
     mean_predicted = {k: np.array(v) for k, v in mean_predicted.items()}
     std_predicted = {k: np.array(v) for k, v in std_predicted.items()}
     return mean_observed, mean_predicted, std_predicted
-
-
-def _list_of_dicts_to_dict_of_lists(
-    list_of_dicts: list[dict[str, float]], keys: list[str]
-) -> dict[str, list[float]]:
-    """Converts a list of dicts indexed by a string to a dict of lists."""
-    return {key: [d[key] for d in list_of_dicts] for key in keys}

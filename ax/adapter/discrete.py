@@ -9,8 +9,10 @@
 
 from typing import Mapping, Sequence
 
+import numpy as np
 from ax.adapter.adapter_utils import array_to_observation_data, get_fixed_features
 from ax.adapter.base import Adapter, DataLoaderConfig, GenResults
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.torch import (
     extract_objective_weights,
     extract_outcome_constraints,
@@ -19,17 +21,12 @@ from ax.adapter.torch import (
 from ax.adapter.transforms.base import Transform
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    separate_observations,
-)
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValueList
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.discrete_base import DiscreteGenerator
 from ax.generators.types import TConfig
 
@@ -86,19 +83,17 @@ class DiscreteAdapter(Adapter):
     def _fit(
         self,
         search_space: SearchSpace,
-        observations: list[Observation],
+        experiment_data: ExperimentData,
     ) -> None:
         # Convert observations to arrays
         self.parameters = list(search_space.parameters.keys())
-        all_metric_names: set[str] = set()
-        observation_features, observation_data = separate_observations(observations)
-        for od in observation_data:
-            all_metric_names.update(od.metric_names)
-        self.outcomes = sorted(all_metric_names)  # Make it deterministic.
+        if experiment_data.observation_data.empty:
+            self.outcomes = []
+        else:
+            self.outcomes = sorted(experiment_data.metric_names)
         # Convert observations to arrays
-        Xs_array, Ys_array, Yvars_array = self._convert_observations(
-            observation_data=observation_data,
-            observation_features=observation_features,
+        Xs_array, Ys_array, Yvars_array = self._convert_experiment_data(
+            experiment_data=experiment_data,
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
@@ -228,17 +223,15 @@ class DiscreteAdapter(Adapter):
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        cv_training_data: list[Observation],
+        cv_training_data: ExperimentData,
         cv_test_points: list[ObservationFeatures],
         use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
-        """Make predictions at cv_test_points using only the data in obs_feats
-        and obs_data.
+        """Make predictions at ``cv_test_points`` using only the data
+        in ``cv_training_data``.
         """
-        observation_features, observation_data = separate_observations(cv_training_data)
-        Xs_train, Ys_train, Yvars_train = self._convert_observations(
-            observation_data=observation_data,
-            observation_features=observation_features,
+        Xs_train, Ys_train, Yvars_train = self._convert_experiment_data(
+            experiment_data=cv_training_data,
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
@@ -258,27 +251,37 @@ class DiscreteAdapter(Adapter):
         return array_to_observation_data(f=f_test, cov=cov_test, outcomes=self.outcomes)
 
     @classmethod
-    def _convert_observations(
+    def _convert_experiment_data(
         cls,
-        observation_data: list[ObservationData],
-        observation_features: list[ObservationFeatures],
+        experiment_data: ExperimentData,
         outcomes: list[str],
         parameters: list[str],
     ) -> tuple[list[list[TParamValueList]], list[list[float]], list[list[float]]]:
-        Xs: list[list[TParamValueList]] = [[] for _ in outcomes]
-        Ys: list[list[float]] = [[] for _ in outcomes]
-        Yvars: list[list[float]] = [[] for _ in outcomes]
-        for i, obsf in enumerate(observation_features):
-            try:
-                x = [obsf.parameters[param] for param in parameters]
-            except (KeyError, TypeError):
-                # Out of design point
-                raise ValueError("Out of design points cannot be converted.")
-            for j, m in enumerate(observation_data[i].metric_names):
-                k = outcomes.index(m)
-                Xs[k].append(x)
-                Ys[k].append(observation_data[i].means[j])
-                Yvars[k].append(observation_data[i].covariance[j, j])
+        """Convert experiment data to lists of Xs, Ys, and Yvars.
+        Each element of the outer list contains the data for the corresponding outcome.
+        """
+        if len(outcomes) == 0:
+            return [], [], []
+        arm_data = experiment_data.arm_data
+        obs_data = experiment_data.observation_data
+        sems_df = obs_data["sem"]
+        # Join mean & arms to align & repeat the arm rows if necessary.
+        mean_and_params = obs_data["mean"].join(arm_data, how="left")
+        params_np = mean_and_params[parameters].to_numpy()
+        Xs: list[list[TParamValueList]] = []
+        Ys: list[list[float]] = []
+        Yvars: list[list[float]] = []
+        for outcome in outcomes:
+            if outcome not in mean_and_params:
+                raise DataRequiredError(
+                    f"Attempting to extract a data for {outcome=} but no data "
+                    f"for {outcome} was found in the experiment data."
+                )
+            outcome_means = mean_and_params[outcome].to_numpy()
+            to_keep = ~np.isnan(outcome_means)
+            Xs.append(params_np[to_keep].tolist())
+            Ys.append(outcome_means[to_keep].tolist())
+            Yvars.append((sems_df[outcome][to_keep] ** 2).tolist())
         return Xs, Ys, Yvars
 
 

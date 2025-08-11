@@ -7,9 +7,7 @@
 # pyre-strict
 
 import math
-from collections import Counter
 from collections.abc import Callable
-
 from logging import Logger
 from typing import Any, Optional, Union
 
@@ -179,7 +177,11 @@ def _get_in_sample_arms(
 
         - Map from arm name to parameters
     """
-    observations = model.get_training_data()
+    observations = (
+        model.get_training_data()
+        .filter_latest_observations()
+        .convert_to_list_of_observations()
+    )
     training_in_design = model.training_in_design
     if data_selector is not None:
         new_observations = []
@@ -510,25 +512,17 @@ def get_fixed_values(
     ):
         setx = model.status_quo.features.parameters
     else:
-        observations = model.get_training_data()
+        training_data = model.get_training_data(filter_in_design=True)
         setx = {}
         for p_name, parameter in model.model_space.parameters.items():
-            # Exclude out of design status quo (no parameters)
-            vals = [
-                obs.features.parameters[p_name]
-                for obs in observations
-                if (
-                    len(obs.features.parameters) > 0
-                    and parameter.validate(obs.features.parameters[p_name])
-                )
-            ]
+            vals = training_data.arm_data[p_name]
             if isinstance(parameter, FixedParameter):
                 setx[p_name] = parameter.value
             elif isinstance(parameter, ChoiceParameter):
-                setx[p_name] = Counter(vals).most_common(1)[0][0]
+                # Get the most common value in the training data.
+                setx[p_name] = vals.mode().iloc[0]
             elif isinstance(parameter, RangeParameter):
-                # pyre-fixme[6]: For 1st argument expected `Union[_SupportsArray[dtyp...
-                setx[p_name] = parameter.cast(np.mean(vals))
+                setx[p_name] = parameter.cast(vals.mean())
 
     if slice_values is not None:
         # slice_values has type Dictionary[str, Any]
@@ -747,7 +741,6 @@ def relativize_data(
     f: list[float],
     sd: list[float],
     rel: bool,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     arm_data: dict[Any, Any],
     metric: str,
 ) -> list[list[float]]:
