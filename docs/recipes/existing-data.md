@@ -67,10 +67,10 @@ my_data = [
     ...
 ]
 
-for paramters, raw_data in my_data.items():
+for parameters, raw_data in my_data.items():
     # First attach the trial and note the trial index
     trial_index = client.attach_trial(
-        parameters=my_parameters,
+        parameters=parameters,
     )
 
     # Then complete the trial with the existing data
