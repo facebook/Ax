@@ -38,7 +38,7 @@ from ax.analysis.utils import (
 from ax.core.arm import Arm
 from ax.core.base_trial import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
-from ax.core.trial_status import FAILED_ABANDONED_STATUSES, TrialStatus
+from ax.core.trial_status import FAILED_ABANDONED_CANDIDATE_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
@@ -323,7 +323,9 @@ def _prepare_figure(
     ].max()
     # Filter out undesired trials like FAILED and ABANDONED trials from plot.
     trials = df[
-        ~df["trial_status"].isin([ts.name for ts in FAILED_ABANDONED_STATUSES])
+        ~df["trial_status"].isin(
+            [ts.name for ts in FAILED_ABANDONED_CANDIDATE_STATUSES]
+        )
     ]["trial_index"].unique()
 
     # Check if candidate_trial is NaN and handle it
