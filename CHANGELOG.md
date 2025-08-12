@@ -22,7 +22,7 @@ The release log for Ax.
 * Misc. plotting fixes and improvements
 
 #### Other changes
-* Bumped pinned [botorch](https://github.com/pytorch/botorch) version to 0.15.0
+* Bumped pinned [botorch](https://github.com/pytorch/botorch) version to 0.15.1
 * Performance improvements in `SensitivityAnalysis` (#3891)
 * Improved optimization performance in constrained optimization settings (#3585)
 * Augmented logging in `Client`, early stopping module (#4044, #4108)
