@@ -12,6 +12,8 @@ from unittest.mock import patch
 
 import numpy as np
 import torch
+from ax.adapter.registry import Generators
+from ax.adapter.torch import TorchAdapter
 from ax.core.data import Data
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -21,20 +23,22 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
-from ax.modelbridge.registry import Generators
 from ax.plot.pareto_frontier import (
     interact_multiple_pareto_frontier,
     interact_pareto_frontier,
 )
 from ax.plot.pareto_utils import (
     _extract_observed_pareto_2d,
+    _relativize_values,
     get_observed_pareto_frontiers,
+    get_tensor_converter_adapter,
     infer_reference_point_from_experiment,
     logger,
     to_nonrobust_search_space,
 )
 
 from ax.utils.common.testutils import TestCase
+from ax.utils.stats.statstools import relativize
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
@@ -391,3 +395,44 @@ class TestInfereReferencePointFromExperiment(TestCase):
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
             self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+
+    def test_get_tensor_converter_adapter(self) -> None:
+        # Test that it can convert experiments with different number of observations.
+        for num_observations in (1, 10, 2000):
+            experiment = get_experiment_with_observations(
+                observations=[[0.0] for _ in range(num_observations)],
+            )
+            self.assertIsInstance(
+                get_tensor_converter_adapter(experiment=experiment), TorchAdapter
+            )
+
+    def test__relativize_values(self) -> None:
+        # With NaN sem.
+        means = [1.0, 2.0, 3.0]
+        sems = [float("nan"), 1.0, float("nan")]
+        tf_mean, tf_sem = _relativize_values(
+            means=means,
+            sems=sems,
+            sq_mean=2.0,
+            sq_sem=1.0,
+        )
+        self.assertIs(sems, tf_sem)
+        self.assertEqual(tf_mean, [-50.0, 0.0, 50.0])
+
+        # With non-NaN sem.
+        sems = [0.5, 1.0, 0.3]
+        tf_mean, tf_sem = _relativize_values(
+            means=means,
+            sems=sems,
+            sq_mean=2.0,
+            sq_sem=1.0,
+        )
+        rel_mean, rel_sem = relativize(
+            means_t=np.array(means),
+            sems_t=np.array(sems),
+            mean_c=2.0,
+            sem_c=1.0,
+            as_percent=True,
+        )
+        self.assertEqual(tf_mean, rel_mean.tolist())
+        self.assertEqual(tf_sem, rel_sem.tolist())

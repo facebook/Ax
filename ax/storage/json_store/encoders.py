@@ -10,6 +10,9 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+from ax.adapter.registry import _encode_callables_as_references
+from ax.adapter.transforms.base import Transform
+
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
@@ -23,6 +26,7 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
@@ -49,17 +53,12 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import (
-    FactoryFunctionGeneratorSpec,
-    GeneratorSpec,
-)
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import TransitionCriterion
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.modelbridge.registry import _encode_callables_as_references
-from ax.modelbridge.transforms.base import Transform
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_modular.surrogate import Surrogate
-from ax.models.winsorization_config import WinsorizationConfig
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils_torch import torch_type_to_str
@@ -302,7 +301,6 @@ def multi_objective_to_dict(objective: MultiObjective) -> dict[str, Any]:
     return {
         "__type": objective.__class__.__name__,
         "objectives": objective.objectives,
-        "weights": objective.weights,
     }
 
 
@@ -336,6 +334,19 @@ def optimization_config_to_dict(
         "objective": optimization_config.objective,
         "outcome_constraints": optimization_config.outcome_constraints,
         "risk_measure": optimization_config.risk_measure,
+    }
+
+
+def preference_optimization_config_to_dict(
+    preference_optimization_config: PreferenceOptimizationConfig,
+) -> dict[str, Any]:
+    """Convert Ax optimization config to a dictionary."""
+    pref_profile_name = preference_optimization_config.preference_profile_name
+    return {
+        "__type": preference_optimization_config.__class__.__name__,
+        "objective": preference_optimization_config.objective,
+        "outcome_constraints": preference_optimization_config.outcome_constraints,
+        "preference_profile_name": pref_profile_name,
     }
 
 
@@ -421,7 +432,7 @@ def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
     """Converts Ax generation step to a dictionary."""
     return {
         "__type": generation_step.__class__.__name__,
-        "model": generation_step.model,
+        "generator": generation_step.generator,
         "num_trials": generation_step.num_trials,
         "min_trials_observed": generation_step.min_trials_observed,
         "completion_criteria": generation_step.completion_criteria,
@@ -437,6 +448,7 @@ def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
         "index": generation_step.index,
         "should_deduplicate": generation_step.should_deduplicate,
         "transition_criteria": generation_step.transition_criteria,
+        "generator_name": generation_step.generator_name,
     }
 
 
@@ -445,11 +457,11 @@ def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
     return {
         "__type": generation_node.__class__.__name__,
         "node_name": generation_node.node_name,
-        "model_specs": generation_node.model_specs,
+        "generator_specs": generation_node.generator_specs,
         "best_model_selector": generation_node.best_model_selector,
         "should_deduplicate": generation_node.should_deduplicate,
         "transition_criteria": generation_node.transition_criteria,
-        "model_spec_to_gen_from": generation_node._model_spec_to_gen_from,
+        "generator_spec_to_gen_from": generation_node._generator_spec_to_gen_from,
         "previous_node_name": generation_node._previous_node_name,
         "trial_type": generation_node._trial_type,
         # need to manually encode input constructors because the key is an enum.
@@ -465,11 +477,6 @@ def generation_strategy_to_dict(
     generation_strategy: GenerationStrategy,
 ) -> dict[str, Any]:
     """Converts Ax generation strategy to a dictionary."""
-    if generation_strategy.uses_non_registered_models:
-        raise ValueError(
-            "Generation strategies that use custom models provided through "
-            "callables cannot be serialized and stored."
-        )
     node_based_gs = generation_strategy.is_node_based
     return {
         "__type": generation_strategy.__class__.__name__,
@@ -480,7 +487,7 @@ def generation_strategy_to_dict(
             generation_strategy.current_step_index if not node_based_gs else -1
         ),
         "generator_runs": generation_strategy._generator_runs,
-        "had_initialized_model": generation_strategy.model is not None,
+        "had_initialized_model": generation_strategy.adapter is not None,
         "experiment": generation_strategy._experiment,
         "nodes": generation_strategy._nodes,
         "curr_node_name": generation_strategy.current_node_name,
@@ -494,18 +501,13 @@ def transition_criterion_to_dict(criterion: TransitionCriterion) -> dict[str, An
     return properties
 
 
-def model_spec_to_dict(model_spec: GeneratorSpec) -> dict[str, Any]:
+def generator_spec_to_dict(generator_spec: GeneratorSpec) -> dict[str, Any]:
     """Convert Ax model spec to a dictionary."""
-    if isinstance(model_spec, FactoryFunctionGeneratorSpec):
-        raise NotImplementedError(
-            f"JSON serialization not yet implemented for model spec: {model_spec}"
-            " because it leverages a factory function instead of `Generators` registry."
-        )
     return {
-        "__type": model_spec.__class__.__name__,
-        "model_enum": model_spec.model_enum,
-        "model_kwargs": model_spec.model_kwargs,
-        "model_gen_kwargs": model_spec.model_gen_kwargs,
+        "__type": generator_spec.__class__.__name__,
+        "generator_enum": generator_spec.generator_enum,
+        "model_kwargs": generator_spec.model_kwargs,
+        "model_gen_kwargs": generator_spec.model_gen_kwargs,
     }
 
 

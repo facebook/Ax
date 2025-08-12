@@ -8,9 +8,11 @@
 import random
 from collections.abc import Mapping
 from typing import Any
+from unittest import mock
 
 import numpy as np
 import pandas as pd
+from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.api.client import Client
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
@@ -35,7 +37,9 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
-
+from ax.service.utils.with_db_settings_base import (
+    _save_generation_strategy_to_db_if_possible,
+)
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -179,6 +183,49 @@ class TestClient(TestCase):
                 outcome_constraints=["qps >= 0"],
             )
 
+        # Test that metrics not in the objective string are downgraded to tracking
+        # metrics rather than being removed
+        client = Client()
+        client.configure_experiment(
+            name="test_experiment",
+            parameters=[float_parameter],
+        )
+
+        custom_metric1 = DummyMetric(name="metric1")
+        custom_metric2 = DummyMetric(name="metric2")
+        custom_metric3 = DummyMetric(name="metric3")
+        client.configure_metrics(
+            metrics=[custom_metric1, custom_metric2, custom_metric3]
+        )
+
+        # Verify all metrics are added as tracking metrics
+        self.assertEqual(len(client._experiment.tracking_metrics), 3)
+        self.assertIn(custom_metric1, client._experiment.tracking_metrics)
+        self.assertIn(custom_metric2, client._experiment.tracking_metrics)
+        self.assertIn(custom_metric3, client._experiment.tracking_metrics)
+
+        # Configure optimization with only metric1 in the objective
+        client.configure_optimization(
+            objective="metric1",
+        )
+
+        # Verify metric2 and metric3 are still present as a tracking metric
+        self.assertIn(custom_metric2, client._experiment.tracking_metrics)
+        self.assertIn(custom_metric3, client._experiment.tracking_metrics)
+
+        # Verify metric1 is now part of the objective and no longer a tracking metric
+        optimization_config = client._experiment.optimization_config
+        self.assertIsNotNone(optimization_config)
+        objective = assert_is_instance(
+            optimization_config.objective,
+            Objective,
+        )
+        self.assertEqual(objective.metric.name, "metric1")
+
+        # Verify no metrics were removed, just moved from tracking to objective
+        all_metrics = [objective.metric] + list(client._experiment.tracking_metrics)
+        self.assertEqual(len(all_metrics), 3)
+
     def test_configure_runner(self) -> None:
         client = Client()
         runner = DummyRunner()
@@ -248,18 +295,6 @@ class TestClient(TestCase):
             none_throws(client._experiment.optimization_config)
             .outcome_constraints[0]
             .metric,
-        )
-
-        # Test replacing a tracking metric
-        client.configure_optimization(
-            objective="foo",
-        )
-        client._experiment.add_tracking_metric(metric=MapMetric("custom"))
-        client.configure_metrics(metrics=[custom_metric])
-
-        self.assertEqual(
-            custom_metric,
-            client._experiment.tracking_metrics[0],
         )
 
         # Test adding a tracking metric
@@ -354,9 +389,16 @@ class TestClient(TestCase):
         self.assertEqual(len(trials), 2)
 
         # Test respects fixed features
-        trials = client.get_next_trials(max_trials=1, fixed_parameters={"x1": 0.5})
+        with mock.patch(
+            "ax.service.utils.with_db_settings_base"
+            "._save_generation_strategy_to_db_if_possible"
+        ) as mock_save:
+            trials = client.get_next_trials(max_trials=1, fixed_parameters={"x1": 0.5})
         value = assert_is_instance(trials[3]["x1"], float)
         self.assertEqual(value, 0.5)
+
+        # Check that GS is not saved to the DB.
+        mock_save.assert_not_called()
 
     def test_get_next_trials_with_db(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
@@ -384,16 +426,27 @@ class TestClient(TestCase):
         client.complete_trial(
             trial_index=trial.index, raw_data={"foo": (random.random(), 1.0)}
         )
+        # Generate one more trial, so that GS transitions to BO.
+        with mock.patch(
+            "ax.service.utils.with_db_settings_base"
+            "._save_generation_strategy_to_db_if_possible",
+            wraps=_save_generation_strategy_to_db_if_possible,
+        ) as mock_save:
+            trials = client.get_next_trials(max_trials=1)
+        # Check that GS was saved after generating the trials.
+        self.assertEqual(client._generation_strategy.current_node_name, "MBM")
+        mock_save.assert_called_once()
 
         # Check that loading the GS from the DB results in using BO.
         # This will only happen if the GS is saved in get_next_trials
         client2 = Client.load_from_database(
             client._experiment.name, storage_config=StorageConfig()
         )
+        self.assertEqual(client2._generation_strategy.current_node_name, "MBM")
         trials = client2.get_next_trials(max_trials=1)
         self.assertEqual(len(trials), 1)
-        self.assertIn(1, trials)
-        trial = client2._experiment.trials[1]
+        self.assertIn(2, trials)
+        trial = client2._experiment.trials[2]
         self.assertEqual(trial.generator_runs[0]._model_key, "BoTorch")
 
     def test_attach_data(self) -> None:
@@ -639,10 +692,16 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
 
         trial_index = [*client.get_next_trials(max_trials=1).keys()][0]
-        client.mark_trial_failed(trial_index=trial_index)
+        client.mark_trial_failed(
+            trial_index=trial_index, failed_reason="testing the optional parameter"
+        )
         self.assertEqual(
             client._experiment.trials[trial_index].status,
             TrialStatus.FAILED,
+        )
+        self.assertEqual(
+            client._experiment.trials[trial_index]._failed_reason,
+            "testing the optional parameter",
         )
 
     def test_mark_trial_abandoned(self) -> None:
@@ -763,7 +822,7 @@ class TestClient(TestCase):
                         "metric_name": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
                         "mean": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan, 3: np.nan},
-                        "progression": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
+                        "step": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
                     }
                 )
             ),
@@ -829,27 +888,35 @@ class TestClient(TestCase):
             ],
         )
         client.configure_optimization(objective="foo, bar")
+        # No GS, no data.
+        summary_df = client.summarize()
+        self.assertTrue(summary_df.empty)
+
+        # Add manual trial.
+        index = client.attach_trial(
+            parameters={"x1": 0.5, "x2": 0.5}, arm_name="manual"
+        )
+        client.attach_data(trial_index=index, raw_data={"foo": 0.0, "bar": 0.5})
+        summary_df = client.summarize()
+        expected_columns = {
+            "trial_index",
+            "arm_name",
+            "trial_status",
+            "foo",
+            "bar",
+            "x1",
+            "x2",
+        }
+        self.assertEqual(set(summary_df.columns), expected_columns)
 
         # Get two trials and fail one, giving us a ragged structure
         client.get_next_trials(max_trials=2)
-        client.complete_trial(trial_index=0, raw_data={"foo": 1.0, "bar": 2.0})
-        client.mark_trial_failed(trial_index=1)
+        client.complete_trial(trial_index=1, raw_data={"foo": 1.0, "bar": 2.0})
+        client.mark_trial_failed(trial_index=2)
 
         summary_df = client.summarize()
-
-        self.assertEqual(
-            {*summary_df.columns},
-            {
-                "trial_index",
-                "arm_name",
-                "trial_status",
-                "generation_node",
-                "foo",
-                "bar",
-                "x1",
-                "x2",
-            },
-        )
+        expected_columns.add("generation_node")
+        self.assertEqual(set(summary_df.columns), expected_columns)
 
         trial_0_parameters = none_throws(
             assert_is_instance(client._experiment.trials[0], Trial).arm
@@ -857,14 +924,42 @@ class TestClient(TestCase):
         trial_1_parameters = none_throws(
             assert_is_instance(client._experiment.trials[1], Trial).arm
         ).parameters
+        trial_2_parameters = none_throws(
+            assert_is_instance(client._experiment.trials[2], Trial).arm
+        ).parameters
         expected = pd.DataFrame(
             {
+                "trial_index": {0: 0, 1: 1, 2: 2},
+                "arm_name": {0: "manual", 1: "1_0", 2: "2_0"},
+                "trial_status": {0: "RUNNING", 1: "COMPLETED", 2: "FAILED"},
+                "generation_node": {0: None, 1: "CenterOfSearchSpace", 2: "Sobol"},
+                "foo": {0: 0.0, 1: 1.0, 2: np.nan},  # NaN because trial 2 failed
+                "bar": {0: 0.5, 1: 2.0, 2: np.nan},
+                "x1": {
+                    0: trial_0_parameters["x1"],
+                    1: trial_1_parameters["x1"],
+                    2: trial_2_parameters["x1"],
+                },
+                "x2": {
+                    0: trial_0_parameters["x2"],
+                    1: trial_1_parameters["x2"],
+                    2: trial_2_parameters["x2"],
+                },
+            }
+        )
+        pd.testing.assert_frame_equal(summary_df, expected)
+
+        # Test with trial_indices parameter
+        # Only include trials 0 and 1
+        summary_df_filtered = client.summarize(trial_indices=[0, 1])
+        expected_filtered = pd.DataFrame(
+            {
                 "trial_index": {0: 0, 1: 1},
-                "arm_name": {0: "0_0", 1: "1_0"},
-                "trial_status": {0: "COMPLETED", 1: "FAILED"},
-                "generation_node": {0: "CenterOfSearchSpace", 1: "Sobol"},
-                "foo": {0: 1.0, 1: np.nan},  # NaN because trial 1 failed
-                "bar": {0: 2.0, 1: np.nan},
+                "arm_name": {0: "manual", 1: "1_0"},
+                "trial_status": {0: "RUNNING", 1: "COMPLETED"},
+                "generation_node": {0: None, 1: "CenterOfSearchSpace"},
+                "foo": {0: 0.0, 1: 1.0},
+                "bar": {0: 0.5, 1: 2.0},
                 "x1": {
                     0: trial_0_parameters["x1"],
                     1: trial_1_parameters["x1"],
@@ -875,7 +970,79 @@ class TestClient(TestCase):
                 },
             }
         )
-        pd.testing.assert_frame_equal(summary_df, expected)
+        pd.testing.assert_frame_equal(summary_df_filtered, expected_filtered)
+
+        # Test with only one trial index
+        summary_df_single = client.summarize(trial_indices=[1])
+        expected_single = pd.DataFrame(
+            {
+                "trial_index": {0: 1},
+                "arm_name": {0: "1_0"},
+                "trial_status": {0: "COMPLETED"},
+                "generation_node": {0: "CenterOfSearchSpace"},
+                "foo": {0: 1.0},
+                "bar": {0: 2.0},
+                "x1": {0: trial_1_parameters["x1"]},
+                "x2": {0: trial_1_parameters["x2"]},
+            }
+        )
+        pd.testing.assert_frame_equal(summary_df_single, expected_single)
+
+        # Test with trial_status parameter
+        summary_df_completed = client.summarize(trial_statuses=["completed"])
+        expected_completed = pd.DataFrame(
+            {
+                "trial_index": {0: 1},
+                "arm_name": {0: "1_0"},
+                "trial_status": {0: "COMPLETED"},
+                "generation_node": {0: "CenterOfSearchSpace"},
+                "foo": {0: 1.0},
+                "bar": {0: 2.0},
+                "x1": {0: trial_1_parameters["x1"]},
+                "x2": {0: trial_1_parameters["x2"]},
+            }
+        )
+        pd.testing.assert_frame_equal(summary_df_completed, expected_completed)
+
+        # Test with trial_status parameter for running trials
+        summary_df_running = client.summarize(trial_statuses=["running"])
+        expected_running = pd.DataFrame(
+            {
+                "trial_index": {0: 0},
+                "arm_name": {0: "manual"},
+                "trial_status": {0: "RUNNING"},
+                "foo": {0: 0.0},
+                "bar": {0: 0.5},
+                "x1": {0: trial_0_parameters["x1"]},
+                "x2": {0: trial_0_parameters["x2"]},
+            }
+        )
+
+        assert summary_df_running.equals(expected_running)
+
+        # Test with multiple trial_status values
+        summary_df_multi_status = client.summarize(
+            trial_statuses=["completed", "running"]
+        )
+        expected_multi_status = pd.DataFrame(
+            {
+                "trial_index": {0: 0, 1: 1},
+                "arm_name": {0: "manual", 1: "1_0"},
+                "trial_status": {0: "RUNNING", 1: "COMPLETED"},
+                "generation_node": {0: None, 1: "CenterOfSearchSpace"},
+                "foo": {0: 0.0, 1: 1.0},
+                "bar": {0: 0.5, 1: 2.0},
+                "x1": {
+                    0: trial_0_parameters["x1"],
+                    1: trial_1_parameters["x1"],
+                },
+                "x2": {
+                    0: trial_0_parameters["x2"],
+                    1: trial_1_parameters["x2"],
+                },
+            }
+        )
+        self.assertTrue(summary_df_multi_status.equals(expected_multi_status))
 
     def test_compute_analyses(self) -> None:
         client = Client()
@@ -890,25 +1057,19 @@ class TestClient(TestCase):
         client.configure_generation_strategy()
 
         with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
-            cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+            analysis = ParallelCoordinatesPlot()
+            cards = client.compute_analyses(analyses=[analysis])
 
             self.assertEqual(len(cards), 1)
             self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
             self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
             self.assertEqual(
                 cards[0].subtitle,
-                f"An error occurred while computing {ParallelCoordinatesPlot()}",
+                "ValueError encountered while computing ParallelCoordinatesPlot.",
             )
-            self.assertIn("Traceback", cards[0].blob)
+            self.assertIn("Traceback", assert_is_instance(cards[0], AnalysisCard).blob)
             self.assertTrue(
-                any(
-                    (
-                        "Failed to compute ParallelCoordinatesPlot: "
-                        "No data found for metric "
-                    )
-                    in msg
-                    for msg in lg.output
-                )
+                any(("No data found for metric") in msg for msg in lg.output)
             )
 
         for trial_index, _ in client.get_next_trials(max_trials=1).items():
@@ -1125,8 +1286,20 @@ class TestClient(TestCase):
 
         # Check we've predicted something for foo and bar but not baz (which is a
         # tracking metric)
-        point = client.predict(points=[{"x1": 0.5}])
-        self.assertEqual({*point[0].keys()}, {"foo", "bar"})
+        (prediction,) = client.predict(points=[{"x1": 0.5}])
+        self.assertEqual(set(prediction), {"foo", "bar"})
+        # Check that we're returning SEM not variance.
+        pred_mean = {"foo": [0.25], "bar": [0.0]}
+        pred_cov = {
+            "foo": {"foo": [4.0], "bar": [9.0]},
+            "bar": {"foo": [9.0], "bar": [16.0]},
+        }
+        with mock.patch(
+            "ax.adapter.torch.TorchAdapter.predict", return_value=(pred_mean, pred_cov)
+        ) as mock_predict:
+            (prediction,) = client.predict(points=[{"x1": 0.5}])
+        mock_predict.assert_called_once()
+        self.assertEqual(prediction, {"foo": (0.25, 2.0), "bar": (0.0, 4.0)})
 
     def test_json_storage(self) -> None:
         client = Client()

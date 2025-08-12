@@ -13,9 +13,10 @@ from collections.abc import Callable
 from copy import deepcopy
 from functools import wraps
 from logging import Logger
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
 
 import pandas as pd
+from ax.adapter.base import Adapter
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -28,9 +29,7 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyMisconfiguredException,
 )
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
-from ax.generation_strategy.model_spec import FactoryFunctionGeneratorSpec
 from ax.generation_strategy.transition_criterion import TrialBasedCriterion
-from ax.modelbridge.base import Adapter
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_list
@@ -62,13 +61,12 @@ def step_based_gs_only(f: Callable[..., T]) -> Callable[..., T]:
 
 
 class GenerationStrategy(Base):
-    """GenerationStrategy describes which model should be used to generate new
-    points for which trials, enabling and automating use of different models
+    """GenerationStrategy describes which node should be used to generate new
+    points for which trials, enabling and automating use of different nodes
     throughout the optimization process. For instance, it allows to use one
-    model for the initialization trials, and another one for all subsequent
+    node for the initialization trials, and another one for all subsequent
     trials. In the general case, this allows to automate use of an arbitrary
-    number of models to generate an arbitrary numbers of trials
-    described in the `trials_per_model` argument.
+    number of nodes to generate an arbitrary numbers of trials.
 
     Args:
         nodes: A list of `GenerationNode`. Each `GenerationNode` in the list
@@ -81,15 +79,13 @@ class GenerationStrategy(Base):
             must be provided.
         steps: A list of `GenerationStep` describing steps of this strategy.
         name: An optional name for this generation strategy. If not specified,
-            strategy's name will be names of its nodes' models joined with '+'.
+            strategy's name will be names of its nodes' generators joined with '+'.
     """
 
     DEFAULT_N: int = 1
 
     _nodes: list[GenerationNode]
     _curr: GenerationNode  # Current node in the strategy.
-    # Whether all models in this GS are in Generators registry enum.
-    _uses_registered_models: bool
     # All generator runs created through this generation strategy, in chronological
     # order.
     _generator_runs: list[GeneratorRun]
@@ -97,7 +93,6 @@ class GenerationStrategy(Base):
     # it exists.
     _name: str
     _experiment: Experiment | None = None
-    _model: Adapter | None = None  # Current model.
 
     def __init__(
         self,
@@ -111,8 +106,9 @@ class GenerationStrategy(Base):
                 error_info="GenerationStrategy must contain either steps or nodes."
             )
 
-        # pyre-ignore[8]
-        self._nodes = none_throws(nodes if steps is None else steps)
+        self._nodes = none_throws(
+            nodes if steps is None else cast(list[GenerationNode], steps)
+        )
 
         # Validate correctness of steps list or nodes graph
         if isinstance(steps, list) and all(
@@ -128,18 +124,6 @@ class GenerationStrategy(Base):
                 "`steps` (list of `GenerationStep`) or\n"
                 "`nodes` (list of `GenerationNode`)."
                 f"Encountered: {steps=}, {nodes=}"
-            )
-
-        # Log warning if the GS uses a non-registered (factory function) model.
-        self._uses_registered_models = not any(
-            isinstance(ms, FactoryFunctionGeneratorSpec)
-            for node in self._nodes
-            for ms in node.model_specs
-        )
-        if not self._uses_registered_models:
-            logger.warning(
-                "Using model via callable function, "
-                "so optimization is not resumable if interrupted."
             )
         self._generator_runs = []
         # Set name to an explicit value ahead of time to avoid
@@ -163,7 +147,7 @@ class GenerationStrategy(Base):
 
     @property
     def name(self) -> str:
-        """Name of this generation strategy. Defaults to a combination of model
+        """Name of this generation strategy. Defaults to a combination of generator
         names provided in generation steps, set at the time of the
         ``GenerationStrategy`` creation.
         """
@@ -178,17 +162,6 @@ class GenerationStrategy(Base):
     def name(self) -> str:
         """Name of this generation strategy."""
         return self._name
-
-    @property
-    @step_based_gs_only
-    def model_transitions(self) -> list[int]:
-        """[DEPRECATED]List of trial indices where a transition happened from one model
-        to another.
-        """
-        raise DeprecationWarning(
-            "`model_transitions` is no longer supported. Please refer to `model_key` "
-            "field on generator runs for similar information if needed."
-        )
 
     @property
     def current_step(self) -> GenerationStep:
@@ -230,11 +203,13 @@ class GenerationStrategy(Base):
         return node_names_for_all_steps.index(self._curr.node_name)
 
     @property
-    def model(self) -> Adapter | None:
-        """Current model in this strategy. Returns None if no model has been set
-        yet (i.e., if no generator runs have been produced from this GS).
+    def adapter(self) -> Adapter | None:
+        """The adapter from the current node of this strategy. Returns None
+        if no adapter has been set yet. This can happen if no generator runs have
+        been produced from this GS or if the current node does not utilize
+        adapters (the case for ``ExternalGenerationNode``).
         """
-        return self._curr._fitted_model
+        return self._curr._fitted_adapter
 
     @property
     def experiment(self) -> Experiment:
@@ -265,14 +240,8 @@ class GenerationStrategy(Base):
         """Latest generator run produced by this generation strategy.
         Returns None if no generator runs have been produced yet.
         """
-        # Used to restore current model when decoding a serialized GS.
+        # Used to restore current node when decoding a serialized GS.
         return self._generator_runs[-1] if self._generator_runs else None
-
-    @property
-    def uses_non_registered_models(self) -> bool:
-        """Whether this generation strategy involves models that are not
-        registered and therefore cannot be stored."""
-        return not self._uses_registered_models
 
     @property
     def trials_as_df(self) -> pd.DataFrame | None:
@@ -303,7 +272,7 @@ class GenerationStrategy(Base):
         """List of generation steps."""
         return self._nodes  # pyre-ignore[7]
 
-    def gen(
+    def gen_single_trial(
         self,
         experiment: Experiment,
         data: Data | None = None,
@@ -312,7 +281,7 @@ class GenerationStrategy(Base):
         fixed_features: ObservationFeatures | None = None,
     ) -> GeneratorRun:
         """Produce the next points in the experiment. Additional kwargs passed to
-        this method are propagated directly to the underlying model's `gen`, along
+        this method are propagated directly to the underlying node's `gen`, along
         with the `model_gen_kwargs` set on the current generation node.
 
         NOTE: Each generator run returned from this function must become a single
@@ -324,18 +293,18 @@ class GenerationStrategy(Base):
             experiment: Experiment, for which the generation strategy is producing
                 a new generator run in the course of `gen`, and to which that
                 generator run will be added as trial(s). Information stored on the
-                experiment (e.g., trial statuses) is used to determine which model
+                experiment (e.g., trial statuses) is used to determine which node
                 will be used to produce the generator run returned from this method.
-            data: Optional data to be passed to the underlying model's `gen`, which
+            data: Optional data to be passed to the underlying node's `gen`, which
                 is called within this method and actually produces the resulting
                 generator run. By default, data is all data on the `experiment`.
             n: Integer representing how many arms should be in the generator run
-                produced by this method. NOTE: Some underlying models may ignore
-                the `n` and produce a model-determined number of arms. In that
+                produced by this method. NOTE: Some underlying nodes may ignore
+                the `n` and produce a node-determined number of arms. In that
                 case this method will also output a generator run with number of
                 arms that can differ from `n`.
             pending_observations: A map from metric name to pending
-                observations for that metric, used by some models to avoid
+                observations for that metric, used by some nodes to avoid
                 resuggesting points that are currently being evaluated.
         """
         self.experiment = experiment
@@ -356,7 +325,7 @@ class GenerationStrategy(Base):
             )
         return gr[0]
 
-    def gen_for_multiple_trials_with_multiple_models(
+    def gen(
         self,
         experiment: Experiment,
         data: Data | None = None,
@@ -373,21 +342,21 @@ class GenerationStrategy(Base):
             experiment: ``Experiment``, for which the generation strategy is producing
                 a new generator run in the course of ``gen``, and to which that
                 generator run will be added as trial(s). Information stored on the
-                experiment (e.g., trial statuses) is used to determine which model
+                experiment (e.g., trial statuses) is used to determine which node
                 will be used to produce the generator run returned from this method.
-            data: Optional data to be passed to the underlying model's ``gen``, which
+            data: Optional data to be passed to the underlying node's ``gen``, which
                 is called within this method and actually produces the resulting
                 generator run. By default, data is all data on the ``experiment``.
             pending_observations: A map from metric name to pending
-                observations for that metric, used by some models to avoid
+                observations for that metric, used by some nodes to avoid
                 resuggesting points that are currently being evaluated.
             n: Integer representing how many total arms should be in the generator
-                runs produced by this method. NOTE: Some underlying models may ignore
-                the `n` and produce a model-determined number of arms. In that
+                runs produced by this method. NOTE: Some underlying nodes may ignore
+                the `n` and produce a node-determined number of arms. In that
                 case this method will also output generator runs with number of
                 arms that can differ from `n`.
             fixed_features: An optional set of ``ObservationFeatures`` that will be
-                passed down to the underlying models. Note: if provided this will
+                passed down to the underlying nodes. Note: if provided this will
                 override any algorithmically determined fixed features so it is
                 important to specify all necessary fixed features.
             num_trials: Number of trials to generate generator runs for in this call.
@@ -481,10 +450,9 @@ class GenerationStrategy(Base):
         strategies; call this utility on the pre-storage one first. The rest
         of the fields should be identical.
         """
-        self._model = None
         for n in self._nodes:
-            if len(n.model_specs) > 1:
-                n._model_spec_to_gen_from = None
+            if len(n.generator_specs) > 1:
+                n._generator_spec_to_gen_from = None
             if not self.is_node_based:
                 n._previous_node_name = None
 
@@ -507,7 +475,7 @@ class GenerationStrategy(Base):
                 if idx < len(self._steps) - 1:
                     raise UserInputError(
                         "Only last step in generation strategy can have "
-                        "`num_trials` set to -1 to indicate that the model in "
+                        "`num_trials` set to -1 to indicate that the generator in "
                         "the step should be used to generate new trials "
                         "indefinitely unless completion criteria present."
                     )
@@ -520,7 +488,7 @@ class GenerationStrategy(Base):
                 raise UserInputError(
                     "Maximum parallelism should be None (if no limit) or "
                     f"a positive number. Got: {step.max_parallelism} for "
-                    f"step {step.model_name}."
+                    f"step {step.generator_name}."
                 )
 
             step._node_name = f"GenerationStep_{str(idx)}"
@@ -632,9 +600,9 @@ class GenerationStrategy(Base):
                 ):
                     num_trials = criterion.threshold
 
-            model_spec = step._model_spec_to_gen_from
-            if model_spec is not None:
-                model_name = model_spec.model_key
+            generator_spec = step._generator_spec_to_gen_from
+            if generator_spec is not None:
+                model_name = generator_spec.model_key
             else:
                 model_name = "model with unknown name"
 
@@ -666,8 +634,8 @@ class GenerationStrategy(Base):
         """Make a default name for this generation strategy; used when no name is passed
         to the constructor. For node-based generation strategies, the name is
         constructed by joining together the names of the nodes set on this
-        generation strategy. For step-based generation strategies, the model keys
-        of the underlying model specs are used.
+        generation strategy. For step-based generation strategies, the generator keys
+        of the underlying generator specs are used.
         Note: This should only be called once the nodes are set.
         """
         if not self._nodes:
@@ -675,11 +643,14 @@ class GenerationStrategy(Base):
                 "Cannot make a default name for a generation strategy with no nodes "
                 "set yet."
             )
-        # TODO: Simplify this after updating GStep names to represent underlying models.
+        # TODO: Simplify this after updating GStep names to represent
+        # underlying generators.
         if self.is_node_based:
             node_names = (node.node_name for node in self._nodes)
         else:
-            node_names = (node.model_spec_to_gen_from.model_key for node in self._nodes)
+            node_names = (
+                node.generator_spec_to_gen_from.model_key for node in self._nodes
+            )
             # Trim the "get_" beginning of the factory function if it's there.
             node_names = (n[4:] if n[:4] == "get_" else n for n in node_names)
         return "+".join(node_names)
@@ -706,7 +677,7 @@ class GenerationStrategy(Base):
     ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
         ``BatchTrial``, and if producing a ``BatchTrial``, allows for multiple
-        ``GenerationNode``-s (and therefore models) to be used to generate
+        ``GenerationNode``-s (and therefore generators) to be used to generate
         ``GeneratorRun``-s for that trial.
 
 
@@ -714,21 +685,21 @@ class GenerationStrategy(Base):
             experiment: Experiment, for which the generation strategy is producing
                 a new generator run in the course of `gen`, and to which that
                 generator run will be added as trial(s). Information stored on the
-                experiment (e.g., trial statuses) is used to determine which model
+                experiment (e.g., trial statuses) is used to determine which node
                 will be used to produce the generator run returned from this method.
-            data: Optional data to be passed to the underlying model's `gen`, which
+            data: Optional data to be passed to the underlying node's `gen`, which
                 is called within this method and actually produces the resulting
                 generator run. By default, data is all data on the `experiment`.
             pending_observations: A map from metric name to pending
-                observations for that metric, used by some models to avoid
+                observations for that metric, used by some nodes to avoid
                 resuggesting points that are currently being evaluated.
             n: Integer representing how many arms should be in the generator run
-                produced by this method. NOTE: Some underlying models may ignore
-                the `n` and produce a model-determined number of arms. In that
+                produced by this method. NOTE: Some underlying nodes may ignore
+                the `n` and produce a node-determined number of arms. In that
                 case this method will also output a generator run with number of
                 arms that can differ from `n`.
             fixed_features: An optional set of ``ObservationFeatures`` that will be
-                passed down to the underlying models. Note: if provided this will
+                passed down to the underlying nodes. Note: if provided this will
                 override any algorithmically determined fixed features so it is
                 important to specify all necessary fixed features.
             arms_per_node: An optional map from node name to the number of arms to
@@ -782,15 +753,13 @@ class GenerationStrategy(Base):
                     skip_fit=not (first_generation_in_multi or transitioned),
                     **pack_gs_gen_kwargs,
                 )
-                # TODO[@drfreund]: Do we need this or can we just not keep `GS._model`?
-                self._model = self._curr._fitted_model
             except DataRequiredError as err:
-                # Model needs more data, so we log the error and return
+                # Generator needs more data, so we log the error and return
                 # as many generator runs as we were able to produce, unless
                 # no trials were produced at all (in which case its safe to raise).
                 if len(grs_this_gen) == 0:
                     raise
-                logger.debug(f"Model required more data: {err}.")
+                logger.debug(f"Generator required more data: {err}.")
                 break
             if gr is None:
                 # GR should only be none if current node's `_should_skip` is true`
@@ -834,7 +803,7 @@ class GenerationStrategy(Base):
             for tc in self._curr.transition_edges[next_node]
         )
 
-    # ------------------------- Model selection logic helpers. -------------------------
+    # ------------------------- Node selection logic helpers. -------------------------
 
     def _maybe_transition_to_next_node(
         self,
@@ -872,8 +841,4 @@ class GenerationStrategy(Base):
             for node in self._nodes:
                 if node.node_name == next_node:
                     self._curr = node
-                    # Moving to the next node also entails unsetting this GS's model
-                    # (since new node's model will be initialized for the first time;
-                    # this is done in `_gen_with_multiple_nodes`).
-                    self._model = None
         return move_to_next_node

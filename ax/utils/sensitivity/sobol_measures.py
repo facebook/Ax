@@ -12,21 +12,21 @@ from typing import Any
 
 import numpy.typing as npt
 import torch
+from ax.adapter.torch import TorchAdapter
 from ax.core.search_space import SearchSpaceDigest
-from ax.modelbridge.torch import TorchAdapter
-from ax.models.torch.botorch import LegacyBoTorchGenerator
-from ax.models.torch.botorch_modular.model import (
+from ax.generators.torch.botorch import LegacyBoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
 from ax.utils.sensitivity.derivative_measures import (
     compute_derivatives_from_model_list,
     sample_discrete_parameters,
 )
+from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model, ModelList
-from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
-from botorch.utils.transforms import is_ensemble, unnormalize
+from botorch.utils.transforms import unnormalize
 from pyre_extensions import assert_is_instance
 from torch import Tensor
 
@@ -73,6 +73,7 @@ class SobolSensitivity:
             num_bootstrap_samples - 1
         )  # deduct 1 because the first is meant to be the full grid
         self.bootstrap_array = bootstrap_array
+        self.device: torch.device = bounds.device
         if input_qmc:
             sobol_kwargs = {"bounds": bounds, "n": num_mc_samples, "q": 1}
             seed_A, seed_B = 1234, 5678  # to make it reproducible
@@ -81,8 +82,14 @@ class SobolSensitivity:
             # pyre-ignore
             self.B = draw_sobol_samples(**sobol_kwargs, seed=seed_B).squeeze(1)
         else:
-            self.A = unnormalize(torch.rand(num_mc_samples, self.dim), bounds=bounds)
-            self.B = unnormalize(torch.rand(num_mc_samples, self.dim), bounds=bounds)
+            self.A = unnormalize(
+                torch.rand(num_mc_samples, self.dim, device=self.device),
+                bounds=bounds,
+            )
+            self.B = unnormalize(
+                torch.rand(num_mc_samples, self.dim, device=self.device),
+                bounds=bounds,
+            )
 
         # uniform integral distribution for discrete features
         self.A = sample_discrete_parameters(
@@ -437,24 +444,22 @@ def ProbitLinkMean(mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
 class SobolSensitivityGPMean:
     def __init__(
         self,
-        model: Model,  # TODO: narrow type down. E.g. ModelListGP does not work.
+        model: GPyTorchModel,
         bounds: torch.Tensor,
         num_mc_samples: int = 10**4,
         second_order: bool = False,
         input_qmc: bool = False,
         num_bootstrap_samples: int = 1,
-        first_order_idcs: torch.Tensor | None = None,
         link_function: Callable[
             [torch.Tensor, torch.Tensor], torch.Tensor
         ] = GaussianLinkMean,
-        mini_batch_size: int = 128,
         discrete_features: list[int] | None = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
 
         Args:
-            model: Botorch model
+            model: BoTorch model whose posterior is a `GPyTorchPosterior`.
             bounds: `2 x d` parameter bounds over which to evaluate model sensitivity.
             method: if "predictive mean", the predictive mean is used for indices
                 computation. If "GP samples", posterior sampling is used instead.
@@ -463,13 +468,9 @@ class SobolSensitivityGPMean:
             input_qmc: If True, a qmc Sobol grid is use instead of uniformly random.
             num_bootstrap_samples: If bootstrap is true, the number of bootstraps has
                 to be specified.
-            first_order_idcs: Tensor of previously computed first order indices, where
-                first_order_idcs.shape = torch.Size([dim]).
             link_function: The link function to be used when computing the indices.
                 Indices can be computed for the mean or on samples of the posterior,
                 predictive, but defaults to computing on the mean (GaussianLinkMean).
-            mini_batch_size: The size of the mini-batches used while evaluating the
-                model posterior. Increasing this will increase the memory usage.
             discrete_features: If specified, the inputs associated with the indices in
                 this list are generated using an integer-valued uniform distribution,
                 rather than the default (pseudo-)random continuous uniform distribution.
@@ -477,28 +478,24 @@ class SobolSensitivityGPMean:
         self.model = model
         self.second_order = second_order
         self.input_qmc = input_qmc
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.bootstrap = num_bootstrap_samples > 1
+        self.bootstrap: bool = num_bootstrap_samples > 1
         self.num_bootstrap_samples = num_bootstrap_samples
         self.num_mc_samples = num_mc_samples
 
         def input_function(x: Tensor) -> Tensor:
+            assert x.ndim == 2, "Input must be a 2D tensor."
             with torch.no_grad():
+                # NOTE: Do not unsqueeze x_ here. Likely due to a matmul issue
+                # this ends up using a lot of memory with batched models.
+                # See https://github.com/pytorch/botorch/issues/2310.
                 means, variances = [], []
-                # Since we're only looking at mean & variance, we can freely
-                # use mini-batches.
-                for x_split in x.split(split_size=mini_batch_size):
-                    p = assert_is_instance(
-                        self.model.posterior(x_split),
-                        GPyTorchPosterior,
-                    )
+                for x_ in x.split(4096):
+                    p = self.model.posterior(x_)
                     means.append(p.mean)
                     variances.append(p.variance)
-
-            cat_dim = 1 if is_ensemble(self.model) else 0
-            return link_function(
-                torch.cat(means, dim=cat_dim), torch.cat(variances, dim=cat_dim)
-            )
+                mean = torch.cat(means, dim=-2)
+                variance = torch.cat(variances, dim=-2)
+            return link_function(mean, variance)
 
         self.sensitivity = SobolSensitivity(
             bounds=bounds,
@@ -789,7 +786,7 @@ class SobolSensitivityGPSampling:
 
 
 def compute_sobol_indices_from_model_list(
-    model_list: list[Model],
+    model_list: list[GPyTorchModel],
     bounds: Tensor,
     order: str = "first",
     discrete_features: list[int] | None = None,
@@ -837,7 +834,7 @@ def compute_sobol_indices_from_model_list(
 
 
 def ax_parameter_sens(
-    model_bridge: TorchAdapter,
+    adapter: TorchAdapter,
     metrics: list[str] | None = None,
     order: str = "first",
     signed: bool = True,
@@ -854,10 +851,10 @@ def ax_parameter_sens(
     will have values close to 0.
 
     Args:
-        model_bridge: A Adapter object with models that were fit.
+        adapter: A Adapter object with models that were fit.
         metrics: The names of the metrics and outcomes for which to compute
             sensitivities. This should preferably be metrics with a good model fit.
-            Defaults to model_bridge.outcomes.
+            Defaults to adapter.outcomes.
         order: A string specifying the order of the Sobol indices to be computed.
             Supports "first" and "total" and defaults to "first".
         signed: A bool for whether the measure should be signed.
@@ -876,10 +873,17 @@ def ax_parameter_sens(
             " 'first', 'total' or 'second'."
         )
     if metrics is None:
-        metrics = model_bridge.outcomes
-    generator, digest = _get_generator_and_digest(adapter=model_bridge)
+        metrics = adapter.outcomes
+    generator, digest = _get_generator_and_digest(adapter=adapter)
     model_list = _get_model_per_metric(generator=generator, metrics=metrics)
-    bounds = torch.tensor(digest.bounds).T  # transposing to make it 2 x d
+
+    # get device and dtype of the first model
+    first_model = next(model_list[0].parameters())
+    device = first_model.device
+    bounds = torch.tensor(
+        digest.bounds,
+        device=device,
+    ).T  # transposing to make it 2 x d
 
     # for second order indices, we need to compute first order indices first
     # which is what is done here. With the first order indices, we can then subtract
@@ -892,9 +896,6 @@ def ax_parameter_sens(
         **sobol_kwargs,
     )
     feature_names = digest.feature_names
-    indices_unsigned = array_with_string_indices_to_dict(
-        rows=metrics, cols=feature_names, A=ind.numpy()
-    )
     if signed:
         ind_deriv = compute_derivatives_from_model_list(
             model_list=model_list,
@@ -910,10 +911,10 @@ def ax_parameter_sens(
         # them differently here.
         for i in digest.categorical_features:
             ind_deriv[:, i] = 1.0
-        ind *= torch.sign(ind_deriv)
+        ind *= torch.sign(ind_deriv).to(device)
 
     indices = array_with_string_indices_to_dict(
-        rows=metrics, cols=feature_names, A=ind.numpy()
+        rows=metrics, cols=feature_names, A=ind.cpu().numpy()
     )
     if order == "second":
         second_order_values = compute_sobol_indices_from_model_list(
@@ -921,7 +922,6 @@ def ax_parameter_sens(
             bounds=bounds,
             order="second",
             discrete_features=digest.categorical_features + digest.ordinal_features,
-            first_order_idcs=indices_unsigned,
             **sobol_kwargs,
         )
         second_order_feature_names = [
@@ -931,7 +931,7 @@ def ax_parameter_sens(
         second_order_dict = array_with_string_indices_to_dict(
             rows=metrics,
             cols=second_order_feature_names,
-            A=second_order_values.numpy(),
+            A=second_order_values.cpu().numpy(),
         )
         for metric in metrics:
             indices[metric].update(second_order_dict[metric])
@@ -949,7 +949,7 @@ def _get_generator_and_digest(
         raise NotImplementedError(
             f"{type(adapter)=}, but only TorchAdapter is supported."
         )
-    generator = adapter.model
+    generator = adapter.generator
     if not isinstance(generator, (LegacyBoTorchGenerator, ModularBoTorchGenerator)):
         raise NotImplementedError(
             f"{type(generator)=}, but only LegacyBoTorchGenerator and "
@@ -960,7 +960,7 @@ def _get_generator_and_digest(
 
 def _get_model_per_metric(
     generator: LegacyBoTorchGenerator | ModularBoTorchGenerator, metrics: list[str]
-) -> list[Model]:
+) -> list[GPyTorchModel]:
     """For a given TorchGenerator model, returns a list of botorch.models.model.Model
     objects corresponding to - and in the same order as - the given metrics.
     """
@@ -970,9 +970,9 @@ def _get_model_per_metric(
         model_idx = [generator.metric_names.index(m) for m in metrics]
         if not isinstance(gp_model, ModelList):
             if gp_model.num_outputs == 1:  # can accept single output models
-                return [gp_model for _ in model_idx]
+                return [assert_is_instance(gp_model, GPyTorchModel) for _ in model_idx]
             raise NotImplementedError(
-                f"type(model_bridge.model.model) = {type(gp_model)}, "
+                f"type(adapter.generator.model) = {type(gp_model)}, "
                 "but only ModelList is supported."
             )
         return [gp_model.models[i] for i in model_idx]

@@ -10,6 +10,8 @@ from abc import ABC
 from collections.abc import Iterable
 
 import numpy as np
+from ax.adapter.adapter_utils import observed_hypervolume, predicted_hypervolume
+from ax.adapter.torch import TorchAdapter
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.objective import ScalarizedObjective
@@ -21,9 +23,7 @@ from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.modelbridge_utils import observed_hypervolume, predicted_hypervolume
-from ax.modelbridge.torch import TorchAdapter
-from ax.plot.pareto_utils import get_tensor_converter_model
+from ax.plot.pareto_utils import get_tensor_converter_adapter
 from ax.service.utils import best_point as best_point_utils
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from pyre_extensions import assert_is_instance, none_throws
@@ -44,7 +44,7 @@ class BestPointMixin(ABC):
     ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
         """Identifies the best parameterization tried in the experiment so far.
 
-        First attempts to do so with the model used in optimization and
+        First attempts to do so with the adapter used in optimization and
         its corresponding predictions if available. Falls back to the best raw
         objective based on the data fetched from the experiment.
 
@@ -251,7 +251,7 @@ class BestPointMixin(ABC):
         if use_model_predictions:
             res = best_point_utils.get_best_parameters_from_model_predictions_with_trial_index(  # noqa
                 experiment=experiment,
-                adapter=generation_strategy.model,
+                adapter=generation_strategy.adapter,
                 optimization_config=optimization_config,
                 trial_indices=trial_indices,
             )
@@ -352,26 +352,26 @@ class BestPointMixin(ABC):
         )
 
         if use_model_predictions:
-            # Make sure that the model is fitted. If model is fitted already,
+            # Make sure that the adapter is fitted. If adapter is fitted already,
             # this should be a no-op.
             generation_strategy._curr._fit(experiment=experiment)
-            model = generation_strategy.model
-            if not isinstance(model, TorchAdapter):
+            adapter = generation_strategy.adapter
+            if not isinstance(adapter, TorchAdapter):
                 raise ValueError(
-                    f"Model {model} is not of type TorchAdapter, cannot "
+                    f"Adapter {adapter} is not of type TorchAdapter, cannot "
                     "calculate predicted hypervolume."
                 )
             return predicted_hypervolume(
-                modelbridge=model, optimization_config=optimization_config
+                adapter=adapter, optimization_config=optimization_config
             )
 
-        minimal_model = get_tensor_converter_model(
+        minimal_adapter = get_tensor_converter_adapter(
             experiment=experiment,
             data=experiment.lookup_data(trial_indices=trial_indices),
         )
 
         return observed_hypervolume(
-            modelbridge=minimal_model, optimization_config=moo_optimization_config
+            adapter=minimal_adapter, optimization_config=moo_optimization_config
         )
 
     @staticmethod

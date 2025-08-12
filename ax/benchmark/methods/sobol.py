@@ -6,19 +6,19 @@
 # pyre-strict
 
 
+from ax.adapter.registry import Generators
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.registry import Generators
 
 
 def get_sobol_generation_strategy() -> GenerationStrategy:
     return GenerationStrategy(
         name="Sobol",
         steps=[
-            GenerationStep(model=Generators.SOBOL, num_trials=-1),
+            GenerationStep(generator=Generators.SOBOL, num_trials=-1),
         ],
     )
 

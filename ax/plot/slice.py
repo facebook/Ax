@@ -11,8 +11,8 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
+from ax.adapter.base import Adapter
 from ax.core.observation import ObservationFeatures
-from ax.modelbridge.base import Adapter
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
 from ax.plot.helper import (
     axis_range,

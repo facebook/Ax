@@ -168,7 +168,7 @@ class BenchmarkRunner(Runner):
             (in ``TParameterization`` format) and returns the runtime of a step.
         max_concurrency: The maximum number of trials that can be running at a
             given time. Typically, this is ``max_pending_trials`` from the
-            ``scheduler_options`` on the ``BenchmarkMethod``.
+            ``orchestrator_options`` on the ``BenchmarkMethod``.
         force_use_simulated_backend: If True, use the simulated backend even if
             ``max_concurrency`` is 1 and ``step_runtime_function`` is None. This
             is recommended when used with a ``BenchmarkMethod`` that does early
@@ -312,7 +312,6 @@ class BenchmarkRunner(Runner):
         return self.simulated_backend_runner.poll_trial_status(trials=trials)
 
     @classmethod
-    # pyre-fixme [2]: Parameter `obj` must have a type other than `Any``
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         """
         It is tricky to use SerializationMixin with instances that have Ax

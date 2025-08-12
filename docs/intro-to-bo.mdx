@@ -34,7 +34,7 @@ state-of-the-art Bayesian optimization components.
 
 Bayesian optimization begins by building a smooth surrogate model of the
 outcomes using a statistical model. This surrogate model makes predictions at
-unobserved parameterizations and estimate the uncertainty around them. The
+unobserved parameterizations and estimates the uncertainty around them. The
 predictions and the uncertainty estimates are combined to derive an acquisition
 function, which quantifies the value of observing a particular parameterization.
 By optimizing the acquisition function we identify the best candidate
@@ -52,7 +52,7 @@ good). As a result, BO is able to find better configurations with fewer
 evaluations than is generally possible with grid search or other global
 optimization techniques. Therefore, leveraging BO as is done in Ax, is
 particularly impactful for applications where the evaluation process is
-expensive, allowing for only a limited number of evaluations
+expensive, allowing for only a limited number of evaluations.
 
 ## Surrogate Models
 
@@ -122,7 +122,7 @@ Using an acquisition function like EI to sample new points initially promotes
 quick exploration because the expected values, informed by the uncertainty
 estimates, are higher in unexplored regions. Once the parameter space is
 adequately explored, EI naturally narrows focuses on regions where there is a
-high likelihood of a good objective value (ie exploitation).
+high likelihood of a good objective value (i.e., exploitation).
 
 While the combination of a Gaussian process surrogate model and the expected
 improvement acquisition function is shown above, different combinations of

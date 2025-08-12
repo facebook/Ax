@@ -10,11 +10,13 @@ from collections import OrderedDict
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+from ax.adapter.registry import Generators
 from ax.core import BatchTrial, Experiment, Trial
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
+from ax.core.experiment import sort_by_trial_index_and_arm_name
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -34,7 +36,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import AxError, RunnerNotFoundError, UnsupportedError
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.registry import Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
@@ -65,6 +66,7 @@ from ax.utils.testing.core_stubs import (
     get_test_map_data_experiment,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
+from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
 DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
@@ -256,9 +258,9 @@ class ExperimentTest(TestCase):
         opt_config.outcome_constraints[0].metric = Metric(name="m3")
         self.experiment.optimization_config = opt_config
 
-        # Verify total metrics size is the same.
+        # Verify total metrics has increaed by 1.
         self.assertEqual(
-            len(get_optimization_config().metrics) + 1, len(self.experiment.metrics)
+            len(get_optimization_config().metrics) + 2, len(self.experiment.metrics)
         )
 
         # Add optimization config with 1 scalarized constraint composed of 2 metrics
@@ -269,9 +271,9 @@ class ExperimentTest(TestCase):
         self.experiment.optimization_config = opt_config
 
         # Verify total metrics size is the same.
-        self.assertEqual(len(opt_config.metrics) + 1, len(self.experiment.metrics))
+        self.assertEqual(len(opt_config.metrics) + 2, len(self.experiment.metrics))
         self.assertEqual(
-            len(get_optimization_config().metrics) + 3, len(self.experiment.metrics)
+            len(get_optimization_config().metrics) + 4, len(self.experiment.metrics)
         )
         # set back
         self.experiment.optimization_config = get_optimization_config()
@@ -279,13 +281,13 @@ class ExperimentTest(TestCase):
         # Test adding new tracking metric
         self.experiment.add_tracking_metric(Metric(name="m4"))
         self.assertEqual(
-            len(get_optimization_config().metrics) + 2, len(self.experiment.metrics)
+            len(get_optimization_config().metrics) + 5, len(self.experiment.metrics)
         )
 
         # Test adding new tracking metrics
         self.experiment.add_tracking_metrics([Metric(name="z1")])
         self.assertEqual(
-            len(get_optimization_config().metrics) + 3, len(self.experiment.metrics)
+            len(get_optimization_config().metrics) + 6, len(self.experiment.metrics)
         )
 
         # Verify update_tracking_metric updates the metric definition
@@ -658,44 +660,80 @@ class ExperimentTest(TestCase):
         # Update candidate trial runners.
         self.assertEqual(self.experiment.trials[1].runner, new_runner)
 
-    def test_FetchTrialsData(self) -> None:
-        exp = self._setupBraninExperiment(n=5)
-        batch_0 = exp.trials[0]
-        batch_1 = exp.trials[1]
-        batch_0.mark_completed()
-        batch_1.mark_completed()
-        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
-        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
-        self.assertEqual(
-            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
-        )
-        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
-        self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
-        self.assertEqual(
-            set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
-        )
-        self.assertEqual(
-            exp.fetch_trials_data(trial_indices=[0, 1]),
-            Data.from_multiple_data([batch_0_data, batch_1_data]),
+    def test_attach_and_sort_data(self) -> None:
+        n = 4
+        exp = self._setupBraninExperiment(n)
+        batch = exp.trials[0]
+        batch.mark_completed()
+        self.assertEqual(exp.completed_trials, [batch])
+
+        # test sorting data
+        unsorted_df = pd.DataFrame(
+            {
+                "arm_name": [
+                    "0_0",
+                    "0_2",
+                    "0_11",
+                    "0_1",
+                    "status_quo",
+                    "1_0",
+                    "1_1",
+                    "1_2",
+                    "1_13",
+                ],
+                "metric_name": ["b"] * 9,
+                "mean": list(range(1, 10)),
+                "sem": [0.1 + i * 0.05 for i in range(9)],
+                "trial_index": [0, 0, 0, 0, 0, 1, 1, 1, 1],
+            }
         )
 
-        self.assertEqual(len(exp.data_by_trial[0]), 2)
-
-        with self.assertRaisesRegex(ValueError, ".* not associated .*"):
-            exp.fetch_trials_data(trial_indices=[2])
-        # Try to fetch data when there are only metrics and no attached data.
-        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
-        exp.add_tracking_metric(Metric(name="b"))  # Add unimplemented metric.
-        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).df), 5)
-        # Try fetching attached data.
-        exp.attach_data(batch_0_data)
-        exp.attach_data(batch_1_data)
-        self.assertEqual(exp.fetch_trials_data(trial_indices=[0]), batch_0_data)
-        self.assertEqual(exp.fetch_trials_data(trial_indices=[1]), batch_1_data)
-        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
-        self.assertEqual(
-            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
+        sorted_dfs = []
+        sorted_dfs.append(
+            pd.DataFrame(
+                {
+                    "trial_index": [0] * 5,
+                    "arm_name": [
+                        "status_quo",
+                        "0_0",
+                        "0_1",
+                        "0_2",
+                        "0_11",
+                    ],
+                    "metric_name": ["b"] * 5,
+                    "mean": [5.0, 1.0, 4.0, 2.0, 3.0],
+                    "sem": [0.3, 0.1, 0.25, 0.15, 0.2],
+                }
+            )
         )
+
+        sorted_dfs.append(
+            pd.DataFrame(
+                {
+                    "trial_index": [1] * 4,
+                    "arm_name": [
+                        "1_0",
+                        "1_1",
+                        "1_2",
+                        "1_13",
+                    ],
+                    "metric_name": ["b"] * 4,
+                    "mean": [6.0, 7.0, 8.0, 9.0],
+                    "sem": [0.35, 0.4, 0.45, 0.5],
+                }
+            )
+        )
+
+        exp.attach_data(
+            Data(
+                df=unsorted_df,
+            )
+        )
+        for trial_index in [0, 1]:
+            assert_frame_equal(
+                list(exp.data_by_trial[trial_index].values())[0].df,
+                sorted_dfs[trial_index],
+            )
 
     def test_immutable_search_space_and_opt_config(self) -> None:
         mutable_exp = self._setupBraninExperiment(n=5)
@@ -1122,6 +1160,27 @@ class ExperimentTest(TestCase):
         cloned_experiment = experiment.clone_with(clear_trial_type=True)
         self.assertIsNone(cloned_experiment.trials[0].trial_type)
 
+        # Test cloning with specific properties to keep
+        experiment_w_props = get_branin_experiment()
+        experiment_w_props._properties = {
+            "owners": "foo-user",
+            "extra_field_keep": "keep this field",
+            "extra_field_drop": "drop this field",
+        }
+
+        cloned_experiment_extra_properties = experiment_w_props.clone_with(
+            search_space=larger_search_space,
+            status_quo=new_status_quo,
+            properties_to_keep=["owners", "extra_field_keep"],
+        )
+        self.assertEqual(
+            cloned_experiment_extra_properties._properties,
+            {
+                "owners": "foo-user",
+                "extra_field_keep": "keep this field",
+            },
+        )
+
     def test_metric_summary_df(self) -> None:
         experiment = Experiment(
             name="test_experiment",
@@ -1317,6 +1376,88 @@ class ExperimentTest(TestCase):
             ],
         )
 
+        # Test the trial_indices parameter
+        df_filtered = experiment.to_df(trial_indices=[0, 1])
+        expected_filtered_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [0, 1],
+                "arm_name": ["0_0", "1_0"],
+                "trial_status": ["COMPLETED", "COMPLETED"],
+                "name": ["0", "1"],  # the metadata
+                "m1": [1.0, 3.0],
+                "m2": [2.0, 4.0],
+                "x": xs[:2],
+                "y": ys[:2],
+            }
+        )
+        self.assertTrue(df_filtered.equals(expected_filtered_df))
+
+        # Test the trial_status parameter
+        df_status_filtered = experiment.to_df(trial_statuses=[TrialStatus.COMPLETED])
+        expected_status_filtered_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [0, 1],
+                "arm_name": ["0_0", "1_0"],
+                "trial_status": ["COMPLETED", "COMPLETED"],
+                "name": ["0", "1"],  # the metadata
+                "m1": [1.0, 3.0],
+                "m2": [2.0, 4.0],
+                "x": xs[:2],
+                "y": ys[:2],
+            }
+        )
+        self.assertTrue(df_status_filtered.equals(expected_status_filtered_df))
+
+        # Test with both trial_indices and trial_status parameters
+        df_both_filtered = experiment.to_df(
+            trial_indices=[0], trial_statuses=[TrialStatus.COMPLETED]
+        )
+        expected_both_filtered_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [0],
+                "arm_name": ["0_0"],
+                "trial_status": ["COMPLETED"],
+                "name": ["0"],  # the metadata
+                "m1": [1.0],
+                "m2": [2.0],
+                "x": [xs[0]],
+                "y": [ys[0]],
+            }
+        )
+        self.assertTrue(df_both_filtered.equals(expected_both_filtered_df))
+
+        # Test the trial_status parameter
+        # Change the status of trial 2 to RUNNING
+        experiment.trials[2].mark_running(no_runner_required=True)
+
+        # Filter by RUNNING status
+        df_status_filtered = experiment.to_df(trial_statuses=[TrialStatus.RUNNING])
+        expected_status_filtered_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [2],
+                "arm_name": ["0_0"],
+                "trial_status": ["RUNNING"],
+                "x": [xs[2]],
+                "y": [ys[2]],
+            }
+        )
+        self.assertTrue(df_status_filtered.equals(expected_status_filtered_df))
+        # Filter by COMPLETED status
+        df_completed = experiment.to_df(trial_statuses=[TrialStatus.COMPLETED])
+        expected_completed_df = pd.DataFrame.from_dict(
+            {
+                "trial_index": [0, 1],
+                "arm_name": ["0_0", "1_0"],
+                "trial_status": ["COMPLETED", "COMPLETED"],
+                "name": ["0", "1"],  # the metadata
+                "m1": [1.0, 3.0],
+                "m2": [2.0, 4.0],
+                "x": xs[:2],
+                "y": ys[:2],
+            }
+        )
+        self.assertTrue(df_completed.equals(expected_completed_df))
+
 
 class ExperimentWithMapDataTest(TestCase):
     def setUp(self) -> None:
@@ -1350,7 +1491,6 @@ class ExperimentWithMapDataTest(TestCase):
         self.experiment.new_trial()
         self.experiment.trials[0].mark_running(no_runner_required=True)
         first_epoch = MapData.from_map_evaluations(
-            # pyre-fixme[6]: For 1st param expected `Dict[str, List[Tuple[Dict[str, H...
             evaluations={
                 arm_name: partial_results[0:1]
                 for arm_name, partial_results in evaluations.items()
@@ -1359,7 +1499,6 @@ class ExperimentWithMapDataTest(TestCase):
         )
         self.experiment.attach_data(first_epoch)
         remaining_epochs = MapData.from_map_evaluations(
-            # pyre-fixme[6]: For 1st param expected `Dict[str, List[Tuple[Dict[str, H...
             evaluations={
                 arm_name: partial_results[1:4]
                 for arm_name, partial_results in evaluations.items()
@@ -1388,50 +1527,6 @@ class ExperimentWithMapDataTest(TestCase):
             full_data = exp.fetch_data()
 
             self.assertEqual(len(full_data.true_df), len(map_data.true_df) + 20)
-
-    def test_FetchTrialsData(self) -> None:
-        exp = self._setupBraninExperiment(n=5)
-        batch_0 = exp.trials[0]
-        batch_1 = exp.trials[1]
-        batch_0.mark_completed()
-        batch_1.mark_completed()
-        batch_0_data = exp.fetch_trials_data(trial_indices=[0])
-        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
-        self.assertEqual(
-            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
-        )
-        batch_1_data = exp.fetch_trials_data(trial_indices=[1])
-        self.assertEqual(set(batch_1_data.df["trial_index"].values), {1})
-        self.assertEqual(
-            set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
-        )
-        self.assertEqual(
-            exp.fetch_trials_data(trial_indices=[0, 1]).df.shape[0],
-            len(exp.arms_by_name) * 2,
-        )
-
-        with self.assertRaisesRegex(ValueError, ".* not associated .*"):
-            exp.fetch_trials_data(trial_indices=[2])
-        # Try to fetch data when there are only metrics and no attached data.
-        exp.remove_tracking_metric(metric_name="branin")  # Remove implemented metric.
-        exp.add_tracking_metric(
-            BraninMetric(name="branin", param_names=["x1", "x2"])
-        )  # Add unimplemented metric.
-        # pyre-fixme[16]: `Data` has no attribute `map_df`.
-        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).map_df), 10)
-        # Try fetching attached data.
-        exp.attach_data(batch_0_data)
-        exp.attach_data(batch_1_data)
-        pd.testing.assert_frame_equal(
-            exp.fetch_trials_data(trial_indices=[0]).df, batch_0_data.df
-        )
-        pd.testing.assert_frame_equal(
-            exp.fetch_trials_data(trial_indices=[1]).df, batch_1_data.df
-        )
-        self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
-        self.assertEqual(
-            set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
-        )
 
     def test_is_moo_problem(self) -> None:
         exp = get_branin_experiment()
@@ -1653,6 +1748,83 @@ class ExperimentWithMapDataTest(TestCase):
                     B_auxiliary_experiment_1,
                 )
 
+    def test_get_metrics(self) -> None:
+        # Create an experiment with multiple metrics
+        experiment = get_experiment()
+        all_metrics = experiment.get_metrics(metric_names=None)
+        self.assertEqual(len(all_metrics), 3)
+        metric_names = {metric.name for metric in all_metrics}
+        self.assertEqual(metric_names, {"tracking", "m1", "m2"})
+
+        # Test getting specific metrics by name
+        specific_metrics = experiment.get_metrics(metric_names=["m1", "m2"])
+
+        self.assertEqual(len(specific_metrics), 2)
+        specific_metric_names = {metric.name for metric in specific_metrics}
+        self.assertEqual(specific_metric_names, {"m1", "m2"})
+
+        # Test error case when a metric name is not found
+        with self.assertRaises(AxError):
+            experiment.get_metrics(metric_names=["nonexistent_metric"])
+
+    def test_auxiliary_experiment_operations(self) -> None:
+        """Test the add_auxiliary_experiment method."""
+        # Create a base experiment
+        experiment = get_branin_experiment()
+
+        # Create an auxiliary experiment
+        aux_base_exp = get_branin_experiment()
+        aux_base_exp.name = "aux_exp"
+        aux_exp = AuxiliaryExperiment(experiment=aux_base_exp)
+
+        aux_exp_found = experiment.find_auxiliary_experiment_by_name(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment_name="aux_exp",
+        )
+        self.assertIsNone(aux_exp_found)
+
+        # Add the auxiliary experiment
+        experiment.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=aux_exp,
+        )
+
+        # Verify it was added
+        self.assertEqual(
+            experiment.auxiliary_experiments_by_purpose[
+                AuxiliaryExperimentPurpose.PE_EXPERIMENT
+            ][0],
+            aux_exp,
+        )
+
+        # Add the same auxiliary experiment again
+        experiment.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=aux_exp,
+        )
+
+        # Verify it wasn't duplicated (should still be just one)
+        self.assertEqual(
+            len(
+                experiment.auxiliary_experiments_by_purpose[
+                    AuxiliaryExperimentPurpose.PE_EXPERIMENT
+                ]
+            ),
+            1,
+        )
+
+        aux_exp_found = experiment.find_auxiliary_experiment_by_name(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment_name="aux_exp",
+        )
+        self.assertIs(aux_exp_found, aux_exp)
+
+        aux_exp_found = experiment.find_auxiliary_experiment_by_name(
+            purpose=AuxiliaryExperimentPurpose.BO_EXPERIMENT,
+            auxiliary_experiment_name="aux_exp",
+        )
+        self.assertIsNone(aux_exp_found)
+
     def test_name_and_store_arm_if_not_exists_same_name_different_signature(
         self,
     ) -> None:
@@ -1692,3 +1864,73 @@ class ExperimentWithMapDataTest(TestCase):
             experiment._name_and_store_arm_if_not_exists(
                 arm=arm_2, proposed_name="different proposed name"
             )
+
+    def test_sorting_data_by_trial_index_and_arm_name(self) -> None:
+        # test sorting data
+        unsorted_df = pd.DataFrame(
+            {
+                "trial_index": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+                "arm_name": [
+                    "0_0",
+                    "0_2",
+                    "custom_arm_1",
+                    "0_11",
+                    "status_quo",
+                    "0_1",
+                    "1_0",
+                    "custom_arm_2",
+                    "1_1",
+                    "status_quo",
+                    "1_2",
+                    "1_3",
+                ],
+                "metric_name": ["b"] * 12,
+                "mean": [float(x) for x in range(1, 13)],
+                "sem": [0.1 + i * 0.05 for i in range(12)],
+            }
+        )
+
+        expected_sorted_df = pd.DataFrame(
+            {
+                "trial_index": [0] * 6 + [1] * 6,
+                "arm_name": [
+                    "custom_arm_1",
+                    "status_quo",
+                    "0_0",
+                    "0_1",
+                    "0_2",
+                    "0_11",
+                    "custom_arm_2",
+                    "status_quo",
+                    "1_0",
+                    "1_1",
+                    "1_2",
+                    "1_3",
+                ],
+                "metric_name": ["b"] * 12,
+                "mean": [3.0, 5.0, 1.0, 6.0, 2.0, 4.0, 8.0, 10.0, 7.0, 9.0, 11.0, 12.0],
+                "sem": [
+                    0.2,
+                    0.3,
+                    0.1,
+                    0.35,
+                    0.15,
+                    0.25,
+                    0.45,
+                    0.55,
+                    0.4,
+                    0.5,
+                    0.6,
+                    0.65,
+                ],
+            }
+        )
+
+        sorted_df = sort_by_trial_index_and_arm_name(
+            df=unsorted_df,
+        )
+
+        assert_frame_equal(
+            sorted_df,
+            expected_sorted_df,
+        )

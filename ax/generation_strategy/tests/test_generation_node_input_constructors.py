@@ -10,6 +10,8 @@ from collections import Counter
 from datetime import datetime
 from typing import Any, get_type_hints
 
+from ax.adapter.registry import Generators
+
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -22,8 +24,7 @@ from ax.generation_strategy.generation_node_input_constructors import (
     NodeInputConstructors,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generation_strategy.model_spec import GeneratorSpec
-from ax.modelbridge.registry import Generators
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -56,13 +57,13 @@ EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS = [
 class TestGenerationNodeInputConstructors(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.sobol_model_spec = GeneratorSpec(
-            model_enum=Generators.SOBOL,
+        self.sobol_generator_spec = GeneratorSpec(
+            generator_enum=Generators.SOBOL,
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
         self.sobol_generation_node = GenerationNode(
-            node_name="test", model_specs=[self.sobol_model_spec]
+            node_name="test", generator_specs=[self.sobol_generator_spec]
         )
         self.experiment = get_branin_experiment()
         # construct a list of grs that will mock a list of grs that would exist during
@@ -512,7 +513,7 @@ class TestGenerationNodeInputConstructors(TestCase):
                 complete=True,
                 num_arms=1,
             )
-        self.experiment.fetch_trials_data(trial_indices=[0])
+        self.experiment.fetch_data(trial_indices=[0])
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,

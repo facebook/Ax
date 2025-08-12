@@ -11,7 +11,6 @@ import logging
 import warnings
 from collections.abc import Callable, Sequence
 from functools import partial
-
 from logging import Logger
 from typing import Any, TypeVar
 
@@ -19,6 +18,7 @@ import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
 import pandas as pd
 import torch
+from ax.adapter.prediction_utils import predict_by_features
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import DataType, Experiment
@@ -32,7 +32,6 @@ from ax.core.observation import ObservationFeatures
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
-
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
@@ -50,7 +49,6 @@ from ax.generation_strategy.dispatch_utils import choose_generation_strategy_leg
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import constraint_satisfaction
-from ax.modelbridge.prediction_utils import predict_by_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
@@ -1056,10 +1054,10 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             raise ValueError(
                 f'Metric "{metric_name}" is not associated with this optimization.'
             )
-        if self.generation_strategy.model is not None:
+        if self.generation_strategy.adapter is not None:
             try:
                 return plot_contour(
-                    model=none_throws(self.generation_strategy.model),
+                    model=none_throws(self.generation_strategy.adapter),
                     param_x=param_x,
                     param_y=param_y,
                     metric_name=metric_name,
@@ -1069,7 +1067,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 # Some models don't implement '_predict', which is needed
                 # for the contour plots.
                 logger.error(
-                    f"Model {self.generation_strategy.model} does not implement "
+                    f"Model {self.generation_strategy.adapter} does not implement "
                     "`predict`, so it cannot be used to generate a response "
                     "surface plot."
                 )
@@ -1092,13 +1090,13 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         if not self.experiment.trials:
             raise ValueError("Cannot generate plot as there are no trials.")
-        cur_model = self.generation_strategy.model
+        cur_model = self.generation_strategy.adapter
         if cur_model is not None:
             try:
                 return plot_feature_importance_by_feature(cur_model, relative=relative)
             except NotImplementedError:
                 logger.error(
-                    f"Model {self.generation_strategy.model} does not implement "
+                    f"Model {self.generation_strategy.adapter} does not implement "
                     "`feature_importances`, so it cannot be used to generate "
                     "this plot."
                 )
@@ -1228,7 +1226,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             else set(none_throws(self.experiment.metrics).keys())
         )
         model = none_throws(
-            self.generation_strategy.model, "No model has been instantiated yet."
+            self.generation_strategy.adapter, "No model has been instantiated yet."
         )
 
         # Construct a dictionary that maps from a label to an
@@ -1316,6 +1314,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             early_stopping_strategy=self._early_stopping_strategy,
             trial_indices=trial_indices,
             experiment=self.experiment,
+            current_node=self.generation_strategy._curr,
         )
 
     def stop_trial_early(self, trial_index: int) -> None:
@@ -1392,11 +1391,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def to_json_snapshot(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         encoder_registry: dict[type, Callable[[Any], dict[str, Any]]] | None = None,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         class_encoder_registry: None
@@ -1434,7 +1431,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         cls: type[AxClientSubclass],
         serialized: dict[str, Any],
         decoder_registry: TDecoderRegistry | None = None,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         class_decoder_registry: None
         | (dict[str, Callable[[dict[str, Any]], Any]]) = None,
         # pyre-fixme[2]: Parameter must be annotated.
@@ -1728,7 +1724,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             else None
         )
         with with_rng_seed(seed=self._random_seed):
-            return none_throws(self.generation_strategy).gen(
+            return none_throws(self.generation_strategy).gen_single_trial(
                 experiment=self.experiment,
                 n=n,
                 pending_observations=self._get_pending_observation_features(

@@ -5,18 +5,17 @@
 
 # pyre-strict
 
-from typing import Sequence
 
-from ax.analysis.analysis import (
-    Analysis,
-    AnalysisCard,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
+from typing import Iterable, Sequence
+
+from ax.adapter.base import Adapter
+
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from pyre_extensions import override
 
 
@@ -36,9 +35,20 @@ class Summary(Analysis):
             Experiment's runner.run_metadata_report_keys field
         - **METRIC_NAME: The observed mean of the metric specified, for each metric
         - **PARAMETER_NAME: The parameter value for the arm, for each parameter
+     Args:
+        trial_indices: If specified, only include these trial indices.
+        trial_status: If specified, only include trials with this status.
+        omit_empty_columns: If True, omit columns where every value is None.
     """
 
-    def __init__(self, omit_empty_columns: bool = True) -> None:
+    def __init__(
+        self,
+        trial_indices: Iterable[int] | None = None,
+        trial_statuses: Sequence[TrialStatus] | None = None,
+        omit_empty_columns: bool = True,
+    ) -> None:
+        self.trial_indices = trial_indices
+        self.trial_statuses = trial_statuses
         self.omit_empty_columns = omit_empty_columns
 
     @override
@@ -47,19 +57,19 @@ class Summary(Analysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[AnalysisCard]:
+    ) -> AnalysisCard:
         if experiment is None:
             raise UserInputError("`Summary` analysis requires an `Experiment` input")
 
-        return [
-            self._create_analysis_card(
-                title=(
-                    "Summary for "
-                    f"{experiment.name if experiment.has_name else 'Experiment'}"
-                ),
-                subtitle="High-level summary of the `Trial`-s in this `Experiment`",
-                level=AnalysisCardLevel.MID,
-                df=experiment.to_df(omit_empty_columns=self.omit_empty_columns),
-                category=AnalysisCardCategory.INFO,
-            )
-        ]
+        return self._create_analysis_card(
+            title=(
+                "Summary for "
+                f"{experiment.name if experiment.has_name else 'Experiment'}"
+            ),
+            subtitle="High-level summary of the `Trial`-s in this `Experiment`",
+            df=experiment.to_df(
+                trial_indices=self.trial_indices,
+                omit_empty_columns=self.omit_empty_columns,
+                trial_statuses=self.trial_statuses,
+            ),
+        )

@@ -6,10 +6,12 @@
 
 # pyre-strict
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from copy import deepcopy
 from datetime import datetime
-from typing import NamedTuple
+from functools import wraps
+from logging import Logger
+from typing import Any, NamedTuple
 
 import numpy as np
 import numpy.typing as npt
@@ -25,9 +27,12 @@ from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import AxError, UserInputError
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 
+logger: Logger = get_logger(__name__)
 TArmTrial = tuple[str, int]
 
 # Threshold for switching to pending points extraction based on trial status.
@@ -124,6 +129,43 @@ def _get_missing_arm_trial_pairs(data: Data, metric_name: str) -> set[TArmTrial]
     )
     missing_arm_trial_pairs = arm_trial_pairs.difference(arm_trial_pairs_with_metric)
     return missing_arm_trial_pairs
+
+
+# ------------------- Utils shared by Client and BatchClient--------------------
+def _maybe_update_trial_status_to_complete(
+    experiment: Experiment,
+    trial_index: int,
+) -> None:
+    """Check if a trial has all relevant metrics and mark it as completed.
+    If the trial has all relevant metrics, mark it as completed.
+    If the trial is missing metrics, mark it as failed.
+
+    Args:
+        experiment: The experiment to check.
+        trial_index: The index of the trial to check.
+    """
+    if experiment.optimization_config is None:
+        raise UserInputError(
+            "Cannot attempt to mark a trial as failed without an optimization"
+            " config on the expeirment"
+        )
+    optimization_config = experiment.optimization_config
+    trial_data = experiment.lookup_data(trial_indices=[trial_index])
+    missing_metrics = {*optimization_config.metrics.keys()} - {*trial_data.metric_names}
+
+    # If all necessary metrics are present mark the trial as COMPLETED
+    if len(missing_metrics) == 0:
+        experiment.trials[trial_index].mark_completed()
+        return
+
+    # If any metrics are missing mark the trial as FAILED
+    logger.warning(
+        f"Trial {trial_index} marked completed but metrics "
+        f"{missing_metrics} are missing, marking trial FAILED."
+    )
+    experiment.trials[trial_index].mark_failed(
+        reason=f"{missing_metrics} are missing, marking trial FAILED."
+    )
 
 
 # -------------------- Experiment result extraction utils. ---------------------
@@ -605,3 +647,33 @@ def extract_map_keys_from_opt_config(
     }
     map_key_names = {m.map_key_info.key for m in map_metrics.values()}
     return map_key_names
+
+
+# -------------------- Context manager and decorator utils. ---------------------
+
+
+# pyre-ignore[3]: Allowing `Any` in this case
+def batch_trial_only(msg: str | None = None) -> Callable[..., Any]:
+    """A decorator to verify that the value passed to the `trial`
+    argument to `func` is a `BatchTrial`.
+    """
+
+    # pyre-ignore[2,3]: Allowing `Any` in this case
+    def batch_trial_only_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        def _batch_trial_only(*args: Any, **kwargs: Any) -> Any:  # pyre-ignore[3]
+            if "trial" not in kwargs:
+                raise AxError(
+                    f"Expected a keyword argument `trial` to `{func.__name__}`."
+                )
+            if not isinstance(kwargs["trial"], BatchTrial):
+                message = msg or (
+                    f"Expected the argument `trial` to `{func.__name__}` "
+                    f"to be a `BatchTrial`, but got {type(kwargs['trial'])}."
+                )
+                raise AxError(message)
+            return func(*args, **kwargs)
+
+        return _batch_trial_only
+
+    return batch_trial_only_decorator

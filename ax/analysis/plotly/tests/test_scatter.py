@@ -5,12 +5,17 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import AnalysisBlobAnnotation
+
+import json
+from itertools import product
+
+from ax.adapter.registry import Generators
 from ax.analysis.plotly.scatter import compute_scatter_adhoc, ScatterPlot
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
-from ax.exceptions.core import UserInputError
+from ax.core.metric import Metric
+from ax.exceptions.core import AxError, UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -39,7 +44,9 @@ class TestScatterPlot(TestCase):
                 ),
             ],
         )
-        self.client.configure_optimization(objective="foo, bar")
+        self.client.configure_optimization(
+            objective="foo", outcome_constraints=["bar >= -0.5"]
+        )
 
         # Get two trials and fail one, giving us a ragged structure
         self.client.get_next_trials(max_trials=2)
@@ -84,7 +91,7 @@ class TestScatterPlot(TestCase):
             x_metric_name="foo", y_metric_name="bar", use_model_predictions=False
         )
 
-        (card,) = default_analysis.compute(
+        card = default_analysis.compute(
             experiment=self.client._experiment,
             generation_strategy=self.client._generation_strategy,
         )
@@ -96,7 +103,8 @@ class TestScatterPlot(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -104,7 +112,6 @@ class TestScatterPlot(TestCase):
             },
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         # Check that we have one row per arm and that each arm appears only once
         self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
@@ -120,7 +127,7 @@ class TestScatterPlot(TestCase):
             x_metric_name="foo", y_metric_name="bar", use_model_predictions=True
         )
 
-        (card,) = default_analysis.compute(
+        card = default_analysis.compute(
             experiment=self.client._experiment,
             generation_strategy=self.client._generation_strategy,
         )
@@ -132,7 +139,8 @@ class TestScatterPlot(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -141,7 +149,6 @@ class TestScatterPlot(TestCase):
         )
 
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         # Check that we have one row per arm and that each arm appears only once
         self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
@@ -151,6 +158,59 @@ class TestScatterPlot(TestCase):
         # Check that all SEMs are not NaN
         self.assertFalse(card.df["foo_sem"].isna().any())
         self.assertFalse(card.df["bar_sem"].isna().any())
+
+    def test_plot_p_feasible(self) -> None:
+        default_analysis = ScatterPlot(
+            x_metric_name="foo", y_metric_name="p_feasible", use_model_predictions=True
+        )
+
+        card = default_analysis.compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        )
+
+        self.assertEqual(
+            set(card.df.columns),
+            {
+                "trial_index",
+                "arm_name",
+                "trial_status",
+                "generation_node",
+                "p_feasible_mean",
+                "p_feasible_sem",
+                "foo_mean",
+                "foo_sem",
+                "bar_mean",
+                "bar_sem",
+            },
+        )
+
+        self.assertIsNotNone(card.blob)
+
+        # Check that we have one row per arm and that each arm appears only once
+        self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
+        for arm_name in self.client._experiment.arms_by_name:
+            self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
+
+        # Check that all SEMs are not NaN
+        self.assertFalse(card.df["foo_sem"].isna().any())
+        # Check that all SEMs are NaN
+        self.assertTrue(card.df["p_feasible_sem"].isna().all())
+        self.assertEqual(
+            json.loads(card.blob)["layout"]["xaxis"]["title"]["text"], "foo"
+        )
+        self.assertEqual(
+            json.loads(card.blob)["layout"]["yaxis"]["title"]["text"], "p_feasible"
+        )
+        # test that plot errors if p_feasible is a metric on the experiment
+        self.client._experiment.add_tracking_metric(Metric(name="p_feasible"))
+        with self.assertRaisesRegex(
+            AxError, "p_feasible is reserved for plotting the probability"
+        ):
+            default_analysis.compute(
+                experiment=self.client._experiment,
+                generation_strategy=self.client._generation_strategy,
+            )
 
     def test_compute_adhoc(self) -> None:
         # Use the same kwargs for typical and adhoc
@@ -192,48 +252,56 @@ class TestScatterPlot(TestCase):
             # Skip experiments with fewer than 2 metrics
             if len(experiment.metrics) < 2:
                 continue
+            arm = Generators.SOBOL(experiment=experiment).gen(n=1).arms[0]
+            arm.name = "additional_arm"
+            for (
+                use_model_predictions,
+                trial_index,
+                with_additional_arms,
+                show_pareto_frontier,
+                use_p_feasible,
+            ) in product(
+                [True, False], [None, 0], [True, False], [True, False], [True, False]
+            ):
+                if use_model_predictions and with_additional_arms:
+                    additional_arms = [arm]
+                else:
+                    additional_arms = None
 
-            for use_model_predictions in [True, False]:
-                for trial_index in [None, 0]:
-                    for with_additional_arms in [True, False]:
-                        for show_pareto_frontier in [True, False]:
-                            if use_model_predictions and with_additional_arms:
-                                additional_arms = [
-                                    Arm(
-                                        parameters={
-                                            parameter_name: 0
-                                            for parameter_name in (
-                                                experiment.search_space.parameters.keys()  # noqa E501
-                                            )
-                                        }
-                                    )
-                                ]
-                            else:
-                                additional_arms = None
+                generation_strategy = get_default_generation_strategy_at_MBM_node(
+                    experiment=experiment
+                )
+                generation_strategy.current_node._fit(experiment=experiment)
+                adapter = none_throws(generation_strategy.adapter)
 
-                            generation_strategy = (
-                                get_default_generation_strategy_at_MBM_node(
-                                    experiment=experiment
-                                )
+                x_metric_name, y_metric_name = [*adapter.metric_names][:2]
+                if use_p_feasible:
+                    y_metric_name = "p_feasible"
+
+                analysis = ScatterPlot(
+                    x_metric_name=x_metric_name,
+                    y_metric_name=y_metric_name,
+                    use_model_predictions=use_model_predictions,
+                    trial_index=trial_index,
+                    additional_arms=additional_arms,
+                    show_pareto_frontier=show_pareto_frontier,
+                )
+
+                cards = analysis.compute(
+                    experiment=experiment,
+                    adapter=adapter,
+                )
+                if with_additional_arms and use_model_predictions:
+                    # validate that we plotted the additional arm
+                    self.assertTrue(
+                        all(
+                            any(
+                                arm.name in dat["text"][0]
+                                for dat in json.loads(card.blob)["data"]
                             )
-                            generation_strategy.current_node._fit(experiment=experiment)
-                            adapter = none_throws(generation_strategy.model)
-
-                            x_metric_name, y_metric_name = [*adapter.metric_names][:2]
-
-                            analysis = ScatterPlot(
-                                x_metric_name=x_metric_name,
-                                y_metric_name=y_metric_name,
-                                use_model_predictions=use_model_predictions,
-                                trial_index=trial_index,
-                                additional_arms=additional_arms,
-                                show_pareto_frontier=show_pareto_frontier,
-                            )
-
-                            _ = analysis.compute(
-                                experiment=experiment,
-                                adapter=adapter,
-                            )
+                            for card in cards.flatten()
+                        )
+                    )
 
     @TestCase.ax_long_test(
         reason=(
@@ -274,7 +342,7 @@ class TestScatterPlot(TestCase):
                                 )
                             )
                             generation_strategy.current_node._fit(experiment=experiment)
-                            adapter = none_throws(generation_strategy.model)
+                            adapter = none_throws(generation_strategy.adapter)
 
                             x_metric_name, y_metric_name = [*adapter.metric_names][:2]
 

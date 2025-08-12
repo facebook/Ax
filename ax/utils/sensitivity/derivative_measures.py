@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from functools import partial
 from typing import Any
@@ -90,16 +90,13 @@ class GpDGSMGpMean:
                 this list are generated using an integer-valued uniform distribution,
                 rather than the default (pseudo-)random continuous uniform distribution.
         """
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.dim = assert_is_instance(model.train_inputs, tuple)[0].shape[-1]
+        self.dim: int = assert_is_instance(model.train_inputs, tuple)[0].shape[-1]
         self.derivative_gp = derivative_gp
         self.kernel_type = kernel_type
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.bootstrap = num_bootstrap_samples > 1
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.num_bootstrap_samples = (
-            num_bootstrap_samples - 1
-        )  # deduct 1 because the first is meant to be the full grid
+        self.bootstrap: bool = num_bootstrap_samples > 1
+        # deduct 1 because the first is meant to be the full grid
+        self.num_bootstrap_samples: int = num_bootstrap_samples - 1
+        self.torch_device: torch.device = bounds.device
         if self.derivative_gp and (self.kernel_type is None):
             raise ValueError("Kernel type has to be specified to use derivative GP")
         self.num_mc_samples = num_mc_samples
@@ -112,7 +109,9 @@ class GpDGSMGpMean:
             )
         else:
             self.input_mc_samples = unnormalize(
-                torch.rand(num_mc_samples, self.dim, dtype=dtype),
+                torch.rand(
+                    num_mc_samples, self.dim, dtype=dtype, device=self.torch_device
+                ),
                 bounds=bounds,
             )
 
@@ -414,7 +413,7 @@ class GpDGSMGpSampling(GpDGSMGpMean):
 
 
 def compute_derivatives_from_model_list(
-    model_list: list[Model],
+    model_list: Sequence[Model],
     bounds: torch.Tensor,
     discrete_features: list[int] | None = None,
     **kwargs: Any,

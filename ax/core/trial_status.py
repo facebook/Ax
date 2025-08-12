@@ -54,7 +54,7 @@ class TrialStatus(int, Enum):
 
     NOTE: Data for abandoned trials (or abandoned arms in batch trials) is
     not passed to the model as part of training data, unless ``fit_abandoned``
-    option is specified to model bridge. Additionally, data from MapMetrics is
+    option is specified to adapter. Additionally, data from MapMetrics is
     typically excluded unless the corresponding trial is completed.
     """
 
@@ -146,4 +146,10 @@ STATUSES_EXPECTING_DATA: list[TrialStatus] = [
     TrialStatus.RUNNING,
     TrialStatus.COMPLETED,
     TrialStatus.EARLY_STOPPED,
+]
+
+FAILED_ABANDONED_CANDIDATE_STATUSES: list[TrialStatus] = [
+    TrialStatus.ABANDONED,
+    TrialStatus.FAILED,
+    TrialStatus.CANDIDATE,
 ]

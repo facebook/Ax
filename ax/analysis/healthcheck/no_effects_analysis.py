@@ -5,11 +5,12 @@
 
 # pyre-strict
 
-from typing import Sequence
 
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
+
 from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
+    create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
@@ -17,12 +18,11 @@ from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.experiment import Experiment
 from ax.exceptions.core import AxError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from ax.utils.stats.no_effects import check_experiment_effects_per_metric
 from pyre_extensions import override
 
 
-class TestOfNoEffectAnalysis(HealthcheckAnalysis):
+class TestOfNoEffectAnalysis(Analysis):
     """
     Analysis for checking whether a randomization test can show that there are any
     effects whatsoever. This test is performed independently on each metric
@@ -45,7 +45,7 @@ class TestOfNoEffectAnalysis(HealthcheckAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[HealthcheckAnalysisCard]:
+    ) -> HealthcheckAnalysisCard:
         r"""
         Compute the test of no effect separately for all metrics in the
         experiment. If objective metrics are found to not have effects,
@@ -54,7 +54,7 @@ class TestOfNoEffectAnalysis(HealthcheckAnalysis):
         Args:
             experiment: Ax experiment.
             generation_strategy: Ax generation strategy.
-            adapter: Ax modelbridge adapter
+            adapter: Ax adapter adapter
 
         Returns:
             A HealthcheckAnalysisCard object deatailing which metrics we don't
@@ -64,8 +64,6 @@ class TestOfNoEffectAnalysis(HealthcheckAnalysis):
         status = HealthcheckStatus.PASS
         subtitle = "Effects are observed for all objective metrics."
         title_status = "Success"
-        level = AnalysisCardLevel.LOW
-        category = AnalysisCardCategory.DIAGNOSTIC
 
         if experiment is None:
             raise UserInputError("TestOfNoEffectAnalysis requires an Experiment.")
@@ -119,13 +117,10 @@ class TestOfNoEffectAnalysis(HealthcheckAnalysis):
             )
             title_status = "Warning"
 
-        return [
-            self._create_healthcheck_analysis_card(
-                title=f"Ax Test of No Effect {title_status}",
-                subtitle=subtitle,
-                df=df_tone,
-                level=level,
-                status=status,
-                category=category,
-            ),
-        ]
+        return create_healthcheck_analysis_card(
+            name=self.__class__.__name__,
+            title=f"Ax Test of No Effect {title_status}",
+            subtitle=subtitle,
+            df=df_tone,
+            status=status,
+        )

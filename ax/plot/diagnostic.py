@@ -11,13 +11,13 @@ from typing import Any
 
 import numpy as np
 import plotly.graph_objs as go
+from ax.adapter.cross_validation import CVResult
+from ax.adapter.transforms.convert_metric_names import convert_mt_observations
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.observation import Observation
-from ax.modelbridge.cross_validation import CVResult
-from ax.modelbridge.transforms.convert_metric_names import convert_mt_observations
 from ax.plot.base import (
     AxPlotConfig,
     AxPlotTypes,

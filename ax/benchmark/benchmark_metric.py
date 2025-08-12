@@ -94,7 +94,7 @@ from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.utils.common.result import Err, Ok
@@ -178,7 +178,7 @@ class BenchmarkMetricBase(Metric):
             )
             # The BackendSimulator distinguishes between queued and running
             # trials "for testing particular initialization cases", but these
-            # are all "running" to Scheduler.
+            # are all "running" to orchestrator.
             start_time = none_throws(sim_trial.sim_start_time)
 
             if sim_trial.sim_completed_time is None:  # Still running
@@ -254,11 +254,6 @@ class BenchmarkTimeVaryingMetric(BenchmarkMetricBase):
 class BenchmarkMapMetric(MapMetric, BenchmarkMetricBase):
     """MapMetric for benchmarking. It is available while running."""
 
-    # pyre-fixme: Inconsistent override [15]: `map_key_info` overrides attribute
-    # defined in `MapMetric` inconsistently. Type `MapKeyInfo[int]` is not a
-    # subtype of the overridden attribute `MapKeyInfo[float]`
-    map_key_info: MapKeyInfo[int] = MapKeyInfo(key="step", default_value=0)
-
     @classmethod
     def is_available_while_running(cls) -> bool:
         return True
@@ -270,11 +265,6 @@ class BenchmarkMapMetric(MapMetric, BenchmarkMetricBase):
 
 
 class BenchmarkMapUnavailableWhileRunningMetric(MapMetric, BenchmarkMetricBase):
-    # pyre-fixme: Inconsistent override [15]: `map_key_info` overrides attribute
-    # defined in `MapMetric` inconsistently. Type `MapKeyInfo[int]` is not a
-    # subtype of the overridden attribute `MapKeyInfo[float]`
-    map_key_info: MapKeyInfo[int] = MapKeyInfo(key="step", default_value=0)
-
     def _df_to_result(self, df: DataFrame) -> MetricFetchResult:
         # Just in case the key was renamed by a subclass
         df = df.rename(columns={"step": self.map_key_info.key})

@@ -7,10 +7,10 @@
 
 import numpy as np
 import pandas as pd
+from ax.adapter.factory import get_sobol
+from ax.adapter.registry import Generators
 
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
 from ax.analysis.healthcheck.constraints_feasibility import (
-    constraints_feasibility,
     ConstraintsFeasibilityAnalysis,
 )
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
@@ -20,19 +20,16 @@ from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generation_strategy.model_spec import GeneratorSpec
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.registry import Generators
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import assert_is_instance
 
 
 class TestConstraintsFeasibilityAnalysis(TestCase):
@@ -65,7 +62,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             {
                 "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3", "0_4"],
                 "metric_name": ["branin_d"] * 6,
-                "mean": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+                "mean": [1.0, 1.0, 2.0, 3.0, 4.0, 5.0],
                 "sem": [0.1] * 6,
                 "trial_index": [0] * 6,
             }
@@ -93,9 +90,9 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="gn",
-                    model_specs=[
+                    generator_specs=[
                         GeneratorSpec(
-                            model_enum=Generators.BOTORCH_MODULAR,
+                            generator_enum=Generators.BOTORCH_MODULAR,
                         )
                     ],
                 )
@@ -107,74 +104,21 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         self.generation_strategy: GenerationStrategy = generation_strategy
 
     @mock_botorch_optimize
-    def test_constraints_feasibility(self) -> None:
-        self.setUp()
-        model = none_throws(self.generation_strategy.model)
-        optimization_config = assert_is_instance(
-            self.experiment.optimization_config, OptimizationConfig
-        )
-        constraints_feasible, df_arms = constraints_feasibility(
-            optimization_config=optimization_config,
-            model=model,
-        )
-        self.assertTrue(constraints_feasible)
-
-        # with changed data for the constraint metric
-        df_metric_d = pd.DataFrame(
-            {
-                "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3", "0_4"],
-                "metric_name": ["branin_d"] * 6,
-                "mean": [0, -1, -2, -3, -4, -5],
-                "sem": [0.1] * 6,
-                "trial_index": [0] * 6,
-            }
-        )
-        df = pd.concat(
-            [self.df_metric_a, self.df_metric_b, df_metric_d],
-            ignore_index=True,
-        )
-        experiment = self.experiment
-        generation_strategy = self.generation_strategy
-
-        experiment.attach_data(data=Data(df=df))
-        generation_strategy._curr._fit(experiment=experiment)
-        model = none_throws(generation_strategy.model)
-        optimization_config = assert_is_instance(
-            experiment.optimization_config, OptimizationConfig
-        )
-        constraints_feasible, df_arms = constraints_feasibility(
-            optimization_config=optimization_config, model=model
-        )
-        self.assertFalse(constraints_feasible)
-        experiment.optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="branin_a"), minimize=False),
-        )
-        optimization_config = assert_is_instance(
-            experiment.optimization_config, OptimizationConfig
-        )
-        with self.assertRaises(UserInputError):
-            constraints_feasibility(
-                optimization_config=optimization_config, model=model
-            )
-
-    @mock_botorch_optimize
     def test_compute(self) -> None:
         self.setUp()
         cfa = ConstraintsFeasibilityAnalysis()
-        (card,) = cfa.compute(
+        card = cfa.compute(
             experiment=self.experiment, generation_strategy=self.generation_strategy
         )
         self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
         self.assertEqual(card.subtitle, "All constraints are feasible.")
 
         df_metric_d = pd.DataFrame(
             {
                 "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3", "0_4"],
                 "metric_name": ["branin_d"] * 6,
-                "mean": [0.0, -1.0, -2.0, -3.0, -4.0, -5.0],
+                "mean": [1.0, -1.0, -2.0, -3.0, -4.0, -5.0],
                 "sem": [0.1] * 6,
                 "trial_index": [0] * 6,
             }
@@ -189,12 +133,11 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         generation_strategy.experiment = experiment
         generation_strategy._curr._fit(experiment=experiment)
         cfa = ConstraintsFeasibilityAnalysis()
-        (card,) = cfa.compute(
+        card = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
         self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Warning")
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
         subtitle = (
             "The constraints feasibility health check utilizes "
             "samples drawn during the optimization process to assess the "
@@ -213,21 +156,19 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             outcome_constraints=[],
         )
         cfa = ConstraintsFeasibilityAnalysis()
-        (card,) = cfa.compute(
+        card = cfa.compute(
             experiment=experiment, generation_strategy=generation_strategy
         )
         self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.subtitle, "No constraints are specified.")
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
 
     def test_no_optimization_config(self) -> None:
         experiment = get_branin_experiment(has_optimization_config=False)
         cfa = ConstraintsFeasibilityAnalysis()
-        (card,) = cfa.compute(experiment=experiment, generation_strategy=None)
+        card = cfa.compute(experiment=experiment, generation_strategy=None)
         self.assertEqual(card.name, "ConstraintsFeasibilityAnalysis")
         self.assertEqual(card.title, "Ax Constraints Feasibility Success")
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
         self.assertEqual(card.subtitle, "No optimization config is specified.")
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)

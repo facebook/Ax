@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 from ax.core.arm import Arm
@@ -126,10 +126,6 @@ class MultiTypeExperiment(Experiment):
             self._metric_to_trial_type[metric_name] = none_throws(
                 self.default_trial_type
             )
-        # prune metrics that are no longer attached to the experiment
-        for metric_name in list(self._metric_to_trial_type.keys()):
-            if metric_name not in self.metrics:
-                del self._metric_to_trial_type[metric_name]
 
     def update_runner(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":
         """Update the default runner for an existing trial_type.
@@ -147,7 +143,10 @@ class MultiTypeExperiment(Experiment):
     # pyre-fixme[14]: `add_tracking_metric` overrides method defined in `Experiment`
     #  inconsistently.
     def add_tracking_metric(
-        self, metric: Metric, trial_type: str, canonical_name: str | None = None
+        self,
+        metric: Metric,
+        trial_type: str | None = None,
+        canonical_name: str | None = None,
     ) -> "MultiTypeExperiment":
         """Add a new metric to the experiment.
 
@@ -156,6 +155,8 @@ class MultiTypeExperiment(Experiment):
             trial_type: The trial type for which this metric is used.
             canonical_name: The default metric for which this metric is a proxy.
         """
+        if trial_type is None:
+            trial_type = self._default_trial_type
         if not self.supports_trial_type(trial_type):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")
 
@@ -249,6 +250,7 @@ class MultiTypeExperiment(Experiment):
     @copy_doc(Experiment.fetch_data)
     def fetch_data(
         self,
+        trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,

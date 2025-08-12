@@ -78,7 +78,9 @@ def train_and_evaluate(
         weight_decay=weight_decay,
     )
 
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+    lr_scheduler = optim.lr_scheduler.StepLR(
+        optimizer, step_size=step_size, gamma=gamma
+    )
 
     for inputs, labels in train_loader:
         inputs = inputs.to(device=device)
@@ -92,7 +94,7 @@ def train_and_evaluate(
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
-        scheduler.step()
+        lr_scheduler.step()
 
     # Evaluate
     net.eval()

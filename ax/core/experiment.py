@@ -12,16 +12,16 @@ import logging
 import re
 import warnings
 from collections import defaultdict, OrderedDict
-from collections.abc import Hashable, Iterable, Mapping
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from datetime import datetime
 from functools import partial, reduce
-from typing import Any, cast
+from typing import Any, cast, Union
 
 import ax.core.observation as observation
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import BaseTrial
+from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
 from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
@@ -182,6 +182,11 @@ class Experiment(Base):
         self.status_quo = status_quo
         if optimization_config is not None:
             self.optimization_config = optimization_config
+
+        # Keyed on tuple[trial_index, metric_name].
+        self._metric_fetching_errors: dict[
+            tuple[int, str], dict[str, Union[int, str]]
+        ] = {}
 
     @property
     def has_name(self) -> bool:
@@ -385,7 +390,18 @@ class Experiment(Base):
         for metric_name in optimization_config.metrics.keys():
             if metric_name in self._tracking_metrics:
                 self.remove_tracking_metric(metric_name)
+        # add metrics from the previous optimization config that are not in the new
+        # optimization config as tracking metrics
+        prev_optimization_config = self._optimization_config
         self._optimization_config = optimization_config
+        if prev_optimization_config is not None:
+            metrics_to_track = (
+                set(prev_optimization_config.metrics.keys())
+                - set(optimization_config.metrics.keys())
+                - {Keys.DEFAULT_OBJECTIVE_NAME.value}  # remove default objective
+            )
+            for metric_name in metrics_to_track:
+                self.add_tracking_metric(prev_optimization_config.metrics[metric_name])
 
         if any(
             isinstance(metric, MapMetric)
@@ -513,6 +529,31 @@ class Experiment(Base):
             metrics_by_class[metric.fetch_multi_group_by_metric].append(metric)
         return metrics_by_class
 
+    def get_metrics(self, metric_names: list[str] | None) -> list[Metric]:
+        """Get a list of metrics from the experiment by name.
+
+        Args:
+            metric_names: List of metric names to retrieve. If None, returns all metrics
+                defined on the experiment.
+
+        Returns:
+            List of Metric objects corresponding to the requested metric names,
+            deduplicated so the same `Metric` does not occur twice.
+
+        Raises:
+            UserInputError: If any of the requested metric names are not found in the
+                experiment.
+        """
+        if metric_names is None:
+            return list(self.metrics.values())
+        try:
+            return [self.metrics[name] for name in metric_names]
+        except KeyError as e:
+            raise AxError(
+                "One of the requested metrics was not present on the "
+                f"experiment; original error: {e}."
+            )
+
     def fetch_data_results(
         self,
         metrics: list[Metric] | None = None,
@@ -588,6 +629,7 @@ class Experiment(Base):
 
     def fetch_data(
         self,
+        trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
@@ -614,9 +656,10 @@ class Experiment(Base):
         Returns:
             Data for the experiment.
         """
-
         results = self._lookup_or_fetch_trials_results(
-            trials=list(self.trials.values()),
+            trials=list(self.trials.values())
+            if trial_indices is None
+            else self.get_trials_by_indices(trial_indices=trial_indices),
             metrics=metrics,
             combine_with_last_data=combine_with_last_data,
             overwrite_existing_data=overwrite_existing_data,
@@ -627,50 +670,6 @@ class Experiment(Base):
             MapMetric if self.default_data_constructor == MapData else Metric
         )
 
-        return base_metric_cls._unwrap_experiment_data_multi(
-            results=results,
-        )
-
-    def fetch_trials_data(
-        self,
-        trial_indices: Iterable[int],
-        metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
-        **kwargs: Any,
-    ) -> Data:
-        """Fetches data for specific trials on the experiment.
-
-        NOTE: For metrics that are not available while trial is running, the data
-        may be retrieved from cache on the experiment. Data is cached on the experiment
-        via calls to `experiment.attach_data` and whetner a given metric class is
-        available while trial is running is determined by the boolean returned from its
-        `is_available_while_running` class method.
-
-        NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        lose rows) if Experiment.default_data_type is misconfigured!
-
-        Args:
-            trial_indices: Indices of trials, for which to fetch data.
-            metrics: If provided, fetch data for these metrics instead of the ones
-                defined on the experiment.
-            kwargs: Keyword args to pass to underlying metrics' fetch data functions.
-
-        Returns:
-            Data for the specific trials on the experiment.
-        """
-
-        results = self._lookup_or_fetch_trials_results(
-            trials=self.get_trials_by_indices(trial_indices=trial_indices),
-            metrics=metrics,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
-            **kwargs,
-        )
-
-        base_metric_cls = (
-            MapMetric if self.default_data_constructor == MapData else Metric
-        )
         return base_metric_cls._unwrap_experiment_data_multi(
             results=results,
         )
@@ -708,6 +707,7 @@ class Experiment(Base):
                 trials=trials,
                 **kwargs,
             )
+
             contains_new_data = contains_new_data or new_results_contains_new_data
 
             # Merge in results
@@ -815,6 +815,8 @@ class Experiment(Base):
             )
         cur_time_millis = current_timestamp_in_millis()
         for trial_index, trial_df in data.true_df.groupby(data.true_df["trial_index"]):
+            if not isinstance(data, MapData):
+                trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
             # Overwrite `df` so that `data` only has current trial data.
             data_init_args["df"] = trial_df
             current_trial_data = (
@@ -928,8 +930,9 @@ class Experiment(Base):
         UNSAFE: Prefer to use attach_data directly instead.
 
         Attach fetched data results to the Experiment so they will not have to be
-        fetched again. Returns the timestamp from attachment, which is used as a
-        dict key for _data_by_trial.
+        fetched again. Addtionally caches any metric fetching errors that occured
+        to the experiment. Returns the timestamp from attachment, which is used
+        as a dict key for _data_by_trial.
 
         NOTE: Any Errs in the results passed in will silently be dropped! This will
         cause the Experiment to fail to find them in the _data_by_trial cache and
@@ -937,21 +940,32 @@ class Experiment(Base):
         MUST resolve your results first and use attach_data directly instead.
         """
 
-        flattened = [
-            result for sublist in results.values() for result in sublist.values()
-        ]
-
-        oks: list[Ok[Data, MetricFetchE]] = [
-            result for result in flattened if isinstance(result, Ok)
-        ]
-
-        for result in flattened:
-            if isinstance(result, Err):
-                logger.error(
-                    "Discovered Metric fetching Err while attaching data "
-                    f"{result.err}. "
-                    "Ignoring for now -- will retry query on next call to fetch."
-                )
+        completed_trial_indices = self.trial_indices_by_status[TrialStatus.COMPLETED]
+        oks: list[Ok[Data, MetricFetchE]] = []
+        for trial_index, metrics in results.items():
+            for metric_name, result in metrics.items():
+                if isinstance(result, Ok):
+                    oks.append(result)
+                    self._metric_fetching_errors.pop((trial_index, metric_name), None)
+                elif isinstance(result, Err):
+                    msg = (
+                        "Discovered Metric fetching Err while attaching data "
+                        f"{result.err}. "
+                        "Ignoring for now -- will retry query on next call to fetch."
+                    )
+                    self._cache_metric_fetch_error(
+                        trial_index=trial_index,
+                        metric_name=metric_name,
+                        metric_fetch_e=result.err,
+                    )
+                    if trial_index in completed_trial_indices:
+                        logger.error(msg)
+                    else:
+                        msg += (
+                            f" Suppressing error for trial {trial_index} not in "
+                            "COMPLETED state."
+                        )
+                        logger.debug(msg)
 
         if len(oks) < 1:
             return None
@@ -1191,6 +1205,18 @@ class Experiment(Base):
             add_status_quo_arm=add_status_quo_arm,
             ttl_seconds=ttl_seconds,
             lifecycle_stage=lifecycle_stage,
+        )
+
+    def get_batch_trial(self, trial_index: int) -> BatchTrial:
+        """
+        Return a trial on experiment cast as BatchTrial
+        Args:
+            trial_index: The index of the trial to lookup data for.
+        Returns:
+            The requested trial cast as BatchTrial
+        """
+        return assert_is_instance(
+            self.get_trials_by_indices(trial_indices=[trial_index])[0], BatchTrial
         )
 
     def get_trials_by_indices(self, trial_indices: Iterable[int]) -> list[BaseTrial]:
@@ -1508,6 +1534,41 @@ class Experiment(Base):
         for idx in running:
             self._trials[idx].status  # `status` property checks TTL if applicable.
 
+    def _cache_metric_fetch_error(
+        self, trial_index: int, metric_name: str, metric_fetch_e: MetricFetchE | None
+    ) -> None:
+        """Caches a given metric fetch error to the experiment.
+        Args:
+            trial_index: Index of the trial that encountered the metric fetch error.
+            metric_name: Name of the metric that failed to be fetched.
+            metric_fetch_e: The metric fetch error to cache.
+        Returns:
+            None
+        """
+        error_data = {
+            "trial_index": trial_index,
+            "metric_name": metric_name,
+            "reason": "",
+            "timestamp": datetime.now().isoformat(),
+            "traceback": "",
+        }
+
+        if metric_fetch_e is not None:
+            reason_for_failure = metric_fetch_e.message
+            if metric_fetch_e.exception is not None:
+                exception_str = (
+                    f"{type(metric_fetch_e.exception).__name__}: "
+                    f"{metric_fetch_e.exception}"
+                )
+                reason_for_failure = (
+                    f"Ran into the following exception: {exception_str}"
+                )
+
+            error_data["reason"] = reason_for_failure
+            error_data["traceback"] = metric_fetch_e.tb_str() or ""
+
+        self._metric_fetching_errors[(trial_index, metric_name)] = error_data
+
     def __repr__(self) -> str:
         return self.__class__.__name__ + f"({self._name})"
 
@@ -1672,7 +1733,7 @@ class Experiment(Base):
         status_quo: Arm | None = None,
         description: str | None = None,
         is_test: bool | None = None,
-        properties: dict[str, Any] | None = None,
+        properties_to_keep: list[str] | None = None,
         trial_indices: list[int] | None = None,
         data: Data | None = None,
         clear_trial_type: bool = False,
@@ -1698,8 +1759,8 @@ class Experiment(Base):
             description: New description. If None, it uses the same description.
             is_test: Whether the cloned experiment should be considered a test. If None,
                 it uses the same value.
-            properties: New properties dictionary. If None, it uses a copy of the
-                same properties.
+            properties_to_keep: List of property keys to retain in the cloned
+                experiment. Defaults to ["owners"].
             trial_indices: If specified, only clones the specified trials. If None,
                 clones all trials.
             data: If specified, attach this data to the cloned experiment. If None,
@@ -1708,6 +1769,8 @@ class Experiment(Base):
             clear_trial_type: If True, all cloned trials on the cloned experiment have
                 `trial_type` set to `None`.
         """
+        if properties_to_keep is None:
+            properties_to_keep = ["owners"]
         search_space = (
             self.search_space.clone() if (search_space is None) else search_space
         )
@@ -1739,7 +1802,16 @@ class Experiment(Base):
         )
         description = self.description if description is None else description
         is_test = self.is_test if is_test is None else is_test
-        properties = self._properties.copy() if properties is None else properties
+
+        properties = {
+            k: v for k, v in self._properties.items() if k in properties_to_keep
+        }
+        dropped_keys = set(self._properties.keys()) - set(properties.keys())
+        if dropped_keys:
+            logger.warning(
+                f"When cloning the experiment, the following fields were dropped from "
+                f"properties: {', '.join(dropped_keys)}.",
+            )
 
         cloned_experiment = Experiment(
             search_space=search_space,
@@ -1862,7 +1934,12 @@ class Experiment(Base):
         ]
         return df
 
-    def to_df(self, omit_empty_columns: bool = True) -> pd.DataFrame:
+    def to_df(
+        self,
+        trial_indices: Iterable[int] | None = None,
+        trial_statuses: Sequence[TrialStatus] | None = None,
+        omit_empty_columns: bool = True,
+    ) -> pd.DataFrame:
         """
         High-level summary of the Experiment with one row per arm. Any values missing at
         compute time will be represented as None. Columns where every value is None will
@@ -1878,18 +1955,34 @@ class Experiment(Base):
                 Experiment's runner.run_metadata_report_keys field
             - **METRIC_NAME: The observed mean of the metric specified, for each metric
             - **PARAMETER_NAME: The parameter value for the arm, for each parameter
+
+        Args:
+            trial_indices: If specified, only include these trial indices.
+            omit_empty_columns: If True, omit columns where every value is None.
+            trial_status: If specified, only include trials with this status.
         """
 
         records = []
-        data_df = self.lookup_data().df
-        for index, trial in self.trials.items():
+        data_df = self.lookup_data(trial_indices=trial_indices).df
+        trials = (
+            self.get_trials_by_indices(trial_indices=trial_indices)
+            if trial_indices
+            else self.trials.values()
+        )
+
+        # Filter trials by status if specified
+        if trial_statuses is not None:
+            trials = [trial for trial in trials if trial.status in trial_statuses]
+        # Iterate through trials, and for each trial, iterate through its arms
+        # and add a record for each arm.
+        for trial in trials:
             for arm in trial.arms:
                 # Find the observed means for each metric, placing None if not found
                 observed_means = {}
                 for metric in self.metrics.keys():
                     try:
                         observed_means[metric] = data_df[
-                            (data_df["trial_index"] == index)
+                            (data_df["trial_index"] == trial.index)
                             & (data_df["arm_name"] == arm.name)
                             & (data_df["metric_name"] == metric)
                         ]["mean"].item()
@@ -1917,7 +2010,7 @@ class Experiment(Base):
 
                 # Construct the record
                 record = {
-                    "trial_index": index,
+                    "trial_index": trial.index,
                     "arm_name": arm.name,
                     "trial_status": trial.status.name,
                     "fail_reason": trial.run_metadata.get("fail_reason", None),
@@ -1933,6 +2026,66 @@ class Experiment(Base):
         if omit_empty_columns:
             df = df.loc[:, df.notnull().any()]
         return df
+
+    def add_auxiliary_experiment(
+        self,
+        purpose: AuxiliaryExperimentPurpose,
+        auxiliary_experiment: AuxiliaryExperiment,
+    ) -> None:
+        """Add a (non-duplicated) auxiliary experiment to this experiment.
+
+        This method adds the auxiliary experiment as the first element in the list
+        of auxiliary experiments with the specified purpose. If the auxiliary is
+        already present, it is moved to the first position in the list.
+
+        Args:
+            purpose: The purpose of the auxiliary experiment.
+            auxiliary_experiment: The auxiliary experiment to add.
+        """
+        if purpose not in self.auxiliary_experiments_by_purpose:
+            # if no aux experiment, make aux the first one
+            self.auxiliary_experiments_by_purpose[purpose] = [auxiliary_experiment]
+            return
+
+        # Add or move auxiliary_experiment to be the first element
+        # Adding to the first and use the order as a default tie-breaker when multiple
+        # auxiliary experiments are present but only one is going to be used.
+        self.auxiliary_experiments_by_purpose[purpose] = [auxiliary_experiment] + [
+            item
+            for item in self.auxiliary_experiments_by_purpose[purpose]
+            if item != auxiliary_experiment
+        ]
+
+    def find_auxiliary_experiment_by_name(
+        self,
+        purpose: AuxiliaryExperimentPurpose,
+        auxiliary_experiment_name: str,
+        raise_if_not_found: bool = False,
+    ) -> AuxiliaryExperiment | None:
+        """Find the aux experiment with the given name and purpose in the experiment.
+
+        Args:
+            purpose: The purpose of the aux experiment.
+            auxiliary_experiment_name: The name of the aux experiment.
+
+        Returns:
+            The aux experiment with the given name and purpose, or None if not found.
+            if raise_if_not_found is True, raises a ValueError if not found.
+        """
+        found_aux_exp = None
+        if purpose in self.auxiliary_experiments_by_purpose:
+            for auxiliary_experiment in self.auxiliary_experiments_by_purpose[purpose]:
+                if auxiliary_experiment.experiment.name == auxiliary_experiment_name:
+                    found_aux_exp = auxiliary_experiment
+                    break
+
+        if raise_if_not_found:
+            if found_aux_exp is None:
+                raise UserInputError(
+                    f"Auxiliary experiment {auxiliary_experiment_name} is not "
+                    f"found for purpose {purpose}."
+                )
+        return found_aux_exp
 
     @property
     def auxiliary_experiments_by_purpose_for_storage(

@@ -39,7 +39,7 @@ class SimulatedBackendRunner(Runner):
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
     ) -> dict[TrialStatus, set[int]]:
-        """Poll trial status from the ``BackendSimulator``. NOTE: The ``Scheduler``
+        """Poll trial status from the ``BackendSimulator``. NOTE: The ``Orchestrator``
         currently marks trials as running when they are created, but some of these
         trials may actually be in queued on the ``BackendSimulator``.
 

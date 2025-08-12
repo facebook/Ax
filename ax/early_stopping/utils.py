@@ -13,6 +13,7 @@ import pandas as pd
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.trial_status import TrialStatus
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance
 
@@ -46,7 +47,18 @@ def align_partial_results(
 
     Returns:
         A two-tuple containing a dict mapping the provided metric names to the
-        index-normalized and interpolated mean (sem).
+        index-normalized and interpolated dataframes containing the mean (sem).
+        The dataframes are indexed by timestamp ("map_key") and have columns
+        corresponding to the trial index, e.g.:
+        mean = {
+            "metric_name": pd.DataFrame(
+                timestamp         0           1          2           3          4
+                0.0        146.138620  113.057480  44.627226  143.375669  65.033535
+                1.0        117.388086   90.815154  35.847504  115.168704  52.239184
+                2.0         99.950007   77.324501  30.522333   98.060315  44.479018
+                3.0               NaN         NaN        NaN         NaN  39.772239
+            )
+        }
     """
     missing_metrics = set(metrics) - set(df["metric_name"])
     if missing_metrics:
@@ -64,6 +76,24 @@ def align_partial_results(
         else:
             logger.info(f"No data from metric {m} yet.")
     # drop arm names (assumes 1:1 map between trial indices and arm names)
+    # NOTE: this is not the case for BatchTrials and repeated arms
+    # if we didn't catch that there were multiple arms per trial, the interpolation
+    # code below would interpolate between data points from potentially different arms,
+    # as only the trial index is used to differentiate distinct data for interpolation.
+    for trial_index, trial_group in df.groupby("trial_index"):
+        if len(trial_group["arm_name"].unique()) != 1:
+            raise UnsupportedError(
+                f"Trial {trial_index} has multiple arm names: "
+                f"{trial_group['arm_name'].unique()}."
+            )
+
+    for arm_name, arm_group in df.groupby("arm_name"):
+        if len(arm_group["trial_index"].unique()) != 1:
+            raise UnsupportedError(
+                f"Arm {arm_name} has multiple tiral indices: "
+                f"{arm_group['trial_index'].unique()}."
+            )
+
     df = df.drop("arm_name", axis=1)
     # remove duplicates (same trial, metric, progr_key), which can happen
     # if the same progression is erroneously reported more than once

@@ -9,19 +9,48 @@
 from typing import Mapping, Sequence
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.adapter.base import Adapter
+from ax.adapter.cross_validation import cross_validate, CVResult
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCardBase
+from ax.analysis.plotly.color_constants import AX_BLUE
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import get_nudge_value, get_scatter_point_color
+from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
+
+from ax.analysis.plotly.utils import get_scatter_point_color, Z_SCORE_95_CI
+
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.cross_validation import cross_validate
-from plotly import express as px, graph_objects as go
+from plotly import graph_objects as go
+
+TRANSPARENT_AX_BLUE: str = get_scatter_point_color(
+    hex_color=AX_BLUE,
+    ci_transparency=True,
+)
+FILLED_AX_BLUE: str = get_scatter_point_color(
+    hex_color=AX_BLUE,
+    ci_transparency=False,
+)
+
+CV_CARDGROUP_TITLE = "Cross Validation: Assessing model fit"
+
+CV_CARDGROUP_SUBTITLE = (
+    "Cross-validation plots display the model fit for each metric in the "
+    "experiment. The model is trained on a subset of the data and then predicts the "
+    "outcome for the remaining subset. The plots show the predicted outcome for the "
+    "validation set on the y-axis against its actual value on the x-axis. Points "
+    "that align closely with the dotted diagonal line indicate a strong model fit, "
+    "signifying accurate predictions. Additionally, the plots include "
+    "confidence intervals that provide insight into the noise in observations and "
+    "the uncertainty in model predictions. <br><br>"
+    "NOTE: A horizontal, flat line of predictions "
+    "indicates that the model has not picked up on sufficient signal in the data, "
+    "and instead is just predicting the mean."
+)
 
 
-class CrossValidationPlot(PlotlyAnalysis):
+class CrossValidationPlot(Analysis):
     """
     Plotly Scatter plot for cross validation for model predictions using the current
     model on the GenerationStrategy. This plot is useful for understanding how well
@@ -48,7 +77,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         self,
         metric_names: Sequence[str] | None = None,
         folds: int = -1,
-        untransform: bool = True,
+        untransform: bool = False,
         trial_index: int | None = None,
         labels: Mapping[str, str] | None = None,
     ) -> None:
@@ -87,7 +116,7 @@ class CrossValidationPlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> AnalysisCardBase:
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -95,20 +124,17 @@ class CrossValidationPlot(PlotlyAnalysis):
         )
 
         cards = []
+        cv_results = cross_validate(
+            model=relevant_adapter, folds=self.folds, untransform=self.untransform
+        )
         for metric_name in self.metric_names or relevant_adapter.metric_names:
-            df = _prepare_data(
-                adapter=relevant_adapter,
-                metric_name=metric_name,
-                folds=self.folds,
-                untransform=self.untransform,
-            )
+            df = _prepare_data(metric_name=metric_name, cv_results=cv_results)
 
             fig = _prepare_plot(df=df)
 
             k_folds_substring = (
                 f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
             )
-            nudge = get_nudge_value(metric_name=metric_name, experiment=experiment)
 
             # If a human readable metric name is provided, use it in the title
             metric_title = self.labels.get(metric_name, metric_name)
@@ -127,7 +153,8 @@ class CrossValidationPlot(PlotlyAnalysis):
                 )
             )
 
-            card = self._create_plotly_analysis_card(
+            card = create_plotly_analysis_card(
+                name=self.__class__.__name__,
                 title=f"Cross Validation for {metric_title}",
                 subtitle=(
                     "The cross-validation plot displays the model fit for each "
@@ -143,15 +170,17 @@ class CrossValidationPlot(PlotlyAnalysis):
                     "has not picked up on sufficient signal in the data, and instead "
                     "is just predicting the mean."
                 ),
-                level=AnalysisCardLevel.LOW.value + nudge,
                 df=df,
                 fig=fig,
-                category=AnalysisCardCategory.INSIGHT,
             )
 
             cards.append(card)
 
-        return cards
+        return self._create_analysis_card_group_or_card(
+            title=CV_CARDGROUP_TITLE,
+            subtitle=CV_CARDGROUP_SUBTITLE,
+            children=cards,
+        )
 
 
 def compute_cross_validation_adhoc(
@@ -162,7 +191,7 @@ def compute_cross_validation_adhoc(
     experiment: Experiment | None = None,
     generation_strategy: GenerationStrategy | None = None,
     adapter: Adapter | None = None,
-) -> list[PlotlyAnalysisCard]:
+) -> AnalysisCardBase:
     """
     Helper method to expose adhoc cross validation plotting. Only for advanced users in
     a notebook setting.
@@ -204,26 +233,13 @@ def compute_cross_validation_adhoc(
         labels=labels,
     )
 
-    return [
-        *analysis.compute(
-            experiment=experiment,
-            adapter=relevant_adapter,
-        )
-    ]
-
-
-def _prepare_data(
-    adapter: Adapter,
-    metric_name: str,
-    folds: int,
-    untransform: bool,
-) -> pd.DataFrame:
-    cv_results = cross_validate(
-        model=adapter,
-        folds=folds,
-        untransform=untransform,
+    return analysis.compute(
+        experiment=experiment,
+        adapter=relevant_adapter,
     )
 
+
+def _prepare_data(metric_name: str, cv_results: list[CVResult]) -> pd.DataFrame:
     records = []
     for observed, predicted in cv_results:
         # Find the index of the metric in observed and predicted
@@ -248,9 +264,9 @@ def _prepare_data(
                 # Compute the 95% confidence intervals for plotting purposes
                 "observed_95_ci": observed.data.covariance[observed_i][observed_i]
                 ** 0.5
-                * 1.96,
+                * Z_SCORE_95_CI,
                 "predicted_95_ci": predicted.covariance[predicted_i][predicted_i] ** 0.5
-                * 1.96,
+                * Z_SCORE_95_CI,
             }
             records.append(record)
     return pd.DataFrame.from_records(records)
@@ -267,29 +283,19 @@ def _prepare_plot(
             y=df["predicted"],
             mode="markers",
             marker={
-                # Plotly blue
-                "color": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
-                    ci_transparency=False,
-                ),
+                "color": FILLED_AX_BLUE,
             },
             error_x={
                 "type": "data",
                 "array": df["observed_95_ci"],
                 "visible": True,
-                "color": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
-                    ci_transparency=True,
-                ),
+                "color": TRANSPARENT_AX_BLUE,
             },
             error_y={
                 "type": "data",
                 "array": df["predicted_95_ci"],
                 "visible": True,
-                "color": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
-                    ci_transparency=True,
-                ),
+                "color": TRANSPARENT_AX_BLUE,
             },
             text=df["arm_name"],
             hovertemplate=(
@@ -299,10 +305,7 @@ def _prepare_plot(
                 + "<extra></extra>"  # Removes the trace name from the hover
             ),
             hoverlabel={
-                "bgcolor": get_scatter_point_color(
-                    hex_color=px.colors.qualitative.Plotly[0],
-                    ci_transparency=True,
-                ),
+                "bgcolor": TRANSPARENT_AX_BLUE,
                 "font": {"color": "black"},
             },
         )

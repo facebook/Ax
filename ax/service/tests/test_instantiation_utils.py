@@ -47,98 +47,95 @@ class TestInstantiationtUtils(TestCase):
             )
 
     def test_constraint_from_str(self) -> None:
-        with self.assertRaisesRegex(ValueError, "Bound for the constraint"):
+        x1 = RangeParameter(
+            name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
+        )
+        x2 = RangeParameter(
+            name="x2", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
+        )
+        x3 = RangeParameter(
+            name="x3", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            (
+                r"Received invalid parameter constraint format: "
+                r"`x1 \+ x2 <= not_numerical_bound`\. "
+                r"Please use one of the following forms:\n"
+            ),
+        ):
             InstantiationBase.constraint_from_str(
-                "x1 + x2 <= not_numerical_bound",
-                {
-                    "x1": RangeParameter(
-                        name="x1",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=2.0,
-                    ),
-                    "x2": RangeParameter(
-                        name="x2",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=2.0,
-                    ),
-                },
+                "x1 + x2 <= not_numerical_bound", {"x1": x1, "x2": x2}
             )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"OrderConstraint token\(s\) \['x_na'\] are not present in parameters list "
+            r"\['x1', 'x2'\]\.",
+        ):
+            InstantiationBase.constraint_from_str("x1 <= x_na", {"x1": x1, "x2": x2})
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"OrderConstraint token\(s\) \['x_na'\] are not present in parameters list "
+            r"\['x1', 'x2'\]\.",
+        ):
+            InstantiationBase.constraint_from_str("x_na >= x1", {"x1": x1, "x2": x2})
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"OrderConstraint token\(s\) \['x_na', 'x_naa'\] are not present in "
+            r"parameters list \['x1', 'x2'\]\.",
+        ):
+            InstantiationBase.constraint_from_str("x_na >= x_naa", {"x1": x1, "x2": x2})
+
         with self.assertRaisesRegex(ValueError, "Outcome constraint bound"):
             InstantiationBase.outcome_constraint_from_str("m1 <= not_numerical_bound")
         three_val_constaint = InstantiationBase.constraint_from_str(
-            "x1 + x2 + x3 <= 3",
-            {
-                "x1": RangeParameter(
-                    name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
-                ),
-                "x2": RangeParameter(
-                    name="x2", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
-                ),
-                "x3": RangeParameter(
-                    name="x3", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
-                ),
-            },
+            "x1 + x2 + x3 <= 3", {"x1": x1, "x2": x2, "x3": x3}
         )
 
         with self.assertRaisesRegex(AssertionError, "Outcome constraint 'm1"):
             InstantiationBase.outcome_constraint_from_str("m1 == 2*m2")
 
         self.assertEqual(three_val_constaint.bound, 3.0)
-        with self.assertRaisesRegex(ValueError, "Parameter constraint should"):
+        with self.assertRaisesRegex(
+            ValueError,
+            (
+                r"Received invalid parameter constraint format: "
+                r"`x1 \+ x2 \+ <= 3`\. "
+                r"Please use one of the following forms:\n"
+            ),
+        ):
             InstantiationBase.constraint_from_str(
-                "x1 + x2 + <= 3",
-                # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
-                #  got `Dict[str, None]`.
-                {"x1": None, "x2": None, "x3": None},
+                "x1 + x2 + <= 3", {"x1": x1, "x2": x2, "x3": x3}
             )
-        with self.assertRaisesRegex(ValueError, "Parameter constraint should"):
+        with self.assertRaisesRegex(
+            ValueError,
+            (
+                r"Received invalid parameter constraint format: "
+                r"`x1 \+ x2 \+ x3 = 3`\. "
+                r"Please use one of the following forms:\n"
+                r".*\n.*\n.*\nAcceptable comparison operators are \">=\" and \"<=\"\."
+            ),
+        ):
             InstantiationBase.constraint_from_str(
-                "x1 + x2 + x3 = 3",
-                # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
-                #  got `Dict[str, None]`.
-                {"x1": None, "x2": None, "x3": None},
+                "x1 + x2 + x3 = 3", {"x1": x1, "x2": x2, "x3": x3}
             )
         one_val_constraint = InstantiationBase.constraint_from_str(
-            "x1 <= 0",
-            {
-                "x1": RangeParameter(
-                    name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
-                ),
-                "x2": RangeParameter(
-                    name="x2", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
-                ),
-            },
+            "x1 <= 0", {"x1": x1, "x2": x2}
         )
         self.assertEqual(one_val_constraint.bound, 0.0)
         self.assertEqual(one_val_constraint.constraint_dict, {"x1": 1.0})
         one_val_constraint = InstantiationBase.constraint_from_str(
-            "-0.5*x1 >= -0.1",
-            {
-                "x1": RangeParameter(
-                    name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
-                ),
-                "x2": RangeParameter(
-                    name="x2", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
-                ),
-            },
+            "-0.5*x1 >= -0.1", {"x1": x1, "x2": x2}
         )
         self.assertEqual(one_val_constraint.bound, 0.1)
         self.assertEqual(one_val_constraint.constraint_dict, {"x1": 0.5})
         three_val_constaint2 = InstantiationBase.constraint_from_str(
             "-x1 + 2.1*x2 - 4*x3 <= 3",
-            {
-                "x1": RangeParameter(
-                    name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
-                ),
-                "x2": RangeParameter(
-                    name="x2", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
-                ),
-                "x3": RangeParameter(
-                    name="x3", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
-                ),
-            },
+            {"x1": x1, "x2": x2, "x3": x3},
         )
 
         self.assertEqual(three_val_constaint2.bound, 3.0)
@@ -147,117 +144,48 @@ class TestInstantiationtUtils(TestCase):
         )
         with self.assertRaisesRegex(ValueError, "Multiplier should be float"):
             InstantiationBase.constraint_from_str(
-                "x1 - e*x2 + x3 <= 3",
-                {
-                    "x1": RangeParameter(
-                        name="x1",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                    "x2": RangeParameter(
-                        name="x2",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                    "x3": RangeParameter(
-                        name="x3",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                },
+                "x1 - e*x2 + x3 <= 3", {"x1": x1, "x2": x2, "x3": x3}
             )
         with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
             InstantiationBase.constraint_from_str(
-                "x1 - 2 *x2 + 3 *x3 <= 3",
-                {
-                    "x1": RangeParameter(
-                        name="x1",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                    "x2": RangeParameter(
-                        name="x2",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                    "x3": RangeParameter(
-                        name="x3",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                },
+                "x1 - 2 *x2 + 3 *x3 <= 3", {"x1": x1, "x2": x2, "x3": x3}
             )
         with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
             InstantiationBase.constraint_from_str(
-                "x1 - 2* x2 + 3* x3 <= 3",
-                {
-                    "x1": RangeParameter(
-                        name="x1",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                    "x2": RangeParameter(
-                        name="x2",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                    "x3": RangeParameter(
-                        name="x3",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                },
+                "x1 - 2* x2 + 3* x3 <= 3", {"x1": x1, "x2": x2, "x3": x3}
             )
         with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
             InstantiationBase.constraint_from_str(
-                "x1 - 2 * x2 + 3*x3 <= 3",
-                {
-                    "x1": RangeParameter(
-                        name="x1",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                    "x2": RangeParameter(
-                        name="x2",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                    "x3": RangeParameter(
-                        name="x3",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=4.0,
-                    ),
-                },
+                "x1 - 2 * x2 + 3*x3 <= 3", {"x1": x1, "x2": x2, "x3": x3}
             )
 
         with self.assertRaisesRegex(
-            ValueError, "Parameter constraints not supported for ChoiceParameter"
+            ValueError,
+            r"All parameters in a parameter constraint must be RangeParameters\.",
         ):
             InstantiationBase.constraint_from_str(
                 "x1 + x2 <= 3",
                 {
-                    "x1": RangeParameter(
-                        name="x1",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0.1,
-                        upper=2.0,
-                    ),
+                    "x1": x1,
                     "x2": ChoiceParameter(
                         name="x2", parameter_type=ParameterType.FLOAT, values=[0, 1, 2]
                     ),
                 },
+            )
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Constraint parameter 'x_na' is not present in this experiment's search "
+            r"space parameters: \['x1', 'x2', 'x3'\]\.",
+        ):
+            InstantiationBase.constraint_from_str(
+                "x1 + x_na >= 3", {"x1": x1, "x2": x2, "x3": x3}
+            )
+
+        with self.assertRaisesRegex(
+            ValueError, r"Expected a mixed constraint, found operator `/`\."
+        ):
+            InstantiationBase.constraint_from_str(
+                "x1 + x2 / 2.0 + x3 >= 3", {"x1": x1, "x2": x2, "x3": x3}
             )
 
     def test_add_tracking_metrics(self) -> None:

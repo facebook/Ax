@@ -7,20 +7,14 @@
 
 import math
 import re
-from typing import Sequence
+from typing import Sequence, Union
 
-import numpy as np
 import pandas as pd
-import torch
+from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE, LIGHT_AX_BLUE
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
-from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.modelbridge.base import Adapter
-
-from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
-from numpy.typing import NDArray
+from ax.exceptions.core import UnsupportedError
 from plotly import express as px
 
 MAX_LABEL_LEN: int = 50
@@ -30,11 +24,9 @@ MAX_LABEL_LEN: int = 50
 # consider probability of violation to be negligible.
 MINIMUM_CONTRAINT_VIOLATION_THRESHOLD = 0.01
 
-# Plotting style constants
-CONFIDENCE_INTERVAL_BLUE = "rgba(0, 0, 255, 0.2)"
-MARKER_BLUE = "rgba(0, 0, 255, 0.3)"  # slightly more opaque than the CI blue
-CANDIDATE_RED = "rgba(220, 20, 60, 0.3)"
-CANDIDATE_CI_RED = "rgba(220, 20, 60, 0.2)"
+# Z-score for 95% confidence interval
+Z_SCORE_95_CI = 1.96
+
 
 # Splat this into a go.Scatter initializer when drawing a line that represents the
 # cummulative best, Pareto frontier, etc. for a unified look and feel.
@@ -51,27 +43,33 @@ BEST_LINE_SETTINGS: dict[str, str | dict[str, str] | bool] = {
     "hoverinfo": "skip",
 }
 
-# Use the same continuous sequential color scale for all plots. Plasma uses purples for
-# low values and transitions to yellows for high values.
-METRIC_CONTINUOUS_COLOR_SCALE: list[str] = px.colors.sequential.Plasma
 
-
-# Use a consistent color for each TrialStatus name, sourced from
-# the default Plotly color palette. See https://plotly.com/python/discrete-color/
-# for more details and swatches.
-TRIAL_STATUS_TO_PLOTLY_COLOR: dict[str, str] = {
-    TrialStatus.CANDIDATE.name: px.colors.qualitative.Plotly[8],  # Pink
-    TrialStatus.STAGED.name: px.colors.qualitative.Plotly[3],  # Purple
-    TrialStatus.FAILED.name: px.colors.qualitative.Plotly[4],  # Orange
-    TrialStatus.COMPLETED.name: px.colors.qualitative.Plotly[0],  # Blue
-    TrialStatus.RUNNING.name: px.colors.qualitative.Plotly[2],  # Green
-    TrialStatus.ABANDONED.name: px.colors.qualitative.Plotly[1],  # Red
-    TrialStatus.EARLY_STOPPED.name: px.colors.qualitative.Plotly[5],  # Teal
+# Move the legened to the bottom, and make horizontal
+LEGEND_POSITION: dict[str, Union[float, str]] = {
+    "orientation": "h",
+    "yanchor": "top",
+    "y": -0.2,
+    "xanchor": "center",
+    "x": 0.5,
+    "title_text": "",  # remove title
 }
+
+# The Base y-offset (in normalized coordinates) to place the legend
+# below the plot area.
+LEGEND_BASE_OFFSET: float = -0.1
+
+# This scaling factor controls how much additional space is added
+# based on the max tick label length
+X_TICKER_SCALING_FACTOR: int = 40
+
+MARGIN_REDUCUTION: dict[str, int] = {"t": 50}
 
 # Always use the same transparency factor for CI colors to improve legibility when many
 # scatter points are plotted on the same plot.
 CI_ALPHA: float = 0.5
+
+# The max length of a hover label to prevent overflow making the hover unreadable
+MAX_HOVER_LABEL_LEN: int = 300
 
 
 def get_scatter_point_color(
@@ -89,23 +87,36 @@ def get_scatter_point_color(
     return f"rgba({red}, {green}, {blue}, {alpha})"
 
 
-def trial_status_to_plotly_color(
-    trial_status: str,
-    ci_transparency: bool = False,
+def trial_index_to_color(
+    trial_df: pd.DataFrame,
+    trials_list: list[int],
+    trial_index: int,
+    transparent: bool,
 ) -> str:
     """
-    Standardize the colors which correspond to a TrialStatus name across the Plotly
-    analyses.
+    Determines the color for a trial based on its index and status.
 
-    Always use transparency for CI colors to improve legibility.
+    If the trial is a candidate, it returns LIGHT_AX_BLUE. Otherwise,
+    it calculates a color from the BOTORCH_COLOR_SCALE based on the trial's
+    normalized index (relative to all completed trials).
+
+    Note, we are calculating normalized_index here by using the length of the
+    trials list and the index of each trial_index in that list rather than the
+    trial_index associated with each trial. This is done to ensure trial colors
+    are evenly spaced out, even in cases where there are many FAILED trials.
     """
-    hex_color = TRIAL_STATUS_TO_PLOTLY_COLOR.get(
-        trial_status,
-        # Default to pink, treating unknown trial status as CANDIDATE
-        px.colors.qualitative.Plotly[8],
-    )
+    max_trial_index = len(trials_list) - 1
 
-    return get_scatter_point_color(hex_color=hex_color, ci_transparency=ci_transparency)
+    if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
+        return get_scatter_point_color(
+            hex_color=LIGHT_AX_BLUE, ci_transparency=transparent
+        )
+
+    adj_trial_index = trials_list.index(trial_index)
+    normalized_index = 0 if max_trial_index == 0 else adj_trial_index / max_trial_index
+    color_index = int(normalized_index * (len(BOTORCH_COLOR_SCALE) - 1))
+    hex_color = BOTORCH_COLOR_SCALE[color_index]
+    return get_scatter_point_color(hex_color=hex_color, ci_transparency=transparent)
 
 
 def get_arm_tooltip(
@@ -116,37 +127,40 @@ def get_arm_tooltip(
     Given a row from ax.analysis.utils.prepare_arm_data return a tooltip. This should
     be used in every Plotly analysis where we source data from prepare_arm_data.
     """
+    tooltip_strs = []
+    trial_index = row["trial_index"]
+    if trial_index != -1:
+        # omit the trial tooltip for additional arms
+        tooltip_strs.append(f"Trial: {trial_index}")
 
-    trial_str = f"Trial: {row['trial_index']}"
-    arm_str = f"Arm: {row['arm_name']}"
-    status_str = f"Status: {row['trial_status']}"
-    generation_node_str = f"Generation Node: {row['generation_node']}"
+    tooltip_strs.append(f"Arm: {row['arm_name']}")
+    tooltip_strs.append(f"Status: {row['trial_status']}")
+    tooltip_strs.append(f"Generation Node: {row['generation_node']}")
 
-    metric_strs = [
-        (
-            (f"{metric_name}: {row[f'{metric_name}_mean']:.5f}")
-            + f"±{1.96 * row[f'{metric_name}_sem']:.5f}"
-            if not math.isnan(row[f"{metric_name}_sem"])
-            else ""
-        )
-        for metric_name in metric_names
-    ]
+    tooltip_strs.extend(
+        [
+            (
+                (f"{metric_name}: {row[f'{metric_name}_mean']:.5f}")
+                + f"±{Z_SCORE_95_CI * row[f'{metric_name}_sem']:.5f}"
+                if not math.isnan(row[f"{metric_name}_sem"])
+                else ""
+            )
+            for metric_name in metric_names
+        ]
+    )
 
-    if row["p_feasible"] < MINIMUM_CONTRAINT_VIOLATION_THRESHOLD:
+    if row["p_feasible_mean"] < MINIMUM_CONTRAINT_VIOLATION_THRESHOLD:
         constraints_warning_str = "[Warning] This arm is likely infeasible"
     else:
         constraints_warning_str = ""
+    tooltip_strs.append(constraints_warning_str)
 
-    return "<br />".join(
-        [
-            trial_str,
-            arm_str,
-            status_str,
-            generation_node_str,
-            *metric_strs,
-            constraints_warning_str,
-        ]
-    )
+    return "<br />".join(tooltip_strs)
+
+
+def get_trial_trace_name(trial_index: int) -> str:
+    """Get a trace name for a trial index."""
+    return "Additional Arms" if trial_index == -1 else f"Trial {trial_index}"
 
 
 def truncate_label(label: str, n: int = MAX_LABEL_LEN) -> str:
@@ -179,154 +193,6 @@ def truncate_label(label: str, n: int = MAX_LABEL_LEN) -> str:
         else:
             break
     return shortened_label
-
-
-def get_constraint_violated_probabilities(
-    predictions: list[tuple[dict[str, float], dict[str, float]]],
-    outcome_constraints: list[OutcomeConstraint],
-) -> dict[str, list[float]]:
-    """Get the probability that each arm violates the outcome constraints.
-
-    Args:
-        predictions: List of predictions for each observation feature
-            generated by predict_at_point.  It should include predictions
-            for all outcome constraint metrics.
-        outcome_constraints: List of outcome constraints to check.
-
-    Returns:
-        A dict of probabilities that each arm violates the outcome
-        constraint provided, and for "any_constraint_violated" the probability that
-        the arm violates *any* outcome constraint provided.
-    """
-    if len(outcome_constraints) == 0:
-        return {"any_constraint_violated": [0.0] * len(predictions)}
-    if any(constraint.relative for constraint in outcome_constraints):
-        raise UserInputError(
-            "`get_constraint_violated_probabilities()` does not support relative "
-            "outcome constraints. Use `Derelativize().transform_optimization_config()` "
-            "before passing constraints to this method."
-        )
-
-    metrics = [constraint.metric.name for constraint in outcome_constraints]
-    means = torch.as_tensor(
-        [
-            [prediction[0][metric_name] for metric_name in metrics]
-            for prediction in predictions
-        ]
-    )
-    sigmas = torch.as_tensor(
-        [
-            [prediction[1][metric_name] for metric_name in metrics]
-            for prediction in predictions
-        ]
-    )
-    feasibility_probabilities: dict[str, NDArray] = {}
-    for constraint in outcome_constraints:
-        if constraint.op == ComparisonOp.GEQ:
-            con_lower_inds = torch.tensor([metrics.index(constraint.metric.name)])
-            con_lower = torch.tensor([constraint.bound])
-            con_upper_inds = torch.as_tensor([])
-            con_upper = torch.as_tensor([])
-        else:
-            con_lower_inds = torch.as_tensor([])
-            con_lower = torch.as_tensor([])
-            con_upper_inds = torch.tensor([metrics.index(constraint.metric.name)])
-            con_upper = torch.tensor([constraint.bound])
-
-        feasibility_probabilities[constraint.metric.name] = (
-            compute_log_prob_feas_from_bounds(
-                means=means,
-                sigmas=sigmas,
-                con_lower_inds=con_lower_inds,
-                con_upper_inds=con_upper_inds,
-                con_lower=con_lower,
-                con_upper=con_upper,
-                # "both" can also be expressed by 2 separate constraints...
-                con_both_inds=torch.as_tensor([]),
-                con_both=torch.as_tensor([]),
-            )
-            .exp()
-            .numpy()
-        )
-
-    feasibility_probabilities["any_constraint_violated"] = np.prod(
-        list(feasibility_probabilities.values()), axis=0
-    )
-
-    return {
-        metric_name: (1 - feasibility_probabilities[metric_name]).tolist()
-        for metric_name in feasibility_probabilities
-    }
-
-
-def format_constraint_violated_probabilities(
-    constraints_violated: dict[str, float],
-) -> str:
-    """Format the constraints violated for the tooltip."""
-    max_metric_length = 70
-    constraints_violated = {
-        k: v
-        for k, v in constraints_violated.items()
-        if v > MINIMUM_CONTRAINT_VIOLATION_THRESHOLD
-    }
-    constraints_violated_str = "<br />  ".join(
-        [
-            (
-                f"{k[:max_metric_length]}{'...' if len(k) > max_metric_length else ''}"
-                f": {v * 100:.1f}% chance violated"
-            )
-            for k, v in constraints_violated.items()
-        ]
-    )
-    if len(constraints_violated_str) == 0:
-        return "No constraints violated"
-    else:
-        constraints_violated_str = "<br />  " + constraints_violated_str
-
-    return constraints_violated_str
-
-
-def get_nudge_value(
-    metric_name: str,
-    experiment: Experiment | None = None,
-    use_modeled_effects: bool = False,
-) -> int:
-    """Get the amount to nudge the level of the plot. Deteremined by metric
-    importance and whether modeled effects are used.
-    """
-    # without an experiment or optimization config, we can't tell if this plot is
-    # relatively more important
-    if experiment is None or experiment.optimization_config is None:
-        return 0
-
-    nudge = 0
-    # More important metrics have a higher nudge
-    if metric_name in experiment.optimization_config.objective.metric_names:
-        nudge += 2
-    elif metric_name in experiment.optimization_config.metrics:
-        nudge += 1
-
-    # Relevant for plots where observed effects and modeled effects can both be shown
-    if use_modeled_effects:
-        nudge += 1
-
-    return nudge
-
-
-def is_predictive(adapter: Adapter) -> bool:
-    # TODO: Improve this logic and move it to base adapter class
-    """Check if a adapter is predictive.  Basically, we're checking if
-    predict() is implemented.
-
-    NOTE: This does not mean it's capable of out of sample prediction.
-    """
-    try:
-        adapter.predict(observation_features=[])
-    except NotImplementedError:
-        return False
-    except Exception:
-        return True
-    return True
 
 
 def select_metric(experiment: Experiment) -> str:

@@ -95,7 +95,6 @@ class MapData(Data):
     `experiment.attach_data()` (this requires a description to be set.)
     """
 
-    REQUIRED_COLUMNS = {"trial_index", "arm_name", "metric_name"}
     DEDUPLICATE_BY_COLUMNS = ["trial_index", "arm_name", "metric_name"]
 
     _map_df: pd.DataFrame
@@ -128,7 +127,6 @@ class MapData(Data):
         if map_key_infos is None and df is not None:
             raise ValueError("map_key_infos may be `None` iff `df` is None.")
 
-        # pyre-fixme[4]: Attribute must be annotated.
         self._map_key_infos = list(map_key_infos) if map_key_infos is not None else []
 
         if df is None:  # If df is None create an empty dataframe with appropriate cols
@@ -356,7 +354,6 @@ class MapData(Data):
         )
 
     @classmethod
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         map_data = assert_is_instance(obj, MapData)
         properties = serialize_init_args(
@@ -379,7 +376,15 @@ class MapData(Data):
         Used for storage.
         """
         args["map_key_infos"] = [
-            MapKeyInfo(d["key"], d["default_value"]) for d in args["map_key_infos"]
+            MapKeyInfo(d["key"], d["default_value"])
+            # Using .get() with a default empty list to handle cases where
+            # map_key_infos might not exist. This is important when decoding experiments
+            # that were originally not using MapData but were encoded as if they were
+            # using MapData due to some underlying method call's side effects.
+            # example: when when configure_optimization is called, it overrights metric
+            # to mapmetric even if no mapkeyinfo is provided. This would inturn change
+            # Experiment.default_data_type to MapData when this opt_config is being set.
+            for d in args.get("map_key_infos", [])
         ]
         return super().deserialize_init_args(args=args)
 

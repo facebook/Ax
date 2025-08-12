@@ -10,6 +10,7 @@ from logging import Logger
 from unittest.mock import patch
 
 import pandas as pd
+from ax.adapter.registry import Generators
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.trial_status import TrialStatus
@@ -19,7 +20,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
@@ -30,7 +31,6 @@ from ax.generation_strategy.transition_criterion import (
     MinimumTrialsInStatus,
     MinTrials,
 )
-from ax.modelbridge.registry import Generators
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -45,27 +45,26 @@ logger: Logger = get_logger(__name__)
 class TestTransitionCriterion(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.sobol_model_spec = GeneratorSpec(
-            model_enum=Generators.SOBOL,
+        self.sobol_generator_spec = GeneratorSpec(
+            generator_enum=Generators.SOBOL,
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
         self.branin_experiment = get_branin_experiment()
 
     def test_minimum_preference_criterion(self) -> None:
-        """Tests the minimum preference criterion subclass of TransitionCriterion."""
         criterion = MinimumPreferenceOccurances(metric_name="m1", threshold=3)
         experiment = get_experiment()
         generation_strategy = GenerationStrategy(
             name="SOBOL::default",
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=-1,
                     completion_criteria=[criterion],
                 ),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR,
+                    generator=Generators.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -99,12 +98,11 @@ class TestTransitionCriterion(TestCase):
                 )
             )
             self.assertEqual(
-                generation_strategy._curr.model_spec_to_gen_from.model_enum,
+                generation_strategy._curr.generator_spec_to_gen_from.generator_enum,
                 Generators.BOTORCH_MODULAR,
             )
 
     def test_aux_experiment_check(self) -> None:
-        """Tests that the aux experiment check transition."""
         # Test incorrect instantiation
         with self.assertRaisesRegex(UserInputError, r"cannot have both .* None"):
             AuxiliaryExperimentCheck(
@@ -114,14 +112,13 @@ class TestTransitionCriterion(TestCase):
             )
 
     def test_aux_experiment_check_in_gs(self) -> None:
-        """Tests that the aux experiment check transition works as expected in a GS."""
         experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="test",
             nodes=[
                 GenerationNode(
                     node_name="sobol_1",
-                    model_specs=[self.sobol_model_spec],
+                    generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AuxiliaryExperimentCheck(
                             transition_to="sobol_2",
@@ -133,7 +130,7 @@ class TestTransitionCriterion(TestCase):
                 ),
                 GenerationNode(
                     node_name="sobol_2",
-                    model_specs=[self.sobol_model_spec],
+                    generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AuxiliaryExperimentCheck(
                             transition_to="sobol_1",
@@ -205,18 +202,18 @@ class TestTransitionCriterion(TestCase):
             name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=3,
                 ),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR,
+                    generator=Generators.BOTORCH_MODULAR,
                     num_trials=4,
                     max_parallelism=1,
                     min_trials_observed=2,
                     enforce_num_trials=False,
                 ),
                 GenerationStep(
-                    model=Generators.BOTORCH_MODULAR,
+                    generator=Generators.BOTORCH_MODULAR,
                     num_trials=-1,
                 ),
             ],
@@ -264,13 +261,12 @@ class TestTransitionCriterion(TestCase):
         )
 
     def test_min_trials_is_met(self) -> None:
-        """Test that the is_met method in  MinTrials works"""
         experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="SOBOL::default",
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=4,
                     min_trials_observed=2,
                     enforce_num_trials=True,
@@ -286,7 +282,9 @@ class TestTransitionCriterion(TestCase):
 
         # Need to add trials to test the transition criteria `is_met` method
         for _i in range(4):
-            experiment.new_trial(gs.gen(experiment=experiment))
+            experiment.new_trial(
+                generator_run=gs.gen_single_trial(experiment=experiment)
+            )
         node_0_trials = gs._steps[0].trials_from_node
         node_1_trials = gs._steps[1].trials_from_node
 
@@ -335,13 +333,13 @@ class TestTransitionCriterion(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="sobol_1",
-                    model_specs=[self.sobol_model_spec],
+                    generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_2")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2", model_specs=[self.sobol_model_spec]
+                    node_name="sobol_2", generator_specs=[self.sobol_generator_spec]
                 ),
             ],
         )
@@ -358,13 +356,13 @@ class TestTransitionCriterion(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="sobol_1",
-                    model_specs=[self.sobol_model_spec],
+                    generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_2")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2", model_specs=[self.sobol_model_spec]
+                    node_name="sobol_2", generator_specs=[self.sobol_generator_spec]
                 ),
             ],
         )
@@ -383,18 +381,18 @@ class TestTransitionCriterion(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="sobol_1",
-                    model_specs=[self.sobol_model_spec],
+                    generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[IsSingleObjective(transition_to="sobol_2")],
                 ),
                 GenerationNode(
-                    node_name="sobol_2", model_specs=[self.sobol_model_spec]
+                    node_name="sobol_2", generator_specs=[self.sobol_generator_spec]
                 ),
             ],
         )
         self.assertEqual(gs.current_node_name, "sobol_1")
         # Should not transition because this is a MOO experiment
-        gr = gs.gen(experiment=exp)
-        gr2 = gs.gen(experiment=exp)
+        gr = gs.gen_single_trial(experiment=exp)
+        gr2 = gs.gen_single_trial(experiment=exp)
         self.assertEqual(gr._generation_node_name, "sobol_1")
         self.assertEqual(gr2._generation_node_name, "sobol_1")
         self.assertEqual(gs.current_node_name, "sobol_1")
@@ -406,7 +404,7 @@ class TestTransitionCriterion(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="sobol_1",
-                    model_specs=[self.sobol_model_spec],
+                    generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         IsSingleObjective(transition_to="sobol_2"),
                         AutoTransitionAfterGen(
@@ -415,38 +413,37 @@ class TestTransitionCriterion(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2", model_specs=[self.sobol_model_spec]
+                    node_name="sobol_2", generator_specs=[self.sobol_generator_spec]
                 ),
             ],
         )
         self.assertEqual(gs.current_node_name, "sobol_1")
-        gr = gs.gen(experiment=exp)
-        gr2 = gs.gen(experiment=exp)
+        gr = gs.gen_single_trial(experiment=exp)
+        gr2 = gs.gen_single_trial(experiment=exp)
         # First generation should use sobol_1, then transition to sobol_2
         self.assertEqual(gr._generation_node_name, "sobol_1")
         self.assertEqual(gr2._generation_node_name, "sobol_2")
         self.assertEqual(gs.current_node_name, "sobol_2")
 
     def test_max_trials_is_met(self) -> None:
-        """Test that the is_met method in MaxTrials works"""
         experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="SOBOL::default",
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=4,
                     min_trials_observed=0,
                     enforce_num_trials=True,
                 ),
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=4,
                     min_trials_observed=0,
                     enforce_num_trials=False,
                 ),
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -465,7 +462,9 @@ class TestTransitionCriterion(TestCase):
         )
         # After adding trials, should pass
         for _i in range(4):
-            experiment.new_trial(gs.gen(experiment=experiment))
+            experiment.new_trial(
+                generator_run=gs.gen_single_trial(experiment=experiment)
+            )
         self.assertTrue(
             gs._steps[0]
             .transition_criteria[0]
@@ -521,7 +520,7 @@ class TestTransitionCriterion(TestCase):
             name="SOBOL::default",
             steps=[
                 GenerationStep(
-                    model=Generators.SOBOL,
+                    generator=Generators.SOBOL,
                     num_trials=4,
                     min_trials_observed=2,
                     enforce_num_trials=True,
@@ -540,7 +539,7 @@ class TestTransitionCriterion(TestCase):
         )
 
         for _i in range(3):
-            experiment.new_trial(gs.gen(experiment=experiment))
+            experiment.new_trial(gs.gen_single_trial(experiment=experiment))
         self.assertTrue(
             max_criterion.is_met(experiment=experiment, curr_node=gs._steps[0])
         )
@@ -562,9 +561,6 @@ class TestTransitionCriterion(TestCase):
         )
 
     def test_repr(self) -> None:
-        """Tests that the repr string is correctly formatted for all
-        TransitionCriterion child classes.
-        """
         self.maxDiff = None
         max_trials_criterion = MaxTrials(
             threshold=5,

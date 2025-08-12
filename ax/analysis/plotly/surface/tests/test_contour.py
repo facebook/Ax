@@ -5,12 +5,7 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import (
-    AnalysisBlobAnnotation,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
-from ax.analysis.plotly.surface.contour import ContourPlot
+from ax.analysis.plotly.surface.contour import compute_contour_adhoc, ContourPlot
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
@@ -51,6 +46,28 @@ class TestContourPlot(TestCase):
                     "bar": parameterization["x"] ** 2 + parameterization["y"] ** 2
                 },
             )
+        self.expected_subtitle = (
+            "The contour plot visualizes the predicted outcomes "
+            "for bar across a two-dimensional parameter space, "
+            "with other parameters held fixed at their status_quo value "
+            "(or mean value if status_quo is unavailable). This plot helps "
+            "in identifying regions of optimal performance and understanding "
+            "how changes in the selected parameters influence the predicted "
+            "outcomes. Contour lines represent levels of constant predicted "
+            "values, providing insights into the gradient and potential optima "
+            "within the parameter space."
+        )
+        self.expected_title = "x, y vs. bar"
+        self.expected_name = "ContourPlot"
+        self.expected_cols = {
+            "x",
+            "y",
+            "bar_mean",
+            "bar_sem",
+            "sampled",
+            "trial_index",
+            "arm_name",
+        }
 
     def test_compute(self) -> None:
         analysis = ContourPlot(
@@ -66,42 +83,21 @@ class TestContourPlot(TestCase):
         ):
             analysis.compute(experiment=self.client.experiment)
 
-        (card,) = analysis.compute(
+        card = analysis.compute(
             experiment=self.client.experiment,
             generation_strategy=self.client.generation_strategy,
         )
         self.assertEqual(
             card.name,
-            "ContourPlot",
+            self.expected_name,
         )
-        self.assertEqual(card.title, "x, y vs. bar")
-        self.assertEqual(
-            card.subtitle,
-            (
-                "The contour plot visualizes the predicted outcomes "
-                "for bar across a two-dimensional parameter space, "
-                "with other parameters held fixed at their status_quo value "
-                "(or mean value if status_quo is unavailable). This plot helps "
-                "in identifying regions of optimal performance and understanding "
-                "how changes in the selected parameters influence the predicted "
-                "outcomes. Contour lines represent levels of constant predicted "
-                "values, providing insights into the gradient and potential optima "
-                "within the parameter space."
-            ),
-        )
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
+        self.assertEqual(card.title, self.expected_title)
+        self.assertEqual(card.subtitle, self.expected_subtitle)
         self.assertEqual(
             {*card.df.columns},
-            {
-                "x",
-                "y",
-                "bar_mean",
-                "sampled",
-            },
+            self.expected_cols,
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         # Assert that any row where sampled is True has a value of x that is
         # sampled in at least one trial.
@@ -125,3 +121,59 @@ class TestContourPlot(TestCase):
 
         # Less-than-or-equal to because we may have removed some duplicates
         self.assertTrue(card.df["sampled"].sum() <= len(self.client.experiment.trials))
+
+    def test_compute_adhoc(self) -> None:
+        card = compute_contour_adhoc(
+            x_parameter_name="x",
+            y_parameter_name="y",
+            metric_name="bar",
+            experiment=self.client.experiment,
+            generation_strategy=self.client.generation_strategy,
+        )
+        self.assertEqual(
+            card.name,
+            self.expected_name,
+        )
+        self.assertEqual(card.title, self.expected_title)
+        self.assertEqual(card.subtitle, self.expected_subtitle)
+        self.assertEqual({*card.df.columns}, self.expected_cols)
+        self.assertIsNotNone(card.blob)
+
+        # Assert that any row where sampled is True has a value of x that is
+        # sampled in at least one trial.
+        x_values_sampled = {
+            none_throws(assert_is_instance(trial, Trial).arm).parameters["x"]
+            for trial in self.client.experiment.trials.values()
+        }
+        y_values_sampled = {
+            none_throws(assert_is_instance(trial, Trial).arm).parameters["y"]
+            for trial in self.client.experiment.trials.values()
+        }
+        self.assertTrue(
+            card.df.apply(
+                lambda row: row["x"] in x_values_sampled
+                and row["y"] in y_values_sampled
+                if row["sampled"]
+                else True,
+                axis=1,
+            ).all()
+        )
+
+        # Less-than-or-equal to because we may have removed some duplicates
+        self.assertTrue(card.df["sampled"].sum() <= len(self.client.experiment.trials))
+
+    def test_trial_status_filtering(self) -> None:
+        trial_index = self.client.experiment.new_trial().index
+        self.client.experiment.trials[trial_index].mark_abandoned()
+
+        analysis = ContourPlot(
+            x_parameter_name="x", y_parameter_name="y", metric_name="bar"
+        )
+        card = analysis.compute(
+            experiment=self.client.experiment,
+            generation_strategy=self.client.generation_strategy,
+        )
+        self.assertNotIn(
+            trial_index,
+            card.df["trial_index"].values,
+        )

@@ -8,17 +8,14 @@
 
 from __future__ import annotations
 
-import json
-from abc import abstractmethod
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
-from hashlib import md5
 from io import StringIO
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
 
 import numpy as np
 import pandas as pd
-from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
+from ax.core.types import TTrialEvaluation
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import (
     extract_init_args,
@@ -27,14 +24,14 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import assert_is_instance
 
-TBaseData = TypeVar("TBaseData", bound="BaseData")
+TData = TypeVar("TData", bound="Data")
 DF_REPR_MAX_LENGTH = 1000
 
 
-class BaseData(Base, SerializationMixin):
-    """Class storing data for an experiment.
+class Data(Base, SerializationMixin):
+    """Class storing numerical data for an experiment.
 
     The dataframe is retrieved via the `df` property. The data can be stored
     to an external store for future use by attaching it to an experiment using
@@ -42,13 +39,17 @@ class BaseData(Base, SerializationMixin):
 
 
     Attributes:
-        df: DataFrame with underlying data, and required columns. For BaseData, the
-            one required column is "arm_name".
+        df: DataFrame with underlying data, and required columns. For Data, the
+            required columns are "arm_name", "metric_name", "mean", and "sem", the
+            latter two of which must be numeric.
         description: Human-readable description of data.
 
     """
 
-    REQUIRED_COLUMNS = {"trial_index", "arm_name"}
+    # Note: Although the SEM (standard error of the mean) is a required column,
+    # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
+    # either in your Metric class or in Data explicitly.
+    REQUIRED_COLUMNS = {"trial_index", "arm_name", "metric_name", "mean", "sem"}
 
     # Note on text data: https://pandas.pydata.org/docs/user_guide/text.html
     # Its type can either be `numpy.dtypes.ObjectDType` or StringDtype extension
@@ -74,7 +75,7 @@ class BaseData(Base, SerializationMixin):
     _df: pd.DataFrame
 
     def __init__(
-        self: TBaseData,
+        self: TData,
         df: pd.DataFrame | None = None,
         description: str | None = None,
         _skip_ordering_and_validation: bool = False,
@@ -115,7 +116,7 @@ class BaseData(Base, SerializationMixin):
 
     @classmethod
     def _safecast_df(
-        cls: type[TBaseData],
+        cls: type[TData],
         df: pd.DataFrame,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
@@ -169,24 +170,14 @@ class BaseData(Base, SerializationMixin):
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         extra_column_types: Mapping[str, type] | None = None,
-        excluded_columns: Iterable[str] | None = None,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
     ) -> dict[str, type]:
         """Type specification for all supported columns."""
         extra_column_types = extra_column_types or {}
-        excluded_columns = excluded_columns or []
-
-        columns = {**cls.COLUMN_DATA_TYPES, **extra_column_types}
-
-        for column in excluded_columns:
-            if column in columns:
-                del columns[column]
-
-        return columns
+        return {**cls.COLUMN_DATA_TYPES, **extra_column_types}
 
     @classmethod
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         """Serialize the class-dependent properties needed to initialize this Data.
         Used for storage and to help construct new similar Data.
@@ -225,26 +216,7 @@ class BaseData(Base, SerializationMixin):
     def df(self) -> pd.DataFrame:
         return self._df
 
-    @property
-    def df_hash(self) -> str:
-        """Compute hash of pandas DataFrame.
-
-        This first serializes the DataFrame and computes the md5 hash on the
-        resulting string. Note that this may cause performance issue for very large
-        DataFrames.
-
-        Args:
-            df: The DataFrame for which to compute the hash.
-
-        Returns
-            str: The hash of the DataFrame.
-
-        """
-        return md5(none_throws(self.df.to_json()).encode("utf-8")).hexdigest()
-
-    def get_filtered_results(
-        self: TBaseData, **filters: dict[str, Any]
-    ) -> pd.DataFrame:
+    def get_filtered_results(self: TData, **filters: dict[str, Any]) -> pd.DataFrame:
         """Return filtered subset of data.
 
         Args:
@@ -267,11 +239,8 @@ class BaseData(Base, SerializationMixin):
             df = df[df[colname] == value]
         return df
 
-    @classmethod
-    def from_multiple(
-        cls: type[TBaseData],
-        data: Iterable[TBaseData],
-    ) -> TBaseData:
+    @staticmethod
+    def from_multiple(data: Iterable[TData]) -> TData:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
 
@@ -279,13 +248,21 @@ class BaseData(Base, SerializationMixin):
             data: Iterable of Ax objects of this class to combine.
         """
         dfs = []
+
+        cls = None
+
         for datum in data:
-            if not isinstance(datum, cls):
+            if cls is None:
+                cls = type(datum)
+            if type(datum) is not cls:
                 raise TypeError(
-                    f"All data objects must be instances of class {cls}. Got "
-                    f"{type(datum)}."
+                    f"All data objects must be instances of the same class. Got "
+                    f"{cls} and {type(datum)}."
                 )
-            dfs.append(datum.df)
+            if len(datum.df) > 0:
+                dfs.append(datum.df)
+
+        cls = cls or cast(type[TData], Data)
 
         if len(dfs) == 0:
             return cls()
@@ -294,13 +271,13 @@ class BaseData(Base, SerializationMixin):
 
     @classmethod
     def from_evaluations(
-        cls: type[TBaseData],
+        cls: type[TData],
         evaluations: Mapping[str, TTrialEvaluation],
         trial_index: int,
         sample_sizes: Mapping[str, int] | None = None,
         start_time: int | str | None = None,
         end_time: int | str | None = None,
-    ) -> TBaseData:
+    ) -> TData:
         """
         Convert dict of evaluations to Ax data object.
 
@@ -332,58 +309,6 @@ class BaseData(Base, SerializationMixin):
         return cls(df=pd.DataFrame(records))
 
     @staticmethod
-    @abstractmethod
-    def _get_records(
-        evaluations: Mapping[str, TTrialEvaluation], trial_index: int
-    ) -> list[dict[str, Any]]:
-        pass
-
-    @classmethod
-    def from_fidelity_evaluations(
-        cls: type[TBaseData],
-        evaluations: Mapping[str, TFidelityTrialEvaluation],
-        trial_index: int,
-        sample_sizes: Mapping[str, int] | None = None,
-        start_time: int | None = None,
-        end_time: int | None = None,
-    ) -> TBaseData:
-        """
-        Convert dict of fidelity evaluations to Ax data object.
-
-        Args:
-            evaluations: Map from arm name to list of (fidelity, outcomes)
-                where outcomes is itself a mapping of outcome names to values, means,
-                or tuples of mean and SEM. If SEM is not specified, it will be set
-                to None and inferred from data.
-            trial_index: Trial index to which this data belongs.
-            sample_sizes: Number of samples collected for each arm.
-            start_time: Optional start time of run of the trial that produced this
-                data, in milliseconds.
-            end_time: Optional end time of run of the trial that produced this
-                data, in milliseconds.
-
-        Returns:
-            Ax object of type ``cls``.
-        """
-        records = cls._get_fidelity_records(
-            evaluations=evaluations, trial_index=trial_index
-        )
-        records = cls._add_cols_to_records(
-            records=records,
-            sample_sizes=sample_sizes,
-            start_time=start_time,
-            end_time=end_time,
-        )
-        return cls(df=pd.DataFrame(records))
-
-    @staticmethod
-    @abstractmethod
-    def _get_fidelity_records(
-        evaluations: Mapping[str, TFidelityTrialEvaluation], trial_index: int
-    ) -> list[dict[str, Any]]:
-        pass
-
-    @staticmethod
     def _add_cols_to_records(
         records: list[dict[str, Any]],
         sample_sizes: Mapping[str, int] | None = None,
@@ -391,7 +316,7 @@ class BaseData(Base, SerializationMixin):
         end_time: int | str | None = None,
     ) -> list[dict[str, Any]]:
         """Adds to records metadata columns that are available for all
-        BaseData subclasses.
+        Data subclasses.
         """
         if start_time is not None or end_time is not None:
             if isinstance(start_time, int):
@@ -407,44 +332,12 @@ class BaseData(Base, SerializationMixin):
 
         return records
 
-    def copy_structure_with_df(self: TBaseData, df: pd.DataFrame) -> TBaseData:
-        """Serialize the structural properties needed to initialize this class.
-        Used for storage and to help construct new similar objects. All kwargs
-        other than ``df`` and ``description`` are considered structural.
-        """
-        cls = type(self)
-        return cls(df=df, **cls.serialize_init_args(self))
-
     def __repr__(self) -> str:
         """String representation of the subclass, inheriting from this base."""
         df_markdown = self.df.to_markdown()
         if len(df_markdown) > DF_REPR_MAX_LENGTH:
             df_markdown = df_markdown[:DF_REPR_MAX_LENGTH] + "..."
         return f"{self.__class__.__name__}(df=\n{df_markdown})"
-
-
-class Data(BaseData):
-    """Class storing numerical data for an experiment.
-
-    The dataframe is retrieved via the `df` property. The data can be stored
-    to an external store for future use by attaching it to an experiment using
-    `experiment.attach_data()` (this requires a description to be set.)
-
-
-    Attributes:
-        df: DataFrame with underlying data, and required columns. For BaseData, the
-            required columns are "arm_name", "metric_name", "mean", and "sem", the
-            latter two of which must be numeric.
-        description: Human-readable description of data.
-
-    """
-
-    # Note: Although the SEM (standard error of the mean) is a required column in data,
-    # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
-    # either in your Metric class or in Data explicitly.
-    REQUIRED_COLUMNS: set[str] = BaseData.REQUIRED_COLUMNS.union(
-        {"metric_name", "mean", "sem"}
-    )
 
     @staticmethod
     def _get_records(
@@ -462,24 +355,6 @@ class Data(BaseData):
             for metric_name, value in evaluation.items()
         ]
 
-    @staticmethod
-    def _get_fidelity_records(
-        evaluations: Mapping[str, TFidelityTrialEvaluation], trial_index: int
-    ) -> list[dict[str, Any]]:
-        return [
-            {
-                "arm_name": name,
-                "metric_name": metric_name,
-                "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else None,
-                "trial_index": trial_index,
-                "fidelities": json.dumps(fidelity),
-            }
-            for name, fidelity_and_metrics_list in evaluations.items()
-            for fidelity, evaluation in fidelity_and_metrics_list
-            for metric_name, value in evaluation.items()
-        ]
-
     @property
     def metric_names(self) -> set[str]:
         """Set of metric names that appear in the underlying dataframe of
@@ -488,10 +363,10 @@ class Data(BaseData):
         return set() if self.df.empty else set(self.df["metric_name"].values)
 
     def filter(
-        self,
+        self: TData,
         trial_indices: Iterable[int] | None = None,
         metric_names: Iterable[str] | None = None,
-    ) -> Data:
+    ) -> TData:
         """Construct a new object with the subset of rows corresponding to the
         provided trial indices AND metric names. If either trial_indices or
         metric_names are not provided, that dimension will not be filtered.
@@ -530,17 +405,6 @@ class Data(BaseData):
     def clone(self) -> Data:
         """Returns a new Data object with the same underlying dataframe."""
         return Data(df=deepcopy(self.df), description=self.description)
-
-
-def set_single_trial(data: Data) -> Data:
-    """Returns a new Data object where we set all rows to have the same
-    trial index (i.e. 0). This is meant to be used with our IVW transform,
-    which will combine multiple observations of the same outcome.
-    """
-    df = data._df.copy()
-    if "trial_index" in df:
-        df["trial_index"] = 0
-    return Data(df=df)
 
 
 def clone_without_metrics(data: Data, excluded_metric_names: Iterable[str]) -> Data:

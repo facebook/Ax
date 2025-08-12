@@ -15,8 +15,14 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
+from ax.exceptions.generation_strategy import (
+    AxGenerationException,
+    GenerationStrategyRepeatedPoints,
+)
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
+from ax.generation_strategy.generation_node import logger
 from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -98,3 +104,42 @@ class TestCenterGenerationNode(TestCase):
         exp = get_branin_experiment()
         node.gen(experiment=exp, pending_observations=None)
         self.assertEqual(node, node2)
+
+    def test_with_constraints(self) -> None:
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=-5.0,
+                    upper=10.0,
+                ),
+                RangeParameter(
+                    name="x2",
+                    parameter_type=ParameterType.INT,
+                    lower=10.0,
+                    upper=100.0,
+                    log_scale=True,
+                ),
+            ],
+            parameter_constraints=[  # x1 <= 0
+                ParameterConstraint(constraint_dict={"x1": 1.0}, bound=0.0)
+            ],
+        )
+        node = CenterGenerationNode(next_node_name="test")
+        self.assertEqual(
+            set(node.fallback_specs.keys()),
+            {AxGenerationException, GenerationStrategyRepeatedPoints},
+        )
+        # Generate and check for Sobol fallback.
+        exp = Experiment(search_space=ss)
+        with self.assertLogs(logger=logger) as logs:
+            gr = none_throws(node.gen(experiment=exp, pending_observations=None))
+        self.assertTrue(
+            any(
+                "Center of the search space does not satisfy parameter constraints."
+                in log.message
+                for log in logs.records
+            )
+        )
+        self.assertEqual(gr._model_key, "Sobol")

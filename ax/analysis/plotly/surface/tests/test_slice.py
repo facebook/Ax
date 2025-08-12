@@ -5,11 +5,6 @@
 
 # pyre-strict
 
-from ax.analysis.analysis import (
-    AnalysisBlobAnnotation,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
 from ax.analysis.plotly.surface.slice import compute_slice_adhoc, SlicePlot
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
@@ -56,7 +51,7 @@ class TestSlicePlot(TestCase):
         ):
             analysis.compute(experiment=self.client.experiment)
 
-        (card,) = analysis.compute(
+        card = analysis.compute(
             experiment=self.client.experiment,
             generation_strategy=self.client.generation_strategy,
         )
@@ -77,14 +72,11 @@ class TestSlicePlot(TestCase):
                 "metric outcomes."
             ),
         )
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
-            {"x", "bar_mean", "bar_sem", "sampled"},
+            {"x", "bar_mean", "bar_sem", "sampled", "trial_index", "arm_name"},
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         # Assert that any row where sampled is True has a value of x that is
         # sampled in at least one trial.
@@ -105,7 +97,7 @@ class TestSlicePlot(TestCase):
             metric_name="bar",
             experiment=self.client.experiment,
             generation_strategy=self.client.generation_strategy,
-        )
+        ).flatten()
         self.assertEqual(
             card.name,
             "SlicePlot",
@@ -123,14 +115,11 @@ class TestSlicePlot(TestCase):
                 "metric outcomes."
             ),
         )
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.INSIGHT)
         self.assertEqual(
             {*card.df.columns},
-            {"x", "bar_mean", "bar_sem", "sampled"},
+            {"x", "bar_mean", "bar_sem", "sampled", "arm_name", "trial_index"},
         )
         self.assertIsNotNone(card.blob)
-        self.assertEqual(card.blob_annotation, AnalysisBlobAnnotation.PLOTLY)
 
         # Assert that any row where sampled is True has a value of x that is
         # sampled in at least one trial.
@@ -143,4 +132,19 @@ class TestSlicePlot(TestCase):
                 lambda row: row["x"] in x_values_sampled if row["sampled"] else True,
                 axis=1,
             ).all()
+        )
+
+    def test_trial_status_filtering(self) -> None:
+        trial_index = self.client.experiment.new_trial().index
+        self.client.experiment.trials[trial_index].mark_abandoned()
+
+        analysis = SlicePlot(parameter_name="x", metric_name="bar")
+
+        card = analysis.compute(
+            experiment=self.client.experiment,
+            generation_strategy=self.client.generation_strategy,
+        )
+        self.assertNotIn(
+            trial_index,
+            card.df["trial_index"].values,
         )

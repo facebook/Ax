@@ -12,6 +12,10 @@ from math import ceil
 from typing import Any, cast
 
 import torch
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.registry import GeneratorRegistryBase, Generators
+from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -20,21 +24,11 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.modelbridge.base import DataLoaderConfig
-from ax.modelbridge.registry import (
-    Generators,
-    MODEL_KEY_TO_MODEL_SETUP,
-    ModelRegistryBase,
-)
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.winsorize import Winsorize
-from ax.models.torch.botorch_modular.model import (
-    BoTorchGenerator as ModularBoTorchGenerator,
-)
-from ax.models.types import TConfig
-from ax.models.winsorization_config import WinsorizationConfig
-from ax.utils.common.deprecation import _validate_force_random_search
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
+from ax.generators.types import TConfig
+from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.logger import get_logger
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from pyre_extensions import none_throws
 
 
@@ -65,7 +59,7 @@ def _make_sobol_step(
 ) -> GenerationStep:
     """Shortcut for creating a Sobol generation step."""
     return GenerationStep(
-        model=Generators.SOBOL,
+        generator=Generators.SOBOL,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
@@ -81,17 +75,18 @@ def _make_botorch_step(
     min_trials_observed: int | None = None,
     enforce_num_trials: bool = True,
     max_parallelism: int | None = None,
-    model: ModelRegistryBase = Generators.BOTORCH_MODULAR,
+    generator: GeneratorRegistryBase = Generators.BOTORCH_MODULAR,
     model_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
     no_winsorization: bool = False,
     should_deduplicate: bool = False,
-    verbose: bool | None = None,
     disable_progbar: bool | None = None,
     jit_compile: bool | None = None,
     derelativize_with_raw_status_quo: bool = False,
     fit_out_of_design: bool = False,
+    use_saasbo: bool = False,
+    use_input_warping: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
     model_kwargs = model_kwargs or {}
@@ -114,7 +109,7 @@ def _make_botorch_step(
     )
 
     if not no_winsorization:
-        _, default_bridge_kwargs = model.view_defaults()
+        _, default_bridge_kwargs = generator.view_defaults()
         default_transforms = default_bridge_kwargs["transforms"]
         transforms = model_kwargs.get("transforms", default_transforms)
         model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
@@ -123,22 +118,27 @@ def _make_botorch_step(
                 winsorization_transform_config
             )
 
-    if MODEL_KEY_TO_MODEL_SETUP[model.value].model_class != ModularBoTorchGenerator:
-        if verbose is not None:
-            model_kwargs.update({"verbose": verbose})
-        if disable_progbar is not None:
-            model_kwargs.update({"disable_progbar": disable_progbar})
-        if jit_compile is not None:
-            model_kwargs.update({"jit_compile": jit_compile})
-    elif verbose is not None or disable_progbar is not None or jit_compile is not None:
-        # TODO[T164389105] Rewrite choose_generation_strategy to be MBM first
+    if use_saasbo and (generator is Generators.BOTORCH_MODULAR):
+        model_kwargs["surrogate_spec"] = SurrogateSpec(
+            model_configs=[
+                ModelConfig(
+                    botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                    model_options={"use_input_warping": use_input_warping},
+                    mll_options={
+                        "disable_progbar": disable_progbar,
+                        "jit_compile": jit_compile,
+                    },
+                    name=f"{'Warped ' if use_input_warping else ''}SAAS",
+                )
+            ]
+        )
+    elif disable_progbar is not None or jit_compile is not None:
         logger.info(
-            "`verbose`, `disable_progbar`, and `jit_compile` are not yet supported "
-            "when using `choose_generation_strategy` with ModularBoTorchGenerator, "
-            "dropping these arguments."
+            "`disable_progbar`, and `jit_compile` are only supported with"
+            " fully Bayesian models. These are being ignored."
         )
     return GenerationStep(
-        model=model,
+        generator=generator,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
@@ -154,7 +154,7 @@ def _suggest_gp_model(
     num_trials: int | None = None,
     optimization_config: OptimizationConfig | None = None,
     use_saasbo: bool = False,
-) -> None | ModelRegistryBase:
+) -> None | GeneratorRegistryBase:
     """Suggest a model based on the search space. None means we use Sobol.
 
     1. We use Sobol if the number of total iterations in the optimization is
@@ -247,7 +247,7 @@ def _suggest_gp_model(
         # These use one-hot encoding for unordered choice parameters, resulting in a
         # total of num_unordered_choices OHE parameters.
         # So, we do not want to use them when there are too many unordered choices.
-        method = Generators.SAASBO if use_saasbo else Generators.BOTORCH_MODULAR
+        method = Generators.BOTORCH_MODULAR
         reason = (
             (
                 "there are more ordered parameters than there are categories for the "
@@ -308,7 +308,6 @@ def choose_generation_strategy_legacy(
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
     derelativize_with_raw_status_quo: bool = False,
-    no_bayesian_optimization: bool | None = None,
     force_random_search: bool = False,
     num_trials: int | None = None,
     num_initialization_trials: int | None = None,
@@ -320,12 +319,12 @@ def choose_generation_strategy_legacy(
     optimization_config: OptimizationConfig | None = None,
     should_deduplicate: bool = False,
     use_saasbo: bool = False,
-    verbose: bool | None = None,
     disable_progbar: bool | None = None,
     jit_compile: bool | None = None,
     experiment: Experiment | None = None,
-    suggested_model_override: ModelRegistryBase | None = None,
+    suggested_model_override: GeneratorRegistryBase | None = None,
     fit_out_of_design: bool = False,
+    use_input_warping: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -361,7 +360,6 @@ def choose_generation_strategy_legacy(
             Winsorization when relative constraints are present. Note: automatic
             Winsorization will fail if this is set to `False` (or unset) and there
             are relative constraints present.
-        no_bayesian_optimization: Deprecated. Use `force_random_search`.
         force_random_search: If True, quasi-random generation strategy will be used
             rather than Bayesian optimization.
         num_trials: Total number of trials in the optimization, if
@@ -407,12 +405,6 @@ def choose_generation_strategy_legacy(
             assume that the optimization converged when the model can no longer suggest
             unique arms.
         use_saasbo: Whether to use SAAS prior for any GPEI generation steps.
-        verbose: Whether GP model should produce verbose logs. If not ``None``, its
-            value gets added to ``model_kwargs`` during ``generation_strategy``
-            construction. Defaults to ``True`` for SAASBO, else ``None``. Verbose
-            outputs are currently only available for SAASBO, so if ``verbose is not
-            None`` for a different model type, it will be overridden to ``None`` with
-            a warning.
         disable_progbar: Whether GP model should produce a progress bar. If not
             ``None``, its value gets added to ``model_kwargs`` during
             ``generation_strategy`` construction. Defaults to ``True`` for SAASBO, else
@@ -428,6 +420,8 @@ def choose_generation_strategy_legacy(
         suggested_model_override: If specified, this model will be used for the GP
             step and automatic selection will be skipped.
         fit_out_of_design: Whether to include out-of-design points in the model.
+        use_input_warping: Whether to use input warping in the model. This is only
+            supported in conjunction with use_saasbo=True.
     """
     if experiment is not None and optimization_config is None:
         optimization_config = experiment.optimization_config
@@ -455,9 +449,6 @@ def choose_generation_strategy_legacy(
     else:  # No additional max parallelism settings, use defaults
         sobol_parallelism = None  # No restriction on Sobol phase
         bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
-
-    # TODO[T199632397] Remove
-    _validate_force_random_search(no_bayesian_optimization, force_random_search)
 
     if not force_random_search and suggested_model is not None:
         if not enforce_sequential_optimization and (
@@ -504,15 +495,8 @@ def choose_generation_strategy_legacy(
             f"num_remaining_initialization_trials={num_remaining_initialization_trials}"
         )
         steps = []
-        # `verbose` and `disable_progbar` defaults and overrides
-        model_is_saasbo = suggested_model is Generators.SAASBO
-        if verbose is None and model_is_saasbo:
-            verbose = True
-        elif verbose is not None and not model_is_saasbo:
-            logger.warning(
-                f"Overriding `verbose = {verbose}` to `None` for non-SAASBO GP step."
-            )
-            verbose = None
+        # `disable_progbar` and jit_compile defaults and overrides
+        model_is_saasbo = use_saasbo and (suggested_model is Generators.BOTORCH_MODULAR)
         if disable_progbar is not None and not model_is_saasbo:
             logger.warning(
                 f"Overriding `disable_progbar = {disable_progbar}` to `None` for "
@@ -548,31 +532,37 @@ def choose_generation_strategy_legacy(
             )
         steps.append(
             _make_botorch_step(
-                model=suggested_model,
+                generator=suggested_model,
                 winsorization_config=winsorization_config,
                 derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
                 no_winsorization=no_winsorization,
                 max_parallelism=bo_parallelism,
                 model_kwargs=model_kwargs,
                 should_deduplicate=should_deduplicate,
-                verbose=verbose,
                 disable_progbar=disable_progbar,
                 jit_compile=jit_compile,
+                use_saasbo=use_saasbo,
+                use_input_warping=use_input_warping,
             ),
         )
-        gs = GenerationStrategy(steps=steps)
+        # set name for GS
+        bo_step = steps[-1]
+        surrogate_spec = bo_step.model_kwargs.get("surrogate_spec")
+        name = None
+        if (
+            bo_step.generator is Generators.BOTORCH_MODULAR
+            and surrogate_spec is not None
+            and (model_config := surrogate_spec.model_configs[0]).botorch_model_class
+            == SaasFullyBayesianSingleTaskGP
+        ):
+            name = f"Sobol+{model_config.name}"
+        gs = GenerationStrategy(steps=steps, name=name)
         logger.info(
             f"Using Bayesian Optimization generation strategy: {gs}. Iterations after"
             f" {num_remaining_initialization_trials} will take longer to generate due"
             " to model-fitting."
         )
     else:  # `force_random_search` is True or we could not suggest BO model
-        if verbose is not None:
-            logger.warning(
-                f"Ignoring `verbose = {verbose}` for `generation_strategy` "
-                "without a GP step."
-            )
-
         gs = GenerationStrategy(
             steps=[
                 _make_sobol_step(

@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
+from ax.adapter.registry import _decode_callables_from_references, GeneratorRegistryBase
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -41,15 +42,15 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AuxiliaryExperimentCheck,
     TransitionCriterion,
     TrialBasedCriterion,
 )
-from ax.modelbridge.registry import _decode_callables_from_references, ModelRegistryBase
-from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
-from ax.models.torch.botorch_modular.utils import ModelConfig
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
+from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoders import (
     batch_trial_from_json,
     botorch_component_from_json,
@@ -67,6 +68,7 @@ from ax.utils.common.serialization import (
     TDecoderRegistry,
 )
 from ax.utils.common.typeutils_torch import torch_type_from_str
+from botorch.utils.types import DEFAULT
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -179,7 +181,7 @@ def object_from_json(
         _class: type = decoder_registry[_type]
         if isclass(_class) and issubclass(_class, Enum):
             name = object_json["name"]
-            if issubclass(_class, ModelRegistryBase):
+            if issubclass(_class, GeneratorRegistryBase):
                 name = _update_deprecated_model_registry(name=name)
             # to access enum members by name, use item access
             return _class[name]
@@ -198,8 +200,8 @@ def object_from_json(
                 generation_node_json=object_json, **vars(registry_kwargs)
             )
         elif _class == GeneratorSpec:
-            return model_spec_from_json(
-                model_spec_json=object_json, **vars(registry_kwargs)
+            return generator_spec_from_json(
+                generator_spec_json=object_json, **vars(registry_kwargs)
             )
         elif _class == GenerationStrategy:
             return generation_strategy_from_json(
@@ -267,14 +269,13 @@ def object_from_json(
                     args=object_json, **vars(registry_kwargs)
                 )
             )
-
+        if _class in (BoTorchGenerator, Surrogate):
+            # Updates deprecated surrogate spec related inputs.
+            object_json = _sanitize_surrogate_spec_input(object_json=object_json)
+        if _class is Surrogate:
+            object_json = _sanitize_legacy_surrogate_inputs(object_json=object_json)
         if _class is SurrogateSpec:
-            # This is done here rather than with other _type checks above, since
-            # we want to have the input & outcome transform arguments updated
-            # before we call surrogate_spec_from_json.
-            return surrogate_spec_from_json(
-                surrogate_spec_json=object_json, **vars(registry_kwargs)
-            )
+            object_json = _sanitize_inputs_to_surrogate_spec(object_json=object_json)
 
         return ax_class_from_json_dict(
             _class=_class, object_json=object_json, **vars(registry_kwargs)
@@ -333,7 +334,7 @@ def generator_run_from_json(
             for k, v in object_json.items()
         }
     )
-    # Remove deprecated kwargs from model kwargs & bridge kwargs.
+    # Remove deprecated kwargs from model kwargs & adapter kwargs.
     if generator_run._model_kwargs is not None:
         generator_run._model_kwargs = {
             k: v
@@ -679,23 +680,27 @@ def generation_node_from_json(
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
-
+    if "model_specs" in generation_node_json:
+        # Check for all kwarg to support backwards compatibility.
+        generator_specs = generation_node_json.pop("model_specs")
+    else:
+        generator_specs = generation_node_json.pop("generator_specs")
     return GenerationNode(
         node_name=generation_node_json.pop("node_name"),
-        model_specs=object_from_json(
-            generation_node_json.pop("model_specs"),
+        generator_specs=object_from_json(
+            object_json=generator_specs,
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
         best_model_selector=object_from_json(
-            generation_node_json.pop("best_model_selector", None),
+            object_json=generation_node_json.pop("best_model_selector", None),
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
         should_deduplicate=generation_node_json.pop("should_deduplicate", False),
         transition_criteria=(
             object_from_json(
-                generation_node_json.pop("transition_criteria"),
+                object_json=generation_node_json.pop("transition_criteria"),
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
@@ -710,7 +715,7 @@ def generation_node_from_json(
         ),
         trial_type=(
             object_from_json(
-                generation_node_json.pop("trial_type"),
+                object_json=generation_node_json.pop("trial_type"),
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
@@ -720,31 +725,123 @@ def generation_node_from_json(
     )
 
 
-def _extract_surrogate_spec_from_surrogate_specs(
-    model_kwargs: dict[str, Any],
+def _sanitize_inputs_to_surrogate_spec(
+    object_json: dict[str, Any],
 ) -> dict[str, Any]:
-    """If `model_kwargs` includes a `surrogate_specs` key that is a dict
+    """This is a backwards compatibility helper for inputs to ``SurrogateSpec``.
+    It replaces the legacy inputs in the json with a  ``ModelConfig`` and discards
+    the legacy inputs.
+    """
+    new_json = object_json.copy()
+    # If no model configs are available, this spec was constructed using legacy inputs.
+    # We will replace it with a model config constructed from the legacy inputs.
+    # It is possible that both inputs are available, in which case we will discard the
+    # legacy inputs and only keep the existing model config.
+    model_configs = new_json.get("model_configs", [])
+    new_config = [
+        {
+            "__type": "ModelConfig",
+            "botorch_model_class": new_json.pop("botorch_model_class", None),
+            "model_options": new_json.pop("botorch_model_kwargs", {}),
+            "mll_class": new_json.pop("mll_class", None),
+            "mll_options": new_json.pop("mll_kwargs", {}),
+            "input_transform_classes": new_json.pop("input_transform_classes", DEFAULT),
+            "input_transform_options": new_json.pop("input_transform_options", {})
+            or {},  # Old default was None.
+            "outcome_transform_classes": new_json.pop(
+                "outcome_transform_classes", None
+            ),
+            "outcome_transform_options": new_json.pop("outcome_transform_options", {})
+            or {},  # Old default was None.
+            "covar_module_class": new_json.pop("covar_module_class", None),
+            "covar_module_options": new_json.pop("covar_module_kwargs", {}) or {},
+            "likelihood_class": new_json.pop("likelihood_class", None),
+            "likelihood_options": new_json.pop("likelihood_kwargs", {}) or {},
+            "name": "from deprecated args",
+        },
+    ]
+    if len(model_configs) == 0:
+        new_json["model_configs"] = new_config
+    return new_json
+
+
+def _sanitize_surrogate_spec_input(
+    object_json: dict[str, Any],
+) -> dict[str, Any]:
+    """This is a backwards compatibility helper for ``SurrogateSpec`` related
+    inputs to ``BoTorchGenerator``.
+
+    If ``object_json`` includes a ``surrogate_specs`` key that is a dict
     with a single element, this method replaces it with `surrogate_spec`
     key with the value of that element.
 
-    This helper will keep deserialization of MBM models backwards compatible
-    even after we remove the ``surrogate_specs`` argument from ``BoTorchGenerator``.
+    If the legacy inputs were used to initialize the ``SurrogateSpec``,
+    a ``ModelConfig`` is constructed with the legacy inputs and the legacy
+    inputs are discarded.
 
     Args:
-        model_kwargs: A dictionary of model kwargs to update.
+        object_json: A dictionary of json encoded inputs to update.
 
     Returns:
-        If ``surrogate_specs`` is not found or it is found but has multiple elements,
-        returns ``model_kwargs`` unchanged.
-        Otherwise, returns a new dictionary with the ``surrogate_specs`` element
-        replaced with ``surrogate_spec``.
+        The json with the surrogate spec related inputs updated.
+        If there are multiple elements in ``surrogate_specs``, the input is discarded
+        after logging an exception. The default ``Surrogate`` will be used. Otherwise,
+        returns a new dictionary with the ``surrogate_specs`` element replaced with
+        ``surrogate_spec`` and legacy inputs replaced with ``ModelConfig``.
     """
-    if (specs := model_kwargs.get("surrogate_specs", None)) is None or len(specs) > 1:
-        return model_kwargs
-    new_kwargs = model_kwargs.copy()
-    new_kwargs.pop("surrogate_specs")
-    new_kwargs["surrogate_spec"] = next(iter(specs.values()))
-    return new_kwargs
+    new_json = object_json.copy()
+    specs = new_json.pop("surrogate_specs", None)
+    if specs is None:
+        return new_json
+    if len(specs) > 1:
+        logger.exception(
+            "The input includes `surrogate_specs` with multiple elements. "
+            "Support for multiple surrogates has been deprecated. "
+            "Discarding the `surrogate_specs` input to facilitate loading "
+            "of the experiment. The loaded object will utilize the default "
+            "`Surrogate` and may not behave as expected."
+        )
+        return new_json
+
+    spec = next(iter(specs.values()))
+    new_json["surrogate_spec"] = _sanitize_inputs_to_surrogate_spec(object_json=spec)
+    return new_json
+
+
+def _sanitize_legacy_surrogate_inputs(
+    object_json: dict[str, Any],
+) -> dict[str, Any]:
+    """This is a backwards compatibility helper for ``Surrogate`` that replaces
+    the legacy top level inputs with a ``SurrogateSpec`` with a single ``ModelConfig``.
+    """
+    new_json = object_json.copy()
+    if new_json.get("surrogate_spec", None) is None:
+        config_json = {
+            "__type": "ModelConfig",
+            "botorch_model_class": new_json.pop("botorch_model_class", None),
+            "model_options": new_json.pop("model_options", {}),
+            "mll_class": new_json.pop("mll_class", None),
+            "mll_options": new_json.pop("mll_options", {}),
+            "input_transform_classes": new_json.pop("input_transform_classes", DEFAULT),
+            "input_transform_options": new_json.pop("input_transform_options", {})
+            or {},  # Old default was None.
+            "outcome_transform_classes": new_json.pop(
+                "outcome_transform_classes", None
+            ),
+            "outcome_transform_options": new_json.pop("outcome_transform_options", {})
+            or {},  # Old default was None.
+            "covar_module_class": new_json.pop("covar_module_class", None),
+            "covar_module_options": new_json.pop("covar_module_options", {}) or {},
+            "likelihood_class": new_json.pop("likelihood_class", None),
+            "likelihood_options": new_json.pop("likelihood_options", {}) or {},
+            "name": "from deprecated args",
+        }
+        new_json["surrogate_spec"] = {
+            "__type": "SurrogateSpec",
+            "model_configs": [config_json],
+            "allow_batched_models": new_json.pop("allow_batched_models", True),
+        }
+    return new_json
 
 
 def generation_step_from_json(
@@ -761,7 +858,7 @@ def generation_step_from_json(
         # Remove deprecated kwargs.
         kwargs.pop(k, None)
     if kwargs is not None:
-        kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
+        kwargs = _sanitize_surrogate_spec_input(object_json=kwargs)
     gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
     completion_criteria = (
         object_from_json(
@@ -772,9 +869,14 @@ def generation_step_from_json(
         if "completion_criteria" in generation_step_json.keys()
         else []
     )
+    if "model" in generation_step_json:
+        # Old arg name for backwards compatibility.
+        generator_json = generation_step_json.pop("model")
+    else:
+        generator_json = generation_step_json.pop("generator")
     generation_step = GenerationStep(
-        model=object_from_json(
-            generation_step_json.pop("model"),
+        generator=object_from_json(
+            object_json=generator_json,
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
@@ -809,33 +911,39 @@ def generation_step_from_json(
         ),
         index=generation_step_json.pop("index", -1),
         should_deduplicate=generation_step_json.pop("should_deduplicate", False),
+        generator_name=generation_step_json.pop("generator_name", None),
     )
     return generation_step
 
 
-def model_spec_from_json(
-    model_spec_json: dict[str, Any],
+def generator_spec_from_json(
+    generator_spec_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GeneratorSpec:
     """Load GeneratorSpec from JSON."""
-    kwargs = model_spec_json.pop("model_kwargs", None)
+    kwargs = generator_spec_json.pop("model_kwargs", None)
     for k in _DEPRECATED_MODEL_KWARGS:
         # Remove deprecated model kwargs.
         kwargs.pop(k, None)
     if kwargs is not None:
-        kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
-    gen_kwargs = model_spec_json.pop("model_gen_kwargs", None)
+        kwargs = _sanitize_surrogate_spec_input(object_json=kwargs)
+    gen_kwargs = generator_spec_json.pop("model_gen_kwargs", None)
+    if "model_enum" in generator_spec_json:
+        # Old arg name for backwards compatibility.
+        enum = generator_spec_json.pop("model_enum")
+    else:
+        enum = generator_spec_json.pop("generator_enum")
     return GeneratorSpec(
-        model_enum=object_from_json(
-            model_spec_json.pop("model_enum"),
+        generator_enum=object_from_json(
+            object_json=enum,
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
         model_kwargs=(
             _decode_callables_from_references(
                 object_from_json(
-                    kwargs,
+                    object_json=kwargs,
                     decoder_registry=decoder_registry,
                     class_decoder_registry=class_decoder_registry,
                 ),
@@ -846,7 +954,7 @@ def model_spec_from_json(
         model_gen_kwargs=(
             _decode_callables_from_references(
                 object_from_json(
-                    gen_kwargs,
+                    object_json=gen_kwargs,
                     decoder_registry=decoder_registry,
                     class_decoder_registry=class_decoder_registry,
                 ),
@@ -908,46 +1016,6 @@ def generation_strategy_from_json(
     return gs
 
 
-def surrogate_spec_from_json(
-    surrogate_spec_json: dict[str, Any],
-    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
-    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> SurrogateSpec:
-    """Construct a surrogate spec from JSON arguments.
-
-    If both deprecated args and `model_configs` are found, the deprecated args are
-    discarded to prevent errors during loading. These would've been made into a
-    ``ModelConfig`` while constructing the ``SurrogateSpec``. This is necessary
-    to ensure backwards compatibility with ``SurrogateSpec``s that had both attributes.
-    """
-    if "model_configs" in surrogate_spec_json:
-        for deprecated_arg in [
-            "botorch_model_class",
-            "botorch_model_kwargs",
-            "mll_class",
-            "mll_kwargs",
-            "input_transform_classes",
-            "input_transform_options",
-            "outcome_transform_classes",
-            "outcome_transform_options",
-            "covar_module_class",
-            "covar_module_kwargs",
-            "likelihood_class",
-            "likelihood_kwargs",
-        ]:
-            surrogate_spec_json.pop(deprecated_arg, None)
-    return SurrogateSpec(
-        **{
-            k: object_from_json(
-                v,
-                decoder_registry=decoder_registry,
-                class_decoder_registry=class_decoder_registry,
-            )
-            for k, v in surrogate_spec_json.items()
-        }
-    )
-
-
 def surrogate_from_list_surrogate_json(
     list_surrogate_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
@@ -976,50 +1044,73 @@ def surrogate_from_list_surrogate_json(
             class_decoder_registry=class_decoder_registry,
         )
     return Surrogate(
-        botorch_model_class=object_from_json(
-            object_json=list_surrogate_json.get("botorch_submodel_class"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        ),
-        model_options=list_surrogate_json.get("submodel_options"),
-        mll_class=object_from_json(
-            object_json=list_surrogate_json.get("mll_class"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        ),
-        mll_options=list_surrogate_json.get("mll_options"),
-        input_transform_classes=object_from_json(
-            object_json=list_surrogate_json.get("submodel_input_transform_classes"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        ),
-        input_transform_options=object_from_json(
-            object_json=list_surrogate_json.get("submodel_input_transform_options"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        ),
-        outcome_transform_classes=object_from_json(
-            object_json=list_surrogate_json.get("submodel_outcome_transform_classes"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        ),
-        outcome_transform_options=object_from_json(
-            object_json=list_surrogate_json.get("submodel_outcome_transform_options"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        ),
-        covar_module_class=object_from_json(
-            object_json=list_surrogate_json.get("submodel_covar_module_class"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        ),
-        covar_module_options=list_surrogate_json.get("submodel_covar_module_options"),
-        likelihood_class=object_from_json(
-            object_json=list_surrogate_json.get("submodel_likelihood_class"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        ),
-        likelihood_options=list_surrogate_json.get("submodel_likelihood_options"),
+        surrogate_spec=SurrogateSpec(
+            model_configs=[
+                ModelConfig(
+                    botorch_model_class=object_from_json(
+                        object_json=list_surrogate_json.get("botorch_submodel_class"),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    ),
+                    model_options=list_surrogate_json.get("submodel_options"),
+                    mll_class=object_from_json(
+                        object_json=list_surrogate_json.get("mll_class"),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    ),
+                    mll_options=list_surrogate_json.get("mll_options"),
+                    input_transform_classes=object_from_json(
+                        object_json=list_surrogate_json.get(
+                            "submodel_input_transform_classes"
+                        ),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    ),
+                    input_transform_options=object_from_json(
+                        object_json=list_surrogate_json.get(
+                            "submodel_input_transform_options"
+                        ),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    ),
+                    outcome_transform_classes=object_from_json(
+                        object_json=list_surrogate_json.get(
+                            "submodel_outcome_transform_classes"
+                        ),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    ),
+                    outcome_transform_options=object_from_json(
+                        object_json=list_surrogate_json.get(
+                            "submodel_outcome_transform_options"
+                        ),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    ),
+                    covar_module_class=object_from_json(
+                        object_json=list_surrogate_json.get(
+                            "submodel_covar_module_class"
+                        ),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    ),
+                    covar_module_options=list_surrogate_json.get(
+                        "submodel_covar_module_options"
+                    ),
+                    likelihood_class=object_from_json(
+                        object_json=list_surrogate_json.get(
+                            "submodel_likelihood_class"
+                        ),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    ),
+                    likelihood_options=list_surrogate_json.get(
+                        "submodel_likelihood_options"
+                    ),
+                    name="from deprecated args",
+                )
+            ]
+        )
     )
 
 

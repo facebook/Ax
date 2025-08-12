@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
-from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
+from typing import Sequence
+
+from ax.core.parameter import Parameter, RangeParameter
 from ax.core.types import ComparisonOp
 from ax.utils.common.base import SortableBase
 
@@ -248,7 +250,7 @@ class SumConstraint(ParameterConstraint):
         )
 
 
-def validate_constraint_parameters(parameters: list[Parameter]) -> None:
+def validate_constraint_parameters(parameters: Sequence[Parameter]) -> None:
     """Basic validation of parameters used in a constraint.
 
     Args:
@@ -262,20 +264,10 @@ def validate_constraint_parameters(parameters: list[Parameter]) -> None:
         raise ValueError("Duplicate parameter in constraint.")
 
     for parameter in parameters:
-        if not parameter.is_numeric:
+        if not isinstance(parameter, RangeParameter):
             raise ValueError(
-                "Parameter constraints only supported for numeric parameters."
+                "All parameters in a parameter constraint must be RangeParameters."
             )
-
-        # Constraints on FixedParameters are non-sensical.
-        if isinstance(parameter, FixedParameter):
-            raise ValueError("Parameter constraints not supported for FixedParameter.")
-
-        # ChoiceParameters are transformed either using OneHotEncoding
-        # or the OrderedChoice transform. Both are non-linear, and
-        # Ax models only support linear constraints.
-        if isinstance(parameter, ChoiceParameter):
-            raise ValueError("Parameter constraints not supported for ChoiceParameter.")
 
         # Log parameters require a non-linear transformation, and Ax
         # models only support linear constraints.

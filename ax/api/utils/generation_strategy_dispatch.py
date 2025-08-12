@@ -8,6 +8,7 @@
 
 
 import torch
+from ax.adapter.registry import Generators
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
@@ -16,12 +17,10 @@ from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MinTrials
-from ax.modelbridge.registry import Generators
-from ax.models.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
-from botorch.models.transforms.input import Normalize, Warp
-from gpytorch.kernels.linear_kernel import LinearKernel
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 
 
 def _get_sobol_node(
@@ -55,7 +54,6 @@ def _get_sobol_node(
     initialization_budget = initialization_budget
     if initialization_budget is None:
         initialization_budget = 5
-    min_observed_initialization_trials = min_observed_initialization_trials
     if min_observed_initialization_trials is None:
         min_observed_initialization_trials = max(1, initialization_budget // 2)
     if initialize_with_center and not use_existing_trials_for_initialization:
@@ -82,9 +80,9 @@ def _get_sobol_node(
     ]
     return GenerationNode(
         node_name="Sobol",
-        model_specs=[
+        generator_specs=[
             GeneratorSpec(
-                model_enum=Generators.SOBOL,
+                generator_enum=Generators.SOBOL,
                 model_kwargs={"seed": initialization_random_seed},
             )
         ],
@@ -106,18 +104,19 @@ def _get_mbm_node(
     - FAST: An empty model config that utilizes MBM defaults.
     """
     # Construct the surrogate spec.
-    if method == "fast":
-        model_configs = [ModelConfig(name="MBM defaults")]
-    elif method == "balanced":
+    if method == "quality":
         model_configs = [
-            ModelConfig(name="MBM defaults"),
             ModelConfig(
-                covar_module_class=LinearKernel,
-                input_transform_classes=[Warp, Normalize],
-                input_transform_options={"Normalize": {"center": 0.0}},
-                name="LinearKernel with Warp",
-            ),
+                botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                model_options={"use_input_warping": True},
+                mll_options={
+                    "disable_progbar": True,
+                },
+                name="WarpedSAAS",
+            )
         ]
+    elif method == "fast":
+        model_configs = [ModelConfig(name="MBM defaults")]
     else:
         raise UnsupportedError(f"Unsupported generation method: {method}.")
 
@@ -125,9 +124,9 @@ def _get_mbm_node(
 
     return GenerationNode(
         node_name="MBM",
-        model_specs=[
+        generator_specs=[
             GeneratorSpec(
-                model_enum=Generators.BOTORCH_MODULAR,
+                generator_enum=Generators.BOTORCH_MODULAR,
                 model_kwargs={
                     "surrogate_spec": SurrogateSpec(model_configs=model_configs),
                     "torch_device": device,
@@ -161,9 +160,9 @@ def choose_generation_strategy(
         nodes = [
             GenerationNode(
                 node_name="Sobol",
-                model_specs=[
+                generator_specs=[
                     GeneratorSpec(
-                        model_enum=Generators.SOBOL,
+                        generator_enum=Generators.SOBOL,
                         model_kwargs={"seed": struct.initialization_random_seed},
                     )
                 ],
@@ -171,22 +170,32 @@ def choose_generation_strategy(
         ]
         gs_name = "QuasiRandomSearch"
     else:
-        nodes = [
-            _get_sobol_node(
-                initialization_budget=struct.initialization_budget,
-                min_observed_initialization_trials=struct.min_observed_initialization_trials,  # noqa: E501
-                initialize_with_center=struct.initialize_with_center,
-                use_existing_trials_for_initialization=struct.use_existing_trials_for_initialization,  # noqa: E501
-                allow_exceeding_initialization_budget=struct.allow_exceeding_initialization_budget,  # noqa: E501
-                initialization_random_seed=struct.initialization_random_seed,
-            ),
-            _get_mbm_node(
-                method=struct.method,
-                torch_device=struct.torch_device,
-            ),
-        ]
-        gs_name = f"Sobol+MBM:{struct.method}"
-    if struct.initialize_with_center:
+        mbm_node = _get_mbm_node(
+            method=struct.method,
+            torch_device=struct.torch_device,
+        )
+        if (
+            struct.initialization_budget is None
+            or struct.initialization_budget > struct.initialize_with_center
+        ):
+            nodes = [
+                _get_sobol_node(
+                    initialization_budget=struct.initialization_budget,
+                    min_observed_initialization_trials=struct.min_observed_initialization_trials,  # noqa: E501
+                    initialize_with_center=struct.initialize_with_center,
+                    use_existing_trials_for_initialization=struct.use_existing_trials_for_initialization,  # noqa: E501
+                    allow_exceeding_initialization_budget=struct.allow_exceeding_initialization_budget,  # noqa: E501
+                    initialization_random_seed=struct.initialization_random_seed,
+                ),
+                mbm_node,
+            ]
+            gs_name = f"Sobol+MBM:{struct.method}"
+        else:
+            nodes = [mbm_node]
+            gs_name = f"MBM:{struct.method}"
+    if struct.initialize_with_center and (
+        struct.initialization_budget is None or struct.initialization_budget > 0
+    ):
         center_node = CenterGenerationNode(next_node_name=nodes[0].node_name)
         nodes.insert(0, center_node)
         gs_name = f"Center+{gs_name}"

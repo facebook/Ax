@@ -29,7 +29,7 @@ from pyre_extensions import assert_is_instance, none_throws, override
 class _APIMetric(MapMetric, ABC):
     """
     This Metric provides implmementations for the essential MapMetric methods expected
-    by the Ax Scheduler, shimming between our IMetric and MapMetric interfaces.
+    by the Ax Orchestrator, shimming between our IMetric and MapMetric interfaces.
 
     Users should never instantiate or subclass this class directly.
 
@@ -37,7 +37,7 @@ class _APIMetric(MapMetric, ABC):
     structure of ax.core.Metric to be more in line with our long term vision for Ax.
     """
 
-    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="progression", default_value=0.0)
+    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="step", default_value=0.0)
 
     def __init__(self, name: str) -> None:
         super().__init__(name=name)
@@ -91,7 +91,7 @@ class _APIMetric(MapMetric, ABC):
 class _APIRunner(Runner, ABC):
     """
     This Runner provides implementations for the essential Runner methods expected
-    by the Ax Scheduler, shimming between our IRunner and Runner interfaces.
+    by the Ax Orchestrator, shimming between our IRunner and Runner interfaces.
 
     Users should never instantiate or subclass this class directly.
 

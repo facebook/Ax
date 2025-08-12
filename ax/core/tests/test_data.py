@@ -10,12 +10,7 @@ import random
 from unittest.mock import patch
 
 import pandas as pd
-from ax.core.data import (
-    clone_without_metrics,
-    custom_data_class,
-    Data,
-    set_single_trial,
-)
+from ax.core.data import clone_without_metrics, custom_data_class, Data
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 
@@ -118,7 +113,6 @@ class DataTest(TestCase):
         self.assertEqual(Data(), Data())
         data = Data(df=self.df)
         self.assertEqual(data, data)
-        self.assertEqual(data.df_hash, self.df_hash)
 
         df = data.df
         self.assertEqual(
@@ -136,10 +130,7 @@ class DataTest(TestCase):
             REPR_1000,
         )
         with patch(f"{Data.__module__}.DF_REPR_MAX_LENGTH", 500):
-            self.assertEqual(
-                str(Data(df=self.df)),
-                REPR_500,
-            )
+            self.assertEqual(str(Data(df=self.df)), REPR_500)
 
     def test_clone(self) -> None:
         data = Data(df=self.df, description="test")
@@ -163,11 +154,6 @@ class DataTest(TestCase):
         self.assertTrue(df.empty)
         self.assertTrue(set(df.columns == Data.REQUIRED_COLUMNS))
         self.assertTrue(Data.from_multiple_data([]).df.empty)
-
-    def test_SetSingleBatch(self) -> None:
-        data = Data(df=self.df)
-        merged_data = set_single_trial(data)
-        self.assertTrue((merged_data.df["trial_index"] == 0).all())
 
     def test_CustomData(self) -> None:
         CustomData = custom_data_class(
@@ -240,27 +226,6 @@ class DataTest(TestCase):
             self.assertEqual(data.df["start_time"][0].day, day)
             self.assertEqual(data.df["end_time"][0].day, day)
 
-    def test_FromFidelityEvaluations(self) -> None:
-        for sem in (0.5, None):
-            eval1 = (3.7, sem) if sem is not None else 3.7
-            eval2 = (3.8, sem) if sem is not None else 3.8
-            data = Data.from_fidelity_evaluations(
-                evaluations={
-                    "0_1": [
-                        ({"f1": 1.0, "f2": 0.5}, {"b": eval1}),
-                        ({"f1": 1.0, "f2": 0.75}, {"b": eval2}),
-                    ]
-                },
-                trial_index=0,
-                sample_sizes={"0_1": 2},
-                start_time=current_timestamp_in_millis(),
-                end_time=current_timestamp_in_millis(),
-            )
-            self.assertEqual(data.df["sem"].isnull().all(), sem is None)
-            self.assertEqual(len(data.df), 2)
-            self.assertIn("start_time", data.df)
-            self.assertIn("end_time", data.df)
-
     def test_CloneWithoutMetrics(self) -> None:
         data = Data(df=self.df)
         expected = Data(
@@ -298,17 +263,32 @@ class DataTest(TestCase):
         )
         self.assertEqual(clone_without_metrics(data, {"a"}), expected)
 
+    def test_from_multiple(self) -> None:
+        with self.subTest("Combinining non-empty Data"):
+            data = Data.from_multiple_data([Data(df=self.df), Data(df=self.df)])
+            self.assertEqual(len(data.df), 2 * len(self.df))
+
+        with self.subTest("Combining empty Data makes empty Data"):
+            data = Data.from_multiple_data([Data(), Data()])
+            self.assertEqual(data, Data())
+
+        with self.subTest("Can't combine different types"):
+            CustomData = custom_data_class()
+            with self.assertRaisesRegex(
+                TypeError, "All data objects must be instances of"
+            ):
+                CustomData.from_multiple_data([Data(), CustomData()])
+
     def test_FromMultipleDataMismatchedTypes(self) -> None:
         # create two custom data types
         CustomDataA = custom_data_class(
             column_data_types={"metadata": str, "created_time": pd.Timestamp},
             required_columns={"metadata"},
         )
-
         CustomDataB = custom_data_class(column_data_types={"year": pd.Timestamp})
 
-        # Test data of multiple empty custom types raises a value error
-        with self.assertRaises(ValueError):
+        # Test using `Data.from_multiple_data` to combine non-Data types
+        with self.assertRaisesRegex(TypeError, "All data objects must be instances of"):
             Data.from_multiple_data([CustomDataA(), CustomDataB()])
 
         # Test data of multiple non-empty types raises a value error
@@ -378,26 +358,3 @@ class DataTest(TestCase):
         for c, t in Data.COLUMN_DATA_TYPES.items():
             self.assertEqual(columns[c], t)
         self.assertEqual(columns["foo"], bartype)
-
-    def test_data_column_data_types_with_removed_columns(self) -> None:
-        columns = Data.column_data_types(excluded_columns=["fidelities"])
-        self.assertNotIn("fidelities", columns)
-        for c, t in Data.COLUMN_DATA_TYPES.items():
-            if c != "fidelities":
-                self.assertEqual(columns[c], t)
-
-    # there isn't really a point in doing this
-    # this test just documents expected behavior
-    # that excluded_columns wins out
-    def test_data_column_data_types_with_extra_columns_also_deleted(self) -> None:
-        bartype = random.choice([str, int, float])
-        excluded_columns = ["fidelities", "foo"]
-        columns = Data.column_data_types(
-            extra_column_types={"foo": bartype},
-            excluded_columns=excluded_columns,
-        )
-        self.assertNotIn("fidelities", columns)
-        self.assertNotIn("foo", columns)
-        for c, t in Data.COLUMN_DATA_TYPES.items():
-            if c not in excluded_columns:
-                self.assertEqual(columns[c], t)

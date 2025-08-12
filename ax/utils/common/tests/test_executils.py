@@ -6,14 +6,18 @@
 
 # pyre-strict
 
-import logging
 import time
 from asyncio import iscoroutinefunction
 from functools import partial
+from logging import getLogger, Logger
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
-from ax.utils.common.executils import execute_with_timeout, retry_on_exception
+from ax.utils.common.executils import (
+    allowed_to_fail,
+    execute_with_timeout,
+    retry_on_exception,
+)
 from ax.utils.common.testutils import TestCase
 
 
@@ -63,7 +67,7 @@ class TestRetryDecorator(TestCase):
         """
 
         # Also pass along the logger to ensure coverage
-        logger = logging.getLogger("test_message_checking")
+        logger = getLogger("test_message_checking")
 
         class DecoratorTester:
             @retry_on_exception(
@@ -88,7 +92,7 @@ class TestRetryDecorator(TestCase):
         """
 
         # Also pass along the logger to ensure coverage
-        logger = logging.getLogger("test_message_checking")
+        logger = getLogger("test_message_checking")
 
         class DecoratorTester:
             @retry_on_exception(
@@ -193,7 +197,7 @@ class TestRetryDecorator(TestCase):
         """
 
         # Also pass along the logger to ensure coverage
-        logger = logging.getLogger("test_retry_mechanism_fail")
+        logger = getLogger("test_retry_mechanism_fail")
 
         class DecoratorTester:
             def __init__(self) -> None:
@@ -315,3 +319,65 @@ class TestExecuteWithTimeout(TestCase):
         self.assertEqual(_foo, {})
         time.sleep(1)
         self.assertEqual(_foo, {"foo": 1})
+
+
+class TestAllowedToFailDecorator(TestCase):
+    def test_allowed_to_fail_no_exception(self) -> None:
+        # Create a mock logger
+        logger = MagicMock(spec=Logger)
+        # Use the context manager with no exception
+        with allowed_to_fail(logger=logger) as maybe_exception:
+            pass
+        # Check that no exception was caught
+        self.assertIsNone(maybe_exception[0])
+        # Check that the logger was not called
+        logger.exception.assert_not_called()
+
+    def test_allowed_to_fail_catch_exception(self) -> None:
+        # Create a mock logger
+        logger = MagicMock(spec=Logger)
+        maybe_exception = [None]
+        # Use the context manager with an exception
+        try:
+            with allowed_to_fail(logger=logger) as maybe_exception:
+                raise Exception("Test exception")
+        except Exception:
+            self.fail("Exception should have been caught by the context manager")
+        # Check that the exception was caught
+        self.assertIsInstance(maybe_exception[0], Exception)
+        self.assertEqual(str(maybe_exception[0]), "Test exception")
+        # Check that the logger was called
+        logger.exception.assert_called_once_with(maybe_exception[0])
+
+    def test_allowed_to_fail_handler(self) -> None:
+        # Create a mock handler
+        handler = MagicMock()
+        maybe_exception = [None]
+        # Use the context manager with an exception and a handler
+        try:
+            with allowed_to_fail(handler=handler) as maybe_exception:
+                raise Exception("Test exception")
+        except Exception:
+            self.fail("Exception should have been caught by the context manager")
+        # Check that the exception was caught
+        self.assertIsInstance(maybe_exception[0], Exception)
+        self.assertEqual(str(maybe_exception[0]), "Test exception")
+        # Check that the handler was called
+        handler.assert_called_once_with(maybe_exception[0])
+
+    def test_allowed_to_fail_allowed_error_types(self) -> None:
+        # Create a mock logger
+        logger = MagicMock(spec=Logger)
+        maybe_exception = [None]
+        # Use the context manager with an exception that is not an allowed error type
+        try:
+            with allowed_to_fail(
+                allowed_error_types=(ValueError,), logger=logger
+            ) as maybe_exception:
+                raise TypeError("Test exception")
+        except TypeError:
+            pass
+
+        # Check that the logger was not called
+        logger.exception.assert_not_called()
+        self.assertIsNone(maybe_exception[0])

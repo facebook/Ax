@@ -17,7 +17,9 @@ from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCard, AnalysisCardCategory, AnalysisCardLevel
+
+from ax.adapter.registry import Generators
+from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
@@ -36,9 +38,8 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
+from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.registry import Generators
-from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY, register_metrics
 from ax.storage.registry_bundle import RegistryBundle
@@ -67,7 +68,7 @@ from ax.storage.sqa_store.load import (
 )
 from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS
 from ax.storage.sqa_store.save import (
-    save_analysis_cards,
+    save_analysis_card,
     save_experiment,
     save_generation_strategy,
     save_or_update_trial,
@@ -360,7 +361,7 @@ class SQAStoreTest(TestCase):
             is_test=True,
         )
         aux_exp_gs = get_generation_strategy(with_callable_model_kwarg=False)
-        aux_exp.new_trial(aux_exp_gs.gen(experiment=aux_exp))
+        aux_exp.new_trial(aux_exp_gs.gen_single_trial(experiment=aux_exp))
         save_experiment(aux_exp, config=self.config)
         # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
         purpose = self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT
@@ -377,7 +378,7 @@ class SQAStoreTest(TestCase):
             },
         )
         target_exp_gs = get_generation_strategy(with_callable_model_kwarg=False)
-        target_exp.new_trial(target_exp_gs.gen(experiment=target_exp))
+        target_exp.new_trial(target_exp_gs.gen_single_trial(experiment=target_exp))
         self.assertIsNone(target_exp.db_id)
         save_experiment(target_exp, config=self.config)
         self.assertIsNotNone(target_exp.db_id)
@@ -744,8 +745,8 @@ class SQAStoreTest(TestCase):
         gs = get_generation_strategy(
             with_experiment=True, with_callable_model_kwarg=False
         )
-        gs.gen(experiment=gs.experiment)
-        gs.gen(experiment=gs.experiment)
+        gs.gen_single_trial(experiment=gs.experiment)
+        gs.gen_single_trial(experiment=gs.experiment)
 
         save_experiment(gs.experiment)
         save_generation_strategy(gs)
@@ -965,7 +966,7 @@ class SQAStoreTest(TestCase):
     def test_EncodeGeneratorRunReducedState(self) -> None:
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
-        gr = gs.gen(experiment=exp)
+        gr = gs.gen_single_trial(experiment=exp)
 
         for key in [attr.key for attr in GR_LARGE_MODEL_ATTRS]:
             self.assertIsNotNone(getattr(gr, f"_{key}"))
@@ -988,7 +989,7 @@ class SQAStoreTest(TestCase):
     def test_load_and_save_generator_run_reduced_state(self) -> None:
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
-        gr = gs.gen(experiment=exp)
+        gr = gs.gen_single_trial(experiment=exp)
         original_gen_metadata = {"foo": "bar"}
         gr._gen_metadata = original_gen_metadata
         exp.new_trial(generator_run=gr)
@@ -1715,8 +1716,10 @@ class SQAStoreTest(TestCase):
         # Since we now need to `gen`, we remove the fake callable kwarg we added,
         # since model does not expect it.
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        generation_strategy.gen(experiment, data=get_branin_data())
+        experiment.new_trial(
+            generation_strategy.gen_single_trial(experiment=experiment)
+        )
+        generation_strategy.gen_single_trial(experiment, data=get_branin_data())
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
         # Try restoring the generation strategy using the experiment its
@@ -1729,7 +1732,7 @@ class SQAStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
             none_throws(new_generation_strategy._experiment)._name, experiment._name
@@ -1787,7 +1790,7 @@ class SQAStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(
-            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum,
+            new_generation_strategy._nodes[0].generator_spec_to_gen_from.generator_enum,
             Generators,
         )
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
@@ -1828,8 +1831,10 @@ class SQAStoreTest(TestCase):
         generation_strategy = get_generation_strategy(
             with_generation_nodes=True, with_callable_model_kwarg=False
         )
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        generation_strategy.gen(experiment, data=get_branin_data())
+        experiment.new_trial(
+            generation_strategy.gen_single_trial(experiment=experiment)
+        )
+        generation_strategy.gen_single_trial(experiment, data=get_branin_data())
         save_experiment(experiment)
 
         save_generation_strategy(generation_strategy=generation_strategy)
@@ -1844,7 +1849,7 @@ class SQAStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(
-            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum,
+            new_generation_strategy._nodes[0].generator_spec_to_gen_from.generator_enum,
             Generators,
         )
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
@@ -1858,8 +1863,10 @@ class SQAStoreTest(TestCase):
         """
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         experiment = get_branin_experiment()
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        generation_strategy.gen(experiment, data=get_branin_data())
+        experiment.new_trial(
+            generation_strategy.gen_single_trial(experiment=experiment)
+        )
+        generation_strategy.gen_single_trial(experiment, data=get_branin_data())
         self.assertEqual(len(generation_strategy._generator_runs), 2)
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
@@ -1886,19 +1893,17 @@ class SQAStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         # Now the generation strategies should be equal.
-        # Reloaded generation strategy will not have attributes associated with fitting
-        # the model until after it's used to fit the model or generate candidates, so
-        # we unset those attributes here and compare equality of the rest.
-        generation_strategy._model = None
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
             none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
-        experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
+        experiment.new_trial(
+            new_generation_strategy.gen_single_trial(experiment=experiment)
+        )
 
     def test_EncodeDecodeGenerationStrategyReducedStateLoadExperiment(self) -> None:
         """Try restoring the generation strategy using the experiment its
@@ -1907,8 +1912,10 @@ class SQAStoreTest(TestCase):
         """
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         experiment = get_branin_experiment()
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        generation_strategy.gen(experiment, data=get_branin_data())
+        experiment.new_trial(
+            generation_strategy.gen_single_trial(experiment=experiment)
+        )
+        generation_strategy.gen_single_trial(experiment, data=get_branin_data())
         self.assertEqual(len(generation_strategy._generator_runs), 2)
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
@@ -1953,12 +1960,14 @@ class SQAStoreTest(TestCase):
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
-        self.assertIsInstance(new_generation_strategy._steps[0].model, Generators)
+        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
             none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
-        experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
+        experiment.new_trial(
+            new_generation_strategy.gen_single_trial(experiment=experiment)
+        )
 
     def test_UpdateGenerationStrategy(self) -> None:
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
@@ -1968,7 +1977,9 @@ class SQAStoreTest(TestCase):
         save_experiment(experiment)
 
         # add generator run, save, reload
-        experiment.new_trial(generator_run=generation_strategy.gen(experiment))
+        experiment.new_trial(
+            generator_run=generation_strategy.gen_single_trial(experiment)
+        )
         save_generation_strategy(generation_strategy=generation_strategy)
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
@@ -1981,7 +1992,9 @@ class SQAStoreTest(TestCase):
 
         # add another generator run, save, reload
         experiment.new_trial(
-            generator_run=generation_strategy.gen(experiment, data=get_branin_data())
+            generator_run=generation_strategy.gen_single_trial(
+                experiment, data=get_branin_data()
+            )
         )
         save_generation_strategy(generation_strategy=generation_strategy)
         save_experiment(experiment)
@@ -2000,10 +2013,6 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # Reloaded generation strategy will not have attributes associated with fitting
-        # the model until after it's used to fit the model or generate candidates, so
-        # we unset those attributes here and compare equality of the rest.
-        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
         self.assertIsNotNone(loaded_generation_strategy._experiment)
         self.assertEqual(
@@ -2034,7 +2043,7 @@ class SQAStoreTest(TestCase):
         generator_runs = []
         for i in range(7):
             data = get_branin_data() if i > 0 else None
-            gr = generation_strategy.gen(experiment, data=data)
+            gr = generation_strategy.gen_single_trial(experiment, data=data)
             generator_runs.append(gr)
             trial = experiment.new_trial(generator_run=gr).mark_running(
                 no_runner_required=True
@@ -2060,7 +2069,7 @@ class SQAStoreTest(TestCase):
         generator_runs = []
         for i in range(7):
             data = get_branin_data() if i > 0 else None
-            gr = generation_strategy.gen(experiment, data=data)
+            gr = generation_strategy.gen_single_trial(experiment, data=data)
             generator_runs.append(gr)
             trial = experiment.new_trial(generator_run=gr).mark_running(
                 no_runner_required=True
@@ -2219,7 +2228,9 @@ class SQAStoreTest(TestCase):
         _mock_gr_from_sqa.reset_mock()
 
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
+        experiment.new_trial(
+            generation_strategy.gen_single_trial(experiment=experiment)
+        )
 
         save_generation_strategy(generation_strategy=generation_strategy)
         load_generation_strategy_by_experiment_name(experiment_name=experiment.name)
@@ -2310,7 +2321,7 @@ class SQAStoreTest(TestCase):
         # experiment loading.
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
-        trial = exp.new_trial(gs.gen(experiment=exp))
+        trial = exp.new_trial(gs.gen_single_trial(experiment=exp))
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
             self.assertIsNotNone(
                 getattr(trial.generator_run, f"_{instrumented_attr.key}")
@@ -2360,59 +2371,96 @@ class SQAStoreTest(TestCase):
                 [3, 4],
             ],
         )
+
         base_analysis_card = AnalysisCard(
             name="test_base_analysis_card",
             title="test_title",
             subtitle="test_subtitle",
-            level=AnalysisCardLevel.DEBUG,
             df=test_df,
             blob="test blob",
-            attributes={"foo": "bar"},
-            category=AnalysisCardCategory.DIAGNOSTIC,
         )
         markdown_analysis_card = MarkdownAnalysisCard(
             name="test_markdown_analysis_card",
             title="test_title",
             subtitle="test_subtitle",
-            level=AnalysisCardLevel.DEBUG,
             df=test_df,
             blob="This is some **really cool** markdown",
-            attributes={"foo": "baz"},
-            category=AnalysisCardCategory.DIAGNOSTIC,
         )
         plotly_analysis_card = PlotlyAnalysisCard(
             name="test_plotly_analysis_card",
             title="test_title",
             subtitle="test_subtitle",
-            level=AnalysisCardLevel.DEBUG,
             df=test_df,
             blob=pio.to_json(go.Figure()),
-            attributes={"foo": "bad"},
-            category=AnalysisCardCategory.DIAGNOSTIC,
         )
+
+        # Create two groups which hold the leaf cards
+        # Add the same analysis card multiple times to test _unique_id logic
+        small_group = AnalysisCardGroup(
+            name="small_group",
+            title="Small Group",
+            subtitle="This is a small group with just a few cards",
+            children=[base_analysis_card, markdown_analysis_card, plotly_analysis_card],
+        )
+        big_group = AnalysisCardGroup(
+            name="big_group",
+            title="Big Group",
+            subtitle="This is a big group with a lot of cards",
+            children=[plotly_analysis_card, small_group],
+        )
+
         with self.subTest("test_save_analysis_cards"):
             save_experiment(self.experiment)
-            save_analysis_cards(
-                [base_analysis_card, markdown_analysis_card, plotly_analysis_card],
+
+            save_analysis_card(
+                big_group,
                 self.experiment,
             )
+
         with self.subTest("test_load_analysis_cards"):
             loaded_analysis_cards = load_analysis_cards_by_experiment_name(
                 self.experiment.name
             )
-            self.assertEqual(len(loaded_analysis_cards), 3)
-            self.assertEqual(
-                loaded_analysis_cards[0].blob,
-                base_analysis_card.blob,
+
+            # This should only load the top level group
+            self.assertEqual(len(loaded_analysis_cards), 1)
+            loaded_big_group = assert_is_instance(
+                loaded_analysis_cards[0], AnalysisCardGroup
             )
-            self.assertEqual(
-                loaded_analysis_cards[1].blob,
-                markdown_analysis_card.blob,
+            self.assertEqual(loaded_big_group.name, big_group.name)
+            self.assertEqual(loaded_big_group.title, big_group.title)
+            self.assertEqual(loaded_big_group.subtitle, big_group.subtitle)
+
+            loaded_big_group_plotly = assert_is_instance(
+                loaded_big_group.children[0], PlotlyAnalysisCard
             )
-            self.assertEqual(
-                loaded_analysis_cards[2].blob,
-                plotly_analysis_card.blob,
+            self.assertEqual(loaded_big_group_plotly.name, plotly_analysis_card.name)
+            self.assertEqual(loaded_big_group_plotly.blob, plotly_analysis_card.blob)
+
+            loaded_small_group = assert_is_instance(
+                loaded_big_group.children[1], AnalysisCardGroup
             )
+            self.assertEqual(loaded_small_group.name, small_group.name)
+            self.assertEqual(loaded_small_group.title, small_group.title)
+            self.assertEqual(loaded_small_group.subtitle, small_group.subtitle)
+
+            loaded_base = assert_is_instance(
+                loaded_small_group.children[0], AnalysisCard
+            )
+            self.assertEqual(loaded_base.name, base_analysis_card.name)
+            self.assertEqual(loaded_base.blob, base_analysis_card.blob)
+
+            loaded_markdown = assert_is_instance(
+                loaded_small_group.children[1], MarkdownAnalysisCard
+            )
+            self.assertEqual(loaded_markdown.name, markdown_analysis_card.name)
+            self.assertEqual(loaded_markdown.blob, markdown_analysis_card.blob)
+
+            loaded_small_group_plotly = assert_is_instance(
+                loaded_small_group.children[2], PlotlyAnalysisCard
+            )
+            self.assertEqual(loaded_small_group_plotly.name, plotly_analysis_card.name)
+            self.assertEqual(loaded_small_group_plotly.blob, plotly_analysis_card.blob)
 
     def test_delete_generation_strategy(self) -> None:
         # GIVEN an experiment with a generation strategy

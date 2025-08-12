@@ -21,7 +21,7 @@ class RiskMeasure(SortableBase):
     `ParameterDistribution`s to robust metrics, which then get used in candidate
     generation to recommend robust candidates.
 
-    See `ax/modelbridge/modelbridge_utils.py` for `RISK_MEASURE_NAME_TO_CLASS`,
+    See `ax/adapter/adapter_utils.py` for `RISK_MEASURE_NAME_TO_CLASS`,
     which lists the supported risk measures, and for `extract_risk_measure`
     helper, which extracts the BoTorch risk measure.
     """

@@ -10,10 +10,10 @@
 from __future__ import annotations
 
 import itertools
-
 from collections import OrderedDict
-from collections.abc import Iterable, MutableMapping
+from collections.abc import Iterable, Mapping, MutableMapping
 from datetime import datetime, timedelta
+from functools import partial
 from logging import Logger
 from math import prod
 from pathlib import Path
@@ -22,6 +22,8 @@ from typing import Any, cast, Sequence
 import numpy as np
 import pandas as pd
 import torch
+from ax.adapter.factory import get_factorial, get_sobol
+from ax.adapter.registry import Cont_X_trans, Generators
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -63,6 +65,7 @@ from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, Sea
 from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,
+    TCandidateMetadata,
     TModelCov,
     TModelMean,
     TModelPredict,
@@ -88,31 +91,33 @@ from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
     MinTrials,
     TrialBasedCriterion,
 )
+from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.generators.torch.botorch_modular.kernels import (
+    DefaultRBFKernel,
+    ScaleMaternKernel,
+)
+from ax.generators.torch.botorch_modular.sebo import SEBOAcquisition
+from ax.generators.torch.botorch_modular.surrogate import (
+    ModelConfig,
+    Surrogate,
+    SurrogateSpec,
+)
+from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
-from ax.modelbridge.factory import Cont_X_trans, Generators, get_factorial, get_sobol
-from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.kernels import DefaultRBFKernel, ScaleMaternKernel
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
-from ax.models.torch.botorch_modular.surrogate import (
-    ModelConfig,
-    Surrogate,
-    SurrogateSpec,
-)
-from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
+from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import set_rng_seed
@@ -134,6 +139,7 @@ from pyre_extensions import assert_is_instance, none_throws
 logger: Logger = get_logger(__name__)
 
 TEST_SOBOL_SEED = 1234
+DEFAULT_USER = "foo-user"
 
 ##############################
 # Experiments
@@ -143,7 +149,7 @@ TEST_SOBOL_SEED = 1234
 def get_experiment(
     with_status_quo: bool = True, constrain_search_space: bool = True
 ) -> Experiment:
-    return Experiment(
+    experiment = Experiment(
         name="test",
         search_space=get_search_space(constrain_search_space=constrain_search_space),
         optimization_config=get_optimization_config(),
@@ -152,6 +158,8 @@ def get_experiment(
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
+    return experiment
 
 
 def get_experiment_with_map_data_type() -> Experiment:
@@ -160,7 +168,7 @@ def get_experiment_with_map_data_type() -> Experiment:
     objective optimization config with MapMetric "m1", and a tracking
     MapMetric "tracking", both using the default MapKeyInfo.
     """
-    return Experiment(
+    experiment = Experiment(
         name="test_map_data",
         search_space=get_search_space(),
         optimization_config=get_map_optimization_config(),
@@ -170,6 +178,8 @@ def get_experiment_with_map_data_type() -> Experiment:
         is_test=True,
         default_data_type=DataType.MAP_DATA,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
+    return experiment
 
 
 def get_trial_based_criterion() -> list[TrialBasedCriterion]:
@@ -218,6 +228,7 @@ def get_experiment_with_custom_runner_and_metric(
         runner=CustomTestRunner(test_attribute="test"),
         is_test=True,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
 
     # Create a trial, set its runner and complete it.
     for _ in range(num_trials):
@@ -309,6 +320,7 @@ def get_branin_experiment(
         is_test=True,
         status_quo=status_quo,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     if with_batch or with_completed_batch:
         for _ in range(num_batch_trial):
@@ -351,6 +363,7 @@ def get_branin_experiment_with_status_quo_trials(
         )
     else:
         exp = get_branin_experiment(with_status_quo=True)
+    exp._properties = {"owners": [DEFAULT_USER]}
     sobol = get_sobol(search_space=exp.search_space)
     for _ in range(num_sobol_trials):
         sobol_run = sobol.gen(n=1)
@@ -403,6 +416,7 @@ def get_robust_branin_experiment(
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     sobol = get_sobol(search_space=exp.search_space)
     for _ in range(num_sobol_trials):
@@ -432,38 +446,112 @@ def get_branin_experiment_with_timestamp_map_metric(
     rate: float | None = None,
     map_tracking_metric: bool = False,
     decay_function_name: str = "exp_decay",
+    with_trials_and_data: bool = False,
+    multi_objective: bool = False,
+    has_objective_thresholds: bool = False,
+    bounds: list[float] | None = None,
 ) -> Experiment:
-    tracking_metric = (
-        get_map_metric(
-            name="tracking_branin_map",
-            noise_sd=noise_sd,
-            rate=rate,
-            decay_function_name=decay_function_name,
-        )
-        if map_tracking_metric
-        else BraninMetric(name="branin", param_names=["x1", "x2"], lower_is_better=True)
+    """Returns an experiment with the search space including parameters
+
+    Args:
+        with_status_quo: Whether to include a status quo arm.
+        noise_sd: Standard deviation of noise to add to the metric.
+        rate: Rate of decay for the map metric.
+        map_tracking_metric: Whether to include a tracking map metric.
+        decay_function_name: Name of the decay function to use.
+        with_trials_and_data: Whether to include trials and data.
+        multi_objective: Whether to include multiple objectives and tracking metrics.
+        has_objective_thresholds: For multi-objective experiments, toggles adding
+            objective thresholds.
+        bounds: For multi-objective experiments where has_objective_thresholds is True,
+            bounds determines the precise objective thresholds.
+
+    Returns:
+        A Branin single or multi-objective experiment with map metrics.
+    """
+    local_get_map_metric = partial(
+        get_map_metric,
+        noise_sd=noise_sd,
+        rate=rate,
+        decay_function_name=decay_function_name,
     )
-    exp = Experiment(
-        name="branin_with_timestamp_map_metric",
-        search_space=get_branin_search_space(),
-        optimization_config=OptimizationConfig(
+    experiment_name = "branin_with_timestamp_map_metric"
+    if multi_objective:
+        experiment_name = "multi_objective_" + experiment_name
+        num_objectives = 2
+        bounds = bounds or [99.0 for _ in range(num_objectives)]
+        if has_objective_thresholds:
+            objective_thresholds = [
+                ObjectiveThreshold(
+                    metric=local_get_map_metric(name=f"branin_map_{m}"),
+                    bound=bound,
+                    op=ComparisonOp.LEQ,
+                    relative=False,
+                )
+                for m, bound in zip(range(num_objectives), bounds)
+            ]
+        else:
+            objective_thresholds = None
+
+        if map_tracking_metric:
+            tracking_metrics = [
+                local_get_map_metric(f"tracking_branin_map_{m}")
+                for m in range(num_objectives)
+            ]
+        else:
+            tracking_metrics = [BraninMetric(name="branin", param_names=["x1", "x2"])]
+
+        objectives = [
+            Objective(metric=local_get_map_metric(f"branin_map_{m}"))
+            for m in range(num_objectives)
+        ]
+        optimization_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(objectives=objectives),
+            objective_thresholds=objective_thresholds,
+        )
+
+    else:  # single objective case
+        optimization_config = OptimizationConfig(
             objective=Objective(
-                metric=get_map_metric(
-                    name="branin_map",
-                    noise_sd=noise_sd,
-                    rate=rate,
-                    decay_function_name=decay_function_name,
-                ),
+                metric=local_get_map_metric(name="branin_map"),
                 minimize=True,
             )
-        ),
-        tracking_metrics=[tracking_metric],
+        )
+
+        if map_tracking_metric:
+            tracking_metric = local_get_map_metric(name="tracking_branin_map")
+        else:
+            tracking_metric = BraninMetric(
+                name="branin", param_names=["x1", "x2"], lower_is_better=True
+            )
+
+        tracking_metrics = [tracking_metric]
+
+    exp = Experiment(
+        name=experiment_name,
+        search_space=get_branin_search_space(),
+        optimization_config=optimization_config,
+        tracking_metrics=cast(list[Metric], tracking_metrics),
         runner=SyntheticRunner(),
         default_data_type=DataType.MAP_DATA,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     if with_status_quo:
         exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+
+    if with_trials_and_data:
+        # Add a couple trials with different number of timestamps.
+        # Each fetch attaches data with a new timestamp / progression.
+        # We end up with 4 rows of data for trial 0 and 2 for trial 1.
+        exp.new_trial().add_arm(Arm(parameters={"x1": 0.0, "x2": 0.0})).run()
+        for _ in range(2):
+            exp.fetch_data()
+        exp.new_trial().add_arm(Arm(parameters={"x1": 1.0, "x2": 1.0})).run()
+        for _ in range(2):
+            exp.fetch_data()
+        # Add a trial with no data.
+        exp.new_trial().add_arm(Arm(parameters={"x1": 2.0, "x2": 2.0})).run()
 
     return exp
 
@@ -478,11 +566,12 @@ def run_branin_experiment_with_generation_strategy(
     kwargs_for_get_branin_experiment = kwargs_for_get_branin_experiment or {}
     exp = get_branin_experiment(**kwargs_for_get_branin_experiment)
     for _ in range(num_trials):
-        gr = generation_strategy.gen(n=1, experiment=exp)
+        gr = generation_strategy.gen_single_trial(n=1, experiment=exp)
         trial = exp.new_trial(generator_run=gr)
         trial.mark_running(no_runner_required=True)
         exp.attach_data(get_branin_data(trials=[trial]))
         trial.mark_completed()
+    exp._properties = {"owners": [DEFAULT_USER]}
     return exp
 
 
@@ -491,9 +580,16 @@ def get_test_map_data_experiment(
     num_fetches: int,
     num_complete: int,
     map_tracking_metric: bool = False,
+    multi_objective: bool = False,
+    bounds: list[float] | None = None,
+    has_objective_thresholds: bool = False,
 ) -> Experiment:
     experiment = get_branin_experiment_with_timestamp_map_metric(
-        rate=0.5, map_tracking_metric=map_tracking_metric
+        rate=0.5,
+        map_tracking_metric=map_tracking_metric,
+        multi_objective=multi_objective,
+        bounds=bounds,
+        has_objective_thresholds=has_objective_thresholds,
     )
     for i in range(num_trials):
         trial = experiment.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
@@ -517,6 +613,7 @@ def get_multi_type_experiment(
         default_runner=SyntheticRunner(dummy_metadata="dummy1"),
         optimization_config=oc,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.add_trial_type(
         trial_type="type2", runner=SyntheticRunner(dummy_metadata="dummy2")
     )
@@ -549,6 +646,7 @@ def get_multi_type_experiment_with_multi_objective(
         default_runner=SyntheticRunner(dummy_metadata="dummy1"),
         optimization_config=oc,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.add_trial_type(
         trial_type="type2", runner=SyntheticRunner(dummy_metadata="dummy2")
     )
@@ -585,6 +683,7 @@ def get_factorial_experiment(
         is_test=True,
         tracking_metrics=[get_factorial_metric("secondary_metric")],
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     if with_status_quo:
         exp.status_quo = Arm(
@@ -688,6 +787,7 @@ def get_experiment_with_map_data() -> Experiment:
     # The attached data only includes "ax_test_metric" and ignores
     # the other two metrics.
     experiment = get_experiment_with_map_data_type()
+    experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.new_trial()
     experiment.add_tracking_metric(MapMetric("ax_test_metric"))
     experiment.attach_data(data=get_map_data())
@@ -706,6 +806,7 @@ def get_experiment_with_multi_objective() -> Experiment:
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     return exp
 
@@ -727,6 +828,16 @@ def get_branin_experiment_with_multi_objective(
     with_choice_parameter: bool = False,
     with_fixed_parameter: bool = False,
 ) -> Experiment:
+    optimization_config = (
+        get_branin_multi_objective_optimization_config(
+            has_objective_thresholds=has_objective_thresholds,
+            num_objectives=num_objectives,
+            with_relative_constraint=with_relative_constraint,
+            with_absolute_constraint=with_absolute_constraint,
+        )
+        if has_optimization_config
+        else None
+    )
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(
@@ -734,19 +845,11 @@ def get_branin_experiment_with_multi_objective(
             with_choice_parameter=with_choice_parameter,
             with_fixed_parameter=with_fixed_parameter,
         ),
-        optimization_config=(
-            get_branin_multi_objective_optimization_config(
-                has_objective_thresholds=has_objective_thresholds,
-                num_objectives=num_objectives,
-                with_relative_constraint=with_relative_constraint,
-                with_absolute_constraint=with_absolute_constraint,
-            )
-            if has_optimization_config
-            else None
-        ),
+        optimization_config=optimization_config,
         runner=SyntheticRunner(),
         is_test=True,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     if with_status_quo:
         if status_quo_unknown_parameters:
@@ -775,7 +878,7 @@ def get_branin_experiment_with_multi_objective(
         exp.status_quo = status_quo
     else:
         status_quo = None
-
+    outcome_names = list(exp.metrics)
     if with_batch or with_completed_batch:
         sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
         sobol_run = sobol_generator.gen(n=5)
@@ -784,11 +887,13 @@ def get_branin_experiment_with_multi_objective(
         ).add_generator_run(sobol_run)
 
         if with_completed_batch:
+            assert has_optimization_config
             trial.mark_running(no_runner_required=True)
             exp.attach_data(
                 get_branin_data_multi_objective(
                     trial_indices=[trial.index],
                     arm_names=[arm.name for arm in trial.arms],
+                    outcomes=outcome_names,
                 )
             )  # Add data for one trial
             trial.mark_completed()
@@ -800,9 +905,12 @@ def get_branin_experiment_with_multi_objective(
             trial = exp.new_trial(generator_run=sobol_run)
 
             if with_completed_trial:
+                assert has_optimization_config
                 trial.mark_running(no_runner_required=True)
                 exp.attach_data(
-                    get_branin_data_multi_objective(trial_indices=[trial.index])
+                    get_branin_data_multi_objective(
+                        trial_indices=[trial.index], outcomes=outcome_names
+                    )
                 )  # Add data for one trial
                 trial.mark_completed()
 
@@ -823,6 +931,7 @@ def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment
         runner=SyntheticRunner(),
         is_test=True,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
 
     exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0}, name="status_quo")
 
@@ -845,7 +954,7 @@ def get_experiment_with_scalarized_objective_and_outcome_constraint() -> Experim
     optimization_config = OptimizationConfig(
         objective=objective, outcome_constraints=outcome_constraints
     )
-    return Experiment(
+    experiment = Experiment(
         name="test_experiment_scalarized_objective and outcome constraint",
         search_space=get_search_space(),
         optimization_config=optimization_config,
@@ -854,6 +963,8 @@ def get_experiment_with_scalarized_objective_and_outcome_constraint() -> Experim
         tracking_metrics=[Metric(name="tracking")],
         is_test=True,
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
+    return experiment
 
 
 def get_hierarchical_search_space_experiment(
@@ -865,6 +976,7 @@ def get_hierarchical_search_space_experiment(
         search_space=get_hierarchical_search_space(),
         optimization_config=get_optimization_config(),
     )
+    experiment._properties = {"owners": [DEFAULT_USER]}
     sobol_generator = get_sobol(search_space=experiment.search_space)
     for i in range(num_observations):
         trial = experiment.new_trial(generator_run=sobol_generator.gen(1))
@@ -895,9 +1007,11 @@ def get_experiment_with_observations(
     constrained: bool = False,
     with_tracking_metrics: bool = False,
     search_space: SearchSpace | None = None,
-    parameterizations: Sequence[TParameterization] | None = None,
+    parameterizations: Sequence[Mapping[str, TParamValue]] | None = None,
     sems: list[list[float]] | None = None,
     optimization_config: OptimizationConfig | None = None,
+    candidate_metadata: Sequence[TCandidateMetadata] | None = None,
+    additional_data_columns: Sequence[Mapping[str, Any]] | None = None,
 ) -> Experiment:
     if observations:
         multi_objective = (len(observations[0]) - constrained) > 1
@@ -972,15 +1086,27 @@ def get_experiment_with_observations(
         is_test=True,
     )
     metrics = sorted(exp.metrics)
+    exp._properties = {"owners": [DEFAULT_USER]}
     sobol_generator = get_sobol(search_space=search_space)
     for i, obs_i in enumerate(observations):
         sems_i = sems[i] if sems is not None else [None] * len(obs_i)
         if parameterizations is not None:
-            trial = exp.new_trial(
-                generator_run=GeneratorRun(arms=[Arm(parameters=parameterizations[i])])
-            )
+            arm = Arm(parameters=parameterizations[i])
         else:
-            trial = exp.new_trial(generator_run=sobol_generator.gen(1))
+            arm = sobol_generator.gen(1).arms[0]
+        if candidate_metadata is not None:
+            metadata = {arm.signature: candidate_metadata[i]}
+        else:
+            metadata = None
+        if additional_data_columns is not None:
+            additional_cols = additional_data_columns[i]
+        else:
+            additional_cols = {}
+        trial = exp.new_trial(
+            generator_run=GeneratorRun(
+                arms=[arm], candidate_metadata_by_arm_signature=metadata
+            )
+        )
 
         data = Data(
             df=pd.DataFrame.from_records(
@@ -991,6 +1117,7 @@ def get_experiment_with_observations(
                         "mean": o,
                         "sem": s,
                         "trial_index": trial.index,
+                        **additional_cols,
                     }
                     for m, o, s in zip(metrics, obs_i, sems_i, strict=True)
                 ]
@@ -1043,6 +1170,7 @@ def get_high_dimensional_branin_experiment(
         runner=SyntheticRunner(),
         status_quo=Arm(sq_parameters) if with_status_quo else None,
     )
+    exp._properties = {"owners": [DEFAULT_USER]}
     if with_batch:
         sobol_generator = get_sobol(search_space=exp.search_space)
         sobol_run = sobol_generator.gen(n=15)
@@ -1075,13 +1203,12 @@ def get_online_experiments() -> list[Experiment]:
             status_quo_unknown_parameters=True,
             with_choice_parameter=with_choice_parameter,
             with_parameter_constraint=with_parameter_constraint,
-            with_relative_constraint=with_relative_constraint,
+            with_relative_constraint=True,
         )
         for (
             with_choice_parameter,
             with_parameter_constraint,
-            with_relative_constraint,
-        ) in itertools.product([True, False], repeat=3)
+        ) in itertools.product([True, False], repeat=2)
     ]
 
     multi_objective = [
@@ -1093,20 +1220,88 @@ def get_online_experiments() -> list[Experiment]:
             has_objective_thresholds=has_objective_thresholds,
             with_choice_parameter=with_choice_parameter,
             with_fixed_parameter=with_fixed_parameter,
-            with_relative_constraint=with_relative_constraint,
-            with_absolute_constraint=with_absolute_constraint,
+            with_relative_constraint=True,
+            with_absolute_constraint=False,
         )
         for (
             has_objective_thresholds,
             with_choice_parameter,
             with_fixed_parameter,
-            with_relative_constraint,
-            with_absolute_constraint,
-        ) in itertools.product([True, False], repeat=5)
+        ) in itertools.product([True, False], repeat=3)
     ]
 
     experiments = [*single_objective, *multi_objective]
+    _configure_online_experiments(experiments=experiments)
 
+    return experiments
+
+
+def get_online_experiments_subset() -> list[Experiment]:
+    """
+    Set of 4 experiments includes: 1 single objective exp with choice parameter,
+    parameter constraint, and relative constriant. 3 multi-objective experiments
+    with (a) choice param, fixed param, relative and absolute constraint, (b)
+    fixed param and relative constraint (c) no constraints but both fixed and
+    choice param
+    """
+    experiments = []
+    experiments.append(
+        get_branin_experiment(
+            with_batch=True,
+            num_batch_trial=2,
+            num_arms_per_trial=10,
+            with_completed_batch=True,
+            with_status_quo=True,
+            status_quo_unknown_parameters=True,
+            with_choice_parameter=True,
+            with_parameter_constraint=True,
+            with_relative_constraint=True,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_batch=True,
+            with_status_quo=True,
+            with_completed_batch=True,
+            has_objective_thresholds=True,
+            with_choice_parameter=True,
+            with_fixed_parameter=True,
+            with_relative_constraint=True,
+            with_absolute_constraint=True,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_batch=True,
+            with_status_quo=True,
+            with_completed_batch=True,
+            has_objective_thresholds=True,
+            with_choice_parameter=False,
+            with_fixed_parameter=True,
+            with_relative_constraint=True,
+            with_absolute_constraint=False,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_batch=True,
+            with_status_quo=True,
+            with_completed_batch=True,
+            has_objective_thresholds=True,
+            with_choice_parameter=True,
+            with_fixed_parameter=True,
+            with_relative_constraint=False,
+            with_absolute_constraint=False,
+        )
+    )
+    _configure_online_experiments(experiments=experiments)
+    return experiments
+
+
+def _configure_online_experiments(experiments: list[Experiment]) -> None:
     for experiment in experiments:
         sobol_generator = get_sobol(search_space=experiment.search_space)
 
@@ -1136,11 +1331,9 @@ def get_online_experiments() -> list[Experiment]:
 
         # Add a custom arm to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial()
+        trial = experiment.new_batch_trial(add_status_quo_arm=True)
         # Detatch the arms from the GeneratorRun so they appear as custom arms
         trial.add_arms_and_weights(arms=sobol_run.arms)
-
-    return experiments
 
 
 def get_offline_experiments() -> list[Experiment]:
@@ -1188,7 +1381,75 @@ def get_offline_experiments() -> list[Experiment]:
     ]
 
     experiments = [*single_objective, *multi_objective]
+    _configure_offline_experiments(experiments=experiments)
 
+    return experiments
+
+
+def get_offline_experiments_subset() -> list[Experiment]:
+    """
+    Set of 4 experiments that include:
+    1. Single objective with choice param and param constraint
+    2. Mulit-objective with objective threshold, absolute constraint, choice param,
+        and fixed param
+    3. Mulit-objective with no thresholds, constraint, or special params
+    4. Mulit-objective with objective threshold and fixed param
+    """
+    experiments = []
+    experiments.append(
+        get_branin_experiment(
+            with_trial=True,
+            num_trial=10,
+            with_completed_trial=True,
+            with_status_quo=False,
+            with_choice_parameter=True,
+            with_parameter_constraint=True,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_trial=True,
+            num_trial=10,
+            with_completed_trial=True,
+            with_status_quo=False,
+            has_objective_thresholds=True,
+            with_absolute_constraint=True,
+            with_choice_parameter=True,
+            with_fixed_parameter=True,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_trial=True,
+            num_trial=10,
+            with_completed_trial=True,
+            with_status_quo=False,
+            has_objective_thresholds=False,
+            with_absolute_constraint=False,
+            with_choice_parameter=False,
+            with_fixed_parameter=False,
+        )
+    )
+    experiments.append(
+        get_branin_experiment_with_multi_objective(
+            num_objectives=3,
+            with_trial=True,
+            num_trial=10,
+            with_completed_trial=True,
+            with_status_quo=False,
+            has_objective_thresholds=True,
+            with_absolute_constraint=False,
+            with_choice_parameter=False,
+            with_fixed_parameter=True,
+        )
+    )
+    _configure_offline_experiments(experiments=experiments)
+    return experiments
+
+
+def _configure_offline_experiments(experiments: list[Experiment]) -> None:
     for experiment in experiments:
         sobol_generator = get_sobol(search_space=experiment.search_space)
 
@@ -1214,8 +1475,6 @@ def get_offline_experiments() -> list[Experiment]:
         trial = experiment.new_trial()
         # Detatch the arms from the GeneratorRun so they appear as custom arms
         trial.add_arm(arm=sobol_run.arms[0])
-
-    return experiments
 
 
 ##############################
@@ -1973,7 +2232,6 @@ def get_branin_objective(name: str = "branin", minimize: bool = False) -> Object
 
 
 def get_branin_multi_objective(num_objectives: int = 2) -> MultiObjective:
-    _validate_num_objectives(num_objectives=num_objectives)
     objectives = [
         Objective(metric=get_branin_metric(name="branin_a"), minimize=True),
         Objective(metric=get_branin_metric(name="branin_b"), minimize=True),
@@ -2059,9 +2317,9 @@ def get_branin_optimization_config(
     )
 
 
-def _validate_num_objectives(num_objectives: int) -> None:
-    if num_objectives not in (2, 3):
-        raise NotImplementedError("Only 2 and 3 objectives are supported.")
+def _validate_num_outcomes(num_outcomes: int) -> None:
+    if 2 > num_outcomes or num_outcomes > 5:
+        raise NotImplementedError("Only 2-5 outcomes are supported.")
 
 
 def get_branin_multi_objective_optimization_config(
@@ -2070,7 +2328,8 @@ def get_branin_multi_objective_optimization_config(
     with_relative_constraint: bool = False,
     with_absolute_constraint: bool = False,
 ) -> MultiObjectiveOptimizationConfig:
-    _validate_num_objectives(num_objectives=num_objectives)
+    num_constraint_outcomes = with_relative_constraint + with_absolute_constraint
+    _validate_num_outcomes(num_outcomes=num_objectives + num_constraint_outcomes)
     # minimum Branin value is 0.397887
     if has_objective_thresholds:
         objective_thresholds = [
@@ -2432,23 +2691,24 @@ def get_branin_data_batch(
 def get_branin_data_multi_objective(
     trial_indices: Iterable[int] | None = None,
     arm_names: Iterable[str] | None = None,
-    num_objectives: int = 2,
+    outcomes: Sequence[str] | None = None,
 ) -> Data:
-    _validate_num_objectives(num_objectives=num_objectives)
-    suffixes = ["a", "b"]
-    if num_objectives == 3:
-        suffixes.append("c")
+    if outcomes is None:
+        outcomes = ["branin_a", "branin_b"]
+    else:
+        _validate_num_outcomes(num_outcomes=len(outcomes))
+
     df_dicts = [
         {
             "trial_index": trial_index,
-            "metric_name": f"branin_{suffix}",
+            "metric_name": outcome,
             "arm_name": arm_name,
             "mean": 5.0,
             "sem": 0.0,
         }
         for trial_index in (trial_indices or [0])
         for arm_name in arm_names or [f"{trial_index}_0"]
-        for suffix in suffixes
+        for outcome in outcomes
     ]
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
@@ -2507,7 +2767,7 @@ class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_indices: set[int],
         experiment: Experiment,
-        **kwargs: dict[str, Any],
+        current_node: GenerationNode | None = None,
     ) -> dict[int, str | None]:
         return self.early_stop_trials
 
@@ -2602,57 +2862,65 @@ def get_botorch_model_with_default_acquisition_class() -> BoTorchGenerator:
     )
 
 
-def get_botorch_model_with_surrogate_specs() -> BoTorchGenerator:
-    return BoTorchGenerator(
-        surrogate_specs={
-            "name": SurrogateSpec(
-                model_configs=[
-                    ModelConfig(
-                        model_options={"some_option": "some_value"},
-                        covar_module_class=DefaultRBFKernel,
-                        covar_module_options={"inactive_features": []},
-                    )
-                ]
-            )
-        }
-    )
-
-
-def get_botorch_model_with_surrogate_spec() -> BoTorchGenerator:
-    return BoTorchGenerator(
-        surrogate_spec=SurrogateSpec(botorch_model_kwargs={"some_option": "some_value"})
-    )
+def get_botorch_model_with_surrogate_spec(
+    with_covar_module: bool = True,
+) -> BoTorchGenerator:
+    if with_covar_module:
+        config = ModelConfig(
+            model_options={"some_option": "some_value"},
+            covar_module_class=DefaultRBFKernel,
+            covar_module_options={"inactive_features": []},
+        )
+    else:
+        config = ModelConfig(
+            model_options={"some_option": "some_value"},
+        )
+    return BoTorchGenerator(surrogate_spec=SurrogateSpec(model_configs=[config]))
 
 
 def get_surrogate() -> Surrogate:
     return Surrogate(
-        botorch_model_class=get_model_type(),
-        mll_class=get_mll_type(),
+        surrogate_spec=SurrogateSpec(
+            model_configs=[
+                ModelConfig(
+                    botorch_model_class=get_model_type(),
+                    mll_class=get_mll_type(),
+                )
+            ]
+        )
     )
 
 
 def get_surrogate_spec_with_default() -> SurrogateSpec:
     return SurrogateSpec(
-        botorch_model_class=SingleTaskGP,
-        covar_module_class=ScaleMaternKernel,
-        covar_module_kwargs={
-            "ard_num_dims": DEFAULT,
-            "lengthscale_prior": GammaPrior(6.0, 3.0),
-            "outputscale_prior": GammaPrior(2.0, 0.15),
-            "batch_shape": DEFAULT,
-        },
+        model_configs=[
+            ModelConfig(
+                botorch_model_class=SingleTaskGP,
+                covar_module_class=ScaleMaternKernel,
+                covar_module_options={
+                    "ard_num_dims": DEFAULT,
+                    "lengthscale_prior": GammaPrior(6.0, 3.0),
+                    "outputscale_prior": GammaPrior(2.0, 0.15),
+                    "batch_shape": DEFAULT,
+                },
+            )
+        ]
     )
 
 
 def get_surrogate_spec_with_lognormal() -> SurrogateSpec:
     return SurrogateSpec(
-        botorch_model_class=SingleTaskGP,
-        covar_module_class=RBFKernel,
-        covar_module_kwargs={
-            "ard_num_dims": DEFAULT,
-            "lengthscale_prior": LogNormalPrior(-4.0, 1.0),
-            "batch_shape": DEFAULT,
-        },
+        model_configs=[
+            ModelConfig(
+                botorch_model_class=SingleTaskGP,
+                covar_module_class=RBFKernel,
+                covar_module_options={
+                    "ard_num_dims": DEFAULT,
+                    "lengthscale_prior": LogNormalPrior(-4.0, 1.0),
+                    "batch_shape": DEFAULT,
+                },
+            )
+        ]
     )
 
 
@@ -2706,16 +2974,16 @@ def get_chained_input_transform() -> ChainedInputTransform:
 
 
 ##############################
-# Scheduler
+# Orchestrator
 ##############################
 
 
-def get_default_scheduler_options() -> SchedulerOptions:
-    return SchedulerOptions()
+def get_default_orchestrator_options() -> OrchestratorOptions:
+    return OrchestratorOptions()
 
 
-def get_scheduler_options_batch_trial() -> SchedulerOptions:
-    return SchedulerOptions(trial_type=TrialType.BATCH_TRIAL)
+def get_orchestrator_options_batch_trial() -> OrchestratorOptions:
+    return OrchestratorOptions(trial_type=TrialType.BATCH_TRIAL)
 
 
 ##############################
@@ -2807,26 +3075,26 @@ def get_online_sobol_mbm_generation_strategy(
             ],
         ),
     ]
-    sobol_model_spec = GeneratorSpec(
-        model_enum=Generators.SOBOL,
+    sobol_generator_spec = GeneratorSpec(
+        generator_enum=Generators.SOBOL,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
-    mbm_model_spec = GeneratorSpec(
-        model_enum=Generators.BOTORCH_MODULAR,
+    mbm_generator_spec = GeneratorSpec(
+        generator_enum=Generators.BOTORCH_MODULAR,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
     sobol_node = GenerationNode(
         node_name="sobol_node",
         transition_criteria=sobol_criterion,
-        model_specs=[sobol_model_spec],
+        generator_specs=[sobol_generator_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     mbm_node = GenerationNode(
         node_name="MBM_node",
         transition_criteria=[],
-        model_specs=[mbm_model_spec],
+        generator_specs=[mbm_generator_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     return GenerationStrategy(

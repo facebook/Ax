@@ -11,10 +11,18 @@ from collections import defaultdict, OrderedDict
 from enum import Enum
 from io import StringIO
 from logging import Logger
-from typing import Any, cast, Union
+from typing import cast, Union
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCard
+from ax.analysis.analysis_card import (
+    AnalysisCard,
+    AnalysisCardBase,
+    AnalysisCardGroup,
+    ErrorAnalysisCard,
+)
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -105,9 +113,10 @@ class Decoder:
     def _auxiliary_experiments_by_purpose_from_experiment_sqa(
         self, experiment_sqa: SQAExperiment, reduced_state: bool = False
     ) -> dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None:
-        auxiliary_experiments_by_purpose = None
+        auxiliary_experiments_by_purpose = {}
+
+        # Legacy logic
         if experiment_sqa.auxiliary_experiments_by_purpose:
-            auxiliary_experiments_by_purpose = {}
             aux_exps_dict = none_throws(experiment_sqa.auxiliary_experiments_by_purpose)
             for aux_exp_purpose_str, aux_exps_json in aux_exps_dict.items():
                 aux_exp_purpose = next(
@@ -115,20 +124,46 @@ class Decoder:
                     for member in self.config.auxiliary_experiment_purpose_enum
                     if member.value == aux_exp_purpose_str
                 )
-                auxiliary_experiments_by_purpose[aux_exp_purpose] = []
+                if aux_exp_purpose not in auxiliary_experiments_by_purpose:
+                    auxiliary_experiments_by_purpose[aux_exp_purpose] = []
                 for aux_exp_json in aux_exps_json:
                     # keeping this for backward compatibility since previously
                     # we used to save only the experiment name
                     if isinstance(aux_exp_json, str):
                         aux_exp_json = {"experiment_name": aux_exp_json}
-                    aux_experiment = auxiliary_experiment_from_json(
-                        json=aux_exp_json,
+                    aux_experiment = auxiliary_experiment_from_name(
+                        experiment_name=aux_exp_json["experiment_name"],
                         config=self.config,
+                        is_active=True,
                         reduced_state=reduced_state,
                     )
                     auxiliary_experiments_by_purpose[aux_exp_purpose].append(
                         aux_experiment
                     )
+
+        # New logic
+        if experiment_sqa.auxiliary_experiments:
+            for auxiliary_experiment_sqa in experiment_sqa.auxiliary_experiments:
+                purpose = self.config.auxiliary_experiment_purpose_enum(
+                    auxiliary_experiment_sqa.purpose
+                )
+                if purpose not in auxiliary_experiments_by_purpose:
+                    auxiliary_experiments_by_purpose[purpose] = []
+                # If the auxiliary experiment is already loaded, we don't need to
+                # load it again.
+                if any(
+                    auxiliary_experiment_sqa.source_experiment_id
+                    == aux_exp.experiment.db_id
+                    for aux_exp in auxiliary_experiments_by_purpose[purpose]
+                ):
+                    continue
+                aux_experiment = auxiliary_experiment_from_name(
+                    experiment_name=auxiliary_experiment_sqa.source_experiment.name,
+                    config=self.config,
+                    is_active=auxiliary_experiment_sqa.is_active,
+                    reduced_state=reduced_state,
+                )
+                auxiliary_experiments_by_purpose[purpose].append(aux_experiment)
         return auxiliary_experiments_by_purpose
 
     def _init_experiment_from_sqa(
@@ -783,7 +818,7 @@ class Decoder:
             ),
             generation_node_name=generator_run_sqa.generation_node_name,
         )
-        # Remove deprecated kwargs from model kwargs & bridge kwargs.
+        # Remove deprecated kwargs from model kwargs & adapter kwargs.
         if generator_run._model_kwargs is not None:
             generator_run._model_kwargs = {
                 k: v
@@ -1070,24 +1105,84 @@ class Decoder:
     def analysis_card_from_sqa(
         self,
         analysis_card_sqa: SQAAnalysisCard,
-    ) -> AnalysisCard:
-        """Convert SQLAlchemy Analysis to Ax Analysis Object."""
-        card = AnalysisCard(
+    ) -> AnalysisCardBase:
+        """Convert SQLAlchemy AnalysisCard to Ax AnalysisCard."""
+        children = analysis_card_sqa.children
+
+        if len(children) > 0:
+            # Decode children and collect index
+            index_to_child_card = {
+                child.order: self.analysis_card_from_sqa(analysis_card_sqa=child)
+                for child in children
+            }
+
+            # Sort children by index
+            children = [card for _order, card in sorted(index_to_child_card.items())]
+
+            # Convert None value of title to empty string to ensure compatibility with
+            # AnalysisCardGroup constructor. Subtitle can be None.
+            title = (
+                analysis_card_sqa.title if analysis_card_sqa.title is not None else ""
+            )
+            subtitle = analysis_card_sqa.subtitle
+
+            return AnalysisCardGroup(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                children=children,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+
+        title = none_throws(analysis_card_sqa.title)
+        subtitle = none_throws(analysis_card_sqa.subtitle)
+        blob = none_throws(analysis_card_sqa.blob)
+        blob_annotation = analysis_card_sqa.blob_annotation
+
+        if blob_annotation == "error":
+            return ErrorAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(analysis_card_sqa.dataframe_json),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+        if blob_annotation == "plotly":
+            return PlotlyAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(analysis_card_sqa.dataframe_json),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+        if blob_annotation == "markdown":
+            return MarkdownAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(analysis_card_sqa.dataframe_json),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+        if blob_annotation == "healthcheck":
+            return HealthcheckAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(analysis_card_sqa.dataframe_json),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+        return AnalysisCard(
             name=analysis_card_sqa.name,
-            title=analysis_card_sqa.title,
-            subtitle=analysis_card_sqa.subtitle,
-            level=analysis_card_sqa.level,
+            title=title,
+            subtitle=subtitle,
             df=read_json(analysis_card_sqa.dataframe_json),
-            blob=analysis_card_sqa.blob,
-            attributes=(
-                {}
-                if analysis_card_sqa.attributes == ""
-                else json.loads(analysis_card_sqa.attributes)
-            ),
-            category=analysis_card_sqa.category,
+            blob=blob,
+            timestamp=analysis_card_sqa.timestamp,
         )
-        card.db_id = analysis_card_sqa.id
-        return card
 
     def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
         """Convert SQLAlchemy Metric to Ax Metric"""
@@ -1343,29 +1438,30 @@ def _get_scalarized_outcome_constraint_children_metrics(
     return metrics_sqa
 
 
-def auxiliary_experiment_from_json(
-    json: dict[str, Any],
+def auxiliary_experiment_from_name(
+    experiment_name: str,
     config: SQAConfig,
+    is_active: bool,
     reduced_state: bool = False,
 ) -> AuxiliaryExperiment:
     """
-    Load an ``AuxiliaryExperiment`` from JSON.
+    Load an ``AuxiliaryExperiment`` by name.
 
     Args:
-        json: A dictionary containing the JSON representation of an AuxiliaryExperiment.
+        experiment_name: Name of the auxiliary experiment.
         config: The SQAConfig object used to load the experiment.
 
     Returns:
-        An AuxiliaryExperiment object constructed from the JSON representation.
+        An AuxiliaryExperiment object constructed from the given experiment.
     """
 
     from ax.storage.sqa_store.load import load_experiment
 
     experiment = load_experiment(
-        json.get("experiment_name"),
+        experiment_name,
         config=config,
         skip_runners_and_metrics=True,
         load_auxiliary_experiments=False,
         reduced_state=reduced_state,
     )
-    return AuxiliaryExperiment(experiment)
+    return AuxiliaryExperiment(experiment, is_active=is_active)

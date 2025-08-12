@@ -50,6 +50,6 @@ class StorageConfig:
     experiment and its data.
     """
 
-    creator: Callable[..., Any] | None = None  # pyre-fixme[4]
+    creator: Callable[..., Any] | None = None
     url: str | None = None
     registry_bundle: RegistryBundleBase | None = None

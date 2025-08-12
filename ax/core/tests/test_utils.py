@@ -12,6 +12,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -22,6 +23,8 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
+    _maybe_update_trial_status_to_complete,
+    batch_trial_only,
     best_feasible_objective,
     extract_pending_observations,
     get_missing_metrics,
@@ -33,6 +36,7 @@ from ax.core.utils import (
     get_target_trial_index,
     MissingMetrics,
 )
+from ax.exceptions.core import AxError, UserInputError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -294,6 +298,74 @@ class UtilsTest(TestCase):
                     "m1": [self.obs_feat],
                 },
             )
+
+    def test_update_trial_status(self) -> None:
+        """
+        Test that _update_trial_status marks a trial as failed when optimization_config
+        is not None and there are missing metrics.
+        """
+        # Create an experiment with optimization config
+        experiment = get_experiment()
+
+        # Make sure optimization_config is not None
+        self.assertIsNotNone(experiment.optimization_config)
+        trial = experiment.new_trial(GeneratorRun([self.arm]))
+        trial.mark_running(no_runner_required=True)
+
+        # Attach data for only one metric (not all required by optimization config)
+        data = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "arm_name": none_throws(trial.arm).name,
+                        "mean": 1.0,
+                        "sem": 0.1,
+                        "trial_index": trial.index,
+                        "metric_name": "m1",  # Only attach data for m1, not m2
+                        "start_time": "2018-01-01",
+                        "end_time": "2018-01-02",
+                    }
+                ]
+            )
+        )
+        experiment.attach_data(data)
+
+        # The trial should be marked as failed since there are missing metrics
+        # and optimization_config is not None
+        _maybe_update_trial_status_to_complete(
+            experiment=experiment, trial_index=trial.index
+        )
+        self.assertEqual(trial.status, TrialStatus.FAILED)
+
+        # Check that the failure reason contains information about missing metrics
+        self.assertIsNotNone(trial.failed_reason)
+
+        self.assertTrue(
+            "missing" in trial.failed_reason,
+            f"Expected 'missing' in failure reason, but got: {trial.failed_reason}",
+        )
+
+        with self.subTest("Test with no opt config"):
+            experiment = get_experiment()
+
+            # Set optimization_config to None
+            experiment._optimization_config = None
+            self.assertIsNone(experiment.optimization_config)
+
+            trial = experiment.new_trial(GeneratorRun([self.arm]))
+            trial.mark_running(no_runner_required=True)
+            original_status = trial.status
+
+            # this should return early without modifying the trial
+            with self.assertRaisesRegex(
+                UserInputError,
+                "Cannot attempt to mark a trial as failed without an optimization"
+                " config on the expeirment",
+            ):
+                _maybe_update_trial_status_to_complete(
+                    experiment=experiment, trial_index=trial.index
+                )
+            self.assertEqual(trial.status, original_status)
 
     def test_get_pending_observation_features_multi_trial(self) -> None:
         # With `fetch_data` on trial returning data for metric "m2", that metric
@@ -675,3 +747,39 @@ class UtilsTest(TestCase):
         trial = experiment.new_trial().add_arm(experiment.status_quo)
         experiment.attach_data(get_branin_data(trials=[trial]))
         self.assertEqual(get_target_trial_index(experiment=experiment), trial.index)
+
+    def test_batch_trial_only_decorator(self) -> None:
+        # Create a mock function to decorate
+        def mock_func(trial: BatchTrial) -> None:
+            pass
+
+        experiment = get_branin_experiment(with_completed_trial=True)
+        decorated_func = batch_trial_only()(mock_func)
+
+        # Test that decorator raises an error for missing trial keyword arg
+        with self.assertRaises(AxError) as e:
+            decorated_func()
+        self.assertRegex(str(e.exception), r"Expected a keyword argument `trial` to .*")
+
+        # Test that decorator raises an error for non-batch trial
+        with self.assertRaises(AxError) as e:
+            decorated_func(trial="not a batch trial")
+        self.assertRegex(
+            str(e.exception),
+            r"Expected the argument `trial` to `.*` to be a `BatchTrial`, but got .*",
+        )
+
+        # Test that decorator works for batch trial
+        batch_trial = BatchTrial(experiment=experiment)
+        decorated_func(trial=batch_trial)
+
+    def test_batch_trial_only_decorator_with_custom_message(self) -> None:
+        # Create a mock function to decorate
+        def mock_func(trial: BatchTrial) -> None:
+            pass
+
+        # Test that decorator raises an error with custom message
+        custom_message = "Batch trials only!"
+        decorated_func = batch_trial_only(msg=custom_message)(mock_func)
+        with self.assertRaisesRegex(AxError, custom_message):
+            decorated_func(trial="not a batch trial")

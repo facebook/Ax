@@ -7,6 +7,8 @@
 # pyre-strict
 
 
+from dataclasses import replace
+
 import torch
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.utils.common.testutils import TestCase
@@ -27,7 +29,7 @@ class TestBoTorchTestFunction(TestCase):
             "Hartmann": ["y"],
             "constrained Hartmann": ["y", "c"],
         }
-        self.botorch_test_problems = {
+        self.botorch_test_functions = {
             k: BoTorchTestFunction(
                 botorch_problem=v,
                 outcome_names=self.outcome_names[
@@ -40,7 +42,7 @@ class TestBoTorchTestFunction(TestCase):
     def test_negation(self) -> None:
         params = {f"x{i}": 0.5 for i in range(6)}
         evaluate_true_results = {
-            k: v.evaluate_true(params) for k, v in self.botorch_test_problems.items()
+            k: v.evaluate_true(params) for k, v in self.botorch_test_functions.items()
         }
         self.assertEqual(
             evaluate_true_results["base Hartmann"],
@@ -75,11 +77,11 @@ class TestBoTorchTestFunction(TestCase):
     def test_tensor_shapes(self) -> None:
         params = {f"x{i}": 0.5 for i in range(6)}
         evaluate_true_results = {
-            k: v.evaluate_true(params) for k, v in self.botorch_test_problems.items()
+            k: v.evaluate_true(params) for k, v in self.botorch_test_functions.items()
         }
         evaluate_true_results["BraninCurrin"] = BoTorchTestFunction(
             botorch_problem=BraninCurrin(), outcome_names=["f1", "f2"]
-        ).evaluate_true(params)
+        ).evaluate_true({"x0": 0.0, "x1": 0.0})
         expected_len = {
             "base Hartmann": 1,
             "constrained Hartmann": 2,
@@ -92,5 +94,24 @@ class TestBoTorchTestFunction(TestCase):
                 self.assertEqual(result.dtype, torch.double)
                 self.assertEqual(result.shape, torch.Size([expected_len[name]]))
 
+    def test_input_dimensions(self) -> None:
+        test_function = self.botorch_test_functions["base Hartmann"]
+        with self.assertRaisesRegex(ValueError, "Expected 6 parameters, got 7"):
+            test_function.evaluate_true({f"x{i}": 0.5 for i in range(7)})
+
+        with self.assertRaisesRegex(ValueError, "Expected 7 parameters, got 6"):
+            test_function = replace(test_function, dummy_param_names={"ignore me"})
+            test_function.evaluate_true({f"x{i}": 0.5 for i in range(6)})
+
     def test_n_steps_is_one(self) -> None:
-        self.assertEqual(self.botorch_test_problems["base Hartmann"].n_steps, 1)
+        self.assertEqual(self.botorch_test_functions["base Hartmann"].n_steps, 1)
+
+    def test_dummy_dimensions(self) -> None:
+        test_function = self.botorch_test_functions["base Hartmann"]
+        embedded_test_function = replace(test_function, dummy_param_names={"ignore me"})
+        params = {f"x{i}": 0.5 for i in range(6)}
+        embedded_params = {**params, "ignore me": 0.5}
+        self.assertEqual(
+            test_function.evaluate_true(params=params),
+            embedded_test_function.evaluate_true(params=embedded_params),
+        )

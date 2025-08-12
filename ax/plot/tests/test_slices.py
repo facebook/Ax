@@ -7,7 +7,7 @@
 # pyre-strict
 
 import plotly.graph_objects as go
-from ax.modelbridge.registry import Generators
+from ax.adapter.registry import Generators
 from ax.plot.base import AxPlotConfig
 from ax.plot.slice import (
     interact_slice,
@@ -26,7 +26,7 @@ class SlicesTest(TestCase):
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
         model = Generators.BOTORCH_MODULAR(
-            # Model bridge kwargs
+            # Adapter kwargs
             experiment=exp,
             data=exp.fetch_data(),
         )

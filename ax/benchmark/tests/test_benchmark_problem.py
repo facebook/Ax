@@ -11,6 +11,7 @@ import torch
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import (
+    _get_name,
     BenchmarkProblem,
     create_problem_from_botorch,
     get_continuous_search_space,
@@ -36,6 +37,7 @@ from botorch.test_functions.synthetic import (
     ConstrainedGramacy,
     ConstrainedHartmann,
     Cosine8,
+    Hartmann,
 )
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -45,44 +47,6 @@ class TestBenchmarkProblem(TestCase):
         # Print full output, so that any differences in 'repr' output are shown
         self.maxDiff = None
         super().setUp()
-
-    def test_inference_value_not_implemented(self) -> None:
-        objectives = [
-            Objective(metric=BenchmarkMetric(name, lower_is_better=True))
-            for name in ["Branin", "Currin"]
-        ]
-        optimization_config = OptimizationConfig(objective=objectives[0])
-        test_function = BoTorchTestFunction(
-            botorch_problem=Branin(), outcome_names=["Branin"]
-        )
-        with self.assertRaisesRegex(NotImplementedError, "Only `n_best_points=1`"):
-            BenchmarkProblem(
-                name="foo",
-                optimization_config=optimization_config,
-                num_trials=1,
-                optimal_value=0.0,
-                baseline_value=1.0,
-                search_space=SearchSpace(parameters=[]),
-                test_function=test_function,
-                n_best_points=2,
-            )
-
-        with self.assertRaisesRegex(
-            NotImplementedError, "Inference trace is not supported for MOO"
-        ):
-            BenchmarkProblem(
-                name="foo",
-                optimization_config=MultiObjectiveOptimizationConfig(
-                    objective=MultiObjective(objectives)
-                ),
-                num_trials=1,
-                optimal_value=0.0,
-                search_space=SearchSpace(parameters=[]),
-                baseline_value=1.0,
-                test_function=test_function,
-                n_best_points=1,
-                report_inference_value_as_trace=True,
-            )
 
     def test_mismatch_of_names_on_test_function_and_opt_config_raises(self) -> None:
         objectives = [
@@ -335,11 +299,9 @@ class TestBenchmarkProblem(TestCase):
         self.assertTrue(test_problem.use_shifted_function)
         self.assertEqual(none_throws(test_problem._offset).shape, torch.Size([dim]))
         # Check that the offset is applied.
-        self.assertTrue(
-            torch.allclose(
-                test_problem.tensorize_params({f"x{i}": 0 for i in range(dim)}),
-                -none_throws(test_problem._offset),
-            )
+        self.assertAllClose(
+            test_problem.tensorize_params({f"x{i}": 0 for i in range(dim)}),
+            -none_throws(test_problem._offset),
         )
 
     def test_maximization_problem(self) -> None:
@@ -414,3 +376,72 @@ class TestBenchmarkProblem(TestCase):
         self.assertEqual(constraint_metrics[0].name, "baz")
         self.assertEqual(constraint_metrics[0].observe_noise_sd, True)
         self.assertEqual(constraint_metrics[0].lower_is_better, False)
+
+    def test_get_embedded_from_botorch(self) -> None:
+        problem = create_problem_from_botorch(
+            test_problem_class=Hartmann,
+            test_problem_kwargs={"dim": 6},
+            n_dummy_dimensions=24,
+            num_trials=1,
+        )
+        self.assertEqual(problem.name, "Hartmann_30d")
+        self.assertEqual(len(problem.search_space.parameters), 30)
+
+    def test_get_continuous_search_space(self) -> None:
+        bounds = [(0.0, 1.0), (2.0, 3.0)]
+        with self.subTest("Dummy parameters not specified"):
+            search_space = get_continuous_search_space(bounds=bounds)
+            self.assertEqual(len(search_space.parameters), 2)
+            self.assertEqual(
+                len(search_space.parameters), len(search_space.range_parameters)
+            )
+            self.assertEqual({"x0", "x1"}, search_space.parameters.keys())
+
+        with self.subTest("Dummy parameters specified"):
+            search_space = get_continuous_search_space(
+                bounds=bounds, n_dummy_dimensions=2
+            )
+            self.assertEqual(len(search_space.parameters), 4)
+            self.assertEqual(
+                len(search_space.parameters), len(search_space.range_parameters)
+            )
+            self.assertEqual(
+                {"x0", "x1", "embedding_dummy_0", "embedding_dummy_1"},
+                set(search_space.parameters.keys()),
+            )
+
+    def test_get_name(self) -> None:
+        with self.subTest("Basic case"):
+            name = _get_name(test_problem=Branin(), observe_noise_sd=False)
+            self.assertEqual(name, "Branin")
+
+        with self.subTest("Observe noise sd"):
+            name = _get_name(test_problem=Branin(), observe_noise_sd=True)
+            self.assertEqual(name, "Branin_observed_noise")
+
+        with self.subTest("dim specified"):
+            name = _get_name(
+                test_problem=Hartmann(dim=6), dim=6, observe_noise_sd=False
+            )
+            self.assertEqual(name, "Hartmann_6d")
+
+        with self.subTest("dim specified and embedded dims"):
+            name = _get_name(
+                test_problem=Hartmann(dim=6),
+                dim=6,
+                n_dummy_dimensions=24,
+                observe_noise_sd=False,
+            )
+            self.assertEqual(name, "Hartmann_30d")
+
+        with self.subTest("dim not specified and embedded dims"):
+            name = _get_name(
+                test_problem=Branin(), n_dummy_dimensions=24, observe_noise_sd=False
+            )
+            self.assertEqual(name, "Branin_26d")
+
+        with self.subTest("embedded dims and observed noise"):
+            name = _get_name(
+                test_problem=Branin(), n_dummy_dimensions=24, observe_noise_sd=True
+            )
+            self.assertEqual(name, "Branin_observed_noise_26d")

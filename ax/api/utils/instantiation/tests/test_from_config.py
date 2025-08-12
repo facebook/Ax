@@ -5,6 +5,9 @@
 
 # pyre-strict
 
+import warnings
+from contextlib import ExitStack
+
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 from ax.api.utils.instantiation.from_config import (
     _parameter_type_converter,
@@ -78,12 +81,14 @@ class TestFromConfig(TestCase):
             ),
         )
 
-        step_size_config = RangeParameterConfig(
-            name="step_size_param",
-            parameter_type="float",
-            bounds=(0, 100),
-            step_size=10,
-        )
+        with warnings.catch_warnings(record=True) as ws:
+            step_size_config = RangeParameterConfig(
+                name="step_size_param",
+                parameter_type="float",
+                bounds=(0, 100),
+                step_size=10,
+            )
+        self.assertFalse(any("sort_values" in str(w.message) for w in ws))
 
         self.assertEqual(
             parameter_from_config(config=step_size_config),
@@ -104,6 +109,7 @@ class TestFromConfig(TestCase):
                     100.0,
                 ],
                 is_ordered=True,
+                sort_values=False,
             ),
         )
 
@@ -122,6 +128,8 @@ class TestFromConfig(TestCase):
             )
 
     def test_create_choice_parameter(self) -> None:
+        es = ExitStack()
+        ws = es.enter_context(warnings.catch_warnings(record=True))
         choice_config = ChoiceParameterConfig(
             name="choice_param",
             parameter_type="str",
@@ -188,6 +196,7 @@ class TestFromConfig(TestCase):
                 value="a",
             ),
         )
+        self.assertFalse(any("sort_values" in str(w.message) for w in ws))
 
     def test_experiment_from_config(self) -> None:
         float_parameter = RangeParameterConfig(
@@ -333,5 +342,4 @@ class TestFromConfig(TestCase):
             CoreParameterType.STRING,
         )
         with self.assertRaisesRegex(UserInputError, "Unsupported parameter type"):
-            # pyre-ignore[6] Testing a bad input on purpose
             _parameter_type_converter(parameter_type="bad")

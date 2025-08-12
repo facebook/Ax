@@ -14,6 +14,7 @@ from collections.abc import Iterable
 
 # Manual import to avoid strange error, see Diff for details.
 import ax.generation_strategy.generation_node_input_constructors  # noqa
+from ax.adapter.base import Adapter
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -32,16 +33,12 @@ from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted, UserInputError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
     get_best_raw_objective_point_with_trial_index,
 )
-from ax.service.utils.instantiation import (
-    DEFAULT_OBJECTIVE_NAME,
-    InstantiationBase,
-    TParameterRepresentation,
-)
+from ax.service.utils.instantiation import InstantiationBase, TParameterRepresentation
+from ax.utils.common.constants import Keys
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
@@ -106,7 +103,7 @@ class OptimizationLoop:
         """Constructs a synchronous `OptimizationLoop` using an evaluation
         function."""
         if objective_name is None:
-            objective_name = DEFAULT_OBJECTIVE_NAME
+            objective_name = Keys.DEFAULT_OBJECTIVE_NAME.value
         experiment = InstantiationBase.make_experiment(
             name=experiment_name,
             parameters=parameters,
@@ -142,7 +139,7 @@ class OptimizationLoop:
     ) -> OptimizationLoop:
         """Constructs an asynchronous `OptimizationLoop` using Ax runners and
         metrics."""
-        # NOTE: Could use `Scheduler` to implement this if needed.
+        # NOTE: Could use `Orchestrator` to implement this if needed.
         raise NotImplementedError
 
     def _call_evaluation_function(
@@ -167,7 +164,7 @@ class OptimizationLoop:
     def _get_new_trial(self) -> BaseTrial:
         if self.arms_per_trial == 1:
             return self.experiment.new_trial(
-                generator_run=self.generation_strategy.gen(
+                generator_run=self.generation_strategy.gen_single_trial(
                     experiment=self.experiment,
                     pending_observations=get_pending_observation_features(
                         experiment=self.experiment
@@ -176,7 +173,7 @@ class OptimizationLoop:
             )
         elif self.arms_per_trial > 1:
             return self.experiment.new_batch_trial(
-                generator_run=self.generation_strategy.gen(
+                generator_run=self.generation_strategy.gen_single_trial(
                     experiment=self.experiment, n=self.arms_per_trial
                 )
             )
@@ -253,7 +250,7 @@ class OptimizationLoop:
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
         best_point = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=self.experiment, adapter=self.generation_strategy.model
+            experiment=self.experiment, adapter=self.generation_strategy.adapter
         )
         if best_point is not None:
             _, parameterizations, predictions = best_point
@@ -267,7 +264,7 @@ class OptimizationLoop:
 
     def get_current_model(self) -> Adapter | None:
         """Obtain the most recently used model in optimization."""
-        return self.generation_strategy.model
+        return self.generation_strategy.adapter
 
 
 def optimize(

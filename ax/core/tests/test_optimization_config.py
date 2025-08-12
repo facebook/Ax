@@ -6,12 +6,17 @@
 
 # pyre-strict
 
+from unittest.mock import patch
+
+from ax.adapter.registry import Generators
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     _NO_RISK_MEASURE,
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import (
     ObjectiveThreshold,
@@ -22,6 +27,10 @@ from ax.core.risk_measures import RiskMeasure
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.preference_stubs import get_pbo_experiment
+from botorch.acquisition import LearnedObjective
+from pyre_extensions import assert_is_instance
 
 
 OC_STR = (
@@ -560,3 +569,186 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             ),
             config3,
         )
+
+
+class PreferenceOptimizationConfigTest(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.metrics = {
+            "metric1": Metric(name="metric1", lower_is_better=True),
+            "metric2": Metric(name="metric2", lower_is_better=False),
+            "metric3": Metric(name="metric3", lower_is_better=False),
+        }
+        self.objectives = {
+            "o1": Objective(metric=self.metrics["metric1"], minimize=True),
+            "o2": Objective(metric=self.metrics["metric2"], minimize=False),
+            "o3": Objective(metric=self.metrics["metric3"], minimize=False),
+        }
+        self.multi_objective = MultiObjective(
+            objectives=[self.objectives["o2"], self.objectives["o3"]]
+        )
+        self.preference_profile_name = "pe_exp"
+
+    def test_Init(self) -> None:
+        # Test basic initialization
+        config = PreferenceOptimizationConfig(
+            objective=self.multi_objective,
+            preference_profile_name=self.preference_profile_name,
+        )
+        self.assertEqual(config.preference_profile_name, self.preference_profile_name)
+        self.assertEqual(config.objective, self.multi_objective)
+        self.assertEqual(config.outcome_constraints, [])
+        self.assertIsNone(config.risk_measure)
+
+        # Test that outcome_constraints are not supported
+        with self.assertRaisesRegex(
+            NotImplementedError, "Outcome constraints are not yet supported"
+        ):
+            PreferenceOptimizationConfig(
+                objective=self.multi_objective,
+                preference_profile_name=self.preference_profile_name,
+                outcome_constraints=[
+                    OutcomeConstraint(
+                        metric=self.metrics["metric1"],
+                        op=ComparisonOp.LEQ,
+                        bound=0.5,
+                    )
+                ],
+            )
+
+    def test_Eq(self) -> None:
+        config1 = PreferenceOptimizationConfig(
+            objective=self.multi_objective,
+            preference_profile_name=self.preference_profile_name,
+        )
+        config2 = PreferenceOptimizationConfig(
+            objective=self.multi_objective,
+            preference_profile_name=self.preference_profile_name,
+        )
+        self.assertEqual(config1, config2)
+
+        # Different preference_profile_name
+        config3 = PreferenceOptimizationConfig(
+            objective=self.multi_objective,
+            preference_profile_name="different_profile",
+        )
+        self.assertNotEqual(config1, config3)
+
+        # Different objective
+        different_objective = MultiObjective(
+            objectives=[self.objectives["o1"], self.objectives["o2"]]
+        )
+        config4 = PreferenceOptimizationConfig(
+            objective=different_objective,
+            preference_profile_name=self.preference_profile_name,
+        )
+        self.assertNotEqual(config1, config4)
+
+    def test_Clone(self) -> None:
+        config = PreferenceOptimizationConfig(
+            objective=self.multi_objective,
+            preference_profile_name=self.preference_profile_name,
+        )
+        cloned_config = assert_is_instance(config.clone(), PreferenceOptimizationConfig)
+        self.assertEqual(config, cloned_config)
+        self.assertIsNot(config, cloned_config)
+        self.assertEqual(
+            cloned_config.preference_profile_name, self.preference_profile_name
+        )
+        self.assertEqual(cloned_config.objective, self.multi_objective)
+
+        config = PreferenceOptimizationConfig(
+            objective=self.multi_objective,
+            preference_profile_name=self.preference_profile_name,
+        )
+
+        # ======= Clone with args =======
+        # Empty args produce exact clone
+        cloned_config = config.clone_with_args()
+        self.assertEqual(config, cloned_config)
+        self.assertIsNot(config, cloned_config)
+
+        # Clone with different objective
+        different_objective = MultiObjective(
+            objectives=[self.objectives["o1"], self.objectives["o3"]]
+        )
+        cloned_with_diff_objective = config.clone_with_args(
+            objective=different_objective
+        )
+        self.assertEqual(cloned_with_diff_objective.objective, different_objective)
+        self.assertEqual(
+            cloned_with_diff_objective.preference_profile_name,
+            self.preference_profile_name,
+        )
+
+        # Clone with different preference_profile_name
+        different_profile = "different_profile"
+        cloned_with_diff_profile = config.clone_with_args(
+            preference_profile_name=different_profile
+        )
+        self.assertEqual(cloned_with_diff_profile.objective, self.multi_objective)
+        self.assertEqual(
+            cloned_with_diff_profile.preference_profile_name, different_profile
+        )
+
+    @mock_botorch_optimize
+    def test_CandidateGenerationWithLearnedObjective(self) -> None:
+        # Create fake experiments
+        pref_metrics = ["metric2", "metric3"]
+        metric_names = ["metric1", "metric2", "metric3"]
+
+        # Create preference exploration experiment
+        pe_exp = get_pbo_experiment(
+            num_parameters=len(pref_metrics),
+            num_experimental_metrics=0,
+            parameter_names=pref_metrics,
+            num_experimental_trials=0,
+            num_preference_trials=3,
+            num_preference_trials_w_repeated_arm=5,
+            unbounded_search_space=True,
+            experiment_name="pe_exp",
+        )
+
+        # Create main experiment
+        exp = get_pbo_experiment(
+            num_parameters=4,
+            num_experimental_metrics=3,
+            tracking_metric_names=metric_names,
+            num_experimental_trials=4,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+            experiment_name="bo_exp",
+        )
+
+        # Create PreferenceOptimizationConfig
+        pref_opt_config = PreferenceOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=exp.metrics[pref_m], minimize=False)
+                    for pref_m in pref_metrics
+                ]
+            ),
+            preference_profile_name=pe_exp.name,
+        )
+
+        # Add auxiliary experiment to main experiment
+        exp.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=AuxiliaryExperiment(experiment=pe_exp),
+        )
+        exp._optimization_config = pref_opt_config
+
+        # Generate candidates
+        m = Generators.BOTORCH_MODULAR(
+            experiment=exp,
+            data=exp.lookup_data(),
+            optimization_config=pref_opt_config,
+        )
+
+        # Generate candidates and make sure LearnedObjective is constructed
+        with patch(
+            "ax.generators.torch.utils.LearnedObjective",
+            wraps=LearnedObjective,
+        ) as MockLearnedObjective:
+            m.gen(n=2)
+            MockLearnedObjective.assert_called_once()

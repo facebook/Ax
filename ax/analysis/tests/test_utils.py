@@ -8,7 +8,7 @@
 import numpy as np
 import pandas as pd
 from ax.analysis.plotly.utils import truncate_label
-from ax.analysis.utils import _relativize_data, prepare_arm_data
+from ax.analysis.utils import _relativize_df_with_sq, prepare_arm_data
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
@@ -49,8 +49,15 @@ class TestUtils(TestCase):
 
         # Get two trials and fail one, giving us a ragged structure
         self.client.get_next_trials(max_trials=2)
+        sem = 0.1
         self.client.complete_trial(
-            trial_index=0, raw_data={"foo": 1.0, "bar": 2.0, "baz": 3.0, "qux": 4.0}
+            trial_index=0,
+            raw_data={
+                "foo": (1.0, sem),
+                "bar": (2.0, sem),
+                "baz": (3.0, sem),
+                "qux": (4.0, sem),
+            },
         )
         self.client.mark_trial_failed(trial_index=1)
 
@@ -62,11 +69,14 @@ class TestUtils(TestCase):
                 self.client.complete_trial(
                     trial_index=trial_index,
                     raw_data={
-                        "foo": assert_is_instance(parameterization["x1"], float),
-                        "bar": assert_is_instance(parameterization["x1"], float)
-                        - 2 * assert_is_instance(parameterization["x2"], float),
-                        "baz": 3.0,
-                        "qux": 4.0,
+                        "foo": (assert_is_instance(parameterization["x1"], float), sem),
+                        "bar": (
+                            assert_is_instance(parameterization["x1"], float)
+                            - 2 * assert_is_instance(parameterization["x2"], float),
+                            sem,
+                        ),
+                        "baz": (3.0, sem),
+                        "qux": (4.0, sem),
                     },
                 )
 
@@ -132,7 +142,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -153,14 +164,16 @@ class TestUtils(TestCase):
         self.assertTrue(np.isnan(df.loc[1]["foo_mean"]))
         self.assertTrue(np.isnan(df.loc[1]["foo_sem"]))
 
-        # Check that all SEMs are NaN
-        self.assertTrue(df["foo_sem"].isna().all())
-        self.assertTrue(df["bar_sem"].isna().all())
+        # Check that all SEMs have the correct value
+        success_idcs = [i for i in range(df.shape[0]) if i != 1]
+        self.assertTrue((df.loc[success_idcs]["foo_sem"] == 0.1).all())
+        self.assertTrue((df.loc[success_idcs]["bar_sem"] == 0.1).all())
 
-        # Check that p_feasible is NaN for the arm without data and not NaN for the
+        # Check that p_feasible_mean is NaN for the arm without data and not NaN for the
         # other arms.
-        self.assertTrue(np.isnan(df.loc[1]["p_feasible"]))
-        self.assertFalse(df[df["arm_name"] != "1_0"]["p_feasible"].isna().any())
+        self.assertTrue(np.isnan(df.loc[1]["p_feasible_mean"]))
+        self.assertFalse(df[df["arm_name"] != "1_0"]["p_feasible_mean"].isna().any())
+        self.assertTrue(df["p_feasible_sem"].isna().all())
 
         only_foo_df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -175,7 +188,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
             },
@@ -186,8 +200,8 @@ class TestUtils(TestCase):
         for arm_name in self.client._experiment.arms_by_name:
             self.assertEqual((only_foo_df["arm_name"] == arm_name).sum(), 1)
 
-        # Check that all SEMs are NaN
-        self.assertTrue(only_foo_df["foo_sem"].isna().all())
+        # Check that all SEMs have the correct value
+        self.assertTrue((only_foo_df.loc[success_idcs]["foo_sem"] == 0.1).all())
 
         only_trial_0_df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -204,7 +218,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -219,8 +234,8 @@ class TestUtils(TestCase):
         # Check that all means are not NaN
         self.assertFalse(only_trial_0_df["foo_mean"].isna().any())
 
-        # Check that all SEMs are NaN
-        self.assertTrue(only_trial_0_df["foo_sem"].isna().all())
+        # Check that all SEMs have the correct value
+        self.assertTrue((only_trial_0_df["foo_sem"] == 0.1).all())
 
         only_completed_trials_df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -237,15 +252,15 @@ class TestUtils(TestCase):
         # Check that all means are not NaN
         self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
 
-        # Check that all SEMs are NaN
-        self.assertTrue(only_completed_trials_df["foo_sem"].isna().all())
+        # Check that all SEMs have the correct value
+        self.assertTrue((only_completed_trials_df["foo_sem"] == 0.1).all())
 
     def test_prepare_arm_data_use_model_predictions(self) -> None:
         df = prepare_arm_data(
             experiment=self.client._experiment,
             metric_names=["foo", "bar", "baz", "qux"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
         )
 
         # Check that the columns are correct
@@ -256,7 +271,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -279,14 +295,16 @@ class TestUtils(TestCase):
         self.assertFalse(df["bar_mean"].isna().any())
         self.assertFalse(df["bar_sem"].isna().any())
 
-        # Check that all p_feasible are not NaN
-        self.assertFalse(df["p_feasible"].isna().any())
+        # Check that all p_feasible_mean are not NaN
+        self.assertFalse(df["p_feasible_mean"].isna().any())
+        # Check that all p_feasible_sem are not NaN
+        self.assertTrue(df["p_feasible_sem"].isna().all())
 
         only_foo_df = prepare_arm_data(
             experiment=self.client._experiment,
             metric_names=["foo"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
         )
         # Check that the columns are correct
         self.assertEqual(
@@ -296,7 +314,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
             },
@@ -315,7 +334,7 @@ class TestUtils(TestCase):
             experiment=self.client._experiment,
             metric_names=["foo", "bar"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
             trial_index=0,
         )
 
@@ -327,7 +346,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -349,7 +369,7 @@ class TestUtils(TestCase):
             experiment=self.client._experiment,
             metric_names=["foo", "bar"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
             additional_arms=[
                 Arm(parameters={"x1": 0.5, "x2": 0.5}),
                 Arm(parameters={"x1": 0.25, "x2": 0.25}),
@@ -364,7 +384,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -389,7 +410,7 @@ class TestUtils(TestCase):
             experiment=self.client._experiment,
             metric_names=["foo", "bar"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
             trial_index=-1,
             additional_arms=[
                 Arm(parameters={"x1": 0.5, "x2": 0.5}),
@@ -405,7 +426,8 @@ class TestUtils(TestCase):
                 "arm_name",
                 "trial_status",
                 "generation_node",
-                "p_feasible",
+                "p_feasible_mean",
+                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
                 "bar_mean",
@@ -426,7 +448,7 @@ class TestUtils(TestCase):
             experiment=self.client._experiment,
             metric_names=["foo", "bar"],
             use_model_predictions=True,
-            adapter=self.client._generation_strategy.model,
+            adapter=self.client._generation_strategy.adapter,
             trial_statuses=[TrialStatus.COMPLETED],
         )
 
@@ -441,7 +463,7 @@ class TestUtils(TestCase):
         # Check that all SEMs are not NaN
         self.assertFalse(only_completed_trials_df["foo_sem"].isna().any())
 
-    def test_relativize_data(self) -> None:
+    def test_relativize_df_with_sq(self) -> None:
         df = pd.DataFrame(
             {
                 "trial_index": [0, 0, 0],
@@ -453,7 +475,7 @@ class TestUtils(TestCase):
             }
         )
 
-        rel_df = _relativize_data(
+        rel_df = _relativize_df_with_sq(
             df=df, status_quo_df=df[df["arm_name"] == "status_quo"]
         )
 
@@ -467,7 +489,7 @@ class TestUtils(TestCase):
         np.testing.assert_almost_equal(rel_df.loc[1, "bar_mean"], 0.1, decimal=1)
         np.testing.assert_almost_equal(rel_df.loc[1, "bar_sem"], 0.2, decimal=1)
 
-    def test_relativize_data_multiple_trials(self) -> None:
+    def test_relativize_df_with_sq_multiple_trials(self) -> None:
         df = pd.DataFrame(
             {
                 "trial_index": [0, 0, 1, 1],
@@ -479,7 +501,7 @@ class TestUtils(TestCase):
             }
         )
 
-        rel_df = _relativize_data(
+        rel_df = _relativize_df_with_sq(
             df=df, status_quo_df=df[df["arm_name"] == "status_quo"]
         )
 
@@ -581,7 +603,7 @@ class TestUtils(TestCase):
                             )
                         )
                         generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.model)
+                        adapter = none_throws(generation_strategy.adapter)
 
                         _ = prepare_arm_data(
                             experiment=experiment,
@@ -626,7 +648,7 @@ class TestUtils(TestCase):
                             )
                         )
                         generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.model)
+                        adapter = none_throws(generation_strategy.adapter)
 
                         _ = prepare_arm_data(
                             experiment=experiment,

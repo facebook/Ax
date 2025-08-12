@@ -332,25 +332,33 @@ class SQATrial(Base):
     )
 
 
-class SQAAnalysisCard(Base):
-    __tablename__: str = "analysis_card"
+class SQAAuxiliaryExperiment(Base):
+    __tablename__: str = "auxiliary_experiments"
 
-    id: Column[int] = Column(Integer, primary_key=True)
-    name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
-    title: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
-    subtitle: Column[str] = Column(Text, nullable=False)
-    level: Column[int] = Column(Integer, nullable=False)
-    dataframe_json: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
-    blob: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
-    blob_annotation: Column[str] = Column(
-        String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False
+    source_experiment_id: Column[int] = Column(
+        Integer, ForeignKey("experiment_v2.id"), primary_key=True
     )
-    time_created: Column[datetime] = Column(IntTimestamp, nullable=False)
-    experiment_id: Column[int] = Column(
-        Integer, ForeignKey("experiment_v2.id"), nullable=False
+    target_experiment_id: Column[int] = Column(
+        Integer, ForeignKey("experiment_v2.id"), primary_key=True
     )
-    attributes: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
-    category: Column[int] = Column(Integer, nullable=False)
+    purpose: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), primary_key=True)
+    is_active: Column[bool] = Column(Boolean, nullable=False)
+    properties: Column[dict[str, Any] | None] = Column(JSONEncodedTextDict)
+    time: Column[datetime] = Column(IntTimestamp, nullable=False, default=datetime.now)
+    source_experiment: SQAExperiment = relationship(
+        "SQAExperiment",
+        foreign_keys=[source_experiment_id],
+        lazy="selectin",
+        viewonly=True,
+        innerjoin=True,
+    )
+    target_experiment: SQAExperiment = relationship(
+        "SQAExperiment",
+        foreign_keys=[target_experiment_id],
+        lazy="selectin",
+        viewonly=True,
+        innerjoin=True,
+    )
 
 
 class SQAExperiment(Base):
@@ -406,6 +414,55 @@ class SQAExperiment(Base):
         uselist=False,
         lazy=True,
     )
+    auxiliary_experiments: list[SQAAuxiliaryExperiment] = relationship(
+        "SQAAuxiliaryExperiment",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        foreign_keys=[SQAAuxiliaryExperiment.target_experiment_id],
+    )
+
     analysis_cards: list[SQAAnalysisCard] = relationship(
         "SQAAnalysisCard", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class SQAAnalysisCard(Base):
+    __tablename__: str = "analysis_card_v2"
+
+    id: Column[int] = Column(Integer, primary_key=True)
+
+    experiment_id: Column[int] = Column(
+        Integer, ForeignKey("experiment_v2.id"), nullable=False
+    )
+    name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
+    timestamp: Column[datetime] = Column(IntTimestamp, nullable=False)
+
+    parent_id: Column[int | None] = Column(
+        Integer,
+        ForeignKey("analysis_card_v2.id"),
+        nullable=True,
+    )
+    order: Column[int | None] = Column(Integer, nullable=True)
+
+    title: Column[str | None] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=True)
+    subtitle: Column[str | None] = Column(Text, nullable=True)
+    dataframe_json: Column[str | None] = Column(Text(LONGTEXT_BYTES), nullable=True)
+    blob: Column[str | None] = Column(Text(LONGTEXT_BYTES), nullable=True)
+    blob_annotation: Column[str | None] = Column(
+        String(NAME_OR_TYPE_FIELD_LENGTH), nullable=True
+    )
+
+    # pyre-ignore[4] Using Any here because using SQAAnalysisCard causes Pyre to hang
+    parent: Any = relationship(
+        "SQAAnalysisCard",
+        back_populates="children",
+        remote_side=[id],
+        lazy="selectin",
+    )
+    # pyre-ignore[4] Using Any here because using SQAAnalysisCard causes Pyre to hang
+    children: list[Any] = relationship(
+        "SQAAnalysisCard",
+        cascade="all, delete-orphan",
+        back_populates="parent",
+        lazy="selectin",
     )

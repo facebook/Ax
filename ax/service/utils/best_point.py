@@ -8,13 +8,25 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
-from functools import reduce
 from logging import Logger
 
 import numpy as np
 
 import pandas as pd
 import torch
+from ax.adapter.adapter_utils import (
+    observed_pareto_frontier as observed_pareto,
+    predicted_pareto_frontier as predicted_pareto,
+)
+from ax.adapter.base import Adapter
+from ax.adapter.cross_validation import (
+    assess_model_fit,
+    compute_diagnostics,
+    cross_validate,
+)
+from ax.adapter.registry import Generators
+from ax.adapter.torch import TorchAdapter
+from ax.adapter.transforms.derelativize import Derelativize
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -30,20 +42,7 @@ from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.cross_validation import (
-    assess_model_fit,
-    compute_diagnostics,
-    cross_validate,
-)
-from ax.modelbridge.modelbridge_utils import (
-    observed_pareto_frontier as observed_pareto,
-    predicted_pareto_frontier as predicted_pareto,
-)
-from ax.modelbridge.registry import Generators
-from ax.modelbridge.torch import TorchAdapter
-from ax.modelbridge.transforms.derelativize import Derelativize
-from ax.plot.pareto_utils import get_tensor_converter_model
+from ax.plot.pareto_utils import get_tensor_converter_adapter
 from ax.utils.common.logger import get_logger
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 from numpy import nan
@@ -63,7 +62,7 @@ def derelativize_opt_config(
     )
     optimization_config = tf.transform_optimization_config(
         optimization_config=optimization_config.clone(),
-        modelbridge=get_tensor_converter_model(
+        adapter=get_tensor_converter_adapter(
             experiment=experiment,
             data=experiment.lookup_data(trial_indices=trial_indices),
         ),
@@ -129,13 +128,25 @@ def get_best_raw_objective_point_with_trial_index(
     completed_df = dat.df[dat.df["trial_index"].isin(completed_indices)]
 
     is_feasible = _is_row_feasible(
-        df=completed_df, optimization_config=optimization_config
+        df=completed_df,
+        optimization_config=optimization_config,
     )
+    is_na_mask = is_feasible.isna()
     if not is_feasible.any():
-        raise ValueError(
+        msg = (
             "No points satisfied all outcome constraints within 95 percent "
             "confidence interval."
         )
+        na_arms = completed_df[is_na_mask]["arm_name"].unique()
+        if len(na_arms) > 0:
+            msg += (
+                f" The feasibility of {len(na_arms)} arm(s) could not be determined: "
+                f"{na_arms}."
+            )
+        raise ValueError(msg)
+    # For the sake of best point identification, we only care about feasible trials.
+    # The distinction between infeasible and undetermined is not important.
+    is_feasible[is_na_mask] = False
     feasible_df = completed_df.loc[is_feasible]
 
     is_in_design = feasible_df["arm_name"].apply(
@@ -379,7 +390,7 @@ def get_pareto_optimal_parameters(
 
     Args:
         experiment: Experiment, from which to find Pareto-optimal arms.
-        generation_strategy: Generation strategy containing the modelbridge.
+        generation_strategy: Generation strategy containing the adapter.
         optimization_config: Optimization config to use in place of the one stored
             on the experiment.
         trial_indices: Indices of trials for which to retrieve data. If None will
@@ -416,33 +427,33 @@ def get_pareto_optimal_parameters(
         MultiObjectiveOptimizationConfig,
     )
 
-    # Use existing modelbridge if it supports MOO otherwise create a new MOO modelbridge
+    # Use existing adapter if it supports MOO otherwise create a new MOO adapter
     # to use for Pareto frontier extraction.
-    modelbridge = generation_strategy.model
-    is_moo_modelbridge = (
-        modelbridge
-        and isinstance(modelbridge, TorchAdapter)
+    adapter = generation_strategy.adapter
+    is_moo_adapter = (
+        adapter
+        and isinstance(adapter, TorchAdapter)
         and assert_is_instance(
-            modelbridge,
+            adapter,
             TorchAdapter,
         ).is_moo_problem
     )
-    if is_moo_modelbridge:
+    if is_moo_adapter:
         generation_strategy._curr._fit(experiment=experiment)
     else:
-        modelbridge = Generators.BOTORCH_MODULAR(
+        adapter = Generators.BOTORCH_MODULAR(
             experiment=experiment,
             data=assert_is_instance(
                 experiment.lookup_data(trial_indices=trial_indices),
                 Data,
             ),
         )
-    modelbridge = assert_is_instance(modelbridge, TorchAdapter)
+    adapter = assert_is_instance(adapter, TorchAdapter)
 
     objective_thresholds_override = None
     # If objective thresholds are not specified in optimization config, infer them.
     if not moo_optimization_config.objective_thresholds:
-        objective_thresholds_override = modelbridge.infer_objective_thresholds(
+        objective_thresholds_override = adapter.infer_objective_thresholds(
             search_space=experiment.search_space,
             optimization_config=optimization_config,
             fixed_features=None,
@@ -455,7 +466,7 @@ def get_pareto_optimal_parameters(
 
     pareto_util = predicted_pareto if use_model_predictions else observed_pareto
     pareto_optimal_observations = pareto_util(
-        modelbridge=modelbridge,
+        adapter=adapter,
         optimization_config=moo_optimization_config,
         objective_thresholds=objective_thresholds_override,
     )
@@ -476,6 +487,7 @@ def get_pareto_optimal_parameters(
 def _is_row_feasible(
     df: pd.DataFrame,
     optimization_config: OptimizationConfig,
+    undetermined_value: bool | None = None,
 ) -> pd.Series:
     """Return a series of boolean values indicating whether arms satisfy outcome
     constraints or not.
@@ -484,35 +496,54 @@ def _is_row_feasible(
     which one or more of their associated metrics' 95% confidence interval
     falls outside of any outcome constraint's bounds (i.e. we are 95% sure the
     bound is not satisfied), else True.
+
+    Args:
+        df: Dataframe of arm data, with columns "metric_name", "mean", "sem", and
+            "arm_name".
+        optimization_config: Optimization config to extract constraints from.
+        undetermined_value: Optional value to use for rows in which the feasibility
+            cannot be determined.
+
+    Returns:
+        Series of optional Boolean values indicating whether arms satisfy outcome
+        constraints, or `undetermined_value` if the feasibility of an arm cannot be
+        determined.
     """
     if len(optimization_config.all_constraints) < 1:
         return pd.Series([True] * len(df), index=df.index)
+
+    relative_constraints = [
+        c for c in optimization_config.all_constraints if c.relative
+    ]
+    if len(relative_constraints) > 0:
+        logger.warning(
+            f"Determining trial feasibility only supported with a derelativized "
+            "OptimizationConfig, but found the following relative constraints: "
+            f"{relative_constraints}. "
+            f"Returning {undetermined_value} as the feasibility."
+        )
+        return pd.Series([undetermined_value for _ in df.index], index=df.index)
 
     name = df["metric_name"]
 
     # When SEM is NaN we should treat it as if it were 0
     sems = none_throws(df["sem"].fillna(0))
-
     # Bounds computed for 95% confidence interval on Normal distribution
     lower_bound = df["mean"] - sems * 1.96
     upper_bound = df["mean"] + sems * 1.96
+    # TODO: Support scalarized outcome constraints by getting weights and scalarizing
+    # the bounds here.
 
     # Nested function from OC -> Mask for consumption in later map/reduce from
     # [OC] -> Mask. Constraint relativity is handled inside so long as relative bounds
     # are set in surrounding closure (which will occur in proper experiment setup).
-    # pyre-fixme[53]: Captured variable `lower_bound` is not annotated.
-    # pyre-fixme[53]: Captured variable `name` is not annotated.
-    # pyre-fixme[53]: Captured variable `rel_lower_bound` is not annotated.
-    # pyre-fixme[53]: Captured variable `rel_upper_bound` is not annotated.
-    # pyre-fixme[53]: Captured variable `upper_bound` is not annotated.
-    def oc_mask(oc: OutcomeConstraint) -> pd.Series:
+    def compute_feasibility_per_constraint(
+        oc: OutcomeConstraint,
+        lower_bound: pd.Series = lower_bound,
+        upper_bound: pd.Series = upper_bound,
+        name: pd.Series = name,
+    ) -> pd.Series:
         name_match_mask = name == oc.metric.name
-        if oc.relative:
-            logger.warning(
-                f"Ignoring relative constraint {oc}. Derelativize "
-                "OptimizationConfig before passing to `_is_row_feasible`."
-            )
-            return pd.Series(True, index=df.index)
         # Return True if metrics are different, or whether the confidence
         # interval is entirely not within the bound
         if oc.op == ComparisonOp.GEQ:
@@ -520,14 +551,58 @@ def _is_row_feasible(
         else:
             return ~name_match_mask | (lower_bound <= float(oc.bound))
 
-    mask = reduce(
-        lambda left, right: left & right,
-        map(oc_mask, optimization_config.all_constraints),
-    )
-    # Mark all rows corresponding to infeasible arms as infeasible.
-    bad_arm_names = df[~mask]["arm_name"].tolist()
+    # Keep track of whether arms have mising values (NaNs) or rows.
+    is_na_mask = df["mean"].isna()
+
+    # If an arm doesn't have data for all constrained metrics, and the observed
+    # constrained metric values are feasible, (in)feasibility cannot be determined
+    # conclusively.
+    has_missing_metric_mask = pd.Series([False] * len(df), index=df.index)
+    constrained_metric_names = {
+        oc.metric.name for oc in optimization_config.all_constraints
+    }
+    for arm_name, arm_group in df.groupby("arm_name"):
+        metrics_for_arm = set(arm_group["metric_name"].unique())
+        missing_metrics = constrained_metric_names - metrics_for_arm
+        if missing_metrics:
+            logger.warning(
+                f"Arm {arm_name} is missing data for one or more constrained metrics: "
+                f"{missing_metrics}."
+            )
+            has_missing_metric_mask = has_missing_metric_mask | (
+                df["arm_name"] == arm_name
+            )
+
+    # Computing feasibility on a per-row (metric-arm-combination) basis.
+    is_feasible_per_constraint_list = [
+        compute_feasibility_per_constraint(oc=oc)
+        for oc in optimization_config.all_constraints
+    ]
+    # stacking the feasibility masks for each constraint an checking if all are feasible
+    is_feasible_mask = pd.DataFrame(is_feasible_per_constraint_list).all(axis=0)
+
+    # can definititively determine infeasibility for all rows that are evaluated
+    # infeasible (~is_feasible_mask) based on available data (~is_na_mask).
+    infeasible_df = df[~is_feasible_mask & ~is_na_mask]
+    infeasible_arm_names = set(infeasible_df["arm_name"].unique())
+    # Can't determine feasibility for rows that are not definitively infeasible
+    # and that have missing values (NaN or missing metrics).
+    na_df = df[has_missing_metric_mask | is_na_mask]
+    na_arm_names = set(na_df["arm_name"].unique())
+
+    def tag_feasible_arms(
+        x: str,
+        infeasible_arm_names: set[str] = infeasible_arm_names,
+        na_arm_names: set[str] = na_arm_names,
+    ) -> bool | None:
+        if x in infeasible_arm_names:
+            return False
+        elif x in na_arm_names:
+            return undetermined_value
+        return True
+
     return assert_is_instance(
-        df["arm_name"].apply(lambda x: x not in bad_arm_names),
+        df["arm_name"].apply(tag_feasible_arms),
         pd.Series,
     )
 
@@ -617,8 +692,6 @@ def _compute_hv_trace(
     return hvs
 
 
-# NOTE: we are ignoring `MultiObjective` weights here. these
-# should likely be deprecated or removed
 def get_hypervolume_trace_of_outcomes_multi_objective(
     df_wide: pd.DataFrame,
     optimization_config: MultiObjectiveOptimizationConfig,
@@ -748,7 +821,11 @@ def get_trace_by_arm_pull_from_data(
     metrics = list(optimization_config.metrics.keys())
 
     df["row_feasible"] = _is_row_feasible(
-        df=df, optimization_config=optimization_config
+        df=df,
+        optimization_config=optimization_config,
+        # For the sake of this function, we only care about feasible trials. The
+        # distinction between infeasible and undetermined is not important.
+        undetermined_value=False,
     )
 
     # Transform to a DataFrame with columns ["trial_index", "arm_name"] +

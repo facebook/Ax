@@ -5,9 +5,6 @@
 
 # pyre-strict
 
-from ax.analysis.markdown.markdown_analysis import (
-    MarkdownAnalysis,
-    MarkdownAnalysisCard,
-)
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 
-__all__ = ["MarkdownAnalysis", "MarkdownAnalysisCard"]
+__all__ = ["MarkdownAnalysisCard"]

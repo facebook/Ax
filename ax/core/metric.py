@@ -52,6 +52,15 @@ class MetricFetchE:
             f"with Traceback:\n {self.tb_str()}"
         )
 
+    def reason_for_failure_str(self) -> str:
+        if self.exception is None:
+            return self.message
+
+        return (
+            f"{self.message} with exception: "
+            + f"{type(self.exception).__name__} {self.exception}"
+        )
+
     def tb_str(self) -> str | None:
         if self.exception is None:
             return None
@@ -83,7 +92,7 @@ class Metric(SortableBase, SerializationMixin):
 
     data_constructor: type[Data] = Data
     # The set of exception types stored in a ``MetchFetchE.exception`` that are
-    # recoverable ``Scheduler._fetch_and_process_trials_data_results()``.
+    # recoverable ``orchestrator._fetch_and_process_trials_data_results()``.
     # Exception may be a subclass of any of these types.  If you want your metric
     # to never fail the trial, set this to ``{Exception}`` in your metric subclass.
     recoverable_exceptions: set[type[Exception]] = set()
@@ -138,15 +147,15 @@ class Metric(SortableBase, SerializationMixin):
 
         NOTE: This property will not prevent new data from attempting to be refetched
         for completed trials when calling `experiment.fetch_data()`.  Its purpose is to
-        prevent `experiment.fetch_data()` from being called in `Scheduler` and anywhere
-        else it is checked.
+        prevent `experiment.fetch_data()` from being called in `Orchestrator` and
+        anywhere else it is checked.
         """
         return timedelta(0)
 
     @classmethod
     def is_reconverable_fetch_e(cls, metric_fetch_e: MetricFetchE) -> bool:
         """Checks whether the given MetricFetchE is recoverable for this metric class
-        in ``Scheduler._fetch_and_process_trials_data_results``.
+        in ``orchestrator._fetch_and_process_trials_data_results``.
         """
         if metric_fetch_e.exception is None:
             return False

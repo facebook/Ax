@@ -9,6 +9,7 @@
 from logging import Logger
 
 import numpy as np
+from ax.adapter.adapter_utils import observed_hypervolume
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -21,9 +22,8 @@ from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import AxError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
-from ax.modelbridge.modelbridge_utils import observed_hypervolume
 from ax.plot.pareto_utils import (
-    get_tensor_converter_model,
+    get_tensor_converter_adapter,
     infer_reference_point_from_experiment,
 )
 from ax.utils.common.logger import get_logger
@@ -174,7 +174,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 # instance method or property that handles the caching.
                 objective_thresholds = self._inferred_objective_thresholds
             if not objective_thresholds:
-                # TODO: This is headed to ax.modelbridge.modelbridge_utils.hypervolume,
+                # TODO: This is headed to ax.adapter.adapter_utils.hypervolume,
                 # where an empty list would lead to an opaque indexing error.
                 # A list that is nonempty and of the wrong length could be worse,
                 # since it might wind up running without error, but with thresholds for
@@ -237,11 +237,11 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         if reference_trial_index in self.hv_by_trial:
             hv_reference = self.hv_by_trial[reference_trial_index]
         else:
-            mb_reference = get_tensor_converter_model(
+            adapter_reference = get_tensor_converter_adapter(
                 experiment=experiment, data=Data(data_df_reference)
             )
             hv_reference = observed_hypervolume(
-                modelbridge=mb_reference, objective_thresholds=objective_thresholds
+                adapter=adapter_reference, objective_thresholds=objective_thresholds
             )
             self.hv_by_trial[reference_trial_index] = hv_reference
 
@@ -250,8 +250,12 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             return False, message
 
         # Computing HV at current trial
-        mb = get_tensor_converter_model(experiment=experiment, data=Data(data_df))
-        hv = observed_hypervolume(mb, objective_thresholds=objective_thresholds)
+        adapter = get_tensor_converter_adapter(
+            experiment=experiment, data=Data(data_df)
+        )
+        hv = observed_hypervolume(
+            adapter=adapter, objective_thresholds=objective_thresholds
+        )
         self.hv_by_trial[trial_to_check] = hv
 
         hv_improvement = (hv - hv_reference) / hv_reference

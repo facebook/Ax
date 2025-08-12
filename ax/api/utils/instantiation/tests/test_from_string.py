@@ -6,7 +6,7 @@
 # pyre-strict
 
 from ax.api.utils.instantiation.from_string import (
-    _sanitize_dot,
+    _sanitize_name,
     optimization_config_from_string,
     parse_objective,
     parse_outcome_constraint,
@@ -238,8 +238,14 @@ class TestFromString(TestCase):
         with self.assertRaisesRegex(UserInputError, "Only linear"):
             parse_outcome_constraint(constraint_str="flops * flops <= 1000000")
 
-    def test_sanitize_dot(self) -> None:
-        self.assertEqual(_sanitize_dot("foo.bar.baz"), "foo__dot__bar__dot__baz")
+    def test_sanitize_name(self) -> None:
+        self.assertEqual(_sanitize_name("foo.bar.baz"), "foo__dot__bar__dot__baz")
+        self.assertEqual(
+            _sanitize_name("foo.bar/11:Baz"), "foo__dot__bar__slash__11__colon__Baz"
+        )
+        self.assertEqual(
+            _sanitize_name("foo.bar + 0.1 * baz"), "foo__dot__bar + 0.1 * baz"
+        )
 
         constraint = parse_parameter_constraint(constraint_str="foo.bar + foo.baz <= 1")
         self.assertEqual(

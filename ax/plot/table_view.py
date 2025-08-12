@@ -10,9 +10,9 @@ import math
 
 import pandas as pd
 import plotly.graph_objs as go
+from ax.adapter.factory import get_empirical_bayes_thompson, get_thompson
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.modelbridge.factory import get_empirical_bayes_thompson, get_thompson
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotMetric, Z
 from ax.plot.helper import get_plot_data
 from ax.plot.scatter import _error_scatter_data

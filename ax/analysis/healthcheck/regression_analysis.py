@@ -5,12 +5,11 @@
 
 # pyre-strict
 
-from typing import Sequence
-
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
 from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
+    create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
@@ -20,11 +19,10 @@ from ax.analysis.healthcheck.regression_detection_utils import (
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from pyre_extensions import none_throws, override
 
 
-class RegressionAnalysis(HealthcheckAnalysis):
+class RegressionAnalysis(Analysis):
     r"""
     Analysis for detecting the regressing arm, metric pairs across all trials with data.
     For each metric, the regressions are defined as the arms that have a probability of
@@ -51,14 +49,14 @@ class RegressionAnalysis(HealthcheckAnalysis):
         experiment: Experiment | None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[HealthcheckAnalysisCard]:
+    ) -> HealthcheckAnalysisCard:
         r"""
         Detect the regressing arms for all trials that have data.
 
         Args:
             experiment: Ax experiment.
             generation_strategy: Ax generation strategy.
-            adapter: Ax modelbridge adapter
+            adapter: Ax adapter adapter
 
         Returns:
             A HealthcheckAnalysisCard object with the information on regressing arms
@@ -108,16 +106,13 @@ class RegressionAnalysis(HealthcheckAnalysis):
             subtitle = subtitle_base + "No metric regessions detected."
             title_status = "Success"
 
-        return [
-            self._create_healthcheck_analysis_card(
-                title=f"Ax Regression Analysis {title_status}",
-                subtitle=subtitle,
-                df=regressions_by_trial_df,
-                level=AnalysisCardLevel.LOW,
-                status=status,
-                category=AnalysisCardCategory.DIAGNOSTIC,
-            ),
-        ]
+        return create_healthcheck_analysis_card(
+            name=self.__class__.__name__,
+            title=f"Ax Regression Analysis {title_status}",
+            subtitle=subtitle,
+            df=regressions_by_trial_df,
+            status=status,
+        )
 
 
 def process_regression_dict(

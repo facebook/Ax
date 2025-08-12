@@ -16,7 +16,7 @@ from ax.benchmark.problems.hpo.torchvision import (
     CNN,
     PyTorchCNNTorchvisionBenchmarkTestFunction,
 )
-from ax.benchmark.problems.registry import get_problem
+from ax.benchmark.problems.registry import get_benchmark_problem
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import TestDataset
@@ -42,10 +42,10 @@ class TestPyTorchCNNTorchvision(TestCase):
             {"MNIST": TestDataset, "FashionMNIST": TestDataset},
         ):
             self.assertEqual(
-                get_problem(problem_key="hpo_pytorch_cnn_MNIST").name,
+                get_benchmark_problem(problem_key="hpo_pytorch_cnn_MNIST").name,
                 "HPO_PyTorchCNN_Torchvision::MNIST",
             )
-            problem = get_problem(
+            problem = get_benchmark_problem(
                 problem_key="hpo_pytorch_cnn_FashionMNIST", num_trials=num_trials
             )
 
@@ -69,7 +69,9 @@ class TestPyTorchCNNTorchvision(TestCase):
             "ax.benchmark.problems.hpo.torchvision._REGISTRY",
             {problem_name: TestDataset},
         ):
-            problem = get_problem(problem_key=f"hpo_pytorch_cnn_{problem_name}")
+            problem = get_benchmark_problem(
+                problem_key=f"hpo_pytorch_cnn_{problem_name}"
+            )
 
         test_function = problem.test_function
 

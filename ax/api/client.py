@@ -6,19 +6,15 @@
 # pyre-strict
 
 import json
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from logging import Logger
 from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-
-from ax.analysis.analysis import (  # Used as a return type
-    Analysis,
-    AnalysisCard,
-    display_cards,
-)
-from ax.analysis.dispatch import choose_analyses
+from ax.analysis.analysis import Analysis, display_cards
+from ax.analysis.analysis_card import AnalysisCardBase
+from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.summary import Summary
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
 from ax.api.protocols.metric import IMetric
@@ -44,7 +40,7 @@ from ax.early_stopping.strategies import (
 )
 from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.scheduler import Scheduler, SchedulerOptions
+from ax.service.orchestrator import Orchestrator, OrchestratorOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.decoder import (
@@ -58,12 +54,14 @@ from ax.storage.json_store.registry import (
     CORE_DECODER_REGISTRY,
     CORE_ENCODER_REGISTRY,
 )
-from ax.utils.common.logger import get_logger
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.random import with_rng_seed
+
 from pyre_extensions import assert_is_instance, none_throws
 from typing_extensions import Self
 
 logger: Logger = get_logger(__name__)
+ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
 
 class Client(WithDBSettingsBase):
@@ -97,7 +95,7 @@ class Client(WithDBSettingsBase):
         self._storage_config = storage_config
         self._random_seed = random_seed
 
-    # -------------------- Section 1: Configure --------------------------------------
+    # -------------------- Section 1: Configure -------------------------------------
     def configure_experiment(
         self,
         parameters: Sequence[RangeParameterConfig | ChoiceParameterConfig],
@@ -165,17 +163,17 @@ class Client(WithDBSettingsBase):
 
         Saves to database on completion if ``storage_config`` is present.
         """
-
+        old_metrics = self._experiment.metrics
         self._experiment.optimization_config = optimization_config_from_string(
             objective_str=objective,
             outcome_constraint_strs=outcome_constraints,
         )
-
+        self._set_metrics(metrics=list(old_metrics.values()))
         self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
     def configure_generation_strategy(
         self,
-        method: Literal["balanced", "fast", "random_search"] = "fast",
+        method: Literal["quality", "fast", "random_search"] = "fast",
         # Initialization options
         initialization_budget: int | None = None,
         initialization_random_seed: int | None = None,
@@ -193,8 +191,7 @@ class Client(WithDBSettingsBase):
 
         Saves to database on completion if ``storage_config`` is present.
         """
-
-        generation_strategy_dispatch_struct = GenerationStrategyDispatchStruct(
+        generation_strategy = self._choose_generation_strategy(
             method=method,
             initialization_budget=initialization_budget,
             initialization_random_seed=initialization_random_seed,
@@ -204,19 +201,7 @@ class Client(WithDBSettingsBase):
             allow_exceeding_initialization_budget=allow_exceeding_initialization_budget,
             torch_device=torch_device,
         )
-
-        generation_strategy = choose_generation_strategy(
-            struct=generation_strategy_dispatch_struct
-        )
-
-        # Necessary for storage implications, may be removed in the future
-        generation_strategy._experiment = self._experiment
-
-        self._maybe_generation_strategy = generation_strategy
-
-        self._save_generation_strategy_to_db_if_possible(
-            generation_strategy=self._generation_strategy
-        )
+        self.set_generation_strategy(generation_strategy=generation_strategy)
 
     # -------------------- Section 1.1: Configure Automation ------------------------
     def configure_runner(self, runner: IRunner) -> None:
@@ -369,8 +354,7 @@ class Client(WithDBSettingsBase):
         with with_rng_seed(seed=self._random_seed):
             gs = self._generation_strategy_or_choose()
 
-            # This will be changed to use gen directly post gen-unfication cc @mgarrard
-            generator_runs = gs.gen_for_multiple_trials_with_multiple_models(
+            generator_runs = gs.gen(
                 experiment=self._experiment,
                 pending_observations=(
                     get_pending_observation_features_based_on_trial_status(
@@ -395,12 +379,26 @@ class Client(WithDBSettingsBase):
                 ),
                 Trial,
             )
+
+            logger.info(
+                f"Generated new trial {trial.index} with parameters "
+                + str(
+                    _round_floats_for_logging(
+                        item=none_throws(trial.arm).parameters,
+                        decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
+                    )
+                )
+                + f"using GenerationNode {generator_run[0]._generation_node_name}."
+            )
+
             trial.mark_running(no_runner_required=True)
 
             trials.append(trial)
 
         # Save GS to db
-        self._save_generation_strategy_to_db_if_possible()
+        self._save_generation_strategy_to_db_if_possible(
+            generation_strategy=self._generation_strategy
+        )
 
         # Bulk save all trials to the database if possible
         self._save_or_update_trials_in_db_if_possible(
@@ -453,14 +451,21 @@ class Client(WithDBSettingsBase):
             # If all necessary metrics are present mark the trial as COMPLETED
             if len(missing_metrics) == 0:
                 self._experiment.trials[trial_index].mark_completed()
+                logger.info(f"Trial {trial_index} marked COMPLETED.")
 
             # If any metrics are missing mark the trial as FAILED
             else:
-                logger.warning(
-                    f"Trial {trial_index} marked completed but metrics "
-                    f"{missing_metrics} are missing, marking trial FAILED."
+                self.mark_trial_failed(
+                    trial_index=trial_index,
+                    failed_reason=(
+                        f"{missing_metrics} are missing, marking trial FAILED."
+                    ),
                 )
-                self.mark_trial_failed(trial_index=trial_index)
+
+                logger.warning(
+                    f"Trial {trial_index} marked FAILED because the following metrics "
+                    f"are missing: {missing_metrics}"
+                )
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -490,10 +495,7 @@ class Client(WithDBSettingsBase):
 
         trial = assert_is_instance(self._experiment.trials[trial_index], Trial)
         trial.update_trial_data(
-            # pyre-fixme[6]: Type narrowing broken because core Ax TParameterization
-            # is dict not Mapping
-            raw_data=data_with_progression,
-            combine_with_last_data=True,
+            raw_data=data_with_progression, combine_with_last_data=True
         )
 
         self._save_or_update_trial_in_db_if_possible(
@@ -569,21 +571,33 @@ class Client(WithDBSettingsBase):
         es_response = none_throws(
             self._early_stopping_strategy_or_choose()
         ).should_stop_trials_early(
-            trial_indices={trial_index}, experiment=self._experiment
+            trial_indices={trial_index},
+            experiment=self._experiment,
+            current_node=self._generation_strategy_or_choose()._curr,
         )
 
-        # TODO[mpolson64]: log the returned reason for stopping the trial
-        return trial_index in es_response
+        if trial_index in es_response:
+            logger.info(
+                f"Trial {trial_index} should be stopped early: "
+                f"{es_response[trial_index]}"
+            )
+            return True
+
+        return False
 
     # -------------------- Section 2.3 Marking trial status manually ----------------
-    def mark_trial_failed(self, trial_index: int) -> None:
+    def mark_trial_failed(
+        self, trial_index: int, failed_reason: str | None = None
+    ) -> None:
         """
-        Manually mark a trial as FAILED. FAILED trials typically may be re-suggested by
-        ``get_next_trials``, though this is controlled by the ``GenerationStrategy``.
+        Manually mark a trial as FAILED. FAILED trials may be re-suggested by
+        ``get_next_trials``.
 
         Saves to database on completion if ``storage_config`` is present.
         """
-        self._experiment.trials[trial_index].mark_failed()
+        self._experiment.trials[trial_index].mark_failed(reason=failed_reason)
+
+        logger.info(f"Trial {trial_index} marked FAILED.")
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -591,13 +605,17 @@ class Client(WithDBSettingsBase):
 
     def mark_trial_abandoned(self, trial_index: int) -> None:
         """
-        Manually mark a trial as ABANDONED. ABANDONED trials are typically not able to
-        be re-suggested by ``get_next_trials``, though this is controlled by the
-        ``GenerationStrategy``.
+        Manually mark a trial as ABANDONED. ABANDONED trials are not able to
+        be re-suggested by ``get_next_trials``.
 
         Saves to database on completion if ``storage_config`` is present.
         """
         self._experiment.trials[trial_index].mark_abandoned()
+
+        logger.info(
+            f"Trial {trial_index} marked ABANDONED. ABANDONED trials are not able to "
+            "be re-suggested by ``get_next_trials``."
+        )
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
@@ -615,6 +633,8 @@ class Client(WithDBSettingsBase):
         """
         self._experiment.trials[trial_index].mark_early_stopped()
 
+        logger.info(f"Trial {trial_index} marked EARLY_STOPPED.")
+
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=self._experiment.trials[trial_index]
         )
@@ -627,18 +647,17 @@ class Client(WithDBSettingsBase):
         initial_seconds_between_polls: int = 1,
     ) -> None:
         """
-        Run up to max_trials trials in a loop by creating an ephemeral ``Scheduler``
-        under the hood using the ``Experiment``, ``GenerationStrategy``, ``Metrics``,
-        and ``Runner`` attached to this ``Client`` along with the provided
-        ``OrchestrationConfig``.
+        Run maximum_trials trials in a loop by creating an ephemeral Orchestrator under
+        the hood using the Experiment, GenerationStrategy, Metrics, and Runner attached
+        to this AxClient along with the provided OrchestrationConfig.
 
         Saves to database on completion if ``storage_config`` is present.
         """
 
-        scheduler = Scheduler(
+        orchestrator = Orchestrator(
             experiment=self._experiment,
             generation_strategy=self._generation_strategy_or_choose(),
-            options=SchedulerOptions(
+            options=OrchestratorOptions(
                 max_pending_trials=parallelism,
                 tolerated_trial_failure_rate=tolerated_trial_failure_rate,
                 init_seconds_between_polls=initial_seconds_between_polls,
@@ -648,15 +667,15 @@ class Client(WithDBSettingsBase):
             else None,
         )
 
-        # Note: This scheduler call will handle storage internally
-        scheduler.run_n_trials(max_trials=max_trials)
+        # Note: This Orchestrator call will handle storage internally
+        orchestrator.run_n_trials(max_trials=max_trials)
 
     # -------------------- Section 3. Analyze ---------------------------------------
     def compute_analyses(
         self,
         analyses: Sequence[Analysis] | None = None,
         display: bool = True,
-    ) -> list[AnalysisCard]:
+    ) -> list[AnalysisCardBase]:
         """
         Compute ``AnalysisCards`` (data about the optimization for end-user consumption)
         using the ``Experiment`` and ``GenerationStrategy``. If no analyses are
@@ -680,41 +699,40 @@ class Client(WithDBSettingsBase):
             A list of AnalysisCards.
         """
 
-        analyses = (
-            analyses
-            if analyses is not None
-            else choose_analyses(experiment=self._experiment)
-        )
+        analyses = analyses if analyses is not None else [OverviewAnalysis()]
 
-        # Compute Analyses one by one and accumulate Results holding either the
-        # AnalysisCard or an Exception and some metadata
-        results = [
-            analysis.compute_result(
+        # Compute Analyses. If any fails to compute, catch and instead return an
+        # ErrorAnalysisCard which contains the Exception and its associated traceback.
+        cards = [
+            analysis.compute_or_error_card(
                 experiment=self._experiment,
                 generation_strategy=self._generation_strategy,
             )
             for analysis in analyses
         ]
 
-        # Turn Exceptions into MarkdownAnalysisCards with the traceback as the message
-        cards = [
-            card
-            for result in results
-            for card in result.unwrap_or_else(lambda e: e.error_card())
-        ]
-
         # Display the AnalysisCards if requested and if the user is in a notebook
         if display:
             display_cards(cards=cards)
 
-        # Save the AnalysisCards to the database if possible
-        self._save_analysis_cards_to_db_if_possible(
-            experiment=self._experiment, analysis_cards=cards
-        )
-
         return cards
 
-    def summarize(self) -> pd.DataFrame:
+    def summarize(
+        self,
+        trial_indices: Iterable[int] | None = None,
+        trial_statuses: Sequence[
+            Literal[
+                "candidate",
+                "running",
+                "failed",
+                "completed",
+                "abandoned",
+                "early_stopped",
+                "staged",
+            ]
+        ]
+        | None = None,
+    ) -> pd.DataFrame:
         """
         Special convenience method for producing the ``DataFrame`` produced by the
         ``Summary`` ``Analysis``. This method is a convenient way to inspect the state
@@ -734,11 +752,25 @@ class Client(WithDBSettingsBase):
                 Experiment's ``runner.run_metadata_report_keys`` field
             - **METRIC_NAME: The observed mean of the metric specified, for each metric
             - **PARAMETER_NAME: The parameter value for the arm, for each parameter
-        """
 
-        (card,) = Summary(omit_empty_columns=True).compute(
+        Args:
+            trial_indices: If specified, only include these trial indices.
+            trial_status: If specified, only include trials with this status.
+        """
+        # Convert string literals to TrialStatus enum values
+        enum_trial_statuses = None
+        if trial_statuses is not None:
+            enum_trial_statuses = [
+                TrialStatus[status.upper()] for status in trial_statuses
+            ]
+
+        card = Summary(
+            trial_indices=trial_indices,
+            trial_statuses=enum_trial_statuses,
+            omit_empty_columns=True,
+        ).compute(
             experiment=self._experiment,
-            generation_strategy=self._generation_strategy,
+            generation_strategy=self._maybe_generation_strategy,
         )
 
         return card.df
@@ -872,7 +904,7 @@ class Client(WithDBSettingsBase):
     def predict(
         self,
         points: Sequence[TParameterization],
-    ) -> list[TOutcome]:
+    ) -> list[dict[str, tuple[float, float]]]:
         """
         Use the current surrogate model to predict the outcome of the provided
         list of parameterizations.
@@ -888,7 +920,7 @@ class Client(WithDBSettingsBase):
             )
 
         try:
-            mean, covariance = none_throws(self._generation_strategy.model).predict(
+            mean, covariance = none_throws(self._generation_strategy.adapter).predict(
                 observation_features=[
                     # pyre-fixme[6]: Core Ax allows users to specify TParameterization
                     # values as None but we do not allow this in the API.
@@ -898,7 +930,7 @@ class Client(WithDBSettingsBase):
             )
         except (NotImplementedError, AssertionError) as e:
             raise UnsupportedError(
-                "Predicting with the GenerationStrategy's modelbridge failed. This "
+                "Predicting with the GenerationStrategy's adapter failed. This "
                 "could be because the current GenerationNode is not predictive -- try "
                 "running more trials to progress to a predictive GenerationNode."
             ) from e
@@ -907,7 +939,7 @@ class Client(WithDBSettingsBase):
             {
                 metric_name: (
                     mean[metric_name][i],
-                    covariance[metric_name][metric_name][i],
+                    covariance[metric_name][metric_name][i] ** 0.5,
                 )
                 for metric_name in mean.keys()
             }
@@ -1050,6 +1082,68 @@ class Client(WithDBSettingsBase):
             )
 
             return self._early_stopping_strategy
+
+    def _choose_generation_strategy(
+        self,
+        method: Literal["quality", "fast", "random_search"] = "fast",
+        # Initialization options
+        initialization_budget: int | None = None,
+        initialization_random_seed: int | None = None,
+        initialize_with_center: bool = True,
+        use_existing_trials_for_initialization: bool = True,
+        min_observed_initialization_trials: int | None = None,
+        allow_exceeding_initialization_budget: bool = False,
+        # Misc options
+        torch_device: str | None = None,
+    ) -> GenerationStrategy:
+        """
+        Choose a generation strategy based on the provided method and options.
+
+        Args:
+            method: The method to use for generating candidates. Options are:
+                - "fast": Uses Bayesian optimization, configured specifically for
+                  the current experiment.
+                - "random_search": Uses random search.
+            initialization_budget: Number of initialization trials. If None, will be
+                automatically determined based on the search space.
+            initialization_random_seed: Random seed for initialization. If None, no
+                seed will be set.
+            initialize_with_center: Whether to include the center of the search space
+                in the initialization trials.
+            use_existing_trials_for_initialization: Whether to use existing trials
+                for initialization.
+            min_observed_initialization_trials: Minimum number of observed
+                init trials required before moving to the next generation step.
+            allow_exceeding_initialization_budget: Whether to allow exceeding the
+                initialization budget if more trials are needed.
+            torch_device: The torch device to use for model fitting. If None, will
+                use the default device.
+
+        Returns:
+            A GenerationStrategy instance configured according to the specified options.
+        """
+        generation_strategy = choose_generation_strategy(
+            struct=GenerationStrategyDispatchStruct(
+                method=method,
+                initialization_budget=initialization_budget,
+                initialization_random_seed=initialization_random_seed,
+                initialize_with_center=initialize_with_center,
+                use_existing_trials_for_initialization=(
+                    use_existing_trials_for_initialization
+                ),
+                min_observed_initialization_trials=min_observed_initialization_trials,
+                allow_exceeding_initialization_budget=(
+                    allow_exceeding_initialization_budget
+                ),
+                torch_device=torch_device,
+            )
+        )
+
+        logger.info(
+            f"{generation_strategy} chosen based on user input and problem structure."
+        )
+
+        return generation_strategy
 
     # -------------------- Section 5.2: Metric configuration --------------------------
     def _overwrite_metric(self, metric: Metric) -> None:

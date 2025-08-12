@@ -5,9 +5,10 @@
 
 # pyre-strict
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 
 from dataclasses import dataclass, field, InitVar
+from functools import partial
 from logging import Logger
 from typing import Any, Protocol, TypeVar
 
@@ -19,6 +20,7 @@ from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.problems.surrogate.lcbench.data import (
     DATASET_NAMES,
+    LCBenchData,
     load_lcbench_data,
 )
 from ax.benchmark.problems.surrogate.lcbench.transfer_learning import DEFAULT_NUM_TRIALS
@@ -146,7 +148,7 @@ def _create_surrogate_regressor(
     base_regressor: RegressorProtocol,
     log_numeric_columns: Iterable,
     numeric_columns: Iterable,
-    seed: int,
+    seed: int = 0,
 ) -> RegressorProtocol:
     unit_scaler = MinMaxScaler()
     log_transformer = FunctionTransformer(
@@ -195,9 +197,7 @@ class LearningCurveBenchmarkTestFunction(BenchmarkTestFunction):
     relevant parameters.
 
     Example:
-        test_function = LearningCurveBenchmarkTestFunction(
-            dataset_name="vehicle", seed=42
-        )
+        test_function = LearningCurveBenchmarkTestFunction(dataset_name="vehicle")
         search_space = get_lcbench_search_space()
         optimization_config = get_lcbench_optimization_config(
             metric_name="Train/val_accuracy", observe_noise_sd=True, use_map_metric=True
@@ -222,24 +222,17 @@ class LearningCurveBenchmarkTestFunction(BenchmarkTestFunction):
     metric_base_surrogate: InitVar[RegressorProtocol] = get_default_base_regressor()
     # pyre-ignore [16]: Pyre doesn't understand InitVars.
     runtime_base_surrogate: InitVar[RegressorProtocol] = get_default_base_regressor()
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    seed: InitVar[int]
 
     def __post_init__(
         self,
         metric_base_surrogate: RegressorProtocol,
         runtime_base_surrogate: RegressorProtocol,
-        seed: int,
     ) -> None:
-        if len(self.outcome_names) != 1:
+        if len(self.outcome_names) != 1:  # pragma: no cover
             raise ValueError("Exactly one outcome is supported currently")
 
         metric_name = self.outcome_names[0]
-        lcbench_data = load_lcbench_data(
-            dataset_name=self.dataset_name,
-            metric_name=metric_name,
-            log_scale_parameter_names=[],
-        )
+        lcbench_data = self._load_lcbench_data(metric_name)
         self.n_steps = lcbench_data.metric_df.shape[-1]
 
         parameter_names = get_lcbench_parameter_names()
@@ -250,14 +243,19 @@ class LearningCurveBenchmarkTestFunction(BenchmarkTestFunction):
             base_regressor=metric_base_surrogate,
             log_numeric_columns=log_scale_parameter_names,
             numeric_columns=numeric_columns,
-            seed=seed,
         ).fit(X=lcbench_data.parameter_df, y=lcbench_data.metric_df)
         self.runtime_surrogate = _create_surrogate_regressor(
             base_regressor=runtime_base_surrogate,
             log_numeric_columns=log_scale_parameter_names,
             numeric_columns=numeric_columns,
-            seed=seed,
         ).fit(X=lcbench_data.parameter_df, y=lcbench_data.average_runtime_series)
+
+    def _load_lcbench_data(self, metric_name: str) -> LCBenchData:
+        return load_lcbench_data(
+            dataset_name=self.dataset_name,
+            metric_name=metric_name,
+            log_scale_parameter_names=[],
+        )
 
     def evaluate_true(self, params: Mapping[str, TParamValue]) -> torch.Tensor:
         X = pd.DataFrame.from_records(data=[params])
@@ -270,13 +268,11 @@ class LearningCurveBenchmarkTestFunction(BenchmarkTestFunction):
         return Y.item() * RUNTIME_MULTIPLIERS[self.dataset_name]
 
 
-def get_lcbench_early_stopping_benchmark_problem(
+def _get_lcbench_early_stopping_benchmark_problem(
     dataset_name: str,
+    test_function_class: type[LearningCurveBenchmarkTestFunction],
     num_trials: int = DEFAULT_NUM_TRIALS,
     constant_step_runtime: bool = False,
-    noise_std: Mapping[str, float] | float = 0.0,
-    observe_noise_sd: bool = False,
-    seed: int = 0,
 ) -> BenchmarkProblem:
     """Construct an LCBench early-stopping benchmark problem.
 
@@ -286,11 +282,6 @@ def get_lcbench_early_stopping_benchmark_problem(
         num_trials: The number of optimization trials to run.
         constant_step_runtime: Determines if the step runtime is fixed or varies
             based on the hyperparameters.
-        noise_std: The standard deviation of the observation noise.
-        observe_noise_sd: Whether to report the standard deviation of the
-            observation noise.
-        seed: The random seed used in training the surrogate model to ensure
-            reproducibility and consistency of results.
 
     Returns:
         An LCBench surrogate benchmark problem.
@@ -299,28 +290,23 @@ def get_lcbench_early_stopping_benchmark_problem(
     if dataset_name not in DATASET_NAMES:
         raise UserInputError(f"`dataset_name` must be one of {sorted(DATASET_NAMES)}")
 
-    name = f"LCBench_Surrogate_{dataset_name}:v1"
-
     optimal_value = OPTIMAL_VALUES[dataset_name]
     baseline_value = BASELINE_VALUES[dataset_name]
 
     search_space: SearchSpace = get_lcbench_search_space()
     optimization_config: OptimizationConfig = get_lcbench_optimization_config(
         metric_name=DEFAULT_METRIC_NAME,
-        observe_noise_sd=observe_noise_sd,
+        observe_noise_sd=False,
         use_map_metric=True,
     )
 
-    test_function = LearningCurveBenchmarkTestFunction(
-        dataset_name=dataset_name, seed=seed
-    )
-
+    test_function = test_function_class(dataset_name=dataset_name)
     step_runtime_function = (
         None if constant_step_runtime else test_function.step_runtime
     )
 
     return BenchmarkProblem(
-        name=name,
+        name=f"LCBench::{dataset_name}",
         search_space=search_space,
         optimization_config=optimization_config,
         num_trials=num_trials,
@@ -328,5 +314,10 @@ def get_lcbench_early_stopping_benchmark_problem(
         baseline_value=baseline_value,
         test_function=test_function,
         step_runtime_function=step_runtime_function,
-        noise_std=noise_std,
     )
+
+
+get_lcbench_early_stopping_benchmark_problem: Callable[..., BenchmarkProblem] = partial(
+    _get_lcbench_early_stopping_benchmark_problem,
+    test_function_class=LearningCurveBenchmarkTestFunction,
+)

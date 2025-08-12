@@ -26,7 +26,7 @@ class SingleRunningTrialMixin:
     ) -> dict[TrialStatus, set[int]]:
         """Checks the status of any non-terminal trials and returns their
         indices as a mapping from TrialStatus to a list of indices. Required
-        for runners used with Ax ``Scheduler``.
+        for runners used with Ax ``Orchestrator``.
 
         NOTE: Does not need to handle waiting between polling calls while trials
         are running; this function should just perform a single poll.

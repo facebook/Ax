@@ -5,23 +5,21 @@
 
 # pyre-strict
 
-from typing import Sequence
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
-
+from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
 from ax.analysis.healthcheck.healthcheck_analysis import (
-    HealthcheckAnalysis,
+    create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from pyre_extensions import override
 
 
-class ShouldGenerateCandidates(HealthcheckAnalysis):
+class ShouldGenerateCandidates(Analysis):
     def __init__(
         self,
         should_generate: bool,
@@ -38,19 +36,16 @@ class ShouldGenerateCandidates(HealthcheckAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[HealthcheckAnalysisCard]:
+    ) -> HealthcheckAnalysisCard:
         status = (
             HealthcheckStatus.PASS
             if self.should_generate
             else HealthcheckStatus.WARNING
         )
-        return [
-            self._create_healthcheck_analysis_card(
-                title=f"Ready to Generate Candidates for Trial {self.trial_index}",
-                subtitle=self.reason,
-                df=pd.DataFrame(),
-                level=AnalysisCardLevel.CRITICAL,
-                status=status,
-                category=AnalysisCardCategory.DIAGNOSTIC,
-            ),
-        ]
+        return create_healthcheck_analysis_card(
+            name=self.__class__.__name__,
+            title=f"Ready to Generate Candidates for Trial {self.trial_index}",
+            subtitle=self.reason,
+            df=pd.DataFrame(),
+            status=status,
+        )

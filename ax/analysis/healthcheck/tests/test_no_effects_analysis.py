@@ -7,7 +7,7 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
 from ax.analysis.healthcheck.no_effects_analysis import TestOfNoEffectAnalysis
 from ax.core.data import Data
@@ -44,7 +44,7 @@ class TestTestOfNoEffectAnalysis(TestCase):
             )
         )
         # WHEN we compute the healthcheck
-        card = self.tone.compute(experiment=self.experiment)[0]
+        card = self.tone.compute(experiment=self.experiment)
         # THEN it is a PASS
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
         self.assertEqual(card.name, "TestOfNoEffectAnalysis")
@@ -52,8 +52,6 @@ class TestTestOfNoEffectAnalysis(TestCase):
         self.assertEqual(
             "Effects are observed for all objective metrics.", card.subtitle
         )
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
 
     def test_no_effects_detected(self) -> None:
         # GIVEN an experiment with no effects detected
@@ -72,14 +70,12 @@ class TestTestOfNoEffectAnalysis(TestCase):
             )
         )
         # WHEN we compute the healthcheck
-        card = self.tone.compute(experiment=self.experiment)[0]
+        card = self.tone.compute(experiment=self.experiment)
         # THEN it is a WARNING
         self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
         self.assertEqual(card.name, "TestOfNoEffectAnalysis")
         self.assertEqual(card.title, "Ax Test of No Effect Warning")
-        self.assertIn("no effects have been detected", card.subtitle)
-        self.assertEqual(card.level, AnalysisCardLevel.LOW)
-        self.assertEqual(card.category, AnalysisCardCategory.DIAGNOSTIC)
+        self.assertIn("no effects have been detected", card.subtitle or "")
 
     def test_raises_error_with_no_experiment(self) -> None:
         # GIVEN no experiment is provided
@@ -120,8 +116,8 @@ class TestTestOfNoEffectAnalysis(TestCase):
             )
         )
         # WHEN we compute the healthcheck
-        card = self.tone.compute(experiment=self.moo_experiment)[0]
+        card = self.tone.compute(experiment=self.moo_experiment)
         # THEN it warns about one of the metrics
         self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
-        self.assertIn("branin_a", card.subtitle)
-        self.assertNotIn("branin_b", card.subtitle)
+        self.assertIn("branin_a", card.subtitle or "")
+        self.assertNotIn("branin_b", card.subtitle or "")

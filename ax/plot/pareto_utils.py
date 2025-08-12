@@ -15,6 +15,15 @@ from typing import NamedTuple
 import numpy as np
 import numpy.typing as npt
 import torch
+from ax.adapter.adapter_utils import (
+    _get_adapter_training_data,
+    get_pareto_frontier_and_configs,
+    observed_pareto_frontier,
+)
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.registry import Generators, MBM_X_trans
+from ax.adapter.torch import TorchAdapter
+from ax.adapter.transforms.derelativize import derelativize_bound
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -30,17 +39,7 @@ from ax.core.outcome_constraint import (
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
-from ax.modelbridge.base import DataLoaderConfig
-from ax.modelbridge.modelbridge_utils import (
-    _get_modelbridge_training_data,
-    get_pareto_frontier_and_configs,
-    observed_pareto_frontier,
-)
-from ax.modelbridge.registry import Generators
-from ax.modelbridge.torch import TorchAdapter
-from ax.modelbridge.transforms.derelativize import derelativize_bound
-from ax.modelbridge.transforms.search_space_to_float import SearchSpaceToFloat
-from ax.models.torch_base import TorchGenerator
+from ax.generators.torch_base import TorchGenerator
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
 from botorch.acquisition.monte_carlo import qSimpleRegret
@@ -160,7 +159,7 @@ def _relativize_values(
             sem_c=sq_sem,
             as_percent=True,
         )
-        means, sems = list(means), list(sems)
+        means, sems = means_arr.tolist(), sems_arr.tolist()
     return means, sems
 
 
@@ -211,8 +210,8 @@ def get_observed_pareto_frontiers(
             # Make sure status quo is always included, for derelativization
             arm_names.append(experiment.status_quo.name)
         data = Data(data.df[data.df["arm_name"].isin(arm_names)])
-    mb = get_tensor_converter_model(experiment=experiment, data=data)
-    pareto_observations = observed_pareto_frontier(modelbridge=mb)
+    adapter = get_tensor_converter_adapter(experiment=experiment, data=data)
+    pareto_observations = observed_pareto_frontier(adapter=adapter)
     # Convert to ParetoFrontierResults
     objective_metric_names = {
         metric.name
@@ -315,7 +314,9 @@ def to_nonrobust_search_space(search_space: SearchSpace) -> SearchSpace:
         return search_space
 
 
-def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchAdapter:
+def get_tensor_converter_adapter(
+    experiment: Experiment, data: Data | None = None
+) -> TorchAdapter:
     """
     Constructs a minimal model for converting things to tensors.
 
@@ -329,7 +330,7 @@ def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchAdapt
         experiment: Experiment.
         data: Data for fitting the model.
 
-    Returns: A torch modelbridge with transforms set.
+    Returns: A torch adapter with transforms set.
     """
     # Transforms is the minimal set that will work for converting any search
     # space to tensors.
@@ -337,8 +338,8 @@ def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchAdapt
         experiment=experiment,
         search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
-        model=TorchGenerator(),
-        transforms=[SearchSpaceToFloat],
+        generator=TorchGenerator(),
+        transforms=MBM_X_trans,
         data_loader_config=DataLoaderConfig(
             fit_out_of_design=True,
         ),
@@ -415,7 +416,7 @@ def compute_posterior_pareto_frontier(
             )
 
     # The weights here are just dummy weights that we pass in to construct the
-    # modelbridge. We set the weight to -1 if `lower_is_better` is `True` and
+    # adapter. We set the weight to -1 if `lower_is_better` is `True` and
     # 1 otherwise. This code would benefit from a serious revamp.
     oc = _build_scalarized_optimization_config(
         weights=np.array(
@@ -595,11 +596,11 @@ def infer_reference_point_from_experiment(
         )
 
     # Reading experiment data.
-    mb_reference = get_tensor_converter_model(
+    adapter = get_tensor_converter_adapter(
         experiment=experiment,
         data=data,
     )
-    obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=mb_reference)
+    obs_feats, obs_data, _ = _get_adapter_training_data(adapter=adapter)
 
     # Since objectives could have arbitrary orders in objective_thresholds and
     # further down the road `get_pareto_frontier_and_configs` arbitrarily changes the
@@ -648,7 +649,7 @@ def infer_reference_point_from_experiment(
 
     # Finding the pareto frontier
     frontier_observations, f, obj_w, _ = get_pareto_frontier_and_configs(
-        modelbridge=mb_reference,
+        adapter=adapter,
         observation_features=obs_feats,
         observation_data=obs_data,
         objective_thresholds=inferred_rp,
@@ -671,7 +672,7 @@ def infer_reference_point_from_experiment(
         opt_config._outcome_constraints = []  # removing the constraints
         # getting the unconstrained pareto frontier
         frontier_observations, f, obj_w, _ = get_pareto_frontier_and_configs(
-            modelbridge=mb_reference,
+            adapter=adapter,
             observation_features=obs_feats,
             observation_data=obs_data,
             objective_thresholds=inferred_rp,

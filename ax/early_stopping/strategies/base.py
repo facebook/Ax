@@ -9,55 +9,22 @@
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
 from logging import Logger
 
-import numpy.typing as npt
 import pandas as pd
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import estimate_early_stopping_savings
-from ax.modelbridge.base import DataLoaderConfig
-from ax.modelbridge.modelbridge_utils import (
-    _unpack_observations,
-    observation_data_to_array,
-    observation_features_to_array,
-)
-from ax.modelbridge.registry import Cont_X_trans, Y_trans
-from ax.modelbridge.torch import TorchAdapter
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.map_key_to_float import MapKeyToFloat
-from ax.models.torch_base import TorchGenerator
+from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
-
-
-@dataclass
-class EarlyStoppingTrainingData:
-    """Dataclass for keeping data arrays related to model training and
-    arm names together.
-
-    Args:
-        X: An `n x d'` array of training features. `d' = d + m`, where `d`
-            is the dimension of the design space and `m` are the number of map
-            keys. For the case of learning curves, `m = 1` since we have only
-            the number of steps as the map key.
-        Y: An `n x 1` array of training observations.
-        Yvar: An `n x 1` observed measurement noise.
-        arm_names: A list of length `n` of arm names. Useful for understanding
-            which data come from the same arm.
-    """
-
-    X: npt.NDArray
-    Y: npt.NDArray
-    Yvar: npt.NDArray
-    arm_names: list[str | None]
 
 
 class BaseEarlyStoppingStrategy(ABC, Base):
@@ -77,7 +44,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         Args:
             metric_names: The names of the metrics the strategy will interact with.
-                If no metric names are provided the objective metric is assumed.
+                If no metric names are provided, considers the objective metric(s).
             min_progression: Only stop trials if the latest progression value
                 (e.g. timestamp, epochs, training data used) is greater than this
                 threshold. Prevents stopping prematurely before enough data is gathered
@@ -109,6 +76,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self,
         trial_indices: set[int],
         experiment: Experiment,
+        current_node: GenerationNode | None = None,
     ) -> dict[int, str | None]:
         """Decide whether to complete trials before evaluation is fully concluded.
 
@@ -118,6 +86,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         Args:
             trial_indices: Indices of candidate trials to stop early.
             experiment: Experiment that contains the trials and other contextual data.
+            current_node: The current ``GenerationNode`` on the ``GenerationStrategy``
+                used to generate trials for the ``Experiment``. Early stopping
+                strategies may utilize components of the current node when making
+                stopping decisions.
 
         Returns:
             A dictionary mapping trial indices that should be early stopped to
@@ -270,6 +242,17 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         then we can skip costly steps, such as model fitting, that occur before
         individual trials are considered for stopping.
         """
+        # check for batch trials
+        for idx, trial in experiment.trials.items():
+            if isinstance(trial, BatchTrial):
+                # In particular, align_partial_results requires a 1-1 mapping between
+                # trial indices and arm names, which is not the case for batch trials.
+                # See align_partial_results for more details.
+                raise ValueError(
+                    f"Trial {idx} is a BatchTrial, which is not yet supported by "
+                    "early stopping strategies."
+                )
+
         # check that there are sufficient completed trials
         num_completed = len(experiment.trial_indices_by_status[TrialStatus.COMPLETED])
         if self.min_curves is not None and num_completed < self.min_curves:
@@ -361,21 +344,42 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     def _default_objective_and_direction(
         self, experiment: Experiment
     ) -> tuple[str, bool]:
+        objectives_to_directions = self._all_objectives_and_directions(
+            experiment=experiment
+        )
+        # if it is a multi-objective optimization problem, infer as first objective
+        # although it is recommended to specify metric names explicitly.
+        return next(iter(objectives_to_directions.items()))
+
+    def _all_objectives_and_directions(self, experiment: Experiment) -> dict[str, bool]:
+        """Returns a dict containing the metric names and corresponding directions for
+        each objective in the experiment or in `self.metric_names`, if specified.
+        """
         if self.metric_names is None:
+            logger.debug(
+                "No metric names specified. Defaulting to the objective metric(s).",
+                stacklevel=2,
+            )
             optimization_config = none_throws(experiment.optimization_config)
             objective = optimization_config.objective
+            objectives = (
+                objective.objectives
+                if isinstance(objective, MultiObjective)
+                else [objective]
+            )
+            directions = {}
+            for objective in objectives:
+                metric_name = objective.metric.name
+                directions[metric_name] = objective.minimize
 
-            # if multi-objective optimization, infer as first objective
-            # although it is recommended to specify a metric name(s) explicitly.
-            if isinstance(objective, MultiObjective):
-                objective = objective.objectives[0]
-
-            metric_name = objective.metric.name
-            minimize = objective.minimize
         else:
-            metric_name = list(self.metric_names)[0]
-            minimize = experiment.metrics[metric_name].lower_is_better or False
-        return metric_name, minimize
+            metric_names = list(self.metric_names)
+            directions = {}
+            for metric_name in metric_names:
+                minimize = experiment.metrics[metric_name].lower_is_better or False
+                directions[metric_name] = minimize
+
+        return directions
 
 
 class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
@@ -458,83 +462,10 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         max_training_size: int | None = None,
         outcomes: Sequence[str] | None = None,
         parameters: list[str] | None = None,
-    ) -> EarlyStoppingTrainingData:
-        """Processes the raw (untransformed) training data into arrays for
-        use in modeling. The trailing dimensions of `X` are the map keys, in
-        their originally specified order from `map_data`.
-
-        Args:
-            experiment: Experiment that contains the data.
-            map_data: The MapData from the experiment, as can be obtained by
-                via `_check_validity_and_get_data`.
-            max_training_size: Subsample the learning curve to keep the total
-                number of data points less than this threshold. Passed to
-                MapData's `subsample` method as `limit_rows_per_metric`.
-
-        Returns:
-            An `EarlyStoppingTrainingData` that contains training data arrays X, Y,
-                and Yvar + a list of arm names.
-        """
-        if max_training_size is not None:
-            map_data = map_data.subsample(
-                map_key=map_data.map_keys[0],
-                limit_rows_per_metric=max_training_size,
-            )
-        if outcomes is None:
-            # default to the default objective
-            metric_name, _ = self._default_objective_and_direction(
-                experiment=experiment
-            )
-            outcomes = [metric_name]
-
-        if parameters is None:
-            parameters = list(experiment.search_space.parameters.keys())
-            parameters = parameters + list(map_data.map_keys)
-
-        # helper Ax model to make use of its transform functionality
-        transform_model = get_transform_helper_model(
-            experiment=experiment, data=map_data
+    ) -> None:
+        raise DeprecationWarning(
+            "`ModelBasedEarlyStoppingStrategy.get_training_data` is deprecated. "
+            "Subclasses should either extract the training data manually, "
+            "or rely on the fitted surrogates available in the current generation "
+            "node that is passed into `should_stop_trials_early`."
         )
-        observations, _ = transform_model._process_and_transform_data(
-            experiment=experiment, data=map_data
-        )
-        obs_features, obs_data, arm_names = _unpack_observations(observations)
-        X = observation_features_to_array(parameters=parameters, obsf=obs_features)
-        Y, Yvar = observation_data_to_array(
-            outcomes=list(outcomes), observation_data=obs_data
-        )
-        return EarlyStoppingTrainingData(X=X, Y=Y, Yvar=Yvar, arm_names=arm_names)
-
-
-def get_transform_helper_model(
-    experiment: Experiment,
-    data: MapData,
-    transforms: Sequence[type[Transform]] | None = None,
-) -> TorchAdapter:
-    """
-    Constructs a TorchAdapter, to be used as a helper for transforming parameters.
-    We perform the default `Cont_X_trans` for parameters but do not perform any
-    transforms on the observations.
-
-    Args:
-        experiment: Experiment.
-        data: Data for fitting the model.
-
-    Returns: A torch modelbridge.
-    """
-    if transforms is None:
-        transforms = [MapKeyToFloat] + Cont_X_trans + Y_trans
-    return TorchAdapter(
-        experiment=experiment,
-        search_space=experiment.search_space,
-        data=data,
-        model=TorchGenerator(),
-        transforms=transforms,
-        transform_configs={"MapKeyToFloat": {"default_log_scale": False}},
-        data_loader_config=DataLoaderConfig(
-            fit_out_of_design=True,
-            latest_rows_per_group=None,
-            fit_only_completed_map_metrics=False,
-        ),
-        fit_on_init=False,  # Since we're only using it to extract data.
-    )

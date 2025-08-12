@@ -7,16 +7,22 @@
 from typing import Literal, Mapping, Sequence
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
-
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
-from ax.analysis.plotly.utils import truncate_label
+from ax.adapter.base import Adapter
+from ax.adapter.torch import TorchAdapter
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCardBase
+from ax.analysis.plotly.color_constants import COLOR_FOR_DECREASES, COLOR_FOR_INCREASES
+from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
+from ax.analysis.plotly.utils import (
+    LEGEND_POSITION,
+    MARGIN_REDUCUTION,
+    MAX_HOVER_LABEL_LEN,
+    truncate_label,
+)
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
-from ax.modelbridge.torch import TorchAdapter
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from plotly import express as px, graph_objects as go
 from pyre_extensions import override
@@ -24,8 +30,23 @@ from pyre_extensions import override
 # SensitivityAnalysisPlot uses a plotly bar chart which needs especially short labels
 MAX_LABEL_LEN: int = 20
 
+SENSITIVITY_CARDGROUP_TITLE = (
+    "Sensitivity Analysis: Understand how each parameter affects metrics"
+)
 
-class SensitivityAnalysisPlot(PlotlyAnalysis):
+SENSITIVITY_CARDGROUP_SUBTITLE = (
+    "These plots showcase the most influential parameters for each metric in the "
+    "experiment, highlighting both the direction and magnitude of the metric's "
+    "sensitivity to changes in these parameters. This information can be valuable for "
+    "understanding metrics that may be oppositely affected by the same parameter, "
+    "identifying the most critical parameters to further refine the search space, or "
+    "validating underlying assumptions about the experiment's response surface. "
+    "Sensitivity is measured using Sobol indices, which are calculated based on the "
+    "model fitted to the data."
+)
+
+
+class SensitivityAnalysisPlot(Analysis):
     """
     Compute sensitivity for all metrics on a TorchAdapter.
 
@@ -41,7 +62,7 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
         self,
         metric_names: Sequence[str] | None = None,
         order: Literal["first", "second", "total"] = "total",
-        top_k: int | None = None,
+        top_k: int | None = 6,
         labels: Mapping[str, str] | None = None,
     ) -> None:
         """
@@ -66,7 +87,7 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> AnalysisCardBase:
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -98,21 +119,24 @@ class SensitivityAnalysisPlot(PlotlyAnalysis):
                 metric_label=metric_label,
             )
 
-            card = self._create_plotly_analysis_card(
+            card = create_plotly_analysis_card(
+                name=self.__class__.__name__,
                 title=f"Sensitivity Analysis for {metric_label}",
                 subtitle=(
                     f"Understand how each parameter affects {metric_label} according "
                     f"to a {self.order}-order sensitivity analysis."
                 ),
-                level=AnalysisCardLevel.MID,
-                category=AnalysisCardCategory.INSIGHT,
                 df=df,
                 fig=fig,
             )
 
             cards.append(card)
 
-        return cards
+        return self._create_analysis_card_group_or_card(
+            title=SENSITIVITY_CARDGROUP_TITLE,
+            subtitle=SENSITIVITY_CARDGROUP_SUBTITLE,
+            children=cards,
+        )
 
 
 def compute_sensitivity_adhoc(
@@ -121,7 +145,7 @@ def compute_sensitivity_adhoc(
     labels: Mapping[str, str] | None = None,
     order: Literal["first", "second", "total"] = "total",
     top_k: int | None = None,
-) -> list[PlotlyAnalysisCard]:
+) -> AnalysisCardBase:
     """
     Compute SensitivityAnalysis cards for the given experiment and either Adapter or
     GenerationStrategy.
@@ -147,7 +171,7 @@ def compute_sensitivity_adhoc(
         top_k=top_k,
         labels=labels,
     )
-    return [*analysis.compute(adapter=adapter)]
+    return analysis.compute(adapter=adapter)
 
 
 def _prepare_data(
@@ -156,7 +180,7 @@ def _prepare_data(
     order: Literal["first", "second", "total"],
 ) -> pd.DataFrame:
     sensitivities = ax_parameter_sens(
-        model_bridge=adapter,
+        adapter=adapter,
         metrics=[*metric_names] if metric_names is not None else None,
         order=order,
     )
@@ -187,22 +211,36 @@ def _prepare_card_components(
     # If the parameter name is too long, truncate it.
     # If the parameter name is a second order interaction, truncate each parameter name
     # separately then re-combine.
-    plotting_df["truncated_parameter_name"] = plotting_df["parameter_name"].apply(
-        lambda label: " & ".join(
-            truncate_label(label=sub_label, n=MAX_LABEL_LEN // 2)
-            for sub_label in label.split(" & ")
+    # If the truncated parameter name already exists, append count at end to prevent
+    # collisions.
+    # TODO: @paschali @mgarrard clean up after implementing parameter canonical names
+    param_names = plotting_df["parameter_name"].unique()
+    param_to_shortened_name = {}
+    shortened_name_count = {}
+    for name in param_names:
+        shortened_name = (
+            " & ".join(
+                truncate_label(label=sub_name, n=MAX_LABEL_LEN // 2)
+                for sub_name in name.split(" & ")
+            )
+            if "&" in name
+            else truncate_label(label=name, n=MAX_LABEL_LEN)
         )
-        if "&" in label
-        else truncate_label(label=label, n=MAX_LABEL_LEN)
+        # track number of times each shortened name is seen
+        if shortened_name not in shortened_name_count:
+            shortened_name_count[shortened_name] = 0
+        else:
+            shortened_name_count[shortened_name] += 1
+            shortened_name = shortened_name + f"_{shortened_name_count[shortened_name]}"
+        param_to_shortened_name[name] = shortened_name
+    plotting_df["truncated_parameter_name"] = plotting_df["parameter_name"].map(
+        param_to_shortened_name
     )
 
     plotting_df["importance"] = plotting_df["sensitivity"].abs()
     plotting_df["direction"] = plotting_df["sensitivity"].apply(
         lambda x: f"Increases {metric_label}" if x >= 0 else f"Decreases {metric_label}"
     )
-
-    blue = px.colors.qualitative.Plotly[0]
-    orange = px.colors.qualitative.Plotly[4]
     figure = px.bar(
         plotting_df.sort_values(by="importance", ascending=False)
         .reset_index()
@@ -212,15 +250,20 @@ def _prepare_card_components(
         orientation="h",
         color="direction",
         color_discrete_map={
-            f"Increases {metric_label}": blue,
-            f"Decreases {metric_label}": orange,
+            f"Increases {metric_label}": COLOR_FOR_INCREASES,
+            f"Decreases {metric_label}": COLOR_FOR_DECREASES,
         },
-        # Show full parameter name on hover, not truncated name
-        hover_data=["parameter_name"],
+        # Show longer version of parameter name on hover without overflowing hover
+        hover_data=["parameter_name"][:MAX_HOVER_LABEL_LEN],
     )
 
-    # Display most important parameters first
-    figure.update_layout(yaxis={"categoryorder": "total ascending"})
+    figure.update_layout(
+        # Display most important parameters first
+        yaxis={"categoryorder": "total ascending"},
+        # move legend to bottom of plot
+        legend=LEGEND_POSITION,
+        margin=MARGIN_REDUCUTION,
+    )
 
     return (
         plotting_df[["parameter_name", "sensitivity"]],

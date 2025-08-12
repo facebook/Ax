@@ -5,18 +5,13 @@
 
 # pyre-strict
 
-from typing import Sequence
+from ax.adapter.base import Adapter
 
-from ax.analysis.analysis import (
-    Analysis,
-    AnalysisCard,
-    AnalysisCardCategory,
-    AnalysisCardLevel,
-)
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
 from pyre_extensions import override
 
 
@@ -42,25 +37,21 @@ class SearchSpaceSummary(Analysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[AnalysisCard]:
+    ) -> AnalysisCard:
         if experiment is None:
             raise UserInputError(
                 "`SearchSpaceSummary` analysis requires an `Experiment` input"
             )
 
-        return [
-            self._create_analysis_card(
-                title=f"SearchSpaceSummary for `{experiment.name}`",
-                subtitle=(
-                    "The search space summary provides an overview of all "
-                    "parameters, including their names, types, and ranges or "
-                    "categories. This holistic view provides quick understanding "
-                    "on the parameters being optimized, allowing one to verify "
-                    "and adjust the search space configuration for effective "
-                    "exploration."
-                ),
-                level=AnalysisCardLevel.MID,
-                df=experiment.search_space.summary_df,
-                category=AnalysisCardCategory.INFO,
-            )
-        ]
+        return self._create_analysis_card(
+            title=f"SearchSpaceSummary for `{experiment.name}`",
+            subtitle=(
+                "The search space summary provides an overview of all "
+                "parameters, including their names, types, and ranges or "
+                "categories. This holistic view provides quick understanding "
+                "on the parameters being optimized, allowing one to verify "
+                "and adjust the search space configuration for effective "
+                "exploration."
+            ),
+            df=experiment.search_space.summary_df,
+        )

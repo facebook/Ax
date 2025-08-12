@@ -98,8 +98,19 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         return self.python_type(value)
 
     @abstractmethod
-    def validate(self, value: TParamValue) -> bool:
-        pass
+    def validate(self, value: TParamValue, raises: bool = False) -> bool:
+        """Returns True if input is a valid value for the parameter.
+
+        Args:
+            value: Value being checked.
+            raises: If true, and validation fails, raises a UserInputError.
+
+        Raises:
+            UserInputError: If validation fails and raises is True.
+
+        Returns:
+            True if valid, False otherwise.
+        """
 
     @abstractmethod
     def cardinality(self) -> float:
@@ -277,8 +288,8 @@ class RangeParameter(Parameter):
             raise UserInputError("RangeParameter type must be int or float.")
         self._parameter_type = parameter_type
         self._digits = digits
-        self._lower: TNumeric = none_throws(self.cast(lower))
-        self._upper: TNumeric = none_throws(self.cast(upper))
+        self._lower: TNumeric = self.cast(lower)
+        self._upper: TNumeric = self.cast(upper)
         self._log_scale = log_scale
         self._logit_scale = logit_scale
         self._is_fidelity = is_fidelity
@@ -357,7 +368,7 @@ class RangeParameter(Parameter):
             log_scale=self.log_scale,
             logit_scale=self.logit_scale,
         )
-        self._upper = none_throws(self.cast(value))
+        self._upper = self.cast(value)
 
     @property
     def lower(self) -> TNumeric:
@@ -376,7 +387,7 @@ class RangeParameter(Parameter):
             log_scale=self.log_scale,
             logit_scale=self.logit_scale,
         )
-        self._lower = none_throws(self.cast(value))
+        self._lower = self.cast(value)
 
     @property
     def digits(self) -> int | None:
@@ -412,8 +423,8 @@ class RangeParameter(Parameter):
         if upper is None:
             upper = self._upper
 
-        cast_lower = none_throws(self.cast(lower))
-        cast_upper = none_throws(self.cast(upper))
+        cast_lower = self.cast(lower)
+        cast_upper = self.cast(upper)
         self._validate_range_param(
             lower=cast_lower,
             upper=cast_upper,
@@ -428,8 +439,10 @@ class RangeParameter(Parameter):
         self._digits = digits
 
         # Re-scale min and max to new digits definition
-        cast_lower = none_throws(self.cast(self._lower))
-        cast_upper = none_throws(self.cast(self._upper))
+        cast_lower = self.cast(self._lower)
+        cast_upper = self.cast(self._upper)
+        # `<=` is not supported for operand types `Union[float, int]` and `int`.
+        # pyre-ignore [58]
         if cast_lower >= cast_upper:
             raise UserInputError(
                 f"Lower bound {cast_lower} is >= upper bound {cast_upper}."
@@ -447,7 +460,9 @@ class RangeParameter(Parameter):
         self._logit_scale = logit_scale
         return self
 
-    def validate(self, value: TParamValue, tol: float = EPS) -> bool:
+    def validate(
+        self, value: TParamValue, raises: bool = False, tol: float = EPS
+    ) -> bool:
         """Returns True if input is a valid value for the parameter.
 
         Checks that value is of the right type and within
@@ -455,21 +470,46 @@ class RangeParameter(Parameter):
 
         Args:
             value: Value being checked.
+            raises: If true, and validation fails, raises a UserInputError.
             tol: Absolute tolerance for floating point comparisons.
+
+        Raises:
+            UserInputError: If validation fails and raises is True.
 
         Returns:
             True if valid, False otherwise.
         """
-        if value is None:
+
+        def return_false_or_raise(msg: str) -> bool:
+            if raises:
+                raise UserInputError(msg)
             return False
 
+        if value is None:
+            msg = (
+                f"Value of parameter {self.name} is `None` but the parameter "
+                f"type is {self.parameter_type}."
+            )
+            return return_false_or_raise(msg)
+
         if not self.is_valid_type(value):
-            return False
-        # pyre-fixme[58]: `>=` is not supported for operand types `Union[bool,
-        #  float, int, str]` and `float`.
-        # pyre-fixme[58]: `<=` is not supported for operand types `Union[bool,
-        #  float, int, str]` and `float`.
-        return value >= self._lower - tol and value <= self._upper + tol
+            msg = (
+                f"Value ({value}) of parameter {self.name} has type ({type(value)}), "
+                "which is not valid for a RangeParameter with parameter type "
+                f"{self.parameter_type}."
+            )
+            return return_false_or_raise(msg)
+
+        value = self.cast(value)
+        if value < self.lower - tol or value > self.upper + tol:
+            interval = (self.lower, self.upper)
+            msg = (
+                f"Value ({value}) of parameter {self.name} is not within the range of "
+                f"the parameter {interval}, even with a tolerance of {tol}."
+            )
+            return return_false_or_raise(msg)
+
+        return True
 
     def is_valid_type(self, value: TParamValue) -> bool:
         """Same as default except allows floats whose value is an int
@@ -700,16 +740,25 @@ class ChoiceParameter(Parameter):
         self._values.extend(self._cast_values(values))
         return self
 
-    def validate(self, value: TParamValue) -> bool:
+    def validate(self, value: TParamValue, raises: bool = False) -> bool:
         """Checks that the input is in the list of allowed values.
 
         Args:
             value: Value being checked.
+            raises: If true, and validation fails, raises a UserInputError.
+
+        Raises:
+            UserInputError: If validation fails and raises is True.
 
         Returns:
             True if valid, False otherwise.
         """
-        return value in self._values
+        is_valid = value in self._values
+        if raises and not is_valid:
+            raise UserInputError(
+                f"Value {value} is not in the list of allowed values: {self._values}."
+            )
+        return is_valid
 
     @property
     def dependents(self) -> dict[TParamValue, list[str]]:
@@ -817,16 +866,25 @@ class FixedParameter(Parameter):
         self._value = self.cast(value)
         return self
 
-    def validate(self, value: TParamValue) -> bool:
+    def validate(self, value: TParamValue, raises: bool = False) -> bool:
         """Checks that the input is equal to the fixed value.
 
         Args:
             value: Value being checked.
+            raises: If true, and validation fails, raises a UserInputError.
+
+        Raises:
+            UserInputError: If validation fails and raises is True.
 
         Returns:
             True if valid, False otherwise.
         """
-        return value == self._value
+        is_valid = value == self._value
+        if raises and not is_valid:
+            raise UserInputError(
+                f"Value {value} is not equal to the fixed value: {self._value}."
+            )
+        return is_valid
 
     @property
     def dependents(self) -> dict[TParamValue, list[str]]:

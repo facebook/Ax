@@ -7,11 +7,11 @@
 
 from typing import Any
 
+from ax.adapter.registry import Generators
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.generation_strategy.generation_node import GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Generators
-from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
@@ -50,11 +50,8 @@ def get_sobol_mbm_generation_strategy(
         model_cls: BoTorch model class, e.g. SingleTaskGP
         acquisition_cls: Acquisition function class, e.g.
             `qLogNoisyExpectedImprovement`.
-        scheduler_options: Passed as-is to scheduler. Default:
-            `get_benchmark_scheduler_options()`.
         name: Name that will be attached to the `GenerationStrategy`.
-        num_sobol_trials: Number of Sobol trials; if the scheduler_options
-            specify to use `BatchTrial`s, then this refers to the number of
+        num_sobol_trials: Number of Sobol trials; can refer to the number of
             `BatchTrial`s.
         model_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
             to the BoTorch `Model`.
@@ -64,7 +61,6 @@ def get_sobol_mbm_generation_strategy(
         >>> from ax.benchmark.methods.sobol_botorch_modular import (
         ...     get_sobol_mbm_generation_strategy
         ... )
-        >>> from ax.benchmark.benchmark_method import get_benchmark_scheduler_options
         >>> gs = get_sobol_mbm_generation_strategy(
         ...     model_cls=SingleTaskGP,
         ...     acquisition_cls=qLogNoisyExpectedImprovement,
@@ -73,7 +69,9 @@ def get_sobol_mbm_generation_strategy(
     """
     model_kwargs: dict[str, type[AcquisitionFunction] | SurrogateSpec | bool] = {
         "botorch_acqf_class": acquisition_cls,
-        "surrogate_spec": SurrogateSpec(botorch_model_class=model_cls),
+        "surrogate_spec": SurrogateSpec(
+            model_configs=[ModelConfig(botorch_model_class=model_cls)]
+        ),
     }
 
     model_name = model_names_abbrevations.get(model_cls.__name__, model_cls.__name__)
@@ -90,12 +88,12 @@ def get_sobol_mbm_generation_strategy(
         name=name,
         steps=[
             GenerationStep(
-                model=Generators.SOBOL,
+                generator=Generators.SOBOL,
                 num_trials=num_sobol_trials,
                 min_trials_observed=num_sobol_trials,
             ),
             GenerationStep(
-                model=Generators.BOTORCH_MODULAR,
+                generator=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs=model_kwargs,
                 model_gen_kwargs=model_gen_kwargs or {},
@@ -112,7 +110,6 @@ def get_sobol_botorch_modular_acquisition(
     name: str | None = None,
     num_sobol_trials: int = 5,
     model_gen_kwargs: dict[str, Any] | None = None,
-    use_model_predictions_for_best_point: bool = False,
     batch_size: int = 1,
 ) -> BenchmarkMethod:
     """Get a `BenchmarkMethod` that uses Sobol followed by MBM.
@@ -122,15 +119,12 @@ def get_sobol_botorch_modular_acquisition(
         acquisition_cls: Acquisition function class, e.g.
             `qLogNoisyExpectedImprovement`.
         distribute_replications: Whether to use multiple machines
-        scheduler_options: Passed as-is to scheduler. Default:
-            `get_benchmark_scheduler_options()`.
         name: Name that will be attached to the `GenerationStrategy`.
-        num_sobol_trials: Number of Sobol trials; if the scheduler_options
+        num_sobol_trials: Number of Sobol trials; if the orchestrator_options
             specify to use `BatchTrial`s, then this refers to the number of
             `BatchTrial`s.
         model_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
             to the BoTorch `Model`.
-        use_model_predictions_for_best_point: Passed to the created `BenchmarkMethod`.
         batch_size: Passed to the created ``BenchmarkMethod``.
 
     Example:
@@ -138,7 +132,6 @@ def get_sobol_botorch_modular_acquisition(
         >>> from ax.benchmark.methods.sobol_botorch_modular import (
         ...     get_sobol_botorch_modular_acquisition
         ... )
-        >>> from ax.benchmark.benchmark_method import get_benchmark_scheduler_options
         >>>
         >>> method = get_sobol_botorch_modular_acquisition(
         ...     model_cls=SingleTaskGP,
@@ -171,6 +164,5 @@ def get_sobol_botorch_modular_acquisition(
     return BenchmarkMethod(
         generation_strategy=generation_strategy,
         distribute_replications=distribute_replications,
-        use_model_predictions_for_best_point=use_model_predictions_for_best_point,
         batch_size=batch_size,
     )

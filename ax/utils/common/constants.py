@@ -44,6 +44,7 @@ class Keys(str, Enum):
     classes or functions and/or are used in multiple places.
     """
 
+    AX_ACQUISITION_KWARGS = "ax_acquisition_kwargs"
     ACQF_KWARGS = "acquisition_function_kwargs"
     BATCH_INIT_CONDITIONS = "batch_initial_conditions"
     CANDIDATE_SET = "candidate_set"
@@ -51,6 +52,7 @@ class Keys(str, Enum):
     COST_AWARE_UTILITY = "cost_aware_utility"
     COST_INTERCEPT = "cost_intercept"
     CURRENT_VALUE = "current_value"
+    DEFAULT_OBJECTIVE_NAME = "objective"
     EXPAND = "expand"
     EXPECTED_ACQF_VAL = "expected_acquisition_value"
     EXPERIMENT_TOTAL_CONCURRENT_ARMS = "total_concurrent_arms"
@@ -67,7 +69,6 @@ class Keys(str, Enum):
     NUM_INNER_RESTARTS = "num_inner_restarts"
     NUM_RESTARTS = "num_restarts"
     NUM_TRACE_OBSERVATIONS = "num_trace_observations"
-    OBJECTIVE = "objective"
     OPTIMIZER_KWARGS = "optimizer_kwargs"
     PAIRWISE_PREFERENCE_QUERY = "pairwise_pref_query"
     PREFERENCE_DATA = "preference_data"
@@ -84,6 +85,7 @@ class Keys(str, Enum):
     SUBCLASS = "subclass"
     SUBSET_MODEL = "subset_model"
     TASK_FEATURES = "task_features"
+    TASK_FEATURE_NAME = "task_feature"
     TRIAL_COMPLETION_TIMESTAMP = "trial_completion_timestamp"
     UNKNOWN_GENERATION_NODE = "unknown_gen_node"
     UNNAMED_ARM = "unnamed_arm"

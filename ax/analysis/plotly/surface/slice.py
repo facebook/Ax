@@ -6,12 +6,17 @@
 # pyre-strict
 
 import math
-from typing import Sequence
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCardCategory, AnalysisCardLevel
+from ax.adapter.base import Adapter
+from ax.analysis.analysis import Analysis
+from ax.analysis.analysis_card import AnalysisCardBase
+from ax.analysis.plotly.color_constants import AX_BLUE
 
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import (
+    create_plotly_analysis_card,
+    PlotlyAnalysisCard,
+)
 from ax.analysis.plotly.surface.utils import (
     get_parameter_values,
     is_axis_log_scale,
@@ -21,18 +26,29 @@ from ax.analysis.plotly.utils import (
     get_scatter_point_color,
     select_metric,
     truncate_label,
+    Z_SCORE_95_CI,
 )
-from ax.analysis.utils import extract_relevant_adapter
+from ax.analysis.utils import extract_relevant_adapter, relativize_data
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
+from ax.core.trial_status import STATUSES_EXPECTING_DATA
+from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.base import Adapter
-from plotly import express as px, graph_objects as go
+from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
+SLICE_CARDGROUP_TITLE = "Slice Plots: Metric effects by parameter value"
 
-class SlicePlot(PlotlyAnalysis):
+SLICE_CARDGROUP_SUBTITLE = (
+    "These plots show the relationship between a metric and a parameter. They "
+    "show the predicted values of the metric on the y-axis as a function of the "
+    "parameter on the x-axis while keeping all other parameters fixed at their "
+    "status_quo value (or mean value if status_quo is unavailable). "
+)
+
+
+class SlicePlot(Analysis):
     """
     Plot a 1D "slice" of the surrogate model's predicted outcomes for a given
     parameter, where all other parameters are held fixed at their status-quo value or
@@ -50,6 +66,7 @@ class SlicePlot(PlotlyAnalysis):
         parameter_name: str,
         metric_name: str | None = None,
         display_sampled: bool = True,
+        relativize: bool = False,
     ) -> None:
         """
         Args:
@@ -58,10 +75,12 @@ class SlicePlot(PlotlyAnalysis):
                 specified the objective will be used.
             display_sampled: If True, plot "x"s at x coordinates which have been
                 sampled in at least one trial.
+            relativize: If True, relativize the metric values to the status quo.
         """
         self.parameter_name = parameter_name
         self.metric_name = metric_name
         self._display_sampled = display_sampled
+        self.relativize = relativize
 
     @override
     def compute(
@@ -69,7 +88,7 @@ class SlicePlot(PlotlyAnalysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> Sequence[PlotlyAnalysisCard]:
+    ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("SlicePlot requires an Experiment")
 
@@ -86,6 +105,7 @@ class SlicePlot(PlotlyAnalysis):
             model=relevant_adapter,
             parameter_name=self.parameter_name,
             metric_name=metric_name,
+            relativize=self.relativize,
         )
 
         fig = _prepare_plot(
@@ -96,26 +116,24 @@ class SlicePlot(PlotlyAnalysis):
                 parameter=experiment.search_space.parameters[self.parameter_name]
             ),
             display_sampled=self._display_sampled,
+            is_relative=self.relativize,
         )
 
-        return [
-            self._create_plotly_analysis_card(
-                title=f"{self.parameter_name} vs. {metric_name}",
-                subtitle=(
-                    "The slice plot provides a one-dimensional view of predicted "
-                    f"outcomes for {metric_name} as a function of a single parameter, "
-                    "while keeping all other parameters fixed at their status_quo "
-                    "value (or mean value if status_quo is unavailable). "
-                    "This visualization helps in understanding the sensitivity and "
-                    "impact of changes in the selected parameter on the predicted "
-                    "metric outcomes."
-                ),
-                level=AnalysisCardLevel.LOW,
-                df=df,
-                fig=fig,
-                category=AnalysisCardCategory.INSIGHT,
-            )
-        ]
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
+            title=f"{self.parameter_name} vs. {metric_name}",
+            subtitle=(
+                "The slice plot provides a one-dimensional view of predicted "
+                f"outcomes for {metric_name} as a function of a single parameter, "
+                "while keeping all other parameters fixed at their status_quo "
+                "value (or mean value if status_quo is unavailable). "
+                "This visualization helps in understanding the sensitivity and "
+                "impact of changes in the selected parameter on the predicted "
+                "metric outcomes."
+            ),
+            df=df,
+            fig=fig,
+        )
 
 
 def compute_slice_adhoc(
@@ -125,9 +143,10 @@ def compute_slice_adhoc(
     adapter: Adapter | None = None,
     metric_name: str | None = None,
     display_sampled: bool = True,
-) -> list[PlotlyAnalysisCard]:
+    relativize: bool = False,
+) -> AnalysisCardBase:
     """
-    Helper method to expose adhoc cross validation plotting. Only for advanced users in
+    Helper method to expose adhoc slice plotting. Only for advanced users in
     a notebook setting.
 
     Args:
@@ -140,22 +159,21 @@ def compute_slice_adhoc(
             the objective will be used.
         display_sampled: If True, plot "x"s at x coordinates which have been sampled
             in at least one trial.
-
+        relativize: If True, relativize the metric values to the status quo.
     """
 
     analysis = SlicePlot(
         parameter_name=parameter_name,
         metric_name=metric_name,
         display_sampled=display_sampled,
+        relativize=relativize,
     )
 
-    return [
-        *analysis.compute(
-            experiment=experiment,
-            generation_strategy=generation_strategy,
-            adapter=adapter,
-        )
-    ]
+    return analysis.compute(
+        experiment=experiment,
+        generation_strategy=generation_strategy,
+        adapter=adapter,
+    )
 
 
 def _prepare_data(
@@ -163,10 +181,16 @@ def _prepare_data(
     model: Adapter,
     parameter_name: str,
     metric_name: str,
+    relativize: bool,
 ) -> pd.DataFrame:
     sampled_xs = [
-        arm.parameters[parameter_name]
+        {
+            "parameter_value": arm.parameters[parameter_name],
+            "arm_name": arm.name,
+            "trial_index": trial.index,
+        }
         for trial in experiment.trials.values()
+        if trial.status in STATUSES_EXPECTING_DATA  # running, completed, early stopped
         for arm in trial.arms
         # Exclude parameter values which are not valid (ex. None when the parameter is
         # not known in a status quo arm).
@@ -178,7 +202,7 @@ def _prepare_data(
     unsampled_xs = get_parameter_values(
         parameter=experiment.search_space.parameters[parameter_name]
     )
-    xs = [*sampled_xs, *unsampled_xs]
+    xs = [*[sample["parameter_value"] for sample in sampled_xs], *unsampled_xs]
 
     # Construct observation features for each parameter value previously chosen by
     # fixing all other parameters to their status-quo value or mean.
@@ -198,7 +222,7 @@ def _prepare_data(
 
     predictions = model.predict(observation_features=features)
 
-    return none_throws(
+    df = none_throws(
         pd.DataFrame.from_records(
             [
                 {
@@ -206,12 +230,33 @@ def _prepare_data(
                     f"{metric_name}_mean": predictions[0][metric_name][i],
                     f"{metric_name}_sem": predictions[1][metric_name][metric_name][i]
                     ** 0.5,  # Convert the variance to the SEM
-                    "sampled": xs[i] in sampled_xs,
+                    "sampled": xs[i]
+                    in [sample["parameter_value"] for sample in sampled_xs],
+                    "arm_name": sampled_xs[i]["arm_name"]
+                    if i < len(sampled_xs)
+                    else "unsampled",
+                    "trial_index": sampled_xs[i]["trial_index"]
+                    if i < len(sampled_xs)
+                    else -1,
                 }
                 for i in range(len(xs))
             ]
         ).drop_duplicates()
     ).sort_values(by=parameter_name)
+
+    if relativize:
+        target_trial_index = none_throws(get_target_trial_index(experiment=experiment))
+        df = relativize_data(
+            experiment=experiment,
+            df=df,
+            metric_names=[metric_name],
+            is_raw_data=False,
+            trial_index=None,
+            trial_statuses=None,
+            target_trial_index=target_trial_index,
+        )
+
+    return df
 
 
 def _prepare_plot(
@@ -220,21 +265,24 @@ def _prepare_plot(
     metric_name: str,
     log_x: bool,
     display_sampled: bool,
+    is_relative: bool = False,
 ) -> go.Figure:
     x = df[parameter_name].tolist()
     y = df[f"{metric_name}_mean"].tolist()
 
     # Convert the SEMs to 95% confidence intervals
-    y_upper = (df[f"{metric_name}_mean"] + 1.96 * df[f"{metric_name}_sem"]).tolist()
-    y_lower = (df[f"{metric_name}_mean"] - 1.96 * df[f"{metric_name}_sem"]).tolist()
-
-    plotly_blue = px.colors.qualitative.Plotly[0]
+    y_upper = (
+        df[f"{metric_name}_mean"] + Z_SCORE_95_CI * df[f"{metric_name}_sem"]
+    ).tolist()
+    y_lower = (
+        df[f"{metric_name}_mean"] - Z_SCORE_95_CI * df[f"{metric_name}_sem"]
+    ).tolist()
 
     # Draw a line at the mean and a shaded region between the upper and lower bounds
     line = go.Scatter(
         x=x,
         y=y,
-        line={"color": plotly_blue},
+        line={"color": AX_BLUE},
         mode="lines",
         name=metric_name,
         showlegend=False,
@@ -245,7 +293,7 @@ def _prepare_plot(
         # Concatenate upper and lower bounds in reverse order
         y=y_upper + y_lower[::-1],
         fill="toself",
-        fillcolor=get_scatter_point_color(hex_color=plotly_blue, ci_transparency=True),
+        fillcolor=get_scatter_point_color(hex_color=AX_BLUE, ci_transparency=True),
         line={"color": "rgba(255,255,255,0)"},  # Make "line" transparent
         hoverinfo="skip",
         showlegend=False,
@@ -256,6 +304,7 @@ def _prepare_plot(
         layout=go.Layout(
             xaxis_title=truncate_label(label=parameter_name),
             yaxis_title=truncate_label(label=metric_name),
+            yaxis={"tickformat": ".2%"} if is_relative else None,
         ),
     )
 

@@ -10,6 +10,8 @@ from collections.abc import Mapping
 from typing import Any
 
 import torch
+from ax.adapter.registry import Cont_X_trans, Generators, Y_trans
+from ax.adapter.torch import TorchAdapter
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.benchmark.problems.surrogate.lcbench.utils import (
@@ -19,11 +21,13 @@ from ax.benchmark.problems.surrogate.lcbench.utils import (
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.registry import Cont_X_trans, Generators, Y_trans
-from ax.modelbridge.torch import TorchAdapter
-from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.generators.torch.botorch_modular.surrogate import (
+    ModelConfig,
+    Surrogate,
+    SurrogateSpec,
+)
 from ax.utils.testing.mock import skip_fit_gpytorch_mll_context_manager
 from botorch.models import SingleTaskGP
 from gpytorch.priors import LogNormalPrior
@@ -67,14 +71,20 @@ def get_lcbench_surrogate() -> Surrogate:
         A Surrogate with the specification used to fit the LCBench data.
     """
     return Surrogate(
-        botorch_model_class=SingleTaskGP,
-        covar_module_class=ScaleMaternKernel,
-        covar_module_options={
-            "nu": 1.5,
-            "ard_num_dims": 7,
-            "outputscale_prior": LogNormalPrior(-3, 0.0025),
-        },
-        input_transform_classes=None,
+        surrogate_spec=SurrogateSpec(
+            model_configs=[
+                ModelConfig(
+                    botorch_model_class=SingleTaskGP,
+                    covar_module_class=ScaleMaternKernel,
+                    covar_module_options={
+                        "nu": 1.5,
+                        "ard_num_dims": 7,
+                        "outputscale_prior": LogNormalPrior(-3, 0.0025),
+                    },
+                    input_transform_classes=None,
+                )
+            ]
+        )
     )
 
 
@@ -119,24 +129,24 @@ def get_lcbench_benchmark_problem(
     )
 
     def get_surrogate() -> TorchAdapter:
-        """Construct a modelbridge with the LCBench surrogate and datasets.
+        """Construct an adapter with the LCBench surrogate and datasets.
 
         Returns:
-            A fitted modelbridge with the LCBench Surrogate and data.
+            A fitted adapter with the LCBench Surrogate and data.
         """
         # We load the model hyperparameters from the saved state dict.
         with skip_fit_gpytorch_mll_context_manager():
-            mb = Generators.BOTORCH_MODULAR(
+            adapter = Generators.BOTORCH_MODULAR(
                 surrogate=get_lcbench_surrogate(),
                 experiment=obj["experiment"],
                 search_space=obj["experiment"].search_space,
                 data=obj["data"],
                 transforms=Cont_X_trans + Y_trans,
             )
-        assert_is_instance(mb.model, BoTorchGenerator).surrogate.model.load_state_dict(
-            obj["state_dict"]
-        )
-        return assert_is_instance(mb, TorchAdapter)
+        assert_is_instance(
+            adapter.generator, BoTorchGenerator
+        ).surrogate.model.load_state_dict(obj["state_dict"])
+        return assert_is_instance(adapter, TorchAdapter)
 
     name = f"LCBench_Surrogate_{dataset_name}:v1"
 

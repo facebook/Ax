@@ -5,10 +5,12 @@
 
 # pyre-strict
 
-from ax.analysis.plotly.arm_effects.unified import ArmEffectsPlot
+from ax.analysis.plotly.arm_effects import ArmEffectsPlot
+from ax.analysis.plotly.bandit_rollout import BanditRollout
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
+from ax.analysis.plotly.marginal_effects import MarginalEffectsPlot
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.analysis.plotly.progression import ProgressionPlot
 from ax.analysis.plotly.scatter import ScatterPlot
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
@@ -18,10 +20,11 @@ from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 
 __all__ = [
     "ArmEffectsPlot",
+    "BanditRollout",
     "ContourPlot",
     "CrossValidationPlot",
+    "MarginalEffectsPlot",
     "ParallelCoordinatesPlot",
-    "PlotlyAnalysis",
     "PlotlyAnalysisCard",
     "ProgressionPlot",
     "ScatterPlot",

@@ -151,8 +151,8 @@ def positive_part_james_stein(
 def relativize(
     means_t: npt.NDArray | list[float] | float,
     sems_t: npt.NDArray | list[float] | float,
-    mean_c: float,
-    sem_c: float,
+    mean_c: npt.NDArray | float,
+    sem_c: npt.NDArray | float,
     bias_correction: bool = True,
     cov_means: npt.NDArray | list[float] | float = 0.0,
     as_percent: bool = False,
@@ -236,7 +236,7 @@ def relativize(
         var = (s_t / abs_mean_c) ** 2
     else:
         c = m_t / mean_c
-        if bias_correction:
+        if bias_correction and not np.all(np.isnan(sem_c)):
             r_hat = r_hat - m_t * sem_c**2 / abs_mean_c**3
 
         # If everything's the same, then set r_hat to zero
@@ -344,7 +344,9 @@ def agresti_coull_sem(
     return sem
 
 
-def marginal_effects(df: pd.DataFrame) -> pd.DataFrame:
+def marginal_effects(
+    df: pd.DataFrame, covariates: list[str] | None = None
+) -> pd.DataFrame:
     """
     This method calculates the relative (in %) change in the outcome achieved
     by using any individual factor level versus randomizing across all factor
@@ -356,13 +358,15 @@ def marginal_effects(df: pd.DataFrame) -> pd.DataFrame:
     Args:
         df: Dataframe containing columns named mean and sem. All other columns
             are assumed to be factors for which to calculate marginal effects.
+        covariates: List of columns to be used as covariates. If None, then use
+            all columns in df that are not named "mean" or "sem".
 
     Returns:
         A dataframe containing columns "Name", "Level", "Beta" and "SE"
             corresponding to the factor, level, effect and standard error.
             Results are relativized as percentage changes.
     """
-    covariates = [col for col in df.columns if col not in ["mean", "sem"]]
+    covariates = covariates or [col for col in df.columns if col not in ["mean", "sem"]]
     formatted_vals = []
     overall_mean, overall_sem = inverse_variance_weight(
         df["mean"],

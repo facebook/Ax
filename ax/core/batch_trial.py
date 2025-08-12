@@ -505,7 +505,7 @@ class BatchTrial(BaseTrial):
         experiment after their abandonment to avoid Ax models suggesting
         the same arm again as a new candidate. Abandoned arms are also
         excluded from model training data unless ``fit_abandoned``
-        option is specified to model bridge.
+        option is specified to adapter.
 
         Args:
             arm_name: The name of the arm to abandon.

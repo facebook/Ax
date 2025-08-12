@@ -10,6 +10,8 @@ from copy import deepcopy
 from unittest import mock
 from unittest.mock import MagicMock
 
+from ax.adapter.random import RandomAdapter
+
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -19,7 +21,6 @@ from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.modelbridge.random import RandomAdapter
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data,
@@ -54,8 +55,8 @@ class TestExternalGenerationNode(TestCase):
         node = DummyNode()
         self.assertEqual(node.node_name, "dummy")
         self.assertGreater(node.fit_time_since_gen, 0.0)
-        self.assertIsNone(node._fitted_model)
-        self.assertIsNone(node.model_spec_to_gen_from)
+        self.assertIsNone(node._fitted_adapter)
+        self.assertIsNone(node.generator_spec_to_gen_from)
         self.assertFalse(node.should_deduplicate)
         with self.assertRaisesRegex(UnsupportedError, "Unexpected arguments"):
             node._fit(
@@ -71,7 +72,9 @@ class TestExternalGenerationNode(TestCase):
 
         # Sequential generation.
         for _ in range(3):
-            gr = gs.gen(n=1, experiment=experiment, data=experiment.lookup_data())
+            gr = gs.gen_single_trial(
+                n=1, experiment=experiment, data=experiment.lookup_data()
+            )
             trial = experiment.new_trial(generator_run=gr)
             trial.mark_running(no_runner_required=True)
             experiment.attach_data(get_branin_data(trials=[trial]))
@@ -84,7 +87,7 @@ class TestExternalGenerationNode(TestCase):
         pending_observations = {
             "some_metric": [ObservationFeatures(parameters={"x1": 0.123, "x2": 0.456})]
         }
-        gr = gs.gen(
+        gr = gs.gen_single_trial(
             n=1,
             experiment=experiment,
             data=experiment.lookup_data(),
@@ -99,7 +102,9 @@ class TestExternalGenerationNode(TestCase):
         self.assertEqual(node.last_pending, [{"x1": 0.123, "x2": 0.456}])
 
         # Batch generation.
-        gr = gs.gen(n=5, experiment=experiment, data=experiment.lookup_data())
+        gr = gs.gen_single_trial(
+            n=5, experiment=experiment, data=experiment.lookup_data()
+        )
         self.assertEqual(node.gen_count, 9)
         self.assertEqual(node.update_count, 5)
         self.assertEqual(len(gr.arms), 5)
@@ -114,11 +119,15 @@ class TestExternalGenerationNode(TestCase):
         experiment = get_branin_experiment()
         params = {"x1": 0.0, "x2": 0.0}
         with mock.patch(
-            "ax.modelbridge.random.RandomAdapter.gen",
+            "ax.adapter.random.RandomAdapter.gen",
             return_value=GeneratorRun(arms=[Arm(parameters=params)], model_key="Sobol"),
         ) as mock_gen:
-            experiment.new_trial(generator_run=gs.gen(n=1, experiment=experiment)).run()
-            experiment.new_trial(generator_run=gs.gen(n=1, experiment=experiment)).run()
+            experiment.new_trial(
+                generator_run=gs.gen_single_trial(n=1, experiment=experiment)
+            ).run()
+            experiment.new_trial(
+                generator_run=gs.gen_single_trial(n=1, experiment=experiment)
+            ).run()
         self.assertEqual(node.gen_count, 6)  # first trial + 5 deduplication attempts
         self.assertEqual(mock_gen.call_count, 7)  # also called for the fallback
         self.assertEqual(node.update_count, 2)

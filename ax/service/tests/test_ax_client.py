@@ -18,6 +18,8 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pandas as pd
 import torch
+from ax.adapter.random import RandomAdapter
+from ax.adapter.registry import Cont_X_trans, Generators
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -54,10 +56,8 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.metrics.branin import branin, BraninMetric
-from ax.modelbridge.random import RandomAdapter
-from ax.modelbridge.registry import Cont_X_trans, Generators
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
@@ -219,9 +219,9 @@ def get_client_with_simple_discrete_moo_problem(
 ) -> AxClient:
     gs = GenerationStrategy(
         steps=[
-            GenerationStep(model=Generators.SOBOL, num_trials=3),
+            GenerationStep(generator=Generators.SOBOL, num_trials=3),
             GenerationStep(
-                model=Generators.BOTORCH_MODULAR,
+                generator=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs={
                     # To avoid search space exhausted errors.
@@ -265,18 +265,6 @@ def get_client_with_simple_discrete_moo_problem(
             metrics = [-m for m in metrics]
         y0, y1, y2 = metrics
         raw_data = {"y0": (y0, 0.0), "y1": (y1, 0.0), "y2": (y2, 0.0)}
-        # pyre-fixme[6]: In call `AxClient.complete_trial`, for 2nd parameter
-        #  `raw_data`
-        #  expected `Union[Dict[str, Union[Tuple[Union[float, floating, integer],
-        #  Union[None, float, floating, integer]], float, floating, integer]],
-        #  List[Tuple[Dict[str, Union[None, bool, float, int, str]], Dict[str,
-        #  Union[Tuple[Union[float, floating, integer], Union[None, float, floating,
-        #  integer]], float, floating, integer]]]], List[Tuple[Dict[str, Hashable],
-        #  Dict[str, Union[Tuple[Union[float, floating, integer], Union[None, float,
-        #  floating, integer]], float, floating, integer]]]], Tuple[Union[float,
-        #  floating,
-        #  integer], Union[None, float, floating, integer]], float, floating, integer]`
-        #  but got `Dict[str, Tuple[float, float]]`.
         ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
     return ax_client
 
@@ -481,22 +469,22 @@ class TestAxClient(TestCase):
         self.assertEqual(original_opt_config, ax_client.experiment.optimization_config)
 
     @patch(
-        "ax.modelbridge.base.observations_from_data",
+        "ax.adapter.base.observations_from_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter.get_training_data",
+        "ax.adapter.random.RandomAdapter.get_training_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter._predict",
+        "ax.adapter.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter.feature_importances",
+        "ax.adapter.random.RandomAdapter.feature_importances",
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
@@ -507,7 +495,7 @@ class TestAxClient(TestCase):
         """
         ax_client = get_branin_optimization()
         self.assertEqual(
-            [s.model for s in none_throws(ax_client.generation_strategy)._steps],
+            [s.generator for s in none_throws(ax_client.generation_strategy)._steps],
             [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -538,7 +526,7 @@ class TestAxClient(TestCase):
                 sample_size=i,
             )
         # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.model._model_key, "BoTorch")
+        self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
         trials_df = ax_client.get_trials_data_frame()
@@ -548,7 +536,7 @@ class TestAxClient(TestCase):
         self.assertEqual(len(trials_df), 6)
 
     @patch(
-        "ax.modelbridge.base.observations_from_data",
+        "ax.adapter.base.observations_from_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
@@ -689,22 +677,22 @@ class TestAxClient(TestCase):
             )
 
     @patch(
-        "ax.modelbridge.base.observations_from_data",
+        "ax.adapter.base.observations_from_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter.get_training_data",
+        "ax.adapter.random.RandomAdapter.get_training_data",
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter._predict",
+        "ax.adapter.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
     @patch(
-        "ax.modelbridge.random.RandomAdapter.feature_importances",
+        "ax.adapter.random.RandomAdapter.feature_importances",
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
@@ -725,7 +713,7 @@ class TestAxClient(TestCase):
             },
         )
         self.assertEqual(
-            [s.model for s in none_throws(ax_client.generation_strategy)._steps],
+            [s.generator for s in none_throws(ax_client.generation_strategy)._steps],
             [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -767,7 +755,7 @@ class TestAxClient(TestCase):
                 sample_size=i,
             )
         # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.model._model_key, "BoTorch")
+        self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")
         ax_client.get_contour_plot(metric_name="branin")
         ax_client.get_contour_plot(metric_name="b")
         trials_df = ax_client.get_trials_data_frame()
@@ -791,7 +779,7 @@ class TestAxClient(TestCase):
         """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -931,7 +919,7 @@ class TestAxClient(TestCase):
         """
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         ax_client.create_experiment(
@@ -1028,7 +1016,7 @@ class TestAxClient(TestCase):
     def test_create_single_objective_experiment_with_objectives_dict(self) -> None:
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -1356,7 +1344,7 @@ class TestAxClient(TestCase):
         """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -1520,7 +1508,7 @@ class TestAxClient(TestCase):
         """Check that we do not allow constraints on the objective metric."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(model=Generators.SOBOL, num_trials=30)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaises(ValueError):
@@ -1644,7 +1632,6 @@ class TestAxClient(TestCase):
         with self.assertRaises(ValueError):
             no_intermediate_data_ax_client.update_running_trial_with_intermediate_data(
                 0,
-                # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
                 raw_data=[
                     # pyre-fixme[61]: `t` is undefined, or not always defined.
                     ({"t": p_t}, {"branin": (branin(x, y) + t, 0.0)})
@@ -2311,7 +2298,7 @@ class TestAxClient(TestCase):
         self.assertIsNone(ax_client.experiment._name)
 
     @patch(
-        "ax.modelbridge.random.RandomAdapter._predict",
+        "ax.adapter.random.RandomAdapter._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
@@ -2502,7 +2489,7 @@ class TestAxClient(TestCase):
         )
         ax_client.fit_model()
         self.assertEqual(
-            ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
+            ax_client.generation_strategy._curr.generator_spec_to_gen_from.model_key,
             "BoTorch",
         )
 
@@ -2527,7 +2514,7 @@ class TestAxClient(TestCase):
         # This overwrites the `predict` call to return the original observations,
         # while testing the rest of the code as if we're using predictions.
         # pyre-fixme[16]: `Optional` has no attribute `model`.
-        model = ax_client.generation_strategy.model.model
+        model = ax_client.generation_strategy.adapter.generator
         ys = model.surrogate.training_data[0].Y
         with patch.object(
             model, "predict", return_value=(ys, torch.zeros(*ys.shape, ys.shape[-1]))
@@ -2572,7 +2559,7 @@ class TestAxClient(TestCase):
             num_trials=20, minimize=minimize, outcome_constraints=outcome_constraints
         )
         self.assertEqual(
-            ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
+            ax_client.generation_strategy._curr.generator_spec_to_gen_from.model_key,
             "Sobol",
         )
 
@@ -2627,9 +2614,7 @@ class TestAxClient(TestCase):
         # Check that the data in the frontier matches the observed data
         # (it should be in the original, un-transformed space)
         input_data = (
-            ax_client.experiment.fetch_trials_data([idx_of_frontier_point])
-            .df["mean"]
-            .values
+            ax_client.experiment.fetch_data([idx_of_frontier_point]).df["mean"].values
         )
         pareto_y = observed_pareto[idx_of_frontier_point][1][0]
         pareto_y_list = [pareto_y["branin"], pareto_y["currin"]]
@@ -3041,8 +3026,8 @@ class TestAxClient(TestCase):
         )
         with mock.patch.object(
             GenerationStrategy,
-            "gen",
-            wraps=ax_client.generation_strategy.gen,
+            "gen_single_trial",
+            wraps=ax_client.generation_strategy.gen_single_trial,
         ) as mock_gen:
             with self.subTest("fixed_features is None"):
                 ax_client.get_next_trial()
@@ -3107,7 +3092,7 @@ class TestAxClient(TestCase):
             nodes=[
                 GenerationNode(
                     node_name="Sobol",
-                    model_specs=[GeneratorSpec(model_enum=Generators.SOBOL)],
+                    generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                 )
             ],
         )

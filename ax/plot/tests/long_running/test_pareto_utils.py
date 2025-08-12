@@ -6,9 +6,9 @@
 
 # pyre-strict
 
+from ax.adapter.registry import Generators
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.registry import Generators
 from ax.plot.pareto_utils import compute_posterior_pareto_frontier
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment

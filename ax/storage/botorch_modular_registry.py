@@ -11,9 +11,15 @@ from typing import Any
 import torch
 
 # Ax `Acquisition` & other MBM imports
-from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.kernels import DefaultRBFKernel, ScaleMaternKernel
-from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
+from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.kernels import (
+    DefaultMaternKernel,
+    DefaultRBFKernel,
+    ScaleMaternKernel,
+)
+
+from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
+from ax.generators.torch.botorch_modular.sebo import SEBOAcquisition
 
 # BoTorch `AcquisitionFunction` imports
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -22,6 +28,7 @@ from botorch.acquisition.analytic import (
     LogExpectedImprovement,
     LogNoisyExpectedImprovement,
     NoisyExpectedImprovement,
+    PosteriorMean,
 )
 from botorch.acquisition.knowledge_gradient import (
     qKnowledgeGradient,
@@ -30,6 +37,7 @@ from botorch.acquisition.knowledge_gradient import (
 from botorch.acquisition.logei import (
     qLogExpectedImprovement,
     qLogNoisyExpectedImprovement,
+    qLogProbabilityOfFeasibility,
 )
 from botorch.acquisition.max_value_entropy_search import (
     qMaxValueEntropy,
@@ -52,9 +60,12 @@ from botorch.acquisition.preference import (
     AnalyticExpectedUtilityOfBestOption,
     qExpectedUtilityOfBestOption,
 )
-from botorch.models import SaasFullyBayesianSingleTaskGP
 from botorch.models.contextual import LCEAGP
-from botorch.models.fully_bayesian import FullyBayesianLinearSingleTaskGP
+from botorch.models.fully_bayesian import (
+    FullyBayesianLinearSingleTaskGP,
+    FullyBayesianSingleTaskGP,
+    SaasFullyBayesianSingleTaskGP,
+)
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 
 # BoTorch `Model` imports
@@ -103,6 +114,7 @@ Mapping of modular Ax `Acquisition` classes to class name strings.
 """
 ACQUISITION_REGISTRY: dict[type[Acquisition], str] = {
     Acquisition: "Acquisition",
+    MultiAcquisition: "MultiAcquisition",
 }
 
 
@@ -120,6 +132,7 @@ MODEL_REGISTRY: dict[type[Model], str] = {
     SingleTaskMultiFidelityGP: "SingleTaskMultiFidelityGP",
     FullyBayesianLinearSingleTaskGP: "FullyBayesianLinearSingleTaskGP",
     SaasFullyBayesianSingleTaskGP: "SaasFullyBayesianSingleTaskGP",
+    FullyBayesianSingleTaskGP: "FullyBayesianSingleTaskGP",
     SaasFullyBayesianMultiTaskGP: "SaasFullyBayesianMultiTaskGP",
     LCEAGP: "LCEAGP",
 }
@@ -129,6 +142,7 @@ MODEL_REGISTRY: dict[type[Model], str] = {
 Mapping of Botorch `AcquisitionFunction` classes to class name strings.
 """
 ACQUISITION_FUNCTION_REGISTRY: dict[type[AcquisitionFunction], str] = {
+    PosteriorMean: "PosteriorMean",
     ExpectedImprovement: "ExpectedImprovement",
     AnalyticExpectedUtilityOfBestOption: "AnalyticExpectedUtilityOfBestOption",
     qExpectedUtilityOfBestOption: "qExpectedUtilityOfBestOption",
@@ -146,6 +160,7 @@ ACQUISITION_FUNCTION_REGISTRY: dict[type[AcquisitionFunction], str] = {
     LogNoisyExpectedImprovement: "LogNoisyExpectedImprovement",
     qLogExpectedImprovement: "qLogExpectedImprovement",
     qLogNoisyExpectedImprovement: "qLogNoisyExpectedImprovement",
+    qLogProbabilityOfFeasibility: "qLogProbabilityOfFeasibility",
     qLogExpectedHypervolumeImprovement: "qLogExpectedHypervolumeImprovement",
     qLogNoisyExpectedHypervolumeImprovement: "qLogNoisyExpectedHypervolumeImprovement",
     qLogNParEGO: "qLogNParEGO",
@@ -166,6 +181,7 @@ KERNEL_REGISTRY: dict[type[Kernel], str] = {
     ScaleMaternKernel: "ScaleMaternKernel",
     RBFKernel: "RBFKernel",
     DefaultRBFKernel: "DefaultRBFKernel",
+    DefaultMaternKernel: "DefaultMaternKernel",
 }
 
 LIKELIHOOD_REGISTRY: dict[type[GaussianLikelihood], str] = {
@@ -303,6 +319,13 @@ def register_kernel(kernel_class: type[Kernel]) -> None:
     class_name = kernel_class.__name__
     CLASS_TO_REGISTRY[Kernel].update({kernel_class: class_name})
     CLASS_TO_REVERSE_REGISTRY[Kernel].update({class_name: kernel_class})
+
+
+def register_mll(mll_class: type[MarginalLogLikelihood]) -> None:
+    """Add a custom mll class to the SQA and JSON registries."""
+    class_name = mll_class.__name__
+    CLASS_TO_REGISTRY[MarginalLogLikelihood].update({mll_class: class_name})
+    CLASS_TO_REVERSE_REGISTRY[MarginalLogLikelihood].update({class_name: mll_class})
 
 
 register_acquisition(SEBOAcquisition)

@@ -16,6 +16,20 @@ from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
 from botorch.test_utils.mock import mock_optimize_context_manager
 from torch import Tensor
 
+try:
+    from botorch.utils.multi_objective.optimize import optimize_with_nsgaii
+
+    def minimal_optimize_with_nsgaii(
+        *args: Any, **kwargs: Any
+    ) -> tuple[Tensor, Tensor]:
+        kwargs["population_size"] = 10
+        kwargs["max_gen"] = 1
+        return optimize_with_nsgaii(*args, **kwargs)
+except ImportError:
+
+    def minimal_optimize_with_nsgaii(*args: Any, **kwargs: Any) -> None:
+        pass
+
 
 @contextmanager
 def mock_botorch_optimize_context_manager(
@@ -55,16 +69,25 @@ def mock_botorch_optimize_context_manager(
     with ExitStack() as es:
         mock_mcmc_mbm = es.enter_context(
             mock.patch(
-                "ax.models.torch.botorch_modular.utils.fit_fully_bayesian_model_nuts",
+                "ax.generators.torch.botorch_modular.utils"
+                ".fit_fully_bayesian_model_nuts",
                 wraps=minimal_fit_fully_bayesian,
             )
         )
 
         mock_mixed_optimizer = es.enter_context(
             mock.patch(
-                "ax.models.torch.botorch_modular.acquisition."
+                "ax.generators.torch.botorch_modular.acquisition."
                 "optimize_acqf_mixed_alternating",
                 wraps=minimal_mixed_optimizer,
+            )
+        )
+
+        mock_nsgaii = es.enter_context(
+            mock.patch(
+                "ax.generators.torch.botorch_modular.acquisition."
+                "optimize_with_nsgaii",
+                wraps=minimal_optimize_with_nsgaii,
             )
         )
 
@@ -90,10 +113,7 @@ def mock_botorch_optimize_context_manager(
         not force
         and all(
             mock_.call_count < 1
-            for mock_ in [
-                mock_mcmc_mbm,
-                mock_mixed_optimizer,
-            ]
+            for mock_ in [mock_mcmc_mbm, mock_mixed_optimizer, mock_nsgaii]
         )
         and botorch_mocks_called is False
     ):

@@ -39,6 +39,9 @@ def delete_generation_strategy(
 ) -> None:
     """Delete the generation strategy associated with an experiment
 
+    Warning: This method will delete all existing generator runs and arms from
+        the experiment. Use with caution.
+
     Args:
         exp_name: Name of the experiment for which the generation strategy
             should be deleted.

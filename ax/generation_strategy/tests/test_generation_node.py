@@ -9,6 +9,8 @@
 from unittest.mock import MagicMock, patch
 
 import torch
+from ax.adapter.factory import get_sobol
+from ax.adapter.registry import Generators
 from ax.core.observation import ObservationFeatures
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
@@ -27,13 +29,8 @@ from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
-from ax.generation_strategy.model_spec import (
-    FactoryFunctionGeneratorSpec,
-    GeneratorSpec,
-)
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MinTrials
-from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.registry import Generators
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -45,46 +42,46 @@ from pyre_extensions import none_throws
 class TestGenerationNode(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.sobol_model_spec = GeneratorSpec(
-            model_enum=Generators.SOBOL,
+        self.sobol_generator_spec = GeneratorSpec(
+            generator_enum=Generators.SOBOL,
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
-        self.mbm_model_spec = GeneratorSpec(
-            model_enum=Generators.BOTORCH_MODULAR,
+        self.mbm_generator_spec = GeneratorSpec(
+            generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs={},
             model_gen_kwargs={},
         )
         self.sobol_generation_node = GenerationNode(
-            node_name="test", model_specs=[self.sobol_model_spec]
+            node_name="test", generator_specs=[self.sobol_generator_spec]
         )
         self.branin_experiment = get_branin_experiment(with_completed_trial=True)
         self.branin_data = self.branin_experiment.lookup_data()
         self.node_short = GenerationNode(
             node_name="test",
-            model_specs=[self.sobol_model_spec],
+            generator_specs=[self.sobol_generator_spec],
             trial_type=Keys.SHORT_RUN,
         )
 
     def test_init(self) -> None:
         self.assertEqual(
-            self.sobol_generation_node.model_specs, [self.sobol_model_spec]
+            self.sobol_generation_node.generator_specs, [self.sobol_generator_spec]
         )
         with self.assertRaisesRegex(UserInputError, "Model keys must be unique"):
             GenerationNode(
                 node_name="test",
-                model_specs=[self.sobol_model_spec, self.sobol_model_spec],
+                generator_specs=[self.sobol_generator_spec, self.sobol_generator_spec],
             )
         mbm_specs = [
-            GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR),
+            GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR),
             GeneratorSpec(
-                model_enum=Generators.BOTORCH_MODULAR, model_key_override="MBM v2"
+                generator_enum=Generators.BOTORCH_MODULAR, model_key_override="MBM v2"
             ),
         ]
         with self.assertRaisesRegex(UserInputError, MISSING_MODEL_SELECTOR_MESSAGE):
             GenerationNode(
                 node_name="test",
-                model_specs=mbm_specs,
+                generator_specs=mbm_specs,
             )
         model_selector = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",
@@ -93,10 +90,10 @@ class TestGenerationNode(TestCase):
         )
         node = GenerationNode(
             node_name="test",
-            model_specs=mbm_specs,
+            generator_specs=mbm_specs,
             best_model_selector=model_selector,
         )
-        self.assertEqual(node.model_specs, mbm_specs)
+        self.assertEqual(node.generator_specs, mbm_specs)
         self.assertIs(node.best_model_selector, model_selector)
 
     def test_input_constructor_none(self) -> None:
@@ -107,19 +104,19 @@ class TestGenerationNode(TestCase):
         with self.assertRaisesRegex(NotImplementedError, "Trial type must be either"):
             GenerationNode(
                 node_name="test",
-                model_specs=[self.sobol_model_spec],
+                generator_specs=[self.sobol_generator_spec],
                 trial_type="foo",
             )
 
     def test_init_with_trial_type(self) -> None:
         node_long = GenerationNode(
             node_name="test",
-            model_specs=[self.sobol_model_spec],
+            generator_specs=[self.sobol_generator_spec],
             trial_type=Keys.LONG_RUN,
         )
         node_default = GenerationNode(
             node_name="test",
-            model_specs=[self.sobol_model_spec],
+            generator_specs=[self.sobol_generator_spec],
         )
         self.assertEqual(self.node_short._trial_type, Keys.SHORT_RUN)
         self.assertEqual(node_long._trial_type, Keys.LONG_RUN)
@@ -128,7 +125,7 @@ class TestGenerationNode(TestCase):
     def test_input_constructor(self) -> None:
         node = GenerationNode(
             node_name="test",
-            model_specs=[self.sobol_model_spec],
+            generator_specs=[self.sobol_generator_spec],
             input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
         )
         self.assertEqual(
@@ -142,22 +139,22 @@ class TestGenerationNode(TestCase):
 
     def test_fit(self) -> None:
         with patch.object(
-            self.sobol_model_spec, "fit", wraps=self.sobol_model_spec.fit
-        ) as mock_model_spec_fit:
+            self.sobol_generator_spec, "fit", wraps=self.sobol_generator_spec.fit
+        ) as mock_generator_spec_fit:
             self.sobol_generation_node._fit(
                 experiment=self.branin_experiment,
                 data=self.branin_data,
             )
-        mock_model_spec_fit.assert_called_with(
+        mock_generator_spec_fit.assert_called_with(
             experiment=self.branin_experiment, data=self.branin_data
         )
 
     def test_gen(self) -> None:
         with patch.object(
-            self.sobol_model_spec, "gen", wraps=self.sobol_model_spec.gen
-        ) as mock_model_spec_gen, patch.object(
-            self.sobol_model_spec, "fit", wraps=self.sobol_model_spec.fit
-        ) as mock_model_spec_fit:
+            self.sobol_generator_spec, "gen", wraps=self.sobol_generator_spec.gen
+        ) as mock_generator_spec_gen, patch.object(
+            self.sobol_generator_spec, "fit", wraps=self.sobol_generator_spec.fit
+        ) as mock_generator_spec_fit:
             gr = self.sobol_generation_node.gen(
                 experiment=self.branin_experiment,
                 data=self.branin_experiment.lookup_data(),
@@ -165,14 +162,14 @@ class TestGenerationNode(TestCase):
                 pending_observations={"branin": []},
             )
             self.assertIsNotNone(gr)
-            self.assertEqual(gr._model_key, self.sobol_model_spec.model_key)
+            self.assertEqual(gr._model_key, self.sobol_generator_spec.model_key)
             model_kwargs = gr._model_kwargs
             self.assertIsNotNone(model_kwargs)
             self.assertEqual(model_kwargs.get("init_position"), 3)
-        mock_model_spec_fit.assert_called_with(
+        mock_generator_spec_fit.assert_called_with(
             experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()
         )
-        mock_model_spec_gen.assert_called_with(
+        mock_generator_spec_gen.assert_called_with(
             experiment=self.branin_experiment,
             data=self.branin_experiment.lookup_data(),
             n=1,
@@ -184,9 +181,9 @@ class TestGenerationNode(TestCase):
     def test_gen_with_trial_type(self) -> None:
         mbm_short = GenerationNode(
             node_name="test",
-            model_specs=[
+            generator_specs=[
                 GeneratorSpec(
-                    model_enum=Generators.BOTORCH_MODULAR,
+                    generator_enum=Generators.BOTORCH_MODULAR,
                     model_kwargs={},
                     model_gen_kwargs={
                         "n": 1,
@@ -227,9 +224,9 @@ class TestGenerationNode(TestCase):
         sampler = SobolQMCNormalSampler(torch.Size([1]))
         node = GenerationNode(
             node_name="test",
-            model_specs=[
+            generator_specs=[
                 GeneratorSpec(
-                    model_enum=Generators.BOTORCH_MODULAR,
+                    generator_enum=Generators.BOTORCH_MODULAR,
                     model_kwargs={},
                     model_gen_kwargs={
                         "n": 1,
@@ -251,7 +248,7 @@ class TestGenerationNode(TestCase):
         )
         # verify that sampler is not modified in-place by checking base samples
         self.assertIs(
-            node.model_spec_to_gen_from.model_gen_kwargs["model_gen_options"][
+            node.generator_spec_to_gen_from.model_gen_kwargs["model_gen_options"][
                 Keys.ACQF_KWARGS
             ]["sampler"],
             sampler,
@@ -262,9 +259,9 @@ class TestGenerationNode(TestCase):
     def test_properties(self) -> None:
         node = GenerationNode(
             node_name="test",
-            model_specs=[
+            generator_specs=[
                 GeneratorSpec(
-                    model_enum=Generators.BOTORCH_MODULAR,
+                    generator_enum=Generators.BOTORCH_MODULAR,
                     model_kwargs={},
                     model_gen_kwargs={
                         "n": 1,
@@ -282,29 +279,33 @@ class TestGenerationNode(TestCase):
             data=self.branin_data,
         )
         self.assertEqual(
-            node.model_spec_to_gen_from.model_enum, node.model_specs[0].model_enum
+            node.generator_spec_to_gen_from.generator_enum,
+            node.generator_specs[0].generator_enum,
         )
         self.assertEqual(
-            node.model_spec_to_gen_from.model_kwargs, node.model_specs[0].model_kwargs
+            node.generator_spec_to_gen_from.model_kwargs,
+            node.generator_specs[0].model_kwargs,
         )
         self.assertEqual(node.model_to_gen_from_name, "BoTorch")
         self.assertEqual(
-            node.model_spec_to_gen_from.model_gen_kwargs,
-            node.model_specs[0].model_gen_kwargs,
+            node.generator_spec_to_gen_from.model_gen_kwargs,
+            node.generator_specs[0].model_gen_kwargs,
         )
         self.assertEqual(
-            node.model_spec_to_gen_from.model_cv_kwargs,
-            node.model_specs[0].model_cv_kwargs,
+            node.generator_spec_to_gen_from.model_cv_kwargs,
+            node.generator_specs[0].model_cv_kwargs,
         )
         self.assertEqual(
-            node.model_spec_to_gen_from.fixed_features,
-            node.model_specs[0].fixed_features,
+            node.generator_spec_to_gen_from.fixed_features,
+            node.generator_specs[0].fixed_features,
         )
         self.assertEqual(
-            node.model_spec_to_gen_from.cv_results, node.model_specs[0].cv_results
+            node.generator_spec_to_gen_from.cv_results,
+            node.generator_specs[0].cv_results,
         )
         self.assertEqual(
-            node.model_spec_to_gen_from.diagnostics, node.model_specs[0].diagnostics
+            node.generator_spec_to_gen_from.diagnostics,
+            node.generator_specs[0].diagnostics,
         )
         self.assertEqual(node.node_name, "test")
         self.assertEqual(node._unique_id, "test")
@@ -312,8 +313,8 @@ class TestGenerationNode(TestCase):
     def test_node_string_representation(self) -> None:
         node = GenerationNode(
             node_name="test",
-            model_specs=[
-                self.mbm_model_spec,
+            generator_specs=[
+                self.mbm_generator_spec,
             ],
             transition_criteria=[
                 MinTrials(threshold=5, only_in_statuses=[TrialStatus.RUNNING])
@@ -324,7 +325,7 @@ class TestGenerationNode(TestCase):
         self.assertEqual(
             string_rep,
             "GenerationNode(node_name='test', "
-            "model_specs=[GeneratorSpec(model_enum=BoTorch, "
+            "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
             "model_key_override=None)], "
             "transition_criteria=[MinTrials(transition_to='None')])",
         )
@@ -332,9 +333,9 @@ class TestGenerationNode(TestCase):
     def test_single_fixed_features(self) -> None:
         node = GenerationNode(
             node_name="test",
-            model_specs=[
+            generator_specs=[
                 GeneratorSpec(
-                    model_enum=Generators.BOTORCH_MODULAR,
+                    generator_enum=Generators.BOTORCH_MODULAR,
                     model_kwargs={},
                     model_gen_kwargs={
                         "n": 2,
@@ -344,7 +345,7 @@ class TestGenerationNode(TestCase):
             ],
         )
         self.assertEqual(
-            node.model_spec_to_gen_from.fixed_features,
+            node.generator_spec_to_gen_from.fixed_features,
             ObservationFeatures(parameters={"x": 0}),
         )
 
@@ -354,66 +355,53 @@ class TestGenerationStep(TestCase):
         super().setUp()
         self.model_kwargs = {"init_position": 5}
         self.sobol_generation_step = GenerationStep(
-            model=Generators.SOBOL,
+            generator=Generators.SOBOL,
             num_trials=5,
             model_kwargs=self.model_kwargs,
         )
-        self.model_spec = GeneratorSpec(
-            # pyre-fixme[6]: For 1st param expected `ModelRegistryBase` but got
-            #  `Union[typing.Callable[..., Adapter], ModelRegistryBase]`.
-            model_enum=self.sobol_generation_step.model,
+        self.generator_spec = GeneratorSpec(
+            generator_enum=self.sobol_generation_step.generator,
             model_kwargs=self.model_kwargs,
         )
 
     def test_init(self) -> None:
         self.assertEqual(
-            self.sobol_generation_step.model_specs,
-            [self.model_spec],
+            self.sobol_generation_step.generator_specs,
+            [self.generator_spec],
         )
-        self.assertEqual(self.sobol_generation_step.model_name, "Sobol")
+        self.assertEqual(self.sobol_generation_step.generator_name, "Sobol")
 
         named_generation_step = GenerationStep(
-            model=Generators.SOBOL,
+            generator=Generators.SOBOL,
             num_trials=5,
             model_kwargs=self.model_kwargs,
-            model_name="Custom Sobol",
+            generator_name="Custom Sobol",
         )
-        self.assertEqual(named_generation_step.model_name, "Custom Sobol")
+        self.assertEqual(named_generation_step.generator_name, "Custom Sobol")
 
     def test_min_trials_observed(self) -> None:
         with self.assertRaisesRegex(UserInputError, "min_trials_observed > num_trials"):
             GenerationStep(
-                model=Generators.SOBOL,
+                generator=Generators.SOBOL,
                 num_trials=5,
                 min_trials_observed=10,
                 model_kwargs=self.model_kwargs,
             )
 
     def test_init_factory_function(self) -> None:
-        generation_step = GenerationStep(model=get_sobol, num_trials=-1)
-        self.assertEqual(
-            generation_step.model_specs,
-            [FactoryFunctionGeneratorSpec(factory_function=get_sobol)],
-        )
-        generation_step = GenerationStep(
-            model=get_sobol, num_trials=-1, model_name="test"
-        )
-        self.assertEqual(
-            generation_step.model_specs,
-            [
-                FactoryFunctionGeneratorSpec(
-                    factory_function=get_sobol, model_key_override="test"
-                )
-            ],
-        )
+        with self.assertRaisesRegex(
+            UserInputError, "must be a `GeneratorRegistryBase`"
+        ):
+            # pyre-ignore [6]: Testing deprecated input.
+            GenerationStep(generator=get_sobol, num_trials=-1)
 
     def test_properties(self) -> None:
         step = self.sobol_generation_step
-        self.assertEqual(step.model_spec, self.model_spec)
+        self.assertEqual(step.generator_spec, self.generator_spec)
         self.assertEqual(step._unique_id, "-1")
         # Make sure that model_kwargs and model_gen_kwargs are synchronized
         # to the underlying model spec.
-        spec = step.model_spec
+        spec = step.generator_spec
         spec.model_kwargs.update({"new_kwarg": 1})
         spec.model_gen_kwargs.update({"new_gen_kwarg": 1})
         self.assertEqual(step.model_kwargs, spec.model_kwargs)
@@ -426,15 +414,15 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         self.branin_experiment = get_branin_experiment(
             with_batch=True, with_completed_batch=True
         )
-        self.ms_mixed = GeneratorSpec(model_enum=Generators.BO_MIXED)
-        self.ms_botorch = GeneratorSpec(model_enum=Generators.BOTORCH_MODULAR)
+        self.ms_mixed = GeneratorSpec(generator_enum=Generators.BO_MIXED)
+        self.ms_botorch = GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR)
 
         self.mock_aggregation = MagicMock(
             side_effect=ReductionCriterion.MEAN, spec=ReductionCriterion
         )
         self.model_selection_node = GenerationNode(
             node_name="test",
-            model_specs=[self.ms_mixed, self.ms_botorch],
+            generator_specs=[self.ms_mixed, self.ms_botorch],
             best_model_selector=SingleDiagnosticBestModelSelector(
                 diagnostic="Fisher exact test p",
                 metric_aggregation=self.mock_aggregation,
@@ -469,16 +457,16 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         self.assertEqual(self.mock_aggregation.call_count, 2)
 
     @mock_botorch_optimize
-    def test_pick_fitted_model_with_fit_errors(self) -> None:
+    def test_pick_fitted_adapter_with_fit_errors(self) -> None:
         # Make model fitting error out for both specs. We should get an error.
         with patch(
-            "ax.generation_strategy.model_spec.GeneratorSpec.fit",
+            "ax.generation_strategy.generator_spec.GeneratorSpec.fit",
             side_effect=RuntimeError,
         ), self.assertLogs(logger=logger, level="ERROR") as mock_logs:
             self.model_selection_node._fit(experiment=self.branin_experiment)
         self.assertEqual(len(mock_logs.records), 2)
         with self.assertRaisesRegex(ModelError, "No fitted models were found"):
-            self.model_selection_node.model_spec_to_gen_from
+            self.model_selection_node.generator_spec_to_gen_from
 
         # Only one spec errors out.
         with patch.object(
@@ -488,5 +476,21 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         self.assertEqual(len(mock_logs.records), 1)
         # Picks the model that didn't error out.
         self.assertEqual(
-            self.model_selection_node.model_spec_to_gen_from, self.ms_botorch
+            self.model_selection_node.generator_spec_to_gen_from, self.ms_botorch
+        )
+
+    @mock_botorch_optimize
+    def test_best_model_selection_errors(self) -> None:
+        # Testing that the errors raised within best model selector are
+        # gracefully handled. In this case, we'll get an error in CV
+        # due to insufficient training data.
+        exp = get_branin_experiment(with_completed_trial=True)
+        self.model_selection_node._fit(experiment=exp)
+        # Check that it selected the first generator and logged a warning.
+        with self.assertLogs(logger=logger) as logs:
+            self.assertEqual(
+                self.model_selection_node.generator_spec_to_gen_from, self.ms_mixed
+            )
+        self.assertTrue(
+            any("raised an error when selecting" in str(log) for log in logs)
         )

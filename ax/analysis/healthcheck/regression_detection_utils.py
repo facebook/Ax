@@ -9,15 +9,15 @@ from collections import defaultdict
 
 import numpy as np
 import numpy.typing as npt
+from ax.adapter.discrete import DiscreteAdapter
+from ax.adapter.registry import rel_EB_ashr_trans
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import observations_from_data
 
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.modelbridge.discrete import DiscreteAdapter
-from ax.modelbridge.registry import rel_EB_ashr_trans
-from ax.models.discrete.eb_ashr import EBAshr
+from ax.generators.discrete.eb_ashr import EBAshr
 from pyre_extensions import assert_is_instance
 
 
@@ -101,16 +101,16 @@ def compute_regression_probabilities_single_trial(
 
     target_data = Data(df=data.df[data.df["metric_name"].isin(metric_names)])
 
-    modelbridge = DiscreteAdapter(
+    adapter = DiscreteAdapter(
         experiment=experiment,
         search_space=experiment.search_space,
         data=target_data,
-        model=EBAshr(),
+        generator=EBAshr(),
         transforms=rel_EB_ashr_trans,
         optimization_config=experiment.optimization_config,
     )
 
-    metric_names = modelbridge.outcomes
+    metric_names = adapter.outcomes
 
     lower_is_better_indicators = np.array(
         [-1 if experiment.metrics[m].lower_is_better else 1 for m in metric_names]
@@ -122,7 +122,7 @@ def compute_regression_probabilities_single_trial(
     b = np.array([abs(size_thresholds[metric]) for metric in metric_names])
 
     _, regression_probabilities = assert_is_instance(
-        modelbridge.model, EBAshr
+        adapter.generator, EBAshr
     )._get_regression_indicator(
         objective_weights=np.zeros(len(metric_names)), outcome_constraints=(A, b)
     )

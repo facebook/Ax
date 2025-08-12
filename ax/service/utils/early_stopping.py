@@ -8,6 +8,7 @@
 
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+from ax.generation_strategy.generation_node import GenerationNode
 from pyre_extensions import none_throws
 
 
@@ -15,6 +16,7 @@ def should_stop_trials_early(
     early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     trial_indices: set[int],
     experiment: Experiment,
+    current_node: GenerationNode | None = None,
 ) -> dict[int, str | None]:
     """Evaluate whether to early-stop running trials.
 
@@ -23,7 +25,10 @@ def should_stop_trials_early(
             whether a trial should be stopped given the state of an experiment.
         trial_indices: Indices of trials to consider for early stopping.
         experiment: The experiment containing the trials.
-
+        current_node: The current ``GenerationNode`` on the ``GenerationStrategy``
+            used to generate trials for the ``Experiment``. Early stopping
+            strategies may utilize components of the current node when making
+            stopping decisions.
     Returns:
         A dictionary mapping trial indices that should be early stopped to
         (optional) messages with the associated reason.
@@ -33,7 +38,9 @@ def should_stop_trials_early(
 
     early_stopping_strategy = none_throws(early_stopping_strategy)
     return early_stopping_strategy.should_stop_trials_early(
-        trial_indices=trial_indices, experiment=experiment
+        trial_indices=trial_indices,
+        experiment=experiment,
+        current_node=current_node,
     )
 
 

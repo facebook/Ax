@@ -14,6 +14,8 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import Any, TYPE_CHECKING
 
+import pandas as pd
+
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.formatting_utils import data_and_evaluations_from_raw_data
@@ -386,9 +388,13 @@ class BaseTrial(ABC, SortableBase):
             MapMetric if self.experiment.default_data_constructor == MapData else Metric
         )
 
-        return base_metric_cls._unwrap_trial_data_multi(
+        data = base_metric_cls._unwrap_trial_data_multi(
             results=self.fetch_data_results(metrics=metrics, **kwargs)
         )
+        if not isinstance(data, MapData):
+            data._df = sort_by_trial_index_and_arm_name(data._df)
+
+        return data
 
     def lookup_data(self) -> Data:
         """Lookup cached data on experiment for this trial.
@@ -580,7 +586,7 @@ class BaseTrial(ABC, SortableBase):
         in experiment after their abandonment to avoid Ax models suggesting
         the same arm again as a new candidate. Arms in abandoned trials are
         also excluded from model training data unless ``fit_abandoned`` option
-        is specified to model bridge.
+        is specified to adapter.
 
         Args:
             abandoned_reason: The reason the trial was abandoned.
@@ -691,7 +697,7 @@ class BaseTrial(ABC, SortableBase):
             if generator_run._model_key is not None
         }
 
-        # Add generator-run-type strings for non-ModelBridge generator runs.
+        # Add generator-run-type strings for non-Adapter generator runs.
         gr_type_name_to_str = {
             GeneratorRunType.MANUAL.name: MANUAL_GENERATION_METHOD_STR,
             GeneratorRunType.STATUS_QUO.name: STATUS_QUO_GENERATION_METHOD_STR,
@@ -831,3 +837,58 @@ class BaseTrial(ABC, SortableBase):
             new_trial.mark_failed(reason=self.failed_reason)
             return
         new_trial.mark_as(self.status, unsafe=True)
+
+
+def sort_by_trial_index_and_arm_name(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Sorts the dataframe by trial index and arm name. The arm names with default patterns
+    (e.g. `0_1`, `3_11`) are sorted by trial index part (before underscore) and arm
+    number part (after underscore) within trial index. The arm names with non-default
+    patterns (e.g. `status_quo`, `control`, `capped_param_1`) are sorted alphabetically
+    and will be on the top of the sorted dataframe.
+
+    Args:
+        df: The DataFrame to sort.
+
+    Returns:
+        The sorted DataFrame.
+    """
+
+    # Create new columns for sorting the default arm names
+    df["is_default"] = pd.notna(df["arm_name"]) & df["arm_name"].str.count(
+        pat=r"^\d+_\d+$"
+    )
+
+    df["trial_index_part"] = float("NaN")
+    df["arm_name_part"] = float("NaN")
+
+    split_arm_name = df.loc[df["is_default"], "arm_name"].str.split("_")
+    df.loc[df["is_default"], "trial_index_part"] = split_arm_name.str.get(0).astype(int)
+    df.loc[df["is_default"], "arm_name_part"] = split_arm_name.str.get(1).astype(int)
+
+    # Sort the DataFrame by the new columns (trial_index_part and arm_number_part)
+    # for default arm names
+    df = (
+        df.sort_values(
+            by=[
+                "trial_index",
+                "is_default",
+                "trial_index_part",
+                "arm_name_part",
+                "arm_name",
+            ],
+            inplace=False,
+        ).reset_index(drop=True)
+        if not df.empty
+        else df
+    )
+
+    # Drop the temporary 'trial_index_part' and 'arm_number_part' columns
+    df.drop(
+        columns=["trial_index_part", "arm_name_part", "is_default"],
+        # Ignore errors that occur when dropping columns that do not exist in the
+        # dataframe.
+        errors="ignore",
+        inplace=True,
+    )
+    return df

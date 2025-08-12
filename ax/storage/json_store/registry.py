@@ -11,6 +11,9 @@ from collections.abc import Callable
 from typing import Any
 
 import torch
+from ax.adapter.base import DataLoaderConfig
+from ax.adapter.registry import GeneratorRegistryBase, Generators
+from ax.adapter.transforms.base import Transform
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
     BenchmarkMapMetric,
@@ -40,6 +43,7 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
@@ -78,7 +82,7 @@ from ax.generation_strategy.generation_node_input_constructors import (
     NodeInputConstructors,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generation_strategy.model_spec import GeneratorSpec
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
@@ -90,6 +94,11 @@ from ax.generation_strategy.transition_criterion import (
     MinTrials,
     TransitionCriterion,
 )
+from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
+from ax.generators.torch.botorch_modular.utils import ModelConfig
+from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
@@ -99,17 +108,8 @@ from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
-from ax.modelbridge.base import DataLoaderConfig
-from ax.modelbridge.factory import Generators
-from ax.modelbridge.registry import ModelRegistryBase
-from ax.modelbridge.transforms.base import Transform
-from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.model import BoTorchGenerator
-from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
-from ax.models.torch.botorch_modular.utils import ModelConfig
-from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
-from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
+from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.storage.json_store.decoders import (
     class_from_json,
     default_from_json,
@@ -136,12 +136,12 @@ from ax.storage.json_store.encoders import (
     generation_step_to_dict,
     generation_strategy_to_dict,
     generator_run_to_dict,
+    generator_spec_to_dict,
     improvement_global_stopping_strategy_to_dict,
     logical_early_stopping_strategy_to_dict,
     map_data_to_dict,
     map_key_info_to_dict,
     metric_to_dict,
-    model_spec_to_dict,
     multi_objective_optimization_config_to_dict,
     multi_objective_to_dict,
     multi_type_experiment_to_dict,
@@ -154,6 +154,7 @@ from ax.storage.json_store.encoders import (
     parameter_distribution_to_dict,
     pathlib_to_dict,
     percentile_early_stopping_strategy_to_dict,
+    preference_optimization_config_to_dict,
     range_parameter_to_dict,
     risk_measure_to_dict,
     robust_search_space_to_dict,
@@ -187,7 +188,6 @@ from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 
 
-# pyre-fixme[5]: Global annotation cannot contain `Any`.
 # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
 #  avoid runtime subscripting errors.
 CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
@@ -231,7 +231,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     MinimumTrialsInStatus: transition_criterion_to_dict,
     MinimumPreferenceOccurances: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
-    GeneratorSpec: model_spec_to_dict,
+    GeneratorSpec: generator_spec_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,
@@ -255,6 +255,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     pathlib.WindowsPath: pathlib_to_dict,
     pathlib.PurePosixPath: pathlib_to_dict,
     pathlib.PureWindowsPath: pathlib_to_dict,
+    PreferenceOptimizationConfig: preference_optimization_config_to_dict,
     RangeParameter: range_parameter_to_dict,
     RiskMeasure: risk_measure_to_dict,
     RobustSearchSpace: robust_search_space_to_dict,
@@ -278,7 +279,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
 # NOTE: Avoid putting a class along with its subclass in `CLASS_ENCODER_REGISTRY`.
 # The encoder iterates through this dictionary and uses the first superclass that
 # it finds, which might not be the intended superclass.
-# pyre-fixme[5]: Global annotation cannot contain `Any`.
 # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
 #  avoid runtime subscripting errors.
 CORE_CLASS_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
@@ -348,7 +348,9 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "IsSingleObjective": IsSingleObjective,
     "Keys": Keys,
     "LifecycleStage": LifecycleStage,
-    "ListSurrogate": Surrogate,  # For backwards compatibility
+    # DEPRECATED; remains here backward compatibility, with old class
+    # name linked to the new corresponding class
+    "ListSurrogate": Surrogate,
     "L2NormMetric": L2NormMetric,
     "LogNormalPrior": LogNormalPrior,
     "MapData": MapData,
@@ -360,7 +362,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MinTrials": MinTrials,
     "MinimumTrialsInStatus": MinimumTrialsInStatus,
     "MinimumPreferenceOccurances": MinimumPreferenceOccurances,
-    "ModelRegistryBase": ModelRegistryBase,
+    "GeneratorRegistryBase": GeneratorRegistryBase,
+    "ModelRegistryBase": GeneratorRegistryBase,
     "ModelConfig": ModelConfig,
     "Models": Generators,
     "ModelSpec": GeneratorSpec,
@@ -374,6 +377,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Objective": Objective,
     "ObjectiveThreshold": ObjectiveThreshold,
     "OptimizationConfig": OptimizationConfig,
+    "OrchestratorOptions": OrchestratorOptions,
     "OrEarlyStoppingStrategy": OrEarlyStoppingStrategy,
     "OrderConstraint": OrderConstraint,
     "OutcomeConstraint": OutcomeConstraint,
@@ -385,6 +389,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "PurePath": pathlib_from_json,
     "PosixPath": pathlib_from_json,
     "WindowsPath": pathlib_from_json,
+    "PreferenceOptimizationConfig": PreferenceOptimizationConfig,
     "PurePosixPath": pathlib_from_json,
     "PureWindowsPath": pathlib_from_json,
     "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,
@@ -394,7 +399,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "RobustSearchSpace": RobustSearchSpace,
     "Round": Round,
     "ScalarizedObjective": ScalarizedObjective,
-    "SchedulerOptions": SchedulerOptions,
+    "SchedulerOptions": OrchestratorOptions,  # DEPRECATED; backward compatibility
     "SearchSpace": SearchSpace,
     "SimTrial": SimTrial,
     "SingleDiagnosticBestModelSelector": SingleDiagnosticBestModelSelector,
@@ -403,7 +408,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "SklearnModelType": SklearnModelType,
     "SumConstraint": SumConstraint,
     "Surrogate": Surrogate,
-    "SurrogateMetric": BenchmarkMetric,  # backward-compatiblity
+    "SurrogateMetric": BenchmarkMetric,  # DEPRECATED; backward compatibility
     "SobolQMCNormalSampler": SobolQMCNormalSampler,
     "SyntheticRunner": SyntheticRunner,
     "SurrogateSpec": SurrogateSpec,
@@ -417,7 +422,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
 
 
 # Registry for class types, not instances.
-# pyre-fixme[5]: Global annotation cannot contain `Any`.
 CORE_CLASS_DECODER_REGISTRY: dict[str, Callable[[dict[str, Any]], Any]] = {
     "Type[Acquisition]": class_from_json,
     "Type[AcquisitionFunction]": class_from_json,

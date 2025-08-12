@@ -7,12 +7,12 @@
 
 import numpy as np
 import pandas as pd
+from ax.adapter.factory import get_sobol
 from ax.analysis.healthcheck.regression_detection_utils import (
     detect_regressions_by_trial,
     detect_regressions_single_trial,
 )
 from ax.core.data import Data
-from ax.modelbridge.factory import get_sobol
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_multi_objective,

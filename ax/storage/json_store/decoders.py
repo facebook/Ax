@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, TYPE_CHECKING, TypeVar
 
 import torch
+from ax.adapter.transforms.base import Transform
 from ax.core.arm import Arm
 from ax.core.batch_trial import (
     AbandonedArm,
@@ -28,7 +29,6 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.storage import JSONDecodeError
-from ax.modelbridge.transforms.base import Transform
 from ax.storage.botorch_modular_registry import (
     CLASS_TO_REVERSE_REGISTRY,
     REVERSE_INPUT_TRANSFORM_REGISTRY,
@@ -189,7 +189,7 @@ def transform_type_from_json(object_json: dict[str, Any]) -> type[Transform]:
     # the str(transform_type), which produces a string including the
     # module path. If this is the case, first we need to extract the class name.
     if transform_type.startswith("<class '"):
-        # The string is "<class 'ax.modelbridge.transforms.transform_type'>".
+        # The string is "<class 'ax.adapter.transforms.transform_type'>".
         transform_type = transform_type[:-2].split(".")[-1]
     # Handle deprecated & removed transforms.
     if transform_type in DEPRECATED_TRANSFORMS:
@@ -226,6 +226,10 @@ def class_from_json(json: dict[str, Any]) -> type[Any]:
     """Load any class registered in `CLASS_DECODER_REGISTRY` from JSON."""
     index_in_registry = json.pop("index")
     class_path = json.pop("class")
+    # Replace modelbridge -> adapter, models -> generators for backwards compatibility.
+    class_path = class_path.replace("ax.modelbridge", "ax.adapter").replace(
+        "ax.models", "ax.generators"
+    )
     for _class in CLASS_TO_REVERSE_REGISTRY:
         if class_path == f"{_class}":
             reverse_registry = CLASS_TO_REVERSE_REGISTRY[_class]

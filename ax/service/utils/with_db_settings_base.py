@@ -8,10 +8,10 @@
 
 import re
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from logging import INFO, Logger
 
-from ax.analysis.analysis import AnalysisCard
+from ax.analysis.analysis_card import AnalysisCardBase
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -59,12 +59,13 @@ try:  # We don't require SQLAlchemy by default.
         _load_generation_strategy_by_experiment_name,
         get_generation_strategy_id,
     )
+
     from ax.storage.sqa_store.save import (
         _save_experiment,
         _save_generation_strategy,
         _save_or_update_trials,
         _update_generation_strategy,
-        save_analysis_cards,
+        save_analysis_card,
         update_properties_on_experiment,
         update_runner_on_experiment,
     )
@@ -191,7 +192,8 @@ class WithDBSettingsBase:
                     "Experiment was associated with generation strategy in DB, "
                     f"but a new generation strategy {generation_strategy.name} "
                     "was provided. To use the generation strategy currently in DB,"
-                    " instantiate scheduler via: `Scheduler.from_stored_experiment`."
+                    " instantiate Orchestrator via: "
+                    "`Orchestrator.from_stored_experiment`."
                 )
             if not gs_id or generation_strategy._db_id is None:
                 # There is no GS associated with experiment or the generation
@@ -377,7 +379,7 @@ class WithDBSettingsBase:
 
     def _save_generation_strategy_to_db_if_possible(
         self,
-        generation_strategy: GenerationStrategy | None = None,
+        generation_strategy: GenerationStrategy | None,
     ) -> bool:
         """Saves given generation strategy if DB settings are set on this
         `WithDBSettingsBase` instance and the generation strategy is an
@@ -385,8 +387,7 @@ class WithDBSettingsBase:
 
         Args:
             generation_strategy: GenerationStrategy to update in DB.
-                For now, only instances of  GenerationStrategy will be updated.
-                Otherwise, this function is a no-op.
+                If no GenerationStrategy is provided, this function is a no-op.
 
         Returns:
             bool: Whether the generation strategy was saved.
@@ -467,15 +468,15 @@ class WithDBSettingsBase:
             return True
         return False
 
-    def _save_analysis_cards_to_db_if_possible(
+    def _save_analysis_card_to_db_if_possible(
         self,
         experiment: Experiment,
-        analysis_cards: Iterable[AnalysisCard],
+        analysis_card: AnalysisCardBase,
     ) -> bool:
         if self.db_settings_set:
-            _save_analysis_cards_to_db_if_possible(
+            _save_analysis_card_to_db(
                 experiment=experiment,
-                analysis_cards=analysis_cards,
+                analysis_card=analysis_card,
                 sqa_config=self.db_settings.encoder.config,
                 suppress_all_errors=self._suppress_all_errors,
             )
@@ -629,15 +630,15 @@ def _update_experiment_properties_in_db(
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
 )
-def _save_analysis_cards_to_db_if_possible(
+def _save_analysis_card_to_db(
     experiment: Experiment,
-    analysis_cards: Iterable[AnalysisCard],
+    analysis_card: AnalysisCardBase,
     sqa_config: SQAConfig,
     suppress_all_errors: bool,  # Used by the decorator.
 ) -> None:
-    save_analysis_cards(
+    save_analysis_card(
         experiment=experiment,
-        analysis_cards=[*analysis_cards],
+        analysis_card=analysis_card,
         config=sqa_config,
     )
 
