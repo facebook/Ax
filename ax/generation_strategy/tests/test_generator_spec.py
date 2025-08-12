@@ -60,7 +60,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         with mock.patch("ax.adapter.torch.logger") as mock_logger:
             ms.fit(experiment=self.experiment, data=self.data)
         mock_logger.debug.assert_called_with(
-            "The observations are identical to the last set of observations "
+            "The experiment data is identical to the last experiment data "
             "used to fit the generator. Skipping generator fitting."
         )
         wrapped_extract_ssd.assert_called_once()

@@ -10,7 +10,6 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
-from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import FISHER_EXACT_TEST_P
 from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
@@ -21,9 +20,6 @@ from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import FixedParameter, RangeParameter
-from ax.core.search_space import SearchSpace
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.best_model_selector import (
@@ -676,124 +672,3 @@ def get_surrogate_spec_as_dict(
         "allow_batched_models": False,
         "outcomes": [],
     }
-
-
-class transform_1(Transform):
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        new_ss = search_space.clone()
-        for param in new_ss.parameters.values():
-            if isinstance(param, FixedParameter):
-                if param._value is not None and not isinstance(param._value, str):
-                    param._value += 1.0
-            elif isinstance(param, RangeParameter):
-                param._lower += 1.0
-                param._upper += 1.0
-        return new_ss
-
-    def transform_optimization_config(
-        self,
-        optimization_config: OptimizationConfig,
-        adapter: Adapter | None,
-        fixed_features: ObservationFeatures | None,
-    ) -> OptimizationConfig:
-        return (  # pyre-ignore[7]: pyre is right, this is a hack for testing.
-            # pyre-fixme[58]: `+` is not supported for operand types
-            #  `OptimizationConfig` and `int`.
-            optimization_config + 1
-            if isinstance(optimization_config, int)
-            else optimization_config
-        )
-
-    def transform_observation_features(
-        self, observation_features: list[ObservationFeatures]
-    ) -> list[ObservationFeatures]:
-        for obsf in observation_features:
-            for p_name in obsf.parameters:
-                obsf.parameters[p_name] += 1  # pyre-ignore
-        return observation_features
-
-    def _transform_observation_data(
-        self,
-        observation_data: list[ObservationData],
-    ) -> list[ObservationData]:
-        for obsd in observation_data:
-            obsd.means += 1
-        return observation_data
-
-    def untransform_observation_features(
-        self, observation_features: list[ObservationFeatures]
-    ) -> list[ObservationFeatures]:
-        for obsf in observation_features:
-            for p_name in obsf.parameters:
-                obsf.parameters[p_name] -= 1  # pyre-ignore
-        return observation_features
-
-    def _untransform_observation_data(
-        self,
-        observation_data: list[ObservationData],
-    ) -> list[ObservationData]:
-        for obsd in observation_data:
-            obsd.means -= 1
-        return observation_data
-
-
-class transform_2(Transform):
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        new_ss = search_space.clone()
-        for param in new_ss.parameters.values():
-            if isinstance(param, FixedParameter):
-                if param._value is not None and not isinstance(param._value, str):
-                    param._value *= 2.0
-            elif isinstance(param, RangeParameter):
-                param._lower *= 2.0
-                param._upper *= 2.0
-        return new_ss
-
-    def transform_optimization_config(
-        self,
-        optimization_config: OptimizationConfig,
-        adapter: Adapter | None,
-        fixed_features: ObservationFeatures | None,
-    ) -> OptimizationConfig:
-        return (
-            # pyre-fixme[58]: `**` is not supported for operand types
-            #  `OptimizationConfig` and `int`.
-            optimization_config**2
-            if isinstance(optimization_config, int)
-            else optimization_config
-        )
-
-    def transform_observation_features(
-        self, observation_features: list[ObservationFeatures]
-    ) -> list[ObservationFeatures]:
-        for obsf in observation_features:
-            for pname in obsf.parameters:
-                obsf.parameters[pname] = obsf.parameters[pname] ** 2  # pyre-ignore
-        return observation_features
-
-    def _transform_observation_data(
-        self,
-        observation_data: list[ObservationData],
-    ) -> list[ObservationData]:
-        for obsd in observation_data:
-            obsd.means = obsd.means**2
-        return observation_data
-
-    def untransform_observation_features(
-        self, observation_features: list[ObservationFeatures]
-    ) -> list[ObservationFeatures]:
-        for obsf in observation_features:
-            for pname in obsf.parameters:
-                # pyre-fixme[6]: For 1st argument expected `Union[bytes, complex,
-                #  float, int, generic, str]` but got `Union[None, bool, float, int,
-                #  str]`.
-                obsf.parameters[pname] = np.sqrt(obsf.parameters[pname])
-        return observation_features
-
-    def _untransform_observation_data(
-        self,
-        observation_data: list[ObservationData],
-    ) -> list[ObservationData]:
-        for obsd in observation_data:
-            obsd.means = np.sqrt(obsd.means)
-        return observation_data

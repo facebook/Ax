@@ -2088,7 +2088,9 @@ class TestAxOrchestrator(TestCase):
                 df=pd.DataFrame(
                     {
                         "arm_name": ["0_0"],
-                        "metric_name": ["branin"],
+                        "metric_name": [
+                            next(iter(self.branin_experiment.metrics.keys()))
+                        ],
                         "mean": [TEST_MEAN],
                         "sem": [0.1],
                         "trial_index": [0],

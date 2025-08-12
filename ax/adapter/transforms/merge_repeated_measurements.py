@@ -55,7 +55,7 @@ class MergeRepeatedMeasurements(Transform):
             str, defaultdict[str, defaultdict[str, list[float]]]
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         if experiment_data is not None:
-            metrics = list(experiment_data.observation_data["mean"])
+            metrics = experiment_data.metric_names
             for arm_name, df in experiment_data.observation_data.groupby(
                 level="arm_name"
             ):

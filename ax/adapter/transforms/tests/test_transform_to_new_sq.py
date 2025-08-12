@@ -143,8 +143,11 @@ class TransformToNewSQSpecificTest(TestCase):
             observations=[],
             adapter=self.adapter,
         )
-        obs = self.adapter._prepare_observations(experiment=self.exp, data=self.data)
-        obs2 = tf.transform_observations(obs)
+        obs = observations_from_data(
+            experiment=self.exp,
+            data=self.exp.lookup_data(),
+        )[:1]
+        obs2 = tf.transform_observations(observations=deepcopy(obs))
         self.assertEqual(obs, obs2)
 
     def test_target_trial_index(self) -> None:

@@ -1281,12 +1281,9 @@ def _get_adapter_training_data(
     """
     Get training data for adapter, optionally filtering out out-of-design points.
     """
-    obs = adapter.get_training_data()
-
-    if in_design_only:
-        obs = [obs[i] for i in range(len(obs)) if adapter.training_in_design[i]]
-
-    return _unpack_observations(obs=obs)
+    experiment_data = adapter.get_training_data(filter_in_design=in_design_only)
+    observations = experiment_data.convert_to_list_of_observations()
+    return _unpack_observations(obs=observations)
 
 
 def _unpack_observations(
