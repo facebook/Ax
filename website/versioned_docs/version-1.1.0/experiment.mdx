@@ -1,0 +1,219 @@
+---
+id: experiment
+title: Experiment + Trials
+---
+
+import ask_tell_simple from './assets/ask_tell_simple.png';
+import ask_tell_flowchart from './assets/ask_tell_flowchart.png';
+import experiment_composition from './assets/experiment_composition.png';
+import trial_composition from './assets/trial_composition.png';
+import search_space_composition from './assets/search_space_composition.png';
+import optimization_config_composition from './assets/optimization_config_composition.png';
+
+
+:::info
+
+This document discusses non-API components of Ax, which may change between major
+library versions. Contributor guides are most useful for developers intending to
+publish PRs to Ax, not those using Ax directly or building tools on top of Ax.
+
+:::
+
+# `Experiment` and its components: `Trial`, `Arm`, `SearchSpace`, `OptimizationConfig`
+
+As we discuss in [Intro to Adaptive Experimentation](./intro-to-ae.mdx), every
+optimization in Ax is an iterative process where we:
+
+- Generate candidate datapoints to evaluate (represented by `Trial`s)
+- Learn from datapoints we have observed
+- In order to find an optimal point (`Arm` in Ax) by _balancing_:
+  1. _exploration_ (learning more about the behavior of outcomes (`Metric`s) in
+     response to a change in `Parameter` values)
+  2. _and exploitation_ (leveraging the knowledge we gained, to identify likely
+     optimal points/`Arm`s).
+
+<center><img src={ask_tell_simple} alt="Using Ax for 'ask-tell' optimization" width="60%" /></center>
+## Overview
+
+In the Ax data model, this process is represented through three high-order
+components:
+
+- `Experiment`: keeps track of the whole optimization process and its state,
+- `GenerationStrategy`: contains all the information about what methodology Ax
+  will use to produce the next `Arm`s to try in the course of the `Experiment`,
+- `Orchestrator` (optional): conducts a full experiment with automatic trial
+  deployment and data fetching given an `Experiment` and a `GenerationStrategy`
+  objects (and a set of optional configurations that make the orchestration
+  flexible and configurable).
+
+Users interact with `Experiment` and `GenerationStrategy` objects through
+methods like `Client.get_next_trials` and `Client.complete_trial`), and
+optionally an `Orchestrator` with `Client.run_n_trials`. The iterative process
+of using the `Client` looks like this in more detail:
+
+<center><img src={ask_tell_flowchart} alt="Using Ax for 'ask-tell' optimization" width="80%" /></center>
+
+We recommend avoiding interacting with the `Experiment` object directly unless
+developing Ax internals (opting to interact with it through `Client` instead),
+but understanding its structure can help conceptualize all the data tracked and
+leveraged in Ax.
+
+## Experiment
+
+An Ax `Experiment` is composed of:
+
+- **A collection of indexed `Trial`s** (or `BatchTrial`s, [more on these
+  below](#trial-and-batch-trial)), each of which contain one or more `Arm`s (representing a point that
+  was "tried" in the course of the `Experiment`).
+  - Each trial records metadata about one evaluation of its `Arm`s, in the form
+    of `Data`. In a noisy setting, multiple `Trial`s with the same `Arm`s
+    might produce different data; Ax optimization algorithms excel in such
+    settings.
+- **Information about the `Experiment` design**, e.g. `SearchSpace` Ax will be
+  exploring and `OptimizationConfig` that Ax will be targeting by optimizing
+  objectives and avoiding violation of constraints.
+
+<center><img src={experiment_composition} alt="An Experiment and the classes that comprise it" width="60%" /></center>
+
+We use the `Experiment` to keep track of the whole optimization process. It
+describes:
+
+- "Where Ax should look" (via `SearchSpace`, `Parameter`s and
+  `ParameterConstraint`s),
+- "What Ax should optimize for" (via `OptimizationConfig`, composed of one or
+  multiple `Objective`s and `OutcomeConstraint`s),
+- "What have we tried so far in this experiment" (via `Trial`s and `Data`
+  associated with each of them),
+- Optionally "How do we run each trial and get its data" (via `Runner`s and
+  `Metric`s, typically applicable only if using Ax orchestration).
+
+## Trial and Batch Trial
+
+<center><img src={trial_composition} alt="A Trial and the classes that comprise it" width="60%" /></center>
+
+**An `Experiment` is composed of a sequence of `Trial`s, each of which has
+parameterization(s) (or `Arm`-s) to be evaluated and a unique identifier: an
+index.** A `Trial` is added to the experiment when a new set of arms is proposed
+by the optimization algorithm (or manually attached by a user). The trial is
+then evaluated to compute the values of each important outcome (or `Metric`) for
+each arm, which are fed into the algorithms to create a new trial.
+
+A regular `Trial` contains a single arm and relevant metadata. A `BatchTrial`
+contains multiple arms, relevant metadata, and a set of arm weights, which are a
+measure of how much of the total resources allocated to evaluating a batch
+should go towards evaluating the specific arm. **The vast majority of Ax use
+cases will only need `Trial` and not `BatchTrial`.**
+
+**A batch trial is not just a trial with many arms\!** It is a trial for which
+it is important that the arms are evaluated jointly and _together_. For
+instance, a batch trial would be appropriate in an A/B test where the evaluation
+results are subject to nonstationarity and require multiple arms to be deployed
+(and gathered data for) at the same time. **For cases where multiple arms are
+evaluated independently (even if concurrently), use multiple trials with a
+single arm each, which will allow Ax to keep track of them appropriately and
+select an optimal optimization algorithm for this setting.**
+
+### Trial Lifecycle and Status
+
+A trial goes through multiple phases during the experimentation cycle:
+
+- `CANDIDATE` -- Trial has just been created and can still be modified before
+  deployment.
+- `STAGED` -- Relevant for external systems, where the trial configuration has
+  been deployed but not begun the evaluation stage.
+- `RUNNING` -- Trial is in the process of being evaluated. Trials generated via
+  `Client.get_next_trials` are in this status once the call to that method
+  returns.
+- `COMPLETED` -- Trial completed evaluation successfully.
+- `FAILED` -- Trial incurred a failure while being evaluated.
+- `ABANDONED` -- User manually stopped the trial for some specified reason.
+- `EARLY_STOPPED` -- Trial stopped before completion, likely based on
+  intermediate data, and with use of an Ax `EarlyStoppingStrategy`.
+
+## SearchSpace and Parameters
+
+<center><img src={search_space_composition} alt="A SearchSpace and the classes that comprise it" width="60%" /></center>
+
+A search space is composed of a set of parameters to be tuned in the experiment,
+and optionally a set of parameter constraints that define restrictions across
+these parameters (e.g. “p_a \<= p_b”). Each parameter has a name, a type (`int`,
+`float`, `bool`, or `string`), and a domain, which is a representation of the
+possible values the parameter can take. The search space is used by the
+optimization algorithms to know which arms are valid to suggest.
+
+Ax supports three types of parameters:
+
+- **Range parameters:** must be of type `int` or `float`, and the domain is
+  represented by a lower and upper bound. If the parameter is specified as an
+  `int`, newly generated points are rounded to the nearest integer by default.
+- **Choice parameters:** domain is a set of values (values can be `int`,
+  `float`, `bool` or `string`).
+- **Fixed parameters:** domain is restricted to a single value (same types as
+  Choice).
+
+### Parameter Constraints
+
+Ax supports linear parameter constraints which can be used on numerical (i.e.
+`int` or `float`) parameters. These can take a number of forms, including order
+constraints (ex. `x1 <= x2`), sum constraints (ex. `x1 + x2 <= 1`), or full
+weighted sums (ex. `0.5 * x1 + 0.3 * x2 + ... <= 1`).
+
+#### Can I have parameter constraints on my objective?
+
+A constraint can only apply to an objective if Ax is conducting a
+multi-objective optimization, and we call this special case of constraints
+"objective thresholds". These provide a "reference point" to Ax multi-objective
+optimization, informing Ax that trials where value of the objective is "worse"
+than the objective threshold, are not part of the Pareto frontier we should be
+exploring. For example, if we are looking to jointly optimize model accuracy and
+size, we might indicate that even the highest possible accuracy where model size
+is past a certain "feasibility threshold" (say, the maximum size model that can
+find onto the target device) is no longer of interest in a given Ax
+optimization.
+
+#### What about non-linear constraints?
+
+Non-linear parameter constraints are not supported by Ax at this time, due to
+challenges in transforming them to the model space.
+
+#### What about equality constraints?
+
+Ax does not currently support equality constraints. Often, search spaces which
+desire equality constraints can be reparameterized to use order constraints
+instead. For example if we have a parameters `x1`, `x2`, and `x3` and want to
+constraint `x1 + x2 + x3 = 1` the search space can be reparameterized to just
+define `x1` and `x2` with the inequality constraint `x1 + x2 <= 1`, and the
+value `1 - (x1 + x2)` can be substituted where `x3` would have been used.
+
+## OptimizationConfig
+
+<center><img src={optimization_config_composition} alt="An OptimizationConfig and the classes that comprise it" width="60%" /></center>
+
+An optimization config defines the goals of Ax optimization, e.g. “maximize NE
+while minimizing model size and avoiding a regression in model calibration”. It
+is composed of:
+
+- One or more **objectives to be minimized or maximized**,
+- Optionally **a set of outcome constraints** that place restrictions on how other
+  metrics can be moved by the experiment:
+  - **A constraint can only apply to an objective if Ax is conducting a
+    multi-objective optimization**; we call such “constraints on objectives”
+    **objective thresholds**. These provide a “reference point” to Ax
+    multi-objective optimization, informing Ax that trials where value of the
+    objective is “worse” than the objective threshold, are not part of the
+    Pareto frontier we should be exploring. E.g. if we are looking to
+    co-optimize model accuracy and size, we might indicate that even the highest
+    possible accuracy where model size is past a certain “feasibility threshold”
+    is no longer of interest in a given Ax optimization.
+
+#### Can Ax still create trials that will violate constraints?
+
+Yes, since Ax is aiming to predict constraint violations, but its predictions
+won’t always be correct. By definition, Ax is proposing next trials before
+receiving their data, so the measurements of metric values found during the
+evaluation of a given trial, could differ from the “expectation” of the Ax
+optimizers, especially earlier in the course of an experiment.
+
+## Further Reading
+- [Internal Organization of Ax: Orchestration](./orchestration.mdx)
+- [Internal Organization of Ax: GenerationStrategy](./generation_strategy.mdx)
