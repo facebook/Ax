@@ -217,7 +217,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
                 the ``n`` and produce a model-determined number of arms. In that
                 case this method will also output a generator run with number of
                 arms that can differ from ``n``.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
         """

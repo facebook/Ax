@@ -121,6 +121,7 @@ class OptimizationConfig(Base):
 
     @property
     def metrics(self) -> dict[str, Metric]:
+        """Returns mapping of name to metric."""
         constraint_metrics = {
             oc.metric.name: oc.metric
             for oc in self.all_constraints
@@ -198,24 +199,34 @@ class OptimizationConfig(Base):
         outcome_constraints: list[OutcomeConstraint],
     ) -> None:
         constraint_metrics = [
-            constraint.metric.name for constraint in outcome_constraints
+            constraint.metric.signature for constraint in outcome_constraints
         ]
         for metric in unconstrainable_metrics:
-            if metric.name in constraint_metrics:
+            if metric.signature in constraint_metrics:
                 raise ValueError("Cannot constrain on objective metric.")
 
-        def get_metric_name(oc: OutcomeConstraint) -> str:
-            return oc.metric.name
+        def get_metric_signature(oc: OutcomeConstraint) -> str:
+            return oc.metric.signature
 
-        sorted_constraints = sorted(outcome_constraints, key=get_metric_name)
-        for metric_name, constraints_itr in groupby(
-            sorted_constraints, get_metric_name
+        sorted_constraints = sorted(outcome_constraints, key=get_metric_signature)
+        metric_signature_to_name = {}
+        metric_signature_to_name.update(
+            {
+                constraint.metric.signature: constraint.metric.name
+                for constraint in sorted_constraints
+            }
+        )
+        for metric_signature, constraints_itr in groupby(
+            sorted_constraints, get_metric_signature
         ):
             constraints: list[OutcomeConstraint] = list(constraints_itr)
             constraints_len = len(constraints)
             if constraints_len == 2:
                 if constraints[0].op == constraints[1].op:
-                    raise ValueError(f"Duplicate outcome constraints {metric_name}")
+                    raise ValueError(
+                        f"Duplicate outcome constraints "
+                        f"{metric_signature_to_name[metric_signature]}"
+                    )
                 lower_bound_idx = 0 if constraints[0].op == ComparisonOp.GEQ else 1
                 upper_bound_idx = 1 - lower_bound_idx
                 lower_bound = constraints[lower_bound_idx].bound
@@ -223,10 +234,14 @@ class OptimizationConfig(Base):
                 if lower_bound >= upper_bound:
                     raise ValueError(
                         f"Lower bound {lower_bound} is >= upper bound "
-                        + f"{upper_bound} for {metric_name}"
+                        f"{upper_bound} for "
+                        f"{metric_signature_to_name[metric_signature]}"
                     )
             elif constraints_len > 2:
-                raise ValueError(f"Duplicate outcome constraints {metric_name}")
+                raise ValueError(
+                    "Duplicate outcome constraints "
+                    f"{metric_signature_to_name[metric_signature]}"
+                )
 
     def __repr__(self) -> str:
         base_repr = (
@@ -402,9 +417,11 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         outcome_constraints = outcome_constraints or []
         objective_thresholds = objective_thresholds or []
         if isinstance(objective, MultiObjective):
-            objectives_by_name = {obj.metric.name: obj for obj in objective.objectives}
+            objectives_by_signature = {
+                obj.metric.signature: obj for obj in objective.objectives
+            }
             check_objective_thresholds_match_objectives(
-                objectives_by_name=objectives_by_name,
+                objectives_by_signature=objectives_by_signature,
                 objective_thresholds=objective_thresholds,
             )
 
@@ -429,7 +446,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
 
 
 def check_objective_thresholds_match_objectives(
-    objectives_by_name: dict[str, Objective],
+    objectives_by_signature: dict[str, Objective],
     objective_thresholds: list[ObjectiveThreshold],
 ) -> None:
     """Error if thresholds on objective_metrics bound from the wrong direction or
@@ -437,27 +454,28 @@ def check_objective_thresholds_match_objectives(
     """
     obj_thresh_metrics = set()
     for threshold in objective_thresholds:
-        metric_name = threshold.metric.name
-        if metric_name not in objectives_by_name:
+        th_metric_signature = threshold.metric.signature
+        th_metric_name = threshold.metric.name
+        if th_metric_signature not in objectives_by_signature:
             raise UserInputError(
-                f"Objective threshold {threshold} is on metric '{metric_name}', "
+                f"Objective threshold {threshold} is on metric '{th_metric_name}', "
                 f"but that metric is not among the objectives."
             )
-        if metric_name in obj_thresh_metrics:
+        if th_metric_signature in obj_thresh_metrics:
             raise UserInputError(
                 "More than one objective threshold specified for metric "
-                f"{metric_name}."
+                f"{th_metric_name}."
             )
-        obj_thresh_metrics.add(metric_name)
+        obj_thresh_metrics.add(th_metric_signature)
 
-        minimize = objectives_by_name[metric_name].minimize
+        minimize = objectives_by_signature[th_metric_signature].minimize
         bounded_above = threshold.op == ComparisonOp.LEQ
         is_aligned = minimize == bounded_above
         if not is_aligned:
             raise UserInputError(
-                f"Objective threshold on {metric_name} bounds from "
+                f"Objective threshold on {th_metric_name} bounds from "
                 f"{'above' if bounded_above else 'below'} "
-                f"but {metric_name} is being "
+                f"but {th_metric_name} is being "
                 f"{'minimized' if minimize else 'maximized'}."
             )
 

@@ -1348,12 +1348,12 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             if map_key is not None
             else (
                 assert_is_instance(
-                    self.experiment.metrics[list(strategy.metric_names)[0]],
+                    self.experiment.metrics[list(strategy.metric_signatures)[0]],
                     MapMetric,
                 ).map_key_info.key
                 if strategy is not None
-                and strategy.metric_names is not None
-                and len(list(strategy.metric_names)) > 0
+                and strategy.metric_signatures is not None
+                and len(list(strategy.metric_signatures)) > 0
                 else None
             )
         )

@@ -303,8 +303,12 @@ class TestArmEffectsPlot(TestCase):
                 generation_strategy.current_node._fit(experiment=experiment)
                 adapter = none_throws(generation_strategy.adapter)
 
+                model_metric_names = [
+                    adapter._experiment.signature_to_metric[signature].name
+                    for signature in adapter.metric_signatures
+                ]
                 analysis = ArmEffectsPlot(
-                    metric_names=[*adapter.metric_names, "p_feasible"],
+                    metric_names=model_metric_names + ["p_feasible"],
                     use_model_predictions=use_model_predictions,
                     trial_index=trial_index,
                     additional_arms=additional_arms,
@@ -315,7 +319,7 @@ class TestArmEffectsPlot(TestCase):
                     experiment=experiment,
                     adapter=adapter,
                 )
-                self.assertEqual(len(cards.flatten()), len(adapter.metric_names) + 1)
+                self.assertEqual(len(cards.flatten()), len(model_metric_names) + 1)
                 if with_additional_arms and use_model_predictions:
                     # validate that we plotted the additional arm
                     self.assertTrue(
@@ -363,8 +367,12 @@ class TestArmEffectsPlot(TestCase):
                             generation_strategy.current_node._fit(experiment=experiment)
                             adapter = none_throws(generation_strategy.adapter)
 
+                            model_metric_names = [
+                                adapter._experiment.signature_to_metric[signature].name
+                                for signature in adapter.metric_signatures
+                            ]
                             analysis = ArmEffectsPlot(
-                                metric_names=[*adapter.metric_names],
+                                metric_names=model_metric_names,
                                 use_model_predictions=use_model_predictions,
                                 trial_index=trial_index,
                                 additional_arms=additional_arms,

@@ -133,6 +133,7 @@ class MetricTest(TestCase):
             metric.summary_dict,
             {
                 "name": "m1",
+                "signature": "m1",
                 "type": "Metric",
                 "lower_is_better": False,
             },
@@ -143,6 +144,7 @@ class MetricTest(TestCase):
             metric.summary_dict,
             {
                 "name": "m2",
+                "signature": "m2",
                 "type": "TestMetric",
                 "lower_is_better": True,
             },

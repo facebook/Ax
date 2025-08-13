@@ -55,6 +55,7 @@ class TorchXMetric(Metric):
             tracker = FsspecResultTracker(tracker_base)
             res = tracker[trial.index]
 
+            # not sure about how to handle this
             if self.name in res:
                 mean = res[self.name]
                 sem = None

@@ -170,7 +170,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         Args:
             n: Optional integer representing how many arms should be in the generator
                 run produced by this method. Defaults to 1.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some methods to avoid
                 re-suggesting candidates that are currently being evaluated.
             model_gen_kwargs: Keyword arguments, passed through to

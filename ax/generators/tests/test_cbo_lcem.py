@@ -39,7 +39,7 @@ class LCEMBOTest(TestCase):
             Yvars=[train_yvar],
             task_features=[d],
             fidelity_features=[],
-            metric_names=[],
+            metric_signatures=[],
         )
         self.assertIsInstance(gp, ModelListGP)
         self.assertIsInstance(gp.models[0], LCEMGP)
@@ -51,7 +51,7 @@ class LCEMBOTest(TestCase):
             Yvars=[train_yvar],
             task_features=[d],
             fidelity_features=[],
-            metric_names=[],
+            metric_signatures=[],
         )
         self.assertIsInstance(gp, ModelListGP)
         self.assertIsInstance(gp.models[0], LCEMGP)
@@ -65,7 +65,7 @@ class LCEMBOTest(TestCase):
                 Yvars=[train_yvar],
                 task_features=[d, 2],
                 fidelity_features=[],
-                metric_names=[],
+                metric_signatures=[],
             )
         with self.assertRaises(ValueError):
             gp = m.get_and_fit_model(
@@ -74,5 +74,5 @@ class LCEMBOTest(TestCase):
                 Yvars=[train_yvar],
                 task_features=[],
                 fidelity_features=[],
-                metric_names=[],
+                metric_signatures=[],
             )

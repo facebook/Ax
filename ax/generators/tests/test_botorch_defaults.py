@@ -247,7 +247,7 @@ class BotorchDefaultsTest(TestCase):
             Yvars=yvars,
             task_features=[1],
             fidelity_features=[],
-            metric_names=["L2NormMetric"],
+            metric_signatures=["L2NormMetric"],
             state_dict=None,
             refit_model=False,
         )
@@ -262,7 +262,7 @@ class BotorchDefaultsTest(TestCase):
                 Yvars=yvars,
                 task_features=[0, 1],
                 fidelity_features=[],
-                metric_names=["L2NormMetric"],
+                metric_signatures=["L2NormMetric"],
                 state_dict=None,
                 refit_model=False,
             )
@@ -275,7 +275,7 @@ class BotorchDefaultsTest(TestCase):
                 Yvars=yvars,
                 task_features=[],
                 fidelity_features=[-1, -2],
-                metric_names=["L2NormMetric"],
+                metric_signatures=["L2NormMetric"],
                 state_dict=None,
                 refit_model=False,
             )
@@ -288,7 +288,7 @@ class BotorchDefaultsTest(TestCase):
                 Yvars=yvars,
                 task_features=[1],
                 fidelity_features=[-1],
-                metric_names=["L2NormMetric"],
+                metric_signatures=["L2NormMetric"],
                 state_dict=None,
                 refit_model=False,
             )
@@ -310,7 +310,7 @@ class BotorchDefaultsTest(TestCase):
             Yvars=yvars,
             task_features=[],
             fidelity_features=[],
-            metric_names=["L2NormMetric"],
+            metric_signatures=["L2NormMetric"],
             state_dict=None,
             refit_model=False,
             prior=prior,
@@ -340,7 +340,7 @@ class BotorchDefaultsTest(TestCase):
             Yvars=yvars + yvars,
             task_features=[1],
             fidelity_features=[],
-            metric_names=["L2NormMetric", "L2NormMetric2"],
+            metric_signatures=["L2NormMetric", "L2NormMetric2"],
             state_dict=None,
             refit_model=False,
             prior=prior,

@@ -152,6 +152,9 @@ class TestBenchmarkProblem(TestCase):
                 outcome_constraint = (
                     test_problem.optimization_config.outcome_constraints[0]
                 )
+                self.assertEqual(
+                    outcome_constraint.metric.signature, "constraint_slack_0"
+                )
                 self.assertEqual(outcome_constraint.metric.name, "constraint_slack_0")
                 self.assertEqual(outcome_constraint.op, ComparisonOp.GEQ)
                 self.assertFalse(outcome_constraint.relative)
@@ -338,12 +341,14 @@ class TestBenchmarkProblem(TestCase):
             opt_config.objective.metric, BenchmarkMetric
         )
         self.assertEqual(objective_metric.name, "foo")
+        self.assertEqual(objective_metric.signature, "foo")
         self.assertEqual(objective_metric.observe_noise_sd, True)
         self.assertEqual(objective_metric.lower_is_better, False)
         constraint_metric = assert_is_instance(
             opt_config.outcome_constraints[0].metric, BenchmarkMetric
         )
         self.assertEqual(constraint_metric.name, "bar")
+        self.assertEqual(constraint_metric.signature, "bar")
         self.assertEqual(constraint_metric.observe_noise_sd, True)
         self.assertEqual(constraint_metric.lower_is_better, False)
 

@@ -102,7 +102,7 @@ class BilogYTest(TestCase):
         for obs, transform_obs in zip(observations, transformed_data):
             # Non-constraints should be the same
             self.assertEqual(
-                transform_obs.metric_names, ["branin", "branin_d", "branin_e"]
+                transform_obs.metric_signatures, ["branin", "branin_d", "branin_e"]
             )
             self.assertTrue((transform_obs.means[0:2] == obs.data.means[0:2]).all())
             self.assertTrue(
@@ -125,7 +125,7 @@ class BilogYTest(TestCase):
         ):
             # Non-constraints should be the same
             self.assertEqual(
-                untransform_obs.metric_names, ["branin", "branin_d", "branin_e"]
+                untransform_obs.metric_signatures, ["branin", "branin_d", "branin_e"]
             )
             self.assertTrue((untransform_obs.means[0:2] == obs.data.means[0:2]).all())
             self.assertTrue(

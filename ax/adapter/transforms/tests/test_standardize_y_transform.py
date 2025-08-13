@@ -33,12 +33,12 @@ class StandardizeYTransformTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.obsd1 = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 1.0]),
             covariance=np.array([[1.0, 0.2, 0.4], [0.2, 2.0, 0.8], [0.4, 0.8, 3.0]]),
         )
         self.obsd2 = ObservationData(
-            metric_names=["m1", "m1", "m2", "m2"],
+            metric_signatures=["m1", "m1", "m2", "m2"],
             means=np.array([1.0, 1.0, 2.0, 1.0]),
             covariance=np.array(
                 [
@@ -91,7 +91,7 @@ class StandardizeYTransformTest(TestCase):
 
     def test_TransformObservations(self) -> None:
         obsd1_t = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([0.0, sqrt(3 / 4), -sqrt(3 / 4)]),
             covariance=np.array(
                 [
@@ -233,7 +233,7 @@ class StandardizeYTransformTest(TestCase):
 
 
 def osd_allclose(osd1: ObservationData, osd2: ObservationData) -> bool:
-    if osd1.metric_names != osd2.metric_names:
+    if osd1.metric_signatures != osd2.metric_signatures:
         return False
     if not np.allclose(osd1.means, osd2.means):
         return False

@@ -747,15 +747,15 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
     objective = assert_is_instance(optimization_config.objective, MultiObjective)
     for obj in objective.objectives:
         if obj.minimize:
-            df_wide[obj.metric.name] *= -1
+            df_wide[obj.metric.signature] *= -1
 
     objective_thresholds = []
     objective_thresholds_dict = {
-        threshold.metric.name: threshold
+        threshold.metric.signature: threshold
         for threshold in optimization_config.objective_thresholds
     }
     for obj in objective.objectives:
-        metric_name = obj.metric.name
+        metric_name = obj.metric.signature
         if metric_name in objective_thresholds_dict:
             threshold = objective_thresholds_dict[metric_name]
             if threshold.relative:
@@ -905,7 +905,7 @@ def get_trace(
     # Get the names of the metrics in optimization config.
     metric_names = set(optimization_config.objective.metric_names)
     for cons in optimization_config.outcome_constraints:
-        metric_names.update({cons.metric.name})
+        metric_names.update({cons.metric.signature})
     metric_names = list(metric_names)
 
     # Don't compute results for status quo data (for compatibility with legacy behavior)

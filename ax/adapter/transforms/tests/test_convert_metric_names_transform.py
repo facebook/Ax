@@ -41,7 +41,7 @@ class ConvertMetricNamesTest(TestCase):
 
         # All trials should have canonical name "m1"
         for obsd in transformed_observation_data:
-            self.assertEqual(obsd.metric_names[0], "m1")
+            self.assertEqual(obsd.metric_signatures[0], "m1")
 
         # By default untransform does nothing
         untransformed_observations = transform.untransform_observations(
@@ -60,7 +60,7 @@ class ConvertMetricNamesTest(TestCase):
                 "m1" if self.observation_features[i].trial_index == 0 else "m2"
             )
             self.assertEqual(
-                untransformed_observations[i].data.metric_names[0], metric_name
+                untransformed_observations[i].data.metric_signatures[0], metric_name
             )
 
     def test_BadInputs(self) -> None:

@@ -225,7 +225,7 @@ class TestDataUtils(TestCase):
         )
         # Observation data: By default only includes completed map metrics.
         # There is none, so map metrics are not included.
-        metrics = set(experiment_data.metric_names)
+        metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin"})
         self.assertEqual(len(experiment_data.observation_data), 2)
         # Complete a trial to include map metrics.
@@ -240,7 +240,7 @@ class TestDataUtils(TestCase):
         )
         # Observation data: Map metrics should be included but only with latest
         # timestamp for trial 0.
-        metrics = set(experiment_data.metric_names)
+        metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
             [(0, "0_0", 0.0), (0, "0_0", 3.0), (1, "1_0", 0.0)],
@@ -280,7 +280,7 @@ class TestDataUtils(TestCase):
             experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
         )
         # Observation data: Map metrics should be included for all timestamps.
-        metrics = set(experiment_data.metric_names)
+        metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
             [
@@ -450,7 +450,7 @@ class TestDataUtils(TestCase):
                 ),
                 data=ObservationData(
                     # The indexing removes the non-map metric when timestamp > 0.
-                    metric_names=["branin", "branin_map"][bool(timestamp) :],
+                    metric_signatures=["branin", "branin_map"][bool(timestamp) :],
                     # Means are deterministic based on the parameterization.
                     means=np.array(
                         [55.602112642270264, 55.602112642270264][bool(timestamp) :]
@@ -468,7 +468,7 @@ class TestDataUtils(TestCase):
                     metadata={"timestamp": timestamp},
                 ),
                 data=ObservationData(
-                    metric_names=["branin", "branin_map"][bool(timestamp) :],
+                    metric_signatures=["branin", "branin_map"][bool(timestamp) :],
                     means=np.array(
                         [27.702905548512433, 27.702905548512433][bool(timestamp) :]
                     ),
@@ -495,7 +495,7 @@ class TestDataUtils(TestCase):
                     metadata={Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
                 ),
                 data=ObservationData(
-                    metric_names=["branin", "branin_map"],
+                    metric_signatures=["branin", "branin_map"],
                     # Means are deterministic based on the parameterization.
                     means=np.array([55.602112642270264, 55.602112642270264]),
                     covariance=np.diag([0.0, 0.0]),
@@ -509,7 +509,7 @@ class TestDataUtils(TestCase):
                     metadata={},
                 ),
                 data=ObservationData(
-                    metric_names=["branin", "branin_map"],
+                    metric_signatures=["branin", "branin_map"],
                     means=np.array([27.702905548512433, 27.702905548512433]),
                     covariance=np.diag([0.0, 0.0]),
                 ),
@@ -518,7 +518,7 @@ class TestDataUtils(TestCase):
         ]
         self.assertEqual(observations, expected)
 
-    def test_experiment_data_metric_names(self) -> None:
+    def test_experiment_data_metric_signatures(self) -> None:
         for experiment, expected in [
             (get_branin_experiment(), []),
             (get_branin_experiment(with_completed_trial=True), ["branin"]),
@@ -532,4 +532,4 @@ class TestDataUtils(TestCase):
             experiment_data = extract_experiment_data(
                 experiment=experiment, data_loader_config=DataLoaderConfig()
             )
-            self.assertEqual(experiment_data.metric_names, expected)
+            self.assertEqual(experiment_data.metric_signatures, expected)

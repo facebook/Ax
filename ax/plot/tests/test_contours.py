@@ -33,21 +33,28 @@ class ContoursTest(TestCase):
             experiment=exp,
             data=exp.fetch_data(),
         )
+        model_metric_names = [
+            exp.signature_to_metric[signature].name
+            for signature in model.metric_signatures
+        ]
         # Assert that each type of plot can be constructed successfully
         plot = plot_contour_plotly(
             model,
             # pyre-fixme[16]: `Adapter` has no attribute `parameters`.
             model.parameters[0],
             model.parameters[1],
-            list(model.metric_names)[0],
+            model_metric_names[0],
         )
         self.assertIsInstance(plot, go.Figure)
-        plot = interact_contour_plotly(model, list(model.metric_names)[0])
+        plot = interact_contour_plotly(model, model_metric_names[0])
         self.assertIsInstance(plot, go.Figure)
-        plot = interact_contour(model, list(model.metric_names)[0])
+        plot = interact_contour(model, model_metric_names[0])
         self.assertIsInstance(plot, AxPlotConfig)
         plot = plot_contour(
-            model, model.parameters[0], model.parameters[1], list(model.metric_names)[0]
+            model,
+            model.parameters[0],
+            model.parameters[1],
+            model_metric_names[0],
         )
         self.assertIsInstance(plot, AxPlotConfig)
 
@@ -67,15 +74,23 @@ class ContoursTest(TestCase):
             experiment=exp,
             data=exp.fetch_data(),
         )
+        model_metric_names = [
+            exp.signature_to_metric[signature].name
+            for signature in model.metric_signatures
+        ]
         with self.assertRaisesRegex(
             ValueError, "Contour plots require two or more parameters"
         ):
             interact_contour_plotly(
-                model, list(model.metric_names)[0], parameters_to_use=["foo"]
+                model,
+                model_metric_names[0],
+                parameters_to_use=["foo"],
             )
         for i in [2, 3]:
             parameters_to_use = model.parameters[:i]
             plot = interact_contour_plotly(
-                model, list(model.metric_names)[0], parameters_to_use=parameters_to_use
+                model,
+                model_metric_names[0],
+                parameters_to_use=parameters_to_use,
             )
             self.assertEqual(len(plot.layout.updatemenus[0].buttons), i)
