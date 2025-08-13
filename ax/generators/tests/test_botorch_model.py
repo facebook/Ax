@@ -117,8 +117,8 @@ class LegacyBoTorchGeneratorTest(TestCase):
     def test_fixed_prior_LegacyBoTorchGenerator(
         self, dtype: torch.dtype = torch.float, cuda: bool = False
     ) -> None:
-        Xs1, Ys1, Yvars1, bounds, _, feature_names, metric_names = get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
+        Xs1, Ys1, Yvars1, bounds, _, feature_names, metric_signatures = (
+            get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         )
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
@@ -141,14 +141,14 @@ class LegacyBoTorchGeneratorTest(TestCase):
                 Y=Ys1,
                 Yvar=Yvars1,
                 feature_names=feature_names,
-                outcome_names=metric_names,
+                outcome_names=metric_signatures,
             ),
             SupervisedDataset(
                 X=Xs2,
                 Y=Ys2,
                 Yvar=Yvars2,
                 feature_names=feature_names,
-                outcome_names=metric_names,
+                outcome_names=metric_signatures,
             ),
         ]
 
@@ -203,7 +203,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
             bounds,
             tfs,
             feature_names,
-            metric_names,
+            metric_signatures,
         ) = get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
@@ -225,14 +225,14 @@ class LegacyBoTorchGeneratorTest(TestCase):
                         Y=Ys1,
                         Yvar=Yvars1,
                         feature_names=feature_names,
-                        outcome_names=metric_names,
+                        outcome_names=metric_signatures,
                     ),
                     SupervisedDataset(
                         X=Xs2_diff[0],
                         Y=Ys2,
                         Yvar=Yvars2,
                         feature_names=feature_names,
-                        outcome_names=metric_names,
+                        outcome_names=metric_signatures,
                     ),
                 ]
                 search_space_digest = SearchSpaceDigest(
@@ -305,14 +305,14 @@ class LegacyBoTorchGeneratorTest(TestCase):
                     Y=Ys1,
                     Yvar=Yvars1,
                     feature_names=feature_names,
-                    outcome_names=metric_names,
+                    outcome_names=metric_signatures,
                 ),
                 SupervisedDataset(
                     X=Xs2,
                     Y=Ys2,
                     Yvar=Yvars2,
                     feature_names=feature_names,
-                    outcome_names=metric_names,
+                    outcome_names=metric_signatures,
                 ),
             ]
             with mock.patch(
@@ -540,14 +540,14 @@ class LegacyBoTorchGeneratorTest(TestCase):
                     Y=Ys1,
                     Yvar=Yvars1,
                     feature_names=feature_names,
-                    outcome_names=metric_names,
+                    outcome_names=metric_signatures,
                 ),
                 SupervisedDataset(
                     Xs2,
                     Y=Ys2,
                     Yvar=Yvars2,
                     feature_names=feature_names,
-                    outcome_names=metric_names,
+                    outcome_names=metric_signatures,
                 ),
             ]
             mean, variance = model.cross_validate(
@@ -607,7 +607,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
                 Yvars=[Yvars1],
                 task_features=[],
                 fidelity_features=[],
-                metric_names=[metric_names[0]],
+                metric_signatures=[metric_signatures[0]],
                 state_dict=true_state_dict,
                 refit_model=False,
             )
@@ -623,7 +623,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
                 Yvars=[Yvars1],
                 task_features=[],
                 fidelity_features=[],
-                metric_names=[metric_names[0]],
+                metric_signatures=[metric_signatures[0]],
                 state_dict=true_state_dict,
                 refit_model=True,
             )
@@ -653,7 +653,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
             bounds,
             tfs,
             feature_names,
-            metric_names,
+            metric_signatures,
         ) = get_torch_test_data(dtype=torch.float, cuda=False, constant_noise=True)
         for use_input_warping, use_loocv_pseudo_likelihood in product(
             (True, False), (True, False)
@@ -670,7 +670,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
                             Y=Ys1,
                             Yvar=Yvars1,
                             feature_names=feature_names,
-                            outcome_names=metric_names,
+                            outcome_names=metric_signatures,
                         )
                     ],
                     search_space_digest=SearchSpaceDigest(
@@ -706,7 +706,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
             bounds,
             tfs,
             feature_names,
-            metric_names,
+            metric_signatures,
         ) = get_torch_test_data(dtype=torch.float, cuda=False, constant_noise=True)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
@@ -731,14 +731,14 @@ class LegacyBoTorchGeneratorTest(TestCase):
                         Y=Ys1,
                         Yvar=Yvars1,
                         feature_names=feature_names,
-                        outcome_names=metric_names,
+                        outcome_names=metric_signatures,
                     ),
                     SupervisedDataset(
                         X=Xs2,
                         Y=Ys2,
                         Yvar=Yvars2,
                         feature_names=feature_names,
-                        outcome_names=metric_names,
+                        outcome_names=metric_signatures,
                     ),
                 ],
                 search_space_digest=search_space_digest,
@@ -754,7 +754,7 @@ class LegacyBoTorchGeneratorTest(TestCase):
             )
 
     def test_botorchmodel_raises_when_no_data(self) -> None:
-        _, _, _, bounds, tfs, feature_names, metric_names = get_torch_test_data(
+        _, _, _, bounds, tfs, feature_names, metric_signatures = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
         search_space_digest = SearchSpaceDigest(

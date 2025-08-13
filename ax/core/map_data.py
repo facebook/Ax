@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from bisect import bisect_right
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
 from typing import Any, Generic, TypeVar
@@ -18,7 +18,7 @@ import numpy.typing as npt
 import pandas as pd
 from ax.core.data import _filter_df, Data
 from ax.core.types import TMapTrialEvaluation
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import dataframe_equals
@@ -257,22 +257,31 @@ class MapData(Data):
     def from_map_evaluations(
         evaluations: dict[str, TMapTrialEvaluation],
         trial_index: int,
+        metric_name_to_sig: Mapping[str, str],
         # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Iterable[MapKeyInfo] | None = None,
     ) -> MapData:
-        records = [
-            {
-                "arm_name": name,
-                "metric_name": metric_name,
-                "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else None,
-                "trial_index": trial_index,
-                **map_dict,
-            }
-            for name, map_dict_and_metrics_list in evaluations.items()
-            for map_dict, evaluation in map_dict_and_metrics_list
-            for metric_name, value in evaluation.items()
-        ]
+        records = []
+        for name, map_dict_and_metrics_list in evaluations.items():
+            for map_dict, evaluation in map_dict_and_metrics_list:
+                for metric_name, value in evaluation.items():
+                    if metric_name not in metric_name_to_sig:
+                        raise UserInputError(
+                            f"Metric {metric_name} not found in metric_name_to_sig. "
+                            "Please provide a mapping for all metric names "
+                            "present in the evaluations to their respective "
+                            "signatures."
+                        )
+                    record = {
+                        "arm_name": name,
+                        "metric_name": metric_name,
+                        "mean": value[0] if isinstance(value, tuple) else value,
+                        "sem": value[1] if isinstance(value, tuple) else None,
+                        "trial_index": trial_index,
+                        "metric_signature": metric_name_to_sig[metric_name],
+                        **map_dict,
+                    }
+                    records.append(record)
         map_keys = {
             key
             for name, map_dict_and_metrics_list in evaluations.items()
@@ -344,10 +353,14 @@ class MapData(Data):
         self,
         trial_indices: Iterable[int] | None = None,
         metric_names: Iterable[str] | None = None,
+        metric_signatures: Iterable[str] | None = None,
     ) -> MapData:
         return self.__class__(
             df=_filter_df(
-                df=self.map_df, trial_indices=trial_indices, metric_names=metric_names
+                df=self.map_df,
+                trial_indices=trial_indices,
+                metric_names=metric_names,
+                metric_signatures=metric_signatures,
             ),
             map_key_infos=self.map_key_infos,
             _skip_ordering_and_validation=True,

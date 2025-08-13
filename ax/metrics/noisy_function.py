@@ -91,6 +91,7 @@ class NoisyFunctionMetric(Metric):
                     "trial_index": trial.index,
                     "n": 10000 / len(arm_names),
                     "frac_nonnull": mean,
+                    "metric_signature": self.signature,
                 }
             )
 

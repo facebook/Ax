@@ -384,7 +384,7 @@ class BestPointMixin(ABC):
         optimization_config = optimization_config or none_throws(
             experiment.optimization_config
         )
-        objective = optimization_config.objective.metric.name
+        objective = optimization_config.objective.metric.signature
         minimize = optimization_config.objective.minimize
         map_data = experiment.lookup_data()
         if not isinstance(map_data, MapData):

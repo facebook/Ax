@@ -128,6 +128,13 @@ def get_lcbench_benchmark_problem(
         use_map_metric=False,
     )
 
+    for metric in obj["experiment"].metrics.values():
+        if not hasattr(metric, "_signature_override:"):
+            metric._signature_override = None
+
+    if "metric_signature" not in obj["data"].df.columns:
+        obj["data"].df["metric_signature"] = obj["data"].df["metric_name"]
+
     def get_surrogate() -> TorchAdapter:
         """Construct an adapter with the LCBench surrogate and datasets.
 

@@ -771,9 +771,13 @@ class BaseTrial(ABC, SortableBase):
 
         metadata = metadata if metadata is not None else {}
 
+        metric_name_to_sig = {
+            name: metric.signature for name, metric in self.experiment.metrics.items()
+        }
+
         evaluations, data = data_and_evaluations_from_raw_data(
             raw_data=raw_data,
-            metric_names=list(set(self.experiment.metrics)),
+            metric_name_to_sig=metric_name_to_sig,
             trial_index=self.index,
             sample_sizes=sample_sizes or {},
             data_type=self.experiment.default_data_type,

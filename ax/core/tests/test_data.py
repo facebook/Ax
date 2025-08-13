@@ -11,38 +11,39 @@ from unittest.mock import patch
 
 import pandas as pd
 from ax.core.data import clone_without_metrics, custom_data_class, Data
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 
-REPR_1000: str = (
-    "Data(df=\n|    |   trial_index |   arm_name | metric_name   |   mean |   sem "
-    "| start_time          | end_time            |\n"
-    "|---:|--------------:|-----------:|:--------------|-------:|------:"
-    "|:--------------------|:--------------------|\n"
-    "|  0 |             1 |        0_0 | a             |    2   |   0.2 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  1 |             1 |        0_0 | b             |    1.8 |   0.3 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  2 |             1 |        0_1 | a             |    4   |   0.6 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  3 |             1 |        0_1 | b             |    3.7 |   0.5 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  4 |             1 |        0_2 | a             |    0.5 | nan   "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  5 |             1 |        0_2 | b             |    3   | nan   "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |)"
+REPR_500: str = (
+    "Data(df=\n"
+    "|    |   trial_index |   arm_name | metric_name   | metric_signature   |   mean "
+    "|   sem | start_time          | end_time            |\n"
+    "|---:|--------------:|-----------:|:--------------|:-------------------|-------:"
+    "|------:|:--------------------|:--------------------|\n"
+    "|  0 |             1 |        0_0 | a             | a                  |    2   "
+    "|   0.2 | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  1 |             1 |        0_0 | b             | b                  |    1.8 "
+    "|   0.3 | 2018-01-...)"
 )
 
-REPR_500: str = (
-    "Data(df=\n|    |   trial_index |   arm_name | metric_name   |   mean |   sem "
-    "| start_time          | end_time            |\n"
-    "|---:|--------------:|-----------:|:--------------|-------:|------:"
-    "|:--------------------|:--------------------|\n"
-    "|  0 |             1 |        0_0 | a             |    2   |   0.2 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  1 |             1 |        0_0 | b             |    1.8 |   0.3 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  2 |             1 |        0_1 | a           ...)"
+REPR_1000: str = (
+    "Data(df=\n"
+    "|    |   trial_index |   arm_name | metric_name   | metric_signature   |   mean "
+    "|   sem | start_time          | end_time            |\n"
+    "|---:|--------------:|-----------:|:--------------|:-------------------|-------:"
+    "|------:|:--------------------|:--------------------|\n"
+    "|  0 |             1 |        0_0 | a             | a                  |    2   "
+    "|   0.2 | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  1 |             1 |        0_0 | b             | b                  |    1.8 "
+    "|   0.3 | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  2 |             1 |        0_1 | a             | a                  |    4   "
+    "|   0.6 | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  3 |             1 |        0_1 | b             | b                  |    3.7 "
+    "|   0.5 | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  4 |             1 |        0_2 | a             | a                  |    0.5 "
+    "| nan   | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  5 |             1 |        0_2 | b             | b         ...)"
 )
 
 
@@ -50,6 +51,7 @@ class DataTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.df_hash = "be6ca1edb2d83e08c460665476d32caa"
+        self.metric_name_to_sig = {"a": "a", "b": "b"}
         self.df = pd.DataFrame(
             [
                 {
@@ -60,6 +62,7 @@ class DataTest(TestCase):
                     "metric_name": "a",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_0",
@@ -69,6 +72,7 @@ class DataTest(TestCase):
                     "metric_name": "b",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "b",
                 },
                 {
                     "arm_name": "0_1",
@@ -78,6 +82,7 @@ class DataTest(TestCase):
                     "metric_name": "a",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_1",
@@ -87,6 +92,7 @@ class DataTest(TestCase):
                     "metric_name": "b",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "b",
                 },
                 {
                     "arm_name": "0_2",
@@ -96,6 +102,7 @@ class DataTest(TestCase):
                     "metric_name": "a",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_2",
@@ -105,6 +112,7 @@ class DataTest(TestCase):
                     "metric_name": "b",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "b",
                 },
             ]
         )
@@ -168,6 +176,7 @@ class DataTest(TestCase):
             "metric_name": "b",
             "metadata": "42",
             "created_time": "2018-09-20",
+            "metric_signature": "b",
         }
         data = CustomData(df=pd.DataFrame([data_entry]))
         self.assertNotEqual(data, Data(self.df))
@@ -180,6 +189,7 @@ class DataTest(TestCase):
             "sem": 0.5,
             "metric_name": "b",
             "created_time": "2018-09-20",
+            "metric_signature": "b",
         }
 
         # Test without required column
@@ -197,6 +207,7 @@ class DataTest(TestCase):
             eval1 = (3.7, sem) if sem is not None else 3.7
             data = Data.from_evaluations(
                 evaluations={"0_1": {"b": eval1}},
+                metric_name_to_sig=self.metric_name_to_sig,
                 trial_index=0,
                 sample_sizes={"0_1": 2},
                 start_time=now.isoformat(),
@@ -215,6 +226,7 @@ class DataTest(TestCase):
             eval1 = (3.7, sem) if sem is not None else 3.7
             data = Data.from_evaluations(
                 evaluations={"0_1": {"b": eval1}},
+                metric_name_to_sig=self.metric_name_to_sig,
                 trial_index=0,
                 sample_sizes={"0_1": 2},
                 start_time=now_ms,
@@ -225,6 +237,27 @@ class DataTest(TestCase):
             self.assertNotEqual(data, Data(self.df))
             self.assertEqual(data.df["start_time"][0].day, day)
             self.assertEqual(data.df["end_time"][0].day, day)
+
+    def test_FromEvaluationsMissingMetricSigMappingEntry(self) -> None:
+        for sem in (0.5, None):
+            eval1 = (3.7, sem) if sem is not None else 3.7
+            with self.assertRaisesRegex(
+                UserInputError, "Metric b not found in metric_name_to_sig"
+            ):
+                Data.from_evaluations(
+                    evaluations={"0_1": {"b": eval1}},
+                    metric_name_to_sig={"a": "a"},
+                    trial_index=0,
+                )
+
+    def test_FromEvaluationsExtraMetricSigMappingEntry(self) -> None:
+        eval = (3.7, 0.5)
+        data = Data.from_evaluations(
+            evaluations={"0_1": {"b": eval}},
+            metric_name_to_sig=self.metric_name_to_sig,
+            trial_index=0,
+        )
+        self.assertEqual(set(data.df["metric_signature"]), {"b"})
 
     def test_CloneWithoutMetrics(self) -> None:
         data = Data(df=self.df)
@@ -239,6 +272,7 @@ class DataTest(TestCase):
                         "metric_name": "b",
                         "start_time": "2018-01-01",
                         "end_time": "2018-01-02",
+                        "metric_signature": "b",
                     },
                     {
                         "arm_name": "0_1",
@@ -248,6 +282,7 @@ class DataTest(TestCase):
                         "metric_name": "b",
                         "start_time": "2018-01-01",
                         "end_time": "2018-01-02",
+                        "metric_signature": "b",
                     },
                     {
                         "arm_name": "0_2",
@@ -257,6 +292,7 @@ class DataTest(TestCase):
                         "metric_name": "b",
                         "start_time": "2018-01-01",
                         "end_time": "2018-01-02",
+                        "metric_signature": "b",
                     },
                 ]
             )
@@ -303,6 +339,7 @@ class DataTest(TestCase):
                             "metric_name": "b",
                             "metadata": "42",
                             "created_time": "2018-09-20",
+                            "metric_signature": "b",
                         }
                     ]
                 )
@@ -316,6 +353,7 @@ class DataTest(TestCase):
                             "sem": 0.5,
                             "metric_name": "b",
                             "year": "2018-09-20",
+                            "metric_signature": "b",
                         }
                     ]
                 )
@@ -343,6 +381,7 @@ class DataTest(TestCase):
                         "trial_index": 1,
                         "start_time": "2018-01-01",
                         "end_time": "2018-01-02",
+                        "metric_signature": "a",
                     },
                 ]
             )

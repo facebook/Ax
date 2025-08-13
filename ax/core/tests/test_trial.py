@@ -42,6 +42,7 @@ TEST_DATA = Data(
                 "mean": 1.0,
                 "sem": 2.0,
                 "trial_index": 0,
+                "metric_signature": get_objective().metric.signature,
             }
         ]
     )
@@ -284,7 +285,7 @@ class TrialTest(TestCase):
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data_results",
-        return_value={get_objective().metric.name: Ok(TEST_DATA)},
+        return_value={get_objective().metric.signature: Ok(TEST_DATA)},
     )
     def test_fetch_data_result(self, mock: Mock) -> None:
         metric_name = get_objective().metric.name

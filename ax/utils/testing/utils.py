@@ -71,6 +71,7 @@ def run_trials_with_gs(
                         "mean": random.random(),
                         "sem": None,
                         "trial_index": i,
+                        "metric_signature": m,
                     }
                     for m in none_throws(experiment.optimization_config).metrics
                     for arm in trial.arms

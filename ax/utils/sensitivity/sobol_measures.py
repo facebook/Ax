@@ -967,7 +967,7 @@ def _get_model_per_metric(
     if isinstance(generator, LegacyBoTorchGenerator):
         # guaranteed not to be None after accessing search_space_digest
         gp_model = generator.model
-        model_idx = [generator.metric_names.index(m) for m in metrics]
+        model_idx = [generator.metric_signatures.index(m) for m in metrics]
         if not isinstance(gp_model, ModelList):
             if gp_model.num_outputs == 1:  # can accept single output models
                 return [assert_is_instance(gp_model, GPyTorchModel) for _ in model_idx]

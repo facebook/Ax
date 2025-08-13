@@ -141,7 +141,7 @@ class ObservationsTest(TestCase):
 
     def test_ObservationData(self) -> None:
         attrs = {
-            "metric_names": ["a", "b"],
+            "metric_signatures": ["a", "b"],
             "means": np.array([4.0, 5.0]),
             "covariance": np.array([[1.0, 4.0], [3.0, 6.0]]),
         }
@@ -150,14 +150,14 @@ class ObservationsTest(TestCase):
         # pyre-fixme[6]: For 1st param expected `ndarray` but got `Union[List[str],
         #  ndarray]`.
         obsd = ObservationData(**attrs)
-        self.assertEqual(obsd.metric_names, attrs["metric_names"])
+        self.assertEqual(obsd.metric_signatures, attrs["metric_signatures"])
         self.assertTrue(np.array_equal(obsd.means, attrs["means"]))
         self.assertTrue(np.array_equal(obsd.covariance, attrs["covariance"]))
         # use legacy printing for numpy (<= 1.13 add spaces in front of floats;
         # to get around tests failing on older versions, peg version to 1.13)
         if np.__version__ >= "1.14":
             np.set_printoptions(legacy="1.13")
-        printstr = "ObservationData(metric_names=['a', 'b'], means=[ 4.  5.], "
+        printstr = "ObservationData(metric_signatures=['a', 'b'], means=[ 4.  5.], "
         printstr += "covariance=[[ 1.  4.]\n [ 3.  6.]])"
         self.assertEqual(repr(obsd), printstr)
         self.assertEqual(obsd.means_dict, {"a": 4.0, "b": 5.0})
@@ -169,30 +169,30 @@ class ObservationsTest(TestCase):
     def test_ObservationDataValidation(self) -> None:
         with self.assertRaises(ValueError):
             ObservationData(
-                metric_names=["a", "b"],
+                metric_signatures=["a", "b"],
                 means=np.array([4.0]),
                 covariance=np.array([[1.0, 4.0], [3.0, 6.0]]),
             )
         with self.assertRaises(ValueError):
             ObservationData(
-                metric_names=["a", "b"],
+                metric_signatures=["a", "b"],
                 means=np.array([4.0, 5.0]),
                 covariance=np.array([1.0, 4.0]),
             )
 
     def test_ObservationDataEq(self) -> None:
         od1 = ObservationData(
-            metric_names=["a", "b"],
+            metric_signatures=["a", "b"],
             means=np.array([4.0, 5.0]),
             covariance=np.array([[1.0, 4.0], [3.0, 6.0]]),
         )
         od2 = ObservationData(
-            metric_names=["a", "b"],
+            metric_signatures=["a", "b"],
             means=np.array([4.0, 5.0]),
             covariance=np.array([[1.0, 4.0], [3.0, 6.0]]),
         )
         od3 = ObservationData(
-            metric_names=["a", "b"],
+            metric_signatures=["a", "b"],
             means=np.array([4.0, 5.0]),
             covariance=np.array([[2.0, 4.0], [3.0, 6.0]]),
         )
@@ -204,7 +204,7 @@ class ObservationsTest(TestCase):
         obs = Observation(
             features=ObservationFeatures(parameters={"x": 20}),
             data=ObservationData(
-                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+                means=np.array([1]), covariance=np.array([[2]]), metric_signatures=["a"]
             ),
             arm_name="0_0",
         )
@@ -212,14 +212,14 @@ class ObservationsTest(TestCase):
         self.assertEqual(
             obs.data,
             ObservationData(
-                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+                means=np.array([1]), covariance=np.array([[2]]), metric_signatures=["a"]
             ),
         )
         self.assertEqual(obs.arm_name, "0_0")
         obs2 = Observation(
             features=ObservationFeatures(parameters={"x": 20}),
             data=ObservationData(
-                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+                means=np.array([1]), covariance=np.array([[2]]), metric_signatures=["a"]
             ),
             arm_name="0_0",
         )
@@ -227,7 +227,7 @@ class ObservationsTest(TestCase):
         obs3 = Observation(
             features=ObservationFeatures(parameters={"x": 10}),
             data=ObservationData(
-                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+                means=np.array([1]), covariance=np.array([[2]]), metric_signatures=["a"]
             ),
             arm_name="0_0",
         )
@@ -243,6 +243,7 @@ class ObservationsTest(TestCase):
                 "sem": 2.0,
                 "trial_index": 1,
                 "metric_name": "a",
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_1",
@@ -251,6 +252,7 @@ class ObservationsTest(TestCase):
                 "sem": 3.0,
                 "trial_index": 2,
                 "metric_name": "a",
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_0",
@@ -259,6 +261,7 @@ class ObservationsTest(TestCase):
                 "sem": 4.0,
                 "trial_index": 1,
                 "metric_name": "b",
+                "metric_signature": "b",
             },
         ]
         arms = {
@@ -280,15 +283,25 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
+        type(experiment).metrics = PropertyMock(
+            return_value={"a": Metric(name="a"), "b": Metric(name="b")}
+        )
 
         df = pd.DataFrame(truth)[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name"]
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "metric_signature",
+            ]
         ]
         data = Data(df=df)
 
-        with self.assertRaisesRegex(ValueError, "`metric_name` column is missing"):
+        with self.assertRaisesRegex(ValueError, "`metric_signature` column is missing"):
             observations = _filter_data_on_status(
-                df=df.drop(columns="metric_name"),
+                df=df.drop(columns="metric_signature"),
                 experiment=experiment,
                 trial_status=None,
                 is_arm_abandoned=False,
@@ -296,18 +309,20 @@ class ObservationsTest(TestCase):
                 statuses_to_include_map_metric=set(),
             )
 
-        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
+        type(experiment).metrics = PropertyMock(
+            return_value={"a": Metric(name="a"), "b": Metric(name="b")}
+        )
         observations = observations_from_data(experiment, data)
         self.assertEqual(len(observations), 2)
-        self.assertListEqual(observations[0].data.metric_names, ["a", "b"])
-        self.assertListEqual(observations[1].data.metric_names, ["a"])
+        self.assertListEqual(observations[0].data.metric_signatures, ["a", "b"])
+        self.assertListEqual(observations[1].data.metric_signatures, ["a"])
 
         # Get them in the order we want for tests below
         if observations[0].features.parameters["x"] == 1:
             observations.reverse()
 
         obsd_truth = {
-            "metric_names": [["a", "b"], ["a"]],
+            "metric_signatures": [["a", "b"], ["a"]],
             "means": [np.array([2.0, 4.0]), np.array([3])],
             "covariance": [np.diag([4.0, 16.0]), np.array([[9.0]])],
         }
@@ -316,7 +331,9 @@ class ObservationsTest(TestCase):
         for i, obs in enumerate(observations):
             self.assertEqual(obs.features.parameters, truth[i]["parameters"])
             self.assertEqual(obs.features.trial_index, truth[i]["trial_index"])
-            self.assertEqual(obs.data.metric_names, obsd_truth["metric_names"][i])
+            self.assertEqual(
+                obs.data.metric_signatures, obsd_truth["metric_signatures"][i]
+            )
             self.assertTrue(np.array_equal(obs.data.means, obsd_truth["means"][i]))
             self.assertTrue(
                 np.array_equal(obs.data.covariance, obsd_truth["covariance"][i])
@@ -336,6 +353,7 @@ class ObservationsTest(TestCase):
                 "updated_parameters": {"x": 0, "y": "a", "z": 0.5},
                 "mean_t": np.array([2.0]),
                 "covariance_t": np.array([[4.0]]),
+                "metric_signature": "a",
             },
             0.25: {
                 "arm_name": "0_1",
@@ -348,6 +366,7 @@ class ObservationsTest(TestCase):
                 "updated_parameters": {"x": 1, "y": "b", "z": 0.25},
                 "mean_t": np.array([3.0]),
                 "covariance_t": np.array([[9.0]]),
+                "metric_signature": "a",
             },
             1: {
                 "arm_name": "0_0",
@@ -360,6 +379,7 @@ class ObservationsTest(TestCase):
                 "updated_parameters": {"x": 0, "y": "a", "z": 1},
                 "mean_t": np.array([4.0]),
                 "covariance_t": np.array([[16.0]]),
+                "metric_signature": "b",
             },
         }
         arms = {
@@ -382,10 +402,20 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
-        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
+        type(experiment).metrics = PropertyMock(
+            return_value={"a": Metric(name="a"), "b": Metric(name="b")}
+        )
 
         df = pd.DataFrame(list(truth.values()))[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name", "fidelities"]
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "fidelities",
+                "metric_signature",
+            ]
         ]
         data = Data(df=df)
         observations = observations_from_data(experiment, data)
@@ -397,7 +427,8 @@ class ObservationsTest(TestCase):
             t = truth[obs.features.parameters["z"]]
             self.assertEqual(obs.features.parameters, t["updated_parameters"])
             self.assertEqual(obs.features.trial_index, t["trial_index"])
-            self.assertEqual(obs.data.metric_names, [t["metric_name"]])
+            self.assertEqual(obs.data.metric_signatures, [t["metric_name"]])
+            self.assertEqual(obs.data.metric_signatures, [t["metric_signature"]])
             # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
             self.assertTrue(np.array_equal(obs.data.means, t["mean_t"]))
             # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
@@ -417,6 +448,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[4.0]]),
                 "step": 0.5,
                 "timestamp": 50,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_1",
@@ -429,6 +461,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[9.0]]),
                 "step": 0.25,
                 "timestamp": 25,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_0",
@@ -441,6 +474,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[16.0]]),
                 "step": 1,
                 "timestamp": 100,
+                "metric_signature": "b",
             },
         ]
         arms = [
@@ -478,6 +512,7 @@ class ObservationsTest(TestCase):
                 "metric_name",
                 "step",
                 "timestamp",
+                "metric_signature",
             ]
         ]
         data = MapData(
@@ -494,7 +529,8 @@ class ObservationsTest(TestCase):
         for t, obs in zip(truth_reordered, observations, strict=True):
             self.assertEqual(obs.features.parameters, t["parameters"])
             self.assertEqual(obs.features.trial_index, t["trial_index"])
-            self.assertEqual(obs.data.metric_names, [t["metric_name"]])
+            self.assertEqual(obs.data.metric_signatures, [t["metric_name"]])
+            self.assertEqual(obs.data.metric_signatures, [t["metric_signature"]])
             # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
             self.assertTrue(np.array_equal(obs.data.means, t["mean_t"]))
             # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
@@ -526,6 +562,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[4.0]]),
                 "z": 0.5,
                 "timestamp": 50,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "1_0",
@@ -539,6 +576,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[16.0]]),
                 "z": 1,
                 "timestamp": 100,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "1_0",
@@ -552,6 +590,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[16.0]]),
                 "z": 1,
                 "timestamp": 100,
+                "metric_signature": "b",
             },
             {
                 "arm_name": "1_0",
@@ -565,6 +604,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[16.0]]),
                 "z": 1,
                 "timestamp": 100,
+                "metric_signature": "c",
             },
             {
                 "arm_name": "2_0",
@@ -578,6 +618,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[9.0]]),
                 "z": 0.25,
                 "timestamp": 25,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "2_1",
@@ -591,6 +632,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[9.0]]),
                 "z": 0.75,
                 "timestamp": 25,
+                "metric_signature": "a",
             },
         ]
         arms = {
@@ -628,11 +670,18 @@ class ObservationsTest(TestCase):
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
         type(experiment).metrics = PropertyMock(
-            return_value={"a": "a", "b": MapMetric(name="b")}
+            return_value={"a": Metric(name="a"), "b": MapMetric(name="b")}
         )
 
         df = pd.DataFrame(truth)[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name"]
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "metric_signature",
+            ]
         ]
         data = Data(df=df)
 
@@ -645,7 +694,11 @@ class ObservationsTest(TestCase):
 
         # Add "c" to the experiment
         type(experiment).metrics = PropertyMock(
-            return_value={"a": "a", "b": MapMetric(name="b"), "c": "c"}
+            return_value={
+                "a": Metric(name="a"),
+                "b": MapMetric(name="b"),
+                "c": Metric(name="c"),
+            }
         )
         # 1 arm is abandoned and 1 trial is abandoned, so only 2 observations should be
         # included.
@@ -659,7 +712,7 @@ class ObservationsTest(TestCase):
         self.assertEqual(len(obs_with_abandoned), 4)
         for obs in obs_with_abandoned:
             if obs.arm_name == "1_0":
-                self.assertEqual(set(obs.data.metric_names), {"a", "c"})
+                self.assertEqual(set(obs.data.metric_signatures), {"a", "c"})
 
         # Including all statuses for all metrics should yield all metrics
         obs_with_abandoned = observations_from_data(
@@ -671,7 +724,7 @@ class ObservationsTest(TestCase):
         self.assertEqual(len(obs_with_abandoned), 4)
         for obs in obs_with_abandoned:
             if obs.arm_name == "1_0":
-                self.assertEqual(set(obs.data.metric_names), {"a", "b", "c"})
+                self.assertEqual(set(obs.data.metric_signatures), {"a", "b", "c"})
 
     def test_ObservationsFromDataWithSomeMissingTimes(self) -> None:
         truth = [
@@ -683,6 +736,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 1,
                 "metric_name": "a",
                 "start_time": 0,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_1",
@@ -692,6 +746,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 2,
                 "metric_name": "a",
                 "start_time": 0,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_0",
@@ -701,6 +756,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 1,
                 "metric_name": "b",
                 "start_time": None,
+                "metric_signature": "b",
             },
             {
                 "arm_name": "0_1",
@@ -710,6 +766,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 2,
                 "metric_name": "b",
                 "start_time": None,
+                "metric_signature": "b",
             },
         ]
         arms = {
@@ -731,10 +788,20 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
-        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
+        type(experiment).metrics = PropertyMock(
+            return_value={"a": Metric(name="a"), "b": Metric(name="b")}
+        )
 
         df = pd.DataFrame(truth)[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name", "start_time"]
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "start_time",
+                "metric_signature",
+            ]
         ]
         data = Data(df=df)
         observations = observations_from_data(experiment, data)
@@ -745,7 +812,7 @@ class ObservationsTest(TestCase):
             observations.reverse()
 
         obsd_truth = {
-            "metric_names": [["a", "b"], ["a", "b"]],
+            "metric_signatures": [["a", "b"], ["a", "b"]],
             "means": [np.array([2.0, 4.0]), np.array([3.0, 5.0])],
             "covariance": [np.diag([4.0, 16.0]), np.diag([9.0, 25.0])],
         }
@@ -754,7 +821,9 @@ class ObservationsTest(TestCase):
         for i, obs in enumerate(observations):
             self.assertEqual(obs.features.parameters, truth[i]["parameters"])
             self.assertEqual(obs.features.trial_index, truth[i]["trial_index"])
-            self.assertEqual(obs.data.metric_names, obsd_truth["metric_names"][i])
+            self.assertEqual(
+                obs.data.metric_signatures, obsd_truth["metric_signatures"][i]
+            )
             self.assertTrue(np.array_equal(obs.data.means, obsd_truth["means"][i]))
             self.assertTrue(
                 np.array_equal(obs.data.covariance, obsd_truth["covariance"][i])
@@ -776,6 +845,7 @@ class ObservationsTest(TestCase):
                 "metric_name": "a",
                 "start_time": "2024-03-20 08:45:00",
                 "end_time": pd.NaT if with_nat else "2024-03-20 08:47:00",
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_0",
@@ -786,6 +856,7 @@ class ObservationsTest(TestCase):
                 "metric_name": "b",
                 "start_time": "2024-03-20 08:45:00",
                 "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
+                "metric_signature": "b",
             },
             {
                 "arm_name": "0_1",
@@ -796,6 +867,7 @@ class ObservationsTest(TestCase):
                 "metric_name": "a",
                 "start_time": "2024-03-20 08:43:00",
                 "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_1",
@@ -806,6 +878,7 @@ class ObservationsTest(TestCase):
                 "metric_name": "b",
                 "start_time": "2024-03-20 08:45:00",
                 "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
+                "metric_signature": "b",
             },
         ]
         arms_by_name = {
@@ -819,7 +892,9 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms_by_name)
         type(experiment).trials = PropertyMock(return_value=trials)
-        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
+        type(experiment).metrics = PropertyMock(
+            return_value={"a": Metric(name="a"), "b": Metric(name="b")}
+        )
         df = pd.DataFrame(truth)[
             [
                 "arm_name",
@@ -829,6 +904,7 @@ class ObservationsTest(TestCase):
                 "metric_name",
                 "start_time",
                 "end_time",
+                "metric_signature",
             ]
         ]
         data = Data(df=df)
@@ -842,7 +918,7 @@ class ObservationsTest(TestCase):
         obs_truth = {
             "arm_name": ["0_0", "0_1"],
             "parameters": [{"x": 0, "y": "a"}, {"x": 1, "y": "a"}],
-            "metric_names": [["a", "b"], ["a", "b"]],
+            "metric_signatures": [["a", "b"], ["a", "b"]],
             "means": [np.array([2.0, 3.0]), np.array([4.0, 5.0])],
             "covariance": [np.diag([4.0, 9.0]), np.diag([16.0, 25.0])],
         }
@@ -853,7 +929,9 @@ class ObservationsTest(TestCase):
                 obs.features.trial_index,
                 0,
             )
-            self.assertEqual(obs.data.metric_names, obs_truth["metric_names"][i])
+            self.assertEqual(
+                obs.data.metric_signatures, obs_truth["metric_signatures"][i]
+            )
             # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
             self.assertTrue(np.array_equal(obs.data.means, obs_truth["means"][i]))
             self.assertTrue(
@@ -886,7 +964,7 @@ class ObservationsTest(TestCase):
         obs = Observation(
             features=ObservationFeatures(parameters={"x": 20}),
             data=ObservationData(
-                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+                means=np.array([1]), covariance=np.array([[2]]), metric_signatures=["a"]
             ),
             arm_name=obs_arm_name,
         )
@@ -895,7 +973,7 @@ class ObservationsTest(TestCase):
         self.assertEqual(
             obs.data,
             ObservationData(
-                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+                means=np.array([1]), covariance=np.array([[2]]), metric_signatures=["a"]
             ),
         )
         with self.assertRaises(ValueError):
@@ -913,7 +991,7 @@ class ObservationsTest(TestCase):
         self.assertEqual(
             obs.data,
             ObservationData(
-                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+                means=np.array([1]), covariance=np.array([[2]]), metric_signatures=["a"]
             ),
         )
 
@@ -927,6 +1005,7 @@ class ObservationsTest(TestCase):
                 "sem": 2.0,
                 "trial_index": 0,
                 "metric_name": "a",
+                "metric_signature": "a",
             },
             {
                 "arm_name": "1_0",
@@ -935,6 +1014,7 @@ class ObservationsTest(TestCase):
                 "sem": 3.0,
                 "trial_index": 1,
                 "metric_name": "a",
+                "metric_signature": "a",
             },
         ]
         arms = {
@@ -964,10 +1044,19 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
-        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
+        type(experiment).metrics = PropertyMock(
+            return_value={"a": Metric(name="a"), "b": Metric(name="b")}
+        )
 
         df = pd.DataFrame(truth)[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name"]
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "metric_signature",
+            ]
         ]
         data = Data(df=df)
         observations = observations_from_data(experiment, data)
@@ -982,14 +1071,14 @@ class ObservationsTest(TestCase):
         obs = Observation(
             features=ObservationFeatures(parameters={"x": 20}),
             data=ObservationData(
-                means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
+                means=np.array([1]), covariance=np.array([[2]]), metric_signatures=["a"]
             ),
             arm_name="0_0",
         )
         expected = (
             "Observation(\n"
             "    features=ObservationFeatures(parameters={'x': 20}),\n"
-            "    data=ObservationData(metric_names=['a'], "
+            "    data=ObservationData(metric_signatures=['a'], "
             "means=[1], covariance=[[2]]),\n"
             "    arm_name='0_0',\n"
             ")"

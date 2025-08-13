@@ -86,7 +86,7 @@ try:
             """Fetch multiple metrics data for one trial, using instance attributes
             of the metrics.
 
-            Returns Dict of metric_name => Result
+            Returns Dict of metric_signature => Result
             Default behavior calls `fetch_trial_data` for each metric. Subclasses should
             override this to perform trial data computation for multiple metrics.
             """
@@ -104,7 +104,7 @@ try:
                 mul = self._get_event_multiplexer_for_trial(trial=trial)
             except Exception as e:
                 return {
-                    metric.name: Err(
+                    metric.signature: Err(
                         MetricFetchE(
                             message=f"Failed to get event multiplexer for {trial=}",
                             exception=e,
@@ -116,7 +116,7 @@ try:
             scalar_dict = mul.PluginRunToTagToContent("scalars")
             if len(scalar_dict) == 0:
                 return {
-                    metric.name: Err(
+                    metric.signature: Err(
                         MetricFetchE(
                             message=(
                                 "Tensorboard multiplexer is empty. This can happen if "
@@ -145,6 +145,7 @@ try:
                                 else t.tensor_proto.float_val[0]
                             ),
                             "sem": float("nan"),
+                            "metric_signature": metric.signature,
                         }
                         for run_name, tags in scalar_dict.items()
                         for tag in tags
@@ -170,7 +171,7 @@ try:
                             )
                     df = self._process_records_to_df(metric=metric, records=records)
                     # Accumulate successfully extracted timeseries
-                    res[metric.name] = Ok(
+                    res[metric.signature] = Ok(
                         MapData(
                             df=df,
                             map_key_infos=[self.map_key_info],
@@ -178,7 +179,7 @@ try:
                     )
 
                 except Exception as e:
-                    res[metric.name] = Err(
+                    res[metric.signature] = Err(
                         MetricFetchE(
                             message=f"Failed to fetch data for {metric.name}",
                             exception=e,
@@ -195,7 +196,7 @@ try:
             """Fetch data for one trial."""
 
             return self.bulk_fetch_trial_data(trial=trial, metrics=[self], **kwargs)[
-                self.name
+                self.signature
             ]
 
         def _get_event_multiplexer_for_trial(
@@ -227,7 +228,14 @@ try:
                 pd.DataFrame(records)
                 # If a metric has multiple records for the same arm, metric, and
                 # step (sometimes caused by restarts, etc) take the mean
-                .groupby(["arm_name", "metric_name", self.map_key_info.key])
+                .groupby(
+                    [
+                        "arm_name",
+                        "metric_name",
+                        "metric_signature",
+                        self.map_key_info.key,
+                    ]
+                )
                 .mean()
                 .reset_index()
             )

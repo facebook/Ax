@@ -101,6 +101,7 @@ class NoisyFunctionMapMetric(MapMetric):
                         else 0.0
                         for item in res
                     ],
+                    "metric_signature": self.signature,
                     self.map_key_info.key: [
                         item[self.map_key_info.key] for item in res
                     ],

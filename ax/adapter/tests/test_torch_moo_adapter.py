@@ -141,12 +141,12 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         extra_outcome = ["branin_c"] if outcome_constraints is not None else []
         observation_data = [
             ObservationData(
-                metric_names=["branin_b", "branin_a"] + extra_outcome,
+                metric_signatures=["branin_b", "branin_a"] + extra_outcome,
                 means=np.arange(1, 1 + n_outcomes),
                 covariance=np.eye(n_outcomes),
             ),
             ObservationData(
-                metric_names=["branin_a", "branin_b"] + extra_outcome,
+                metric_signatures=["branin_a", "branin_b"] + extra_outcome,
                 means=np.arange(3, 3 + n_outcomes),
                 covariance=np.eye(n_outcomes),
             ),
@@ -533,6 +533,8 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                 )
             self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
             self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+            self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
+            self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
             self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
             self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
             self.assertFalse(obj_thresholds[0].relative)
@@ -603,6 +605,8 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             mock_untransform_objective_thresholds.assert_called_once()
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+        self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
+        self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
@@ -657,6 +661,8 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         self.assertEqual(wrapped_cast.call_count, 0)
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+        self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
+        self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
@@ -692,6 +698,8 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+        self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
+        self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)

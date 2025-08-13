@@ -39,6 +39,7 @@ class TestTestOfNoEffectAnalysis(TestCase):
                         "sem": [0.1] * 3,
                         "trial_index": [0] * 3,
                         "n": [1000] * 3,
+                        "metric_signature": ["branin"] * 3,
                     }
                 )
             )
@@ -65,6 +66,7 @@ class TestTestOfNoEffectAnalysis(TestCase):
                         "sem": [0.1] * 3,
                         "trial_index": [0] * 3,
                         "n": [1000] * 3,
+                        "metric_signature": ["branin"] * 3,
                     }
                 )
             )
@@ -111,6 +113,12 @@ class TestTestOfNoEffectAnalysis(TestCase):
                         "sem": [0.1] * 4,
                         "trial_index": [0] * 4,
                         "n": [1000] * 4,
+                        "metric_signature": [
+                            "branin_a",
+                            "branin_a",
+                            "branin_b",
+                            "branin_b",
+                        ],
                     }
                 )
             )

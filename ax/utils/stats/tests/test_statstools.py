@@ -87,6 +87,7 @@ class RelativizeDataTest(TestCase):
                     "mean": 2,
                     "sem": 0,
                     "metric_name": "foobar",
+                    "metric_signature": "foobar",
                     "arm_name": "status_quo",
                 },
                 {
@@ -94,6 +95,7 @@ class RelativizeDataTest(TestCase):
                     "mean": 5,
                     "sem": 0,
                     "metric_name": "foobaz",
+                    "metric_signature": "foobaz",
                     "arm_name": "status_quo",
                 },
                 {
@@ -101,6 +103,7 @@ class RelativizeDataTest(TestCase):
                     "mean": 1,
                     "sem": 0,
                     "metric_name": "foobar",
+                    "metric_signature": "foobar",
                     "arm_name": "0_0",
                 },
                 {
@@ -108,6 +111,7 @@ class RelativizeDataTest(TestCase):
                     "mean": 10,
                     "sem": 0,
                     "metric_name": "foobaz",
+                    "metric_signature": "foobaz",
                     "arm_name": "0_0",
                 },
             ]
@@ -120,6 +124,7 @@ class RelativizeDataTest(TestCase):
                     "mean": -0.5,
                     "sem": 0,
                     "metric_name": "foobar",
+                    "metric_signature": "foobar",
                     "arm_name": "0_0",
                 },
                 {
@@ -127,6 +132,7 @@ class RelativizeDataTest(TestCase):
                     "mean": 1,
                     "sem": 0,
                     "metric_name": "foobaz",
+                    "metric_signature": "foobaz",
                     "arm_name": "0_0",
                 },
             ]
@@ -138,6 +144,7 @@ class RelativizeDataTest(TestCase):
                     "mean": 0,
                     "sem": 0,
                     "metric_name": "foobar",
+                    "metric_signature": "foobar",
                     "arm_name": "status_quo",
                 },
                 {
@@ -145,6 +152,7 @@ class RelativizeDataTest(TestCase):
                     "mean": -0.5,
                     "sem": 0,
                     "metric_name": "foobar",
+                    "metric_signature": "foobar",
                     "arm_name": "0_0",
                 },
                 {
@@ -152,6 +160,7 @@ class RelativizeDataTest(TestCase):
                     "mean": 0,
                     "sem": 0,
                     "metric_name": "foobaz",
+                    "metric_signature": "foobaz",
                     "arm_name": "status_quo",
                 },
                 {
@@ -159,6 +168,7 @@ class RelativizeDataTest(TestCase):
                     "mean": 1,
                     "sem": 0,
                     "metric_name": "foobaz",
+                    "metric_signature": "foobaz",
                     "arm_name": "0_0",
                 },
             ]

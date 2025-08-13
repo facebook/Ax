@@ -27,6 +27,7 @@ class FittedScatterTest(TestCase):
         data = exp.fetch_data()
         df = deepcopy(data.df)
         df["metric_name"] = "branin_dup"
+        df["metric_signature"] = "branin_dup"
         exp.add_tracking_metric(get_branin_metric(name="branin_dup"))
 
         model = Generators.BOTORCH_MODULAR(
@@ -48,8 +49,10 @@ class FittedScatterTest(TestCase):
         self.assertIsInstance(plot, AxPlotConfig)
 
         # Make sure all parameters and metrics are displayed in tooltips
-        metric_names = ["branin", "branin_dup", "branin:agg"]
-        tooltips = [list(exp.parameters.keys()) + [m_name] for m_name in metric_names]
+        metric_signatures = ["branin", "branin_dup", "branin:agg"]
+        tooltips = [
+            list(exp.parameters.keys()) + [m_name] for m_name in metric_signatures
+        ]
         for idata, d in enumerate(plot.data["data"]):
             # Only check scatter plots hoverovers
             if d["type"] != "scatter":

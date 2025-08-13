@@ -276,14 +276,14 @@ class SurrogateTest(TestCase):
             self.feature_names,
             _,
         ) = get_torch_test_data(dtype=self.dtype, cuda=cuda)
-        self.metric_names = ["metric"]
+        self.metric_signatures = ["metric"]
         self.training_data = [
             SupervisedDataset(
                 X=self.Xs,
                 # Note: using 1d Y does not match the 2d TorchOptConfig
                 Y=self.Ys,
                 feature_names=self.feature_names,
-                outcome_names=self.metric_names,
+                outcome_names=self.metric_signatures,
             )
         ]
         self.training_data_standardized = [
@@ -291,7 +291,7 @@ class SurrogateTest(TestCase):
                 X=self.Xs,
                 Y=standardize(self.Ys),
                 feature_names=self.feature_names,
-                outcome_names=self.metric_names,
+                outcome_names=self.metric_signatures,
             )
         ]
         self.mll_class = ExactMarginalLogLikelihood
@@ -860,10 +860,10 @@ class SurrogateTest(TestCase):
                     # Note: using 1d Y does not match the 2d TorchOptConfig
                     Y=self.Ys,
                     feature_names=self.search_space_digest.feature_names,
-                    outcome_names=self.metric_names,
+                    outcome_names=self.metric_signatures,
                 )
             ],
-            target_outcome_name=self.metric_names[0],
+            target_outcome_name=self.metric_signatures[0],
             task_feature_index=-1,
         )
         botorch_model_class = SingleTaskGP
@@ -1001,7 +1001,7 @@ class SurrogateTest(TestCase):
                                 ),
                                 Y=standardize(self.Ys),
                                 feature_names=mt_feature_names,
-                                outcome_names=self.metric_names,
+                                outcome_names=self.metric_signatures,
                             ),
                             SupervisedDataset(
                                 X=torch.cat(
@@ -1303,7 +1303,7 @@ class SurrogateTest(TestCase):
                 Y=Y,
                 Yvar=0.1 * torch.ones_like(Y),
                 feature_names=self.feature_names,
-                outcome_names=self.metric_names,
+                outcome_names=self.metric_signatures,
             )
         ]
         # Prep the mock
@@ -1363,13 +1363,13 @@ class SurrogateTest(TestCase):
             X=X[:4],
             Y=Y[:4],
             feature_names=self.feature_names,
-            outcome_names=self.metric_names,
+            outcome_names=self.metric_signatures,
         )
         ds2 = SupervisedDataset(
             X=X,
             Y=Y,
             feature_names=self.feature_names,
-            outcome_names=self.metric_names,
+            outcome_names=self.metric_signatures,
         )
         with patch(
             f"{SURROGATE_PATH}.fit_botorch_model",
@@ -1451,7 +1451,7 @@ class SurrogateTest(TestCase):
                 X=self.Xs,
                 Y=self.Ys.add(i),
                 feature_names=self.feature_names,
-                outcome_names=self.metric_names,
+                outcome_names=self.metric_signatures,
             )
             for i in range(2)
         ]

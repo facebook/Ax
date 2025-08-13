@@ -16,6 +16,7 @@ from typing import Any, cast, TypeVar
 import numpy as np
 import pandas as pd
 from ax.core.types import TTrialEvaluation
+from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import (
     extract_init_args,
@@ -49,7 +50,14 @@ class Data(Base, SerializationMixin):
     # Note: Although the SEM (standard error of the mean) is a required column,
     # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
     # either in your Metric class or in Data explicitly.
-    REQUIRED_COLUMNS = {"trial_index", "arm_name", "metric_name", "mean", "sem"}
+    REQUIRED_COLUMNS = {
+        "trial_index",
+        "arm_name",
+        "metric_name",
+        "mean",
+        "sem",
+        "metric_signature",
+    }
 
     # Note on text data: https://pandas.pydata.org/docs/user_guide/text.html
     # Its type can either be `numpy.dtypes.ObjectDType` or StringDtype extension
@@ -60,6 +68,7 @@ class Data(Base, SerializationMixin):
         "arm_name": np.dtype("O"),
         # Metric data-related columns.
         "metric_name": np.dtype("O"),
+        "metric_signature": np.dtype("O"),
         "mean": np.float64,
         "sem": np.float64,
         # Metadata columns available for all subclasses.
@@ -273,6 +282,7 @@ class Data(Base, SerializationMixin):
     def from_evaluations(
         cls: type[TData],
         evaluations: Mapping[str, TTrialEvaluation],
+        metric_name_to_sig: Mapping[str, str],
         trial_index: int,
         sample_sizes: Mapping[str, int] | None = None,
         start_time: int | str | None = None,
@@ -286,6 +296,11 @@ class Data(Base, SerializationMixin):
                 outcome names to values, means, or tuples of mean and SEM. If SEM is
                 not specified, it will be set to None and inferred from data.
             trial_index: Trial index to which this data belongs.
+            metric_name_to_sig: Map from metric name to signature (canonical name).
+                Metric names are primarily for display purposes, while signatures are
+                used under the hood to maintain consistency and adhere to external
+                naming requirements. This mapping is needed to construct the Data object
+                correctly.
             sample_sizes: Number of samples collected for each arm.
             start_time: Optional start time of run of the trial that produced this
                 data, in milliseconds or iso format.  Milliseconds will be automatically
@@ -299,7 +314,11 @@ class Data(Base, SerializationMixin):
         Returns:
             Ax object of the enclosing class.
         """
-        records = cls._get_records(evaluations=evaluations, trial_index=trial_index)
+        records = cls._get_records(
+            evaluations=evaluations,
+            trial_index=trial_index,
+            metric_name_to_sig=metric_name_to_sig,
+        )
         records = cls._add_cols_to_records(
             records=records,
             sample_sizes=sample_sizes,
@@ -341,19 +360,31 @@ class Data(Base, SerializationMixin):
 
     @staticmethod
     def _get_records(
-        evaluations: Mapping[str, TTrialEvaluation], trial_index: int
+        evaluations: Mapping[str, TTrialEvaluation],
+        trial_index: int,
+        metric_name_to_sig: Mapping[str, str],
     ) -> list[dict[str, Any]]:
-        return [
-            {
-                "arm_name": name,
-                "metric_name": metric_name,
-                "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else None,
-                "trial_index": trial_index,
-            }
-            for name, evaluation in evaluations.items()
-            for metric_name, value in evaluation.items()
-        ]
+        records = []
+        for name, evaluation in evaluations.items():
+            for metric_name, value in evaluation.items():
+                if metric_name not in metric_name_to_sig:
+                    raise UserInputError(
+                        f"Metric {metric_name} not found in metric_name_to_sig. "
+                        "Please provide a mapping for all metric names "
+                        "present in the evaluations to their respective "
+                        "signatures."
+                    )
+                records.append(
+                    {
+                        "arm_name": name,
+                        "metric_name": metric_name,
+                        "mean": value[0] if isinstance(value, tuple) else value,
+                        "sem": value[1] if isinstance(value, tuple) else None,
+                        "trial_index": trial_index,
+                        "metric_signature": metric_name_to_sig[metric_name],
+                    }
+                )
+        return records
 
     @property
     def metric_names(self) -> set[str]:
@@ -362,19 +393,31 @@ class Data(Base, SerializationMixin):
         """
         return set() if self.df.empty else set(self.df["metric_name"].values)
 
+    @property
+    def metric_signatures(self) -> set[str]:
+        """Set of metric signatures that appear in the underlying dataframe of
+        this object.
+        """
+        return set() if self.df.empty else set(self.df["metric_signature"].values)
+
     def filter(
         self: TData,
         trial_indices: Iterable[int] | None = None,
         metric_names: Iterable[str] | None = None,
+        metric_signatures: Iterable[str] | None = None,
     ) -> TData:
         """Construct a new object with the subset of rows corresponding to the
-        provided trial indices AND metric names. If either trial_indices or
-        metric_names are not provided, that dimension will not be filtered.
+        provided trial indices, metric names, and metric signatures. If trial_indices,
+        metric_names, or metric_signatures are not provided, that dimension will not be
+        filtered.
         """
 
         return self.__class__(
             df=_filter_df(
-                df=self.df, trial_indices=trial_indices, metric_names=metric_names
+                df=self.df,
+                trial_indices=trial_indices,
+                metric_names=metric_names,
+                metric_signatures=metric_signatures,
             ),
             _skip_ordering_and_validation=True,
         )
@@ -471,6 +514,7 @@ def _filter_df(
     df: pd.DataFrame,
     trial_indices: Iterable[int] | None = None,
     metric_names: Iterable[str] | None = None,
+    metric_signatures: Iterable[str] | None = None,
 ) -> pd.DataFrame:
     """Filter rows of a dataframe by trial indices and metric names."""
     if trial_indices is not None:
@@ -486,5 +530,9 @@ def _filter_df(
         # Trial indices is None, metric names is not None.
         metric_names_mask = df["metric_name"].isin(metric_names)
         return df.loc[metric_names_mask]
-    # Both are None, return the dataframe as is.
+    if metric_signatures is not None:
+        # Trial indices is None, metric names is None, metric signatures is not None.
+        metric_signatures_mask = df["metric_signature"].isin(metric_signatures)
+        return df.loc[metric_signatures_mask]
+    # All three are None, return the dataframe as is.
     return df

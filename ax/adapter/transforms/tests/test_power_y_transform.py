@@ -66,7 +66,7 @@ class PowerTransformYTest(TestCase):
         # Init without a config.
         t = PowerTransformY(**shared_init_args)
         self.assertTrue(t.clip_mean)
-        self.assertEqual(t.metric_names, ["m1", "m2"])
+        self.assertEqual(t.metric_signatures, ["m1", "m2"])
 
         # Test init with config.
         for m in ["m1", "m2"]:
@@ -312,7 +312,7 @@ class PowerTransformYTest(TestCase):
                 experiment_data=experiment_data,
                 config={"metrics": metrics},
             )
-            self.assertEqual(t.metric_names, metrics)
+            self.assertEqual(t.metric_signatures, metrics)
             self.assertEqual(list(t.power_transforms), metrics)
             # Check that the transform is the same as if we had
             # initialized it using observations.

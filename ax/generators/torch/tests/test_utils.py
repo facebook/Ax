@@ -57,7 +57,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             _,
             _,
             self.feature_names,
-            self.metric_names,
+            self.metric_signatures,
         ) = get_torch_test_data(dtype=self.dtype)
         self.Xs2, self.Ys2, self.Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=self.dtype,
@@ -68,13 +68,13 @@ class BoTorchGeneratorUtilsTest(TestCase):
             Y=self.Ys,
             Yvar=self.Yvars,
             feature_names=self.feature_names,
-            outcome_names=self.metric_names,
+            outcome_names=self.metric_signatures,
         )
         self.supervised_dataset = SupervisedDataset(
             X=self.Xs,
             Y=self.Ys,
             feature_names=self.feature_names,
-            outcome_names=self.metric_names,
+            outcome_names=self.metric_signatures,
         )
         self.none_Yvars = [torch.tensor([[np.nan], [np.nan]])]
         self.task_features = []
@@ -513,13 +513,13 @@ class BoTorchGeneratorUtilsTest(TestCase):
         # simple case: block design, supervised
         X = torch.rand(4, 2)
         Ys = [torch.rand(4, 1), torch.rand(4, 1)]
-        metric_names = ["y1", "y2"]
+        metric_signatures = ["y1", "y2"]
         datasets = [
             SupervisedDataset(
                 X=X,
                 Y=Ys[i],
                 feature_names=["x1", "x2"],
-                outcome_names=[metric_names[i]],
+                outcome_names=[metric_signatures[i]],
             )
             for i in range(2)
         ]
@@ -528,7 +528,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertIsInstance(new_datasets[0], SupervisedDataset)
         self.assertTrue(torch.equal(new_datasets[0].X, X))
         self.assertTrue(torch.equal(new_datasets[0].Y, torch.cat(Ys, dim=-1)))
-        self.assertEqual(new_datasets[0].outcome_names, metric_names)
+        self.assertEqual(new_datasets[0].outcome_names, metric_signatures)
 
         # simple case: block design, fixed
         Yvars = [torch.rand(4, 1), torch.rand(4, 1)]
@@ -538,7 +538,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 Y=Ys[i],
                 Yvar=Yvars[i],
                 feature_names=["x1", "x2"],
-                outcome_names=[metric_names[i]],
+                outcome_names=[metric_signatures[i]],
             )
             for i in range(2)
         ]
@@ -550,7 +550,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertTrue(
             torch.equal(none_throws(new_datasets[0].Yvar), torch.cat(Yvars, dim=-1))
         )
-        self.assertEqual(new_datasets[0].outcome_names, metric_names)
+        self.assertEqual(new_datasets[0].outcome_names, metric_signatures)
 
         # test error is raised if not block design and force=False
         X2 = torch.cat((X[:3], torch.rand(1, 2)))
@@ -558,7 +558,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             SupervisedDataset(
                 X=X, Y=Y, feature_names=["x1", "x2"], outcome_names=[name]
             )
-            for X, Y, name in zip((X, X2), Ys, metric_names)
+            for X, Y, name in zip((X, X2), Ys, metric_signatures)
         ]
         with self.assertRaisesRegex(
             UnsupportedError, "Cannot convert data to non-block design data."
@@ -584,14 +584,14 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertTrue(
             torch.equal(new_datasets[0].Y, torch.cat([Y[:3] for Y in Ys], dim=-1))
         )
-        self.assertEqual(new_datasets[0].outcome_names, metric_names)
+        self.assertEqual(new_datasets[0].outcome_names, metric_signatures)
 
         # test warning is issued if not block design and force=True (fixed)
         datasets = [
             SupervisedDataset(
                 X=X, Y=Y, Yvar=Yvar, feature_names=["x1", "x2"], outcome_names=[name]
             )
-            for X, Y, Yvar, name in zip((X, X2), Ys, Yvars, metric_names)
+            for X, Y, Yvar, name in zip((X, X2), Ys, Yvars, metric_signatures)
         ]
         with warnings.catch_warnings(record=True) as ws:
             new_datasets = convert_to_block_design(datasets=datasets, force=True)
@@ -615,7 +615,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 torch.cat([Yvar[:3] for Yvar in Yvars], dim=-1),
             )
         )
-        self.assertEqual(new_datasets[0].outcome_names, metric_names)
+        self.assertEqual(new_datasets[0].outcome_names, metric_signatures)
 
     def test_to_inequality_constraints(self) -> None:
         A = torch.tensor([[0, 1, -2, 3], [0, 1, 0, 0]])

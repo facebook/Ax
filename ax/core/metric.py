@@ -23,7 +23,8 @@ from ax.core.data import Data
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok, Result, UnwrapError
-from ax.utils.common.serialization import SerializationMixin
+from ax.utils.common.serialization import SerializationMixin, serialize_init_args
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -102,17 +103,29 @@ class Metric(SortableBase, SerializationMixin):
         name: str,
         lower_is_better: bool | None = None,
         properties: dict[str, Any] | None = None,
+        signature_override: str | None = None,
     ) -> None:
         """Inits Metric.
 
         Args:
-            name: Name of metric.
+            name: The display name of the metric used for instantiation and
+                human-readable representation. This is typically the name users
+                see and interact with directly.
             lower_is_better: Flag for metrics which should be minimized.
             properties: Dictionary of this metric's properties
+            signature_override: Override for the metric's signature (canonical name)
+                when it should differ from the display name. Use this parameter to
+                provide a specific signature value without subclassing.
+                Some examples of when this parameter is useful:
+                    - Display names don't align with external system naming conventions
+                    - Simple custom mappings that don't justify creating a subclass
+                    - External systems expect different a identifier than `name`
         """
+
         self._name = name
         self.lower_is_better = lower_is_better
         self.properties: dict[str, Any] = properties or {}
+        self._signature_override = signature_override
 
     # ---------- Properties and methods that subclasses often override. ----------
 
@@ -206,6 +219,7 @@ class Metric(SortableBase, SerializationMixin):
         """Returns a dictionary containing the metric's name and properties."""
         return {
             "name": self.name,
+            "signature": self.signature,
             "type": self.__class__.__name__,
             "lower_is_better": self.lower_is_better,
         }
@@ -226,7 +240,7 @@ class Metric(SortableBase, SerializationMixin):
         """Fetch multiple metrics data for one trial, using instance attributes
         of the metrics.
 
-        Returns Dict of metric_name => Result
+        Returns Dict of metric_signature => Result
         Default behavior calls `fetch_trial_data` for each metric. Subclasses should
         override this to perform trial data computation for multiple metrics.
         """
@@ -257,7 +271,7 @@ class Metric(SortableBase, SerializationMixin):
         """Fetch multiple metrics data for multiple trials on an experiment, using
         instance attributes of the metrics.
 
-        Returns Dict of metric_name => Result
+        Returns Dict of metric_signature => Result
         Default behavior calls `fetch_trial_data` for each metric.
         Subclasses should override this to trial data computation for multiple metrics.
         """
@@ -271,6 +285,12 @@ class Metric(SortableBase, SerializationMixin):
             if trial.status.expecting_data
         }
 
+    # NOTE: This should be overridden if there is a specific formula for computing
+    # the signature of the metric. The default implementation uses the metric name
+    # if a signature override is not provided.
+    def _get_signature(self) -> str:
+        return self._signature_override or self.name
+
     # NOTE: Also overridable are `serialize_init_args` and `deserialize_init_args`,
     # which are inherited from the `SerializationMixin` base class.
     # Override those if and only if your metric requires custom serialization; e.g. if
@@ -278,12 +298,32 @@ class Metric(SortableBase, SerializationMixin):
     # Note that all these serialized attributes will be deserialized by the
     # `deserialize_init_args` method on the same class.
 
+    @classmethod
+    def serialize_init_args(cls, obj: SerializationMixin) -> dict[str, Any]:
+        """This overrides the default implementation to handle the
+        signature_override parameter which is stored as _signature_override.
+        """
+        metric = assert_is_instance(obj, cls)
+        args = serialize_init_args(obj=obj, exclude_fields=["signature_override"])
+        args["signature_override"] = metric._signature_override
+        return args
+
     # ---------- Properties and metrods that should not be overridden. ----------
 
     @property
     def name(self) -> str:
         """Get name of metric."""
         return self._name
+
+    @property
+    def signature(self) -> str:
+        """Get the signature (canonical name) for the metric. This may differ from
+        the metric's name to accommodate external requirements/naming conventions.
+
+        In some implementations, this can be formulaic based on class
+        attributes, which can be constructed by overriding the _get_signature() method.
+        """
+        return self._get_signature()
 
     def clone(self) -> Metric:
         """Create a copy of this Metric."""
@@ -345,8 +385,10 @@ class Metric(SortableBase, SerializationMixin):
                 trial_index=trial.index,
             )[0]
 
-            cached_metric_names = cached_trial_data.metric_names
-            metrics_to_fetch = [m for m in metrics if m.name not in cached_metric_names]
+            cached_metric_signatures = cached_trial_data.metric_signatures
+            metrics_to_fetch = [
+                m for m in metrics if m.signature not in cached_metric_signatures
+            ]
             if not metrics_to_fetch:
                 # If all needed data fetched from cache, no need to fetch any other data
                 # for trial.
@@ -380,13 +422,13 @@ class Metric(SortableBase, SerializationMixin):
 
         results = {
             trial_index: {
-                metric_name: results
-                for metric_name, results in results_by_metric_name.items()
+                metric_signature: results
+                for metric_signature, results in results_by_metric_signature.items()
                 # We subset the metrics because cached results might have more
                 # metrics than requested in arguments passed to this method.
-                if metric_name in [metric.name for metric in metrics]
+                if metric_signature in [metric.signature for metric in metrics]
             }
-            for trial_index, results_by_metric_name in trials_results.items()
+            for trial_index, results_by_metric_signature in trials_results.items()
         }
         return results, contains_new_data
 
@@ -403,12 +445,12 @@ class Metric(SortableBase, SerializationMixin):
     ) -> dict[str, MetricFetchResult]:
         """Fetch multiple metrics data for one trial.
 
-        Returns Dict of metric_name => Result
+        Returns Dict of metric_signature => Result
         Default behavior calls `fetch_trial_data` for each metric.
         Subclasses should override this to trial data computation for multiple metrics.
         """
         return {
-            metric.name: metric.fetch_trial_data(trial=trial, **kwargs)
+            metric.signature: metric.fetch_trial_data(trial=trial, **kwargs)
             for metric in metrics
         }
 
@@ -422,7 +464,7 @@ class Metric(SortableBase, SerializationMixin):
     ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetch multiple metrics data for an experiment.
 
-        Returns Dict of trial_index => (metric_name => Result)
+        Returns Dict of trial_index => (metric_signature => Result)
         Default behavior calls `fetch_trial_data_multi` for each trial.
         Subclasses should override to batch data computation across trials + metrics.
         """
@@ -466,8 +508,8 @@ class Metric(SortableBase, SerializationMixin):
                     "`fetch_experiment_data_multi`, will soon be deprecated in Ax. "
                     "please leverage instance-methods like `bulk_fetch_trial_data` "
                     "or `bulk_fetch_experiment_data` instead going forward. "
-                    f"Metric {self.name} (class: {self.__class__} in {self.__module__})"
-                    " implementation overrides the class methods."
+                    f"Metric {self.name} (class: {self.__class__} "
+                    f"in {self.__module__}) implementation overrides the class methods."
                 )
             )
 
@@ -514,7 +556,7 @@ class Metric(SortableBase, SerializationMixin):
         cls,
         results: Mapping[str, MetricFetchResult],
         # TODO[mpolson64] Add critical_metric_names to other unwrap methods
-        critical_metric_names: list[str] | None = None,
+        critical_metric_signatures: list[str] | None = None,
     ) -> Data:
         # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
         # lose rows)if some MetricFetchResults contain Data not of type
@@ -524,16 +566,19 @@ class Metric(SortableBase, SerializationMixin):
             result for result in results.values() if isinstance(result, Ok)
         ]
         if len(oks) < len(results):
-            # If no critical_metric_names supplied all metrics to be treated as
+            # If no critical_metric_signatures supplied all metrics to be treated as
             # critical
-            critical_metric_names = critical_metric_names or list(results.keys())
+            critical_metric_signatures = critical_metric_signatures or list(
+                results.keys()
+            )
 
             # Noncritical Errs should be brought to the user's attention via warnings
             # but not raise an Exception
             noncritical_errs: list[Err[Data, MetricFetchE]] = [
                 result
-                for metric_name, result in results.items()
-                if isinstance(result, Err) and metric_name in critical_metric_names
+                for metric_signatures, result in results.items()
+                if isinstance(result, Err)
+                and metric_signatures not in critical_metric_signatures
             ]
 
             for err in noncritical_errs:
@@ -544,8 +589,9 @@ class Metric(SortableBase, SerializationMixin):
 
             critical_errs: list[Err[Data, MetricFetchE]] = [
                 result
-                for metric_name, result in results.items()
-                if isinstance(result, Err) and metric_name in critical_metric_names
+                for metric_signature, result in results.items()
+                if isinstance(result, Err)
+                and metric_signature in critical_metric_signatures
             ]
 
             if len(critical_errs) > 0:
@@ -620,8 +666,8 @@ class Metric(SortableBase, SerializationMixin):
     @classmethod
     def _wrap_trial_data_multi(cls, data: Data) -> dict[str, MetricFetchResult]:
         return {
-            metric_name: Ok(value=data.filter(metric_names=[metric_name]))
-            for metric_name in data.true_df["metric_name"]
+            signature: Ok(value=data.filter(metric_signatures=[signature]))
+            for signature in data.true_df["metric_signature"]
         }
 
     @classmethod
@@ -631,12 +677,13 @@ class Metric(SortableBase, SerializationMixin):
         # pyre-fixme[7]
         return {
             trial_index: {
-                metric_name: Ok(
+                metric_signature: Ok(
                     value=data.filter(
-                        trial_indices=[trial_index], metric_names=[metric_name]
+                        trial_indices=[trial_index],
+                        metric_signatures=[metric_signature],
                     )
                 )
-                for metric_name in data.true_df["metric_name"]
+                for metric_signature in data.true_df["metric_signature"]
             }
             for trial_index in data.true_df["trial_index"]
         }

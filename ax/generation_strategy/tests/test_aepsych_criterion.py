@@ -32,7 +32,7 @@ class TestAEPsychCriterion(TestCase):
     """
 
     def test_single_criterion(self) -> None:
-        criterion = MinimumPreferenceOccurances(metric_name="m1", threshold=3)
+        criterion = MinimumPreferenceOccurances(metric_signature="m1", threshold=3)
 
         experiment = get_experiment()
 
@@ -73,6 +73,7 @@ class TestAEPsychCriterion(TestCase):
                     "metric_name": ["m1" for _ in range(6)],
                     "mean": [0, 0, 0, 1, 1, 1],
                     "sem": [0 for _ in range(6)],
+                    "metric_signature": ["m1" for _ in range(6)],
                 }
             )
         )
@@ -90,7 +91,7 @@ class TestAEPsychCriterion(TestCase):
 
     def test_many_criteria(self) -> None:
         criteria = [
-            MinimumPreferenceOccurances(metric_name="m1", threshold=3),
+            MinimumPreferenceOccurances(metric_signature="m1", threshold=3),
             MinTrials(only_in_statuses=[TrialStatus.COMPLETED], threshold=5),
         ]
 
@@ -128,6 +129,7 @@ class TestAEPsychCriterion(TestCase):
                     "metric_name": ["m1" for _ in range(6)],
                     "mean": [0, 0, 0, 1, 1, 1],
                     "sem": [0 for _ in range(6)],
+                    "metric_signature": ["m1" for _ in range(6)],
                 }
             )
         )

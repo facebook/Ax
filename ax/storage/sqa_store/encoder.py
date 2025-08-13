@@ -471,6 +471,7 @@ class Encoder:
         return metric_class(
             id=metric.db_id,
             name=metric.name,
+            signature=metric._signature,
             metric_type=metric_type,
             intent=MetricIntent.TRACKING,
             properties=properties,
@@ -507,6 +508,7 @@ class Encoder:
                 metric_class(  # pyre-ignore[29]: `SQAMetric` is not a function.
                     id=objective.metric.db_id,
                     name=objective.metric.name,
+                    signature=objective.metric._signature,
                     metric_type=metric_type,
                     intent=MetricIntent.OBJECTIVE,
                     minimize=objective.minimize,
@@ -536,6 +538,7 @@ class Encoder:
                 objective_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
                     id=objective.metric.db_id,
                     name=objective.metric.name,
+                    signature=objective.metric._signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OBJECTIVE,
                     minimize=objective.minimize,
@@ -554,6 +557,7 @@ class Encoder:
                 metric_type=self.config.metric_registry[Metric],
                 intent=MetricIntent.MULTI_OBJECTIVE,
                 scalarized_objective_children_metrics=children_objectives,
+                signature="multi_objective",
             )
         )
         return parent_metric
@@ -584,6 +588,7 @@ class Encoder:
                 metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a function.
                     id=m.db_id,
                     name=metric_name,
+                    signature=m._signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OBJECTIVE,
                     minimize=objective.minimize,
@@ -603,6 +608,7 @@ class Encoder:
             minimize=objective.minimize,
             lower_is_better=objective.minimize,
             scalarized_objective_children_metrics=children_metrics,
+            signature="scalarized_objective",
         )
         return parent_metric
 
@@ -622,6 +628,7 @@ class Encoder:
         constraint_sqa = metric_class(
             id=metric.db_id,
             name=metric.name,
+            signature=metric._signature,
             metric_type=metric_type,
             intent=MetricIntent.OUTCOME_CONSTRAINT,
             bound=outcome_constraint.bound,
@@ -656,6 +663,7 @@ class Encoder:
                 metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a function.
                     id=m.db_id,
                     name=metric_name,
+                    signature=m._signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OUTCOME_CONSTRAINT,
                     properties=type_and_properties[1],
@@ -672,6 +680,7 @@ class Encoder:
         parent_metric = parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` not a func.
             id=outcome_constraint.db_id,
             name="scalarized_outcome_constraint",
+            signature="scalarized_outcome_constraint",
             metric_type=self.config.metric_registry[Metric],
             intent=MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT,
             bound=outcome_constraint.bound,
@@ -694,6 +703,7 @@ class Encoder:
         return metric_class(
             id=metric.db_id,
             name=metric.name,
+            signature=metric._signature,
             metric_type=metric_type,
             intent=MetricIntent.OBJECTIVE_THRESHOLD,
             bound=objective_threshold.bound,
@@ -711,6 +721,7 @@ class Encoder:
         return metric_class(
             id=risk_measure.db_id,
             name="risk measure",
+            signature="risk measure",
             metric_type=self.config.metric_registry[Metric],
             intent=MetricIntent.RISK_MEASURE,
             properties=serialize_init_args(risk_measure),

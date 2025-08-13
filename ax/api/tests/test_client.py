@@ -481,6 +481,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0},
                         "arm_name": {0: "0_0"},
                         "metric_name": {0: "foo"},
+                        "metric_signature": {0: "foo"},
                         "mean": {0: 1.0},
                         "sem": {0: np.nan},
                         "step": {0: np.nan},
@@ -506,6 +507,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 0},
                         "arm_name": {0: "0_0", 1: "0_0"},
                         "metric_name": {0: "foo", 1: "foo"},
+                        "metric_signature": {0: "foo", 1: "foo"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "step": {0: np.nan, 1: 10.0},
@@ -533,6 +535,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 0, 2: 0},
                         "arm_name": {0: "0_0", 1: "0_0", 2: "0_0"},
                         "metric_name": {0: "foo", 1: "foo", 2: "bar"},
+                        "metric_signature": {0: "foo", 1: "foo", 2: "bar"},
                         "mean": {0: 2.0, 1: 1.0, 2: 2.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan},
                         "step": {0: 10.0, 1: np.nan, 2: np.nan},
@@ -575,6 +578,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 0},
                         "arm_name": {0: "0_0", 1: "0_0"},
                         "metric_name": {0: "foo", 1: "bar"},
+                        "metric_signature": {0: "foo", 1: "bar"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "step": {0: np.nan, 1: np.nan},
@@ -604,6 +608,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 1, 1: 1},
                         "arm_name": {0: "1_0", 1: "1_0"},
                         "metric_name": {0: "foo", 1: "bar"},
+                        "metric_signature": {0: "foo", 1: "bar"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "step": {0: 10.0, 1: 10.0},
@@ -630,6 +635,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 2},
                         "arm_name": {0: "2_0"},
                         "metric_name": {0: "foo"},
+                        "metric_signature": {0: "foo"},
                         "mean": {0: 1.0},
                         "sem": {0: np.nan},
                         "step": {0: np.nan},
@@ -758,6 +764,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0},
                         "arm_name": {0: "0_0"},
                         "metric_name": {0: "foo"},
+                        "metric_signature": {0: "foo"},
                         "mean": {0: 0.0},
                         "sem": {0: np.nan},
                         "step": {0: 1.0},
@@ -779,7 +786,7 @@ class TestClient(TestCase):
 
         client.set_early_stopping_strategy(
             early_stopping_strategy=PercentileEarlyStoppingStrategy(
-                metric_names=["foo"]
+                metric_signatures=["foo"]
             )
         )
 
@@ -820,6 +827,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 1, 2: 2, 3: 3},
                         "arm_name": {0: "0_0", 1: "1_0", 2: "2_0", 3: "3_0"},
                         "metric_name": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
+                        "metric_signature": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
                         "mean": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan, 3: np.nan},
                         "step": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},

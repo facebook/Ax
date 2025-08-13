@@ -76,7 +76,7 @@ class ClosestLookupDict(dict):
 
 def get_data(
     observation_data: list[ObservationData],
-    metric_names: list[str] | None = None,
+    metric_signatures: list[str] | None = None,
     raise_on_non_finite_data: bool = True,
 ) -> dict[str, list[float]]:
     """Extract all metrics if `metric_names` is None.
@@ -93,8 +93,8 @@ def get_data(
     """
     Ys = defaultdict(list)
     for obsd in observation_data:
-        for i, m in enumerate(obsd.metric_names):
-            if metric_names is None or m in metric_names:
+        for i, m in enumerate(obsd.metric_signatures):
+            if metric_signatures is None or m in metric_signatures:
                 val = obsd.means[i]
                 if raise_on_non_finite_data and (not np.isfinite(val)):
                     raise ValueError(f"Non-finite data found for metric {m}: {val}")

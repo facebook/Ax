@@ -55,6 +55,7 @@ class TorchXMetric(Metric):
             tracker = FsspecResultTracker(tracker_base)
             res = tracker[trial.index]
 
+            # not sure about how to handle this
             if self.name in res:
                 mean = res[self.name]
                 sem = None
@@ -75,6 +76,7 @@ class TorchXMetric(Metric):
                 "metric_name": self.name,
                 "mean": mean,
                 "sem": sem,
+                "metric_signature": self.signature,
             }
             return Ok(value=Data(df=pd.DataFrame.from_records([df_dict])))
 

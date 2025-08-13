@@ -728,6 +728,7 @@ def get_experiment_with_repeated_arms(with_data: bool = False) -> Experiment:
                         "mean": mean,
                         "sem": sem,
                         "trial_index": trial_index,
+                        "metric_signature": metric_name,
                     }
                     for arm_name, metric_name, mean, sem, trial_index in (
                         ("0_0", "a", 2.0, 1.0, 0),
@@ -996,6 +997,7 @@ def get_hierarchical_search_space_experiment(
                         "mean": o,
                         "sem": None,
                         "trial_index": i,
+                        "metric_signature": f"m{j + 1}",
                     }
                     for j, o in enumerate(torch.rand(2).tolist())
                 ]
@@ -1124,6 +1126,7 @@ def get_experiment_with_observations(
                         "sem": s,
                         "trial_index": trial.index,
                         **additional_cols,
+                        "metric_signature": m,
                     }
                     for m, o, s in zip(metrics, obs_i, sems_i, strict=True)
                 ]
@@ -2531,6 +2534,7 @@ def get_data(
         "mean": [1, 3, 2, 2.25, 1.75][:num_arms],
         "sem": [0, 0.5, 0.25, 0.40, 0.15][:num_arms],
         "n": [100, 100, 100, 100, 100][:num_arms],
+        "metric_signature": metric_name,
     }
     return Data(df=pd.DataFrame.from_records(df_dict))
 
@@ -2548,6 +2552,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
                     "sem": 0.01,
                     "start_time": now - timedelta(days=3),
                     "end_time": now,
+                    "metric_signature": "branin_a",
                 },
                 {
                     "arm_name": "0_0",
@@ -2557,6 +2562,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
                     "sem": 0.01,
                     "start_time": now - timedelta(days=3),
                     "end_time": now,
+                    "metric_signature": "branin_a",
                 },
                 {
                     "arm_name": "status_quo",
@@ -2566,6 +2572,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
                     "sem": 0.01,
                     "start_time": now - timedelta(days=2),
                     "end_time": now - timedelta(days=1),
+                    "metric_signature": "branin_b",
                 },
                 {
                     "arm_name": "0_0",
@@ -2575,6 +2582,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
                     "sem": 0.01,
                     "start_time": now - timedelta(days=2),
                     "end_time": now - timedelta(days=1),
+                    "metric_signature": "branin_b",
                 },
             ]
         )
@@ -2606,12 +2614,13 @@ def get_map_data(trial_index: int = 0) -> MapData:
         evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
         trial_index=trial_index,
         map_key_infos=[get_map_key_info()],
+        metric_name_to_sig={"ax_test_metric": "ax_test_metric", "epoch": "epoch"},
     )
 
 
 def get_observations_with_invalid_value(invalid_value: float) -> list[Observation]:
     obsd_with_non_finite = ObservationData(
-        metric_names=["m1"] * 4,
+        metric_signatures=["m1"] * 4,
         means=np.array([-100, 4, invalid_value, 2]),
         covariance=np.eye(4),
     )
@@ -2645,6 +2654,7 @@ def get_branin_data(
                     float(none_throws(none_throws(trial.arm).parameters["x2"])),
                 ),
                 "sem": 0.0,
+                "metric_signature": metric,
             }
             for trial in trials
             for metric in metrics
@@ -2657,6 +2667,7 @@ def get_branin_data(
                 "arm_name": f"{trial_index}_0",
                 "mean": 5.0,
                 "sem": 0.0,
+                "metric_signature": metric,
             }
             for trial_index in (trial_indices or [0])
             for metric in metrics
@@ -2693,6 +2704,7 @@ def get_branin_data_batch(
             "metric_name": metric,
             "mean": means[i],
             "sem": 0.1,
+            "metric_signature": metric,
         }
         for i in range(len(means))
         for metric in metrics
@@ -2717,6 +2729,7 @@ def get_branin_data_multi_objective(
             "arm_name": arm_name,
             "mean": 5.0,
             "sem": 0.0,
+            "metric_signature": outcome,
         }
         for trial_index in (trial_indices or [0])
         for arm_name in arm_names or [f"{trial_index}_0"]
@@ -2735,11 +2748,11 @@ def get_percentile_early_stopping_strategy() -> PercentileEarlyStoppingStrategy:
     )
 
 
-def get_percentile_early_stopping_strategy_with_non_objective_metric_name() -> (
+def get_percentile_early_stopping_strategy_with_non_objective_metric_signature() -> (
     PercentileEarlyStoppingStrategy
 ):
     return PercentileEarlyStoppingStrategy(
-        metric_names=["foo"],
+        metric_signatures=["foo"],
         percentile_threshold=0.25,
         min_progression=0.2,
         min_curves=10,

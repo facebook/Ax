@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from ax.core.data import Data
 from ax.core.map_data import MapData, MapKeyInfo
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
 
@@ -25,6 +26,7 @@ class MapDataTest(TestCase):
                     "sem": 0.3,
                     "trial_index": 0,
                     "metric_name": "a",
+                    "metric_signature": "a",
                 },
                 # repeated arm 0_0
                 {
@@ -34,6 +36,7 @@ class MapDataTest(TestCase):
                     "sem": 0.2,
                     "trial_index": 1,
                     "metric_name": "a",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_0",
@@ -42,6 +45,7 @@ class MapDataTest(TestCase):
                     "sem": 0.3,
                     "trial_index": 1,
                     "metric_name": "b",
+                    "metric_signature": "b",
                 },
                 {
                     "arm_name": "0_1",
@@ -50,6 +54,7 @@ class MapDataTest(TestCase):
                     "sem": 0.6,
                     "trial_index": 1,
                     "metric_name": "a",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_1",
@@ -58,6 +63,7 @@ class MapDataTest(TestCase):
                     "sem": 0.5,
                     "trial_index": 1,
                     "metric_name": "b",
+                    "metric_signature": "b",
                 },
                 {
                     "arm_name": "0_1",
@@ -66,6 +72,7 @@ class MapDataTest(TestCase):
                     "sem": None,
                     "trial_index": 1,
                     "metric_name": "a",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_1",
@@ -74,6 +81,7 @@ class MapDataTest(TestCase):
                     "sem": None,
                     "trial_index": 1,
                     "metric_name": "b",
+                    "metric_signature": "b",
                 },
             ]
         )
@@ -152,6 +160,7 @@ class MapDataTest(TestCase):
                     "sem": 0.2,
                     "trial_index": 1,
                     "metric_name": "a",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_3",
@@ -160,6 +169,7 @@ class MapDataTest(TestCase):
                     "sem": 0.3,
                     "trial_index": 1,
                     "metric_name": "b",
+                    "metric_signature": "b",
                 },
             ]
         )
@@ -190,6 +200,7 @@ class MapDataTest(TestCase):
                     "sem": 0.2,
                     "trial_index": 1,
                     "metric_name": "a",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_4",
@@ -197,6 +208,7 @@ class MapDataTest(TestCase):
                     "sem": 0.3,
                     "trial_index": 1,
                     "metric_name": "b",
+                    "metric_signature": "b",
                 },
             ]
         )
@@ -222,6 +234,11 @@ class MapDataTest(TestCase):
         )
 
     def test_from_map_evaluations(self) -> None:
+        metric_name_to_sig = {
+            "b": "b",
+            "f1": "f1",
+            "f2": "f2",
+        }
         for sem in (0.5, None):
             eval1 = (3.7, sem) if sem is not None else 3.7
             eval2 = (3.8, sem) if sem is not None else 3.8
@@ -233,6 +250,7 @@ class MapDataTest(TestCase):
                     ]
                 },
                 trial_index=0,
+                metric_name_to_sig=metric_name_to_sig,
             )
             self.assertEqual(map_data.map_df["sem"].isnull().all(), sem is None)
             self.assertEqual(len(map_data.map_df), 2)
@@ -249,7 +267,35 @@ class MapDataTest(TestCase):
                 },
                 map_key_infos=[MapKeyInfo(key="f1", default_value=0.0)],
                 trial_index=0,
+                metric_name_to_sig=metric_name_to_sig,
             )
+
+    def test_from_map_evaluations_missing_metric_to_sig_mapping_entry(self) -> None:
+        with self.assertRaisesRegex(
+            UserInputError, "Metric b not found in metric_name_to_sig"
+        ):
+            MapData.from_map_evaluations(
+                evaluations={
+                    "0_1": [
+                        ({"f1": 1.0, "f2": 0.5}, {"b": (3.7, 0.5)}),
+                    ]
+                },
+                trial_index=0,
+                metric_name_to_sig={"f1": "f1", "f2": "f2"},
+            )
+
+    def test_from_map_evaluations_extra_metric_to_sig_mapping_entry(self) -> None:
+        data = MapData.from_map_evaluations(
+            evaluations={
+                "0_1": [
+                    ({"f1": 1.0, "f2": 0.5}, {"b": (3.7, 0.5)}),
+                ]
+            },
+            trial_index=0,
+            metric_name_to_sig={"f1": "f1", "f2": "f2", "b": "b", "f3": "f3"},
+        )
+
+        self.assertEqual(set(data.map_df["metric_signature"]), {"b", "f1", "f2"})
 
     def test_upcast(self) -> None:
         fresh = MapData(df=self.df, map_key_infos=self.map_key_infos)
@@ -275,7 +321,7 @@ class MapDataTest(TestCase):
 
         arm_names = ["0_0", "1_0", "2_0", "3_0"]
         max_epochs = [25, 50, 75, 100]
-        metric_names = ["a", "b"]
+        metric_names_to_sig = {"a": "a", "b": "b"}
         large_map_df = pd.DataFrame(
             [
                 {
@@ -285,8 +331,9 @@ class MapDataTest(TestCase):
                     "sem": 0.1,
                     "trial_index": trial_index,
                     "metric_name": metric_name,
+                    "metric_signature": metric_sig,
                 }
-                for metric_name in metric_names
+                for metric_name, metric_sig in metric_names_to_sig.items()
                 for trial_index, (arm_name, max_epoch) in enumerate(
                     zip(arm_names, max_epochs)
                 )
@@ -338,7 +385,7 @@ class MapDataTest(TestCase):
     def test_subsample(self) -> None:
         arm_names = ["0_0", "1_0", "2_0", "3_0"]
         max_epochs = [25, 50, 75, 100]
-        metric_names = ["a", "b"]
+        metric_names_to_sig = {"a": "a", "b": "b"}
         large_map_df = pd.DataFrame(
             [
                 {
@@ -348,8 +395,9 @@ class MapDataTest(TestCase):
                     "sem": 0.1,
                     "trial_index": trial_index,
                     "metric_name": metric_name,
+                    "metric_signature": metric_sig,
                 }
-                for metric_name in metric_names
+                for metric_name, metric_sig in metric_names_to_sig.items()
                 for trial_index, (arm_name, max_epoch) in enumerate(
                     zip(arm_names, max_epochs)
                 )
@@ -366,8 +414,9 @@ class MapDataTest(TestCase):
                     "sem": 0.1,
                     "trial_index": trial_index,
                     "metric_name": metric_name,
+                    "metric_signature": metric_sig,
                 }
-                for metric_name in metric_names
+                for metric_name, metric_sig in metric_names_to_sig.items()
                 for trial_index, (arm_name, max_epoch) in enumerate(
                     zip(arm_names, max_epochs)
                 )

@@ -590,7 +590,11 @@ def plot_objective_vs_constraints(
     if subset_metrics is not None:
         metrics = subset_metrics
     else:
-        metrics = [m for m in model.metric_names if m != objective]
+        metric_names = [
+            model._experiment.signature_to_metric[signature].name
+            for signature in model.metric_signatures
+        ]
+        metrics = [m for m in metric_names if m != objective]
     if not label_dict:
         _check_label_lengths(metrics + [objective])
 
@@ -826,7 +830,11 @@ def lattice_multiple_metrics(
             parameterizations of arms on hover. Default is False.
         data_selector: Function for selecting observations for plotting.
     """
-    metrics = model.metric_names
+    metric_names = [
+        model._experiment.signature_to_metric[signature].name
+        for signature in model.metric_signatures
+    ]
+    metrics = set(metric_names)
     fig = subplots.make_subplots(
         rows=len(metrics),
         cols=len(metrics),
@@ -1335,7 +1343,11 @@ def tile_fitted(
             {"name": "metric1:agg", "weight": {"metric1_c1": 0.5, "metric1_c2": 0.5}}.
         label_dict: A dictionary that maps the label to an alias to be used in the plot.
     """
-    metrics = metrics or list(model.metric_names)
+    metric_names = [
+        model._experiment.signature_to_metric[signature].name
+        for signature in model.metric_signatures
+    ]
+    metrics = metrics or metric_names
     nrows = int(np.ceil(len(metrics) / 2))
     ncols = min(len(metrics), 2)
 
@@ -1519,7 +1531,11 @@ def interact_fitted_plotly(
     traces_per_metric = (
         1 if generator_runs_dict is None else len(generator_runs_dict) + 1
     )
-    metrics = sorted(metrics or model.metric_names)
+    metric_names = [
+        model._experiment.signature_to_metric[signature].name
+        for signature in model.metric_signatures
+    ]
+    metrics = sorted(metrics or metric_names)
     if not label_dict:
         _check_label_lengths(metrics)
 

@@ -274,7 +274,12 @@ class TestScatterPlot(TestCase):
                 generation_strategy.current_node._fit(experiment=experiment)
                 adapter = none_throws(generation_strategy.adapter)
 
-                x_metric_name, y_metric_name = [*adapter.metric_names][:2]
+                metric_names = [
+                    experiment.signature_to_metric[signature].name
+                    for signature in adapter.metric_signatures
+                ]
+
+                x_metric_name, y_metric_name = metric_names[:2]
                 if use_p_feasible:
                     y_metric_name = "p_feasible"
 
@@ -344,7 +349,11 @@ class TestScatterPlot(TestCase):
                             generation_strategy.current_node._fit(experiment=experiment)
                             adapter = none_throws(generation_strategy.adapter)
 
-                            x_metric_name, y_metric_name = [*adapter.metric_names][:2]
+                            metric_names = [
+                                experiment.signature_to_metric[signature].name
+                                for signature in adapter.metric_signatures
+                            ]
+                            x_metric_name, y_metric_name = metric_names[:2]
 
                             analysis = ScatterPlot(
                                 x_metric_name=x_metric_name,

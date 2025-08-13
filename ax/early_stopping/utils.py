@@ -34,7 +34,7 @@ def align_partial_results(
         df: The DataFrame containing the raw data (in long format).
         progr_key: The key of the column indexing progression (such as
             the number of training examples, timestamps, etc.).
-        metrics: The names of the metrics to consider.
+        metrics: The signatures of the metrics to consider.
         interpolation: The interpolation method used to fill missing values
             (if applicable). See `pandas.DataFrame.interpolate` for
             available options. Limit area is `inside`.
@@ -51,7 +51,7 @@ def align_partial_results(
         The dataframes are indexed by timestamp ("map_key") and have columns
         corresponding to the trial index, e.g.:
         mean = {
-            "metric_name": pd.DataFrame(
+            "metric_signature": pd.DataFrame(
                 timestamp         0           1          2           3          4
                 0.0        146.138620  113.057480  44.627226  143.375669  65.033535
                 1.0        117.388086   90.815154  35.847504  115.168704  52.239184
@@ -60,14 +60,14 @@ def align_partial_results(
             )
         }
     """
-    missing_metrics = set(metrics) - set(df["metric_name"])
+    missing_metrics = set(metrics) - set(df["metric_signature"])
     if missing_metrics:
         raise ValueError(f"Metrics {missing_metrics} not found in input dataframe")
     # select relevant metrics
-    df = df[df["metric_name"].isin(metrics)]
+    df = df[df["metric_signature"].isin(metrics)]
     # log some information about raw data
     for m in metrics:
-        df_m = df[df["metric_name"] == m]
+        df_m = df[df["metric_signature"] == m]
         if len(df_m) > 0:
             logger.debug(
                 f"Metric {m} raw data has observations from "
@@ -98,10 +98,10 @@ def align_partial_results(
     # remove duplicates (same trial, metric, progr_key), which can happen
     # if the same progression is erroneously reported more than once
     df = df.drop_duplicates(
-        subset=["trial_index", "metric_name", progr_key], keep="first"
+        subset=["trial_index", "metric_signature", progr_key], keep="first"
     )
     # set multi-index over trial, metric, and progression key
-    df = df.set_index(["trial_index", "metric_name", progr_key])
+    df = df.set_index(["trial_index", "metric_signature", progr_key])
     # sort index
     df = df.sort_index()
     # drop sem if all NaN (assumes presence of sem column)
