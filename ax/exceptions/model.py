@@ -12,15 +12,15 @@ from ax.exceptions.core import AxError
 class ModelError(AxError):
     """Raised when an error occurs during modeling."""
 
-    pass
-
 
 class CVNotSupportedError(AxError):
     """Raised when cross validation is applied to a model which doesn't
     support it.
     """
 
-    pass
+
+class CrossValidationError(AxError):
+    """Raised when cross validation fails."""
 
 
 class AdapterMethodNotImplementedError(AxError, NotImplementedError):
@@ -28,5 +28,3 @@ class AdapterMethodNotImplementedError(AxError, NotImplementedError):
 
     NOTE: ``Adapter`` may catch and silently discard this error.
     """
-
-    pass
