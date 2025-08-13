@@ -23,7 +23,8 @@ from ax.core.data import Data
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok, Result, UnwrapError
-from ax.utils.common.serialization import SerializationMixin
+from ax.utils.common.serialization import SerializationMixin, serialize_init_args
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -102,17 +103,29 @@ class Metric(SortableBase, SerializationMixin):
         name: str,
         lower_is_better: bool | None = None,
         properties: dict[str, Any] | None = None,
+        signature_override: str | None = None,
     ) -> None:
         """Inits Metric.
 
         Args:
-            name: Name of metric.
+            name: The display name of the metric used for instantiation and
+                human-readable representation. This is typically the name users
+                see and interact with directly.
             lower_is_better: Flag for metrics which should be minimized.
             properties: Dictionary of this metric's properties
+            signature_override: Override for the metric's signature (canonical name)
+                when it should differ from the display name. Use this parameter to
+                provide a specific signature value without subclassing.
+                Some examples of when this parameter is useful:
+                    - Display names don't align with external system naming conventions
+                    - Simple custom mappings that don't justify creating a subclass
+                    - External systems expect different a identifier than `name`
         """
+
         self._name = name
         self.lower_is_better = lower_is_better
         self.properties: dict[str, Any] = properties or {}
+        self._signature_override = signature_override
 
     # ---------- Properties and methods that subclasses often override. ----------
 
@@ -271,6 +284,12 @@ class Metric(SortableBase, SerializationMixin):
             if trial.status.expecting_data
         }
 
+    # NOTE: This should be overridden if there is a specific formula for computing
+    # the signature of the metric. The default implementation uses the metric name
+    # if a signature override is not provided.
+    def _get_signature(self) -> str:
+        return self._signature_override or self.name
+
     # NOTE: Also overridable are `serialize_init_args` and `deserialize_init_args`,
     # which are inherited from the `SerializationMixin` base class.
     # Override those if and only if your metric requires custom serialization; e.g. if
@@ -278,12 +297,32 @@ class Metric(SortableBase, SerializationMixin):
     # Note that all these serialized attributes will be deserialized by the
     # `deserialize_init_args` method on the same class.
 
+    @classmethod
+    def serialize_init_args(cls, obj: SerializationMixin) -> dict[str, Any]:
+        """This overrides the default implementation to handle the
+        signature_override parameter which is stored as _signature_override.
+        """
+        metric = assert_is_instance(obj, cls)
+        args = serialize_init_args(obj=obj, exclude_fields=["signature_override"])
+        args["signature_override"] = metric._signature_override
+        return args
+
     # ---------- Properties and metrods that should not be overridden. ----------
 
     @property
     def name(self) -> str:
         """Get name of metric."""
         return self._name
+
+    @property
+    def signature(self) -> str:
+        """Get the signature (canonical name) for the metric. This may differ from
+        the metric's name to accommodate external requirements/naming conventions.
+
+        In some implementations, this can be formulaic based on class
+        attributes, which can be constructed by overriding the _get_signature() method.
+        """
+        return self._get_signature()
 
     def clone(self) -> Metric:
         """Create a copy of this Metric."""

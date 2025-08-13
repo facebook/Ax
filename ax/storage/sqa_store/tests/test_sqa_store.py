@@ -1581,20 +1581,51 @@ class SQAStoreTest(TestCase):
         # second save should not fail
         save_experiment(self.experiment)
 
-    def test_GetProperties(self) -> None:
+    def test_MetricGetProperties(self) -> None:
         # Extract default value.
-        properties = serialize_init_args(obj=Metric(name="foo"))
+        properties = Metric.serialize_init_args(obj=Metric(name="foo"))
         self.assertEqual(
-            properties, {"name": "foo", "lower_is_better": None, "properties": {}}
+            properties,
+            {
+                "name": "foo",
+                "lower_is_better": None,
+                "properties": {},
+                "signature_override": None,
+            },
         )
 
         # Extract passed value.
-        properties = serialize_init_args(
-            obj=Metric(name="foo", lower_is_better=True, properties={"foo": "bar"})
+        properties = Metric.serialize_init_args(
+            obj=Metric(
+                name="foo",
+                lower_is_better=True,
+                properties={"foo": "bar"},
+                signature_override="foobar",
+            )
         )
         self.assertEqual(
             properties,
-            {"name": "foo", "lower_is_better": True, "properties": {"foo": "bar"}},
+            {
+                "name": "foo",
+                "lower_is_better": True,
+                "properties": {"foo": "bar"},
+                "signature_override": "foobar",
+            },
+        )
+
+    def test_GetProperties(self) -> None:
+        properties = serialize_init_args(
+            obj=Arm(
+                parameters={"x1": None, "x2": None},
+                name="foobar",
+            )
+        )
+        self.assertEqual(
+            properties,
+            {
+                "parameters": {"x1": None, "x2": None},
+                "name": "foobar",
+            },
         )
 
     def test_RegistryAdditions(self) -> None:
