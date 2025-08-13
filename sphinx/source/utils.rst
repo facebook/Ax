@@ -264,7 +264,7 @@ Backend Simulator
 Benchmark Stubs
 ~~~~~~~~~~~~~~~
 
-.. automodule:: ax.utils.testing.benchmark_stubs
+.. automodule:: ax.benchmark.testing.benchmark_stubs
     :members:
     :undoc-members:
     :show-inheritance:
