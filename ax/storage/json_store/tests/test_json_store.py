@@ -18,6 +18,14 @@ from ax.adapter.registry import Generators
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.one_hot import OneHot
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
+from ax.benchmark.testing.benchmark_stubs import (
+    get_aggregated_benchmark_result,
+    get_benchmark_map_metric,
+    get_benchmark_map_unavailable_while_running_metric,
+    get_benchmark_metric,
+    get_benchmark_result,
+    get_benchmark_time_varying_metric,
+)
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -55,14 +63,6 @@ from ax.storage.json_store.registry import (
 from ax.storage.json_store.save import save_experiment
 from ax.storage.registry_bundle import RegistryBundle
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.benchmark_stubs import (
-    get_aggregated_benchmark_result,
-    get_benchmark_map_metric,
-    get_benchmark_map_unavailable_while_running_metric,
-    get_benchmark_metric,
-    get_benchmark_result,
-    get_benchmark_time_varying_metric,
-)
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
     get_acquisition_function_type,
